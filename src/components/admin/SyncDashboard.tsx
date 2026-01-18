@@ -382,27 +382,43 @@ export function SyncDashboard() {
       
       const { data: progress } = await supabase
         .from('salebot_import_progress')
-        .select('id')
+        .select('id, resync_offset, total_clients_processed')
         .order('updated_at', { ascending: false })
         .limit(1)
         .single();
       
       if (progress?.id) {
-        // Clear the requires_manual_restart flag and mark as ready to run
+        // Clear the requires_manual_restart flag and prepare to resume
+        // Use resync_offset if available, otherwise use total_clients_processed as starting point
+        const resumeOffset = progress.resync_offset || progress.total_clients_processed || 0;
+        
         await supabase
           .from('salebot_import_progress')
           .update({ 
             requires_manual_restart: false,
-            is_running: false,
-            is_paused: false
+            is_running: true,
+            is_paused: false,
+            resync_mode: true,
+            resync_offset: resumeOffset,
+            resync_total_clients: progress.total_clients_processed || 0
           })
           .eq('id', progress.id);
+        
+        // Auto-trigger background chain to continue import
+        const { error } = await supabase.functions.invoke('import-salebot-chats-auto', {
+          body: { mode: 'background_chain' }
+        });
+        
+        if (error) {
+          console.error('Error triggering background chain:', error);
+          throw error;
+        }
+        
+        toast({
+          title: '🚀 Импорт продолжен',
+          description: `Импорт возобновлён с позиции ${resumeOffset}. Цепочка запущена автоматически.`,
+        });
       }
-      
-      toast({
-        title: 'Блокировка снята',
-        description: 'Импорт разблокирован. Теперь можно запустить синхронизацию.',
-      });
       
       await fetchProgressOnly();
     } catch (error: any) {
@@ -1722,24 +1738,24 @@ export function SyncDashboard() {
                     </span>
                     <span className="text-green-600">
                       {dbStats?.clientsWithSalebotId 
-                        ? `${Math.round((importProgress.resyncTotalClients / dbStats.clientsWithSalebotId) * 100)}%` 
-                        : `Offset: ${importProgress.resyncOffset}`}
+                        ? `${Math.round(((importProgress.resyncTotalClients || importProgress.totalClientsProcessed) / dbStats.clientsWithSalebotId) * 100)}%` 
+                        : `Offset: ${importProgress.resyncOffset || importProgress.currentOffset}`}
                     </span>
                   </div>
                   {dbStats?.clientsWithSalebotId && dbStats.clientsWithSalebotId > 0 && (
                     <Progress 
-                      value={(importProgress.resyncTotalClients / dbStats.clientsWithSalebotId) * 100} 
+                      value={((importProgress.resyncTotalClients || importProgress.totalClientsProcessed) / dbStats.clientsWithSalebotId) * 100} 
                       className="h-2"
                     />
                   )}
                   <div className="grid grid-cols-3 gap-2 text-sm">
-                    <div>Обработано: <strong>{importProgress.resyncTotalClients}</strong> / {dbStats?.clientsWithSalebotId || '?'}</div>
-                    <div>Новых сообщений: <strong className="text-green-600">{importProgress.resyncNewMessages}</strong></div>
+                    <div>Обработано: <strong>{importProgress.resyncTotalClients || importProgress.totalClientsProcessed}</strong> / {dbStats?.clientsWithSalebotId || '?'}</div>
+                    <div>Новых сообщений: <strong className="text-green-600">{importProgress.resyncNewMessages || importProgress.totalMessagesImported}</strong></div>
                     <div className="text-xs text-muted-foreground">
                       {importProgress.isRunning 
                         ? '🔗 Chain активна' 
-                        : importProgress.resyncTotalClients > 0 
-                          ? '✅ Завершено' 
+                        : (importProgress.resyncTotalClients || importProgress.totalClientsProcessed) > 0 
+                          ? importProgress.requiresManualRestart ? '⏸️ Ожидает продолжения' : '✅ Завершено' 
                           : '⏸️ Пауза'}
                     </div>
                   </div>
