@@ -39,33 +39,46 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
     }
 
     try {
-      // Мои состояния чатов (берем только для текущего списка chatIds)
-      const { data: myStates, error: myStatesError } = await supabase
-        .from('chat_states')
-        .select('chat_id, is_pinned')
-        .eq('user_id', user.id)
-        .in('chat_id', currentChatIds);
-
-      if (myStatesError) {
-        console.error('Error fetching my chat states:', myStatesError);
-      }
-
+      // Chunk the IDs to avoid URL length limits (max ~100 IDs per request)
+      const CHUNK_SIZE = 100;
       const myStatesMap = new Map<string, boolean>();
-      (myStates || []).forEach((state: any) => {
-        myStatesMap.set(state.chat_id, state.is_pinned);
-      });
+      const countMap = new Map<string, number>();
 
-      // Глобальный счетчик закреплений по чату (SECURITY DEFINER функция)
-      const { data: counts, error: countsError } = await supabase.rpc('get_chat_pin_counts', {
-        _chat_ids: currentChatIds
-      });
+      // Мои состояния чатов - chunked
+      for (let i = 0; i < currentChatIds.length; i += CHUNK_SIZE) {
+        const chunk = currentChatIds.slice(i, i + CHUNK_SIZE);
+        
+        const { data: myStates, error: myStatesError } = await supabase
+          .from('chat_states')
+          .select('chat_id, is_pinned')
+          .eq('user_id', user.id)
+          .in('chat_id', chunk);
 
-      if (countsError) {
-        console.error('Error fetching shared pin counts:', countsError);
+        if (myStatesError) {
+          console.error('Error fetching my chat states chunk:', myStatesError);
+          continue;
+        }
+
+        (myStates || []).forEach((state: any) => {
+          myStatesMap.set(state.chat_id, state.is_pinned);
+        });
       }
 
-      const countMap = new Map<string, number>();
-      (counts || []).forEach((row: any) => countMap.set(row.chat_id, row.pin_count));
+      // Глобальный счетчик закреплений по чату - chunked
+      for (let i = 0; i < currentChatIds.length; i += CHUNK_SIZE) {
+        const chunk = currentChatIds.slice(i, i + CHUNK_SIZE);
+        
+        const { data: counts, error: countsError } = await supabase.rpc('get_chat_pin_counts', {
+          _chat_ids: chunk
+        });
+
+        if (countsError) {
+          console.error('Error fetching shared pin counts chunk:', countsError);
+          continue;
+        }
+
+        (counts || []).forEach((row: any) => countMap.set(row.chat_id, row.pin_count));
+      }
 
       // Собираем итоговую карту только для запрошенных chatIds
       const chatStatesMap: Record<string, SharedChatState> = {};
