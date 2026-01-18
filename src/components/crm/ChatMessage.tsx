@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { AttachedFile } from "./AttachedFile";
+import { OptimizedAttachedFile } from "./OptimizedAttachedFile";
 import { MessageReadIndicator } from "./MessageReadIndicator";
 import { MessageReactions } from "./MessageReactions";
 import { MessageContextMenu } from "./MessageContextMenu";
+import { LazyImage } from "./LazyImage";
 
 // URL regex pattern
 const URL_REGEX = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g;
@@ -429,7 +430,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                 {/* Attached file */}
                 {fileUrl && fileName && fileType && (
                   <div className="mt-2">
-                    <AttachedFile
+                    <OptimizedAttachedFile
                       url={fileUrl}
                       name={fileName}
                       type={fileType}
