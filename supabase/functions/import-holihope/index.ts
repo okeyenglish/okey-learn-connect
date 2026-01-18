@@ -3448,6 +3448,37 @@ Deno.serve(async (req) => {
       progress.push({ step: 'import_ed_units', status: 'in_progress' });
 
       try {
+        // Check if this is a resume request - load progress from DB
+        const isResume = body.resume === true;
+        let startOfficeIndex = body.office_index || 0;
+        let startStatusIndex = body.status_index || 0;
+        let startTimeIndex = body.time_index || 0;
+        let previouslyImported = 0;
+        
+        if (isResume) {
+          console.log('Resume mode: loading progress from database...');
+          const { data: savedProgress } = await supabase
+            .from('holihope_import_progress')
+            .select('ed_units_office_index, ed_units_status_index, ed_units_time_index, ed_units_total_imported')
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          if (savedProgress) {
+            startOfficeIndex = savedProgress.ed_units_office_index || 0;
+            startStatusIndex = savedProgress.ed_units_status_index || 0;
+            startTimeIndex = savedProgress.ed_units_time_index || 0;
+            previouslyImported = savedProgress.ed_units_total_imported || 0;
+            console.log(`Resuming from: office=${startOfficeIndex}, status=${startStatusIndex}, time=${startTimeIndex}, previously imported=${previouslyImported}`);
+          }
+        }
+        
+        // Mark import as running in DB
+        await updateHolihopeProgress(supabase, {
+          ed_units_is_running: true,
+          ed_units_last_updated_at: new Date().toISOString(),
+        });
+        
         // Support full_history mode for importing entire database without date limits
         const fullHistory = body.full_history === true;
         const now = new Date();
@@ -3470,9 +3501,6 @@ Deno.serve(async (req) => {
         
         // Batch parameters
         const batchSize = body.batch_size || null; // If null, process all
-        const startOfficeIndex = body.office_index || 0;
-        const startStatusIndex = body.status_index || 0;
-        const startTimeIndex = body.time_index || 0;
         
         // Step 1: Get list of offices
         console.log('Fetching list of offices from GetOffices...');
@@ -3539,6 +3567,15 @@ Deno.serve(async (req) => {
                 nextTimeIndex = ti;
                 currentPosition = (oi * statuses.length * timeRanges.length) + (si * timeRanges.length) + ti;
                 console.log(`Batch limit reached. Next batch should start at: office=${oi}, status=${si}, time=${ti}`);
+                
+                // Save progress to DB before exiting batch
+                await updateHolihopeProgress(supabase, {
+                  ed_units_office_index: nextOfficeIndex,
+                  ed_units_status_index: nextStatusIndex,
+                  ed_units_time_index: nextTimeIndex,
+                  ed_units_last_updated_at: new Date().toISOString(),
+                });
+                
                 break outerLoop;
               }
               
@@ -4042,6 +4079,14 @@ Deno.serve(async (req) => {
         const uniqueUnitsProcessed = unitsToImport.length;
         const duplicatesFiltered = fetchedCount - uniqueUnitsProcessed;
         
+        // Save final progress to DB
+        await updateHolihopeProgress(supabase, {
+          ed_units_total_imported: actualCount,
+          ed_units_total_combinations: totalCombinations,
+          ed_units_is_running: hasMore, // Still running if has more
+          ed_units_last_updated_at: new Date().toISOString(),
+        });
+        
         if (hasMore) {
           progress[0].message = `Обработано ${currentPosition}/${totalCombinations} комбинаций (${progressPercentage}%). Получено из API: ${fetchedCount}, уникальных: ${uniqueUnitsProcessed}, дубликатов отфильтровано: ${duplicatesFiltered}. Всего в БД: ${actualCount}`;
           // Include next batch parameters in response
@@ -4069,6 +4114,14 @@ Deno.serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         } else {
+          // Mark as completed
+          await updateHolihopeProgress(supabase, {
+            ed_units_is_running: false,
+            ed_units_office_index: 0,
+            ed_units_status_index: 0,
+            ed_units_time_index: 0,
+          });
+          
           progress[0].message = `Импорт завершен. Получено из API: ${fetchedCount}, уникальных после дедупликации: ${uniqueUnitsProcessed}, дубликатов: ${duplicatesFiltered}. Итого в БД: ${actualCount}. Типы: ${JSON.stringify(typeStats)}`;
           return new Response(JSON.stringify({ 
             progress,
