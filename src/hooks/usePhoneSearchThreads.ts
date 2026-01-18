@@ -20,7 +20,7 @@ export const usePhoneSearchThreads = (
     staleTime: 30_000,
     gcTime: 5 * 60_000,
     queryFn: async (): Promise<ChatThread[]> => {
-      console.log(`[usePhoneSearchThreads] Loading ${missingClientIds.length} missing threads for phone search...`);
+      console.log(`[usePhoneSearchThreads] Loading ${missingClientIds.length} missing threads for phone search...`, missingClientIds);
       const startTime = performance.now();
 
       // Try RPC first
@@ -29,11 +29,19 @@ export const usePhoneSearchThreads = (
 
       if (error) {
         console.error('[usePhoneSearchThreads] RPC failed, falling back to direct query:', error);
-        // Fallback: fetch client data + last message directly
         return await fetchThreadsDirectly(missingClientIds);
       }
 
       const threads = mapRpcToThreads(data || []);
+      
+      // If RPC returned empty but we have client IDs, use fallback (RPC might have issues)
+      if (threads.length === 0 && missingClientIds.length > 0) {
+        console.log('[usePhoneSearchThreads] RPC returned empty, trying fallback...');
+        const fallbackThreads = await fetchThreadsDirectly(missingClientIds);
+        console.log(`[usePhoneSearchThreads] Fallback loaded ${fallbackThreads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
+        return fallbackThreads;
+      }
+      
       console.log(`[usePhoneSearchThreads] Loaded ${threads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
       return threads;
     },
@@ -43,8 +51,10 @@ export const usePhoneSearchThreads = (
 // Fallback: fetch threads directly if RPC fails
 async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> {
   if (clientIds.length === 0) return [];
+  
+  console.log('[usePhoneSearchThreads] fetchThreadsDirectly called for:', clientIds);
 
-  // Fetch clients
+  // Fetch clients with their phone numbers
   const { data: clients, error: clientsError } = await supabase
     .from('clients')
     .select(`
@@ -56,7 +66,8 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
       telegram_avatar_url,
       whatsapp_avatar_url,
       max_avatar_url,
-      telegram_chat_id
+      telegram_chat_id,
+      client_phone_numbers(phone, is_primary)
     `)
     .in('id', clientIds)
     .eq('is_active', true);
@@ -65,6 +76,8 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
     console.error('[usePhoneSearchThreads] Failed to fetch clients:', clientsError);
     return [];
   }
+  
+  console.log('[usePhoneSearchThreads] Fetched clients:', clients?.length || 0);
 
   // Fetch last message for each client
   const { data: messages, error: messagesError } = await supabase
@@ -100,7 +113,7 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
       }
       return true;
     })
-    .map(client => {
+    .map((client: any) => {
       const clientMessages = messagesByClient.get(client.id) || [];
       const lastMessage = clientMessages[0];
       const unreadMessages = clientMessages.filter(m => !m.is_read && m.message_type === 'client');
@@ -120,10 +133,15 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
         }
       });
 
+      // Get phone from client or from client_phone_numbers
+      const phoneNumbers = client.client_phone_numbers || [];
+      const primaryPhone = phoneNumbers.find((p: any) => p.is_primary);
+      const clientPhone = client.phone || primaryPhone?.phone || phoneNumbers[0]?.phone || '';
+
       return {
         client_id: client.id,
         client_name: client.name || '',
-        client_phone: client.phone || '',
+        client_phone: clientPhone,
         client_branch: client.branch || null,
         avatar_url: client.avatar_url || null,
         telegram_avatar_url: client.telegram_avatar_url || null,
@@ -138,6 +156,7 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
       };
     });
 
+  console.log('[usePhoneSearchThreads] Built threads:', threads.length);
   return threads;
 }
 
