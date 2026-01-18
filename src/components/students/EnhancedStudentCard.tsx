@@ -52,7 +52,8 @@ import {
   ArchiveRestore,
   AlertTriangle,
   Video,
-  History as HistoryIcon
+  History as HistoryIcon,
+  ExternalLink
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useStudentDetails, StudentFullDetails } from '@/hooks/useStudentDetails';
@@ -708,25 +709,41 @@ export function EnhancedStudentCard({
                       </Button>
                     </div>
                   ) : (
-                    <h2 
-                      className="text-2xl font-bold text-text-primary cursor-pointer hover:text-brand transition-colors"
-                      onClick={() => setIsEditingName(true)}
-                      title="Нажмите, чтобы редактировать ФИО"
-                    >
-                      {studentDetails.lastName} {studentDetails.firstName} {studentDetails.middleName}
-                      {studentDetails.studentNumber && (
-                        <span 
-                          className="ml-3 text-sm font-mono text-text-secondary cursor-pointer hover:text-brand transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCopyStudentLink();
-                          }}
-                          title="Нажмите, чтобы скопировать ссылку"
+                    <div className="flex items-center gap-2">
+                      <h2 
+                        className="text-2xl font-bold text-text-primary cursor-pointer hover:text-brand transition-colors"
+                        onClick={() => setIsEditingName(true)}
+                        title="Нажмите, чтобы редактировать ФИО"
+                      >
+                        {studentDetails.lastName} {studentDetails.firstName} {studentDetails.middleName}
+                        {studentDetails.studentNumber && (
+                          <span 
+                            className="ml-3 text-sm font-mono text-text-secondary cursor-pointer hover:text-brand transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyStudentLink();
+                            }}
+                            title="Нажмите, чтобы скопировать ссылку"
+                          >
+                            #{studentDetails.studentNumber}
+                          </span>
+                        )}
+                      </h2>
+                      {/* HoliHope quick access link */}
+                      {studentDetails.holihopeMetadata?.ClientId && (
+                        <a
+                          href={`https://okeyenglish.t8s.ru/Profile/${studentDetails.holihopeMetadata.ClientId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+                          title="Открыть в HoliHope"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          #{studentDetails.studentNumber}
-                        </span>
+                          <ExternalLink className="h-3 w-3" />
+                          HoliHope
+                        </a>
                       )}
-                    </h2>
+                    </div>
                   )}
                 </div>
                 <div className="flex items-center gap-3 text-sm text-text-secondary">

@@ -109,6 +109,13 @@ export interface StudentSubscription {
   price: number;
 }
 
+export interface HolihopeMetadata {
+  Id?: number;
+  ClientId?: number;
+  // Other fields from HoliHope API are stored but not typed
+  [key: string]: any;
+}
+
 export interface StudentFullDetails {
   id: string;
   studentNumber?: string;
@@ -131,6 +138,8 @@ export interface StudentFullDetails {
   level?: string;
   createdAt: string;
   familyGroupId?: string;
+  externalId?: string;
+  holihopeMetadata?: HolihopeMetadata;
   parents: StudentParent[];
   groups: StudentGroup[];
   individualLessons: StudentIndividualLesson[];
@@ -515,6 +524,8 @@ export const useStudentDetails = (studentId: string) => {
         level: undefined,
         createdAt: studentData.created_at,
         familyGroupId: studentData.family_group_id,
+        externalId: studentData.external_id,
+        holihopeMetadata: studentData.holihope_metadata as HolihopeMetadata | undefined,
         parents,
         groups,
         individualLessons: individualLessons || [],

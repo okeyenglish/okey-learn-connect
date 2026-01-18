@@ -2293,6 +2293,7 @@ Deno.serve(async (req) => {
             max_students: group.maxStudents || 8,
             organization_id: orgId,
             external_id: group.id?.toString(),
+            holihope_metadata: group, // Store complete API response for quick access links
           };
 
           const { data: insertedGroup, error: groupError } = await supabase

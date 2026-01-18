@@ -26,7 +26,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { MoreHorizontal, Eye, Edit, Trash2, Phone, Mail, MessageSquare } from 'lucide-react';
+import { MoreHorizontal, Eye, Edit, Trash2, Phone, Mail, MessageSquare, ExternalLink } from 'lucide-react';
 import { Lead } from '@/hooks/useLeads';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -93,14 +93,28 @@ export function LeadsTable({ leads, isLoading, onFiltersChange, onLeadClick }: L
             {paginatedLeads.map((lead) => (
               <TableRow key={lead.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onLeadClick?.(lead.id)}>
                 <TableCell>
-                  <div>
-                    <div className="font-medium">
-                      {lead.first_name} {lead.last_name}
-                    </div>
-                    {lead.age && (
-                      <div className="text-sm text-muted-foreground">
-                        {lead.age} лет
+                  <div className="flex items-center gap-2">
+                    <div>
+                      <div className="font-medium">
+                        {lead.first_name} {lead.last_name}
                       </div>
+                      {lead.age && (
+                        <div className="text-sm text-muted-foreground">
+                          {lead.age} лет
+                        </div>
+                      )}
+                    </div>
+                    {lead.holihope_metadata?.Id && (
+                      <a
+                        href={`https://okeyenglish.t8s.ru/Lead/${lead.holihope_metadata.Id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded transition-colors"
+                        title="Открыть в HoliHope"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
                     )}
                   </div>
                 </TableCell>
