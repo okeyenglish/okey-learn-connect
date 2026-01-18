@@ -4964,6 +4964,434 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Preview: Tariffs (Price Packages)
+    if (action === 'preview_tariffs') {
+      console.log('Previewing tariffs (price packages)...');
+      try {
+        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetTariffs?authkey=${HOLIHOPE_API_KEY}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const responseData = await response.json();
+        
+        let tariffs: any[] = [];
+        if (Array.isArray(responseData)) {
+          tariffs = responseData;
+        } else if (Array.isArray(responseData?.Tariffs)) {
+          tariffs = responseData.Tariffs;
+        } else if (responseData && typeof responseData === 'object') {
+          const firstArray = Object.values(responseData).find((v) => Array.isArray(v)) as any[] | undefined;
+          if (firstArray) tariffs = firstArray;
+        }
+        
+        return new Response(JSON.stringify({
+          preview: true,
+          total: tariffs.length,
+          sample: tariffs.slice(0, 20),
+          mapping: { 
+            "id": "external_id", 
+            "name": "name", 
+            "price": "price",
+            "lessonsCount/academicHours": "hours_count",
+            "validDays": "validity_days"
+          },
+          entityType: "price_packages"
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500
+        });
+      }
+    }
+
+    // Import: Tariffs (Price Packages)
+    if (action === 'import_tariffs') {
+      console.log('Importing tariffs (price packages)...');
+      progress.push({ step: 'import_tariffs', status: 'in_progress' });
+
+      try {
+        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetTariffs?authkey=${HOLIHOPE_API_KEY}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const responseData = await response.json();
+        
+        let tariffs: any[] = [];
+        if (Array.isArray(responseData)) {
+          tariffs = responseData;
+        } else if (Array.isArray(responseData?.Tariffs)) {
+          tariffs = responseData.Tariffs;
+        } else if (responseData && typeof responseData === 'object') {
+          const firstArray = Object.values(responseData).find((v) => Array.isArray(v)) as any[] | undefined;
+          if (firstArray) tariffs = firstArray;
+        }
+        
+        let importedCount = 0;
+        for (const tariff of tariffs) {
+          const hoursCount = tariff.academicHours || tariff.lessonsCount || tariff.AcademicHours || tariff.LessonsCount || 0;
+          const price = tariff.price || tariff.Price || tariff.cost || tariff.Cost || 0;
+          
+          const { error } = await supabase.from('price_packages').upsert({
+            name: tariff.name || tariff.Name || 'Без названия',
+            description: tariff.description || tariff.Description || null,
+            hours_count: hoursCount,
+            price: price,
+            currency: tariff.currency || 'RUB',
+            branch: tariff.officeId?.toString() || tariff.OfficeId?.toString() || null,
+            subject: tariff.disciplineId?.toString() || tariff.DisciplineId?.toString() || null,
+            learning_type: tariff.learningType || tariff.LearningType || null,
+            validity_days: tariff.validDays || tariff.ValidDays || tariff.daysCount || null,
+            can_freeze: tariff.canFreeze || tariff.CanFreeze || false,
+            max_freeze_days: tariff.maxFreezeDays || tariff.MaxFreezeDays || 0,
+            can_pay_partially: tariff.canPayPartially !== false,
+            min_payment_percent: tariff.minPaymentPercent || 100,
+            is_active: tariff.isActive !== false && tariff.IsActive !== false,
+            sort_order: tariff.order || tariff.Order || 0,
+            external_id: tariff.id?.toString() || tariff.Id?.toString(),
+            holihope_metadata: tariff,
+            organization_id: orgId,
+          }, { onConflict: 'external_id' });
+          
+          if (error) {
+            console.error('Error upserting tariff:', error);
+          } else {
+            importedCount++;
+          }
+        }
+        
+        console.log(`Successfully imported ${importedCount} of ${tariffs.length} tariffs`);
+        
+        progress[0].status = 'completed';
+        progress[0].count = importedCount;
+        progress[0].message = `Imported ${importedCount} price packages (tariffs)`;
+      } catch (error) {
+        console.error('Error importing tariffs:', error);
+        progress[0].status = 'error';
+        progress[0].error = error.message;
+      }
+
+      return new Response(JSON.stringify({ progress }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Preview: Teacher Rates
+    if (action === 'preview_teacher_rates') {
+      console.log('Previewing teacher rates...');
+      try {
+        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetTeacherRates?authkey=${HOLIHOPE_API_KEY}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const responseData = await response.json();
+        
+        let rates: any[] = [];
+        if (Array.isArray(responseData)) {
+          rates = responseData;
+        } else if (Array.isArray(responseData?.Rates)) {
+          rates = responseData.Rates;
+        } else if (responseData && typeof responseData === 'object') {
+          const firstArray = Object.values(responseData).find((v) => Array.isArray(v)) as any[] | undefined;
+          if (firstArray) rates = firstArray;
+        }
+        
+        return new Response(JSON.stringify({
+          preview: true,
+          total: rates.length,
+          sample: rates.slice(0, 20),
+          mapping: { 
+            "teacherId": "teacher_id", 
+            "ratePerHour": "rate_per_academic_hour",
+            "rateType": "rate_type",
+            "groupId": "group_id"
+          },
+          entityType: "teacher_rates"
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500
+        });
+      }
+    }
+
+    // Import: Teacher Rates
+    if (action === 'import_teacher_rates') {
+      console.log('Importing teacher rates...');
+      progress.push({ step: 'import_teacher_rates', status: 'in_progress' });
+
+      try {
+        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetTeacherRates?authkey=${HOLIHOPE_API_KEY}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const responseData = await response.json();
+        
+        let rates: any[] = [];
+        if (Array.isArray(responseData)) {
+          rates = responseData;
+        } else if (Array.isArray(responseData?.Rates)) {
+          rates = responseData.Rates;
+        } else if (responseData && typeof responseData === 'object') {
+          const firstArray = Object.values(responseData).find((v) => Array.isArray(v)) as any[] | undefined;
+          if (firstArray) rates = firstArray;
+        }
+        
+        // Pre-load teachers and groups maps
+        const { data: teachers } = await supabase
+          .from('teachers')
+          .select('id, external_id')
+          .not('external_id', 'is', null);
+        const teacherMap = new Map((teachers || []).map(t => [t.external_id, t.id]));
+        
+        const { data: groups } = await supabase
+          .from('learning_groups')
+          .select('id, external_id')
+          .not('external_id', 'is', null);
+        const groupMap = new Map((groups || []).map(g => [(g as any).external_id, g.id]));
+        
+        let importedCount = 0;
+        for (const rate of rates) {
+          const teacherExtId = rate.teacherId?.toString() || rate.TeacherId?.toString();
+          const teacherId = teacherMap.get(teacherExtId);
+          
+          if (!teacherId) {
+            console.log(`Skipping rate - teacher not found: ${teacherExtId}`);
+            continue;
+          }
+          
+          const groupExtId = rate.groupId?.toString() || rate.GroupId?.toString() || rate.edUnitId?.toString();
+          const groupId = groupExtId ? groupMap.get(groupExtId) : null;
+          
+          const ratePerHour = rate.ratePerHour || rate.RatePerHour || rate.rate || rate.Rate || 0;
+          const rateType = rate.rateType || rate.RateType || 'group';
+          
+          const { error } = await supabase.from('teacher_rates').upsert({
+            teacher_id: teacherId,
+            rate_type: rateType,
+            rate_per_academic_hour: ratePerHour,
+            currency: rate.currency || 'RUB',
+            group_id: groupId,
+            min_students: rate.minStudents || rate.MinStudents || 1,
+            max_students: rate.maxStudents || rate.MaxStudents || null,
+            bonus_percentage: rate.bonusPercent || rate.BonusPercent || 0,
+            branch: rate.officeId?.toString() || rate.OfficeId?.toString() || null,
+            subject: rate.disciplineId?.toString() || rate.DisciplineId?.toString() || null,
+            valid_from: rate.validFrom || rate.ValidFrom || new Date().toISOString().split('T')[0],
+            valid_until: rate.validUntil || rate.ValidUntil || null,
+            is_active: rate.isActive !== false,
+            notes: rate.notes || rate.Notes || null,
+            external_id: rate.id?.toString() || rate.Id?.toString(),
+            holihope_metadata: rate,
+          }, { onConflict: 'external_id' });
+          
+          if (error) {
+            console.error('Error upserting teacher rate:', error);
+          } else {
+            importedCount++;
+          }
+          
+          // Import floating rates if present
+          const floatingRates = rate.floatingRates || rate.FloatingRates || rate.studentRates || [];
+          if (Array.isArray(floatingRates) && floatingRates.length > 0) {
+            // Get the rate we just inserted
+            const { data: insertedRate } = await supabase
+              .from('teacher_rates')
+              .select('id')
+              .eq('external_id', rate.id?.toString() || rate.Id?.toString())
+              .single();
+            
+            if (insertedRate) {
+              for (const fr of floatingRates) {
+                const studentCount = fr.studentCount || fr.StudentsCount || fr.count || 0;
+                const rateAmount = fr.rate || fr.Rate || fr.amount || 0;
+                
+                await supabase.from('teacher_floating_rates').upsert({
+                  rate_id: insertedRate.id,
+                  student_count: studentCount,
+                  rate_amount: rateAmount,
+                }, { onConflict: 'rate_id,student_count' });
+              }
+            }
+          }
+        }
+        
+        console.log(`Successfully imported ${importedCount} of ${rates.length} teacher rates`);
+        
+        progress[0].status = 'completed';
+        progress[0].count = importedCount;
+        progress[0].message = `Imported ${importedCount} teacher rates`;
+      } catch (error) {
+        console.error('Error importing teacher rates:', error);
+        progress[0].status = 'error';
+        progress[0].error = error.message;
+      }
+
+      return new Response(JSON.stringify({ progress }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Preview: Teacher Adjustments (Bonuses/Deductions)
+    if (action === 'preview_teacher_adjustments') {
+      console.log('Previewing teacher adjustments...');
+      try {
+        const response = await fetch(`${HOLIHOPE_DOMAIN}/GetTeacherAdjustments?authkey=${HOLIHOPE_API_KEY}&take=20&skip=0`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const responseData = await response.json();
+        
+        let adjustments: any[] = [];
+        if (Array.isArray(responseData)) {
+          adjustments = responseData;
+        } else if (responseData && typeof responseData === 'object') {
+          const firstArray = Object.values(responseData).find((v) => Array.isArray(v)) as any[] | undefined;
+          if (firstArray) adjustments = firstArray;
+        }
+        
+        return new Response(JSON.stringify({
+          preview: true,
+          total: adjustments.length,
+          sample: adjustments.slice(0, 20),
+          mapping: { 
+            "teacherId": "teacher_id", 
+            "amount": "amount",
+            "type": "adjustment_type"
+          },
+          entityType: "teacher_adjustments"
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500
+        });
+      }
+    }
+
+    // Import: Teacher Adjustments
+    if (action === 'import_teacher_adjustments') {
+      console.log('Importing teacher adjustments...');
+      progress.push({ step: 'import_teacher_adjustments', status: 'in_progress' });
+
+      try {
+        let skip = 0;
+        const take = 100;
+        let allAdjustments: any[] = [];
+
+        while (true) {
+          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetTeacherAdjustments?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          const responseData = await response.json();
+          
+          let adjustments: any[] = [];
+          if (Array.isArray(responseData)) {
+            adjustments = responseData;
+          } else if (responseData && typeof responseData === 'object') {
+            const firstArray = Object.values(responseData).find((v) => Array.isArray(v)) as any[] | undefined;
+            if (firstArray) adjustments = firstArray;
+          }
+          
+          if (!adjustments || adjustments.length === 0) break;
+          allAdjustments = allAdjustments.concat(adjustments);
+          
+          skip += take;
+          if (adjustments.length < take) break;
+        }
+        
+        // Pre-load teachers map
+        const { data: teachers } = await supabase
+          .from('teachers')
+          .select('id, external_id')
+          .not('external_id', 'is', null);
+        const teacherMap = new Map((teachers || []).map(t => [t.external_id, t.id]));
+        
+        let importedCount = 0;
+        for (const adj of allAdjustments) {
+          const teacherExtId = adj.teacherId?.toString() || adj.TeacherId?.toString();
+          const teacherId = teacherMap.get(teacherExtId);
+          
+          if (!teacherId) {
+            console.log(`Skipping adjustment - teacher not found: ${teacherExtId}`);
+            continue;
+          }
+          
+          // Map adjustment type
+          let adjustmentType = 'other';
+          const type = (adj.type || adj.Type || '').toLowerCase();
+          if (type.includes('bonus') || type.includes('бонус') || type.includes('премия')) {
+            adjustmentType = 'bonus';
+          } else if (type.includes('deduction') || type.includes('удержание') || type.includes('вычет')) {
+            adjustmentType = 'deduction';
+          } else if (type.includes('penalty') || type.includes('штраф')) {
+            adjustmentType = 'penalty';
+          }
+          
+          // Map status
+          let status = 'pending';
+          const adjStatus = (adj.status || adj.Status || '').toLowerCase();
+          if (adjStatus.includes('paid') || adjStatus.includes('оплачен') || adjStatus.includes('выплачен')) {
+            status = 'paid';
+          } else if (adjStatus.includes('cancel') || adjStatus.includes('отмен')) {
+            status = 'cancelled';
+          }
+          
+          const { error } = await supabase.from('teacher_adjustments').upsert({
+            teacher_id: teacherId,
+            adjustment_type: adjustmentType,
+            amount: adj.amount || adj.Amount || adj.sum || adj.Sum || 0,
+            currency: adj.currency || 'RUB',
+            adjustment_date: adj.date || adj.Date || adj.createdAt || new Date().toISOString().split('T')[0],
+            description: adj.description || adj.Description || adj.comment || adj.Comment || null,
+            status: status,
+            external_id: adj.id?.toString() || adj.Id?.toString(),
+            holihope_metadata: adj,
+          }, { onConflict: 'external_id' });
+          
+          if (error) {
+            console.error('Error upserting teacher adjustment:', error);
+          } else {
+            importedCount++;
+          }
+        }
+        
+        console.log(`Successfully imported ${importedCount} of ${allAdjustments.length} teacher adjustments`);
+        
+        progress[0].status = 'completed';
+        progress[0].count = importedCount;
+        progress[0].message = `Imported ${importedCount} teacher adjustments`;
+      } catch (error) {
+        console.error('Error importing teacher adjustments:', error);
+        progress[0].status = 'error';
+        progress[0].error = error.message;
+      }
+
+      return new Response(JSON.stringify({ progress }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     return new Response(
       JSON.stringify({ error: 'Invalid action' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
