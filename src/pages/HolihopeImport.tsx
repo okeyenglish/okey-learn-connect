@@ -360,19 +360,27 @@ export default function HolihopeImport() {
           let totalFetched = 0;
           let shouldContinueImport = true;
           let batchParams = { 
-            batch_size: 5, // Process 5 requests per batch to avoid timeout
+            batch_size: 2, // Reduced: process 2 requests per batch to avoid timeout
             office_index: 0,
             status_index: 0,
-            time_index: 0
+            time_index: 0,
+            full_history: true // Import full history without date limits
           };
           
           while (!shouldStopImport && shouldContinueImport) {
             let retries = 0;
-            const maxRetries = 3;
+            const maxRetries = 4; // Increased max retries
             let batchSuccess = false;
             
             while (retries < maxRetries && !batchSuccess && !shouldStopImport) {
               try {
+                // Exponential backoff delay
+                const retryDelay = retries > 0 ? Math.min(2000 * Math.pow(2, retries - 1), 16000) : 0;
+                if (retryDelay > 0) {
+                  console.log(`Waiting ${retryDelay}ms before retry...`);
+                  await new Promise((resolve) => setTimeout(resolve, retryDelay));
+                }
+                
                 console.log(`Executing batch (attempt ${retries + 1}/${maxRetries}) with params:`, batchParams);
                 const result = await executeStep(step, batchParams);
                 console.log('Batch result:', result);
@@ -385,8 +393,6 @@ export default function HolihopeImport() {
                     shouldContinueImport = false;
                     break;
                   }
-                  console.log(`Retrying in 2 seconds...`);
-                  await new Promise((resolve) => setTimeout(resolve, 2000));
                   continue;
                 }
                 
@@ -541,19 +547,27 @@ export default function HolihopeImport() {
           let totalFetched = 0;
           let shouldContinueImport = true;
           let batchParams = { 
-            batch_size: 5, // Process 5 requests per batch to avoid timeout
+            batch_size: 2, // Reduced: process 2 requests per batch to avoid timeout
             office_index: 0,
             status_index: 0,
-            time_index: 0
+            time_index: 0,
+            full_history: true // Import full history without date limits
           };
       
       while (!shouldStopImport && shouldContinueImport) {
         let retries = 0;
-        const maxRetries = 3;
+        const maxRetries = 4; // Increased max retries
         let batchSuccess = false;
         
         while (retries < maxRetries && !batchSuccess && !shouldStopImport) {
           try {
+            // Exponential backoff delay
+            const retryDelay = retries > 0 ? Math.min(2000 * Math.pow(2, retries - 1), 16000) : 0;
+            if (retryDelay > 0) {
+              console.log(`Waiting ${retryDelay}ms before retry...`);
+              await new Promise((resolve) => setTimeout(resolve, retryDelay));
+            }
+            
             console.log(`Executing batch (attempt ${retries + 1}/${maxRetries}) with params:`, batchParams);
             const result = await executeStep(step, batchParams);
             console.log('Batch result:', result);
@@ -566,8 +580,6 @@ export default function HolihopeImport() {
                 shouldContinueImport = false;
                 break;
               }
-              console.log(`Retrying in 2 seconds...`);
-              await new Promise((resolve) => setTimeout(resolve, 2000));
               continue;
             }
             

@@ -3448,13 +3448,25 @@ Deno.serve(async (req) => {
       progress.push({ step: 'import_ed_units', status: 'in_progress' });
 
       try {
+        // Support full_history mode for importing entire database without date limits
+        const fullHistory = body.full_history === true;
         const now = new Date();
         const from = new Date(now);
-        from.setDate(from.getDate() - 180); // 6 months back
         const to = new Date(now);
-        to.setDate(to.getDate() + 180); // 6 months forward
+        
+        if (fullHistory) {
+          // Full history: 5 years back and 1 year forward
+          from.setFullYear(from.getFullYear() - 5);
+          to.setFullYear(to.getFullYear() + 1);
+          console.log('Full history mode enabled: importing 5 years back and 1 year forward');
+        } else {
+          // Default: 6 months back and 6 months forward
+          from.setDate(from.getDate() - 180);
+          to.setDate(to.getDate() + 180);
+        }
         const dateFrom = from.toISOString().slice(0, 10);
         const dateTo = to.toISOString().slice(0, 10);
+        console.log(`Date range: ${dateFrom} to ${dateTo}`);
         
         // Batch parameters
         const batchSize = body.batch_size || null; // If null, process all
@@ -3608,6 +3620,38 @@ Deno.serve(async (req) => {
         
         let typeStats = {};
         
+        // Map Holihope status to our enum
+        const mapGroupStatus = (holihopeStatus: string): string => {
+          const statusMap: Record<string, string> = {
+            'working': 'active',
+            'reserve': 'reserve',
+            'forming': 'forming',
+            'active': 'active',
+            'suspended': 'suspended',
+            'finished': 'finished',
+            'completed': 'finished'
+          };
+          return statusMap[holihopeStatus?.toLowerCase()] || 'active';
+        };
+
+        // Helper to parse price from string like "10 490,00 руб." to number
+        const parsePrice = (priceValue: any): number | null => {
+          if (typeof priceValue === 'number') return priceValue;
+          if (!priceValue) return null;
+          
+          const priceStr = String(priceValue)
+            .replace(/\s+/g, '')           // Remove spaces
+            .replace(/руб\.?/gi, '')       // Remove "руб." or "руб"
+            .replace(',', '.');            // Replace comma with dot
+          
+          const parsed = parseFloat(priceStr);
+          return isNaN(parsed) ? null : parsed;
+        };
+        
+        // Collect units for batch upsert instead of individual inserts
+        const individualLessonsToUpsert: any[] = [];
+        const learningGroupsToUpsert: any[] = [];
+        
         for (const unit of unitsToImport) {
           const unitType = unit.Type || unit.type || 'Group';
           typeStats[unitType] = (typeStats[unitType] || 0) + 1;
@@ -3625,51 +3669,18 @@ Deno.serve(async (req) => {
               : null;
             scheduleRoom = firstSchedule.ClassroomName || firstSchedule.ClassroomLink || null;
           }
-          
-          // Map Holihope status to our enum
-          const mapGroupStatus = (holihopeStatus: string): string => {
-            const statusMap: Record<string, string> = {
-              'working': 'active',
-              'reserve': 'reserve',
-              'forming': 'forming',
-              'active': 'active',
-              'suspended': 'suspended',
-              'finished': 'finished',
-              'completed': 'finished'
-            };
-            return statusMap[holihopeStatus?.toLowerCase()] || 'active';
-          };
-
-          // Helper to parse price from string like "10 490,00 руб." to number
-          const parsePrice = (priceValue: any): number | null => {
-            if (typeof priceValue === 'number') return priceValue;
-            if (!priceValue) return null;
-            
-            const priceStr = String(priceValue)
-              .replace(/\s+/g, '')           // Remove spaces
-              .replace(/руб\.?/gi, '')       // Remove "руб." or "руб"
-              .replace(',', '.');            // Replace comma with dot
-            
-            const parsed = parseFloat(priceStr);
-            return isNaN(parsed) ? null : parsed;
-          };
 
           // Import based on unit type
           if (unitType === 'Individual') {
-            // Import as individual_lessons (student will be linked in step 13)
-            // Note: student_name will be updated when linking students
-            // Create unique external_id including period to handle multiple periods for same EdUnit
             const beginDate = unit.ScheduleItems?.[0]?.BeginDate || '';
             const endDate = unit.ScheduleItems?.[0]?.EndDate || '';
-            // If no dates, include name to match deduplication logic
             const externalId = (beginDate || endDate)
               ? `${unit.Id}_${beginDate}_${endDate}`
               : `${unit.Id}_${unit.Name || 'noname'}`;
             
-            // Ensure student_name is not null or empty
             const studentName = (unit.Name && unit.Name.trim()) || 'Без названия';
             
-            const { error: lessonError } = await supabase.from('individual_lessons').upsert({
+            individualLessonsToUpsert.push({
               student_name: studentName,
               branch: unit.OfficeOrCompanyName || 'Окская',
               subject: unit.Discipline || 'Английский',
@@ -3687,28 +3698,21 @@ Deno.serve(async (req) => {
               description: unit.Description || null,
               organization_id: orgId,
               external_id: externalId,
-            }, { onConflict: 'external_id' });
-            
-            if (lessonError) {
-              console.error(`❌ Error importing individual lesson ${unit.Id} (external_id: ${externalId}):`, JSON.stringify(lessonError));
-            }
+            });
           } else {
             // Import as learning_groups (Group, MiniGroup, etc.)
             const groupType = unitType === 'MiniGroup' ? 'mini' : 'general';
             const maxStudents = (unit.StudentsCount || 0) + (unit.Vacancies || 0);
             
-            // Create unique external_id including period to handle multiple periods for same EdUnit
             const beginDate = unit.ScheduleItems?.[0]?.BeginDate || '';
             const endDate = unit.ScheduleItems?.[0]?.EndDate || '';
-            // If no dates, include name to match deduplication logic
             const externalId = (beginDate || endDate)
               ? `${unit.Id}_${beginDate}_${endDate}`
               : `${unit.Id}_${unit.Name || 'noname'}`;
             
-            // Ensure group name is not null or empty
             const groupName = (unit.Name && unit.Name.trim()) || 'Без названия';
             
-            const { error: groupError } = await supabase.from('learning_groups').upsert({
+            learningGroupsToUpsert.push({
               name: groupName,
               branch: unit.OfficeOrCompanyName || 'Окская',
               subject: unit.Discipline || 'Английский',
@@ -3729,13 +3733,48 @@ Deno.serve(async (req) => {
               description: unit.Description || null,
               organization_id: orgId,
               external_id: externalId,
-            }, { onConflict: 'external_id' });
+            });
+          }
+        }
+        
+        // Batch upsert in chunks of 50 to avoid timeouts
+        const CHUNK_SIZE = 50;
+        
+        // Upsert individual lessons in chunks
+        if (individualLessonsToUpsert.length > 0) {
+          console.log(`Upserting ${individualLessonsToUpsert.length} individual lessons in chunks of ${CHUNK_SIZE}...`);
+          for (let i = 0; i < individualLessonsToUpsert.length; i += CHUNK_SIZE) {
+            const chunk = individualLessonsToUpsert.slice(i, i + CHUNK_SIZE);
+            const { error: lessonError } = await supabase
+              .from('individual_lessons')
+              .upsert(chunk, { onConflict: 'external_id' });
             
-            if (groupError) {
-              console.error(`❌ Error importing learning group ${unit.Id} (external_id: ${externalId}):`, JSON.stringify(groupError));
+            if (lessonError) {
+              console.error(`❌ Error upserting individual lessons chunk ${i}-${i + chunk.length}:`, JSON.stringify(lessonError));
+            } else {
+              console.log(`  ✓ Upserted individual lessons ${i + 1}-${Math.min(i + CHUNK_SIZE, individualLessonsToUpsert.length)}`);
             }
           }
         }
+        
+        // Upsert learning groups in chunks
+        if (learningGroupsToUpsert.length > 0) {
+          console.log(`Upserting ${learningGroupsToUpsert.length} learning groups in chunks of ${CHUNK_SIZE}...`);
+          for (let i = 0; i < learningGroupsToUpsert.length; i += CHUNK_SIZE) {
+            const chunk = learningGroupsToUpsert.slice(i, i + CHUNK_SIZE);
+            const { error: groupError } = await supabase
+              .from('learning_groups')
+              .upsert(chunk, { onConflict: 'external_id' });
+            
+            if (groupError) {
+              console.error(`❌ Error upserting learning groups chunk ${i}-${i + chunk.length}:`, JSON.stringify(groupError));
+            } else {
+              console.log(`  ✓ Upserted learning groups ${i + 1}-${Math.min(i + CHUNK_SIZE, learningGroupsToUpsert.length)}`);
+            }
+          }
+        }
+        
+        console.log(`Prepared and upserted: ${individualLessonsToUpsert.length} individual lessons, ${learningGroupsToUpsert.length} learning groups`);
         
         // Process ScheduleItems and Days for all imported units
         console.log('Processing schedule items and lesson days...');
