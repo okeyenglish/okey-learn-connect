@@ -8100,6 +8100,26 @@ export type Database = {
           whatsapp_chat_id: string
         }[]
       }
+      get_chat_threads_paginated: {
+        Args: { p_limit?: number; p_offset?: number }
+        Returns: {
+          avatar_url: string
+          client_name: string
+          client_phone: string
+          clt_id: string
+          last_message_text: string
+          last_message_time: string
+          last_messenger_type: string
+          last_unread_messenger: string
+          max_avatar_url: string
+          max_chat_id: string
+          telegram_avatar_url: string
+          telegram_chat_id: string
+          unread_count: number
+          whatsapp_avatar_url: string
+          whatsapp_chat_id: string
+        }[]
+      }
       get_clients_without_imported_messages: {
         Args: { p_limit?: number; p_offset?: number; p_org_id: string }
         Returns: {
@@ -8277,6 +8297,26 @@ export type Database = {
           _teacher_id: string
         }
         Returns: number
+      }
+      get_unread_chat_threads: {
+        Args: { p_limit?: number }
+        Returns: {
+          avatar_url: string
+          client_name: string
+          client_phone: string
+          clt_id: string
+          last_message_text: string
+          last_message_time: string
+          last_messenger_type: string
+          last_unread_messenger: string
+          max_avatar_url: string
+          max_chat_id: string
+          telegram_avatar_url: string
+          telegram_chat_id: string
+          unread_count: number
+          whatsapp_avatar_url: string
+          whatsapp_chat_id: string
+        }[]
       }
       get_user_branches: { Args: { _user_id: string }; Returns: string[] }
       get_user_organization_id: { Args: never; Returns: string }

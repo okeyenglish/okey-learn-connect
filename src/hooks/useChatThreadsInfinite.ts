@@ -1,0 +1,211 @@
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { ChatThread, UnreadByMessenger } from './useChatMessages';
+import { chatListQueryConfig } from '@/lib/queryConfig';
+import { isGroupChatName, isTelegramGroup } from './useCommunityChats';
+import { useMemo, useCallback } from 'react';
+
+const PAGE_SIZE = 50;
+
+/**
+ * Infinite scroll hook for chat threads
+ * Loads 50 threads at a time for fast initial render
+ * Automatically fetches more when scrolling
+ */
+export const useChatThreadsInfinite = () => {
+  const queryClient = useQueryClient();
+
+  // Infinite query for paginated threads
+  const infiniteQuery = useInfiniteQuery({
+    queryKey: ['chat-threads-infinite'],
+    queryFn: async ({ pageParam = 0 }) => {
+      const startTime = performance.now();
+      console.log(`[useChatThreadsInfinite] Loading page ${pageParam}, offset ${pageParam * PAGE_SIZE}...`);
+
+      const { data, error } = await supabase
+        .rpc('get_chat_threads_paginated', { 
+          p_limit: PAGE_SIZE + 1, // +1 to check if there are more
+          p_offset: pageParam * PAGE_SIZE 
+        } as any);
+
+      if (error) {
+        console.error('[useChatThreadsInfinite] RPC error:', error);
+        // Fallback to basic query
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .rpc('get_chat_threads_fast', { p_limit: PAGE_SIZE + 1 });
+        
+        if (fallbackError) throw fallbackError;
+        const fallbackArray = fallbackData as any[] || [];
+        return {
+          threads: mapRpcToThreads(fallbackArray.slice(0, PAGE_SIZE)),
+          hasMore: fallbackArray.length > PAGE_SIZE,
+          pageParam,
+          executionTime: performance.now() - startTime
+        };
+      }
+
+      const dataArray = data as any[] || [];
+      const hasMore = dataArray.length > PAGE_SIZE;
+      const threads = mapRpcToThreads(dataArray.slice(0, PAGE_SIZE));
+      
+      console.log(`[useChatThreadsInfinite] ✅ Page ${pageParam}: ${threads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
+      
+      return {
+        threads,
+        hasMore,
+        pageParam,
+        executionTime: performance.now() - startTime
+      };
+    },
+    getNextPageParam: (lastPage) => {
+      if (!lastPage.hasMore) return undefined;
+      return lastPage.pageParam + 1;
+    },
+    initialPageParam: 0,
+    ...chatListQueryConfig,
+  });
+
+  // Separate fast query for unread threads (always shown at top)
+  const unreadQuery = useQuery({
+    queryKey: ['chat-threads-unread-priority'],
+    queryFn: async () => {
+      const startTime = performance.now();
+      console.log('[useChatThreadsInfinite] Loading priority unread threads...');
+
+      const { data, error } = await supabase
+        .rpc('get_unread_chat_threads', { p_limit: 50 } as any);
+
+      if (error) {
+        console.warn('[useChatThreadsInfinite] Unread RPC failed:', error.message);
+        return [];
+      }
+
+      const threads = mapRpcToThreads(data as any[] || []);
+      console.log(`[useChatThreadsInfinite] ✅ Unread: ${threads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
+      return threads;
+    },
+    staleTime: 10000, // 10 seconds
+    refetchOnWindowFocus: false,
+  });
+
+  // Merge all threads: unread first, then paginated
+  const allThreads = useMemo(() => {
+    const unreadThreads = unreadQuery.data || [];
+    const paginatedPages = infiniteQuery.data?.pages || [];
+    const paginatedThreads = paginatedPages.flatMap(page => page.threads);
+
+    // Create a map for deduplication
+    const threadMap = new Map<string, ChatThread>();
+
+    // Add unread threads first (they take priority)
+    unreadThreads.forEach(t => {
+      threadMap.set(t.client_id, t);
+    });
+
+    // Add paginated threads (skip if already exists from unread)
+    paginatedThreads.forEach(t => {
+      if (!threadMap.has(t.client_id)) {
+        threadMap.set(t.client_id, t);
+      }
+    });
+
+    // Convert to array and sort
+    const merged = Array.from(threadMap.values());
+    
+    // Sort: unread first, then by last_message_time
+    merged.sort((a, b) => {
+      const aHasUnread = a.unread_count > 0 ? 0 : 1;
+      const bHasUnread = b.unread_count > 0 ? 0 : 1;
+      if (aHasUnread !== bHasUnread) return aHasUnread - bHasUnread;
+      
+      const aTime = new Date(a.last_message_time || 0).getTime();
+      const bTime = new Date(b.last_message_time || 0).getTime();
+      return bTime - aTime;
+    });
+
+    return merged;
+  }, [unreadQuery.data, infiniteQuery.data?.pages]);
+
+  // Load more function for infinite scroll
+  const loadMore = useCallback(() => {
+    if (infiniteQuery.hasNextPage && !infiniteQuery.isFetchingNextPage) {
+      infiniteQuery.fetchNextPage();
+    }
+  }, [infiniteQuery]);
+
+  // Refetch all data
+  const refetch = useCallback(async () => {
+    await Promise.all([
+      unreadQuery.refetch(),
+      infiniteQuery.refetch()
+    ]);
+  }, [unreadQuery, infiniteQuery]);
+
+  return {
+    data: allThreads,
+    isLoading: infiniteQuery.isLoading || unreadQuery.isLoading,
+    isFetching: infiniteQuery.isFetching || unreadQuery.isFetching,
+    isFetchingNextPage: infiniteQuery.isFetchingNextPage,
+    hasNextPage: infiniteQuery.hasNextPage,
+    loadMore,
+    refetch,
+    error: infiniteQuery.error || unreadQuery.error,
+  };
+};
+
+// Helper function to map RPC result to ChatThread format
+function mapRpcToThreads(data: any[]): ChatThread[] {
+  // Filter out group chats and system chats
+  const filteredData = data.filter((row: any) => {
+    const name = row.client_name || '';
+    const telegramChatId = row.telegram_chat_id;
+    
+    // Check for real Telegram groups (negative telegram_chat_id starting with -100)
+    if (telegramChatId) {
+      const chatIdStr = String(telegramChatId);
+      if (isTelegramGroup(chatIdStr)) {
+        return false;
+      }
+    }
+    
+    // Exclude group chats by name patterns
+    if (isGroupChatName(name)) {
+      return false;
+    }
+    
+    // Exclude system chats by name patterns
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('корпоративный') || 
+        lowerName.includes('педагог') || 
+        lowerName.includes('преподаватель:')) {
+      return false;
+    }
+    
+    return true;
+  });
+
+  return filteredData.map((row: any) => ({
+    client_id: row.clt_id || row.client_id,
+    client_name: row.client_name || '',
+    client_phone: row.client_phone || '',
+    client_branch: row.client_branch || null,
+    avatar_url: row.avatar_url || null,
+    telegram_avatar_url: row.telegram_avatar_url || null,
+    whatsapp_avatar_url: row.whatsapp_avatar_url || null,
+    max_avatar_url: row.max_avatar_url || null,
+    last_message: row.last_message_text || row.last_message || '',
+    last_message_time: row.last_message_time,
+    unread_count: Number(row.unread_count) || 0,
+    unread_by_messenger: {
+      whatsapp: Number(row.unread_whatsapp) || 0,
+      telegram: Number(row.unread_telegram) || 0,
+      max: Number(row.unread_max) || 0,
+      email: Number(row.unread_email) || 0,
+      calls: Number(row.unread_calls) || 0,
+    } as UnreadByMessenger,
+    last_unread_messenger: row.last_unread_messenger || null,
+    messages: []
+  }));
+}
+
+export default useChatThreadsInfinite;

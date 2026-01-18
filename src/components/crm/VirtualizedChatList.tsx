@@ -1,7 +1,8 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChatListItem } from './ChatListItem';
 import { usePrefetchMessages } from '@/hooks/useChatMessagesOptimized';
+import { Loader2 } from 'lucide-react';
 
 interface VirtualizedChatListProps {
   chats: any[];
@@ -18,6 +19,10 @@ interface VirtualizedChatListProps {
   onBulkSelect: (chatId: string) => void;
   onDeleteChat?: (chatId: string, chatName: string) => void;
   onLinkChat?: (chatId: string, chatName: string) => void;
+  // Infinite scroll props
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+  onLoadMore?: () => void;
 }
 
 export const VirtualizedChatList = React.memo(({
@@ -34,18 +39,34 @@ export const VirtualizedChatList = React.memo(({
   onChatAction,
   onBulkSelect,
   onDeleteChat,
-  onLinkChat
+  onLinkChat,
+  hasNextPage,
+  isFetchingNextPage,
+  onLoadMore
 }: VirtualizedChatListProps) => {
   const parentRef = useRef<HTMLDivElement>(null);
   const hoverTimerRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const { prefetch } = usePrefetchMessages();
 
   const virtualizer = useVirtualizer({
-    count: chats.length,
+    count: chats.length + (hasNextPage ? 1 : 0), // +1 for loading indicator
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 60,
-    overscan: 4,
+    estimateSize: (index) => index === chats.length ? 48 : 60, // Loading row is smaller
+    overscan: 5,
   });
+
+  // Infinite scroll: load more when approaching bottom
+  useEffect(() => {
+    if (!hasNextPage || !onLoadMore || isFetchingNextPage) return;
+
+    const items = virtualizer.getVirtualItems();
+    const lastItem = items[items.length - 1];
+    
+    // If last visible item is near the end, load more
+    if (lastItem && lastItem.index >= chats.length - 5) {
+      onLoadMore();
+    }
+  }, [virtualizer.getVirtualItems(), hasNextPage, onLoadMore, isFetchingNextPage, chats.length]);
 
   // Debounced prefetch on hover - only prefetch if hovering for 150ms
   // Prioritizes unread chats for instant prefetch
@@ -90,7 +111,31 @@ export const VirtualizedChatList = React.memo(({
         }}
       >
         {virtualizer.getVirtualItems().map((virtualRow) => {
+          // Loading indicator row
+          if (virtualRow.index === chats.length) {
+            return (
+              <div
+                key="loading"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: `${virtualRow.size}px`,
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+                className="flex items-center justify-center py-2"
+              >
+                {isFetchingNextPage && (
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                )}
+              </div>
+            );
+          }
+
           const chat = chats[virtualRow.index];
+          if (!chat) return null;
+          
           const chatState = getChatState(chat.id);
           const showEye = !!chatState?.isUnread;
           // Непрочитанность определяем по сообщениям (message-level is_read),
