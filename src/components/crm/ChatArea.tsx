@@ -16,7 +16,7 @@ import { useClientUnreadByMessenger } from "@/hooks/useChatMessages";
 import { useChatMessagesOptimized } from "@/hooks/useChatMessagesOptimized";
 import { ChatMessage } from "./ChatMessage";
 import { DateSeparator, shouldShowDateSeparator } from "./DateSeparator";
-import { SalebotCallbackMessage, isSalebotCallback } from "./SalebotCallbackMessage";
+import { SalebotCallbackMessage, isSalebotCallback, isHiddenSalebotMessage, isSuccessPayment } from "./SalebotCallbackMessage";
 import { ClientTasks } from "./ClientTasks";
 import { MessageSkeleton } from "./MessageSkeleton";
 // Lazy load heavy modal components for faster initial render
@@ -1879,8 +1879,13 @@ export const ChatArea = ({
                       nextMessage.type === 'system' || 
                       nextMessage.type === 'comment';
                     
-                    // Check if this is a Salebot callback message
-                    const isCallback = isSalebotCallback(msg.message);
+                    // Skip hidden salebot messages (like crm_state_changed)
+                    if (isHiddenSalebotMessage(msg.message)) {
+                      return null;
+                    }
+                    
+                    // Check if this is a Salebot callback message or success payment
+                    const isCallback = isSalebotCallback(msg.message) || isSuccessPayment(msg.message);
                     
                     return (
                       <div key={msg.id || index}>
@@ -2005,8 +2010,13 @@ export const ChatArea = ({
                       nextMessage.type === 'system' || 
                       nextMessage.type === 'comment';
                     
-                    // Check if this is a Salebot callback message
-                    const isCallback = isSalebotCallback(msg.message);
+                    // Skip hidden salebot messages (like crm_state_changed)
+                    if (isHiddenSalebotMessage(msg.message)) {
+                      return null;
+                    }
+                    
+                    // Check if this is a Salebot callback message or success payment
+                    const isCallback = isSalebotCallback(msg.message) || isSuccessPayment(msg.message);
                     
                     return (
                       <div key={msg.id || index}>
@@ -2089,8 +2099,13 @@ export const ChatArea = ({
                       nextMessage.type === 'system' || 
                       nextMessage.type === 'comment';
                     
-                    // Check if this is a Salebot callback message
-                    const isCallback = isSalebotCallback(msg.message);
+                    // Skip hidden salebot messages (like crm_state_changed)
+                    if (isHiddenSalebotMessage(msg.message)) {
+                      return null;
+                    }
+                    
+                    // Check if this is a Salebot callback message or success payment
+                    const isCallback = isSalebotCallback(msg.message) || isSuccessPayment(msg.message);
                     
                     return (
                       <div key={msg.id || index}>
