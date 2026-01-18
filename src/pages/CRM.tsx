@@ -20,7 +20,7 @@ import { useClientIdsByPhoneSearch } from "@/hooks/useClientIdsByPhoneSearch";
 import { usePhoneSearchThreads } from "@/hooks/usePhoneSearchThreads";
 import { useClientStatus } from "@/hooks/useClientStatus";
 import { useRealtimeMessages, useMarkAsRead, useMarkAsUnread } from "@/hooks/useChatMessages";
-import { useChatThreadsOptimized } from "@/hooks/useChatThreadsOptimized";
+import { useChatThreadsInfinite } from "@/hooks/useChatThreadsInfinite";
 import { useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
 import { useStudentsLazy } from "@/hooks/useStudentsLazy";
 import { useStudentsCount } from "@/hooks/useStudentsCount";
@@ -292,9 +292,15 @@ const CRMContent = () => {
   const [linkChatModal, setLinkChatModal] = useState<{ open: boolean; chatId: string; chatName: string }>({ open: false, chatId: '', chatName: '' });
   const [isDeletingChat, setIsDeletingChat] = useState(false);
   
-  // Критичные данные - загружаем ТОЛЬКО threads (быстрый RPC)
+  // Критичные данные - загружаем ТОЛЬКО threads с infinite scroll (50 за раз)
   // useClients убран из критического пути - 27К клиентов тормозили загрузку
-  const { data: threads = [], isLoading: threadsLoading } = useChatThreadsOptimized();
+  const { 
+    data: threads = [], 
+    isLoading: threadsLoading, 
+    hasNextPage, 
+    isFetchingNextPage, 
+    loadMore 
+  } = useChatThreadsInfinite();
   const { corporateChats, teacherChats, isLoading: systemChatsLoading } = useSystemChatMessages();
   const { communityChats, totalUnread: communityUnread, latestCommunity, isLoading: communityLoading } = useCommunityChats();
   
@@ -3082,6 +3088,9 @@ const CRMContent = () => {
                           onBulkSelect={handleBulkSelectToggle}
                           onDeleteChat={handleDeleteChat}
                           onLinkChat={handleLinkChat}
+                          hasNextPage={hasNextPage}
+                          isFetchingNextPage={isFetchingNextPage}
+                          onLoadMore={loadMore}
                         />
                       </div>
                     </>
@@ -3463,6 +3472,9 @@ const CRMContent = () => {
                           onBulkSelect={handleBulkSelectToggle}
                           onDeleteChat={handleDeleteChat}
                           onLinkChat={handleLinkChat}
+                          hasNextPage={hasNextPage}
+                          isFetchingNextPage={isFetchingNextPage}
+                          onLoadMore={loadMore}
                         />
                       </div>
                     </>
