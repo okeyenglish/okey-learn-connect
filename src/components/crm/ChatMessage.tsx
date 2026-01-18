@@ -71,9 +71,10 @@ interface ChatMessageProps {
   isLastInGroup?: boolean;
   onForwardMessage?: (messageId: string) => void;
   onEnterSelectionMode?: () => void;
+  onQuoteMessage?: (text: string) => void;
 }
 
-const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, whatsappChatId, externalMessageId, showAvatar = true, showName = true, isLastInGroup = true, onForwardMessage, onEnterSelectionMode }: ChatMessageProps) => {
+const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, whatsappChatId, externalMessageId, showAvatar = true, showName = true, isLastInGroup = true, onForwardMessage, onEnterSelectionMode, onQuoteMessage }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
 
@@ -304,6 +305,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
       onDelete={onMessageDelete && messageId ? handleDelete : undefined}
       onForward={onForwardMessage && messageId ? handleForward : undefined}
       onSelectMultiple={onEnterSelectionMode ? handleSelectMultiple : undefined}
+      onQuote={onQuoteMessage}
       isDeleted={message === '[Сообщение удалено]'}
     >
       <div className={`flex ${type === 'manager' ? 'justify-end' : 'justify-start'} ${isLastInGroup ? 'mb-4' : 'mb-1'} ${isSelectionMode ? 'hover:bg-muted/20 p-2 rounded-lg' : ''}`}>
