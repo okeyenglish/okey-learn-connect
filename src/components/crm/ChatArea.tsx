@@ -115,6 +115,7 @@ export const ChatArea = ({
   const [showQuickResponsesModal, setShowQuickResponsesModal] = useState(false);
   const [commentMode, setCommentMode] = useState(false);
   const [gptGenerating, setGptGenerating] = useState(false);
+  const [quotedText, setQuotedText] = useState<string | null>(null);
   const [activeMessengerTab, setActiveMessengerTab] = useState("whatsapp");
   const [isEditingName, setIsEditingName] = useState(false);
   
@@ -655,10 +656,17 @@ export const ChatArea = ({
   const handleSendMessage = async () => {
     if ((!message.trim() && attachedFiles.length === 0) || loading || message.length > MAX_MESSAGE_LENGTH) return;
 
-    const messageText = message.trim();
+    // Подготавливаем текст с цитатой если есть
+    let messageText = message.trim();
+    if (quotedText) {
+      const quotedLines = quotedText.split('\n').map(line => `> ${line}`).join('\n');
+      messageText = `${quotedLines}\n\n${messageText}`;
+    }
+    
     const filesToSend = [...attachedFiles];
     
     setMessage(""); // Clear input immediately
+    setQuotedText(null); // Clear quoted text
     setAttachedFiles([]); // Clear attached files immediately
     onMessageChange?.(false);
     
@@ -1254,6 +1262,15 @@ export const ChatArea = ({
   const handleForwardSingleMessage = (messageId: string) => {
     setSelectedMessages(new Set([messageId]));
     setShowForwardModal(true);
+  };
+
+  // Функция для цитирования текста
+  const handleQuoteMessage = (text: string) => {
+    setQuotedText(text);
+    // Фокус на поле ввода
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 100);
   };
 
   // Функция для включения режима множественного выбора через контекстное меню
@@ -1901,6 +1918,7 @@ export const ChatArea = ({
                             isLastInGroup={isLastInGroup}
                             onForwardMessage={handleForwardSingleMessage}
                             onEnterSelectionMode={handleEnterSelectionMode}
+                            onQuoteMessage={handleQuoteMessage}
                           />
                         )}
                       </div>
@@ -2025,6 +2043,7 @@ export const ChatArea = ({
                             isLastInGroup={isLastInGroup}
                             onForwardMessage={handleForwardSingleMessage}
                             onEnterSelectionMode={handleEnterSelectionMode}
+                            onQuoteMessage={handleQuoteMessage}
                           />
                         )}
                       </div>
@@ -2109,6 +2128,7 @@ export const ChatArea = ({
                             isLastInGroup={isLastInGroup}
                             onForwardMessage={handleForwardSingleMessage}
                             onEnterSelectionMode={handleEnterSelectionMode}
+                            onQuoteMessage={handleQuoteMessage}
                           />
                         )}
                       </div>
@@ -2211,6 +2231,24 @@ export const ChatArea = ({
             )}
           
           <div className="space-y-2 relative">
+            {/* Quoted text preview */}
+            {quotedText && (
+              <div className="flex items-start gap-2 p-2 bg-muted/50 rounded-md border-l-4 border-primary">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-muted-foreground mb-1">Цитата:</p>
+                  <p className="text-sm text-foreground line-clamp-2">{quotedText}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 flex-shrink-0"
+                  onClick={() => setQuotedText(null)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+            
             {/* Text Format Toolbar - appears on selection */}
             <TextFormatToolbar
               textareaRef={textareaRef}

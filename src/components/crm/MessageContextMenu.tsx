@@ -4,8 +4,10 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
+  ContextMenuSeparator,
 } from "@/components/ui/context-menu";
-import { Edit2, Trash2, Forward, CheckSquare } from "lucide-react";
+import { Edit2, Trash2, Forward, CheckSquare, Copy, Quote } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface MessageContextMenuProps {
   children: ReactNode;
@@ -16,6 +18,7 @@ interface MessageContextMenuProps {
   onDelete?: () => void;
   onForward?: () => void;
   onSelectMultiple?: () => void;
+  onQuote?: (text: string) => void;
   isDeleted?: boolean;
 }
 
@@ -28,8 +31,10 @@ export const MessageContextMenu = ({
   onDelete,
   onForward,
   onSelectMultiple,
+  onQuote,
   isDeleted = false,
 }: MessageContextMenuProps) => {
+  const { toast } = useToast();
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
@@ -69,6 +74,51 @@ export const MessageContextMenu = ({
     };
   }, [longPressTimer]);
 
+  // Копирование текста
+  const handleCopy = async () => {
+    // Сначала проверяем, есть ли выделенный текст
+    const selection = window.getSelection();
+    const selectedText = selection?.toString().trim();
+    
+    const textToCopy = selectedText || messageText;
+    
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      toast({
+        title: "Скопировано",
+        description: selectedText ? "Выделенный текст скопирован" : "Сообщение скопировано",
+      });
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось скопировать текст",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Цитирование текста
+  const handleQuote = () => {
+    // Проверяем, есть ли выделенный текст
+    const selection = window.getSelection();
+    const selectedText = selection?.toString().trim();
+    
+    const textToQuote = selectedText || messageText;
+    
+    if (onQuote) {
+      onQuote(textToQuote);
+    } else {
+      // Если нет обработчика, просто копируем с форматированием цитаты
+      const quotedText = `> ${textToQuote.split('\n').join('\n> ')}\n\n`;
+      navigator.clipboard.writeText(quotedText);
+      toast({
+        title: "Цитата скопирована",
+        description: "Вставьте цитату в поле ввода",
+      });
+    }
+  };
+
   // Если сообщение удалено, не показываем контекстное меню
   if (isDeleted || messageText === '[Сообщение удалено]') {
     return <>{children}</>;
@@ -87,12 +137,26 @@ export const MessageContextMenu = ({
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           onTouchMove={handleTouchMove}
-          className="touch-none select-none"
+          className="touch-none"
         >
           {children}
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-56">
+        {/* Копировать */}
+        <ContextMenuItem onClick={handleCopy} className="flex items-center gap-2 cursor-pointer">
+          <Copy className="h-4 w-4" />
+          <span>Копировать</span>
+        </ContextMenuItem>
+
+        {/* Цитировать */}
+        <ContextMenuItem onClick={handleQuote} className="flex items-center gap-2 cursor-pointer">
+          <Quote className="h-4 w-4" />
+          <span>Цитировать</span>
+        </ContextMenuItem>
+
+        <ContextMenuSeparator />
+
         {/* Редактирование (только для сообщений менеджера) */}
         {messageType === 'manager' && onEdit && (
           <ContextMenuItem onClick={onEdit} className="flex items-center gap-2 cursor-pointer">
@@ -119,13 +183,16 @@ export const MessageContextMenu = ({
 
         {/* Удалить */}
         {onDelete && (
-          <ContextMenuItem 
-            onClick={onDelete} 
-            className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-            <span>Удалить</span>
-          </ContextMenuItem>
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem 
+              onClick={onDelete} 
+              className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span>Удалить</span>
+            </ContextMenuItem>
+          </>
         )}
       </ContextMenuContent>
     </ContextMenu>
