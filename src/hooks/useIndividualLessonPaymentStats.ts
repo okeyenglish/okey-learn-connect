@@ -58,6 +58,7 @@ const fetchPaymentStats = async (
     : totalPaidAmount / (totalPaidMinutes || 1);
 
   // Считаем использованные минуты (прошедшие или завершенные занятия)
+  // Применяем коэффициенты оплаты
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -69,17 +70,21 @@ const fetchPaymentStats = async (
     sessionDate.setHours(0, 0, 0, 0);
     const isPast = sessionDate < today;
     const duration = session.duration || defaultDuration;
+    
+    // Get payment coefficient (default 1.0)
+    const paymentCoefficient = session.payment_coefficient ?? 1.0;
+    const weightedDuration = duration * paymentCoefficient;
 
     // Не учитываем отмененные и бесплатные
     if (session.status === 'cancelled' || session.status === 'free' || session.status === 'rescheduled') {
       return;
     }
 
-    totalCourseMinutes += duration;
+    totalCourseMinutes += weightedDuration;
 
     // Использованные минуты = прошедшие или завершенные
     if (isPast || session.status === 'completed') {
-      usedMinutes += duration;
+      usedMinutes += weightedDuration;
     }
   });
 

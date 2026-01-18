@@ -2753,8 +2753,10 @@ export type Database = {
           notes: string | null
           organization_id: string | null
           paid_minutes: number | null
+          payment_coefficient: number | null
           payment_id: string | null
           status: string
+          teacher_coefficient: number | null
           teacher_hours_coefficient: number
           updated_at: string | null
         }
@@ -2771,8 +2773,10 @@ export type Database = {
           notes?: string | null
           organization_id?: string | null
           paid_minutes?: number | null
+          payment_coefficient?: number | null
           payment_id?: string | null
           status?: string
+          teacher_coefficient?: number | null
           teacher_hours_coefficient?: number
           updated_at?: string | null
         }
@@ -2789,8 +2793,10 @@ export type Database = {
           notes?: string | null
           organization_id?: string | null
           paid_minutes?: number | null
+          payment_coefficient?: number | null
           payment_id?: string | null
           status?: string
+          teacher_coefficient?: number | null
           teacher_hours_coefficient?: number
           updated_at?: string | null
         }
@@ -3951,8 +3957,10 @@ export type Database = {
           payment_id: string | null
           start_time: string
           status: Database["public"]["Enums"]["lesson_status"]
+          student_payment_coefficient: number | null
           teacher_hours_coefficient: number
           teacher_name: string
+          teacher_payment_coefficient: number | null
           updated_at: string
         }
         Insert: {
@@ -3978,8 +3986,10 @@ export type Database = {
           payment_id?: string | null
           start_time: string
           status?: Database["public"]["Enums"]["lesson_status"]
+          student_payment_coefficient?: number | null
           teacher_hours_coefficient?: number
           teacher_name: string
+          teacher_payment_coefficient?: number | null
           updated_at?: string
         }
         Update: {
@@ -4005,8 +4015,10 @@ export type Database = {
           payment_id?: string | null
           start_time?: string
           status?: Database["public"]["Enums"]["lesson_status"]
+          student_payment_coefficient?: number | null
           teacher_hours_coefficient?: number
           teacher_name?: string
+          teacher_payment_coefficient?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -6035,9 +6047,11 @@ export type Database = {
           lesson_session_id: string
           notes: string | null
           payment_amount: number | null
+          payment_coefficient: number | null
           payment_id: string | null
           payment_status: string | null
           student_id: string
+          teacher_coefficient: number | null
           updated_at: string
         }
         Insert: {
@@ -6049,9 +6063,11 @@ export type Database = {
           lesson_session_id: string
           notes?: string | null
           payment_amount?: number | null
+          payment_coefficient?: number | null
           payment_id?: string | null
           payment_status?: string | null
           student_id: string
+          teacher_coefficient?: number | null
           updated_at?: string
         }
         Update: {
@@ -6063,9 +6079,11 @@ export type Database = {
           lesson_session_id?: string
           notes?: string | null
           payment_amount?: number | null
+          payment_coefficient?: number | null
           payment_id?: string | null
           payment_status?: string | null
           student_id?: string
+          teacher_coefficient?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -8575,6 +8593,9 @@ export type Database = {
         | "free"
         | "free_skip"
         | "paid_skip"
+        | "partial_payment"
+        | "partial_skip"
+        | "penalty"
       message_status:
         | "queued"
         | "sent"
@@ -8787,6 +8808,9 @@ export const Constants = {
         "free",
         "free_skip",
         "paid_skip",
+        "partial_payment",
+        "partial_skip",
+        "penalty",
       ],
       message_status: [
         "queued",
