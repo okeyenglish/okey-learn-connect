@@ -258,17 +258,23 @@ export const LinkChatToClientModal = ({
 
       console.log("Current phones to transfer:", currentPhones?.length);
 
+      // Get target's existing phones to avoid duplicates
+      const { data: targetPhones } = await supabase
+        .from("client_phone_numbers")
+        .select("phone")
+        .eq("client_id", selectedClientId);
+
+      const targetPhoneSet = new Set(
+        (targetPhones || []).map((p) => p.phone.replace(/\D/g, ""))
+      );
+
+      // Also add target client's main phone to the set
+      if (targetClient.phone) {
+        targetPhoneSet.add(targetClient.phone.replace(/\D/g, ""));
+      }
+
+      // Transfer phone numbers from client_phone_numbers table
       if (currentPhones && currentPhones.length > 0) {
-        // Get target's existing phones to avoid duplicates
-        const { data: targetPhones } = await supabase
-          .from("client_phone_numbers")
-          .select("phone")
-          .eq("client_id", selectedClientId);
-
-        const targetPhoneSet = new Set(
-          (targetPhones || []).map((p) => p.phone.replace(/\D/g, ""))
-        );
-
         const phonesToTransfer = currentPhones.filter(
           (p) => !targetPhoneSet.has(p.phone.replace(/\D/g, ""))
         );
@@ -285,6 +291,44 @@ export const LinkChatToClientModal = ({
             if (phoneError) {
               console.error("Error transferring phone:", phone.phone, phoneError);
               // Continue with other phones
+            }
+          }
+        }
+      }
+
+      // IMPORTANT: Also transfer the main phone from clients table
+      // If current client has a phone and target doesn't have it
+      if (currentClient.phone) {
+        const currentPhoneDigits = currentClient.phone.replace(/\D/g, "");
+        
+        // Check if this phone already exists in target's phone numbers
+        if (!targetPhoneSet.has(currentPhoneDigits)) {
+          console.log("Transferring main phone to client_phone_numbers:", currentClient.phone);
+          
+          // Add as a new phone number record for the target client
+          const { error: insertPhoneError } = await supabase
+            .from("client_phone_numbers")
+            .insert({
+              client_id: selectedClientId,
+              phone: currentClient.phone,
+              is_primary: !targetClient.phone, // Make primary only if target has no phone
+              phone_type: "mobile"
+            });
+          
+          if (insertPhoneError) {
+            console.error("Error inserting main phone:", insertPhoneError);
+            // Not critical, continue
+          }
+          
+          // Update target client's main phone if they don't have one
+          if (!targetClient.phone) {
+            const { error: updatePhoneError } = await supabase
+              .from("clients")
+              .update({ phone: currentClient.phone })
+              .eq("id", selectedClientId);
+            
+            if (updatePhoneError) {
+              console.error("Error updating target phone:", updatePhoneError);
             }
           }
         }
