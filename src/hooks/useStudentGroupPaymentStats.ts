@@ -45,7 +45,7 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
     // Get student's session records
     supabase
       .from('student_lesson_sessions')
-      .select('lesson_session_id, attendance_status, payment_status, payment_amount, is_cancelled_for_student')
+      .select('lesson_session_id, attendance_status, payment_status, payment_amount, is_cancelled_for_student, payment_coefficient')
       .eq('student_id', studentId),
 
     // Get student's enrollment date in the group
@@ -77,6 +77,13 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
     (studentSessions as any[])
       .filter(s => s.payment_status === 'free' || s.payment_status === 'bonus')
       .map(s => s.lesson_session_id)
+  );
+
+  // Build a map of session payment coefficients
+  const sessionCoefficients = new Map<string, number>(
+    (studentSessions as any[])
+      .filter(s => s.payment_coefficient != null)
+      .map(s => [s.lesson_session_id, Number(s.payment_coefficient)])
   );
 
   // Consider only sessions after enrollment and not cancelled (global or for student) and not free
@@ -132,19 +139,28 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
   todayObj.setHours(0, 0, 0, 0);
   
   // Count only sessions that are completed OR past date and not cancelled
-  const usedSessionsCount = (effectiveSessions as any[]).filter((session: any) => {
+  // Apply payment coefficients when calculating usage
+  let usedMinutesWeighted = 0;
+  let totalCourseMinutesWeighted = 0;
+  
+  (effectiveSessions as any[]).forEach((session: any) => {
     const sessionDate = new Date(session.lesson_date);
     sessionDate.setHours(0, 0, 0, 0);
     
+    // Get coefficient for this session (default 1.0)
+    const coefficient = sessionCoefficients.get(session.id) ?? 1.0;
+    const weightedDuration = lessonDuration * coefficient;
+    
+    totalCourseMinutesWeighted += weightedDuration;
+    
     // Session is used if it's completed OR (past date AND not cancelled)
-    return session.status === 'completed' || (sessionDate < todayObj && session.status !== 'cancelled');
-  }).length;
+    if (session.status === 'completed' || (sessionDate < todayObj && session.status !== 'cancelled')) {
+      usedMinutesWeighted += weightedDuration;
+    }
+  });
 
-  const usedMinutes = usedSessionsCount * lessonDuration;
-
-  // Calculate total course minutes based on all effective sessions (after enrollment)
-  const totalCourseLessons = (effectiveSessions as any[]).length || 0;
-  const totalCourseMinutes = totalCourseLessons * lessonDuration;
+  const usedMinutes = usedMinutesWeighted;
+  const totalCourseMinutes = totalCourseMinutesWeighted;
 
   // Calculate remaining academic hours and money
   // Remaining = paid - used
