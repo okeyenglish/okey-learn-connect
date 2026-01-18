@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from "react";
 import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, PanelLeft, PanelRight, CheckCheck, ListTodo } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,10 +18,11 @@ import { ChatMessage } from "./ChatMessage";
 import { DateSeparator, shouldShowDateSeparator } from "./DateSeparator";
 import { SalebotCallbackMessage, isSalebotCallback } from "./SalebotCallbackMessage";
 import { ClientTasks } from "./ClientTasks";
-import { AddTaskModal } from "./AddTaskModal";
-import { CreateInvoiceModal } from "./CreateInvoiceModal";
-import { ForwardMessageModal } from "./ForwardMessageModal";
-import { QuickResponsesModal } from "./QuickResponsesModal";
+// Lazy load heavy modal components for faster initial render
+const AddTaskModal = lazy(() => import("./AddTaskModal").then(m => ({ default: m.AddTaskModal })));
+const CreateInvoiceModal = lazy(() => import("./CreateInvoiceModal").then(m => ({ default: m.CreateInvoiceModal })));
+const ForwardMessageModal = lazy(() => import("./ForwardMessageModal").then(m => ({ default: m.ForwardMessageModal })));
+const QuickResponsesModal = lazy(() => import("./QuickResponsesModal").then(m => ({ default: m.QuickResponsesModal })));
 import { FileUpload } from "./FileUpload";
 import { AttachedFile } from "./AttachedFile";
 import { InlinePendingGPTResponse } from "./InlinePendingGPTResponse";
@@ -2457,38 +2458,50 @@ export const ChatArea = ({
         </div>
       </div>
 
-      {/* Модальные окна (только если не используются внешние обработчики) */}
-      {!onOpenTaskModal && (
-        <AddTaskModal 
-          open={showAddTaskModal}
-          onOpenChange={setShowAddTaskModal}
-          clientName={clientName}
-          clientId={clientId}
-        />
+      {/* Модальные окна (только если не используются внешние обработчики) - lazy loaded */}
+      {!onOpenTaskModal && showAddTaskModal && (
+        <Suspense fallback={null}>
+          <AddTaskModal 
+            open={showAddTaskModal}
+            onOpenChange={setShowAddTaskModal}
+            clientName={clientName}
+            clientId={clientId}
+          />
+        </Suspense>
       )}
 
-      {!onOpenInvoiceModal && (
-        <CreateInvoiceModal 
-          open={showInvoiceModal}
-          onOpenChange={setShowInvoiceModal}
-          clientName={clientName}
-        />
+      {!onOpenInvoiceModal && showInvoiceModal && (
+        <Suspense fallback={null}>
+          <CreateInvoiceModal 
+            open={showInvoiceModal}
+            onOpenChange={setShowInvoiceModal}
+            clientName={clientName}
+          />
+        </Suspense>
       )}
       
-      {/* Модальное окно пересылки сообщений */}
-      <ForwardMessageModal
-        open={showForwardModal}
-        onOpenChange={setShowForwardModal}
-        selectedMessages={getSelectedMessagesForForward()}
-        currentClientId={clientId}
-        onForward={handleForwardMessages}
-      />
+      {/* Модальное окно пересылки сообщений - lazy loaded */}
+      {showForwardModal && (
+        <Suspense fallback={null}>
+          <ForwardMessageModal
+            open={showForwardModal}
+            onOpenChange={setShowForwardModal}
+            selectedMessages={getSelectedMessagesForForward()}
+            currentClientId={clientId}
+            onForward={handleForwardMessages}
+          />
+        </Suspense>
+      )}
 
-      <QuickResponsesModal
-        open={showQuickResponsesModal}
-        onOpenChange={setShowQuickResponsesModal}
-        onSelectResponse={handleQuickResponseSelect}
-      />
+      {showQuickResponsesModal && (
+        <Suspense fallback={null}>
+          <QuickResponsesModal
+            open={showQuickResponsesModal}
+            onOpenChange={setShowQuickResponsesModal}
+            onSelectResponse={handleQuickResponseSelect}
+          />
+        </Suspense>
+      )}
 
     </div>
   );
