@@ -2536,6 +2536,69 @@ export type Database = {
           },
         ]
       }
+      holihope_import_progress: {
+        Row: {
+          created_at: string | null
+          current_offset: number | null
+          current_step: number | null
+          errors: Json | null
+          id: string
+          is_paused: boolean | null
+          is_running: boolean | null
+          last_error: string | null
+          last_run_at: string | null
+          last_sync_timestamp: string | null
+          requires_manual_restart: boolean | null
+          start_time: string | null
+          total_branches_imported: number | null
+          total_groups_imported: number | null
+          total_leads_imported: number | null
+          total_students_imported: number | null
+          total_teachers_imported: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_offset?: number | null
+          current_step?: number | null
+          errors?: Json | null
+          id?: string
+          is_paused?: boolean | null
+          is_running?: boolean | null
+          last_error?: string | null
+          last_run_at?: string | null
+          last_sync_timestamp?: string | null
+          requires_manual_restart?: boolean | null
+          start_time?: string | null
+          total_branches_imported?: number | null
+          total_groups_imported?: number | null
+          total_leads_imported?: number | null
+          total_students_imported?: number | null
+          total_teachers_imported?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_offset?: number | null
+          current_step?: number | null
+          errors?: Json | null
+          id?: string
+          is_paused?: boolean | null
+          is_running?: boolean | null
+          last_error?: string | null
+          last_run_at?: string | null
+          last_sync_timestamp?: string | null
+          requires_manual_restart?: boolean | null
+          start_time?: string | null
+          total_branches_imported?: number | null
+          total_groups_imported?: number | null
+          total_leads_imported?: number | null
+          total_students_imported?: number | null
+          total_teachers_imported?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       homework: {
         Row: {
           assignment: string

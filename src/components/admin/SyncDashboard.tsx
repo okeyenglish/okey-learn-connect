@@ -53,10 +53,28 @@ interface DbStats {
   clientsWithoutSalebotId: number;
 }
 
+interface HolihopeProgress {
+  isRunning: boolean;
+  isPaused: boolean;
+  requiresManualRestart: boolean;
+  currentStep: number;
+  currentOffset: number;
+  lastSyncTimestamp: Date | null;
+  lastRunAt: Date | null;
+  updatedAt: Date | null;
+  totalBranchesImported: number;
+  totalTeachersImported: number;
+  totalLeadsImported: number;
+  totalStudentsImported: number;
+  totalGroupsImported: number;
+  lastError: string | null;
+}
+
 export function SyncDashboard() {
   const { toast } = useToast();
   const { branches, organizationId } = useOrganization();
   const [importProgress, setImportProgress] = useState<SalebotProgress | null>(null);
+  const [holihopeProgress, setHolihopeProgress] = useState<HolihopeProgress | null>(null);
   const [apiUsage, setApiUsage] = useState<ApiUsage | null>(null);
   const [dbStats, setDbStats] = useState<DbStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -88,6 +106,9 @@ export function SyncDashboard() {
   const csvFileInputRef = useRef<HTMLInputElement>(null);
   const [newApiLimit, setNewApiLimit] = useState<string>('6000');
   const [isSavingLimit, setIsSavingLimit] = useState(false);
+  
+  // HolyHope specific states
+  const [isHolihopeUnlocking, setIsHolihopeUnlocking] = useState(false);
 
   // Smart polling: only fetch when tab is visible, with backoff on errors
   const [pollInterval, setPollInterval] = useState(10000); // Start at 10s
@@ -133,6 +154,38 @@ export function SyncDashboard() {
 
         // If import is running, poll faster (5s), otherwise slow down (30s)
         setPollInterval(progressData.is_running ? 5000 : 30000);
+      }
+
+      // Get HolyHope progress
+      const { data: holihopeData } = await supabase
+        .from('holihope_import_progress')
+        .select('*')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (holihopeData) {
+        setHolihopeProgress({
+          isRunning: holihopeData.is_running || false,
+          isPaused: holihopeData.is_paused || false,
+          requiresManualRestart: holihopeData.requires_manual_restart || false,
+          currentStep: holihopeData.current_step || 1,
+          currentOffset: holihopeData.current_offset || 0,
+          lastSyncTimestamp: holihopeData.last_sync_timestamp ? new Date(holihopeData.last_sync_timestamp) : null,
+          lastRunAt: holihopeData.last_run_at ? new Date(holihopeData.last_run_at) : null,
+          updatedAt: holihopeData.updated_at ? new Date(holihopeData.updated_at) : null,
+          totalBranchesImported: holihopeData.total_branches_imported || 0,
+          totalTeachersImported: holihopeData.total_teachers_imported || 0,
+          totalLeadsImported: holihopeData.total_leads_imported || 0,
+          totalStudentsImported: holihopeData.total_students_imported || 0,
+          totalGroupsImported: holihopeData.total_groups_imported || 0,
+          lastError: holihopeData.last_error || null,
+        });
+        
+        // If holihope import is running, poll faster
+        if (holihopeData.is_running) {
+          setPollInterval(5000);
+        }
       }
 
       // Get API usage (lightweight)
@@ -386,6 +439,47 @@ export function SyncDashboard() {
       });
     } finally {
       setIsResumingChain(false);
+    }
+  };
+
+  // HolyHope: Manual unlock after API limit was reached
+  const handleHolihopeUnlock = async () => {
+    try {
+      setIsHolihopeUnlocking(true);
+      
+      const { data: progress } = await supabase
+        .from('holihope_import_progress')
+        .select('id')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (progress?.id) {
+        await supabase
+          .from('holihope_import_progress')
+          .update({ 
+            requires_manual_restart: false,
+            is_running: false,
+            is_paused: false,
+            last_error: null
+          })
+          .eq('id', progress.id);
+      }
+      
+      toast({
+        title: 'HolyHope разблокирован',
+        description: 'Импорт разблокирован. Теперь можно запустить синхронизацию.',
+      });
+      
+      await fetchProgressOnly();
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsHolihopeUnlocking(false);
     }
   };
 
@@ -2090,22 +2184,99 @@ export function SyncDashboard() {
         </TabsContent>
 
         <TabsContent value="holyhope" className="space-y-4">
-          <Card>
+          {/* API Limit Lock Alert */}
+          {holihopeProgress?.requiresManualRestart && !holihopeProgress?.isRunning && (
+            <Alert className="border-red-500/50 bg-red-50/50 dark:bg-red-950/20">
+              <AlertCircle className="h-4 w-4 text-red-500" />
+              <AlertTitle className="flex items-center justify-between flex-wrap gap-2">
+                <span>Импорт HolyHope заблокирован</span>
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700"
+                  onClick={handleHolihopeUnlock}
+                  disabled={isHolihopeUnlocking}
+                >
+                  {isHolihopeUnlocking ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-1 h-4 w-4" />
+                  )}
+                  Разблокировать импорт
+                </Button>
+              </AlertTitle>
+              <AlertDescription>
+                {holihopeProgress.lastError || 'Лимит API HolyHope был достигнут. Импорт заблокирован для предотвращения случайного запуска.'}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Import Status Card */}
+          <Card className="border-indigo-500/50 bg-indigo-50/50 dark:bg-indigo-950/20">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                Импорт данных из HolyHope
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300">
+                  <Database className="h-5 w-5" />
+                  Импорт данных из HolyHope
+                </CardTitle>
+                {holihopeProgress?.isRunning ? (
+                  <Badge variant="default" className="bg-green-500">
+                    <span className="h-2 w-2 bg-white rounded-full animate-pulse mr-1.5"></span>
+                    Запущен
+                  </Badge>
+                ) : holihopeProgress?.requiresManualRestart ? (
+                  <Badge variant="destructive">
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    Заблокирован
+                  </Badge>
+                ) : (
+                  <Badge variant="outline">Готов</Badge>
+                )}
+              </div>
               <CardDescription>
                 Полный импорт студентов, лидов, расписания и других данных
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Progress Stats */}
+              {holihopeProgress && (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 p-4 bg-muted/50 rounded-lg">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Филиалы</div>
+                    <div className="text-xl font-bold">{holihopeProgress.totalBranchesImported}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Преподаватели</div>
+                    <div className="text-xl font-bold">{holihopeProgress.totalTeachersImported}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Лиды</div>
+                    <div className="text-xl font-bold">{holihopeProgress.totalLeadsImported}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Студенты</div>
+                    <div className="text-xl font-bold">{holihopeProgress.totalStudentsImported}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Группы</div>
+                    <div className="text-xl font-bold">{holihopeProgress.totalGroupsImported}</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Last sync info */}
+              {holihopeProgress?.lastRunAt && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  <span>Последний запуск: {holihopeProgress.lastRunAt.toLocaleString()}</span>
+                </div>
+              )}
+
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Информация</AlertTitle>
                 <AlertDescription>
-                  Для полного импорта данных из HolyHope перейдите на специальную страницу импорта.
+                  Для полного импорта данных из HolyHope (22 шага) перейдите на специальную страницу импорта.
                 </AlertDescription>
               </Alert>
               

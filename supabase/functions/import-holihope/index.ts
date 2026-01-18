@@ -8,7 +8,8 @@ const corsHeaders = {
 };
 
 const HOLIHOPE_DOMAIN = 'https://okeyenglish.t8s.ru/Api/V2';
-const HOLIHOPE_API_KEY = 'eUhKlOpwAPTjOi8MgkVjms2DBY6jQPFrGPtfa8IyxpIZclH9wKMcTVGyumfvoWuJ';
+// API key is now loaded from Supabase secrets
+const HOLIHOPE_API_KEY = Deno.env.get('HOLIHOPE_API_KEY') || '';
 
 interface ImportProgress {
   step: string;
@@ -18,6 +19,55 @@ interface ImportProgress {
   error?: string;
   hasMore?: boolean;
   nextSkip?: number;
+}
+
+// Helper function to check and handle API rate limits
+async function checkApiRateLimit(supabase: any, response: Response): Promise<{ isLimited: boolean; error?: string }> {
+  if (response.status === 429) {
+    console.error('🚫 HolyHope API rate limit reached (429)');
+    
+    // Set requires_manual_restart flag
+    await supabase
+      .from('holihope_import_progress')
+      .update({ 
+        requires_manual_restart: true,
+        is_running: false,
+        is_paused: false,
+        last_error: 'API rate limit reached (429). Manual restart required.'
+      })
+      .order('updated_at', { ascending: false })
+      .limit(1);
+    
+    return { isLimited: true, error: 'API rate limit reached. Import locked - manual unlock required.' };
+  }
+  
+  return { isLimited: false };
+}
+
+// Helper function to update import progress
+async function updateHolihopeProgress(supabase: any, updates: Record<string, any>): Promise<void> {
+  try {
+    const { data: progress } = await supabase
+      .from('holihope_import_progress')
+      .select('id')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (progress?.id) {
+      await supabase
+        .from('holihope_import_progress')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', progress.id);
+    } else {
+      // Create initial record if none exists
+      await supabase
+        .from('holihope_import_progress')
+        .insert([{ ...updates, updated_at: new Date().toISOString() }]);
+    }
+  } catch (error) {
+    console.error('Error updating holihope progress:', error);
+  }
 }
 
 Deno.serve(async (req) => {
