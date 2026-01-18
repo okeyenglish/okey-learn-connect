@@ -3608,6 +3608,18 @@ Deno.serve(async (req) => {
                   console.log(`  ℹ Empty response (0 units)`);
                 }
                 
+                // Save progress every 20 requests to DB for resume capability
+                if (totalRequests % 20 === 0) {
+                  await updateHolihopeProgress(supabase, {
+                    ed_units_office_index: oi,
+                    ed_units_status_index: si,
+                    ed_units_time_index: ti,
+                    ed_units_total_imported: fetchedCount,
+                    ed_units_last_updated_at: new Date().toISOString(),
+                  });
+                  console.log(`📝 Progress saved to DB at request ${totalRequests}: office=${oi}, status=${si}, time=${ti}`);
+                }
+                
                 // Small delay to avoid overwhelming the API
                 await new Promise(resolve => setTimeout(resolve, 100));
               } catch (err) {
