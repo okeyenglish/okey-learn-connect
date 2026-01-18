@@ -842,7 +842,7 @@ const CRMContent = () => {
   // Они появятся только при поиске или открытии модалов
   const clientChatsWithoutThreads: any[] = [];
 
-  const allChats = [
+  const allChats = useMemo(() => [
     ...systemChats,
     // Только реальные клиентские чаты из threads (без загрузки всех clients)
     ...threads
@@ -889,7 +889,7 @@ const CRMContent = () => {
       }),
     // Клиенты без сообщений не показываются при первой загрузке
     ...clientChatsWithoutThreads
-  ];
+  ], [systemChats, threads, typingByClient, clientChatsWithoutThreads]);
 
   console.log('[CRM] allChats constructed:', {
     total: allChats.length,
@@ -920,11 +920,27 @@ const CRMContent = () => {
   
   // Merge phone search threads into allChats
   const allChatsWithPhoneSearch = useMemo(() => {
-    if (phoneSearchThreads.length === 0) return allChats;
+    console.log('[CRM] allChatsWithPhoneSearch recalc:', {
+      phoneSearchThreadsCount: phoneSearchThreads.length,
+      allChatsCount: allChats.length,
+      phoneSearchClientIds: phoneSearchClientIds.slice(0, 5),
+    });
+    
+    if (phoneSearchThreads.length === 0) {
+      // Even if no threads loaded yet, check if we're waiting for them
+      if (phoneSearchClientIds.length > 0 && phoneThreadsLoading) {
+        console.log('[CRM] Phone threads still loading, returning allChats for now');
+      }
+      return allChats;
+    }
     
     const existingIds = new Set(allChats.map(c => c.id));
     const newChats = phoneSearchThreads
-      .filter(thread => !existingIds.has(thread.client_id))
+      .filter(thread => {
+        const exists = existingIds.has(thread.client_id);
+        console.log(`[CRM] Phone thread ${thread.client_id} (${thread.client_name}): exists=${exists}`);
+        return !exists;
+      })
       .map(thread => {
         let displayAvatar: string | null = null;
         if (thread.last_unread_messenger === 'telegram' && thread.telegram_avatar_url) {
@@ -954,9 +970,9 @@ const CRMContent = () => {
         };
       });
     
-    console.log('[CRM] Adding phone search threads:', newChats.length);
+    console.log('[CRM] Adding phone search threads:', newChats.length, newChats.map(c => ({ id: c.id, name: c.name, phone: c.phone })));
     return [...allChats, ...newChats];
-  }, [allChats, phoneSearchThreads]);
+  }, [allChats, phoneSearchThreads, phoneSearchClientIds, phoneThreadsLoading]);
 
   // Helper to normalize phone for comparison
   const normalizePhoneForSearch = (phone: string | null | undefined) => 
