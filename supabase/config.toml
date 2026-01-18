@@ -52,7 +52,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.whatsapp-get-avatar]
-verify_jwt = true
+verify_jwt = false
 
 [functions.whatsapp-get-contacts]
 verify_jwt = true
