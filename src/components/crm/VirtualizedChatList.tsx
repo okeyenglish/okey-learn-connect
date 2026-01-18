@@ -37,6 +37,7 @@ export const VirtualizedChatList = React.memo(({
   onLinkChat
 }: VirtualizedChatListProps) => {
   const parentRef = useRef<HTMLDivElement>(null);
+  const hoverTimerRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const { prefetch } = usePrefetchMessages();
 
   const virtualizer = useVirtualizer({
@@ -46,10 +47,34 @@ export const VirtualizedChatList = React.memo(({
     overscan: 4,
   });
 
-  // Prefetch messages on hover for instant chat opening
-  const handleMouseEnter = useCallback((chatId: string) => {
-    prefetch(chatId);
+  // Debounced prefetch on hover - only prefetch if hovering for 150ms
+  // Prioritizes unread chats for instant prefetch
+  const handleMouseEnter = useCallback((chatId: string, hasUnread: boolean) => {
+    // Clear any existing timer for this chat
+    const existingTimer = hoverTimerRef.current.get(chatId);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    // Instant prefetch for unread chats, debounced for others
+    const delay = hasUnread ? 0 : 150;
+    
+    const timer = setTimeout(() => {
+      prefetch(chatId);
+      hoverTimerRef.current.delete(chatId);
+    }, delay);
+    
+    hoverTimerRef.current.set(chatId, timer);
   }, [prefetch]);
+
+  const handleMouseLeave = useCallback((chatId: string) => {
+    // Cancel prefetch if user leaves before delay
+    const timer = hoverTimerRef.current.get(chatId);
+    if (timer) {
+      clearTimeout(timer);
+      hoverTimerRef.current.delete(chatId);
+    }
+  }, []);
 
   return (
     <div 
@@ -84,7 +109,8 @@ export const VirtualizedChatList = React.memo(({
                 height: `${virtualRow.size}px`,
                 transform: `translateY(${virtualRow.start}px)`,
               }}
-              onMouseEnter={() => handleMouseEnter(chat.id)}
+              onMouseEnter={() => handleMouseEnter(chat.id, displayUnread)}
+              onMouseLeave={() => handleMouseLeave(chat.id)}
             >
               <div className="h-full">
                 <ChatListItem
