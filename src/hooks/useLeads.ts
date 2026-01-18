@@ -25,6 +25,15 @@ export interface LeadStatus {
   updated_at: string;
 }
 
+export interface HolihopeLeadMetadata {
+  Id?: number;
+  ClientId?: number;
+  [key: string]: any;
+}
+
+// Type that accepts Json from Supabase
+export type HolihopeMetadataJson = HolihopeLeadMetadata | null | undefined;
+
 export interface Lead {
   id: string;
   first_name: string;
@@ -48,6 +57,8 @@ export interface Lead {
   status_id?: string;
   assigned_to?: string;
   converted_to_student_id?: string;
+  external_id?: string;
+  holihope_metadata?: any; // JSON from Supabase, typed as HolihopeLeadMetadata when accessed
   created_at: string;
   updated_at: string;
   lead_source?: LeadSource;

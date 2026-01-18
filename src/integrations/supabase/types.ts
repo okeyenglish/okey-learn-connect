@@ -3721,6 +3721,7 @@ export type Database = {
           external_id: string | null
           group_number: string | null
           group_type: Database["public"]["Enums"]["group_type"]
+          holihope_metadata: Json | null
           id: string
           is_active: boolean
           is_auto_group: boolean | null
@@ -3767,6 +3768,7 @@ export type Database = {
           external_id?: string | null
           group_number?: string | null
           group_type?: Database["public"]["Enums"]["group_type"]
+          holihope_metadata?: Json | null
           id?: string
           is_active?: boolean
           is_auto_group?: boolean | null
@@ -3813,6 +3815,7 @@ export type Database = {
           external_id?: string | null
           group_number?: string | null
           group_type?: Database["public"]["Enums"]["group_type"]
+          holihope_metadata?: Json | null
           id?: string
           is_active?: boolean
           is_auto_group?: boolean | null
