@@ -191,7 +191,7 @@ function mapRpcToThreads(data: any[], startTime: number): ChatThread[] {
   });
 
   const threads: ChatThread[] = filteredData.map((row: any) => ({
-    client_id: row.client_id,
+    client_id: row.clt_id || row.client_id, // clt_id from optimized RPC, client_id fallback
     client_name: row.client_name || '',
     client_phone: row.client_phone || '',
     client_branch: row.client_branch || null,
