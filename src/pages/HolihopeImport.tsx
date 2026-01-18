@@ -745,6 +745,25 @@ export default function HolihopeImport() {
     setIsImporting(true);
     setShouldStopImport(false);
     
+    // Reset stale is_running flag before resuming
+    try {
+      const { data: holihopeProgress } = await supabase
+        .from('holihope_import_progress')
+        .select('id')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (holihopeProgress?.id) {
+        await supabase
+          .from('holihope_import_progress')
+          .update({ ed_units_is_running: false })
+          .eq('id', holihopeProgress.id);
+      }
+    } catch (e) {
+      console.error('Failed to reset is_running flag:', e);
+    }
+    
     toast({
       title: 'Продолжение импорта учебных единиц',
       description: `Возобновление с office=${edUnitsProgress.officeIndex}, status=${edUnitsProgress.statusIndex}, time=${edUnitsProgress.timeIndex}`,
@@ -1167,15 +1186,34 @@ export default function HolihopeImport() {
                 );
               })()}
               
-              {!edUnitsProgress.isRunning && !isImporting && (
-                <Button
-                  onClick={resumeEdUnitsImport}
-                  disabled={isImporting || isClearing}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                >
-                  🔄 Продолжить импорт учебных единиц
-                </Button>
-              )}
+              {(() => {
+                // Detect stale import: is_running=true but last_updated_at is older than 2 minutes
+                const isStale = edUnitsProgress.isRunning && 
+                  edUnitsProgress.lastUpdatedAt &&
+                  (Date.now() - edUnitsProgress.lastUpdatedAt.getTime()) > 2 * 60 * 1000;
+                
+                const currentPosition = 
+                  edUnitsProgress.officeIndex * 5 * 17 + 
+                  edUnitsProgress.statusIndex * 17 + 
+                  edUnitsProgress.timeIndex;
+                const isIncomplete = currentPosition < edUnitsProgress.totalCombinations;
+                
+                // Show button if: stale import OR (not running AND incomplete)
+                const showButton = isStale || (!edUnitsProgress.isRunning && isIncomplete);
+                
+                if (showButton && !isImporting) {
+                  return (
+                    <Button
+                      onClick={resumeEdUnitsImport}
+                      disabled={isImporting || isClearing}
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                    >
+                      🔄 {isStale ? 'Продолжить (импорт завис)' : 'Продолжить импорт учебных единиц'}
+                    </Button>
+                  );
+                }
+                return null;
+              })()}
             </div>
           </CardContent>
         </Card>
