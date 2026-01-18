@@ -371,6 +371,20 @@ async function handleOutgoingMessage(
 
   const { messageText, contentType, fileUrl, fileName, fileType } = extractMessageContent(message);
 
+  // IMPORTANT: Mark all unread messages from this client as read
+  // When manager responds (even from phone), all previous messages should be considered read
+  const { error: markReadError, count: markedCount } = await supabase
+    .from('chat_messages')
+    .update({ is_read: true })
+    .eq('client_id', client.id)
+    .eq('is_read', false);
+
+  if (markReadError) {
+    console.error('Error marking messages as read:', markReadError);
+  } else if (markedCount && markedCount > 0) {
+    console.log(`Marked ${markedCount} messages as read for client:`, client.id);
+  }
+
   // Save outgoing message - message_type is 'manager' for outgoing
   await supabase
     .from('chat_messages')
