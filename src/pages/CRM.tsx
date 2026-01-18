@@ -69,6 +69,7 @@ import { useAllTasks, useCompleteTask, useCancelTask, useUpdateTask } from "@/ho
 import { useRealtimeClients } from "@/hooks/useRealtimeClients";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useOrganization } from "@/hooks/useOrganization";
+import { useOrganizationRealtimeMessages } from "@/hooks/useOrganizationRealtimeMessages";
 import { useManagerBranches } from "@/hooks/useManagerBranches";
 import crmLogo from "@/assets/crm-logo.png";
 import { 
@@ -156,6 +157,10 @@ const CRMContent = () => {
   const { user, profile, role, roles, signOut } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  
+  // Single organization-wide realtime subscription for all chat messages
+  // This replaces per-chat subscriptions, reducing WebSocket connections from N to 1
+  useOrganizationRealtimeMessages();
   
   // Custom hooks for state management
   const modals = useCRMModals();

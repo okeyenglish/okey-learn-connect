@@ -415,46 +415,22 @@ export const ChatArea = ({
     }
   }, [loadingMessages, messages.length, clientId]);
 
-  // Set up real-time message updates - invalidate React Query cache instead of managing state
+  // NOTE: Real-time message updates are handled at CRM level by useOrganizationRealtimeMessages
+  // This reduces WebSocket connections from N (per chat) to 1 (per organization)
+  // We only need to handle scroll-to-bottom for new messages locally
   useEffect(() => {
-    if (!clientId || clientId === '1') return;
+    if (!clientId || !messagesData?.messages) return;
     
-    const channel = supabase
-      .channel(`chat_messages_${clientId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen to all events: INSERT, UPDATE, DELETE
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `client_id=eq.${clientId}`
-        },
-        (payload) => {
-          console.log('[ChatArea] Real-time message event:', payload.eventType, payload);
-          
-          // Invalidate React Query cache to refetch messages
-          queryClient.invalidateQueries({ 
-            queryKey: ['chat-messages-optimized', clientId] 
-          });
-          
-          // For new client messages, also update unread counts
-          if (payload.eventType === 'INSERT') {
-            const newMsg = payload.new as any;
-            if (newMsg.message_type === 'client' || !newMsg.is_outgoing) {
-              queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
-              queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-            }
-            // Scroll to bottom for new messages
-            setTimeout(() => scrollToBottom(true), 100);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [clientId, queryClient]);
+    // Store the message count to detect new messages
+    const currentCount = messagesData.messages.length;
+    const prevCountRef = { current: 0 };
+    
+    // If message count increased, scroll to bottom
+    if (currentCount > prevCountRef.current && prevCountRef.current > 0) {
+      setTimeout(() => scrollToBottom(true), 100);
+    }
+    prevCountRef.current = currentCount;
+  }, [clientId, messagesData?.messages?.length]);
 
   // Check MAX availability when switching to MAX tab with no messages
   useEffect(() => {
