@@ -14,7 +14,9 @@ export const useClientIdsByPhoneSearch = (rawQuery: string) => {
     staleTime: 30_000,
     gcTime: 5 * 60_000,
     queryFn: async () => {
+      console.log(`[useClientIdsByPhoneSearch] Searching for phone: ${normalized}`);
       const orgId = await getCurrentOrganizationId();
+      console.log(`[useClientIdsByPhoneSearch] Organization ID: ${orgId}`);
 
       const { data, error } = await supabase
         .from('client_phone_numbers')
@@ -24,12 +26,17 @@ export const useClientIdsByPhoneSearch = (rawQuery: string) => {
         .ilike('phone', `%${normalized}%`)
         .limit(50);
 
-      if (error) throw error;
+      if (error) {
+        console.error('[useClientIdsByPhoneSearch] Error:', error);
+        throw error;
+      }
 
       const ids = new Set<string>();
       (data || []).forEach((row: any) => {
         if (row?.client_id) ids.add(row.client_id);
       });
+      
+      console.log(`[useClientIdsByPhoneSearch] Found ${ids.size} client IDs:`, Array.from(ids));
       return Array.from(ids);
     },
   });
