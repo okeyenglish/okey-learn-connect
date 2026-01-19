@@ -94,7 +94,10 @@ serve(async (req) => {
         .from('chat_messages')
         .update({ 
           message_text: '[Сообщение удалено]',
-          message_status: 'deleted'
+          message_status: 'deleted',
+          file_url: null,
+          file_name: null,
+          file_type: null,
         })
         .eq('id', messageId)
 
@@ -159,12 +162,16 @@ serve(async (req) => {
       .from('chat_messages')
       .update({ 
         message_text: '[Сообщение удалено]',
-        message_status: 'deleted'
+        message_status: 'deleted',
+        file_url: null,
+        file_name: null,
+        file_type: null,
       })
       .eq('id', messageId)
 
     if (updateError) {
       console.error('Error updating message in database:', updateError)
+      throw updateError
     }
 
     return new Response(JSON.stringify({

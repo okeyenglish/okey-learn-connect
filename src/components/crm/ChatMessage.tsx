@@ -1,4 +1,4 @@
-import { useState, memo, useMemo } from 'react';
+import { useState, useEffect, memo, useMemo } from 'react';
 import { Phone, PhoneCall, Play, FileSpreadsheet, Edit2, Check, X, Forward, Trash2, CheckCheck, MessageCircle, User, CheckCircle, XCircle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +77,13 @@ interface ChatMessageProps {
 const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, whatsappChatId, externalMessageId, showAvatar = true, showName = true, isLastInGroup = true, onForwardMessage, onEnterSelectionMode, onQuoteMessage }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
+
+  // Keep local rendered text in sync with realtime/optimistic updates
+  useEffect(() => {
+    if (!isEditing) {
+      setEditedMessage(message);
+    }
+  }, [message, isEditing]);
 
   const handleSaveEdit = async () => {
     if (editedMessage.trim() === message.trim()) {
@@ -430,7 +437,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                 )}
                 
                 {/* Attached file */}
-                {fileUrl && fileName && fileType && (
+                {message !== '[Сообщение удалено]' && fileUrl && fileName && fileType && (
                   <div className="mt-2">
                     <OptimizedAttachedFile
                       url={fileUrl}
