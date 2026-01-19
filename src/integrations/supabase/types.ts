@@ -2559,6 +2559,7 @@ export type Database = {
           last_error: string | null
           last_run_at: string | null
           last_sync_timestamp: string | null
+          organization_id: string | null
           requires_manual_restart: boolean | null
           start_time: string | null
           total_branches_imported: number | null
@@ -2590,6 +2591,7 @@ export type Database = {
           last_error?: string | null
           last_run_at?: string | null
           last_sync_timestamp?: string | null
+          organization_id?: string | null
           requires_manual_restart?: boolean | null
           start_time?: string | null
           total_branches_imported?: number | null
@@ -2621,6 +2623,7 @@ export type Database = {
           last_error?: string | null
           last_run_at?: string | null
           last_sync_timestamp?: string | null
+          organization_id?: string | null
           requires_manual_restart?: boolean | null
           start_time?: string | null
           total_branches_imported?: number | null
@@ -2630,7 +2633,22 @@ export type Database = {
           total_teachers_imported?: number | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "holihope_import_progress_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "holihope_import_progress_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
+        ]
       }
       homework: {
         Row: {
