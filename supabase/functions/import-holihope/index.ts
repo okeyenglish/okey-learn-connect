@@ -5576,9 +5576,45 @@ Deno.serve(async (req) => {
           );
           
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-          const tests = await response.json();
+          const responseData = await response.json();
           
-          if (!tests || !Array.isArray(tests) || tests.length === 0) {
+          // Log response structure for debugging
+          if (skip === 0) {
+            console.log(`[STEP 16] Raw API response type: ${typeof responseData}, isArray: ${Array.isArray(responseData)}`);
+            console.log(`[STEP 16] Raw response (first 500 chars): ${JSON.stringify(responseData).substring(0, 500)}`);
+          }
+          
+          // Normalize response - API may return array or object with nested array
+          let tests: any[] = [];
+          if (Array.isArray(responseData)) {
+            tests = responseData;
+          } else if (Array.isArray(responseData?.EdUnitTestResults)) {
+            tests = responseData.EdUnitTestResults;
+            if (skip === 0) console.log('[STEP 16] Found tests in responseData.EdUnitTestResults');
+          } else if (Array.isArray(responseData?.Results)) {
+            tests = responseData.Results;
+            if (skip === 0) console.log('[STEP 16] Found tests in responseData.Results');
+          } else if (Array.isArray(responseData?.results)) {
+            tests = responseData.results;
+            if (skip === 0) console.log('[STEP 16] Found tests in responseData.results');
+          } else if (Array.isArray(responseData?.Tests)) {
+            tests = responseData.Tests;
+            if (skip === 0) console.log('[STEP 16] Found tests in responseData.Tests');
+          } else if (Array.isArray(responseData?.tests)) {
+            tests = responseData.tests;
+            if (skip === 0) console.log('[STEP 16] Found tests in responseData.tests');
+          } else if (responseData && typeof responseData === 'object') {
+            // Fallback: find first array in response
+            const keys = Object.keys(responseData);
+            if (skip === 0) console.log('[STEP 16] Response is object with keys:', keys);
+            const firstArrayKey = keys.find((k) => Array.isArray(responseData[k]));
+            if (firstArrayKey) {
+              if (skip === 0) console.log(`[STEP 16] Found array in response field: ${firstArrayKey}`);
+              tests = responseData[firstArrayKey];
+            }
+          }
+          
+          if (!tests || tests.length === 0) {
             allTestsLoaded = true;
             console.log(`[STEP 16] All tests loaded. Total API offset: ${skip}`);
             break;
