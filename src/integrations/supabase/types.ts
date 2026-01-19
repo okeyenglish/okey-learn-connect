@@ -5316,6 +5316,85 @@ export type Database = {
         }
         Relationships: []
       }
+      personal_tests: {
+        Row: {
+          comments: string | null
+          created_at: string
+          external_id: string | null
+          holihope_metadata: Json | null
+          id: string
+          level: string | null
+          max_score: number | null
+          organization_id: string | null
+          passed: boolean | null
+          percentage: number | null
+          score: number | null
+          student_id: string | null
+          subject: string | null
+          test_date: string | null
+          test_name: string
+          updated_at: string
+        }
+        Insert: {
+          comments?: string | null
+          created_at?: string
+          external_id?: string | null
+          holihope_metadata?: Json | null
+          id?: string
+          level?: string | null
+          max_score?: number | null
+          organization_id?: string | null
+          passed?: boolean | null
+          percentage?: number | null
+          score?: number | null
+          student_id?: string | null
+          subject?: string | null
+          test_date?: string | null
+          test_name: string
+          updated_at?: string
+        }
+        Update: {
+          comments?: string | null
+          created_at?: string
+          external_id?: string | null
+          holihope_metadata?: Json | null
+          id?: string
+          level?: string | null
+          max_score?: number | null
+          organization_id?: string | null
+          passed?: boolean | null
+          percentage?: number | null
+          score?: number | null
+          student_id?: string | null
+          subject?: string | null
+          test_date?: string | null
+          test_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personal_tests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personal_tests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "personal_tests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pinned_modals: {
         Row: {
           created_at: string
