@@ -2929,13 +2929,39 @@ Deno.serve(async (req) => {
           throw new Error(`Failed to fetch entrance tests: HTTP ${response.status}`);
         }
         
-        const rawTests = await response.json();
-        console.log(`Raw API response type: ${typeof rawTests}, isArray: ${Array.isArray(rawTests)}`);
-        console.log(`Raw response (first 500 chars): ${JSON.stringify(rawTests).substring(0, 500)}`);
+        const responseData = await response.json();
+        console.log(`Raw API response type: ${typeof responseData}, isArray: ${Array.isArray(responseData)}`);
+        console.log(`Raw response (first 500 chars): ${JSON.stringify(responseData).substring(0, 500)}`);
         
-        if (!Array.isArray(rawTests)) {
-          console.log('GetEntranceTests did not return an array');
-          throw new Error('GetEntranceTests response is not an array');
+        // Normalize response structure - API may return array or object with Tests/tests/etc
+        let rawTests: any[] = [];
+        if (Array.isArray(responseData)) {
+          rawTests = responseData;
+        } else if (Array.isArray(responseData?.Tests)) {
+          rawTests = responseData.Tests;
+          console.log('Found tests in responseData.Tests');
+        } else if (Array.isArray(responseData?.tests)) {
+          rawTests = responseData.tests;
+          console.log('Found tests in responseData.tests');
+        } else if (Array.isArray(responseData?.EntranceTests)) {
+          rawTests = responseData.EntranceTests;
+          console.log('Found tests in responseData.EntranceTests');
+        } else if (Array.isArray(responseData?.entranceTests)) {
+          rawTests = responseData.entranceTests;
+          console.log('Found tests in responseData.entranceTests');
+        } else if (responseData && typeof responseData === 'object') {
+          // Fallback: find first array in response
+          const keys = Object.keys(responseData);
+          console.log('Response is object with keys:', keys);
+          const firstArrayKey = keys.find((k) => Array.isArray(responseData[k]));
+          if (firstArrayKey) {
+            console.log(`Found array in response field: ${firstArrayKey}`);
+            rawTests = responseData[firstArrayKey];
+          }
+        }
+        
+        if (rawTests.length === 0) {
+          console.log('GetEntranceTests: Could not find tests array in response, treating as empty');
         }
         
         console.log(`Fetched ${rawTests.length} entrance tests from Holihope`);
