@@ -615,124 +615,76 @@ export default function HolihopeImport() {
         }
       }
     }
-    // For ed_units, use batch mode with office/status/time indices
+    // For ed_units, use simplified approach - server auto-continues via EdgeRuntime.waitUntil
     else if (step.action === 'import_ed_units') {
-          let totalImported = 0;
-          let totalFetched = 0;
-          let shouldContinueImport = true;
-          let batchParams = { 
-            batch_size: 2, // Reduced: process 2 requests per batch to avoid timeout
-            office_index: 0,
-            status_index: 0,
-            time_index: 0,
-            full_history: true // Import full history without date limits
-          };
+      const batchParams = { 
+        batch_size: 2,
+        office_index: 0,
+        status_index: 0,
+        time_index: 0,
+        full_history: true
+      };
       
-      while (!shouldStopImport && shouldContinueImport) {
-        let retries = 0;
-        const maxRetries = 4; // Increased max retries
-        let batchSuccess = false;
+      try {
+        console.log('Starting ed_units import with auto-continue on server...', batchParams);
+        const result = await executeStep(step, batchParams) as any;
+        console.log('Initial batch result:', result);
         
-        while (retries < maxRetries && !batchSuccess && !shouldStopImport) {
-          try {
-            // Exponential backoff delay
-            const retryDelay = retries > 0 ? Math.min(2000 * Math.pow(2, retries - 1), 16000) : 0;
-            if (retryDelay > 0) {
-              console.log(`Waiting ${retryDelay}ms before retry...`);
-              await new Promise((resolve) => setTimeout(resolve, retryDelay));
-            }
-            
-            console.log(`Executing batch (attempt ${retries + 1}/${maxRetries}) with params:`, batchParams);
-            const result = await executeStep(step, batchParams);
-            console.log('Batch result:', result);
-            
-            if (!result.success) {
-              console.error('Batch failed');
-              retries++;
-              if (retries >= maxRetries) {
-                console.error('Max retries reached, stopping');
-                shouldContinueImport = false;
-                break;
-              }
-              continue;
-            }
-            
-            batchSuccess = true;
-            
-            const progress = result.progress;
-            const stats = result.stats;
-            const nextBatch = result.nextBatch;
-            
-            totalImported += stats?.totalImported || 0;
-            totalFetched += stats?.totalFetched || 0;
-            
-            const hasMore = progress?.hasMore || false;
-            const progressPercent = stats?.progressPercentage || 0;
-            const currentPos = stats?.currentPosition || 0;
-            const totalCombs = stats?.totalCombinations || 1615;
-            
-            console.log(`Batch completed: imported=${stats?.totalImported}, fetched=${stats?.totalFetched}, hasMore=${hasMore}, progress=${progressPercent}%`);
-            
-            setSteps((prev) =>
-              prev.map((s) =>
-                s.id === step.id
-                  ? {
-                      ...s,
-                      count: totalImported,
-                      message: `Обработано ${currentPos}/${totalCombs} комбинаций (${progressPercent}%). Импортировано: ${totalImported} единиц.`,
-                      status: hasMore ? 'in_progress' : 'completed',
-                    }
-                  : s
-              )
-            );
-            
-            if (!hasMore) {
-              toast({
-                title: 'Успешно',
-                description: `${step.name} завершен. Всего импортировано: ${totalImported}`,
-              });
-              console.log('Import completed in single step, exiting loop');
-              shouldContinueImport = false;
-              break;
-            }
-            
-            // Update batch parameters for next iteration
-            if (nextBatch) {
-              batchParams = nextBatch;
-              console.log('Updated batch params for next iteration:', batchParams);
-            } else {
-              console.log('No nextBatch provided, stopping');
-              shouldContinueImport = false;
-              break;
-            }
-            
-            // Small delay between batches
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-          } catch (error) {
-            console.error('Error in batch retry loop:', error);
-            retries++;
-            if (retries >= maxRetries) {
-              toast({
-                title: 'Ошибка в цикле импорта',
-                description: error instanceof Error ? error.message : 'Неизвестная ошибка',
-                variant: 'destructive',
-              });
-              shouldContinueImport = false;
-              break;
-            }
-            console.log(`Retrying in 2 seconds...`);
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-          }
+        if (!result.success) {
+          toast({
+            title: 'Ошибка запуска импорта',
+            description: result.message || 'Не удалось запустить импорт',
+            variant: 'destructive',
+          });
+          setIsImporting(false);
+          setShouldStopImport(false);
+          return;
         }
         
-        if (!batchSuccess) {
-          console.error('Batch failed after all retries, stopping');
-          shouldContinueImport = false;
-          break;
+        const progress = result.progress;
+        const stats = result.stats;
+        const hasMore = progress?.hasMore || false;
+        const progressPercent = stats?.progressPercentage || 0;
+        const currentPos = stats?.currentPosition || 0;
+        const totalCombs = stats?.totalCombinations || 1615;
+        const totalImported = stats?.totalImported || 0;
+        
+        setSteps((prev) =>
+          prev.map((s) =>
+            s.id === step.id
+              ? {
+                  ...s,
+                  count: totalImported,
+                  message: `Обработано ${currentPos}/${totalCombs} комбинаций (${progressPercent}%). Импортировано: ${totalImported} единиц.`,
+                  status: hasMore ? 'in_progress' : 'completed',
+                }
+              : s
+          )
+        );
+        
+        if (hasMore && result.autoContinue) {
+          // Server will auto-continue - switch to polling mode
+          toast({
+            title: 'Импорт запущен',
+            description: 'Импорт продолжается автоматически на сервере. Прогресс обновляется в реальном времени.',
+          });
+          // Speed up polling to see progress updates
+          setPollInterval(3000);
+        } else if (!hasMore) {
+          toast({
+            title: 'Успешно',
+            description: `${step.name} завершен. Всего импортировано: ${totalImported}`,
+          });
         }
+      } catch (error) {
+        console.error('Error starting ed_units import:', error);
+        toast({
+          title: 'Ошибка импорта',
+          description: error instanceof Error ? error.message : 'Неизвестная ошибка',
+          variant: 'destructive',
+        });
       }
-    } 
-    else {
+    } else {
       const result = await executeStep(step);
       if (result.success) {
         toast({
@@ -809,123 +761,84 @@ export default function HolihopeImport() {
       description: `Возобновление с office=${edUnitsProgress.officeIndex}, status=${edUnitsProgress.statusIndex}, time=${edUnitsProgress.timeIndex}`,
     });
     
-    let totalImported = edUnitsProgress.totalImported;
-    let shouldContinueImport = true;
-    let batchParams = { 
+    const batchParams = { 
       batch_size: 2,
       resume: true, // Tell edge function to load progress from DB
       full_history: true
     };
     
-    while (!shouldStopImport && shouldContinueImport) {
-      let retries = 0;
-      const maxRetries = 4;
-      let batchSuccess = false;
+    try {
+      console.log('Resuming ed_units import with auto-continue on server...');
+      const result = await executeStep(step, batchParams) as any;
+      console.log('Resume batch result:', result);
       
-      while (retries < maxRetries && !batchSuccess && !shouldStopImport) {
-        try {
-          const retryDelay = retries > 0 ? Math.min(2000 * Math.pow(2, retries - 1), 16000) : 0;
-          if (retryDelay > 0) {
-            await new Promise((resolve) => setTimeout(resolve, retryDelay));
-          }
-          
-          console.log(`Resuming ed_units import (attempt ${retries + 1}/${maxRetries})`);
-          const result = await executeStep(step, batchParams);
-          
-          if (!result.success) {
-            // Check if this is "already running" response
-            if (result.alreadyRunning) {
-              toast({
-                title: 'Импорт уже выполняется',
-                description: `Другой процесс импорта активен. Последнее обновление ${result.lastUpdatedSecondsAgo || '?'} сек назад.`,
-                variant: 'default',
-              });
-              shouldContinueImport = false;
-              break;
-            }
-            
-            // Handle timeout (504) - import continues on server
-            if (result.timeout) {
-              toast({
-                title: 'Таймаут соединения',
-                description: 'Импорт продолжается на сервере. Прогресс сохраняется автоматически. Обновите страницу через минуту.',
-                variant: 'default',
-              });
-              // Don't stop - wait and retry to reconnect
-              await new Promise((resolve) => setTimeout(resolve, 5000));
-              // Trigger manual poll of progress (pollProgress is in useEffect scope)
-              setPollInterval(3000); // Speed up polling temporarily
-              retries++;
-              continue;
-            }
-            
-            if (result.transient) {
-              console.log('Transient error, will auto-retry...');
-              retries++;
-              continue;
-            }
-            retries++;
-            if (retries >= maxRetries) {
-              shouldContinueImport = false;
-              break;
-            }
-            continue;
-          }
-          
-          batchSuccess = true;
-          
-          const progress = result.progress;
-          const stats = result.stats;
-          const nextBatch = result.nextBatch;
-          
-          totalImported = stats?.totalImported || totalImported;
-          
-          const hasMore = progress?.hasMore || false;
-          const progressPercent = stats?.progressPercentage || 0;
-          const currentPos = stats?.currentPosition || 0;
-          const totalCombs = stats?.totalCombinations || 1615;
-          
-          setSteps((prev) =>
-            prev.map((s) =>
-              s.id === step.id
-                ? {
-                    ...s,
-                    count: totalImported,
-                    message: `Обработано ${currentPos}/${totalCombs} комбинаций (${progressPercent}%). Импортировано: ${totalImported} единиц.`,
-                    status: hasMore ? 'in_progress' : 'completed',
-                  }
-                : s
-            )
-          );
-          
-          if (!hasMore) {
-            toast({
-              title: 'Успешно',
-              description: `Шаг 12 завершен. Всего импортировано: ${totalImported}`,
-            });
-            shouldContinueImport = false;
-            break;
-          }
-          
-          // For next iteration, use resume=true again to load from DB
-          batchParams = { batch_size: 2, resume: true, full_history: true };
-          
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        } catch (error) {
-          console.error('Error in resume loop:', error);
-          retries++;
-          if (retries >= maxRetries) {
-            shouldContinueImport = false;
-            break;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 2000));
+      if (!result.success) {
+        // Check if this is "already running" response
+        if (result.alreadyRunning) {
+          toast({
+            title: 'Импорт уже выполняется',
+            description: `Другой процесс импорта активен. Последнее обновление ${result.lastUpdatedSecondsAgo || '?'} сек назад. Прогресс будет обновляться автоматически.`,
+            variant: 'default',
+          });
+          // Speed up polling to track progress
+          setPollInterval(3000);
+          setIsImporting(false);
+          setShouldStopImport(false);
+          return;
         }
+        
+        toast({
+          title: 'Ошибка возобновления импорта',
+          description: result.message || 'Не удалось возобновить импорт',
+          variant: 'destructive',
+        });
+        setIsImporting(false);
+        setShouldStopImport(false);
+        return;
       }
       
-      if (!batchSuccess) {
-        shouldContinueImport = false;
-        break;
+      const progress = result.progress;
+      const stats = result.stats;
+      const totalImported = stats?.totalImported || edUnitsProgress.totalImported;
+      const hasMore = progress?.hasMore || false;
+      const progressPercent = stats?.progressPercentage || 0;
+      const currentPos = stats?.currentPosition || 0;
+      const totalCombs = stats?.totalCombinations || 1615;
+      
+      setSteps((prev) =>
+        prev.map((s) =>
+          s.id === step.id
+            ? {
+                ...s,
+                count: totalImported,
+                message: `Обработано ${currentPos}/${totalCombs} комбинаций (${progressPercent}%). Импортировано: ${totalImported} единиц.`,
+                status: hasMore ? 'in_progress' : 'completed',
+              }
+            : s
+        )
+      );
+      
+      if (hasMore && result.autoContinue) {
+        // Server will auto-continue - switch to polling mode
+        toast({
+          title: 'Импорт возобновлён',
+          description: 'Импорт продолжается автоматически на сервере. Прогресс обновляется в реальном времени.',
+        });
+        // Speed up polling to see progress updates
+        setPollInterval(3000);
+      } else if (!hasMore) {
+        toast({
+          title: 'Успешно',
+          description: `Шаг 12 завершен. Всего импортировано: ${totalImported}`,
+        });
       }
+    } catch (error) {
+      console.error('Error resuming ed_units import:', error);
+      toast({
+        title: 'Ошибка возобновления',
+        description: error instanceof Error ? error.message : 'Неизвестная ошибка',
+        variant: 'destructive',
+      });
     }
     
     setIsImporting(false);
