@@ -5501,14 +5501,46 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Import: Group Tests
+    // Import: Group Tests (with time budget and auto-continuation)
     if (action === 'import_group_tests') {
-      console.log('=== STEP 16: Importing group tests (optimized) ===');
-      progress.push({ step: 'import_group_tests', status: 'in_progress' });
+      console.log('=== STEP 16: Importing group tests (resilient mode) ===');
+      
+      const TIME_BUDGET_MS = 20_000; // 20 seconds per batch
+      const API_PAGE_SIZE = 10000;   // Max from API documentation
+      const DB_BATCH_SIZE = 500;     // Batch size for upsert
+      const startTime = Date.now();
+      
+      function hasTimeRemaining(): boolean {
+        return (Date.now() - startTime) < TIME_BUDGET_MS;
+      }
+      
+      function getElapsedSeconds(): string {
+        return ((Date.now() - startTime) / 1000).toFixed(1);
+      }
 
       try {
-        // 1. Pre-load all learning_groups into Map for O(1) lookup
-        console.log('Loading all learning_groups...');
+        // 1. Load progress from database
+        const { data: progressData } = await supabase
+          .from('holihope_import_progress')
+          .select('group_tests_skip, group_tests_total_imported, group_tests_is_running')
+          .eq('organization_id', orgId)
+          .single();
+        
+        let skip = progressData?.group_tests_skip || 0;
+        let totalImported = progressData?.group_tests_total_imported || 0;
+        const isResuming = skip > 0;
+        
+        console.log(`[STEP 16] ${isResuming ? 'Resuming' : 'Starting'} import. Skip: ${skip}, Previously imported: ${totalImported}`);
+        
+        // Mark import as running
+        await supabase.from('holihope_import_progress').upsert({
+          organization_id: orgId,
+          group_tests_is_running: true,
+          group_tests_last_updated_at: new Date().toISOString()
+        }, { onConflict: 'organization_id' });
+
+        // 2. Pre-load all learning_groups into Map for O(1) lookup
+        console.log('[STEP 16] Loading learning groups...');
         const { data: allGroups, error: groupsError } = await supabase
           .from('learning_groups')
           .select('id, external_id')
@@ -5524,107 +5556,199 @@ Deno.serve(async (req) => {
             groupMap.set(group.external_id.toString(), group.id);
           }
         }
-        console.log(`Loaded ${groupMap.size} learning groups into lookup map`);
+        console.log(`[STEP 16] Loaded ${groupMap.size} learning groups into lookup map`);
 
-        // 2. Fetch all group tests from API with pagination
-        let skip = 0;
-        const take = 100;
-        let allTests: any[] = [];
+        // 3. Main loading loop with time budget
+        let allTestsLoaded = false;
+        let testsToInsert: any[] = [];
+        let skippedCount = 0;
+        let batchInsertedThisRun = 0;
 
-        console.log('Fetching group tests from Holihope API...');
-        while (true) {
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetEdUnitTestResults?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-          });
+        while (hasTimeRemaining()) {
+          console.log(`[STEP 16] Fetching tests: skip=${skip}, take=${API_PAGE_SIZE}, elapsed=${getElapsedSeconds()}s`);
+          
+          const response = await fetch(
+            `${HOLIHOPE_DOMAIN}/GetEdUnitTestResults?authkey=${HOLIHOPE_API_KEY}&take=${API_PAGE_SIZE}&skip=${skip}`,
+            {
+              method: 'GET',
+              headers: { 'Content-Type': 'application/json' },
+            }
+          );
           
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
           const tests = await response.json();
           
-          if (!tests || tests.length === 0) break;
-          allTests = allTests.concat(tests);
-          
-          skip += take;
-          console.log(`Fetched ${allTests.length} tests so far...`);
-          if (tests.length < take) break;
-        }
-        console.log(`Total tests fetched from API: ${allTests.length}`);
-
-        // 3. Prepare all records for batch insert
-        const testsToInsert: any[] = [];
-        let skippedCount = 0;
-
-        for (const test of allTests) {
-          // API returns EdUnitId (capital letters)
-          const edUnitId = test.EdUnitId?.toString() || test.edUnitId?.toString();
-          const groupId = groupMap.get(edUnitId);
-          
-          if (!groupId) {
-            skippedCount++;
-            continue;
+          if (!tests || !Array.isArray(tests) || tests.length === 0) {
+            allTestsLoaded = true;
+            console.log(`[STEP 16] All tests loaded. Total API offset: ${skip}`);
+            break;
           }
           
-          testsToInsert.push({
-            ed_unit_id: edUnitId,
-            learning_group_id: groupId,
-            test_name: test.TestTypeName || test.testName || 'Без названия',
-            test_date: (test.DateTime || test.testDate || new Date().toISOString()).split('T')[0],
-            subject: test.Subject || test.subject || null,
-            level: test.Level || test.level || null,
-            max_score: test.MaxScore || test.maxScore || null,
-            average_score: test.AverageScore || test.averageScore || null,
-            comments: test.Comments || test.comments || null,
-            organization_id: orgId,
-            external_id: (test.Id || test.id)?.toString(),
-            holihope_metadata: test,
+          console.log(`[STEP 16] Fetched ${tests.length} tests from API`);
+          
+          // Process tests
+          for (const test of tests) {
+            const edUnitId = test.EdUnitId?.toString() || test.edUnitId?.toString();
+            const groupId = groupMap.get(edUnitId);
+            
+            if (!groupId) {
+              skippedCount++;
+              continue;
+            }
+            
+            testsToInsert.push({
+              ed_unit_id: edUnitId,
+              learning_group_id: groupId,
+              test_name: test.TestTypeName || test.testName || 'Без названия',
+              test_date: (test.DateTime || test.testDate || new Date().toISOString()).split('T')[0],
+              subject: test.Subject || test.subject || null,
+              level: test.Level || test.level || null,
+              max_score: test.MaxScore || test.maxScore || null,
+              average_score: test.AverageScore || test.averageScore || null,
+              comments: test.Comments || test.comments || null,
+              organization_id: orgId,
+              external_id: (test.Id || test.id)?.toString(),
+              holihope_metadata: test,
+            });
+          }
+          
+          skip += tests.length;
+          
+          // Insert batch if we have enough records or running low on time
+          if (testsToInsert.length >= DB_BATCH_SIZE || !hasTimeRemaining()) {
+            for (let i = 0; i < testsToInsert.length; i += DB_BATCH_SIZE) {
+              const batch = testsToInsert.slice(i, i + DB_BATCH_SIZE);
+              const { error: upsertError } = await supabase
+                .from('group_tests')
+                .upsert(batch, { onConflict: 'external_id,organization_id' });
+              
+              if (upsertError) {
+                console.error(`[STEP 16] Batch upsert error:`, upsertError.message);
+                // Fallback: insert one by one
+                for (const record of batch) {
+                  const { error: singleError } = await supabase
+                    .from('group_tests')
+                    .upsert(record, { onConflict: 'external_id,organization_id' });
+                  if (!singleError) {
+                    totalImported++;
+                    batchInsertedThisRun++;
+                  }
+                }
+              } else {
+                totalImported += batch.length;
+                batchInsertedThisRun += batch.length;
+              }
+            }
+            testsToInsert = [];
+            
+            // Save progress
+            await supabase.from('holihope_import_progress').update({
+              group_tests_skip: skip,
+              group_tests_total_imported: totalImported,
+              group_tests_last_updated_at: new Date().toISOString()
+            }).eq('organization_id', orgId);
+            
+            console.log(`[STEP 16] Progress saved. Skip: ${skip}, Total imported: ${totalImported}`);
+          }
+          
+          // Check if this was the last page
+          if (tests.length < API_PAGE_SIZE) {
+            allTestsLoaded = true;
+            console.log(`[STEP 16] Last page received (${tests.length} < ${API_PAGE_SIZE})`);
+            break;
+          }
+        }
+        
+        // Insert remaining records
+        if (testsToInsert.length > 0) {
+          console.log(`[STEP 16] Inserting remaining ${testsToInsert.length} records...`);
+          for (let i = 0; i < testsToInsert.length; i += DB_BATCH_SIZE) {
+            const batch = testsToInsert.slice(i, i + DB_BATCH_SIZE);
+            const { error: upsertError } = await supabase
+              .from('group_tests')
+              .upsert(batch, { onConflict: 'external_id,organization_id' });
+            
+            if (!upsertError) {
+              totalImported += batch.length;
+              batchInsertedThisRun += batch.length;
+            }
+          }
+          
+          // Save final progress
+          await supabase.from('holihope_import_progress').update({
+            group_tests_skip: skip,
+            group_tests_total_imported: totalImported,
+            group_tests_last_updated_at: new Date().toISOString()
+          }).eq('organization_id', orgId);
+        }
+
+        // 4. Auto-continuation or completion
+        if (!allTestsLoaded) {
+          console.log(`[STEP 16] Time budget exhausted after ${getElapsedSeconds()}s. Scheduling continuation...`);
+          console.log(`[STEP 16] This run: imported ${batchInsertedThisRun}, skipped ${skippedCount}. Total: ${totalImported}`);
+          
+          // Schedule auto-continuation
+          EdgeRuntime.waitUntil(
+            supabase.functions.invoke('import-holihope', {
+              body: { action: 'import_group_tests', orgId }
+            })
+          );
+          
+          return new Response(JSON.stringify({
+            progress: [{
+              step: 'import_group_tests',
+              status: 'continuing',
+              count: totalImported,
+              thisRun: batchInsertedThisRun,
+              skipped: skippedCount,
+              skip: skip,
+              message: `Continuing... Imported ${totalImported} so far`
+            }]
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        } else {
+          // Completed!
+          console.log(`=== STEP 16 COMPLETE: Imported ${totalImported} group tests (${skippedCount} skipped) ===`);
+          
+          // Reset progress for next run
+          await supabase.from('holihope_import_progress').update({
+            group_tests_is_running: false,
+            group_tests_skip: 0,
+            group_tests_last_updated_at: new Date().toISOString()
+          }).eq('organization_id', orgId);
+          
+          return new Response(JSON.stringify({
+            progress: [{
+              step: 'import_group_tests',
+              status: 'completed',
+              count: totalImported,
+              skipped: skippedCount,
+              message: `Imported ${totalImported} group tests (${skippedCount} skipped)`
+            }]
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
-
-        console.log(`Prepared ${testsToInsert.length} tests for import (${skippedCount} skipped - no matching group)`);
-
-        // 4. Batch upsert (500 records per batch)
-        const BATCH_SIZE = 500;
-        let importedCount = 0;
-        const totalBatches = Math.ceil(testsToInsert.length / BATCH_SIZE);
-
-        for (let i = 0; i < testsToInsert.length; i += BATCH_SIZE) {
-          const batch = testsToInsert.slice(i, i + BATCH_SIZE);
-          const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-          
-          const { error: upsertError } = await supabase
-            .from('group_tests')
-            .upsert(batch, { onConflict: 'external_id,organization_id' });
-          
-          if (upsertError) {
-            console.error(`Batch ${batchNum}/${totalBatches} error:`, upsertError.message);
-            // Fallback: insert one by one
-            for (const record of batch) {
-              const { error: singleError } = await supabase
-                .from('group_tests')
-                .upsert(record, { onConflict: 'external_id,organization_id' });
-              if (!singleError) importedCount++;
-            }
-          } else {
-            importedCount += batch.length;
-            console.log(`Batch ${batchNum}/${totalBatches} completed (${importedCount}/${testsToInsert.length})`);
-          }
-        }
-
-        console.log(`=== STEP 16 COMPLETE: Imported ${importedCount} group tests ===`);
-        
-        progress[0].status = 'completed';
-        progress[0].count = importedCount;
-        progress[0].skipped = skippedCount;
-        progress[0].message = `Imported ${importedCount} group tests (${skippedCount} skipped)`;
       } catch (error) {
-        console.error('Error importing group tests:', error);
-        progress[0].status = 'error';
-        progress[0].error = error.message;
+        console.error('[STEP 16] Error importing group tests:', error);
+        
+        // Mark as not running on error
+        await supabase.from('holihope_import_progress').update({
+          group_tests_is_running: false,
+          group_tests_last_updated_at: new Date().toISOString()
+        }).eq('organization_id', orgId);
+        
+        return new Response(JSON.stringify({
+          progress: [{
+            step: 'import_group_tests',
+            status: 'error',
+            error: error.message
+          }]
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
       }
-
-      return new Response(JSON.stringify({ progress }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
     }
 
     // Preview: Lesson Plans
