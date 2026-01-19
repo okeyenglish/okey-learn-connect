@@ -123,7 +123,7 @@ export const PaymentTerminalsSettings = () => {
                 Добавить терминал
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="z-[100]">
               <DialogHeader>
                 <DialogTitle>
                   {editingTerminal ? 'Редактировать терминал' : 'Добавить терминал'}
