@@ -2134,6 +2134,87 @@ export type Database = {
           },
         ]
       }
+      entrance_tests: {
+        Row: {
+          assigned_level: string | null
+          comments: string | null
+          created_at: string | null
+          external_id: string | null
+          holihope_metadata: Json | null
+          id: string
+          lead_id: string | null
+          organization_id: string | null
+          student_id: string | null
+          teacher_id: string | null
+          test_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_level?: string | null
+          comments?: string | null
+          created_at?: string | null
+          external_id?: string | null
+          holihope_metadata?: Json | null
+          id?: string
+          lead_id?: string | null
+          organization_id?: string | null
+          student_id?: string | null
+          teacher_id?: string | null
+          test_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_level?: string | null
+          comments?: string | null
+          created_at?: string | null
+          external_id?: string | null
+          holihope_metadata?: Json | null
+          id?: string
+          lead_id?: string | null
+          organization_id?: string | null
+          student_id?: string | null
+          teacher_id?: string | null
+          test_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entrance_tests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entrance_tests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "entrance_tests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entrance_tests_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entrance_tests_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers_with_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_bus: {
         Row: {
           aggregate_id: string
