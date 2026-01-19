@@ -4627,7 +4627,10 @@ Deno.serve(async (req) => {
         console.log(`Prepared ${groupStudentsToInsert.length} group links and ${individualLessonsToUpdate.length} individual lesson updates`);
         console.log(`Skip reasons:`, skippedReasons);
         
-        // Batch insert group_students
+        // Track failed records for reporting
+        const failedRecords: Array<{ type: string; id: string; error: string }> = [];
+        
+        // Batch insert group_students with fallback to individual inserts
         if (groupStudentsToInsert.length > 0) {
           console.log(`Inserting ${groupStudentsToInsert.length} group-student links in batches...`);
           for (let i = 0; i < groupStudentsToInsert.length; i += 100) {
@@ -4638,6 +4641,32 @@ Deno.serve(async (req) => {
             
             if (error) {
               console.error(`Error inserting group_students batch ${i}-${i + batch.length}:`, error);
+              console.log(`⚠️ Falling back to individual inserts for failed batch...`);
+              
+              // Fallback: try inserting records one by one
+              for (const record of batch) {
+                try {
+                  const { error: individualError } = await supabase
+                    .from('group_students')
+                    .upsert(record, { onConflict: 'group_id,student_id', ignoreDuplicates: false });
+                  
+                  if (individualError) {
+                    console.error(`  Failed record (group=${record.group_id}, student=${record.student_id}):`, individualError.message);
+                    failedRecords.push({ 
+                      type: 'group_student', 
+                      id: `${record.group_id}:${record.student_id}`, 
+                      error: individualError.message 
+                    });
+                  }
+                } catch (e) {
+                  console.error(`  Exception for record:`, e.message);
+                  failedRecords.push({ 
+                    type: 'group_student', 
+                    id: `${record.group_id}:${record.student_id}`, 
+                    error: e.message 
+                  });
+                }
+              }
             } else {
               console.log(`Inserted group_students batch ${i}-${i + batch.length}`);
             }
@@ -4664,58 +4693,104 @@ Deno.serve(async (req) => {
             
             if (error) {
               console.error(`Error updating individual_lessons batch ${i}-${i + batch.length}:`, error);
+              console.log(`⚠️ Falling back to individual updates for failed batch...`);
+              
+              // Fallback: try updating records one by one
+              for (const record of batch) {
+                try {
+                  const { error: individualError } = await supabase
+                    .from('individual_lessons')
+                    .upsert(record, { onConflict: 'id', ignoreDuplicates: false });
+                  
+                  if (individualError) {
+                    console.error(`  Failed record (id=${record.id}):`, individualError.message);
+                    failedRecords.push({ 
+                      type: 'individual_lesson', 
+                      id: record.id, 
+                      error: individualError.message 
+                    });
+                  }
+                } catch (e) {
+                  console.error(`  Exception for record:`, e.message);
+                  failedRecords.push({ 
+                    type: 'individual_lesson', 
+                    id: record.id, 
+                    error: e.message 
+                  });
+                }
+              }
             } else {
               console.log(`Updated individual_lessons batch ${i}-${i + batch.length}`);
             }
           }
         }
         
-        progress[0].status = 'completed';
+        // Set status based on whether there were failures
+        if (failedRecords.length > 0) {
+          progress[0].status = 'partial_error';
+          progress[0].failedCount = failedRecords.length;
+          progress[0].failedSample = failedRecords.slice(0, 10); // First 10 for diagnostics
+          console.warn(`⚠️ Completed with ${failedRecords.length} failed records`);
+        } else {
+          progress[0].status = 'completed';
+        }
+        
         progress[0].count = groupLinksCount + individualLinksCount;
         progress[0].message = `Linked ${groupLinksCount} students to groups, ${individualLinksCount} to individual lessons (skipped ${skippedCount}: no students=${skippedReasons.noStudentsInResponse}, student not found=${skippedReasons.studentNotFound}, API errors=${skippedReasons.apiError})`;
+        
+        if (failedRecords.length > 0) {
+          progress[0].message += ` | ⚠️ ${failedRecords.length} failed records`;
+        }
+        
         // Check if there are more units to process
         const totalProcessed = (allGroups?.length || 0) + (allIndividualLessons?.length || 0);
         progress[0].hasMore = totalProcessed >= take; // If we got full batch, likely more to process
         progress[0].nextSkip = skipParam + take;
         
-        // Auto-continue if more data exists
-        if (progress[0].hasMore && body.auto_continue !== false) {
-          console.log(`🔄 Auto-continuing to next batch (skip=${progress[0].nextSkip})...`);
-          
-          // Use waitUntil to trigger next batch in background
-          EdgeRuntime.waitUntil((async () => {
-            try {
-              // Small delay to avoid rate limiting
-              await new Promise(resolve => setTimeout(resolve, 1000));
-              
-              console.log(`Invoking next batch with skip=${progress[0].nextSkip}`);
-              const { data, error } = await supabase.functions.invoke('import-holihope', {
-                body: {
-                  action: 'import_ed_unit_students',
-                  skip: progress[0].nextSkip,
-                  take,
-                  batch_mode: true,
-                  auto_continue: true,
-                  organization_id: orgId
-                }
-              });
-              
-              if (error) {
-                console.error('Error invoking next batch:', error);
-              } else {
-                console.log('✅ Next batch invoked successfully:', data);
-              }
-            } catch (err) {
-              console.error('Failed to invoke next batch:', err);
-            }
-          })());
-          
-          progress[0].message += ` | 🔄 Auto-continuing to next batch...`;
-        }
       } catch (error) {
         console.error('Error importing ed unit students:', error);
         progress[0].status = 'error';
         progress[0].error = error.message;
+        
+        // Even on error, try to calculate hasMore for potential retry
+        progress[0].hasMore = true; // Assume there's more to try
+        progress[0].nextSkip = skipParam + take;
+      }
+      
+      // AUTO-CONTINUE: Always try to continue, even after partial errors
+      // This is OUTSIDE the try-catch to ensure continuation even on errors
+      if (progress[0].hasMore && body.auto_continue !== false) {
+        console.log(`🔄 Auto-continuing to next batch (skip=${progress[0].nextSkip})...`);
+        
+        // Use waitUntil to trigger next batch in background
+        EdgeRuntime.waitUntil((async () => {
+          try {
+            // Small delay to avoid rate limiting
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            console.log(`Invoking next batch with skip=${progress[0].nextSkip}`);
+            const { data, error } = await supabase.functions.invoke('import-holihope', {
+              body: {
+                action: 'import_ed_unit_students',
+                skip: progress[0].nextSkip,
+                take,
+                batch_mode: true,
+                auto_continue: true,
+                organization_id: orgId
+              }
+            });
+            
+            if (error) {
+              console.error('Error invoking next batch:', error);
+            } else {
+              console.log('✅ Next batch invoked successfully:', data);
+            }
+          } catch (err) {
+            console.error('Failed to invoke next batch:', err);
+          }
+        })());
+        
+        progress[0].message += ` | 🔄 Auto-continuing to next batch...`;
       }
 
       return new Response(JSON.stringify({ progress }), {
