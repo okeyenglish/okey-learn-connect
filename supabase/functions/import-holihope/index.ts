@@ -5274,14 +5274,49 @@ Deno.serve(async (req) => {
         let allTests = [];
 
         while (true) {
-          const response = await fetch(`${HOLIHOPE_DOMAIN}/GetPersonalTestResults?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
+          const url = `${HOLIHOPE_DOMAIN}/GetPersonalTestResults?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`;
+          console.log(`Fetching personal tests: skip=${skip}, take=${take}`);
+          
+          const response = await fetch(url, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
           });
           
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-          const tests = await response.json();
+          if (!response.ok) {
+            console.error(`Personal tests API error: ${response.status} ${response.statusText}`);
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
           
+          const responseData = await response.json();
+          console.log(`Personal tests API response type: ${typeof responseData}, isArray: ${Array.isArray(responseData)}`);
+          
+          // Normalize response - API may return array or object with nested array
+          let tests: any[] = [];
+          if (Array.isArray(responseData)) {
+            tests = responseData;
+          } else if (Array.isArray(responseData?.PersonalTests)) {
+            tests = responseData.PersonalTests;
+            console.log('Found tests in PersonalTests field');
+          } else if (Array.isArray(responseData?.personalTests)) {
+            tests = responseData.personalTests;
+            console.log('Found tests in personalTests field');
+          } else if (Array.isArray(responseData?.Tests)) {
+            tests = responseData.Tests;
+            console.log('Found tests in Tests field');
+          } else if (Array.isArray(responseData?.tests)) {
+            tests = responseData.tests;
+            console.log('Found tests in tests field');
+          } else if (responseData && typeof responseData === 'object') {
+            const keys = Object.keys(responseData);
+            console.log(`Response keys: ${keys.join(', ')}`);
+            const firstArrayKey = keys.find((k) => Array.isArray(responseData[k]));
+            if (firstArrayKey) {
+              tests = responseData[firstArrayKey];
+              console.log(`Found tests in ${firstArrayKey} field`);
+            }
+          }
+          
+          console.log(`Fetched ${tests.length} personal tests (skip=${skip})`);
           if (!tests || tests.length === 0) break;
           allTests = allTests.concat(tests);
           
@@ -5289,15 +5324,29 @@ Deno.serve(async (req) => {
           if (tests.length < take) break;
         }
         
+        console.log(`Total personal tests fetched: ${allTests.length}`);
+        
         let importedCount = 0;
         for (const test of allTests) {
-          const { data: student } = await supabase.from('students').select('id').eq('external_id', test.studentId?.toString()).single();
-          if (!student) continue;
+          // API uses StudentClientId according to docs
+          const studentClientId = test.studentClientId || test.StudentClientId || 
+                                  test.studentId || test.StudentId;
+          
+          const { data: student } = await supabase.from('students')
+            .select('id')
+            .eq('external_id', studentClientId?.toString())
+            .eq('organization_id', orgId)
+            .single();
+          
+          if (!student) {
+            console.log(`Student not found for external_id: ${studentClientId}`);
+            continue;
+          }
           
           await supabase.from('personal_tests').upsert({
             student_id: student.id,
-            test_name: test.testName || test.TestName || 'Без названия',
-            test_date: test.testDate || test.TestDate || new Date().toISOString().split('T')[0],
+            test_name: test.testName || test.TestName || test.name || test.Name || 'Без названия',
+            test_date: test.testDate || test.TestDate || test.date || test.Date || new Date().toISOString().split('T')[0],
             subject: test.subject || test.Subject || null,
             level: test.level || test.Level || null,
             score: test.score || test.Score || null,
@@ -5306,12 +5355,13 @@ Deno.serve(async (req) => {
             passed: test.passed ?? test.Passed ?? false,
             comments: test.comments || test.Comments || null,
             organization_id: orgId,
-            external_id: test.id?.toString() || test.Id?.toString(),
+            external_id: (test.id || test.Id)?.toString(),
             holihope_metadata: test,
           }, { onConflict: 'external_id,organization_id' });
           importedCount++;
         }
         
+        console.log(`Imported ${importedCount} personal tests successfully`);
         progress[0].status = 'completed';
         progress[0].count = importedCount;
         progress[0].message = `Imported ${importedCount} personal tests`;
