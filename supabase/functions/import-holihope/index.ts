@@ -4570,10 +4570,17 @@ Deno.serve(async (req) => {
               
               const rawStatus = (studentData.Status ?? studentData.status ?? '').toString();
               // Map Holihope status to our enum (active, paused, completed, dropped)
-              const status = /reserve|резерв/i.test(rawStatus) ? 'paused' 
+              const VALID_GROUP_STUDENT_STATUSES = ['active', 'paused', 'completed', 'dropped'];
+              let mappedStatus = /reserve|резерв/i.test(rawStatus) ? 'paused' 
                           : /stopped|отчисл|выбыл|прекрат/i.test(rawStatus) ? 'dropped' 
                           : /завершен|completed/i.test(rawStatus) ? 'completed'
                           : 'active';
+              
+              // Final validation - ensure status is valid enum value
+              const status = VALID_GROUP_STUDENT_STATUSES.includes(mappedStatus) ? mappedStatus : 'active';
+              if (status !== mappedStatus) {
+                console.warn(`  ⚠️ Invalid status "${mappedStatus}" for student ${studentId}, using "active"`);
+              }
               
               const enrollmentDate = studentData.BeginDate ?? studentData.beginDate ?? new Date().toISOString().split('T')[0];
               const exitDate = studentData.EndDate ?? studentData.endDate ?? null;
