@@ -22,15 +22,22 @@ serve(async (req) => {
 
     console.log('OnlinePBX call request:', { to_number, from_user });
 
-    // Get user profile for operator information
+    // Get user profile for operator information including extension number
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
-      .select('first_name, last_name, branch')
+      .select('first_name, last_name, branch, extension_number')
       .eq('id', from_user)
       .single();
 
     if (profileError || !profile) {
       throw new Error('User profile not found');
+    }
+
+    // Get operator extension from user profile
+    const operatorExtension = profile.extension_number || '101';
+    
+    if (!profile.extension_number) {
+      console.warn('User has no extension_number configured, using default 101');
     }
 
     // Get client ID from phone number
@@ -64,14 +71,6 @@ serve(async (req) => {
     // Get OnlinePBX credentials
     const onlinePbxKeyId = Deno.env.get('ONLINEPBX_KEY_ID');
     const onlinePbxKey = Deno.env.get('ONLINEPBX_KEY');
-
-    if (!onlinePbxKeyId || !onlinePbxKey) {
-      throw new Error('OnlinePBX credentials not configured');
-    }
-
-    // Determine operator number based on user (simplified mapping)
-    // In real implementation, you would have a proper mapping of users to extension numbers
-    const operatorExtension = '101'; // Default extension, should be mapped from user profile
 
     // Make call via OnlinePBX API
     const onlinePbxUrl = 'https://api.onlinepbx.ru/pbx11034.onpbx.ru/call/now.json';

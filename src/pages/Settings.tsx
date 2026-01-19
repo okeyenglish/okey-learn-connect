@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Building2, MapPin, Palette, CreditCard, Users, Banknote } from 'lucide-react';
+import { ArrowLeft, Building2, MapPin, Palette, CreditCard, Users, Banknote, Phone } from 'lucide-react';
+import { SipSettings } from '@/components/SipSettings';
 import { OrganizationSettings } from '@/components/settings/OrganizationSettings';
 import { BranchesSettings } from '@/components/settings/BranchesSettings';
 import { BrandingSettings } from '@/components/settings/BrandingSettings';
@@ -48,7 +49,7 @@ const Settings = () => {
       {/* Content */}
       <main className="container max-w-7xl mx-auto p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
             <TabsTrigger value="organization" className="gap-2">
               <Building2 className="h-4 w-4" />
               <span className="hidden sm:inline">Организация</span>
@@ -64,6 +65,10 @@ const Settings = () => {
             <TabsTrigger value="payments" className="gap-2">
               <Banknote className="h-4 w-4" />
               <span className="hidden sm:inline">Онлайн-оплаты</span>
+            </TabsTrigger>
+            <TabsTrigger value="telephony" className="gap-2">
+              <Phone className="h-4 w-4" />
+              <span className="hidden sm:inline">Телефония</span>
             </TabsTrigger>
             <TabsTrigger value="subscription" className="gap-2">
               <CreditCard className="h-4 w-4" />
@@ -119,6 +124,20 @@ const Settings = () => {
 
           <TabsContent value="payments" className="space-y-4">
             <PaymentTerminalsSettings />
+          </TabsContent>
+
+          <TabsContent value="telephony" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Настройки телефонии (SIP/OnlinePBX)</CardTitle>
+                <CardDescription>
+                  Настройте ваш внутренний номер для звонков через OnlinePBX
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <SipSettings />
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="subscription" className="space-y-4">
