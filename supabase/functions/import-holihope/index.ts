@@ -3003,7 +3003,7 @@ Deno.serve(async (req) => {
           
           const { error } = await supabase
             .from('entrance_tests')
-            .upsert(testsToInsert, { onConflict: 'external_id' });
+            .upsert(testsToInsert, { onConflict: 'external_id,organization_id' });
           
           if (error) {
             console.error(`Error inserting batch starting at ${i}:`, error);
@@ -5296,18 +5296,19 @@ Deno.serve(async (req) => {
           
           await supabase.from('personal_tests').upsert({
             student_id: student.id,
-            test_name: test.testName || 'Без названия',
-            test_date: test.testDate || new Date().toISOString().split('T')[0],
-            subject: test.subject || null,
-            level: test.level || null,
-            score: test.score || null,
-            max_score: test.maxScore || null,
-            percentage: test.percentage || null,
-            passed: test.passed || false,
-            comments: test.comments || null,
+            test_name: test.testName || test.TestName || 'Без названия',
+            test_date: test.testDate || test.TestDate || new Date().toISOString().split('T')[0],
+            subject: test.subject || test.Subject || null,
+            level: test.level || test.Level || null,
+            score: test.score || test.Score || null,
+            max_score: test.maxScore || test.MaxScore || null,
+            percentage: test.percentage || test.Percentage || null,
+            passed: test.passed ?? test.Passed ?? false,
+            comments: test.comments || test.Comments || null,
             organization_id: orgId,
-            external_id: test.id?.toString(),
-          }, { onConflict: 'external_id' });
+            external_id: test.id?.toString() || test.Id?.toString(),
+            holihope_metadata: test,
+          }, { onConflict: 'external_id,organization_id' });
           importedCount++;
         }
         
