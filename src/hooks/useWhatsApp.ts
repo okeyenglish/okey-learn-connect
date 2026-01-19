@@ -124,7 +124,7 @@ export const useWhatsApp = () => {
   ) => {
     return sendMessage({ 
       clientId, 
-      message: caption || '[Файл]', 
+      message: caption || '', 
       phoneNumber, 
       fileUrl, 
       fileName 
