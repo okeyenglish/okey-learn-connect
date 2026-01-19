@@ -27,16 +27,20 @@ export const FamilyCardWrapper = ({ clientId, onOpenChat }: FamilyCardWrapperPro
         setLoading(true);
         setError(null);
 
-        // Find the family group for this client
+        // Find family groups for this client, prioritizing where they are primary contact
         const { data, error } = await supabase
           .from('family_members')
-          .select('family_group_id')
+          .select('family_group_id, is_primary_contact')
           .eq('client_id', clientId)
-          .maybeSingle();
+          .order('is_primary_contact', { ascending: false });
 
         if (error) throw error;
 
-        setFamilyGroupId(data?.family_group_id ?? null);
+        // Take the first one where client is primary, or just the first one if none
+        const primaryGroup = data?.find(fm => fm.is_primary_contact);
+        const selectedGroup = primaryGroup || data?.[0];
+        
+        setFamilyGroupId(selectedGroup?.family_group_id ?? null);
       } catch (err) {
         console.error('Error fetching family group ID:', err);
         setError('Ошибка загрузки данных семьи');
