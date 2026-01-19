@@ -2710,6 +2710,10 @@ export type Database = {
           ed_units_total_combinations: number | null
           ed_units_total_imported: number | null
           errors: Json | null
+          group_tests_is_running: boolean | null
+          group_tests_last_updated_at: string | null
+          group_tests_skip: number | null
+          group_tests_total_imported: number | null
           id: string
           is_paused: boolean | null
           is_running: boolean | null
@@ -2742,6 +2746,10 @@ export type Database = {
           ed_units_total_combinations?: number | null
           ed_units_total_imported?: number | null
           errors?: Json | null
+          group_tests_is_running?: boolean | null
+          group_tests_last_updated_at?: string | null
+          group_tests_skip?: number | null
+          group_tests_total_imported?: number | null
           id?: string
           is_paused?: boolean | null
           is_running?: boolean | null
@@ -2774,6 +2782,10 @@ export type Database = {
           ed_units_total_combinations?: number | null
           ed_units_total_imported?: number | null
           errors?: Json | null
+          group_tests_is_running?: boolean | null
+          group_tests_last_updated_at?: string | null
+          group_tests_skip?: number | null
+          group_tests_total_imported?: number | null
           id?: string
           is_paused?: boolean | null
           is_running?: boolean | null
