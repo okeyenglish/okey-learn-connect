@@ -18,7 +18,8 @@ import {
   Image,
   Bot,
   Route,
-  MessagesSquare
+  MessagesSquare,
+  Banknote
 } from "lucide-react";
 import {
   Sidebar,
@@ -50,6 +51,7 @@ const adminItems = [
   { title: "Журнал аудита", id: "audit", icon: History },
   { title: "Pending платежи", id: "pending-payments", icon: Clock },
   { title: "Компенсация платежей", id: "compensation", icon: RotateCcw },
+  { title: "Онлайн-оплаты", id: "payment-terminals", icon: Banknote },
   { title: "SLA мониторинг", id: "sla-monitoring", icon: Activity },
   { title: "Event Bus", id: "event-bus", icon: Zap },
   { title: "AI Settings", id: "ai-settings", icon: Zap },

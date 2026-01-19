@@ -23,6 +23,7 @@ import { BranchPhotosManager } from "./BranchPhotosManager";
 import { RoutingRulesSettings } from "./RoutingRulesSettings";
 import { MessengersSettings } from "./MessengersSettings";
 import { SyncDashboard } from "./SyncDashboard";
+import { PaymentTerminalsSettings } from "@/components/settings/PaymentTerminalsSettings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -81,6 +82,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <RoutingRulesSettings />;
       case "sync":
         return <SyncDashboard />;
+      case "payment-terminals":
+        return <PaymentTerminalsSettings />;
       case "users":
         return <UserPermissionsManager />;
       case "settings":
@@ -224,6 +227,14 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle>Synchronization</CardTitle>
                   <CardDescription>Data sync and integration</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              {/* Онлайн-оплаты */}
+              <Card className="cursor-pointer hover:bg-muted/50 border-green-200" onClick={() => setCurrentSection("payment-terminals")}>
+                <CardHeader>
+                  <CardTitle className="text-green-600">💳 Онлайн-оплаты</CardTitle>
+                  <CardDescription>Настройка терминалов T-Bank для приёма платежей</CardDescription>
                 </CardHeader>
               </Card>
             </div>
