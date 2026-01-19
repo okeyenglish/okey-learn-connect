@@ -5550,12 +5550,20 @@ Deno.serve(async (req) => {
           throw new Error(`Failed to load learning_groups: ${groupsError.message}`);
         }
 
-        const groupMap = new Map<string, string>();
-        for (const group of allGroups || []) {
-          if (group.external_id) {
-            groupMap.set(group.external_id.toString(), group.id);
-          }
+    // Map: EdUnitId -> group UUID (берём первую найденную группу для каждого EdUnitId)
+    const groupMap = new Map<string, string>();
+    for (const group of allGroups || []) {
+      if (group.external_id) {
+        // external_id имеет формат: "{EdUnitId}_{startDate}_{endDate}"
+        // Извлекаем только EdUnitId (первую часть до _)
+        const edUnitId = group.external_id.split('_')[0];
+        // Если для этого EdUnitId ещё нет записи - добавляем
+        if (!groupMap.has(edUnitId)) {
+          groupMap.set(edUnitId, group.id);
         }
+      }
+    }
+    console.log(`[STEP 16] Loaded ${groupMap.size} unique EdUnitIds into lookup map`);
         console.log(`[STEP 16] Loaded ${groupMap.size} learning groups into lookup map`);
 
         // 3. Main loading loop with time budget
