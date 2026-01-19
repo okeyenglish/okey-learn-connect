@@ -81,34 +81,8 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Manual auth check (since verify_jwt is disabled to allow CORS preflight)
-    const supabaseAuth = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: {
-            Authorization: req.headers.get('Authorization') ?? '',
-          },
-        },
-      }
-    );
-
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 401,
-      });
-    }
-
-    // Resolve organization from the authenticated user's profile
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('organization_id, branch')
-      .eq('id', user.id)
-      .single();
-    const orgId = profile?.organization_id || null;
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
     // Parse request body with error handling and log diagnostics
     let body: any = {};
@@ -145,6 +119,57 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       });
+    }
+
+    // Internal auto-continue calls: authenticated by service role key
+    // NOTE: We only allow this for import_ed_units to prevent bypassing user auth for other actions.
+    const isInternalAutoContinue =
+      action === 'import_ed_units' &&
+      body?.auto_continue === true &&
+      authHeader === `Bearer ${serviceRoleKey}`;
+
+    let user: any = null;
+    let orgId: string | null = null;
+
+    if (isInternalAutoContinue) {
+      orgId = body.organization_id ?? null;
+      if (!orgId) {
+        return new Response(JSON.stringify({ error: 'Missing organization_id for auto_continue request' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        });
+      }
+      console.log(`✅ Internal auto_continue authenticated via service role. orgId=${orgId}`);
+    } else {
+      // Manual auth check (since verify_jwt is disabled to allow CORS preflight)
+      const supabaseAuth = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        {
+          global: {
+            headers: {
+              Authorization: authHeader,
+            },
+          },
+        }
+      );
+
+      const { data: { user: authedUser }, error: authError } = await supabaseAuth.auth.getUser();
+      if (authError || !authedUser) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401,
+        });
+      }
+      user = authedUser;
+
+      // Resolve organization from the authenticated user's profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id, branch')
+        .eq('id', user.id)
+        .single();
+      orgId = profile?.organization_id || null;
     }
     
     const progress: ImportProgress[] = [];
@@ -4260,6 +4285,7 @@ Deno.serve(async (req) => {
                   time_index: nextTimeIndex,
                   batch_size: batchSize,
                   full_history: fullHistory,
+                  organization_id: orgId,
                   auto_continue: true
                 })
               });
