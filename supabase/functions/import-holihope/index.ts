@@ -4391,8 +4391,13 @@ Deno.serve(async (req) => {
       progress.push({ step: 'import_ed_unit_students', status: 'in_progress' });
 
       try {
+        // TIME BUDGET: Exit loop before Edge Function timeout (25-30s)
+        const startTime = Date.now();
+        const TIME_BUDGET_MS = 20000; // 20 seconds - leave buffer for saving progress
+        let timeBudgetExceeded = false;
+        
         const batchMode = body.batch_mode === true;
-        const take = body.take ? Number(body.take) : 100; // Process 100 units per batch
+        const take = body.take ? Number(body.take) : 30; // Reduced from 100 to 30 for reliability
         
         // Check if we should resume from saved progress
         let skipParam = body.skip || 0;
@@ -4403,8 +4408,7 @@ Deno.serve(async (req) => {
           const { data: savedProgress } = await supabase
             .from('holihope_import_progress')
             .select('ed_unit_students_skip, ed_unit_students_total_imported, ed_unit_students_is_running')
-            .order('updated_at', { ascending: false })
-            .limit(1)
+            .eq('organization_id', orgId)
             .maybeSingle();
           
           if (savedProgress && savedProgress.ed_unit_students_skip > 0) {
@@ -4414,6 +4418,8 @@ Deno.serve(async (req) => {
           }
         }
         
+        console.log(`⏱️ Time budget: ${TIME_BUDGET_MS}ms, take=${take}, skip=${skipParam}`);
+        
         // Mark as running and update progress
         await supabase
           .from('holihope_import_progress')
@@ -4421,8 +4427,7 @@ Deno.serve(async (req) => {
             ed_unit_students_is_running: true,
             ed_unit_students_last_updated_at: new Date().toISOString()
           })
-          .order('updated_at', { ascending: false })
-          .limit(1);
+          .eq('organization_id', orgId);
 
         // Fetch educational units from DB (both groups and individual lessons) with external_id
         console.log(`Fetching educational units from DB (skip=${skipParam}, take=${take})...`);
@@ -4506,9 +4511,18 @@ Deno.serve(async (req) => {
         const individualLessonsToUpdate = [];
         
         console.log('Processing educational units...');
+        let processedEdUnits = 0;
         for (const edUnit of edUnits) {
+          // TIME BUDGET CHECK - exit before timeout to save progress
+          const elapsedMs = Date.now() - startTime;
+          if (elapsedMs > TIME_BUDGET_MS) {
+            console.log(`⏱️ Time budget exceeded (${elapsedMs}ms > ${TIME_BUDGET_MS}ms) after ${processedEdUnits}/${edUnits.length} edUnits`);
+            timeBudgetExceeded = true;
+            break;
+          }
+          
           const edUnitExternalId = edUnit.external_id;
-          console.log(`\nProcessing ${edUnit.type} with external_id=${edUnitExternalId}...`);
+          console.log(`\nProcessing ${edUnit.type} with external_id=${edUnitExternalId} (${processedEdUnits + 1}/${edUnits.length}, elapsed=${elapsedMs}ms)...`);
           
           try {
             // Make API request to GetEdUnitStudents for this specific educational unit
@@ -4655,7 +4669,11 @@ Deno.serve(async (req) => {
             console.log(`  Error processing edUnit ${edUnitExternalId}:`, err.message);
             skippedReasons.apiError++;
           }
+          
+          processedEdUnits++;
         }
+        
+        console.log(`⏱️ Finished processing loop: ${processedEdUnits}/${edUnits.length} edUnits in ${Date.now() - startTime}ms, timeBudgetExceeded=${timeBudgetExceeded}`);
         
         console.log(`Prepared ${groupStudentsToInsert.length} group links and ${individualLessonsToUpdate.length} individual lesson updates`);
         console.log(`Skip reasons:`, skippedReasons);
@@ -4777,14 +4795,26 @@ Deno.serve(async (req) => {
         
         // Check if there are more units to process
         const totalProcessed = (allGroups?.length || 0) + (allIndividualLessons?.length || 0);
-        progress[0].hasMore = totalProcessed >= take; // If we got full batch, likely more to process
-        progress[0].nextSkip = skipParam + take;
+        
+        // hasMore = true if:
+        // 1. Time budget exceeded (we didn't finish current batch) OR
+        // 2. We got a full batch (likely more to fetch)
+        if (timeBudgetExceeded) {
+          // We stopped mid-batch due to time - continue from where we left off
+          progress[0].hasMore = true;
+          progress[0].nextSkip = skipParam + processedEdUnits; // Only skip what we actually processed
+          console.log(`⏱️ Time budget: will continue from skip=${progress[0].nextSkip} (processed ${processedEdUnits}/${edUnits.length})`);
+        } else {
+          progress[0].hasMore = totalProcessed >= take; // If we got full batch, likely more to process
+          progress[0].nextSkip = skipParam + take;
+        }
         
         // Calculate cumulative total imported
         const cumulativeTotal = totalImportedFromProgress + groupLinksCount + individualLinksCount;
         progress[0].cumulativeTotal = cumulativeTotal;
         
         // Save progress to DB for resumption
+        console.log(`💾 Saving progress: skip=${progress[0].nextSkip}, totalImported=${cumulativeTotal}, hasMore=${progress[0].hasMore}`);
         const { error: progressUpdateError } = await supabase
           .from('holihope_import_progress')
           .update({
@@ -4798,10 +4828,8 @@ Deno.serve(async (req) => {
         if (progressUpdateError) {
           console.error(`❌ Failed to save progress:`, progressUpdateError);
         } else {
-          console.log(`✅ Saved progress: skip=${progress[0].nextSkip}, totalImported=${cumulativeTotal}`);
+          console.log(`✅ Progress saved: skip=${progress[0].nextSkip}, totalImported=${cumulativeTotal}, elapsed=${Date.now() - startTime}ms`);
         }
-        
-        console.log(`📊 Saved progress: skip=${progress[0].nextSkip}, totalImported=${cumulativeTotal}`);
         
       } catch (error) {
         console.error('Error importing ed unit students:', error);
