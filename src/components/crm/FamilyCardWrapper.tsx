@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface FamilyCardWrapperProps {
   clientId: string;
-  onOpenChat?: (clientId: string) => void;
+  onOpenChat?: (clientId: string, messengerType?: 'whatsapp' | 'telegram' | 'max') => void;
 }
 
 export const FamilyCardWrapper = ({ clientId, onOpenChat }: FamilyCardWrapperProps) => {

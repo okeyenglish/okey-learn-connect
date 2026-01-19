@@ -291,6 +291,7 @@ const CRMContent = () => {
   const [deleteChatDialog, setDeleteChatDialog] = useState<{ open: boolean; chatId: string; chatName: string }>({ open: false, chatId: '', chatName: '' });
   const [linkChatModal, setLinkChatModal] = useState<{ open: boolean; chatId: string; chatName: string }>({ open: false, chatId: '', chatName: '' });
   const [isDeletingChat, setIsDeletingChat] = useState(false);
+  const [selectedMessengerTab, setSelectedMessengerTab] = useState<'whatsapp' | 'telegram' | 'max' | undefined>(undefined);
   
   // Критичные данные - загружаем ТОЛЬКО threads с infinite scroll (50 за раз)
   // useClients убран из критического пути - 27К клиентов тормозили загрузку
@@ -3576,6 +3577,7 @@ const CRMContent = () => {
               onChatAction={handleChatAction}
               rightPanelCollapsed={rightPanelCollapsed}
               onToggleRightPanel={() => setRightPanelCollapsed(!rightPanelCollapsed)}
+              initialMessengerTab={selectedMessengerTab}
             />
           ) : activeChatType === 'corporate' ? (
             <CorporateChatArea 
@@ -3620,7 +3622,10 @@ const CRMContent = () => {
             {!rightPanelCollapsed && (
               <FamilyCardWrapper 
                 clientId={activeChatId} 
-                onOpenChat={(memberId) => handleChatClick(memberId, 'client')}
+                onOpenChat={(memberId, messengerType) => {
+                  setSelectedMessengerTab(messengerType);
+                  handleChatClick(memberId, 'client');
+                }}
               />
             )}
           </div>
@@ -3632,7 +3637,10 @@ const CRMContent = () => {
             {activeChatType === 'client' && activeChatId && (
               <FamilyCardWrapper 
                 clientId={activeChatId}
-                onOpenChat={(memberId) => handleChatClick(memberId, 'client')}
+                onOpenChat={(memberId, messengerType) => {
+                  setSelectedMessengerTab(messengerType);
+                  handleChatClick(memberId, 'client');
+                }}
               />
             )}
           </SheetContent>

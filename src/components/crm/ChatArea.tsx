@@ -54,6 +54,7 @@ interface ChatAreaProps {
   onChatAction?: (chatId: string, action: 'unread' | 'pin' | 'archive' | 'block') => void; // Chat actions
   rightPanelCollapsed?: boolean; // State of right panel
   onToggleRightPanel?: () => void; // Toggle right panel
+  initialMessengerTab?: 'whatsapp' | 'telegram' | 'max'; // Initial messenger tab to show
 }
 
 interface ScheduledMessage {
@@ -77,7 +78,8 @@ export const ChatArea = ({
   onBackToList,
   onChatAction,
   rightPanelCollapsed = false,
-  onToggleRightPanel
+  onToggleRightPanel,
+  initialMessengerTab
 }: ChatAreaProps) => {
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -240,34 +242,35 @@ export const ChatArea = ({
     if (initialTabSet === clientId) return;
     
     // Priority: 
+    // 0. Prop-provided initial messenger tab (from clicking messenger icon)
     // 1. Last unread messenger (if there are unread messages)
     // 2. Messenger type of the most recent message
     // 3. Default to 'whatsapp'
-    let initialTab = lastUnreadMessenger;
+    let tab = initialMessengerTab || lastUnreadMessenger;
     
     // If no unread messages, check the last message's messenger type
     const rawMessages = messagesData?.messages || [];
-    if (!initialTab && rawMessages.length > 0) {
+    if (!tab && rawMessages.length > 0) {
       const lastMessage = rawMessages[rawMessages.length - 1];
-      initialTab = (lastMessage as any)?.messenger_type || 'whatsapp';
-      console.log('[ChatArea] Setting initial tab from last message:', initialTab, 'message:', lastMessage?.id);
+      tab = (lastMessage as any)?.messenger_type || 'whatsapp';
+      console.log('[ChatArea] Setting initial tab from last message:', tab, 'message:', lastMessage?.id);
     }
     
     // Fallback to whatsapp
-    if (!initialTab) {
-      initialTab = 'whatsapp';
+    if (!tab) {
+      tab = 'whatsapp';
     }
     
-    console.log('[ChatArea] Setting initial tab:', initialTab, 'for client:', clientId, 'lastUnreadMessenger:', lastUnreadMessenger, 'messagesCount:', rawMessages.length);
+    console.log('[ChatArea] Setting initial tab:', tab, 'for client:', clientId, 'lastUnreadMessenger:', lastUnreadMessenger, 'initialMessengerTab:', initialMessengerTab, 'messagesCount:', rawMessages.length);
     
-    setActiveMessengerTab(initialTab);
+    setActiveMessengerTab(tab);
     setInitialTabSet(clientId);
     // после установки вкладки — прокручиваем именно её к последнему сообщению
-    setTimeout(() => scrollToBottom(false, initialTab), 0);
+    setTimeout(() => scrollToBottom(false, tab), 0);
     
     // НЕ помечаем автоматически сообщения как прочитанные
     // Менеджер должен явно нажать "Не требует ответа" или отправить сообщение
-  }, [clientId, unreadLoading, unreadFetching, lastUnreadMessenger, initialTabSet, messagesData?.messages, loadingMessages]);
+  }, [clientId, unreadLoading, unreadFetching, lastUnreadMessenger, initialTabSet, messagesData?.messages, loadingMessages, initialMessengerTab]);
 
   // Mark messages as read when switching tabs - только прокрутка, НЕ отметка прочитанности
   const handleTabChange = (newTab: string) => {
