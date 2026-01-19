@@ -5326,20 +5326,37 @@ Deno.serve(async (req) => {
         
         console.log(`Total personal tests fetched: ${allTests.length}`);
         
-        let importedCount = 0;
+        // OPTIMIZATION: Pre-load all students into a Map for O(1) lookup
+        console.log('Pre-loading students for batch processing...');
+        const { data: allStudents, error: studentsError } = await supabase
+          .from('students')
+          .select('id, external_id')
+          .eq('organization_id', orgId);
+        
+        if (studentsError) {
+          throw new Error(`Failed to load students: ${studentsError.message}`);
+        }
+        
+        const studentMap = new Map<string, string>();
+        for (const student of (allStudents || [])) {
+          if (student.external_id) {
+            studentMap.set(student.external_id, student.id);
+          }
+        }
+        console.log(`Loaded ${studentMap.size} students into lookup map`);
+        
+        // Process all tests and collect records for batch insert
+        const testsToInsert: any[] = [];
+        let skippedCount = 0;
+        
         for (const test of allTests) {
-          // API uses StudentClientId according to docs
           const studentClientId = test.studentClientId || test.StudentClientId || 
                                   test.studentId || test.StudentId;
           
-          const { data: student } = await supabase.from('students')
-            .select('id')
-            .eq('external_id', studentClientId?.toString())
-            .eq('organization_id', orgId)
-            .single();
+          const studentId = studentMap.get(studentClientId?.toString());
           
-          if (!student) {
-            console.log(`Student not found for external_id: ${studentClientId}`);
+          if (!studentId) {
+            skippedCount++;
             continue;
           }
           
@@ -5368,15 +5385,15 @@ Deno.serve(async (req) => {
               }
             }
           } else {
-            passed = false; // No skills data
+            passed = false;
           }
           
           const percentage = totalMaxScore > 0 
             ? Math.round((totalScore / totalMaxScore) * 100) 
             : null;
           
-          await supabase.from('personal_tests').upsert({
-            student_id: student.id,
+          testsToInsert.push({
+            student_id: studentId,
             test_name: testName,
             test_date: testDate,
             subject: subject,
@@ -5389,11 +5406,38 @@ Deno.serve(async (req) => {
             organization_id: orgId,
             external_id: (test.id || test.Id)?.toString(),
             holihope_metadata: test,
-          }, { onConflict: 'external_id,organization_id' });
-          importedCount++;
+          });
         }
         
-        console.log(`Imported ${importedCount} personal tests successfully`);
+        console.log(`Prepared ${testsToInsert.length} tests for insert (${skippedCount} skipped - no matching student)`);
+        
+        // OPTIMIZATION: Batch upsert in chunks of 500
+        const BATCH_SIZE = 500;
+        let importedCount = 0;
+        
+        for (let i = 0; i < testsToInsert.length; i += BATCH_SIZE) {
+          const batch = testsToInsert.slice(i, i + BATCH_SIZE);
+          const { error: upsertError } = await supabase
+            .from('personal_tests')
+            .upsert(batch, { onConflict: 'external_id,organization_id' });
+          
+          if (upsertError) {
+            console.error(`Batch ${Math.floor(i / BATCH_SIZE) + 1} error:`, upsertError.message);
+            // Try individual inserts for failed batch
+            for (const record of batch) {
+              const { error: singleError } = await supabase
+                .from('personal_tests')
+                .upsert(record, { onConflict: 'external_id,organization_id' });
+              if (!singleError) importedCount++;
+            }
+          } else {
+            importedCount += batch.length;
+          }
+          
+          console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(testsToInsert.length / BATCH_SIZE)} completed`);
+        }
+        
+        console.log(`Imported ${importedCount} personal tests successfully (${skippedCount} skipped)`);
         progress[0].status = 'completed';
         progress[0].count = importedCount;
         progress[0].message = `Imported ${importedCount} personal tests`;
