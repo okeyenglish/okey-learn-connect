@@ -2914,45 +2914,49 @@ Deno.serve(async (req) => {
         console.log(`Loaded ${teacherMap.size} teachers`);
         
         let allTests = [];
-        let processedStudents = 0;
         
-        // For each student, fetch their entrance tests using clientId
-        for (const student of students) {
-          try {
-            const response = await fetch(
-              `${HOLIHOPE_DOMAIN}/GetEntranceTests?authkey=${HOLIHOPE_API_KEY}&clientId=${student.external_id}`,
-              {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-              }
-            );
-            
-            if (response.ok) {
-              const tests = await response.json();
-              if (tests && Array.isArray(tests) && tests.length > 0) {
-                // Add student_id to each test
-                tests.forEach(test => {
-                  test._student_id = student.id;
-                  test._student_external_id = student.external_id;
-                });
-                allTests = allTests.concat(tests);
-              }
-            }
-            
-            processedStudents++;
-            if (processedStudents % 50 === 0) {
-              console.log(`Processed ${processedStudents}/${students.length} students, found ${allTests.length} tests`);
-            }
-            
-            // Small delay to avoid overwhelming the API
-            await new Promise(resolve => setTimeout(resolve, 50));
-          } catch (err) {
-            console.error(`Error fetching tests for student ${student.external_id}:`, err);
-            // Continue with next student
+        // Batch fetch ALL entrance tests in one request (much faster than per-student)
+        console.log('Fetching all entrance tests from Holihope (batch request)...');
+        const response = await fetch(
+          `${HOLIHOPE_DOMAIN}/GetEntranceTests?authkey=${HOLIHOPE_API_KEY}&take=10000`,
+          {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
           }
+        );
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch entrance tests: HTTP ${response.status}`);
         }
         
-        console.log(`Total tests fetched: ${allTests.length} from ${processedStudents} students`);
+        const rawTests = await response.json();
+        console.log(`Raw API response type: ${typeof rawTests}, isArray: ${Array.isArray(rawTests)}`);
+        console.log(`Raw response (first 500 chars): ${JSON.stringify(rawTests).substring(0, 500)}`);
+        
+        if (!Array.isArray(rawTests)) {
+          console.log('GetEntranceTests did not return an array');
+          throw new Error('GetEntranceTests response is not an array');
+        }
+        
+        console.log(`Fetched ${rawTests.length} entrance tests from Holihope`);
+        
+        // Create a map of students by external_id for fast lookup
+        const studentMap = new Map(students.map(s => [s.external_id, s.id]));
+        
+        // Match tests to students using studentClientId (correct API parameter)
+        allTests = rawTests.map(test => {
+          // API может вернуть studentClientId или StudentClientId
+          const studentExtId = (test.studentClientId || test.StudentClientId)?.toString();
+          const studentId = studentExtId ? studentMap.get(studentExtId) : null;
+          
+          return {
+            ...test,
+            _student_id: studentId,
+            _student_external_id: studentExtId
+          };
+        }).filter(t => t._student_id !== null); // Only tests with matched students
+        
+        console.log(`Matched ${allTests.length} tests to existing students (out of ${rawTests.length} total)`);
         
         // Batch insert tests
         const batchSize = 100;
@@ -2985,7 +2989,7 @@ Deno.serve(async (req) => {
         
         progress[0].status = 'completed';
         progress[0].count = importedCount;
-        progress[0].message = `Imported ${importedCount} entrance tests from ${processedStudents} students`;
+        progress[0].message = `Imported ${importedCount} entrance tests (matched from ${rawTests.length} total in Holihope)`;
       } catch (error) {
         console.error('Error importing entrance tests:', error);
         progress[0].status = 'error';
