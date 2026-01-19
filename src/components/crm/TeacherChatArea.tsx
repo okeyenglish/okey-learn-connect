@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Phone, MessageCircle, Video, Calendar, Users, Clock, ChevronRight, Send, Link, Copy, ArrowLeft, GraduationCap, Zap, Pin } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Search, Phone, MessageCircle, Calendar, Users, Clock, Send, ArrowLeft, GraduationCap, Zap, Pin, Paperclip, Mail } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,13 +10,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChatMessage } from './ChatMessage';
 import { QuickResponsesModal } from './QuickResponsesModal';
+import { CallHistory } from './CallHistory';
+import { FileUpload } from './FileUpload';
+import { AttachedFile } from './AttachedFile';
+import { DateSeparator, shouldShowDateSeparator } from './DateSeparator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from "sonner";
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages } from '@/hooks/useChatMessages';
+import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages, useClientUnreadByMessenger } from '@/hooks/useChatMessages';
 import { useMarkChatMessagesAsRead } from '@/hooks/useMessageReadStatus';
 import { useTypingStatus } from '@/hooks/useTypingStatus';
 import { useWhatsApp } from '@/hooks/useWhatsApp';
+import { useMaxGreenApi } from '@/hooks/useMaxGreenApi';
+import { useMax } from '@/hooks/useMax';
+import { useTelegramWappi } from '@/hooks/useTelegramWappi';
 import { supabase } from '@/integrations/supabase/client';
 import { AddTeacherModal } from '@/components/admin/AddTeacherModal';
 import { useTeacherChats, useEnsureTeacherClient, TeacherChatItem } from '@/hooks/useTeacherChats';
@@ -73,13 +80,30 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('диалог');
+  const [activeMessengerTab, setActiveMessengerTab] = useState('whatsapp');
   const [message, setMessage] = useState('');
   const [showQuickResponsesModal, setShowQuickResponsesModal] = useState(false);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState('');
   const [pinCounts, setPinCounts] = useState<Record<string, number>>({});
+  const [attachedFiles, setAttachedFiles] = useState<Array<{
+    url: string;
+    name: string;
+    type: string;
+    size: number;
+  }>>([]);
+  const [fileUploadResetKey, setFileUploadResetKey] = useState(0);
+  
+  // Avatar states
+  const [whatsappClientAvatar, setWhatsappClientAvatar] = useState<string | null>(null);
+  const [telegramClientAvatar, setTelegramClientAvatar] = useState<string | null>(null);
+  const [maxClientAvatar, setMaxClientAvatar] = useState<string | null>(null);
+  
   const isMobile = useIsMobile();
+  const whatsappEndRef = useRef<HTMLDivElement>(null);
+  const telegramEndRef = useRef<HTMLDivElement>(null);
+  const maxEndRef = useRef<HTMLDivElement>(null);
 
   // Resolve real client UUID for the selected teacher or group
   const [resolvedClientId, setResolvedClientId] = useState<string | null>(null);
@@ -166,20 +190,129 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const sendMessage = useSendMessage();
   const markAsRead = useMarkAsRead();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
-  const { sendTextMessage, loading: whatsappLoading } = useWhatsApp();
+  
+  // Messenger hooks
+  const { sendTextMessage: sendWhatsAppMessage, sendFileMessage: sendWhatsAppFile, loading: whatsappLoading, getAvatar: getWhatsAppAvatar } = useWhatsApp();
+  const { sendMessage: sendMaxMessage, loading: maxLoading } = useMaxGreenApi();
+  const { getAvatar: getMaxAvatar } = useMax();
+  const { sendMessage: sendTelegramMessage } = useTelegramWappi();
+  
+  // Get unread counts by messenger
+  const { unreadCounts: unreadByMessenger } = useClientUnreadByMessenger(clientId);
   
   useRealtimeMessages(clientId);
+
+  // Reset avatars when client changes
+  useEffect(() => {
+    setWhatsappClientAvatar(null);
+    setTelegramClientAvatar(null);
+    setMaxClientAvatar(null);
+  }, [clientId]);
+
+  // Fetch WhatsApp avatar
+  useEffect(() => {
+    const fetchWhatsAppAvatar = async () => {
+      if (activeMessengerTab === 'whatsapp' && clientId && !whatsappClientAvatar) {
+        try {
+          const result = await getWhatsAppAvatar(clientId);
+          if (result.success && result.urlAvatar) {
+            setWhatsappClientAvatar(result.urlAvatar);
+          }
+        } catch (error) {
+          console.error('Error fetching WhatsApp avatar:', error);
+        }
+      }
+    };
+    fetchWhatsAppAvatar();
+  }, [activeMessengerTab, clientId, whatsappClientAvatar, getWhatsAppAvatar]);
+
+  // Fetch MAX avatar
+  useEffect(() => {
+    const fetchMaxAvatar = async () => {
+      if (activeMessengerTab === 'max' && clientId && !maxClientAvatar) {
+        try {
+          const result = await getMaxAvatar(clientId);
+          if (result.success && result.urlAvatar) {
+            setMaxClientAvatar(result.urlAvatar);
+          }
+        } catch (error) {
+          console.error('Error fetching MAX avatar:', error);
+        }
+      }
+    };
+    fetchMaxAvatar();
+  }, [activeMessengerTab, clientId, maxClientAvatar, getMaxAvatar]);
+
+  // Fetch Telegram avatar from DB
+  useEffect(() => {
+    const fetchTelegramAvatar = async () => {
+      if (activeMessengerTab === 'telegram' && clientId && !telegramClientAvatar) {
+        try {
+          const { data } = await supabase
+            .from('clients')
+            .select('telegram_avatar_url')
+            .eq('id', clientId)
+            .maybeSingle();
+          if (data?.telegram_avatar_url) {
+            setTelegramClientAvatar(data.telegram_avatar_url);
+          }
+        } catch (error) {
+          console.error('Error fetching Telegram avatar:', error);
+        }
+      }
+    };
+    fetchTelegramAvatar();
+  }, [activeMessengerTab, clientId, telegramClientAvatar]);
 
   // Mark as read when opening/receiving
   useEffect(() => {
     if (clientId && messages.length > 0) {
       markAsRead.mutate(clientId);
-      // Обновляем список преподавателей после пометки как прочитанное
-      setTimeout(() => {
-        setUserBranch(prev => prev); // Принудительно перезапустить useEffect
-      }, 100);
     }
   }, [clientId, messages.length]);
+
+  // Filter messages by messenger type
+  const whatsappMessages = useMemo(() => 
+    messages.filter(m => (m as any).messenger_type === 'whatsapp' || !(m as any).messenger_type),
+    [messages]
+  );
+
+  const telegramMessages = useMemo(() => 
+    messages.filter(m => (m as any).messenger_type === 'telegram'),
+    [messages]
+  );
+
+  const maxMessages = useMemo(() => 
+    messages.filter(m => (m as any).messenger_type === 'max'),
+    [messages]
+  );
+
+  // Format message helper
+  const formatMessage = useCallback((msg: any) => ({
+    id: msg.id,
+    type: msg.message_type || (msg.is_outgoing ? 'manager' : 'client'),
+    message: msg.message_text || '',
+    time: new Date(msg.created_at).toLocaleTimeString('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit'
+    }),
+    createdAt: msg.created_at,
+    fileUrl: msg.file_url,
+    fileName: msg.file_name,
+    fileType: msg.file_type,
+    messengerType: msg.messenger_type || 'whatsapp',
+    messageStatus: msg.message_status,
+    externalMessageId: msg.external_message_id,
+  }), []);
+
+  // Scroll to bottom
+  const scrollToBottom = (smooth = true, tab?: string) => {
+    const t = tab || activeMessengerTab;
+    const targetRef = t === 'max' ? maxEndRef : t === 'telegram' ? telegramEndRef : whatsappEndRef;
+    targetRef.current?.scrollIntoView({
+      behavior: smooth ? "smooth" : "instant",
+    });
+  };
 
   const teachers = dbTeachers || [];
   const filteredTeachers = teachers.filter((teacher) => {
@@ -194,67 +327,100 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     onSelectTeacher(null as any);
   };
 
-  const handleLessonClick = (groupId: string) => {
-    // Navigate to lesson page
-    console.log('Navigate to lesson:', groupId);
-    // Here you would navigate to the lesson page
-    // For example: navigate(`/lesson/${groupId}`);
-  };
-
-  const handleCopyZoomLink = async (zoomLink?: string) => {
-    if (!zoomLink) return;
-    
-    try {
-      await navigator.clipboard.writeText(zoomLink);
-      toast.success("Ссылка скопирована в буфер обмена");
-    } catch (err) {
-      toast.error("Не удалось скопировать ссылку");
-    }
+  const handleMessengerTabChange = (newTab: string) => {
+    setActiveMessengerTab(newTab);
+    setTimeout(() => scrollToBottom(false, newTab), 0);
   };
 
   const handleSendMessage = async () => {
-    if (!message.trim() || !clientId || whatsappLoading) return;
+    if (!message.trim() || !clientId) return;
 
     const messageText = message.trim();
     const currentTeacher = teachers?.find(t => t.id === selectedTeacherId);
     
     try {
-      // First save to database
-      await sendMessage.mutateAsync({
-        clientId,
-        messageText: messageText,
-        messageType: 'manager'
-      });
-      
-      // Обновляем список преподавателей чтобы убрать счетчик непрочитанных
-      setTimeout(() => {
-        setUserBranch(prev => prev); // Принудительно перезапустить useEffect
-      }, 500);
-      
-      // Then send via WhatsApp if teacher has phone
-      if (currentTeacher?.phone) {
-        // Format phone number for WhatsApp (remove spaces, dashes, etc.)
-        const cleanPhone = currentTeacher.phone.replace(/[^\d+]/g, '');
-        console.log('Sending WhatsApp to teacher:', currentTeacher.fullName, 'Phone:', cleanPhone);
+      // Send via active messenger
+      if (activeMessengerTab === 'whatsapp') {
+        // First save to database
+        await sendMessage.mutateAsync({
+          clientId,
+          messageText: messageText,
+          messageType: 'manager'
+        });
         
-        const result = await sendTextMessage(clientId, messageText, cleanPhone);
-        
-        if (result.success) {
-          toast.success(`Сообщение отправлено преподавателю ${currentTeacher.fullName} в WhatsApp`);
+        // Then send via WhatsApp if teacher has phone
+        if (currentTeacher?.phone) {
+          const cleanPhone = currentTeacher.phone.replace(/[^\d+]/g, '');
+          const result = await sendWhatsAppMessage(clientId, messageText, cleanPhone);
+          
+          if (result.success) {
+            toast.success(`Сообщение отправлено в WhatsApp`);
+          } else {
+            toast.error(`Сообщение сохранено, но не отправлено в WhatsApp`);
+          }
         } else {
-          console.error('WhatsApp send error:', result.error);
-          toast.error(`Сообщение сохранено, но не отправлено в WhatsApp: ${result.error}`);
+          toast.success("Сообщение сохранено");
         }
-      } else {
-        console.log('No phone number for teacher:', currentTeacher?.fullName);
-        toast.success("Сообщение сохранено (у преподавателя нет номера телефона для WhatsApp)");
+      } else if (activeMessengerTab === 'telegram') {
+        const result = await sendTelegramMessage(clientId, messageText);
+        if (result) {
+          toast.success('Сообщение отправлено в Telegram');
+        } else {
+          toast.error('Ошибка отправки в Telegram');
+        }
+      } else if (activeMessengerTab === 'max') {
+        const result = await sendMaxMessage(clientId, messageText);
+        if (result) {
+          toast.success('Сообщение отправлено в MAX');
+        } else {
+          toast.error('Ошибка отправки в MAX');
+        }
       }
       
       setMessage('');
       updateTypingStatus(false);
+      setTimeout(() => scrollToBottom(true), 100);
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error("Не удалось отправить сообщение");
+    }
+  };
+
+  const handleFileSelect = async (files: Array<{ url: string; name: string; type: string; size: number }>) => {
+    if (!clientId) return;
+    setAttachedFiles(prev => [...prev, ...files]);
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSendWithFile = async () => {
+    if (attachedFiles.length === 0 || !clientId) return;
+    
+    const currentTeacher = teachers?.find(t => t.id === selectedTeacherId);
+    
+    try {
+      for (const file of attachedFiles) {
+        if (activeMessengerTab === 'whatsapp' && currentTeacher?.phone) {
+          const result = await sendWhatsAppFile(clientId, file.url, file.name, file.type);
+          if (!result.success) {
+            toast.error(`Ошибка отправки файла ${file.name}`);
+          }
+        }
+        // Add support for other messengers here
+      }
+      
+      if (message.trim()) {
+        await handleSendMessage();
+      }
+      
+      setAttachedFiles([]);
+      setFileUploadResetKey(prev => prev + 1);
+      toast.success('Файл отправлен');
+    } catch (error) {
+      console.error('Error sending file:', error);
+      toast.error('Ошибка отправки файла');
     }
   };
 
@@ -274,52 +440,241 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     setMessage('');
     updateTypingStatus(false);
     setTimeout(async () => {
-      const currentTeacher = teachers?.find(t => t.id === selectedTeacherId);
-      try {
-        await sendMessage.mutateAsync({
-          clientId,
-          messageText: text,
-          messageType: 'manager'
-        });
-        
-        // Send via WhatsApp if teacher has phone
-        if (currentTeacher?.phone) {
-          const cleanPhone = currentTeacher.phone.replace(/[^\d+]/g, '');
-          const result = await sendTextMessage(clientId, text, cleanPhone);
-          if (result.success) {
-            toast.success(`Запланированное сообщение отправлено преподавателю ${currentTeacher.fullName} в WhatsApp`);
-          } else {
-            toast.error(`Запланированное сообщение сохранено, но не отправлено в WhatsApp: ${result.error}`);
-          }
-        } else {
-          toast.success("Запланированное сообщение отправлено");
-        }
-      } catch (e) {
-        console.error('Ошибка отправки запланированного сообщения', e);
-      }
+      await handleSendMessage();
+      toast.success(`Запланированное сообщение отправлено`);
     }, delay);
     toast.success('Сообщение запланировано');
-  };
-
-  const handleMarkAsRead = async () => {
-    if (!clientId) return;
-    try {
-      await markAsRead.mutateAsync(clientId);
-      // Обновляем список преподавателей после пометки
-      setUserBranch(prev => prev); // Принудительно перезапустить useEffect
-      toast.success('Отмечено как прочитанное');
-    } catch (error) {
-      toast.error('Ошибка отметки прочитанным');
-    }
   };
 
   const handleMessageChange = (value: string) => {
     setMessage(value);
     updateTypingStatus(value.length > 0);
   };
+
   const isGroupChat = selectedTeacherId === 'teachers-group';
-  const currentMessages = messages;
   const currentTeacher = isGroupChat ? null : selectedTeacher;
+
+  // Get current avatar based on messenger tab
+  const getCurrentAvatar = () => {
+    switch (activeMessengerTab) {
+      case 'whatsapp': return whatsappClientAvatar;
+      case 'telegram': return telegramClientAvatar;
+      case 'max': return maxClientAvatar;
+      default: return null;
+    }
+  };
+
+  // Render message list for a specific messenger
+  const renderMessageList = (msgList: any[], endRef: React.RefObject<HTMLDivElement>, avatar: string | null) => {
+    const formattedMessages = msgList.map(formatMessage);
+    
+    return (
+      <div className="space-y-1">
+        {formattedMessages.length > 0 ? (
+          <>
+            {formattedMessages.map((msg, index) => {
+              const prevMessage = formattedMessages[index - 1];
+              const nextMessage = formattedMessages[index + 1];
+              
+              const showDateSeparator = shouldShowDateSeparator(
+                msg.createdAt,
+                prevMessage?.createdAt
+              );
+              
+              const showAvatar = !prevMessage || prevMessage.type !== msg.type || showDateSeparator;
+              const showName = showAvatar;
+              const isLastInGroup = !nextMessage || nextMessage.type !== msg.type;
+              
+              return (
+                <div key={msg.id || index}>
+                  {showDateSeparator && msg.createdAt && (
+                    <DateSeparator date={msg.createdAt} />
+                  )}
+                  <ChatMessage
+                    messageId={msg.id}
+                    type={msg.type}
+                    message={msg.message}
+                    time={msg.time}
+                    messageStatus={msg.messageStatus}
+                    clientAvatar={avatar}
+                    managerName="Вы"
+                    fileUrl={msg.fileUrl}
+                    fileName={msg.fileName}
+                    fileType={msg.fileType}
+                    externalMessageId={msg.externalMessageId}
+                    showAvatar={showAvatar}
+                    showName={showName}
+                    isLastInGroup={isLastInGroup}
+                  />
+                </div>
+              );
+            })}
+          </>
+        ) : (
+          <div className="text-center text-muted-foreground text-sm py-8">
+            Нет сообщений
+          </div>
+        )}
+        <div ref={endRef} />
+      </div>
+    );
+  };
+
+  // Messenger tabs component
+  const MessengerTabs = () => (
+    <Tabs value={activeMessengerTab} onValueChange={handleMessengerTabChange} className="flex-1 flex flex-col min-h-0">
+      <TabsList className="grid w-full grid-cols-5 rounded-none bg-muted/30 border-b h-9 shrink-0">
+        <TabsTrigger value="whatsapp" className="text-xs relative data-[state=active]:bg-green-500 data-[state=active]:text-white">
+          WhatsApp
+          {(unreadByMessenger?.whatsapp || 0) > 0 && (
+            <span className="absolute -top-1 -right-1 bg-destructive text-white text-[10px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+              {unreadByMessenger?.whatsapp}
+            </span>
+          )}
+        </TabsTrigger>
+        <TabsTrigger value="telegram" className="text-xs relative data-[state=active]:bg-blue-500 data-[state=active]:text-white">
+          Telegram
+          {(unreadByMessenger?.telegram || 0) > 0 && (
+            <span className="absolute -top-1 -right-1 bg-destructive text-white text-[10px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+              {unreadByMessenger?.telegram}
+            </span>
+          )}
+        </TabsTrigger>
+        <TabsTrigger value="max" className="text-xs relative data-[state=active]:bg-purple-500 data-[state=active]:text-white">
+          Max
+          {(unreadByMessenger?.max || 0) > 0 && (
+            <span className="absolute -top-1 -right-1 bg-destructive text-white text-[10px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+              {unreadByMessenger?.max}
+            </span>
+          )}
+        </TabsTrigger>
+        <TabsTrigger value="email" className="text-xs relative data-[state=active]:bg-orange-500 data-[state=active]:text-white">
+          <Mail className="h-3 w-3" />
+        </TabsTrigger>
+        <TabsTrigger value="calls" className="text-xs relative data-[state=active]:bg-rose-500 data-[state=active]:text-white">
+          <Phone className="h-3 w-3" />
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="whatsapp" className="flex-1 overflow-y-auto p-3 mt-0">
+        {renderMessageList(whatsappMessages, whatsappEndRef, whatsappClientAvatar)}
+      </TabsContent>
+
+      <TabsContent value="telegram" className="flex-1 overflow-y-auto p-3 mt-0">
+        {renderMessageList(telegramMessages, telegramEndRef, telegramClientAvatar)}
+      </TabsContent>
+
+      <TabsContent value="max" className="flex-1 overflow-y-auto p-3 mt-0">
+        {renderMessageList(maxMessages, maxEndRef, maxClientAvatar)}
+      </TabsContent>
+
+      <TabsContent value="email" className="flex-1 overflow-y-auto p-3 mt-0">
+        <div className="text-center text-muted-foreground text-sm py-8">
+          Email переписка (в разработке)
+        </div>
+      </TabsContent>
+
+      <TabsContent value="calls" className="flex-1 overflow-y-auto p-3 mt-0">
+        <CallHistory clientId={clientId} />
+      </TabsContent>
+    </Tabs>
+  );
+
+  // Message input component
+  const MessageInput = () => {
+    if (activeMessengerTab === 'email' || activeMessengerTab === 'calls') return null;
+    
+    return (
+      <div className="border-t p-3 shrink-0">
+        {/* Attached files preview */}
+        {attachedFiles.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {attachedFiles.map((file, index) => (
+              <div key={index} className="flex items-center gap-2 bg-muted rounded px-2 py-1 text-xs">
+                <span className="truncate max-w-[100px]">{file.name}</span>
+                <Button size="sm" variant="ghost" className="h-4 w-4 p-0" onClick={() => handleRemoveFile(index)}>
+                  ×
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
+            <Textarea
+              placeholder={isGroupChat ? "Написать в общий чат..." : "Написать сообщение..."}
+              value={message}
+              onChange={(e) => handleMessageChange(e.target.value)}
+              className="min-h-[40px] max-h-[120px] resize-none text-sm"
+              rows={1}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  if (attachedFiles.length > 0) {
+                    handleSendWithFile();
+                  } else {
+                    handleSendMessage();
+                  }
+                }
+              }}
+            />
+            <div className="flex items-center gap-1 mt-2">
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setShowQuickResponsesModal(true)}>
+                <Zap className="h-4 w-4" />
+              </Button>
+              <FileUpload
+                onFileUpload={(file) => setAttachedFiles(prev => [...prev, file])}
+              />
+              <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!message.trim()}>
+                    <Clock className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                     <DialogTitle className="flex items-center gap-2">
+                       <Clock className="h-5 w-5" />
+                       <span>Запланировать сообщение</span>
+                     </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-sm">Дата</label>
+                      <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm">Время</label>
+                      <Input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setShowScheduleDialog(false)}>Отмена</Button>
+                      <Button onClick={handleScheduleMessage} disabled={!scheduleDate || !scheduleTime || !message.trim()}>Запланировать</Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
+          <Button 
+            size="icon" 
+            className="rounded-sm h-10 w-10 shrink-0" 
+            onClick={attachedFiles.length > 0 ? handleSendWithFile : handleSendMessage} 
+            disabled={(!message.trim() && attachedFiles.length === 0) || !clientId || whatsappLoading || maxLoading}
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+        <QuickResponsesModal
+          open={showQuickResponsesModal}
+          onOpenChange={setShowQuickResponsesModal}
+          onSelectResponse={(text) => setMessage((prev) => (prev ? `${prev} ${text}` : text))}
+          isTeacher={true}
+        />
+      </div>
+    );
+  };
 
   // На мобильных показываем либо список преподавателей, либо чат
   if (isMobile) {
@@ -355,7 +710,6 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
           <ScrollArea className="flex-1">
             <div className="p-2">
               {isLoadingTeachers ? (
-                // Loading skeletons
                 <>
                   {[1, 2, 3, 4, 5].map((i) => (
                     <div key={i} className="p-3 rounded-lg mb-2 border bg-card">
@@ -377,82 +731,75 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                     onClick={() => onSelectTeacher('teachers-group')}
                     className="p-3 rounded-lg cursor-pointer transition-colors mb-2 hover:bg-muted/50 border bg-card"
                   >
-                <div className="flex items-start space-x-3">
-                  <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-sm font-medium text-primary">
-                    ЧП
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium text-sm text-foreground">
-                        Чат педагогов
-                      </h3>
-                      <div className="flex items-center gap-1">
-                        {pinCounts['teachers-group'] > 0 && (
-                          <Pin className="h-3 w-3 text-muted-foreground" />
-                        )}
-                        <Badge variant="destructive" className="h-5 w-5 p-0 flex items-center justify-center text-xs rounded-sm">
-                          4
-                        </Badge>
-                      </div>
-                    </div>
-                    
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Общий чат всех преподавателей
-                    </p>
-                    
-                    <p className="text-xs text-muted-foreground">
-                      15 мин назад
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Individual Teachers */}
-              {filteredTeachers.map((teacher) => (
-                <div
-                  key={teacher.id}
-                  onClick={() => onSelectTeacher(teacher.id)}
-                  className="p-3 rounded-lg cursor-pointer transition-colors mb-2 hover:bg-muted/50 border bg-card"
-                >
-                  <div className="flex items-start space-x-3">
-                    <div className="relative">
+                    <div className="flex items-start space-x-3">
                       <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-sm font-medium text-primary">
-                        {(teacher.firstName?.[0] || teacher.fullName?.[0] || '•')}{(teacher.lastName?.[0] || '')}
+                        ЧП
                       </div>
-                      {teacher.isOnline && (
-                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border border-background"></div>
-                      )}
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-medium text-sm text-foreground">
+                            Чат педагогов
+                          </h3>
+                          <div className="flex items-center gap-1">
+                            {pinCounts['teachers-group'] > 0 && (
+                              <Pin className="h-3 w-3 text-muted-foreground" />
+                            )}
+                          </div>
+                        </div>
+                        
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Общий чат всех преподавателей
+                        </p>
+                      </div>
                     </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-medium text-sm text-foreground">
-                          {teacher.fullName}
-                        </h3>
-                        <div className="flex items-center gap-1">
-                          {pinCounts[teacher.id] > 0 && (
-                            <Pin className="h-3 w-3 text-muted-foreground" />
-                          )}
-                          {teacher.unreadMessages > 0 && (
-                            <Badge variant="destructive" className="h-5 w-5 p-0 flex items-center justify-center text-xs rounded-sm">
-                              {teacher.unreadMessages}
-                            </Badge>
+                  </div>
+
+                  {/* Individual Teachers */}
+                  {filteredTeachers.map((teacher) => (
+                    <div
+                      key={teacher.id}
+                      onClick={() => onSelectTeacher(teacher.id)}
+                      className="p-3 rounded-lg cursor-pointer transition-colors mb-2 hover:bg-muted/50 border bg-card"
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className="relative">
+                          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-sm font-medium text-primary">
+                            {(teacher.firstName?.[0] || teacher.fullName?.[0] || '•')}{(teacher.lastName?.[0] || '')}
+                          </div>
+                          {teacher.isOnline && (
+                            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border border-background"></div>
                           )}
                         </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-medium text-sm text-foreground">
+                              {teacher.fullName}
+                            </h3>
+                            <div className="flex items-center gap-1">
+                              {pinCounts[teacher.id] > 0 && (
+                                <Pin className="h-3 w-3 text-muted-foreground" />
+                              )}
+                              {teacher.unreadMessages > 0 && (
+                                <Badge variant="destructive" className="h-5 w-5 p-0 flex items-center justify-center text-xs rounded-sm">
+                                  {teacher.unreadMessages}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {teacher.branch} • {DEFAULT_SUBJECT}
+                          </p>
+                          
+                          <p className="text-xs text-muted-foreground">
+                            {teacher.lastSeen}
+                          </p>
+                        </div>
                       </div>
-                      
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {teacher.branch} • {DEFAULT_SUBJECT}
-                      </p>
-                      
-                      <p className="text-xs text-muted-foreground">
-                        {teacher.lastSeen}
-                      </p>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  ))}
                 </>
               )}
             </div>
@@ -461,7 +808,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       );
     }
 
-    // Показываем чат
+    // Показываем чат (мобильный)
     return (
       <div className="flex flex-col h-full min-h-0 bg-background">
         {/* Chat Header with Back Button */}
@@ -487,64 +834,24 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                 }
               </p>
             </div>
+            {!isGroupChat && currentTeacher?.phone && (
+              <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                <Phone className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
 
-        {/* Chat Messages */}
-        <ScrollArea className="flex-1 p-3">
-          <div className="space-y-3">
-            {(currentMessages || []).map((msg) => (
-              <ChatMessage
-                key={msg.id}
-                messageId={msg.id}
-                type={msg.message_type}
-                message={msg.message_text}
-                time={new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                managerName={msg.message_type === 'manager' ? 'Вы' : currentTeacher?.fullName}
-              />
-            ))}
-          </div>
-        </ScrollArea>
-
+        {/* Messenger Tabs */}
+        <MessengerTabs />
+        
         {/* Message Input */}
-        <div className="border-t p-3 shrink-0">
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <Textarea
-                placeholder={isGroupChat ? "Написать в общий чат..." : "Написать сообщение..."}
-                value={message}
-                onChange={(e) => handleMessageChange(e.target.value)}
-                className="min-h-[40px] max-h-[120px] resize-none"
-                rows={1}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-              />
-              <div className="flex items-center gap-1 mt-2">
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setShowQuickResponsesModal(true)}>
-                  <Zap className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            <Button 
-              size="icon" 
-              className="rounded-sm h-10 w-10"
-              onClick={handleSendMessage} 
-              disabled={!message.trim() || !clientId || whatsappLoading}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+        <MessageInput />
       </div>
     );
   }
 
   // Desktop view: show both teacher list and chat
-
   return (
     <div className="h-full flex">
       {/* Compact Teachers List */}
@@ -574,7 +881,6 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         <ScrollArea className="flex-1">
           <div className="p-2">
             {isLoadingTeachers ? (
-              // Loading skeletons
               <>
                 {[1, 2, 3, 4, 5].map((i) => (
                   <div key={i} className="p-2 rounded-lg mb-2 border bg-card">
@@ -600,86 +906,79 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                       : 'hover:bg-muted/50'
                   }`}
                 >
-              <div className="flex items-start space-x-2">
-                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium text-primary">
-                  ЧП
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-medium text-sm text-foreground truncate">
-                      Чат педагогов
-                    </h3>
-                    <div className="flex items-center gap-1">
-                      {pinCounts['teachers-group'] > 0 && (
-                        <Pin className="h-3 w-3 text-muted-foreground" />
-                      )}
-                      <Badge variant="destructive" className="h-4 w-4 p-0 flex items-center justify-center text-xs rounded-sm">
-                        4
-                      </Badge>
-                    </div>
-                  </div>
-                  
-                  <p className="text-xs text-muted-foreground truncate">
-                    Общий чат всех преподавателей
-                  </p>
-                  
-                  <p className="text-xs text-muted-foreground">
-                    15 мин назад
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Individual Teachers */}
-            {filteredTeachers.map((teacher) => (
-              <div
-                key={teacher.id}
-                onClick={() => onSelectTeacher(teacher.id)}
-                className={`p-2 rounded-lg cursor-pointer transition-colors mb-1 ${
-                  selectedTeacherId === teacher.id
-                    ? 'bg-muted border border-border'
-                    : 'hover:bg-muted/50'
-                }`}
-              >
-                <div className="flex items-start space-x-2">
-                  <div className="relative">
+                  <div className="flex items-start space-x-2">
                     <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium text-primary">
-                      {(teacher.firstName?.[0] || teacher.fullName?.[0] || '•')}{(teacher.lastName?.[0] || '')}
+                      ЧП
                     </div>
-                    {teacher.isOnline && (
-                      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border border-background"></div>
-                    )}
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium text-sm text-foreground truncate">
+                          Чат педагогов
+                        </h3>
+                        <div className="flex items-center gap-1">
+                          {pinCounts['teachers-group'] > 0 && (
+                            <Pin className="h-3 w-3 text-muted-foreground" />
+                          )}
+                        </div>
+                      </div>
+                      
+                      <p className="text-xs text-muted-foreground truncate">
+                        Общий чат всех преподавателей
+                      </p>
+                    </div>
                   </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium text-sm text-foreground truncate">
-                        {teacher.fullName}
-                      </h3>
-                      <div className="flex items-center gap-1">
-                        {pinCounts[teacher.id] > 0 && (
-                          <Pin className="h-3 w-3 text-muted-foreground" />
-                        )}
-                        {teacher.unreadMessages > 0 && (
-                          <Badge variant="destructive" className="h-4 w-4 p-0 flex items-center justify-center text-xs rounded-sm">
-                            {teacher.unreadMessages}
-                          </Badge>
+                </div>
+
+                {/* Individual Teachers */}
+                {filteredTeachers.map((teacher) => (
+                  <div
+                    key={teacher.id}
+                    onClick={() => onSelectTeacher(teacher.id)}
+                    className={`p-2 rounded-lg cursor-pointer transition-colors mb-1 ${
+                      selectedTeacherId === teacher.id
+                        ? 'bg-muted border border-border'
+                        : 'hover:bg-muted/50'
+                    }`}
+                  >
+                    <div className="flex items-start space-x-2">
+                      <div className="relative">
+                        <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium text-primary">
+                          {(teacher.firstName?.[0] || teacher.fullName?.[0] || '•')}{(teacher.lastName?.[0] || '')}
+                        </div>
+                        {teacher.isOnline && (
+                          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border border-background"></div>
                         )}
                       </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-medium text-sm text-foreground truncate">
+                            {teacher.fullName}
+                          </h3>
+                          <div className="flex items-center gap-1">
+                            {pinCounts[teacher.id] > 0 && (
+                              <Pin className="h-3 w-3 text-muted-foreground" />
+                            )}
+                            {teacher.unreadMessages > 0 && (
+                              <Badge variant="destructive" className="h-4 w-4 p-0 flex items-center justify-center text-xs rounded-sm">
+                                {teacher.unreadMessages}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <p className="text-xs text-muted-foreground truncate">
+                          {teacher.branch} • {DEFAULT_SUBJECT}
+                        </p>
+                        
+                        <p className="text-xs text-muted-foreground">
+                          {teacher.lastSeen}
+                        </p>
+                      </div>
                     </div>
-                    
-                    <p className="text-xs text-muted-foreground truncate">
-                      {teacher.branch} • {DEFAULT_SUBJECT}
-                    </p>
-                    
-                    <p className="text-xs text-muted-foreground">
-                      {teacher.lastSeen}
-                    </p>
                   </div>
-                </div>
-              </div>
-            ))}
+                ))}
               </>
             )}
           </div>
@@ -695,7 +994,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
               <div className="relative shrink-0">
                 <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
                   <span className="text-primary font-medium text-xs">
-                    {isGroupChat ? 'ЧП' : `${currentTeacher?.firstName[0]}${currentTeacher?.lastName[0]}`}
+                    {isGroupChat ? 'ЧП' : `${currentTeacher?.firstName?.[0] || ''}${currentTeacher?.lastName?.[0] || ''}`}
                   </span>
                 </div>
                 {!isGroupChat && currentTeacher?.isOnline && (
@@ -715,7 +1014,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
               </div>
             </div>
             
-            {!isGroupChat && (
+            {!isGroupChat && currentTeacher?.phone && (
               <div className="flex items-center space-x-1 shrink-0">
                 <Button size="sm" variant="outline" className="h-7 w-7 p-0">
                   <Phone className="h-3 w-3" />
@@ -735,28 +1034,11 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             </TabsList>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
             {/* Chat tab - Диалог */}
-            <TabsContent value="диалог" className="h-full m-0 flex flex-col">
-              {/* Chat Messages Area - Fixed height */}
-              <div className="flex-1 min-h-0">
-                <ScrollArea className="h-full">
-          <div className="p-3 space-y-1">
-            {(currentMessages || []).map((msg) => (
-              <ChatMessage
-                key={msg.id}
-                messageId={msg.id}
-                type={msg.message_type}
-                message={msg.message_text}
-                time={new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                managerName={msg.message_type === 'manager' ? 'Вы' : currentTeacher?.fullName}
-              />
-            ))}
-          </div>
-                </ScrollArea>
-              </div>
-              
-              {/* Message input moved below Tabs for sticky bottom */}
+            <TabsContent value="диалог" className="h-full m-0 flex flex-col flex-1">
+              {/* Messenger Tabs */}
+              <MessengerTabs />
             </TabsContent>
 
             {/* Schedule tab - only for individual teachers */}
@@ -789,7 +1071,6 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                           <MessageCircle className="h-3 w-3 text-muted-foreground" />
                           <span className="text-xs">{currentTeacher?.email}</span>
                         </div>
-                        {/* Telegram info removed - field not available in teachers table */}
                       </CardContent>
                     </Card>
 
@@ -873,69 +1154,9 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             )}
           </div>
         </Tabs>
-        {activeTab === 'диалог' && (
-          <div className="border-t p-3 shrink-0">
-            <div className="flex items-end gap-2">
-              <div className="flex-1">
-                <Textarea
-                  placeholder={isGroupChat ? "Написать в общий чат..." : "Написать сообщение..."}
-                  value={message}
-                  onChange={(e) => handleMessageChange(e.target.value)}
-                  className="min-h-[40px] max-h-[120px] resize-none text-sm"
-                  rows={1}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                />
-                <div className="flex items-center gap-1 mt-2">
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setShowQuickResponsesModal(true)}>
-                    <Zap className="h-4 w-4" />
-                  </Button>
-                  <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!message.trim()}>
-                        <Clock className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                         <DialogTitle className="flex items-center gap-2">
-                           <Clock className="h-5 w-5" />
-                           <span>Запланировать сообщение</span>
-                         </DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-3">
-                        <div className="space-y-1">
-                          <label className="text-sm">Дата</label>
-                          <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-sm">Время</label>
-                          <Input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} />
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" onClick={() => setShowScheduleDialog(false)} aria-label="Отменить планирование сообщения">Отмена</Button>
-                          <Button onClick={handleScheduleMessage} disabled={!scheduleDate || !scheduleTime || !message.trim()} aria-label="Запланировать отправку сообщения">Запланировать</Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
-              <Button size="icon" className="rounded-sm h-10 w-10 shrink-0" onClick={handleSendMessage} disabled={!message.trim() || !clientId || whatsappLoading}>
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-            <QuickResponsesModal
-              open={showQuickResponsesModal}
-              onOpenChange={setShowQuickResponsesModal}
-              onSelectResponse={(text) => setMessage((prev) => (prev ? `${prev} ${text}` : text))}
-            />
-          </div>
-        )}
+        
+        {/* Message input at the bottom - only show when on диалог tab */}
+        {activeTab === 'диалог' && <MessageInput />}
       </div>
     </div>
   );
