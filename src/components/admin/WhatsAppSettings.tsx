@@ -47,7 +47,7 @@ export const WhatsAppSettings: React.FC = () => {
   const { toast } = useToast();
 
   const [settings, setSettings] = useState({
-    provider: 'greenapi' as 'greenapi' | 'wpp',
+    provider: 'greenapi' as 'greenapi' | 'wpp' | 'wappi',
     instanceId: '',
     apiToken: '',
     apiUrl: 'https://api.green-api.com',
@@ -56,7 +56,9 @@ export const WhatsAppSettings: React.FC = () => {
     wppSession: 'default',
     wppBaseUrl: '',
     wppApiKey: '',
-    wppWebhookSecret: ''
+    wppWebhookSecret: '',
+    wappiProfileId: '',
+    wappiApiToken: ''
   });
 
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'connected' | 'error'>('unknown');
@@ -92,13 +94,15 @@ export const WhatsAppSettings: React.FC = () => {
         wppSession: data.wppSession || 'default',
         wppBaseUrl: data.wppBaseUrl || '',
         wppApiKey: data.wppApiKey || '',
-        wppWebhookSecret: data.wppWebhookSecret || ''
+        wppWebhookSecret: data.wppWebhookSecret || '',
+        wappiProfileId: data.wappiProfileId || '',
+        wappiApiToken: data.wappiApiToken || ''
       });
     }
     
     if (!data?.webhookUrl) {
       const provider = data?.provider || 'greenapi';
-      const webhookFn = provider === 'wpp' ? 'wpp-webhook' : 'whatsapp-webhook';
+      const webhookFn = provider === 'wpp' ? 'wpp-webhook' : provider === 'wappi' ? 'wappi-whatsapp-webhook' : 'whatsapp-webhook';
       const webhookUrl = `https://kbojujfwtvmsgudumown.supabase.co/functions/v1/${webhookFn}`;
       setSettings(prev => ({ ...prev, webhookUrl }));
     }
@@ -132,7 +136,7 @@ export const WhatsAppSettings: React.FC = () => {
   };
 
   const handleTest = async () => {
-    const result = await testConnection(settings.provider as 'greenapi' | 'wpp');
+    const result = await testConnection(settings.provider);
     setConnectionStatus(result ? 'connected' : 'error');
     if (result) {
       checkConnectionStatus();
@@ -144,7 +148,7 @@ export const WhatsAppSettings: React.FC = () => {
       const updated = { ...prev, [field]: value } as typeof settings;
       
       if (field === 'provider') {
-        const webhookFn = value === 'wpp' ? 'wpp-webhook' : 'whatsapp-webhook';
+        const webhookFn = value === 'wpp' ? 'wpp-webhook' : value === 'wappi' ? 'wappi-whatsapp-webhook' : 'whatsapp-webhook';
         updated.webhookUrl = `https://kbojujfwtvmsgudumown.supabase.co/functions/v1/${webhookFn}`;
       }
       
@@ -240,7 +244,7 @@ export const WhatsAppSettings: React.FC = () => {
       )}
 
       {/* Provider Selection Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card 
           className={cn(
             "cursor-pointer transition-all hover:shadow-md",
@@ -268,7 +272,7 @@ export const WhatsAppSettings: React.FC = () => {
             <ul className="text-sm text-muted-foreground space-y-1">
               <li className="flex items-center gap-2">
                 <CheckCircle className="h-3 w-3 text-green-500" />
-                Официальный WhatsApp Business API
+                Официальный WhatsApp API
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle className="h-3 w-3 text-green-500" />
@@ -277,6 +281,47 @@ export const WhatsAppSettings: React.FC = () => {
               <li className="flex items-center gap-2">
                 <AlertCircle className="h-3 w-3 text-orange-500" />
                 Платная подписка
+              </li>
+            </ul>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className={cn(
+            "cursor-pointer transition-all hover:shadow-md",
+            settings.provider === 'wappi' && "ring-2 ring-primary shadow-md"
+          )}
+          onClick={() => handleInputChange('provider', 'wappi')}
+        >
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                <Cloud className="h-5 w-5 text-purple-600" />
+              </div>
+              <div className="flex-1">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  Wappi.pro
+                  {settings.provider === 'wappi' && (
+                    <CheckCircle className="h-4 w-4 text-primary" />
+                  )}
+                </CardTitle>
+                <Badge variant="secondary" className="mt-1">Облачный</Badge>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-3 w-3 text-green-500" />
+                Простой API
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-3 w-3 text-green-500" />
+                Все типы медиа
+              </li>
+              <li className="flex items-center gap-2">
+                <AlertCircle className="h-3 w-3 text-orange-500" />
+                От 700₽/мес
               </li>
             </ul>
           </CardContent>
@@ -309,7 +354,7 @@ export const WhatsAppSettings: React.FC = () => {
             <ul className="text-sm text-muted-foreground space-y-1">
               <li className="flex items-center gap-2">
                 <CheckCircle className="h-3 w-3 text-green-500" />
-                Полный контроль над данными
+                Полный контроль
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle className="h-3 w-3 text-green-500" />
@@ -317,7 +362,7 @@ export const WhatsAppSettings: React.FC = () => {
               </li>
               <li className="flex items-center gap-2">
                 <AlertCircle className="h-3 w-3 text-orange-500" />
-                Требует собственный сервер
+                Требует свой сервер
               </li>
             </ul>
           </CardContent>
@@ -329,10 +374,10 @@ export const WhatsAppSettings: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" />
-            Настройки {settings.provider === 'greenapi' ? 'Green API' : 'WPP Connect'}
+            Настройки {settings.provider === 'greenapi' ? 'Green API' : settings.provider === 'wappi' ? 'Wappi.pro' : 'WPP Connect'}
           </CardTitle>
           <CardDescription>
-            Введите учетные данные для подключения к {settings.provider === 'greenapi' ? 'Green API' : 'WPP серверу'}
+            Введите учетные данные для подключения к {settings.provider === 'greenapi' ? 'Green API' : settings.provider === 'wappi' ? 'Wappi.pro' : 'WPP серверу'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -368,6 +413,35 @@ export const WhatsAppSettings: React.FC = () => {
                     onChange={(e) => handleInputChange('apiUrl', e.target.value)}
                     placeholder="https://api.green-api.com"
                   />
+                </div>
+              </>
+            ) : settings.provider === 'wappi' ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="wappiProfileId">Profile ID</Label>
+                  <Input
+                    id="wappiProfileId"
+                    value={settings.wappiProfileId}
+                    onChange={(e) => handleInputChange('wappiProfileId', e.target.value)}
+                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    ID профиля из личного кабинета Wappi.pro
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="wappiApiToken">API Token</Label>
+                  <Input
+                    id="wappiApiToken"
+                    type="password"
+                    value={settings.wappiApiToken}
+                    onChange={(e) => handleInputChange('wappiApiToken', e.target.value)}
+                    placeholder="••••••••••••••••••••••••••••••••"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Токен авторизации из настроек Wappi.pro
+                  </p>
                 </div>
               </>
             ) : (
@@ -493,7 +567,7 @@ export const WhatsAppSettings: React.FC = () => {
       {/* Instructions Accordion */}
       <Card>
         <CardHeader>
-          <CardTitle>Инструкция по настройке {settings.provider === 'greenapi' ? 'Green API' : 'WPP Connect'}</CardTitle>
+          <CardTitle>Инструкция по настройке {settings.provider === 'greenapi' ? 'Green API' : settings.provider === 'wappi' ? 'Wappi.pro' : 'WPP Connect'}</CardTitle>
           <CardDescription>
             Пошаговое руководство для подключения WhatsApp
           </CardDescription>
@@ -608,6 +682,97 @@ export const WhatsAppSettings: React.FC = () => {
                         После сканирования QR-кода статус изменится на "Подключено"
                       </AlertDescription>
                     </Alert>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          ) : settings.provider === 'wappi' ? (
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="step-1">
+                <AccordionTrigger>
+                  <div className="flex items-center gap-3">
+                    <Badge className="bg-primary text-primary-foreground">Шаг 1</Badge>
+                    <span>Регистрация в Wappi.pro</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <ol className="space-y-3 text-sm ml-4">
+                    <li className="flex items-start gap-2">
+                      <span className="font-medium">1.</span>
+                      <span>
+                        Перейдите на{' '}
+                        <a 
+                          href="https://wappi.pro" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-primary underline inline-flex items-center gap-1"
+                        >
+                          wappi.pro
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="font-medium">2.</span>
+                      <span>Зарегистрируйтесь и создайте профиль</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="font-medium">3.</span>
+                      <span>Скопируйте Profile ID и API Token в поля выше</span>
+                    </li>
+                  </ol>
+                </AccordionContent>
+              </AccordionItem>
+              
+              <AccordionItem value="step-2">
+                <AccordionTrigger>
+                  <div className="flex items-center gap-3">
+                    <Badge className="bg-primary text-primary-foreground">Шаг 2</Badge>
+                    <span>Настройка Webhook</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-4 text-sm">
+                    <p>В личном кабинете Wappi.pro укажите webhook URL:</p>
+                    <div className="flex gap-2">
+                      <Input value={settings.webhookUrl} readOnly className="flex-1 text-xs" />
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => copyToClipboard(settings.webhookUrl)}
+                      >
+                        <Copy className="h-3 w-3 mr-1" />
+                        Копировать
+                      </Button>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+              
+              <AccordionItem value="step-3">
+                <AccordionTrigger>
+                  <div className="flex items-center gap-3">
+                    <Badge className="bg-primary text-primary-foreground">Шаг 3</Badge>
+                    <span>Авторизация WhatsApp</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-3 text-sm">
+                    <p>Отсканируйте QR-код в личном кабинете Wappi.pro:</p>
+                    <ol className="space-y-2 ml-4">
+                      <li className="flex items-start gap-2">
+                        <span className="font-medium">1.</span>
+                        <span>Откройте WhatsApp на телефоне</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="font-medium">2.</span>
+                        <span>Перейдите: Меню → Связанные устройства → Привязка устройства</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="font-medium">3.</span>
+                        <span>Отсканируйте QR-код из панели Wappi.pro</span>
+                      </li>
+                    </ol>
                   </div>
                 </AccordionContent>
               </AccordionItem>

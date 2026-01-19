@@ -21,7 +21,7 @@ export const WppTestPanel = () => {
     loading 
   } = useWhatsApp();
 
-  const [provider, setProvider] = useState<'greenapi' | 'wpp' | null>(null);
+  const [provider, setProvider] = useState<'greenapi' | 'wpp' | 'wappi' | null>(null);
   const [testPhone, setTestPhone] = useState('79852615056');
   const [testMessage, setTestMessage] = useState('Тест WPP');
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
