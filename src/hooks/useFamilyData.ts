@@ -10,6 +10,10 @@ export interface PhoneNumber {
   isPrimary: boolean;
   whatsappAvatarUrl?: string;
   telegramAvatarUrl?: string;
+  whatsappChatId?: string | null;
+  telegramChatId?: string | null;
+  maxChatId?: string | null;
+  maxAvatarUrl?: string | null;
 }
 
 export interface FamilyMember {
@@ -66,6 +70,10 @@ interface RpcPhoneNumber {
   is_telegram_enabled: boolean;
   whatsapp_avatar_url?: string;
   telegram_avatar_url?: string;
+  whatsapp_chat_id?: string | null;
+  telegram_chat_id?: string | null;
+  max_chat_id?: string | null;
+  max_avatar_url?: string | null;
 }
 
 interface RpcMember {
@@ -211,6 +219,10 @@ export const useFamilyData = (familyGroupId?: string) => {
           isPrimary: p.is_primary || false,
           whatsappAvatarUrl: p.whatsapp_avatar_url,
           telegramAvatarUrl: p.telegram_avatar_url,
+          whatsappChatId: p.whatsapp_chat_id,
+          telegramChatId: p.telegram_chat_id,
+          maxChatId: p.max_chat_id,
+          maxAvatarUrl: p.max_avatar_url,
         })),
       }));
 
