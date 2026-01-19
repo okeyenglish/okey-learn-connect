@@ -8929,6 +8929,7 @@ export type Database = {
         | "finished"
         | "paused"
         | "dropped"
+        | "cancelled"
       group_student_status: "active" | "paused" | "completed" | "dropped"
       group_type: "general" | "individual" | "mini" | "corporate"
       lesson_status:
@@ -9143,6 +9144,7 @@ export const Constants = {
         "finished",
         "paused",
         "dropped",
+        "cancelled",
       ],
       group_student_status: ["active", "paused", "completed", "dropped"],
       group_type: ["general", "individual", "mini", "corporate"],
