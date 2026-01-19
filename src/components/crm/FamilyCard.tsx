@@ -8,6 +8,7 @@ import { AddStudentModal } from "./AddStudentModal";
 import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
 import { PhoneNumberManager } from "./PhoneNumberManager";
 import { EditContactModal } from "./EditContactModal";
+import { ContactInfoBlock } from "./ContactInfoBlock";
 import { useFamilyData, FamilyMember, Student } from "@/hooks/useFamilyData";
 import { GroupDetailModal } from "@/components/learning-groups/GroupDetailModal";
 import { IndividualLessonModal } from "@/components/teacher/IndividualLessonModal";
@@ -271,49 +272,34 @@ export const FamilyCard = ({
           </div>
         </CardHeader>
         <CardContent className="pt-0">
-          <div className="space-y-2 text-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Phone className="h-3 w-3 text-muted-foreground" />
-                <span 
-                  className="cursor-pointer hover:text-slate-600 transition-colors"
-                  onClick={() => handlePhoneClick(getActivePhone()?.id || '1')}
-                >
-                  {getDisplayPhone()}
-                </span>
-                {getActivePhone()?.isPrimary && (
-                  <Badge variant="outline" className="text-xs text-slate-600">
-                    (основной)
-                  </Badge>
-                )}
-              </div>
-            </div>
-            {/* Additional Phone Numbers */}
-            {activeMember.phoneNumbers && 
-             activeMember.phoneNumbers.filter(phone => phone.id !== getActivePhone()?.id).map((phone) => (
-              <div key={phone.id} className="flex items-center gap-2">
-                <Phone className="h-3 w-3 text-muted-foreground" />
-                <span 
-                  className="cursor-pointer hover:text-primary transition-colors"
-                  onClick={() => handlePhoneClick(phone.id)}
-                >
-                  {phone.phone}
-                </span>
-                {phone.isPrimary && (
-                  <Badge variant="outline" className="text-xs text-primary">
-                    (основной)
-                  </Badge>
-                )}
-              </div>
-            ))}
-            {activeMember.email && (
-              <div className="flex items-center gap-2">
-                <Mail className="h-3 w-3 text-muted-foreground" />
-                <span>{activeMember.email}</span>
-              </div>
-            )}
+          <div className="space-y-3 text-sm">
+            <ContactInfoBlock
+              phoneNumbers={activeMember.phoneNumbers.map(p => ({
+                id: p.id,
+                phone: p.phone,
+                isPrimary: p.isPrimary,
+                isWhatsappEnabled: p.isWhatsappEnabled,
+                isTelegramEnabled: p.isTelegramEnabled,
+                whatsappChatId: p.whatsappChatId,
+                telegramChatId: p.telegramChatId,
+                maxChatId: p.maxChatId,
+              }))}
+              email={activeMember.email}
+              onMessengerClick={(phoneId, messenger) => {
+                // Set the active phone and messenger type
+                handlePhoneClick(phoneId);
+                if (messenger === 'whatsapp') {
+                  onOpenChat?.(activeMember.id);
+                } else if (messenger === 'telegram') {
+                  onOpenChat?.(activeMember.id);
+                } else if (messenger === 'max') {
+                  onOpenChat?.(activeMember.id);
+                }
+              }}
+            />
+            
             <div className="flex items-center gap-2">
-              <Home className="h-3 w-3 text-muted-foreground" />
+              <Home className="h-3.5 w-3.5 text-muted-foreground" />
               {isChangingBranch ? (
                 <select 
                   className="text-sm bg-white border border-slate-200 rounded px-2 py-1 text-slate-700 min-w-0 flex-1" 
