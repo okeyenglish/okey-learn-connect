@@ -36,6 +36,9 @@ export interface ChatThread {
   telegram_avatar_url?: string | null;
   whatsapp_avatar_url?: string | null;
   max_avatar_url?: string | null;
+  telegram_chat_id?: string | null;
+  whatsapp_chat_id?: string | null;
+  max_chat_id?: string | null;
   last_message: string;
   last_message_time: string;
   unread_count: number;

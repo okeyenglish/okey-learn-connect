@@ -843,11 +843,54 @@ const CRMContent = () => {
   ];
   const threadClientIdsSet = useMemo(() => new Set((threads || []).map(t => t.client_id)), [threads]);
 
-  // Функция для очистки имени от префикса "Клиент"
-  const cleanClientName = (name: string) => {
+  // Функция для очистки имени от префикса "Клиент" и "Без имени" - извлекает телефон из messenger chat_id
+  const cleanClientName = (name: string, whatsappChatId?: string | null, telegramChatId?: string | null, maxChatId?: string | null, phone?: string | null) => {
     if (name.startsWith('Клиент ')) {
       return name.replace('Клиент ', '');
     }
+    
+    // If name is "Без имени", extract phone from messenger chat_id and format it
+    if (name === 'Без имени') {
+      // Try to extract phone from whatsapp_chat_id (format: 79123456789@c.us)
+      if (whatsappChatId) {
+        const waPhone = whatsappChatId.replace('@c.us', '').replace('@s.whatsapp.net', '');
+        if (waPhone && /^\d{10,}$/.test(waPhone)) {
+          // Format as +7 XXX XXX-XX-XX
+          if (waPhone.length === 11 && (waPhone.startsWith('7') || waPhone.startsWith('8'))) {
+            return `+7 ${waPhone.slice(1, 4)} ${waPhone.slice(4, 7)}-${waPhone.slice(7, 9)}-${waPhone.slice(9)}`;
+          }
+          return `+${waPhone}`;
+        }
+      }
+      
+      // Try telegram_chat_id (usually just a number or phone-based)
+      if (telegramChatId && /^\d{10,}$/.test(telegramChatId)) {
+        const tgPhone = telegramChatId;
+        if (tgPhone.length === 11 && (tgPhone.startsWith('7') || tgPhone.startsWith('8'))) {
+          return `+7 ${tgPhone.slice(1, 4)} ${tgPhone.slice(4, 7)}-${tgPhone.slice(7, 9)}-${tgPhone.slice(9)}`;
+        }
+        return `+${tgPhone}`;
+      }
+      
+      // Try max_chat_id
+      if (maxChatId && /^\d{10,}$/.test(maxChatId)) {
+        const maxPhone = maxChatId;
+        if (maxPhone.length === 11 && (maxPhone.startsWith('7') || maxPhone.startsWith('8'))) {
+          return `+7 ${maxPhone.slice(1, 4)} ${maxPhone.slice(4, 7)}-${maxPhone.slice(7, 9)}-${maxPhone.slice(9)}`;
+        }
+        return `+${maxPhone}`;
+      }
+      
+      // Fallback to phone field
+      if (phone) {
+        const digits = phone.replace(/\D/g, '');
+        if (digits.length === 11 && (digits.startsWith('7') || digits.startsWith('8'))) {
+          return `+7 ${digits.slice(1, 4)} ${digits.slice(4, 7)}-${digits.slice(7, 9)}-${digits.slice(9)}`;
+        }
+        return phone;
+      }
+    }
+    
     return name;
   };
 
@@ -888,7 +931,7 @@ const CRMContent = () => {
           
         return {
           id: thread.client_id,
-          name: cleanClientName(thread.client_name ?? 'Без имени'),
+          name: cleanClientName(thread.client_name ?? 'Без имени', thread.whatsapp_chat_id, thread.telegram_chat_id, thread.max_chat_id, thread.client_phone),
           phone: thread.client_phone,
           branch: thread.client_branch,
           lastMessage: lastMsgDisplay,
@@ -968,9 +1011,7 @@ const CRMContent = () => {
         
         return {
           id: thread.client_id,
-          name: thread.client_name?.startsWith('Клиент ') 
-            ? thread.client_name.replace('Клиент ', '') 
-            : (thread.client_name || 'Без имени'),
+          name: cleanClientName(thread.client_name ?? 'Без имени', thread.whatsapp_chat_id, thread.telegram_chat_id, thread.max_chat_id, thread.client_phone),
           phone: thread.client_phone,
           branch: thread.client_branch,
           lastMessage: thread.last_message?.trim?.() || 'Нет сообщений',
