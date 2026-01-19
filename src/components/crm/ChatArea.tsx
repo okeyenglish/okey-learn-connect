@@ -129,10 +129,10 @@ export const ChatArea = ({
   const [gptGenerating, setGptGenerating] = useState(false);
   const [quotedText, setQuotedText] = useState<string | null>(null);
   const [activeMessengerTab, setActiveMessengerTab] = useState("whatsapp");
-  const [isEditingName, setIsEditingName] = useState(false);
   
-  // Функция для очистки имени от префикса "Клиент" и "Без имени" (определяем до использования)
-  const cleanClientName = (name: string, phone?: string) => {
+  
+  // Функция для форматирования отображаемого имени (Фамилия Имя, без отчества)
+  const formatDisplayName = (name: string, phone?: string) => {
     if (name === 'Без имени' && phone) {
       // Format phone number for display
       const digits = phone.replace(/\D/g, '');
@@ -144,17 +144,21 @@ export const ChatArea = ({
     if (name.startsWith('Клиент ')) {
       return name.replace('Клиент ', '');
     }
+    // Parse "Фамилия Имя Отчество" -> "Фамилия Имя"
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 3) {
+      return `${parts[0]} ${parts[1]}`; // Return only Last + First name
+    }
     return name;
   };
   
-  const [editedName, setEditedName] = useState(cleanClientName(clientName, clientPhone));
-  const [displayName, setDisplayName] = useState(cleanClientName(clientName, clientPhone));
+  const displayName = formatDisplayName(clientName, clientPhone);
   const whatsappEndRef = useRef<HTMLDivElement>(null);
   const maxEndRef = useRef<HTMLDivElement>(null);
   const telegramEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const editNameInputRef = useRef<HTMLInputElement>(null);
+  
   // Composer width detection
   const composerRef = useRef<HTMLDivElement>(null);
   const [isCompactComposer, setIsCompactComposer] = useState(false);
@@ -225,13 +229,7 @@ export const ChatArea = ({
     });
   };
 
-  // Update editedName and displayName when clientName changes
-  useEffect(() => {
-    const cleaned = cleanClientName(clientName, clientPhone);
-    setEditedName(cleaned);
-    setDisplayName(cleaned);
-    setIsEditingName(false);
-  }, [clientName, clientPhone]);
+  // displayName is now computed directly from clientName, no need for state
 
   // Track if we've set the initial tab for this client
   const [initialTabSet, setInitialTabSet] = useState<string | null>(null);
@@ -300,83 +298,6 @@ export const ChatArea = ({
     
     // НЕ помечаем автоматически сообщения как прочитанные
     // Менеджер должен явно нажать "Не требует ответа" или отправить сообщение
-  };
-
-  // Функция для начала редактирования имени
-  const handleStartEditName = () => {
-    setEditedName(cleanClientName(clientName, clientPhone));
-    setIsEditingName(true);
-    setTimeout(() => {
-      editNameInputRef.current?.focus();
-      editNameInputRef.current?.select();
-    }, 0);
-  };
-
-  // Функция для сохранения отредактированного имени
-  const handleSaveName = async () => {
-    if (!editedName.trim()) {
-      toast({
-        title: "Ошибка",
-        description: "Имя не может быть пустым",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const trimmedName = editedName.trim();
-
-    try {
-      // Оптимистичное обновление UI
-      setDisplayName(trimmedName);
-      setIsEditingName(false);
-
-      // Обновляем кэш React Query немедленно
-      queryClient.setQueryData(['clients'], (oldData: any) => {
-        if (!oldData) return oldData;
-        return oldData.map((client: any) => 
-          client.id === clientId ? { ...client, name: trimmedName } : client
-        );
-      });
-
-      queryClient.setQueryData(['client', clientId], (oldData: any) => {
-        if (!oldData) return oldData;
-        return { ...oldData, name: trimmedName };
-      });
-
-      // Обновляем базу данных
-      const { error } = await supabase
-        .from('clients')
-        .update({ name: trimmedName })
-        .eq('id', clientId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Успешно",
-        description: "Имя клиента обновлено",
-      });
-
-      // Инвалидируем queries для синхронизации с другими компонентами
-      queryClient.invalidateQueries({ queryKey: ['clients'] });
-      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-    } catch (error) {
-      console.error('Error updating client name:', error);
-      
-      // Откатываем оптимистичное обновление при ошибке
-      setDisplayName(cleanClientName(clientName, clientPhone));
-      
-      toast({
-        title: "Ошибка",
-        description: "Не удалось обновить имя клиента",
-        variant: "destructive"
-      });
-    }
-  };
-
-  // Функция для отмены редактирования
-  const handleCancelEditName = () => {
-    setEditedName(cleanClientName(clientName, clientPhone));
-    setIsEditingName(false);
   };
 
   // Format message helper - мемоизированная функция
@@ -1507,47 +1428,7 @@ export const ChatArea = ({
                 </Button>
               )}
               <div className="flex-1 min-w-0">
-                {isEditingName ? (
-                  <div className="flex items-center gap-1">
-                    <Input
-                      ref={editNameInputRef}
-                      value={editedName}
-                      onChange={(e) => setEditedName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleSaveName();
-                        } else if (e.key === 'Escape') {
-                          handleCancelEditName();
-                        }
-                      }}
-                      className="h-7 text-sm font-semibold"
-                    />
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      className="h-7 w-7 p-0 flex-shrink-0"
-                      onClick={handleSaveName}
-                    >
-                      <Clock className="h-3 w-3 text-green-600" />
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      className="h-7 w-7 p-0 flex-shrink-0"
-                      onClick={handleCancelEditName}
-                    >
-                      <X className="h-3 w-3 text-red-600" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div 
-                    className="flex items-center gap-2 group cursor-pointer" 
-                    onClick={handleStartEditName}
-                  >
-                    <h2 className="font-semibold text-sm text-foreground truncate">{displayName}</h2>
-                    <Edit2 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-                  </div>
-                )}
+                <h2 className="font-semibold text-sm text-foreground truncate">{displayName}</h2>
                 <p className="text-xs text-muted-foreground truncate">{clientPhone}</p>
                 {getTypingMessage() && (
                   <p className="text-xs text-orange-600 italic animate-pulse">
@@ -1647,47 +1528,7 @@ export const ChatArea = ({
           <div className="flex items-start justify-between gap-4 p-3">
             <div className="flex items-center gap-3">
               <div>
-                {isEditingName ? (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      ref={editNameInputRef}
-                      value={editedName}
-                      onChange={(e) => setEditedName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleSaveName();
-                        } else if (e.key === 'Escape') {
-                          handleCancelEditName();
-                        }
-                      }}
-                      className="h-8 text-base font-semibold"
-                    />
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      className="h-8 w-8 p-0"
-                      onClick={handleSaveName}
-                    >
-                      <Clock className="h-4 w-4 text-green-600" />
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      className="h-8 w-8 p-0"
-                      onClick={handleCancelEditName}
-                    >
-                      <X className="h-4 w-4 text-red-600" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div 
-                    className="flex items-center gap-2 group cursor-pointer" 
-                    onClick={handleStartEditName}
-                  >
-                    <h2 className="font-semibold text-base">{displayName}</h2>
-                    <Edit2 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                )}
+                <h2 className="font-semibold text-base">{displayName}</h2>
                 <p className="text-sm text-muted-foreground">{clientPhone}</p>
               </div>
             </div>
