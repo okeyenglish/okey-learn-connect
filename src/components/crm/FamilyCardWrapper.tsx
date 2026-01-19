@@ -17,6 +17,30 @@ export const FamilyCardWrapper = ({ clientId, onOpenChat }: FamilyCardWrapperPro
   const createAttemptedRef = useRef<string | null>(null);
   const { toast } = useToast();
 
+  const ensurePhoneNumberExists = async (cId: string, phone: string | null) => {
+    if (!phone) return;
+
+    // Check if phone number record already exists
+    const { data: existing } = await supabase
+      .from('client_phone_numbers')
+      .select('id')
+      .eq('client_id', cId)
+      .limit(1);
+
+    if (existing && existing.length > 0) return;
+
+    // Create phone number record
+    await supabase
+      .from('client_phone_numbers')
+      .insert({
+        client_id: cId,
+        phone: phone,
+        is_primary: true,
+      });
+
+    console.log('Created phone number record for client:', cId);
+  };
+
   const createFamilyGroupForClient = async (cId: string) => {
     // Prevent duplicate creation attempts for the same client
     if (createAttemptedRef.current === cId) return null;
@@ -25,14 +49,17 @@ export const FamilyCardWrapper = ({ clientId, onOpenChat }: FamilyCardWrapperPro
     try {
       setCreating(true);
 
-      // Get client info
+      // Get client info including phone
       const { data: client, error: clientError } = await supabase
         .from('clients')
-        .select('name, first_name, last_name')
+        .select('name, first_name, last_name, phone')
         .eq('id', cId)
         .single();
 
       if (clientError) throw clientError;
+
+      // Ensure phone number record exists
+      await ensurePhoneNumberExists(cId, client?.phone || null);
 
       // Build group name from last_name or parsed from name
       let groupName = 'Семья клиента';
@@ -100,6 +127,17 @@ export const FamilyCardWrapper = ({ clientId, onOpenChat }: FamilyCardWrapperPro
         const selectedGroup = primaryGroup || data?.[0];
         
         if (selectedGroup?.family_group_id) {
+          // Ensure phone number exists for existing clients too
+          const { data: client } = await supabase
+            .from('clients')
+            .select('phone')
+            .eq('id', clientId)
+            .single();
+
+          if (client?.phone) {
+            await ensurePhoneNumberExists(clientId, client.phone);
+          }
+
           setFamilyGroupId(selectedGroup.family_group_id);
           createAttemptedRef.current = null; // Reset for next client
         } else {
