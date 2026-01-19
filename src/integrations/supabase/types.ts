@@ -2720,6 +2720,10 @@ export type Database = {
           last_error: string | null
           last_run_at: string | null
           last_sync_timestamp: string | null
+          online_tests_is_running: boolean | null
+          online_tests_last_updated_at: string | null
+          online_tests_skip: number | null
+          online_tests_total_imported: number | null
           organization_id: string | null
           requires_manual_restart: boolean | null
           start_time: string | null
@@ -2756,6 +2760,10 @@ export type Database = {
           last_error?: string | null
           last_run_at?: string | null
           last_sync_timestamp?: string | null
+          online_tests_is_running?: boolean | null
+          online_tests_last_updated_at?: string | null
+          online_tests_skip?: number | null
+          online_tests_total_imported?: number | null
           organization_id?: string | null
           requires_manual_restart?: boolean | null
           start_time?: string | null
@@ -2792,6 +2800,10 @@ export type Database = {
           last_error?: string | null
           last_run_at?: string | null
           last_sync_timestamp?: string | null
+          online_tests_is_running?: boolean | null
+          online_tests_last_updated_at?: string | null
+          online_tests_skip?: number | null
+          online_tests_total_imported?: number | null
           organization_id?: string | null
           requires_manual_restart?: boolean | null
           start_time?: string | null
@@ -4847,6 +4859,82 @@ export type Database = {
             columns: ["terminal_id"]
             isOneToOne: false
             referencedRelation: "payment_terminals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      online_test_results: {
+        Row: {
+          comments: string | null
+          created_at: string | null
+          external_id: string | null
+          holihope_metadata: Json | null
+          id: string
+          max_score: number | null
+          organization_id: string
+          passed: boolean | null
+          percentage: number | null
+          score: number | null
+          student_id: string | null
+          test_date: string | null
+          test_name: string
+          time_spent_minutes: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          comments?: string | null
+          created_at?: string | null
+          external_id?: string | null
+          holihope_metadata?: Json | null
+          id?: string
+          max_score?: number | null
+          organization_id: string
+          passed?: boolean | null
+          percentage?: number | null
+          score?: number | null
+          student_id?: string | null
+          test_date?: string | null
+          test_name: string
+          time_spent_minutes?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          comments?: string | null
+          created_at?: string | null
+          external_id?: string | null
+          holihope_metadata?: Json | null
+          id?: string
+          max_score?: number | null
+          organization_id?: string
+          passed?: boolean | null
+          percentage?: number | null
+          score?: number | null
+          student_id?: string | null
+          test_date?: string | null
+          test_name?: string
+          time_spent_minutes?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "online_test_results_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "online_test_results_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "online_test_results_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
             referencedColumns: ["id"]
           },
         ]
