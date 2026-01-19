@@ -13,12 +13,14 @@ import { useAddBalanceTransaction } from '@/hooks/useStudentBalance';
 import { useToast } from '@/hooks/use-toast';
 import { useCoursePrices } from '@/hooks/useCoursePrices';
 import { useGroupCoursePrices } from '@/hooks/useGroupCoursePrices';
+import { useInitOnlinePayment } from '@/hooks/usePaymentTerminals';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateLessonPrice } from '@/utils/lessonPricing';
 import { extractCourseName } from '@/utils/courseNameExtractor';
+import { CreditCard, Loader2 } from 'lucide-react';
 
 interface CreatePaymentModalProps {
   open: boolean;
@@ -79,9 +81,11 @@ export function CreatePaymentModal({
     payment_date: new Date().toISOString().split('T')[0]
   });
   const [loading, setLoading] = useState(false);
+  const [onlinePaymentLoading, setOnlinePaymentLoading] = useState(false);
   
   const { mutateAsync: createPayment } = useIdempotentPayment();
   const { mutateAsync: addBalanceTransaction } = useAddBalanceTransaction();
+  const { mutateAsync: initOnlinePayment } = useInitOnlinePayment();
   const { toast } = useToast();
   const { data: coursePrices } = useCoursePrices();
   const { data: groupCoursePrices, isLoading: isLoadingGroupPrices } = useGroupCoursePrices();
@@ -522,6 +526,76 @@ export function CreatePaymentModal({
     }
   };
 
+  // Обработка онлайн-оплаты через Т-Банк
+  const handleOnlinePayment = async () => {
+    const amount = paymentType === 'balance' ? parseFloat(customAmount) : calculateAmount();
+    
+    if (!amount) {
+      toast({
+        title: "Ошибка",
+        description: "Укажите сумму платежа",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (paymentType === 'lessons' && !selectedLesson) {
+      toast({
+        title: "Ошибка",
+        description: "Выберите занятие для оплаты",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setOnlinePaymentLoading(true);
+    try {
+      const lessonInfo = getSelectedLessonInfo();
+      const lessonsCount = getLessonsCount();
+      const academicHours = lessonsCount * (lessonInfo?.academicHours || 1);
+      
+      let description = formData.description;
+      if (!description) {
+        if (paymentType === 'lessons') {
+          description = `Оплата ${lessonsCount} занятий (${academicHours} ак.ч.) - ${studentName}`;
+        } else if (paymentType === 'textbooks') {
+          description = `Учебные пособия - ${studentName}`;
+        } else {
+          description = `Пополнение баланса - ${studentName}`;
+        }
+      }
+
+      const result = await initOnlinePayment({
+        student_id: studentId,
+        amount,
+        description,
+        success_url: `${window.location.origin}/payment-success`,
+        fail_url: `${window.location.origin}/payment-fail`,
+      });
+
+      if (result.payment_url) {
+        // Открываем страницу оплаты в новом окне
+        window.open(result.payment_url, '_blank');
+        
+        toast({
+          title: "Переход к оплате",
+          description: "Откроется страница оплаты Т-Банка. После оплаты платеж появится автоматически.",
+        });
+        
+        onOpenChange(false);
+      }
+    } catch (error: any) {
+      console.error('Online payment error:', error);
+      toast({
+        title: "Ошибка онлайн-оплаты",
+        description: error.message || "Не удалось создать платеж",
+        variant: "destructive",
+      });
+    } finally {
+      setOnlinePaymentLoading(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
@@ -795,17 +869,37 @@ export function CreatePaymentModal({
           </div>
 
 
-          <div className="flex gap-2 justify-end pt-4 sticky bottom-0 bg-background border-t mt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Отмена
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Сохранение...' : 'Сохранить'}
-            </Button>
+          <div className="flex flex-col gap-3 pt-4 sticky bottom-0 bg-background border-t mt-4">
+            {/* Кнопка онлайн-оплаты */}
+            {calculateAmount() > 0 && (
+              <Button
+                type="button"
+                variant="default"
+                className="w-full gap-2"
+                onClick={handleOnlinePayment}
+                disabled={onlinePaymentLoading || loading}
+              >
+                {onlinePaymentLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CreditCard className="h-4 w-4" />
+                )}
+                Оплатить онлайн {calculateAmount().toLocaleString('ru-RU')} ₽
+              </Button>
+            )}
+            
+            <div className="flex gap-2 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Отмена
+              </Button>
+              <Button type="submit" disabled={loading || onlinePaymentLoading}>
+                {loading ? 'Сохранение...' : 'Записать вручную'}
+              </Button>
+            </div>
           </div>
         </form>
         </div>

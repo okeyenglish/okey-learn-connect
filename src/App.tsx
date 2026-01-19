@@ -68,6 +68,8 @@ const BalanceSystemTest = lazy(() => import('./pages/BalanceSystemTest'));
 const TeacherPortalTest = lazy(() => import('./pages/TeacherPortalTest'));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const WhatsAppSessions = lazy(() => import("./pages/WhatsAppSessions"));
+const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess'));
+const PaymentFail = lazy(() => import('./pages/PaymentFail'));
 
 // Loading component for better UX
 const LoadingComponent = () => (
@@ -415,6 +417,16 @@ const AppContent = () => {
                 <WhatsAppSessions />
               </Suspense>
             </ProtectedRoute>
+          } />
+          <Route path="/payment-success" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <PaymentSuccess />
+            </Suspense>
+          } />
+          <Route path="/payment-fail" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <PaymentFail />
+            </Suspense>
           } />
           <Route path="/5000" element={
             <Suspense fallback={<LoadingComponent />}>
