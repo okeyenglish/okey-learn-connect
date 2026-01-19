@@ -1,10 +1,30 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Generate HMAC-SHA256 signature for OnlinePBX API
+async function generateSignature(key: string, message: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(key);
+  const messageData = encoder.encode(message);
+  
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  
+  const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
+  const hashArray = Array.from(new Uint8Array(signature));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -72,29 +92,44 @@ serve(async (req) => {
     const onlinePbxKeyId = Deno.env.get('ONLINEPBX_KEY_ID');
     const onlinePbxKey = Deno.env.get('ONLINEPBX_KEY');
 
-    // Make call via OnlinePBX API
-    const onlinePbxUrl = 'https://api.onlinepbx.ru/pbx11034.onpbx.ru/call/now.json';
-    
-    const onlinePbxHeaders = {
-      'x-pbx-authentication': `${onlinePbxKeyId}:${onlinePbxKey}`,
-      'Content-Type': 'application/json'
-    };
+    if (!onlinePbxKeyId || !onlinePbxKey) {
+      throw new Error('OnlinePBX credentials not configured');
+    }
+
+    // OnlinePBX API v3 with HMAC-SHA256 authentication
+    const pbxDomain = 'pbx11034.onpbx.ru';
+    const apiPath = `/${pbxDomain}/call/now.json`;
+    const onlinePbxUrl = `https://api.onlinepbx.ru${apiPath}`;
 
     const onlinePbxBody = {
       from: operatorExtension,
       to: to_number
     };
 
+    const bodyString = JSON.stringify(onlinePbxBody);
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    
+    // Generate signature: HMAC-SHA256(key, keyId + timestamp + bodyString)
+    const signatureMessage = onlinePbxKeyId + timestamp + bodyString;
+    const signature = await generateSignature(onlinePbxKey, signatureMessage);
+    
+    const onlinePbxHeaders = {
+      'x-pbx-authentication': `${onlinePbxKeyId}:${timestamp}:${signature}`,
+      'Content-Type': 'application/json'
+    };
+
     console.log('Making OnlinePBX API call:', {
       url: onlinePbxUrl,
       from: operatorExtension,
-      to: to_number
+      to: to_number,
+      timestamp: timestamp,
+      authHeader: `${onlinePbxKeyId}:${timestamp}:${signature.substring(0, 10)}...`
     });
 
     const response = await fetch(onlinePbxUrl, {
       method: 'POST',
       headers: onlinePbxHeaders,
-      body: JSON.stringify(onlinePbxBody)
+      body: bodyString
     });
 
     const responseData = await response.json();
