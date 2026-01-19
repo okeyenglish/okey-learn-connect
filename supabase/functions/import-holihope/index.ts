@@ -3543,8 +3543,20 @@ Deno.serve(async (req) => {
         const dateTo = to.toISOString().slice(0, 10);
         console.log(`Date range: ${dateFrom} to ${dateTo}`);
         
-        // Batch parameters
-        const batchSize = body.batch_size || null; // If null, process all
+        // Batch parameters - ALWAYS have a safe default to prevent infinite processing
+        // Default to 2 requests per batch, max 10 to avoid overwhelming the server
+        const rawBatchSize = body.batch_size;
+        const batchSize = Math.min(
+          Math.max(typeof rawBatchSize === 'number' && rawBatchSize > 0 ? rawBatchSize : 2, 1),
+          10
+        );
+        console.log(`📦 Batch size: ${batchSize} (raw input: ${rawBatchSize})`);
+        
+        // TIME BUDGET: Exit early if execution time exceeds this threshold (in ms)
+        // This prevents edge function from being killed mid-operation
+        const TIME_BUDGET_MS = 25000; // 25 seconds
+        const FETCH_TIMEOUT_MS = 15000; // 15 seconds per individual fetch
+        const functionStartTime = Date.now();
         
         // Step 1: Get list of offices
         console.log('Fetching list of offices from GetOffices...');
@@ -3577,21 +3589,21 @@ Deno.serve(async (req) => {
         
         const totalCombinations = officeIds.length * statuses.length * timeRanges.length;
         console.log(`Total combinations: ${totalCombinations}. Starting from: office=${startOfficeIndex}, status=${startStatusIndex}, time=${startTimeIndex}`);
-        if (batchSize) {
-          console.log(`Batch mode enabled: will process ${batchSize} requests per call`);
-        }
+        console.log(`⏱️ Time budget: ${TIME_BUDGET_MS}ms, Fetch timeout: ${FETCH_TIMEOUT_MS}ms`);
         
         let allUnits: any[] = [];
         let fetchedCount = 0;
         let totalRequests = 0;
         let successfulRequests = 0;
         let hasMore = false;
+        let exitReason = ''; // Track why we exited: 'batch_limit' | 'time_budget' | 'completed'
         let nextOfficeIndex = startOfficeIndex;
         let nextStatusIndex = startStatusIndex;
         let nextTimeIndex = startTimeIndex;
         let currentPosition = (startOfficeIndex * statuses.length * timeRanges.length) + 
                                (startStatusIndex * timeRanges.length) + 
                                startTimeIndex;
+        let slowFetches: Array<{ combo: string; durationMs: number }> = [];
         
         // Step 2: For each office, fetch units by status and time range
         outerLoop: for (let oi = startOfficeIndex; oi < officeIds.length; oi++) {
@@ -3602,17 +3614,39 @@ Deno.serve(async (req) => {
             
             for (let ti = (oi === startOfficeIndex && si === startStatusIndex ? startTimeIndex : 0); ti < timeRanges.length; ti++) {
               const timeRange = timeRanges[ti];
+              const comboDescription = `Office=${officeId}, Status=${status}, Time=${timeRange.from}-${timeRange.to}`;
               
-              // Check if we've reached the batch limit
-              if (batchSize && totalRequests >= batchSize) {
+              // Check #1: Have we exceeded time budget?
+              const elapsedMs = Date.now() - functionStartTime;
+              if (elapsedMs >= TIME_BUDGET_MS) {
                 hasMore = true;
+                exitReason = 'time_budget';
                 nextOfficeIndex = oi;
                 nextStatusIndex = si;
                 nextTimeIndex = ti;
                 currentPosition = (oi * statuses.length * timeRanges.length) + (si * timeRanges.length) + ti;
-                console.log(`Batch limit reached. Next batch should start at: office=${oi}, status=${si}, time=${ti}`);
+                console.log(`⏱️ TIME BUDGET REACHED (${elapsedMs}ms). Next batch at: office=${oi}, status=${si}, time=${ti}`);
                 
-                // Save progress to DB before exiting batch
+                await updateHolihopeProgress(supabase, {
+                  ed_units_office_index: nextOfficeIndex,
+                  ed_units_status_index: nextStatusIndex,
+                  ed_units_time_index: nextTimeIndex,
+                  ed_units_last_updated_at: new Date().toISOString(),
+                });
+                
+                break outerLoop;
+              }
+              
+              // Check #2: Have we reached batch limit?
+              if (totalRequests >= batchSize) {
+                hasMore = true;
+                exitReason = 'batch_limit';
+                nextOfficeIndex = oi;
+                nextStatusIndex = si;
+                nextTimeIndex = ti;
+                currentPosition = (oi * statuses.length * timeRanges.length) + (si * timeRanges.length) + ti;
+                console.log(`📦 BATCH LIMIT REACHED (${totalRequests} requests). Next batch at: office=${oi}, status=${si}, time=${ti}`);
+                
                 await updateHolihopeProgress(supabase, {
                   ed_units_office_index: nextOfficeIndex,
                   ed_units_status_index: nextStatusIndex,
@@ -3628,12 +3662,39 @@ Deno.serve(async (req) => {
                 totalRequests++;
                 
                 currentPosition = (oi * statuses.length * timeRanges.length) + (si * timeRanges.length) + ti + 1;
-                console.log(`[${currentPosition}/${totalCombinations}] Fetching: Office=${officeId}, Status=${status}, Time=${timeRange.from}-${timeRange.to}`);
+                console.log(`[${currentPosition}/${totalCombinations}] Fetching: ${comboDescription}`);
                 
-                const response = await fetch(apiUrl, {
-                  method: 'GET',
-                  headers: { 'Content-Type': 'application/json' },
-                });
+                // Fetch with timeout using AbortController
+                const fetchStartTime = Date.now();
+                const abortController = new AbortController();
+                const timeoutId = setTimeout(() => abortController.abort(), FETCH_TIMEOUT_MS);
+                
+                let response: Response;
+                try {
+                  response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' },
+                    signal: abortController.signal,
+                  });
+                } catch (fetchErr: any) {
+                  clearTimeout(timeoutId);
+                  if (fetchErr.name === 'AbortError') {
+                    console.warn(`  ⏱️ TIMEOUT after ${FETCH_TIMEOUT_MS}ms for: ${comboDescription}`);
+                    slowFetches.push({ combo: comboDescription, durationMs: FETCH_TIMEOUT_MS });
+                  } else {
+                    console.warn(`  ⚠️ Fetch error: ${fetchErr.message}`);
+                  }
+                  continue; // Skip this combo and continue with next
+                }
+                clearTimeout(timeoutId);
+                
+                const fetchDuration = Date.now() - fetchStartTime;
+                
+                // Log slow fetches (> 3 seconds)
+                if (fetchDuration > 3000) {
+                  console.warn(`  🐢 SLOW FETCH: ${fetchDuration}ms for: ${comboDescription}`);
+                  slowFetches.push({ combo: comboDescription, durationMs: fetchDuration });
+                }
                 
                 if (!response.ok) {
                   console.warn(`  ⚠️ HTTP ${response.status}`);
@@ -3647,13 +3708,12 @@ Deno.serve(async (req) => {
                   allUnits = allUnits.concat(batch);
                   fetchedCount += batch.length;
                   successfulRequests++;
-                  console.log(`  ✓ Fetched ${batch.length} units (total: ${fetchedCount}, successful requests: ${successfulRequests})`);
+                  console.log(`  ✓ Fetched ${batch.length} units in ${fetchDuration}ms (total: ${fetchedCount})`);
                 } else {
-                  console.log(`  ℹ Empty response (0 units)`);
+                  console.log(`  ℹ Empty response (0 units) in ${fetchDuration}ms`);
                 }
                 
-                // Save progress after every request for resume capability (since batch_size is small)
-                // Save the NEXT position so resume continues from correct spot
+                // Save progress after every request for resume capability
                 const nextTi = ti + 1;
                 const nextSi = nextTi >= timeRanges.length ? si + 1 : si;
                 const nextOi = nextSi >= statuses.length ? oi + 1 : oi;
@@ -3667,7 +3727,6 @@ Deno.serve(async (req) => {
                   ed_units_total_imported: fetchedCount + previouslyImported,
                   ed_units_last_updated_at: new Date().toISOString(),
                 });
-                console.log(`📝 Progress saved: next position office=${nextOi >= officeIds.length ? oi : nextOi}, status=${nextOi >= officeIds.length ? si : actualNextSi}, time=${nextOi >= officeIds.length ? ti : actualNextTi}, total=${fetchedCount + previouslyImported}`);
                 
                 // Small delay to avoid overwhelming the API
                 await new Promise(resolve => setTimeout(resolve, 100));
@@ -3679,8 +3738,19 @@ Deno.serve(async (req) => {
           }
         }
         
-        console.log(`Total units fetched: ${allUnits.length}`);
-        console.log(`Processed ${totalRequests} requests (${successfulRequests} successful)`);
+        const totalElapsedMs = Date.now() - functionStartTime;
+        console.log(`📊 Batch summary: ${allUnits.length} units fetched in ${totalElapsedMs}ms`);
+        console.log(`📊 Processed ${totalRequests} requests (${successfulRequests} successful)`);
+        if (exitReason) {
+          console.log(`📊 Exit reason: ${exitReason}`);
+        }
+        if (slowFetches.length > 0) {
+          console.log(`🐢 Slow fetches (${slowFetches.length} total):`);
+          slowFetches.slice(0, 5).forEach(sf => console.log(`   - ${sf.combo}: ${sf.durationMs}ms`));
+          if (slowFetches.length > 5) {
+            console.log(`   ... and ${slowFetches.length - 5} more`);
+          }
+        }
         
         // Log units without ID for debugging
         const unitsWithoutId = allUnits.filter(u => !u.Id);
@@ -4159,11 +4229,11 @@ Deno.serve(async (req) => {
         });
         
         if (hasMore) {
-          progress[0].message = `Обработано ${currentPosition}/${totalCombinations} комбинаций (${progressPercentage}%). Получено из API: ${fetchedCount}, уникальных: ${uniqueUnitsProcessed}, дубликатов отфильтровано: ${duplicatesFiltered}. Всего в БД: ${actualCount}`;
+          progress[0].message = `Обработано ${currentPosition}/${totalCombinations} комбинаций (${progressPercentage}%). Получено из API: ${fetchedCount}, уникальных: ${uniqueUnitsProcessed}, дубликатов отфильтровано: ${duplicatesFiltered}. Всего в БД: ${actualCount}. Exit: ${exitReason}`;
           
           // 🔄 AUTO-CONTINUE: Schedule next batch using EdgeRuntime.waitUntil
           // This ensures import continues even if client disconnects
-          console.log(`🔄 Auto-continuing ed_units import to next batch (office=${nextOfficeIndex}, status=${nextStatusIndex}, time=${nextTimeIndex})...`);
+          console.log(`🔄 Auto-continuing ed_units import to next batch (office=${nextOfficeIndex}, status=${nextStatusIndex}, time=${nextTimeIndex}), exit reason: ${exitReason}...`);
           
           EdgeRuntime.waitUntil((async () => {
             try {
@@ -4177,7 +4247,7 @@ Deno.serve(async (req) => {
                   office_index: nextOfficeIndex,
                   status_index: nextStatusIndex,
                   time_index: nextTimeIndex,
-                  batch_size: batchSize || 2,
+                  batch_size: batchSize,
                   full_history: fullHistory,
                   auto_continue: true  // Mark as auto-continue to use params directly
                 }
@@ -4215,7 +4285,10 @@ Deno.serve(async (req) => {
               typeStats: typeStats,
               currentPosition: currentPosition,
               totalCombinations: totalCombinations,
-              progressPercentage: progressPercentage
+              progressPercentage: progressPercentage,
+              exitReason: exitReason,
+              slowFetchesCount: slowFetches.length,
+              elapsedMs: Date.now() - functionStartTime,
             }
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
