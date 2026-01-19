@@ -30,6 +30,9 @@ export interface UnreadByMessenger {
 export interface ChatThread {
   client_id: string;
   client_name: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  middle_name?: string | null;
   client_phone: string;
   client_branch?: string | null;
   avatar_url?: string | null;

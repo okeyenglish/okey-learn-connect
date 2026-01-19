@@ -1419,13 +1419,16 @@ export type Database = {
           created_at: string
           email: string | null
           external_id: string | null
+          first_name: string | null
           holihope_metadata: Json | null
           id: string
           is_active: boolean
           last_message_at: string | null
+          last_name: string | null
           max_avatar_url: string | null
           max_chat_id: string | null
           max_user_id: number | null
+          middle_name: string | null
           name: string
           notes: string | null
           organization_id: string
@@ -1445,13 +1448,16 @@ export type Database = {
           created_at?: string
           email?: string | null
           external_id?: string | null
+          first_name?: string | null
           holihope_metadata?: Json | null
           id?: string
           is_active?: boolean
           last_message_at?: string | null
+          last_name?: string | null
           max_avatar_url?: string | null
           max_chat_id?: string | null
           max_user_id?: number | null
+          middle_name?: string | null
           name: string
           notes?: string | null
           organization_id?: string
@@ -1471,13 +1477,16 @@ export type Database = {
           created_at?: string
           email?: string | null
           external_id?: string | null
+          first_name?: string | null
           holihope_metadata?: Json | null
           id?: string
           is_active?: boolean
           last_message_at?: string | null
+          last_name?: string | null
           max_avatar_url?: string | null
           max_chat_id?: string | null
           max_user_id?: number | null
+          middle_name?: string | null
           name?: string
           notes?: string | null
           organization_id?: string
@@ -8991,6 +9000,34 @@ export type Database = {
           whatsapp_chat_id: string
         }[]
       }
+      get_chat_threads_optimized_v2: {
+        Args: { p_limit?: number; p_offset?: number; p_organization_id: string }
+        Returns: {
+          avatar_url: string
+          client_id: string
+          client_name: string
+          client_phone: string
+          first_name: string
+          is_archived: boolean
+          is_pinned: boolean
+          last_message_is_outgoing: boolean
+          last_message_text: string
+          last_message_time: string
+          last_name: string
+          max_avatar_url: string
+          max_chat_id: string
+          max_unread: number
+          middle_name: string
+          salebot_unread: number
+          telegram_avatar_url: string
+          telegram_chat_id: string
+          telegram_unread: number
+          unread_count: number
+          whatsapp_avatar_url: string
+          whatsapp_chat_id: string
+          whatsapp_unread: number
+        }[]
+      }
       get_chat_threads_paginated: {
         Args: { p_limit?: number; p_offset?: number }
         Returns: {
@@ -9323,6 +9360,14 @@ export type Database = {
         }[]
       }
       normalize_phone: { Args: { phone_input: string }; Returns: string }
+      parse_client_name: {
+        Args: { full_name: string }
+        Returns: {
+          first_name: string
+          last_name: string
+          middle_name: string
+        }[]
+      }
       process_pending_events: {
         Args: { p_limit?: number }
         Returns: {

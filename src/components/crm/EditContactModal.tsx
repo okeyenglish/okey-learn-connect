@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,9 @@ import type { PhoneNumber } from "@/types/phone";
 
 interface ContactData {
   name: string;
+  firstName?: string;
+  lastName?: string;
+  middleName?: string;
   email: string;
   dateOfBirth: string;
   branch: string;
@@ -24,6 +27,38 @@ interface EditContactModalProps {
   onSave?: (data: ContactData & { phoneNumbers: PhoneNumber[] }) => void;
   children?: React.ReactNode;
 }
+
+// Parse full name into components
+const parseFullName = (fullName: string): { lastName: string; firstName: string; middleName: string } => {
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length === 1) {
+    return { lastName: '', firstName: parts[0], middleName: '' };
+  } else if (parts.length === 2) {
+    return { lastName: parts[0], firstName: parts[1], middleName: '' };
+  } else {
+    return { lastName: parts[0], firstName: parts[1], middleName: parts.slice(2).join(' ') };
+  }
+};
+
+// Combine name components into full name
+export const combineFullName = (lastName?: string, firstName?: string, middleName?: string): string => {
+  return [lastName, firstName, middleName].filter(Boolean).join(' ').trim() || 'Без имени';
+};
+
+// Format display name as "Фамилия Имя" (without patronymic)
+export const formatDisplayName = (lastName?: string | null, firstName?: string | null, fullName?: string | null): string => {
+  if (lastName || firstName) {
+    return [lastName, firstName].filter(Boolean).join(' ').trim();
+  }
+  // Fallback: parse from full name and return without patronymic
+  if (fullName && fullName !== 'Без имени') {
+    const parsed = parseFullName(fullName);
+    if (parsed.lastName || parsed.firstName) {
+      return [parsed.lastName, parsed.firstName].filter(Boolean).join(' ').trim();
+    }
+  }
+  return fullName || 'Без имени';
+};
 
 export const EditContactModal = ({ contactData, onSave, children }: EditContactModalProps) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -41,14 +76,51 @@ export const EditContactModal = ({ contactData, onSave, children }: EditContactM
     ]
   );
 
+  // Parse name fields from full name if not provided
+  const [lastName, setLastName] = useState(contactData.lastName || '');
+  const [firstName, setFirstName] = useState(contactData.firstName || '');
+  const [middleName, setMiddleName] = useState(contactData.middleName || '');
+
+  useEffect(() => {
+    // If separate name fields not provided, parse from full name
+    if (!contactData.lastName && !contactData.firstName && contactData.name) {
+      const parsed = parseFullName(contactData.name);
+      setLastName(parsed.lastName);
+      setFirstName(parsed.firstName);
+      setMiddleName(parsed.middleName);
+    } else {
+      setLastName(contactData.lastName || '');
+      setFirstName(contactData.firstName || '');
+      setMiddleName(contactData.middleName || '');
+    }
+  }, [contactData]);
+
   const handleSave = () => {
-    onSave?.({ ...formData, phoneNumbers });
+    const fullName = combineFullName(lastName, firstName, middleName);
+    onSave?.({ 
+      ...formData, 
+      name: fullName,
+      lastName,
+      firstName,
+      middleName,
+      phoneNumbers 
+    });
     setIsOpen(false);
   };
 
   const handleCancel = () => {
     setFormData(contactData);
     setPhoneNumbers(contactData.phoneNumbers || []);
+    if (!contactData.lastName && !contactData.firstName && contactData.name) {
+      const parsed = parseFullName(contactData.name);
+      setLastName(parsed.lastName);
+      setFirstName(parsed.firstName);
+      setMiddleName(parsed.middleName);
+    } else {
+      setLastName(contactData.lastName || '');
+      setFirstName(contactData.firstName || '');
+      setMiddleName(contactData.middleName || '');
+    }
     setIsOpen(false);
   };
 
@@ -76,17 +148,44 @@ export const EditContactModal = ({ contactData, onSave, children }: EditContactM
         
         <ScrollArea className="max-h-[70vh] pr-4">
           <div className="space-y-6">
-            <div>
-              <Label htmlFor="name" className="text-sm font-medium">
-                Полное имя
-              </Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Введите полное имя"
-                className="mt-1"
-              />
+            {/* Name fields: Last Name, First Name, Patronymic */}
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label htmlFor="lastName" className="text-sm font-medium">
+                  Фамилия
+                </Label>
+                <Input
+                  id="lastName"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Фамилия"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="firstName" className="text-sm font-medium">
+                  Имя
+                </Label>
+                <Input
+                  id="firstName"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Имя"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="middleName" className="text-sm font-medium">
+                  Отчество
+                </Label>
+                <Input
+                  id="middleName"
+                  value={middleName}
+                  onChange={(e) => setMiddleName(e.target.value)}
+                  placeholder="Отчество"
+                  className="mt-1"
+                />
+              </div>
             </div>
 
             <PhoneNumbersEditor 

@@ -843,19 +843,44 @@ const CRMContent = () => {
   ];
   const threadClientIdsSet = useMemo(() => new Set((threads || []).map(t => t.client_id)), [threads]);
 
-  // Функция для очистки имени от префикса "Клиент" и "Без имени" - извлекает телефон из messenger chat_id
-  const cleanClientName = (name: string, whatsappChatId?: string | null, telegramChatId?: string | null, maxChatId?: string | null, phone?: string | null) => {
+  // Функция для форматирования имени клиента
+  // Показывает "Фамилия Имя" (без отчества) в списке чатов
+  // Если нет имени, показывает форматированный телефон
+  const formatClientDisplayName = (
+    name: string,
+    firstName?: string | null,
+    lastName?: string | null,
+    whatsappChatId?: string | null,
+    telegramChatId?: string | null,
+    maxChatId?: string | null,
+    phone?: string | null
+  ) => {
+    // If we have first_name or last_name, use them (without middle_name)
+    if (firstName || lastName) {
+      const displayName = [lastName, firstName].filter(Boolean).join(' ').trim();
+      if (displayName) return displayName;
+    }
+
+    // Parse from full name if it's not a placeholder
+    if (name && name !== 'Без имени' && !name.startsWith('Клиент ')) {
+      // Parse "Фамилия Имя Отчество" -> "Фамилия Имя"
+      const parts = name.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        return `${parts[0]} ${parts[1]}`; // Last + First only
+      }
+      return name;
+    }
+    
     if (name.startsWith('Клиент ')) {
       return name.replace('Клиент ', '');
     }
     
-    // If name is "Без имени", extract phone from messenger chat_id and format it
-    if (name === 'Без имени') {
+    // If name is "Без имени" or empty, extract phone from messenger chat_id and format it
+    if (!name || name === 'Без имени') {
       // Try to extract phone from whatsapp_chat_id (format: 79123456789@c.us)
       if (whatsappChatId) {
         const waPhone = whatsappChatId.replace('@c.us', '').replace('@s.whatsapp.net', '');
         if (waPhone && /^\d{10,}$/.test(waPhone)) {
-          // Format as +7 XXX XXX-XX-XX
           if (waPhone.length === 11 && (waPhone.startsWith('7') || waPhone.startsWith('8'))) {
             return `+7 ${waPhone.slice(1, 4)} ${waPhone.slice(4, 7)}-${waPhone.slice(7, 9)}-${waPhone.slice(9)}`;
           }
@@ -863,7 +888,7 @@ const CRMContent = () => {
         }
       }
       
-      // Try telegram_chat_id (usually just a number or phone-based)
+      // Try telegram_chat_id
       if (telegramChatId && /^\d{10,}$/.test(telegramChatId)) {
         const tgPhone = telegramChatId;
         if (tgPhone.length === 11 && (tgPhone.startsWith('7') || tgPhone.startsWith('8'))) {
@@ -889,6 +914,8 @@ const CRMContent = () => {
         }
         return phone;
       }
+      
+      return 'Без имени';
     }
     
     return name;
@@ -903,7 +930,7 @@ const CRMContent = () => {
     // Только реальные клиентские чаты из threads (без загрузки всех clients)
     ...threads
       .filter(thread => {
-        const nameForCheck = cleanClientName(thread.client_name ?? '');
+        const nameForCheck = formatClientDisplayName(thread.client_name ?? '', thread.first_name, thread.last_name);
         return (
           !nameForCheck.includes('Корпоративный чат') &&
           !nameForCheck.includes('Чат педагогов') &&
@@ -931,7 +958,7 @@ const CRMContent = () => {
           
         return {
           id: thread.client_id,
-          name: cleanClientName(thread.client_name ?? 'Без имени', thread.whatsapp_chat_id, thread.telegram_chat_id, thread.max_chat_id, thread.client_phone),
+          name: formatClientDisplayName(thread.client_name ?? 'Без имени', thread.first_name, thread.last_name, thread.whatsapp_chat_id, thread.telegram_chat_id, thread.max_chat_id, thread.client_phone),
           phone: thread.client_phone,
           branch: thread.client_branch,
           lastMessage: lastMsgDisplay,
@@ -1011,7 +1038,7 @@ const CRMContent = () => {
         
         return {
           id: thread.client_id,
-          name: cleanClientName(thread.client_name ?? 'Без имени', thread.whatsapp_chat_id, thread.telegram_chat_id, thread.max_chat_id, thread.client_phone),
+          name: formatClientDisplayName(thread.client_name ?? 'Без имени', thread.first_name, thread.last_name, thread.whatsapp_chat_id, thread.telegram_chat_id, thread.max_chat_id, thread.client_phone),
           phone: thread.client_phone,
           branch: thread.client_branch,
           lastMessage: thread.last_message?.trim?.() || 'Нет сообщений',
