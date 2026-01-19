@@ -116,6 +116,11 @@ export const ChatArea = ({
   const [editingScheduledMessage, setEditingScheduledMessage] = useState<ScheduledMessage | null>(null);
   const [showQuickResponsesModal, setShowQuickResponsesModal] = useState(false);
   const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
+  const [paymentLinkAttachment, setPaymentLinkAttachment] = useState<{
+    url: string;
+    amount: number;
+    description?: string;
+  } | null>(null);
   const [commentMode, setCommentMode] = useState(false);
   const [gptGenerating, setGptGenerating] = useState(false);
   const [quotedText, setQuotedText] = useState<string | null>(null);
@@ -661,7 +666,7 @@ export const ChatArea = ({
   };
 
   const handleSendMessage = async () => {
-    if ((!message.trim() && attachedFiles.length === 0) || loading || message.length > MAX_MESSAGE_LENGTH) return;
+    if ((!message.trim() && attachedFiles.length === 0 && !paymentLinkAttachment) || loading || message.length > MAX_MESSAGE_LENGTH) return;
 
     // Подготавливаем текст с цитатой если есть
     let messageText = message.trim();
@@ -670,10 +675,19 @@ export const ChatArea = ({
       messageText = `${quotedLines}\n\n${messageText}`;
     }
     
+    // Добавляем платёжную ссылку если есть
+    if (paymentLinkAttachment) {
+      const paymentText = paymentLinkAttachment.description
+        ? `💳 Ссылка на оплату (${paymentLinkAttachment.amount.toLocaleString('ru-RU')} ₽): ${paymentLinkAttachment.description}\n\n${paymentLinkAttachment.url}`
+        : `💳 Ссылка на оплату: ${paymentLinkAttachment.amount.toLocaleString('ru-RU')} ₽\n\n${paymentLinkAttachment.url}`;
+      messageText = messageText ? `${messageText}\n\n${paymentText}` : paymentText;
+    }
+    
     const filesToSend = [...attachedFiles];
     
     setMessage(""); // Clear input immediately
     setQuotedText(null); // Clear quoted text
+    setPaymentLinkAttachment(null); // Clear payment link attachment
     setAttachedFiles([]); // Clear attached files immediately
     setFileUploadResetKey((k) => k + 1); // Reset FileUpload internal UI
     onMessageChange?.(false);
@@ -2254,6 +2268,24 @@ export const ChatArea = ({
             )}
           
           <div className="space-y-2 relative">
+            {/* Payment link attachment preview */}
+            {paymentLinkAttachment && (
+              <div className="flex items-start gap-2 p-2 bg-amber-50 rounded-md border-l-4 border-amber-500">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-amber-700 mb-1">💳 Ссылка на оплату ({paymentLinkAttachment.amount.toLocaleString('ru-RU')} ₽):</p>
+                  <p className="text-sm text-amber-800 truncate">{paymentLinkAttachment.description || paymentLinkAttachment.url}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 flex-shrink-0"
+                  onClick={() => setPaymentLinkAttachment(null)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+            
             {/* Quoted text preview */}
             {quotedText && (
               <div className="flex items-start gap-2 p-2 bg-muted/50 rounded-md border-l-4 border-primary">
@@ -2581,9 +2613,8 @@ export const ChatArea = ({
         onOpenChange={setShowPaymentLinkModal}
         clientId={clientId}
         clientName={displayName || clientName}
-        onSendMessage={async (text) => {
-          // Отправляем сообщение напрямую без задержки
-          await sendMessageNow(text, []);
+        onPaymentLinkGenerated={(data) => {
+          setPaymentLinkAttachment(data);
         }}
       />
 
