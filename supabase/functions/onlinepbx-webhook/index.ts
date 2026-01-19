@@ -34,7 +34,10 @@ interface OnlinePBXWebhookData {
 }
 
 serve(async (req) => {
-  console.log('OnlinePBX webhook received:', req.method, req.url);
+  console.log('=== OnlinePBX WEBHOOK RECEIVED ===');
+  console.log('Method:', req.method);
+  console.log('URL:', req.url);
+  console.log('Headers:', JSON.stringify(Object.fromEntries(req.headers.entries()), null, 2));
 
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
