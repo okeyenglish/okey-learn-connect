@@ -117,15 +117,38 @@ serve(async (req) => {
       })
     }
 
-    // Find existing client by salebot_client_id
+    // Determine messenger type early for proper client lookup
+    const messengerType = getMessengerType(payload.client.client_type)
+    const telegramUserId = messengerType === 'telegram' && payload.client.recepient 
+      ? parseInt(payload.client.recepient) || null 
+      : null
+
+    // Find existing client by salebot_client_id FIRST
     let { data: existingClient, error: findError } = await supabase
       .from('clients')
-      .select('id, organization_id, name, telegram_user_id')
+      .select('id, organization_id, name, telegram_user_id, salebot_client_id')
       .eq('salebot_client_id', payload.client.id)
       .maybeSingle()
 
     if (findError) {
-      console.error('Error finding client:', findError)
+      console.error('Error finding client by salebot_client_id:', findError)
+    }
+
+    // If not found by salebot_client_id, try to find by telegram_user_id (to prevent duplicates)
+    if (!existingClient && telegramUserId) {
+      console.log('Client not found by salebot_client_id, searching by telegram_user_id:', telegramUserId)
+      const { data: clientByTelegram, error: telegramFindError } = await supabase
+        .from('clients')
+        .select('id, organization_id, name, telegram_user_id, salebot_client_id')
+        .eq('telegram_user_id', telegramUserId)
+        .maybeSingle()
+
+      if (telegramFindError) {
+        console.error('Error finding client by telegram_user_id:', telegramFindError)
+      } else if (clientByTelegram) {
+        existingClient = clientByTelegram
+        console.log('Found existing client by telegram_user_id:', existingClient.id)
+      }
     }
 
     let clientId: string
@@ -136,20 +159,25 @@ serve(async (req) => {
       organizationId = existingClient.organization_id
       console.log('Found existing client:', clientId, 'org:', organizationId)
       
+      // Update salebot_client_id if not set yet (client was created from wappi/telegram)
+      if (!existingClient.salebot_client_id) {
+        console.log('Updating salebot_client_id for existing client:', payload.client.id)
+        await supabase
+          .from('clients')
+          .update({ salebot_client_id: payload.client.id })
+          .eq('id', clientId)
+      }
+      
       // Update telegram_user_id if this is telegram client and not set yet
-      const messengerType = getMessengerType(payload.client.client_type)
-      if (messengerType === 'telegram' && payload.client.recepient) {
-        const telegramUserId = parseInt(payload.client.recepient) || null
-        if (telegramUserId && !existingClient.telegram_user_id) {
-          console.log('Updating telegram_user_id for existing client:', telegramUserId)
-          await supabase
-            .from('clients')
-            .update({ 
-              telegram_user_id: telegramUserId,
-              telegram_chat_id: payload.client.recepient
-            })
-            .eq('id', clientId)
-        }
+      if (telegramUserId && !existingClient.telegram_user_id) {
+        console.log('Updating telegram_user_id for existing client:', telegramUserId)
+        await supabase
+          .from('clients')
+          .update({ 
+            telegram_user_id: telegramUserId,
+            telegram_chat_id: payload.client.recepient
+          })
+          .eq('id', clientId)
       }
     } else {
       // Client not found - create new one
