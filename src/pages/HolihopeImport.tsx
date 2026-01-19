@@ -84,6 +84,41 @@ export default function HolihopeImport() {
   // Smart polling: only when tab visible, with adaptive interval
   const [pollInterval, setPollInterval] = useState(15000); // Start at 15s
 
+  // Check Step 12 completion status on mount (before polling starts)
+  useEffect(() => {
+    const checkStep12Completion = async () => {
+      const { data: holihopeProgress } = await supabase
+        .from('holihope_import_progress')
+        .select('ed_units_office_index, ed_units_total_combinations, ed_units_total_imported, ed_units_is_running')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (holihopeProgress) {
+        const totalCombs = holihopeProgress.ed_units_total_combinations || 1615;
+        const officeCount = Math.max(1, Math.round(totalCombs / (5 * 17)));
+        const officeIdx = holihopeProgress.ed_units_office_index || 0;
+        const isCompleted = officeIdx >= officeCount;
+        
+        if (isCompleted && !holihopeProgress.ed_units_is_running) {
+          setSteps((prev) =>
+            prev.map((s) =>
+              s.id === 'ed_units'
+                ? {
+                    ...s,
+                    status: 'completed',
+                    message: `Шаг 12 завершён. Импортировано: ${holihopeProgress.ed_units_total_imported || 0}`,
+                  }
+                : s
+            )
+          );
+        }
+      }
+    };
+    
+    checkStep12Completion();
+  }, []); // Run only on mount
+
   useEffect(() => {
     const pollProgress = async () => {
       // Skip if tab is hidden
