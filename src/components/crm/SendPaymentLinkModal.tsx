@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, CreditCard, Link2, Send } from 'lucide-react';
+import { Loader2, CreditCard, Link2, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -13,7 +13,7 @@ interface SendPaymentLinkModalProps {
   onOpenChange: (open: boolean) => void;
   clientId: string;
   clientName: string;
-  onSendMessage: (text: string) => Promise<void>;
+  onPaymentLinkGenerated: (data: { url: string; amount: number; description?: string }) => void;
 }
 
 export const SendPaymentLinkModal = ({
@@ -21,7 +21,7 @@ export const SendPaymentLinkModal = ({
   onOpenChange,
   clientId,
   clientName,
-  onSendMessage,
+  onPaymentLinkGenerated,
 }: SendPaymentLinkModalProps) => {
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -69,27 +69,15 @@ export const SendPaymentLinkModal = ({
     }
   };
 
-  const handleSend = async () => {
+  const handleAddToMessage = () => {
     if (!paymentUrl) return;
 
-    const messageText = description
-      ? `💳 Ссылка на оплату (${parseFloat(amount).toLocaleString('ru-RU')} ₽): ${description}\n\n${paymentUrl}`
-      : `💳 Ссылка на оплату: ${parseFloat(amount).toLocaleString('ru-RU')} ₽\n\n${paymentUrl}`;
-
-    try {
-      await onSendMessage(messageText);
-      toast({
-        title: 'Отправлено',
-        description: 'Ссылка на оплату отправлена клиенту',
-      });
-      handleClose();
-    } catch (error: any) {
-      toast({
-        title: 'Ошибка',
-        description: 'Не удалось отправить сообщение',
-        variant: 'destructive',
-      });
-    }
+    onPaymentLinkGenerated({
+      url: paymentUrl,
+      amount: parseFloat(amount),
+      description: description || undefined,
+    });
+    handleClose();
   };
 
   const handleClose = () => {
@@ -101,7 +89,7 @@ export const SendPaymentLinkModal = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md z-[100]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CreditCard className="h-5 w-5" />
@@ -124,7 +112,7 @@ export const SendPaymentLinkModal = ({
               value={amount}
               onChange={(e) => {
                 setAmount(e.target.value);
-                setPaymentUrl(null); // Сбрасываем ссылку при изменении суммы
+                setPaymentUrl(null);
               }}
               disabled={isGenerating}
             />
@@ -180,9 +168,9 @@ export const SendPaymentLinkModal = ({
               )}
             </Button>
           ) : (
-            <Button onClick={handleSend}>
-              <Send className="h-4 w-4 mr-2" />
-              Отправить
+            <Button onClick={handleAddToMessage}>
+              <Plus className="h-4 w-4 mr-2" />
+              Добавить в сообщение
             </Button>
           )}
         </DialogFooter>
