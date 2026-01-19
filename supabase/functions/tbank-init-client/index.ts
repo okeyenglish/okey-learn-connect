@@ -130,17 +130,38 @@ Deno.serve(async (req) => {
       ? 'https://rest-api-test.tinkoff.ru/v2' 
       : 'https://securepay.tinkoff.ru/v2';
 
+    // Формируем чек для 54-ФЗ (обязателен для T-Bank)
+    const receipt = {
+      Email: "noreply@example.com", // Email получателя чека (можно заменить на email клиента)
+      Taxation: "usn_income", // Система налогообложения (УСН доходы)
+      Items: [
+        {
+          Name: description || `Оплата услуг - ${client.name}`,
+          Price: amountKopecks,
+          Quantity: 1,
+          Amount: amountKopecks,
+          Tax: "none", // НДС не облагается
+          PaymentMethod: "full_payment",
+          PaymentObject: "service",
+        },
+      ],
+    };
+
     const requestData: Record<string, any> = {
       TerminalKey: terminal.terminal_key,
       Amount: amountKopecks,
       OrderId: orderId,
       Description: description || `Оплата - ${client.name}`,
+      Receipt: receipt,
     };
 
     if (success_url) requestData.SuccessURL = success_url;
     if (fail_url) requestData.FailURL = fail_url;
 
-    const token = await generateToken(requestData, terminal.terminal_password);
+    const token = await generateToken(
+      { TerminalKey: requestData.TerminalKey, Amount: requestData.Amount, OrderId: requestData.OrderId, Description: requestData.Description },
+      terminal.terminal_password
+    );
     requestData.Token = token;
 
     console.log('Sending request to T-Bank for client:', { orderId, amount: amountKopecks, client_id, terminal_key: terminal.terminal_key });
