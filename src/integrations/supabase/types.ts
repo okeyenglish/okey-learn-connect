@@ -8961,7 +8961,6 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: {
           avatar_url: string
-          client_branch: string
           client_name: string
           client_phone: string
           clt_id: string
@@ -8973,12 +8972,7 @@ export type Database = {
           max_chat_id: string
           telegram_avatar_url: string
           telegram_chat_id: string
-          unread_calls: number
           unread_count: number
-          unread_email: number
-          unread_max: number
-          unread_telegram: number
-          unread_whatsapp: number
           whatsapp_avatar_url: string
           whatsapp_chat_id: string
         }[]
@@ -9035,7 +9029,6 @@ export type Database = {
         Args: { p_limit?: number; p_offset?: number }
         Returns: {
           avatar_url: string
-          client_branch: string
           client_name: string
           client_phone: string
           clt_id: string
@@ -9047,12 +9040,7 @@ export type Database = {
           max_chat_id: string
           telegram_avatar_url: string
           telegram_chat_id: string
-          unread_calls: number
           unread_count: number
-          unread_email: number
-          unread_max: number
-          unread_telegram: number
-          unread_whatsapp: number
           whatsapp_avatar_url: string
           whatsapp_chat_id: string
         }[]
@@ -9253,7 +9241,6 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: {
           avatar_url: string
-          client_branch: string
           client_name: string
           client_phone: string
           clt_id: string
@@ -9265,12 +9252,7 @@ export type Database = {
           max_chat_id: string
           telegram_avatar_url: string
           telegram_chat_id: string
-          unread_calls: number
           unread_count: number
-          unread_email: number
-          unread_max: number
-          unread_telegram: number
-          unread_whatsapp: number
           whatsapp_avatar_url: string
           whatsapp_chat_id: string
         }[]
