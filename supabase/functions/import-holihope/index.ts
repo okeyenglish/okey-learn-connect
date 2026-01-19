@@ -122,9 +122,9 @@ Deno.serve(async (req) => {
     }
 
     // Internal auto-continue calls: authenticated by service role key
-    // NOTE: We only allow this for import_ed_units to prevent bypassing user auth for other actions.
+    // NOTE: We allow this for import_ed_units and import_ed_unit_students to enable auto-continuation.
     const isInternalAutoContinue =
-      action === 'import_ed_units' &&
+      ['import_ed_units', 'import_ed_unit_students'].includes(action) &&
       body?.auto_continue === true &&
       authHeader === `Bearer ${serviceRoleKey}`;
 
@@ -4650,7 +4650,8 @@ Deno.serve(async (req) => {
                   skip: progress[0].nextSkip,
                   take,
                   batch_mode: true,
-                  auto_continue: true
+                  auto_continue: true,
+                  organization_id: orgId
                 }
               });
               
