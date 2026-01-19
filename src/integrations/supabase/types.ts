@@ -8784,6 +8784,10 @@ export type Database = {
           username: string
         }[]
       }
+      get_family_data_optimized: {
+        Args: { p_family_group_id: string }
+        Returns: Json
+      }
       get_group_debt_stats: {
         Args: { p_group_id: string }
         Returns: {

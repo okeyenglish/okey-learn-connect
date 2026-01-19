@@ -8,6 +8,8 @@ export interface PhoneNumber {
   isWhatsappEnabled: boolean;
   isTelegramEnabled: boolean;
   isPrimary: boolean;
+  whatsappAvatarUrl?: string;
+  telegramAvatarUrl?: string;
 }
 
 export interface FamilyMember {
@@ -54,6 +56,99 @@ export interface FamilyGroup {
   students: Student[];
 }
 
+// Интерфейсы для RPC-ответа
+interface RpcPhoneNumber {
+  id: string;
+  phone: string;
+  phone_type: string;
+  is_primary: boolean;
+  is_whatsapp_enabled: boolean;
+  is_telegram_enabled: boolean;
+  whatsapp_avatar_url?: string;
+  telegram_avatar_url?: string;
+}
+
+interface RpcMember {
+  id: string;
+  client_id: string;
+  client_number?: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  avatar_url?: string;
+  relationship_type: string;
+  is_primary_contact: boolean;
+  phone_numbers: RpcPhoneNumber[];
+}
+
+interface RpcNextLesson {
+  lesson_date: string;
+  start_time: string;
+}
+
+interface RpcGroupCourse {
+  group_id: string;
+  group_name: string;
+  subject?: string;
+  is_active: boolean;
+  next_lesson?: RpcNextLesson;
+}
+
+interface RpcIndividualCourse {
+  id: string;
+  subject?: string;
+  price_per_lesson?: number;
+  is_active: boolean;
+  teacher_id?: string;
+}
+
+interface RpcStudent {
+  id: string;
+  first_name?: string;
+  last_name?: string;
+  middle_name?: string;
+  birth_date?: string;
+  avatar_url?: string;
+  is_active: boolean;
+  group_courses: RpcGroupCourse[];
+  individual_courses: RpcIndividualCourse[];
+}
+
+interface RpcFamilyGroup {
+  id: string;
+  name: string;
+  branch?: string;
+  created_at: string;
+}
+
+interface RpcResponse {
+  family_group: RpcFamilyGroup;
+  members: RpcMember[];
+  students: RpcStudent[];
+}
+
+// Функция расчета возраста
+const calculateAge = (birthDate?: string): number => {
+  if (!birthDate) return 0;
+  const today = new Date();
+  const birth = new Date(birthDate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+};
+
+// Форматирование даты урока
+const formatNextLesson = (nextLesson?: RpcNextLesson): string | undefined => {
+  if (!nextLesson) return undefined;
+  const date = new Date(nextLesson.lesson_date);
+  const formattedDate = date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+  const time = nextLesson.start_time?.slice(0, 5) || '';
+  return `${formattedDate} в ${time}`;
+};
+
 export const useFamilyData = (familyGroupId?: string) => {
   const [familyData, setFamilyData] = useState<FamilyGroup | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,175 +163,113 @@ export const useFamilyData = (familyGroupId?: string) => {
     try {
       setLoading(true);
       setError(null);
+      
+      const startTime = performance.now();
 
-      // Fetch family group info
-      const { data: familyGroup, error: groupError } = await supabase
-        .from('family_groups')
-        .select('*')
-        .eq('id', familyGroupId)
-        .single();
+      // Один RPC-запрос вместо 10+ отдельных запросов
+      const { data, error: rpcError } = await supabase
+        .rpc('get_family_data_optimized', { p_family_group_id: familyGroupId });
 
-      if (groupError) throw groupError;
+      const endTime = performance.now();
+      console.log(`[useFamilyData] RPC completed in ${(endTime - startTime).toFixed(0)}ms`);
 
-      // Fetch family members with client details
-      const { data: membersData, error: membersError } = await supabase
-        .from('family_members')
-        .select(`
-          *,
-          clients (
-            id,
-            client_number,
-            name,
-            phone,
-            email,
-            notes,
-            avatar_url
-          )
-        `)
-        .eq('family_group_id', familyGroupId);
+      if (rpcError) {
+        console.error('[useFamilyData] RPC error:', rpcError);
+        throw rpcError;
+      }
 
-      if (membersError) throw membersError;
+      if (!data) {
+        throw new Error('No data returned from RPC');
+      }
 
-      // Fetch students
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('students')
-        .select('*')
-        .eq('family_group_id', familyGroupId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rpcData = data as unknown as RpcResponse;
+      
+      if (!rpcData.family_group) {
+        throw new Error('Family group not found');
+      }
 
-      if (studentsError) throw studentsError;
+      // Трансформация членов семьи
+      const members: FamilyMember[] = (rpcData.members || []).map((member: RpcMember) => ({
+        id: member.client_id,
+        clientNumber: member.client_number || undefined,
+        name: member.name,
+        phone: member.phone || '',
+        email: member.email || undefined,
+        relationship: member.relationship_type as FamilyMember['relationship'],
+        isPrimaryContact: member.is_primary_contact,
+        unreadMessages: 0,
+        isOnline: false,
+        lastContact: undefined,
+        avatar_url: member.avatar_url || undefined,
+        phoneNumbers: (member.phone_numbers || []).map((p: RpcPhoneNumber) => ({
+          id: p.id,
+          phone: p.phone,
+          type: p.phone_type || 'mobile',
+          isWhatsappEnabled: p.is_whatsapp_enabled || false,
+          isTelegramEnabled: p.is_telegram_enabled || false,
+          isPrimary: p.is_primary || false,
+          whatsappAvatarUrl: p.whatsapp_avatar_url,
+          telegramAvatarUrl: p.telegram_avatar_url,
+        })),
+      }));
 
-      // Transform data - fetch phone numbers for each member
-      const members: FamilyMember[] = await Promise.all(
-        membersData.map(async (member) => {
-          const { data: phoneNumbers } = await supabase
-            .from('client_phone_numbers')
-            .select('*')
-            .eq('client_id', member.clients.id);
+      // Трансформация студентов
+      const students: Student[] = (rpcData.students || []).map((student: RpcStudent) => {
+        const courses: Student['courses'] = [];
 
-          return {
-            id: member.clients.id,
-            clientNumber: member.clients.client_number,
-            name: member.clients.name,
-            phone: member.clients.phone,
-            email: member.clients.email || undefined,
-            relationship: member.relationship_type,
-            isPrimaryContact: member.is_primary_contact,
-            unreadMessages: Math.floor(Math.random() * 3), // Mock data for now
-            isOnline: Math.random() > 0.5, // Mock data for now
-            lastContact: member.relationship_type === 'main' ? 'Сейчас в чате' : '2 дня назад', // Mock data
-            avatar_url: member.clients.avatar_url || undefined,
-            phoneNumbers: (phoneNumbers || []).map(p => ({
-              id: p.id,
-              phone: p.phone,
-              type: p.phone_type,
-              isWhatsappEnabled: p.is_whatsapp_enabled || false,
-              isTelegramEnabled: p.is_telegram_enabled || false,
-              isPrimary: p.is_primary || false,
-            })),
-          };
-        })
-      );
+        // Групповые курсы
+        (student.group_courses || []).forEach((gc: RpcGroupCourse) => {
+          courses.push({
+            id: gc.group_id,
+            name: gc.group_name || gc.subject || 'Группа',
+            nextLesson: formatNextLesson(gc.next_lesson),
+            nextPayment: undefined,
+            paymentAmount: undefined,
+            isActive: gc.is_active,
+          });
+        });
 
-      // Transform students data - fetch real course data from group_students and individual_lessons
-      const students: Student[] = await Promise.all(
-        studentsData.map(async (student) => {
-          const courses = [];
-          
-          // Fetch group courses
-          const { data: groupStudents } = await supabase
-            .from('group_students')
-            .select(`
-              *,
-              learning_groups (
-                id,
-                name,
-                subject,
-                level,
-                status
-              )
-            `)
-            .eq('student_id', student.id);
+        // Индивидуальные курсы
+        (student.individual_courses || []).forEach((ic: RpcIndividualCourse) => {
+          courses.push({
+            id: ic.id,
+            name: `${ic.subject || 'Предмет'} (инд.)`,
+            nextLesson: undefined,
+            nextPayment: undefined,
+            paymentAmount: ic.price_per_lesson || undefined,
+            isActive: ic.is_active,
+          });
+        });
 
-          // Add group courses with next lesson info
-          if (groupStudents) {
-            for (const gs of groupStudents) {
-              if (gs.learning_groups) {
-                // Check if both student status in group and group itself are active
-                const isActive = gs.status === 'active' && gs.learning_groups.status === 'active';
-                
-                // Get next lesson for this group
-                const { data: nextLesson } = await supabase
-                  .from('lesson_sessions')
-                  .select('lesson_date, start_time')
-                  .eq('group_id', gs.learning_groups.id)
-                  .gte('lesson_date', new Date().toISOString().split('T')[0])
-                  .eq('status', 'scheduled')
-                  .order('lesson_date', { ascending: true })
-                  .order('start_time', { ascending: true })
-                  .limit(1)
-                  .maybeSingle();
+        const firstName = student.first_name || '';
+        const lastName = student.last_name || '';
+        const fullName = [lastName, firstName, student.middle_name].filter(Boolean).join(' ');
 
-                courses.push({
-                  id: gs.learning_groups.id,
-                  name: gs.learning_groups.name,
-                  nextLesson: nextLesson ? 
-                    `${new Date(nextLesson.lesson_date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })} в ${nextLesson.start_time.slice(0, 5)}` : undefined,
-                  nextPayment: undefined,
-                  paymentAmount: undefined,
-                  isActive: isActive
-                });
-              }
-            }
-          }
-
-          // Fetch individual lessons
-          const { data: individualLessons } = await supabase
-            .from('individual_lessons')
-            .select('*')
-            .eq('student_id', student.id);
-
-          // Add individual lessons
-          if (individualLessons) {
-            for (const il of individualLessons) {
-              // Check if individual lesson is active (not finished/archived)
-              const isActive = il.is_active && il.status !== 'finished';
-              
-              courses.push({
-                id: il.id,
-                name: `${il.subject} (инд.)`,
-                nextLesson: undefined,
-                nextPayment: undefined,
-                paymentAmount: il.price_per_lesson || undefined,
-                isActive: isActive
-              });
-            }
-          }
-
-          return {
-            id: student.id,
-            studentNumber: student.student_number,
-            name: student.name,
-            firstName: student.first_name || student.name.split(' ')[0],
-            lastName: student.last_name || student.name.split(' ').slice(1).join(' '),
-            middleName: student.middle_name || '',
-            age: student.age,
-            dateOfBirth: student.date_of_birth || undefined,
-            status: student.status,
-            notes: student.notes || undefined,
-            courses
-          };
-        })
-      );
+        return {
+          id: student.id,
+          studentNumber: undefined,
+          name: fullName || 'Без имени',
+          firstName,
+          lastName,
+          middleName: student.middle_name || '',
+          age: calculateAge(student.birth_date),
+          dateOfBirth: student.birth_date || undefined,
+          status: student.is_active ? 'active' : 'inactive',
+          notes: undefined,
+          courses,
+        };
+      });
 
       setFamilyData({
-        id: familyGroup.id,
-        name: familyGroup.name,
+        id: rpcData.family_group.id,
+        name: rpcData.family_group.name,
         members,
         students
       });
 
     } catch (err) {
-      console.error('Error fetching family data:', err);
+      console.error('[useFamilyData] Error fetching family data:', err);
       setError('Не удалось загрузить данные семьи');
     } finally {
       setLoading(false);
@@ -246,7 +279,7 @@ export const useFamilyData = (familyGroupId?: string) => {
   useEffect(() => {
     fetchFamilyData();
     
-    // Set up real-time subscription to clients table for live updates
+    // Set up real-time subscription for live updates
     if (!familyGroupId) return;
     
     const channel = supabase
@@ -259,7 +292,7 @@ export const useFamilyData = (familyGroupId?: string) => {
           table: 'clients'
         },
         () => {
-          console.log('Client data updated, refetching family data...');
+          console.log('[useFamilyData] Client data updated, refetching...');
           fetchFamilyData();
         }
       )
