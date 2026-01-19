@@ -28,6 +28,7 @@ interface QuickResponsesModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelectResponse: (text: string) => void;
+  isTeacher?: boolean; // Use teacher-specific templates
 }
 
 const defaultCategories: Category[] = [
@@ -144,8 +145,118 @@ const defaultCategories: Category[] = [
   }
 ];
 
-export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse }: QuickResponsesModalProps) => {
-  const [categories, setCategories] = useState<Category[]>(defaultCategories);
+// Teacher-specific quick response categories
+const teacherCategories: Category[] = [
+  {
+    id: "t1",
+    name: "Расписание",
+    responses: [
+      {
+        id: "t1-1",
+        categoryId: "t1",
+        text: "Добрый день! Подтверждаю ваше расписание на эту неделю."
+      },
+      {
+        id: "t1-2",
+        categoryId: "t1",
+        text: "К сожалению, занятие придётся перенести. Предлагаю следующие варианты времени:"
+      },
+      {
+        id: "t1-3",
+        categoryId: "t1",
+        text: "Напоминаю о занятии завтра. Пожалуйста, подготовьте материалы."
+      }
+    ]
+  },
+  {
+    id: "t2",
+    name: "Методика",
+    responses: [
+      {
+        id: "t2-1",
+        categoryId: "t2",
+        text: "Пожалуйста, заполните методический отчёт до конца недели."
+      },
+      {
+        id: "t2-2",
+        categoryId: "t2",
+        text: "Напоминаю о методическом совещании. Подготовьте материалы по вашим группам."
+      },
+      {
+        id: "t2-3",
+        categoryId: "t2",
+        text: "Просьба ознакомиться с новыми методическими рекомендациями."
+      }
+    ]
+  },
+  {
+    id: "t3",
+    name: "Оплата и документы",
+    responses: [
+      {
+        id: "t3-1",
+        categoryId: "t3",
+        text: "Зарплата будет перечислена в стандартные сроки."
+      },
+      {
+        id: "t3-2",
+        categoryId: "t3",
+        text: "Пожалуйста, проверьте табель учёта рабочего времени и подтвердите."
+      },
+      {
+        id: "t3-3",
+        categoryId: "t3",
+        text: "Необходимо предоставить документы для оформления. Список прилагаю."
+      }
+    ]
+  },
+  {
+    id: "t4",
+    name: "Ученики",
+    responses: [
+      {
+        id: "t4-1",
+        categoryId: "t4",
+        text: "К вам добавлен новый ученик. Подробная информация в карточке."
+      },
+      {
+        id: "t4-2",
+        categoryId: "t4",
+        text: "Прошу подготовить отчёт по успеваемости ваших учеников."
+      },
+      {
+        id: "t4-3",
+        categoryId: "t4",
+        text: "Родители ученика просят связаться для обсуждения прогресса."
+      }
+    ]
+  },
+  {
+    id: "t5",
+    name: "Общее",
+    responses: [
+      {
+        id: "t5-1",
+        categoryId: "t5",
+        text: "Спасибо за информацию! Приняла к сведению."
+      },
+      {
+        id: "t5-2",
+        categoryId: "t5",
+        text: "Хорошо, подтверждаю."
+      },
+      {
+        id: "t5-3",
+        categoryId: "t5",
+        text: "Пожалуйста, уточните детали."
+      }
+    ]
+  }
+];
+
+export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTeacher = false }: QuickResponsesModalProps) => {
+  const initialCategories = isTeacher ? teacherCategories : defaultCategories;
+  const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddCategory, setShowAddCategory] = useState(false);
