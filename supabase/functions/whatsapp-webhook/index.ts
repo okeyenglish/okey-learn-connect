@@ -794,11 +794,13 @@ async function enrichClientData(clientId: string, contactInfo: any, messengerTyp
     
     // Обновляем имя только если текущее похоже на автоматически созданное
     const currentName = currentClient.name || ''
-    const isAutoName = currentName.startsWith('Клиент ') || 
+    const isAutoName = currentName === 'Без имени' ||
+                       currentName.startsWith('Клиент ') || 
                        currentName.startsWith('+') || 
                        /^\d+$/.test(currentName) ||
                        currentName.includes('@c.us') ||
-                       currentName.startsWith('MAX User')
+                       currentName.startsWith('MAX User') ||
+                       currentName.startsWith('Telegram ')
     
     if (contactName && isAutoName) {
       updateData.name = contactName
