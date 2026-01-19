@@ -3463,7 +3463,10 @@ Deno.serve(async (req) => {
           .limit(1)
           .maybeSingle();
         
-        if (currentProgress?.ed_units_is_running && currentProgress?.ed_units_last_updated_at) {
+        // Skip "already running" check for auto_continue requests (they ARE the running process)
+        const isAutoContinueRequest = body.auto_continue === true;
+        
+        if (currentProgress?.ed_units_is_running && currentProgress?.ed_units_last_updated_at && !isAutoContinueRequest) {
           const lastUpdate = new Date(currentProgress.ed_units_last_updated_at);
           const secondsSinceUpdate = (Date.now() - lastUpdate.getTime()) / 1000;
           
@@ -3483,9 +3486,20 @@ Deno.serve(async (req) => {
           } else {
             console.log(`⚠️ Previous import seems stale (${secondsSinceUpdate.toFixed(0)}s since last update). Proceeding with new import.`);
           }
+        } else if (isAutoContinueRequest) {
+          console.log(`🔄 Auto-continue request - skipping "already running" check`);
         }
         
-        if (isResume) {
+        // AUTO-CONTINUE mode: use body params directly (set by EdgeRuntime.waitUntil)
+        const isAutoContinue = body.auto_continue === true;
+        
+        if (isAutoContinue) {
+          // Use params from body directly - this avoids race conditions
+          startOfficeIndex = body.office_index ?? 0;
+          startStatusIndex = body.status_index ?? 0;
+          startTimeIndex = body.time_index ?? 0;
+          console.log(`🔄 Auto-continue mode: starting from office=${startOfficeIndex}, status=${startStatusIndex}, time=${startTimeIndex}`);
+        } else if (isResume) {
           console.log('Resume mode: loading progress from database...');
           const { data: savedProgress } = await supabase
             .from('holihope_import_progress')
@@ -4146,9 +4160,45 @@ Deno.serve(async (req) => {
         
         if (hasMore) {
           progress[0].message = `Обработано ${currentPosition}/${totalCombinations} комбинаций (${progressPercentage}%). Получено из API: ${fetchedCount}, уникальных: ${uniqueUnitsProcessed}, дубликатов отфильтровано: ${duplicatesFiltered}. Всего в БД: ${actualCount}`;
+          
+          // 🔄 AUTO-CONTINUE: Schedule next batch using EdgeRuntime.waitUntil
+          // This ensures import continues even if client disconnects
+          console.log(`🔄 Auto-continuing ed_units import to next batch (office=${nextOfficeIndex}, status=${nextStatusIndex}, time=${nextTimeIndex})...`);
+          
+          EdgeRuntime.waitUntil((async () => {
+            try {
+              // Small delay to avoid overwhelming the server
+              await new Promise(resolve => setTimeout(resolve, 1500));
+              
+              console.log(`📦 Invoking next ed_units batch via auto-continue...`);
+              const { data, error } = await supabase.functions.invoke('import-holihope', {
+                body: {
+                  action: 'import_ed_units',
+                  office_index: nextOfficeIndex,
+                  status_index: nextStatusIndex,
+                  time_index: nextTimeIndex,
+                  batch_size: batchSize || 2,
+                  full_history: fullHistory,
+                  auto_continue: true  // Mark as auto-continue to use params directly
+                }
+              });
+              
+              if (error) {
+                console.error('❌ Error invoking next ed_units batch:', error);
+              } else {
+                console.log('✅ Next ed_units batch invoked successfully');
+              }
+            } catch (err) {
+              console.error('❌ Failed to invoke next ed_units batch:', err);
+            }
+          })());
+          
+          progress[0].message += ' | 🔄 Auto-continuing...';
+          
           // Include next batch parameters in response
           return new Response(JSON.stringify({ 
             progress,
+            autoContinue: true,
             nextBatch: {
               office_index: nextOfficeIndex,
               status_index: nextStatusIndex,
@@ -4166,33 +4216,6 @@ Deno.serve(async (req) => {
               currentPosition: currentPosition,
               totalCombinations: totalCombinations,
               progressPercentage: progressPercentage
-            }
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
-        } else {
-          // Mark as completed
-          await updateHolihopeProgress(supabase, {
-            ed_units_is_running: false,
-            ed_units_office_index: 0,
-            ed_units_status_index: 0,
-            ed_units_time_index: 0,
-          });
-          
-          progress[0].message = `Импорт завершен. Получено из API: ${fetchedCount}, уникальных после дедупликации: ${uniqueUnitsProcessed}, дубликатов: ${duplicatesFiltered}. Итого в БД: ${actualCount}. Типы: ${JSON.stringify(typeStats)}`;
-          return new Response(JSON.stringify({ 
-            progress,
-            stats: {
-              totalFetched: fetchedCount,
-              totalImported: actualCount,
-              uniqueInBatch: uniqueUnitsProcessed,
-              duplicatesFiltered: duplicatesFiltered,
-              requestsProcessed: totalRequests,
-              successfulRequests: successfulRequests,
-              typeStats: typeStats,
-              currentPosition: totalCombinations,
-              totalCombinations: totalCombinations,
-              progressPercentage: 100
             }
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
