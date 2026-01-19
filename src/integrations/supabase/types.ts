@@ -4543,6 +4543,105 @@ export type Database = {
         }
         Relationships: []
       }
+      online_payments: {
+        Row: {
+          amount: number
+          created_at: string | null
+          description: string | null
+          error_code: string | null
+          error_message: string | null
+          id: string
+          notification_data: Json | null
+          order_id: string
+          organization_id: string
+          payment_id: string | null
+          payment_url: string | null
+          raw_request: Json | null
+          raw_response: Json | null
+          status: string
+          student_id: string
+          tbank_payment_id: string | null
+          terminal_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          description?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          notification_data?: Json | null
+          order_id: string
+          organization_id: string
+          payment_id?: string | null
+          payment_url?: string | null
+          raw_request?: Json | null
+          raw_response?: Json | null
+          status?: string
+          student_id: string
+          tbank_payment_id?: string | null
+          terminal_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          description?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          notification_data?: Json | null
+          order_id?: string
+          organization_id?: string
+          payment_id?: string | null
+          payment_url?: string | null
+          raw_request?: Json | null
+          raw_response?: Json | null
+          status?: string
+          student_id?: string
+          tbank_payment_id?: string | null
+          terminal_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "online_payments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "online_payments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "online_payments_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "online_payments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "online_payments_terminal_id_fkey"
+            columns: ["terminal_id"]
+            isOneToOne: false
+            referencedRelation: "payment_terminals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_balance_transactions: {
         Row: {
           ai_requests_count: number | null
@@ -4823,6 +4922,70 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "payments"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_terminals: {
+        Row: {
+          branch_id: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          is_test_mode: boolean | null
+          organization_id: string
+          provider: string
+          settings: Json | null
+          terminal_key: string
+          terminal_password: string
+          updated_at: string | null
+        }
+        Insert: {
+          branch_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_test_mode?: boolean | null
+          organization_id: string
+          provider?: string
+          settings?: Json | null
+          terminal_key: string
+          terminal_password: string
+          updated_at?: string | null
+        }
+        Update: {
+          branch_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_test_mode?: boolean | null
+          organization_id?: string
+          provider?: string
+          settings?: Json | null
+          terminal_key?: string
+          terminal_password?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_terminals_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "organization_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_terminals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_terminals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
           },
         ]
       }
