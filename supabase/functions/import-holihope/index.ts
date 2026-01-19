@@ -3572,23 +3572,33 @@ Deno.serve(async (req) => {
           }
         }
         
-        // Mark import as running in DB
+        // Support full_history mode for importing entire database without date limits
+        // Handle both boolean true and string 'true' from JSON serialization
+        console.log(`📋 full_history raw value: ${JSON.stringify(body.full_history)}, type: ${typeof body.full_history}`);
+        
+        // Check body first, then fallback to saved progress (for auto-continue/resume)
+        const fullHistoryFromBody = body.full_history === true || body.full_history === 'true';
+        const fullHistoryFromDB = savedProgress?.ed_units_full_history === true;
+        const fullHistory = fullHistoryFromBody || fullHistoryFromDB;
+        
+        console.log(`📋 full_history parsed: ${fullHistory} (fromBody: ${fullHistoryFromBody}, fromDB: ${fullHistoryFromDB})`);
+        
+        // Mark import as running in DB and save full_history preference
         await updateHolihopeProgress(supabase, {
           ed_units_is_running: true,
           ed_units_last_updated_at: new Date().toISOString(),
+          ed_units_full_history: fullHistory,
         });
         
-        // Support full_history mode for importing entire database without date limits
-        const fullHistory = body.full_history === true;
         const now = new Date();
         const from = new Date(now);
         const to = new Date(now);
         
-    if (fullHistory) {
-      // Full history: from 2015-01-01 to 1 year forward
-      from.setFullYear(2015, 0, 1); // January 1, 2015
-      to.setFullYear(to.getFullYear() + 1);
-      console.log('Full history mode enabled: importing from 2015-01-01 to 1 year forward');
+        if (fullHistory) {
+          // Full history: from 2015-01-01 to 1 year forward
+          from.setFullYear(2015, 0, 1); // January 1, 2015
+          to.setFullYear(to.getFullYear() + 1);
+          console.log('✅ Full history mode enabled: importing from 2015-01-01 to 1 year forward');
         } else {
           // Default: 6 months back and 6 months forward
           from.setDate(from.getDate() - 180);
@@ -3596,7 +3606,7 @@ Deno.serve(async (req) => {
         }
         const dateFrom = from.toISOString().slice(0, 10);
         const dateTo = to.toISOString().slice(0, 10);
-        console.log(`Date range: ${dateFrom} to ${dateTo}`);
+        console.log(`📅 Date range: ${dateFrom} to ${dateTo}`);
         
         // Batch parameters - ALWAYS have a safe default to prevent infinite processing
         // Default to 2 requests per batch, max 10 to avoid overwhelming the server
