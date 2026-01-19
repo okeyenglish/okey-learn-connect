@@ -2711,6 +2711,7 @@ export type Database = {
           ed_unit_students_last_updated_at: string | null
           ed_unit_students_skip: number | null
           ed_unit_students_total_imported: number | null
+          ed_units_full_history: boolean | null
           ed_units_is_running: boolean | null
           ed_units_last_updated_at: string | null
           ed_units_office_index: number | null
@@ -2751,6 +2752,7 @@ export type Database = {
           ed_unit_students_last_updated_at?: string | null
           ed_unit_students_skip?: number | null
           ed_unit_students_total_imported?: number | null
+          ed_units_full_history?: boolean | null
           ed_units_is_running?: boolean | null
           ed_units_last_updated_at?: string | null
           ed_units_office_index?: number | null
@@ -2791,6 +2793,7 @@ export type Database = {
           ed_unit_students_last_updated_at?: string | null
           ed_unit_students_skip?: number | null
           ed_unit_students_total_imported?: number | null
+          ed_units_full_history?: boolean | null
           ed_units_is_running?: boolean | null
           ed_units_last_updated_at?: string | null
           ed_units_office_index?: number | null
