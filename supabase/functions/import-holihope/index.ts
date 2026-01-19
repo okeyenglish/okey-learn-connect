@@ -620,18 +620,27 @@ Deno.serve(async (req) => {
         }
 
         console.log(`Found ${allTeachers.length} teachers`);
+        
+        // Log first teacher structure for debugging
+        if (allTeachers.length > 0) {
+          console.log('📋 Sample teacher keys:', Object.keys(allTeachers[0]));
+          console.log('📋 First teacher data:', JSON.stringify(allTeachers[0]));
+        }
 
         for (const teacher of allTeachers) {
+          // Extract branch from Offices array (API returns Offices: [{Id, Name}])
+          const branch = teacher.Offices?.[0]?.Name || teacher.location || 'Окская';
+          
           const teacherData = {
-            first_name: teacher.firstName || '',
-            last_name: teacher.lastName || '',
-            email: teacher.email || null,
-            phone: teacher.phone || null,
-            subjects: teacher.subjects ? [teacher.subjects] : [],
-            categories: teacher.categories ? [teacher.categories] : [],
-            branch: teacher.location || 'Окская',
-            is_active: teacher.isActive !== false,
-            external_id: teacher.id?.toString(),
+            first_name: teacher.FirstName || teacher.firstName || '',
+            last_name: teacher.LastName || teacher.lastName || '',
+            email: teacher.EMail || teacher.Email || teacher.email || null,
+            phone: teacher.Mobile || teacher.Phone || teacher.phone || null,
+            subjects: teacher.Disciplines || teacher.subjects || [],
+            categories: teacher.Maturities || teacher.categories || [],
+            branch: branch,
+            is_active: teacher.Fired !== true,
+            external_id: (teacher.Id || teacher.id)?.toString(),
             holihope_metadata: teacher, // Store complete API response
           };
 
@@ -640,7 +649,7 @@ Deno.serve(async (req) => {
             .upsert(teacherData, { onConflict: 'external_id' });
 
           if (error) {
-            console.error(`Error importing teacher ${teacher.lastName}:`, error);
+            console.error(`Error importing teacher ${teacher.LastName || teacher.lastName}:`, error);
           }
         }
 
