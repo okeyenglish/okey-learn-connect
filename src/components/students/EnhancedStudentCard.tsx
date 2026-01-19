@@ -730,9 +730,9 @@ export function EnhancedStudentCard({
                         )}
                       </h2>
                       {/* HoliHope quick access link */}
-                      {studentDetails.holihopeMetadata?.ClientId && (
+                      {studentDetails.holihopeMetadata?.Id && (
                         <a
-                          href={`https://okeyenglish.t8s.ru/Profile/${studentDetails.holihopeMetadata.ClientId}`}
+                          href={`https://okeyenglish.t8s.ru/Profile/${studentDetails.holihopeMetadata.Id}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
