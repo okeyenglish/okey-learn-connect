@@ -2617,6 +2617,82 @@ export type Database = {
           },
         ]
       }
+      group_tests: {
+        Row: {
+          average_score: number | null
+          comments: string | null
+          created_at: string | null
+          ed_unit_id: string | null
+          external_id: string | null
+          holihope_metadata: Json | null
+          id: string
+          learning_group_id: string | null
+          level: string | null
+          max_score: number | null
+          organization_id: string
+          subject: string | null
+          test_date: string | null
+          test_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          average_score?: number | null
+          comments?: string | null
+          created_at?: string | null
+          ed_unit_id?: string | null
+          external_id?: string | null
+          holihope_metadata?: Json | null
+          id?: string
+          learning_group_id?: string | null
+          level?: string | null
+          max_score?: number | null
+          organization_id: string
+          subject?: string | null
+          test_date?: string | null
+          test_name?: string
+          updated_at?: string | null
+        }
+        Update: {
+          average_score?: number | null
+          comments?: string | null
+          created_at?: string | null
+          ed_unit_id?: string | null
+          external_id?: string | null
+          holihope_metadata?: Json | null
+          id?: string
+          learning_group_id?: string | null
+          level?: string | null
+          max_score?: number | null
+          organization_id?: string
+          subject?: string | null
+          test_date?: string | null
+          test_name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_tests_learning_group_id_fkey"
+            columns: ["learning_group_id"]
+            isOneToOne: false
+            referencedRelation: "learning_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_tests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_tests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_organization_ai_settings"
+            referencedColumns: ["organization_id"]
+          },
+        ]
+      }
       holihope_import_progress: {
         Row: {
           created_at: string | null
