@@ -13,6 +13,7 @@ interface FileUploadProps {
     type: string;
     size: number;
   }) => void;
+  onFileRemove?: (url: string) => void;
   onFilesChange?: (files: File[]) => void;
   disabled?: boolean;
   maxFiles?: number;
@@ -29,6 +30,7 @@ interface UploadingFile {
 
 export const FileUpload = ({ 
   onFileUpload, 
+  onFileRemove,
   onFilesChange, 
   disabled = false,
   maxFiles = 5,
@@ -247,6 +249,10 @@ export const FileUpload = ({
 
   const removeUploadingFile = (fileToRemove: UploadingFile) => {
     setUploadingFiles(prev => prev.filter(f => f !== fileToRemove));
+    // Notify parent to remove from attachedFiles as well
+    if (fileToRemove.url && onFileRemove) {
+      onFileRemove(fileToRemove.url);
+    }
   };
 
   const openFileDialog = () => {
