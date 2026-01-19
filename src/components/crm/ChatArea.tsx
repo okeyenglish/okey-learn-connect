@@ -109,6 +109,7 @@ export const ChatArea = ({
     type: string;
     size: number;
   }>>([]);
+  const [fileUploadResetKey, setFileUploadResetKey] = useState(0);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showScheduledMessagesDialog, setShowScheduledMessagesDialog] = useState(false);
   const [editingScheduledMessage, setEditingScheduledMessage] = useState<ScheduledMessage | null>(null);
@@ -672,6 +673,7 @@ export const ChatArea = ({
     setMessage(""); // Clear input immediately
     setQuotedText(null); // Clear quoted text
     setAttachedFiles([]); // Clear attached files immediately
+    setFileUploadResetKey((k) => k + 1); // Reset FileUpload internal UI
     onMessageChange?.(false);
     
     // Помечаем все непрочитанные сообщения как прочитанные при отправке ответа
@@ -2304,6 +2306,7 @@ export const ChatArea = ({
               {/* Action icons */}
               <div className="flex items-center gap-0.5 md:gap-1 flex-1">
                 <FileUpload
+                  key={`file-upload-${fileUploadResetKey}`}
                   onFileUpload={(fileInfo) => {
                     setAttachedFiles(prev => [...prev, fileInfo]);
                   }}
