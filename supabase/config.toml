@@ -278,3 +278,12 @@ verify_jwt = true
 
 [functions.wappi-whatsapp-download]
 verify_jwt = true
+
+[functions.tbank-init]
+verify_jwt = true
+
+[functions.tbank-webhook]
+verify_jwt = false
+
+[functions.tbank-status]
+verify_jwt = true
