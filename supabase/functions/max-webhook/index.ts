@@ -448,11 +448,13 @@ async function enrichClientFromMax(supabase: any, organizationId: string, client
 
     // Update name if current is auto-generated
     const currentName = currentClient.name || '';
-    const isAutoName = currentName.startsWith('Клиент ') || 
+    const isAutoName = currentName === 'Без имени' ||
+                       currentName.startsWith('Клиент ') || 
                        currentName.startsWith('+') || 
                        /^\d+$/.test(currentName) ||
                        currentName.includes('@c.us') ||
-                       currentName.startsWith('MAX User');
+                       currentName.startsWith('MAX User') ||
+                       currentName.startsWith('Telegram ');
 
     if (contactName && isAutoName) {
       updateData.name = contactName;

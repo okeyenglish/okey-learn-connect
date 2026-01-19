@@ -160,6 +160,14 @@ async function handleIncomingMessage(
     return;
   }
 
+  // Try to enrich client data if name is auto-generated (like "Без имени")
+  await enrichClientFromTelegram(supabase, client.id, {
+    contactName: senderName,
+    username: username,
+    avatarUrl: avatarUrl,
+    phoneNumber: phoneNumber
+  });
+
   // Determine message content (type is stored in file_type, message_type is client/manager/system)
   const { messageText, contentType, fileUrl, fileName, fileType } = extractMessageContent(message);
 
@@ -689,6 +697,123 @@ function extractMessageContent(message: WappiMessage): {
   }
 
   return { messageText, contentType, fileUrl, fileName, fileType };
+}
+
+// Enrich client data from Telegram contact info
+async function enrichClientFromTelegram(
+  supabase: any,
+  clientId: string,
+  contactData: {
+    contactName?: string | null;
+    username?: string | null;
+    avatarUrl?: string | null;
+    phoneNumber?: string | null;
+  }
+): Promise<void> {
+  if (!clientId) return;
+
+  try {
+    // Get current client data
+    const { data: currentClient, error: fetchError } = await supabase
+      .from('clients')
+      .select('name, phone, avatar_url, telegram_avatar_url, holihope_metadata')
+      .eq('id', clientId)
+      .single();
+
+    if (fetchError || !currentClient) {
+      console.log('Client not found for Telegram enrichment:', clientId);
+      return;
+    }
+
+    const updateData: Record<string, any> = {};
+
+    // Check if current name is auto-generated
+    const currentName = currentClient.name || '';
+    const isAutoName = currentName === 'Без имени' ||
+                       currentName.startsWith('Клиент ') || 
+                       currentName.startsWith('+') || 
+                       /^\d+$/.test(currentName) ||
+                       currentName.includes('@c.us') ||
+                       currentName.startsWith('MAX User') ||
+                       currentName.startsWith('Telegram ') ||
+                       currentName.startsWith('User ');
+
+    // Build final name from contact data
+    const { contactName, username } = contactData;
+    let finalName: string | null = null;
+    
+    if (contactName && contactName !== 'Без имени') {
+      // Check if contactName looks like a phone number
+      const phoneCheck = contactName.replace(/\D/g, '');
+      if (!(phoneCheck && phoneCheck.length >= 10 && contactName.replace(/\D/g, '') === phoneCheck)) {
+        finalName = contactName;
+      }
+    }
+    
+    // If no good name from contactName, try username
+    if (!finalName && username) {
+      finalName = `@${username}`;
+    }
+
+    // Update name only if we have a good name and current name is auto-generated
+    if (finalName && isAutoName) {
+      updateData.name = finalName;
+      console.log(`Updating Telegram client name from "${currentName}" to "${finalName}"`);
+    }
+
+    // Update phone if missing
+    if (contactData.phoneNumber && !currentClient.phone) {
+      const formattedPhone = String(contactData.phoneNumber).startsWith('+') 
+        ? contactData.phoneNumber 
+        : `+${contactData.phoneNumber}`;
+      updateData.phone = formattedPhone;
+      console.log(`Setting Telegram client phone to "${formattedPhone}"`);
+    }
+
+    // Update avatar if provided
+    if (contactData.avatarUrl) {
+      updateData.telegram_avatar_url = contactData.avatarUrl;
+      // Also update main avatar if missing
+      if (!currentClient.avatar_url) {
+        updateData.avatar_url = contactData.avatarUrl;
+      }
+    }
+
+    // Save additional info to metadata
+    const existingMetadata = (currentClient.holihope_metadata as Record<string, any>) || {};
+    const telegramInfo = existingMetadata.telegram_info || {};
+
+    const newTelegramInfo: Record<string, any> = {
+      ...telegramInfo,
+      last_updated: new Date().toISOString()
+    };
+
+    if (contactData.contactName) newTelegramInfo.name = contactData.contactName;
+    if (contactData.username) newTelegramInfo.username = contactData.username;
+    if (contactData.phoneNumber) newTelegramInfo.phone = contactData.phoneNumber;
+    if (contactData.avatarUrl) newTelegramInfo.avatar_url = contactData.avatarUrl;
+
+    updateData.holihope_metadata = {
+      ...existingMetadata,
+      telegram_info: newTelegramInfo
+    };
+
+    // Update client if there are changes
+    if (Object.keys(updateData).length > 0) {
+      const { error: updateError } = await supabase
+        .from('clients')
+        .update(updateData)
+        .eq('id', clientId);
+
+      if (updateError) {
+        console.error('Error enriching Telegram client data:', updateError);
+      } else {
+        console.log(`Telegram client ${clientId} enriched with:`, Object.keys(updateData));
+      }
+    }
+  } catch (error) {
+    console.error('Error in enrichClientFromTelegram:', error);
+  }
 }
 
 // Helper function to update messenger data in client_phone_numbers
