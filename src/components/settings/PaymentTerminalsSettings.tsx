@@ -157,15 +157,15 @@ export const PaymentTerminalsSettings = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="branch">Филиал (опционально)</Label>
-                  <Select
-                    value={formData.branch_id}
-                    onValueChange={(value) => setFormData({ ...formData, branch_id: value })}
+                <Select
+                    value={formData.branch_id || "__all__"}
+                    onValueChange={(value) => setFormData({ ...formData, branch_id: value === "__all__" ? "" : value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Для всей организации" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Для всей организации</SelectItem>
+                      <SelectItem value="__all__">Для всей организации</SelectItem>
                       {branches?.map((branch) => (
                         <SelectItem key={branch.id} value={branch.id}>
                           {branch.name}
