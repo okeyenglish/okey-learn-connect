@@ -99,7 +99,7 @@ interface RpcIndividualCourse {
   subject?: string;
   price_per_lesson?: number;
   is_active: boolean;
-  teacher_id?: string;
+  teacher_name?: string;
 }
 
 interface RpcStudent {
