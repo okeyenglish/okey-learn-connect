@@ -55,6 +55,7 @@ interface ChatAreaProps {
   rightPanelCollapsed?: boolean; // State of right panel
   onToggleRightPanel?: () => void; // Toggle right panel
   initialMessengerTab?: 'whatsapp' | 'telegram' | 'max'; // Initial messenger tab to show
+  messengerTabTimestamp?: number; // Timestamp to force tab switch
 }
 
 interface ScheduledMessage {
@@ -79,7 +80,8 @@ export const ChatArea = ({
   onChatAction,
   rightPanelCollapsed = false,
   onToggleRightPanel,
-  initialMessengerTab
+  initialMessengerTab,
+  messengerTabTimestamp
 }: ChatAreaProps) => {
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -271,6 +273,16 @@ export const ChatArea = ({
     // НЕ помечаем автоматически сообщения как прочитанные
     // Менеджер должен явно нажать "Не требует ответа" или отправить сообщение
   }, [clientId, unreadLoading, unreadFetching, lastUnreadMessenger, initialTabSet, messagesData?.messages, loadingMessages, initialMessengerTab]);
+
+  // Handle external messenger tab switch (from clicking messenger icon in FamilyCard)
+  useEffect(() => {
+    if (initialMessengerTab && messengerTabTimestamp) {
+      // User clicked a specific messenger icon - force switch
+      console.log('[ChatArea] Switching to messenger tab from external click:', initialMessengerTab, 'ts:', messengerTabTimestamp);
+      setActiveMessengerTab(initialMessengerTab);
+      setTimeout(() => scrollToBottom(false, initialMessengerTab), 0);
+    }
+  }, [messengerTabTimestamp]); // Only react to timestamp changes
 
   // Mark messages as read when switching tabs - только прокрутка, НЕ отметка прочитанности
   const handleTabChange = (newTab: string) => {

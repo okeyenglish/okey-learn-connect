@@ -109,6 +109,32 @@ export const FamilyCard = ({
     }
   };
 
+  // Get display name from messenger if client name is "Без имени"
+  const getDisplayNameFromMessenger = (member: FamilyMember): string | null => {
+    // Try to extract phone number from whatsapp_chat_id and format as name
+    const primaryPhone = member.phoneNumbers?.find(p => p.isPrimary) || member.phoneNumbers?.[0];
+    if (primaryPhone) {
+      // Check if there's a whatsapp connection - use phone as display
+      if (primaryPhone.whatsappChatId) {
+        const phone = primaryPhone.whatsappChatId.replace('@c.us', '');
+        return `+${phone.slice(0, 1)} ${phone.slice(1, 4)} ${phone.slice(4, 7)}-${phone.slice(7, 9)}-${phone.slice(9)}`;
+      }
+      // Check telegram
+      if (primaryPhone.telegramChatId) {
+        return `Telegram ${primaryPhone.telegramChatId}`;
+      }
+      // Check MAX
+      if (primaryPhone.maxChatId) {
+        return `MAX ${primaryPhone.maxChatId}`;
+      }
+      // Fallback to phone number
+      if (primaryPhone.phone) {
+        return primaryPhone.phone;
+      }
+    }
+    return null;
+  };
+
   const getRelationshipIcon = (relationship: string) => {
     switch (relationship) {
       case 'main': return User;
@@ -232,7 +258,10 @@ export const FamilyCard = ({
               </div>
               <div>
                 <CardTitle className="text-base">
-                  {activeMember.name}
+                  {activeMember.name === 'Без имени' 
+                    ? getDisplayNameFromMessenger(activeMember) || activeMember.name
+                    : activeMember.name
+                  }
                   {activeMember.clientNumber && (
                     <span className="ml-2 text-xs font-mono text-muted-foreground">
                       #{activeMember.clientNumber}

@@ -291,7 +291,7 @@ const CRMContent = () => {
   const [deleteChatDialog, setDeleteChatDialog] = useState<{ open: boolean; chatId: string; chatName: string }>({ open: false, chatId: '', chatName: '' });
   const [linkChatModal, setLinkChatModal] = useState<{ open: boolean; chatId: string; chatName: string }>({ open: false, chatId: '', chatName: '' });
   const [isDeletingChat, setIsDeletingChat] = useState(false);
-  const [selectedMessengerTab, setSelectedMessengerTab] = useState<'whatsapp' | 'telegram' | 'max' | undefined>(undefined);
+  const [selectedMessengerTab, setSelectedMessengerTab] = useState<{ tab: 'whatsapp' | 'telegram' | 'max'; ts: number } | undefined>(undefined);
   
   // Критичные данные - загружаем ТОЛЬКО threads с infinite scroll (50 за раз)
   // useClients убран из критического пути - 27К клиентов тормозили загрузку
@@ -3577,7 +3577,8 @@ const CRMContent = () => {
               onChatAction={handleChatAction}
               rightPanelCollapsed={rightPanelCollapsed}
               onToggleRightPanel={() => setRightPanelCollapsed(!rightPanelCollapsed)}
-              initialMessengerTab={selectedMessengerTab}
+              initialMessengerTab={selectedMessengerTab?.tab}
+              messengerTabTimestamp={selectedMessengerTab?.ts}
             />
           ) : activeChatType === 'corporate' ? (
             <CorporateChatArea 
@@ -3623,7 +3624,9 @@ const CRMContent = () => {
               <FamilyCardWrapper 
                 clientId={activeChatId} 
                 onOpenChat={(memberId, messengerType) => {
-                  setSelectedMessengerTab(messengerType);
+                  if (messengerType) {
+                    setSelectedMessengerTab({ tab: messengerType, ts: Date.now() });
+                  }
                   handleChatClick(memberId, 'client');
                 }}
               />
@@ -3638,7 +3641,9 @@ const CRMContent = () => {
               <FamilyCardWrapper 
                 clientId={activeChatId}
                 onOpenChat={(memberId, messengerType) => {
-                  setSelectedMessengerTab(messengerType);
+                  if (messengerType) {
+                    setSelectedMessengerTab({ tab: messengerType, ts: Date.now() });
+                  }
                   handleChatClick(memberId, 'client');
                 }}
               />
