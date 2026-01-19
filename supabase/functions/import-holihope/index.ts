@@ -4684,8 +4684,19 @@ Deno.serve(async (req) => {
         // Batch insert group_students with fallback to individual inserts
         if (groupStudentsToInsert.length > 0) {
           console.log(`Inserting ${groupStudentsToInsert.length} group-student links in batches...`);
-          for (let i = 0; i < groupStudentsToInsert.length; i += 100) {
-            const batch = groupStudentsToInsert.slice(i, i + 100);
+          
+          // FINAL SANITIZATION: Ensure all status values are valid enum members
+          const validStatuses = ['active', 'paused', 'completed', 'dropped'];
+          const sanitizedGroupStudents = groupStudentsToInsert.map(record => ({
+            ...record,
+            status: validStatuses.includes(record.status) 
+              ? record.status 
+              : (/expel|отчисл|выбыл/i.test(record.status || '') ? 'dropped' : 'active')
+          }));
+          console.log(`Sanitized ${sanitizedGroupStudents.length} records - all statuses now valid enum values`);
+          
+          for (let i = 0; i < sanitizedGroupStudents.length; i += 100) {
+            const batch = sanitizedGroupStudents.slice(i, i + 100);
             const { error } = await supabase
               .from('group_students')
               .upsert(batch, { onConflict: 'group_id,student_id', ignoreDuplicates: false });
