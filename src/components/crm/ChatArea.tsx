@@ -131,16 +131,24 @@ export const ChatArea = ({
   const [activeMessengerTab, setActiveMessengerTab] = useState("whatsapp");
   const [isEditingName, setIsEditingName] = useState(false);
   
-  // Функция для очистки имени от префикса "Клиент" (определяем до использования)
-  const cleanClientName = (name: string) => {
+  // Функция для очистки имени от префикса "Клиент" и "Без имени" (определяем до использования)
+  const cleanClientName = (name: string, phone?: string) => {
+    if (name === 'Без имени' && phone) {
+      // Format phone number for display
+      const digits = phone.replace(/\D/g, '');
+      if (digits.length === 11 && (digits.startsWith('7') || digits.startsWith('8'))) {
+        return `+7 ${digits.slice(1, 4)} ${digits.slice(4, 7)}-${digits.slice(7, 9)}-${digits.slice(9)}`;
+      }
+      return phone;
+    }
     if (name.startsWith('Клиент ')) {
       return name.replace('Клиент ', '');
     }
     return name;
   };
   
-  const [editedName, setEditedName] = useState(cleanClientName(clientName));
-  const [displayName, setDisplayName] = useState(cleanClientName(clientName));
+  const [editedName, setEditedName] = useState(cleanClientName(clientName, clientPhone));
+  const [displayName, setDisplayName] = useState(cleanClientName(clientName, clientPhone));
   const whatsappEndRef = useRef<HTMLDivElement>(null);
   const maxEndRef = useRef<HTMLDivElement>(null);
   const telegramEndRef = useRef<HTMLDivElement>(null);
@@ -219,11 +227,11 @@ export const ChatArea = ({
 
   // Update editedName and displayName when clientName changes
   useEffect(() => {
-    const cleaned = cleanClientName(clientName);
+    const cleaned = cleanClientName(clientName, clientPhone);
     setEditedName(cleaned);
     setDisplayName(cleaned);
     setIsEditingName(false);
-  }, [clientName]);
+  }, [clientName, clientPhone]);
 
   // Track if we've set the initial tab for this client
   const [initialTabSet, setInitialTabSet] = useState<string | null>(null);
@@ -296,7 +304,7 @@ export const ChatArea = ({
 
   // Функция для начала редактирования имени
   const handleStartEditName = () => {
-    setEditedName(cleanClientName(clientName));
+    setEditedName(cleanClientName(clientName, clientPhone));
     setIsEditingName(true);
     setTimeout(() => {
       editNameInputRef.current?.focus();
@@ -355,7 +363,7 @@ export const ChatArea = ({
       console.error('Error updating client name:', error);
       
       // Откатываем оптимистичное обновление при ошибке
-      setDisplayName(cleanClientName(clientName));
+      setDisplayName(cleanClientName(clientName, clientPhone));
       
       toast({
         title: "Ошибка",
@@ -367,7 +375,7 @@ export const ChatArea = ({
 
   // Функция для отмены редактирования
   const handleCancelEditName = () => {
-    setEditedName(cleanClientName(clientName));
+    setEditedName(cleanClientName(clientName, clientPhone));
     setIsEditingName(false);
   };
 

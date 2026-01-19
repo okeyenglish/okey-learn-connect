@@ -1,4 +1,4 @@
-import { Phone, Mail, Copy, Check } from "lucide-react";
+import { Phone, Mail, Copy, Check, Star } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -141,10 +141,8 @@ export const ContactInfoBlock = ({
                 />
               )}
               
-              {phoneNumber.isPrimary && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground">
-                  основной
-                </Badge>
+              {phoneNumber.isPrimary && phoneNumbers.length > 1 && (
+                <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" />
               )}
               
               <div className="flex items-center gap-1 ml-auto">
