@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { FamilyCard } from "./FamilyCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -14,10 +13,70 @@ export const FamilyCardWrapper = ({ clientId, onOpenChat }: FamilyCardWrapperPro
   const [familyGroupId, setFamilyGroupId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const createAttemptedRef = useRef<string | null>(null);
   const { toast } = useToast();
 
+  const createFamilyGroupForClient = async (cId: string) => {
+    // Prevent duplicate creation attempts for the same client
+    if (createAttemptedRef.current === cId) return null;
+    createAttemptedRef.current = cId;
+
+    try {
+      setCreating(true);
+
+      // Get client info
+      const { data: client, error: clientError } = await supabase
+        .from('clients')
+        .select('name, first_name, last_name')
+        .eq('id', cId)
+        .single();
+
+      if (clientError) throw clientError;
+
+      // Build group name from last_name or parsed from name
+      let groupName = 'Семья клиента';
+      if (client?.last_name) {
+        groupName = `Семья ${client.last_name}`;
+      } else if (client?.name) {
+        const parts = client.name.split(' ');
+        const lastName = parts[0] || 'клиента';
+        groupName = `Семья ${lastName}`;
+      }
+
+      // Create family group
+      const { data: group, error: groupError } = await supabase
+        .from('family_groups')
+        .insert({ name: groupName })
+        .select()
+        .single();
+
+      if (groupError) throw groupError;
+
+      // Link client as primary contact
+      const { error: linkError } = await supabase
+        .from('family_members')
+        .insert({
+          family_group_id: group.id,
+          client_id: cId,
+          relationship_type: 'main',
+          is_primary_contact: true,
+        });
+
+      if (linkError) throw linkError;
+
+      console.log('Auto-created family group for client:', cId, group.id);
+      return group.id;
+    } catch (err: any) {
+      console.error('Error creating family group:', err);
+      return null;
+    } finally {
+      setCreating(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchFamilyGroupId = async () => {
+    const fetchOrCreateFamilyGroup = async () => {
       if (!clientId) {
         setLoading(false);
         return;
@@ -40,99 +99,49 @@ export const FamilyCardWrapper = ({ clientId, onOpenChat }: FamilyCardWrapperPro
         const primaryGroup = data?.find(fm => fm.is_primary_contact);
         const selectedGroup = primaryGroup || data?.[0];
         
-        setFamilyGroupId(selectedGroup?.family_group_id ?? null);
+        if (selectedGroup?.family_group_id) {
+          setFamilyGroupId(selectedGroup.family_group_id);
+          createAttemptedRef.current = null; // Reset for next client
+        } else {
+          // No family group found - auto-create one
+          const newGroupId = await createFamilyGroupForClient(clientId);
+          if (newGroupId) {
+            setFamilyGroupId(newGroupId);
+          } else {
+            setError('Не удалось создать карточку клиента');
+          }
+        }
       } catch (err) {
         console.error('Error fetching family group ID:', err);
-        setError('Ошибка загрузки данных семьи');
+        setError('Ошибка загрузки данных');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchFamilyGroupId();
+    // Reset state when client changes
+    setFamilyGroupId(null);
+    createAttemptedRef.current = null;
+    fetchOrCreateFamilyGroup();
   }, [clientId]);
 
-  const createFamilyGroupForClient = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Get client info
-      const { data: client, error: clientError } = await supabase
-        .from('clients')
-        .select('name')
-        .eq('id', clientId)
-        .single();
-
-      if (clientError) throw clientError;
-
-      const lastName = client?.name?.split(' ').slice(-1)[0] || 'клиента';
-      const groupName = `Семья ${lastName}`;
-
-      // Create family group
-      const { data: group, error: groupError } = await supabase
-        .from('family_groups')
-        .insert({ name: groupName })
-        .select()
-        .single();
-
-      if (groupError) throw groupError;
-
-      // Link client as primary contact
-      const { error: linkError } = await supabase
-        .from('family_members')
-        .insert({
-          family_group_id: group.id,
-          client_id: clientId,
-          relationship_type: 'main',
-          is_primary_contact: true,
-        });
-
-      if (linkError) throw linkError;
-
-      setFamilyGroupId(group.id);
-      toast({ title: 'Семейная группа создана', description: 'Клиент назначен основным контактом' });
-    } catch (err: any) {
-      console.error('Error creating family group:', err);
-      setError('Не удалось создать семейную группу');
-      toast({ title: 'Ошибка', description: 'Не удалось создать семейную группу', variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
+  if (loading || creating) {
     return (
       <Card>
         <CardContent className="p-6">
-          <p className="text-center text-muted-foreground">Загрузка семейных данных...</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!familyGroupId) {
-    return (
-      <Card>
-        <CardContent className="p-6 space-y-3">
           <p className="text-center text-muted-foreground">
-            Семейная группа не найдена
+            {creating ? 'Создание карточки клиента...' : 'Загрузка...'}
           </p>
-          <div className="flex justify-center">
-            <Button onClick={createFamilyGroupForClient}>
-              Создать семейную группу
-            </Button>
-          </div>
         </CardContent>
       </Card>
     );
   }
 
-  if (error) {
+  if (error || !familyGroupId) {
     return (
       <Card>
         <CardContent className="p-6">
-          <p className="text-center text-muted-foreground">{error}</p>
+          <p className="text-center text-muted-foreground">{error || 'Ошибка загрузки'}</p>
         </CardContent>
       </Card>
     );
