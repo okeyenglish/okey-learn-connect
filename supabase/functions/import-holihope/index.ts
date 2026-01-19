@@ -5343,17 +5343,49 @@ Deno.serve(async (req) => {
             continue;
           }
           
+          // Parse correct fields from Holihope API (PascalCase)
+          const testName = test.TestTypeName || test.testTypeName || test.testName || test.TestName || 'Без названия';
+          const testDate = test.DateTime || test.dateTime || test.testDate || test.TestDate || new Date().toISOString();
+          const subject = test.Discipline || test.discipline || test.subject || test.Subject || null;
+          const level = test.TestTypeCategoryName || test.testTypeCategoryName || test.level || test.Level || null;
+          const comments = test.CommentText || test.commentText || test.comments || test.Comments || null;
+          
+          // Calculate total score from Skills array
+          let totalScore = 0;
+          let totalMaxScore = 0;
+          let passed = true;
+          
+          const skills = test.Skills || test.skills || [];
+          if (Array.isArray(skills) && skills.length > 0) {
+            for (const skill of skills) {
+              const score = skill.Score ?? skill.score ?? 0;
+              const maxScore = skill.MaxScore ?? skill.maxScore ?? 100;
+              const validScore = skill.ValidScore ?? skill.validScore ?? 0;
+              totalScore += score;
+              totalMaxScore += maxScore;
+              if (score < validScore) {
+                passed = false;
+              }
+            }
+          } else {
+            passed = false; // No skills data
+          }
+          
+          const percentage = totalMaxScore > 0 
+            ? Math.round((totalScore / totalMaxScore) * 100) 
+            : null;
+          
           await supabase.from('personal_tests').upsert({
             student_id: student.id,
-            test_name: test.testName || test.TestName || test.name || test.Name || 'Без названия',
-            test_date: test.testDate || test.TestDate || test.date || test.Date || new Date().toISOString().split('T')[0],
-            subject: test.subject || test.Subject || null,
-            level: test.level || test.Level || null,
-            score: test.score || test.Score || null,
-            max_score: test.maxScore || test.MaxScore || null,
-            percentage: test.percentage || test.Percentage || null,
-            passed: test.passed ?? test.Passed ?? false,
-            comments: test.comments || test.Comments || null,
+            test_name: testName,
+            test_date: testDate,
+            subject: subject,
+            level: level,
+            score: totalMaxScore > 0 ? totalScore : null,
+            max_score: totalMaxScore > 0 ? totalMaxScore : null,
+            percentage: percentage,
+            passed: passed,
+            comments: comments,
             organization_id: orgId,
             external_id: (test.id || test.Id)?.toString(),
             holihope_metadata: test,
