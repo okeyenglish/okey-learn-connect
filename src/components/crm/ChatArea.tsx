@@ -2614,7 +2614,13 @@ export const ChatArea = ({
         clientId={clientId}
         clientName={displayName || clientName}
         onPaymentLinkGenerated={(data) => {
-          setPaymentLinkAttachment(data);
+          // Добавляем ссылку прямо в поле ввода сообщения
+          const paymentText = data.description
+            ? `💳 Ссылка на оплату (${data.amount.toLocaleString('ru-RU')} ₽): ${data.description}\n${data.url}`
+            : `💳 Ссылка на оплату (${data.amount.toLocaleString('ru-RU')} ₽):\n${data.url}`;
+          setMessage(prev => prev ? `${prev}\n\n${paymentText}` : paymentText);
+          // Фокус на поле ввода
+          setTimeout(() => textareaRef.current?.focus(), 100);
         }}
       />
 
