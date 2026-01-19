@@ -85,11 +85,22 @@ export const FileUpload = ({
     };
 
     try {
-      // Generate unique filename
+      // Generate unique filename with sanitized name (remove non-ASCII chars)
       const timestamp = Date.now();
       const randomId = Math.random().toString(36).substring(2);
-      const fileName = `${timestamp}_${randomId}_${file.name}`;
-      const filePath = `chat-files/${fileName}`;
+      // Get file extension
+      const ext = file.name.split('.').pop() || '';
+      // Sanitize filename: replace non-ASCII and special chars with underscores
+      const sanitizedName = file.name
+        .replace(/[^\x00-\x7F]/g, '') // Remove non-ASCII (Cyrillic, etc.)
+        .replace(/[^a-zA-Z0-9._-]/g, '_') // Replace special chars
+        .replace(/_+/g, '_') // Collapse multiple underscores
+        .replace(/^_|_$/g, ''); // Trim leading/trailing underscores
+      // If sanitized name is empty, use just extension
+      const finalName = sanitizedName || `file.${ext}`;
+      const fileName = `${timestamp}_${randomId}_${finalName}`;
+      // Path is just the filename, bucket is 'chat-files'
+      const filePath = fileName;
 
       // Upload file to Supabase Storage
       const { data, error } = await supabase.storage
@@ -106,7 +117,7 @@ export const FileUpload = ({
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('chat-files')
-        .getPublicUrl(filePath);
+        .getPublicUrl(fileName);
 
       uploadingFile.status = 'completed';
       uploadingFile.progress = 100;
