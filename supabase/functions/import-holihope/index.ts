@@ -3584,11 +3584,11 @@ Deno.serve(async (req) => {
         const from = new Date(now);
         const to = new Date(now);
         
-        if (fullHistory) {
-          // Full history: 5 years back and 1 year forward
-          from.setFullYear(from.getFullYear() - 5);
-          to.setFullYear(to.getFullYear() + 1);
-          console.log('Full history mode enabled: importing 5 years back and 1 year forward');
+    if (fullHistory) {
+      // Full history: from 2015-01-01 to 1 year forward
+      from.setFullYear(2015, 0, 1); // January 1, 2015
+      to.setFullYear(to.getFullYear() + 1);
+      console.log('Full history mode enabled: importing from 2015-01-01 to 1 year forward');
         } else {
           // Default: 6 months back and 6 months forward
           from.setDate(from.getDate() - 180);
