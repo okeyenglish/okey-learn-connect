@@ -3879,8 +3879,8 @@ const CRMContent = () => {
           onNewChatClick={handleMobileNewChatClick}
           onScheduleClick={handleMobileScheduleClick}
           onAssistantClick={handleMobileAssistantClick}
-          corporateUnreadCount={corporateChats?.reduce((sum, chat) => sum + (chat.unread_count || 0), 0) || 0}
-          teachersUnreadCount={teacherChats?.reduce((sum, chat) => sum + (chat.unread_count || 0), 0) || 0}
+          corporateUnreadCount={corporateChats?.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0) || 0}
+          teachersUnreadCount={teacherChats?.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0) || 0}
           activeChatType={activeChatType}
         />
       )}

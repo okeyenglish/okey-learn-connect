@@ -16,10 +16,10 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages } from '@/hooks/useChatMessages';
 import { useMarkChatMessagesAsRead } from '@/hooks/useMessageReadStatus';
 import { useTypingStatus } from '@/hooks/useTypingStatus';
-// usePinCounts removed - functionality consolidated in useSharedChatStates
 import { useWhatsApp } from '@/hooks/useWhatsApp';
 import { supabase } from '@/integrations/supabase/client';
 import { AddTeacherModal } from '@/components/admin/AddTeacherModal';
+import { useTeacherChats, useEnsureTeacherClient, TeacherChatItem } from '@/hooks/useTeacherChats';
 
 interface TeacherGroup {
   id: string;
@@ -48,7 +48,6 @@ interface Teacher {
   lastSeen: string;
   groups: TeacherGroup[];
   zoomLink?: string;
-  // Additional profile fields
   resume: string;
   languages: string[];
   levels: string[];
@@ -57,30 +56,8 @@ interface Teacher {
   education: string;
 }
 
-// Данные преподавателей теперь подгружаются из БД
-interface DbTeacher {
-  id: string;
-  fullName: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
-  branch: string;
-  unreadMessages: number;
-  lastSeen: string;
-  isOnline: boolean;
-  // Optional fields for future expansion
-  email?: string;
-  telegram?: string;
-  experience?: string;
-  education?: string;
-  languages?: string[];
-  levels?: string[];
-  resume?: string;
-  comments?: string;
-  zoomLink?: string;
-  subject?: string;
-  groups?: { id: string; name: string; level: string; nextLesson: string; studentsCount: number; branch: string }[];
-}
+// Тип для преподавателей из БД - теперь импортируется из useTeacherChats
+type DbTeacher = TeacherChatItem;
 
 const DEFAULT_SUBJECT = 'Английский';
 
@@ -94,8 +71,6 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   selectedTeacherId = null,
   onSelectTeacher
 }) => {
-  const [dbTeachers, setDbTeachers] = useState<DbTeacher[]>([]);
-  const [isLoadingTeachers, setIsLoadingTeachers] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('диалог');
   const [message, setMessage] = useState('');
@@ -126,96 +101,10 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     loadBranch();
   }, []);
 
-  // Load teachers from DB by branch - optimized with single query
-  useEffect(() => {
-    const fetchTeachers = async (branch: string) => {
-      setIsLoadingTeachers(true);
-      try {
-        // Single optimized query using RPC or aggregation
-        const { data: clients, error } = await supabase
-          .from('clients')
-          .select(`
-            id, 
-            name, 
-            phone, 
-            branch,
-            chat_messages!client_id (
-              created_at,
-              is_read
-            )
-          `)
-          .eq('branch', branch)
-          .ilike('name', 'Преподаватель:%');
-        
-        if (error) {
-          console.error('Error fetching teachers', error);
-          setIsLoadingTeachers(false);
-          return;
-        }
-
-        const enriched = (clients || []).map((c: any) => {
-          const full = (c.name || '').replace('Преподаватель:', '').trim();
-          const [lastName, firstName, ...rest] = full.split(' ');
-          const fullName = `${lastName || ''} ${firstName || ''}${rest.length ? ' ' + rest.join(' ') : ''}`.trim();
-          
-          // Process messages from nested data
-          const messages = c.chat_messages || [];
-          // Считаем только непрочитанные сообщения от клиентов
-          const unreadCount = messages.filter((m: any) => !m.is_read && m.message_type === 'client').length;
-          const sortedMessages = messages.sort((a: any, b: any) => 
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          );
-          const lastMsg = sortedMessages[0];
-          
-          return {
-            id: c.id,
-            fullName: fullName || full || c.name,
-            firstName: firstName || '',
-            lastName: lastName || '',
-            phone: c.phone,
-            branch: c.branch,
-            unreadMessages: unreadCount,
-            lastSeen: lastMsg?.created_at 
-              ? new Date(lastMsg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) 
-              : 'нет данных',
-            isOnline: false,
-            lastMessageTime: lastMsg?.created_at || '1970-01-01',
-          } as DbTeacher & { lastMessageTime: string };
-        });
-
-        // Sort by last message time desc
-        enriched.sort((a, b) => 
-          new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime()
-        );
-        
-        setDbTeachers(enriched);
-      } finally {
-        setIsLoadingTeachers(false);
-      }
-    };
-    
-    if (userBranch) fetchTeachers(userBranch);
-  }, [userBranch]);
-
-  // Realtime refresh
-  useEffect(() => {
-    const channel = supabase
-      .channel('teachers-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => {
-        if (userBranch) {
-          // trigger refetch by updating userBranch state
-          setUserBranch((b) => b);
-        }
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages' }, () => {
-        if (userBranch) {
-          // trigger refetch when messages are marked as read
-          setUserBranch((b) => b);
-        }
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [userBranch]);
+  // Load teachers from teachers table using new hook
+  // Pass null for branch to load ALL teachers (not filtered by user's branch)
+  const { teachers: dbTeachers, isLoading: isLoadingTeachers, totalTeachers, refetch: refetchTeachers } = useTeacherChats(null);
+  const { findOrCreateClient } = useEnsureTeacherClient();
 
   const ensureClient = async (name: string, branch: string) => {
     const { data: found } = await supabase
@@ -229,11 +118,11 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     // Use prefixed name for teacher chats to match RLS policy
     const chatName = name.includes('Чат педагогов') ? name : `Преподаватель: ${name}`;
     
-      const { data: inserted, error } = await supabase
-        .from('clients')
-        .insert([{ name: chatName, phone: '-', branch }])
-        .select('id')
-        .maybeSingle();
+    const { data: inserted, error } = await supabase
+      .from('clients')
+      .insert([{ name: chatName, phone: '-', branch }])
+      .select('id')
+      .maybeSingle();
     if (error) {
       console.error('ensureClient insert error', error);
       return null;
@@ -244,23 +133,33 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   useEffect(() => {
     const resolve = async () => {
       if (!selectedTeacherId) { setResolvedClientId(null); return; }
-      let nameToFind: string | null = null;
-      let branchToUse: string | null = null;
+      
       if (selectedTeacherId === 'teachers-group') {
-        // Делать групповой чат по филиалу пользователя
-        nameToFind = userBranch ? `Чат педагогов - ${userBranch}` : null;
-        branchToUse = userBranch;
-      } else {
-        const tDb = dbTeachers.find(tt => tt.id === selectedTeacherId);
-        nameToFind = tDb ? `Преподаватель: ${tDb.fullName}` : null;
-        branchToUse = tDb?.branch || userBranch;
+        // Group chat for the user's branch
+        const nameToFind = userBranch ? `Чат педагогов - ${userBranch}` : null;
+        const branchToUse = userBranch;
+        if (!nameToFind || !branchToUse) { setResolvedClientId(null); return; }
+        const id = await ensureClient(nameToFind, branchToUse);
+        setResolvedClientId(id);
+        return;
       }
-      if (!nameToFind || !branchToUse) { setResolvedClientId(null); return; }
-      const id = await ensureClient(nameToFind, branchToUse);
-      setResolvedClientId(id);
+
+      // Find teacher by id and get their clientId or create one
+      const teacher = dbTeachers.find(t => t.id === selectedTeacherId);
+      if (!teacher) { setResolvedClientId(null); return; }
+
+      // If teacher already has a linked client, use it
+      if (teacher.clientId) {
+        setResolvedClientId(teacher.clientId);
+        return;
+      }
+
+      // Otherwise, find or create a client for this teacher
+      const clientId = await findOrCreateClient(teacher);
+      setResolvedClientId(clientId);
     };
     resolve();
-  }, [selectedTeacherId, userBranch]);
+  }, [selectedTeacherId, userBranch, dbTeachers, findOrCreateClient]);
 
   const clientId = resolvedClientId || '';
   const { messages } = useChatMessages(clientId);
@@ -890,12 +789,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                           <MessageCircle className="h-3 w-3 text-muted-foreground" />
                           <span className="text-xs">{currentTeacher?.email}</span>
                         </div>
-                        {currentTeacher?.telegram && (
-                          <div className="flex items-center space-x-2">
-                            <MessageCircle className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-xs">{currentTeacher.telegram}</span>
-                          </div>
-                        )}
+                        {/* Telegram info removed - field not available in teachers table */}
                       </CardContent>
                     </Card>
 
@@ -906,57 +800,48 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                       </CardHeader>
                       <CardContent className="space-y-3 pt-0">
                         <div>
-                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Опыт работы</h4>
-                          <p className="text-xs">{currentTeacher?.experience}</p>
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Образование</h4>
-                          <p className="text-xs">{currentTeacher?.education}</p>
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Языки</h4>
+                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Предметы</h4>
                           <div className="flex flex-wrap gap-1">
-                            {currentTeacher?.languages?.map((language, index) => (
+                            {currentTeacher?.subjects?.map((subject, index) => (
                               <Badge key={index} variant="secondary" className="text-xs h-5">
-                                {language}
+                                {subject}
                               </Badge>
-                            ))}
+                            )) || <span className="text-xs text-muted-foreground">Не указаны</span>}
                           </div>
                         </div>
                         <div>
-                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Уровни</h4>
+                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Категории</h4>
                           <div className="flex flex-wrap gap-1">
-                            {currentTeacher?.levels?.map((level, index) => (
+                            {currentTeacher?.categories?.map((category, index) => (
                               <Badge key={index} variant="outline" className="text-xs h-5">
-                                {level}
+                                {category}
                               </Badge>
-                            ))}
+                            )) || <span className="text-xs text-muted-foreground">Не указаны</span>}
                           </div>
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Филиал</h4>
+                          <Badge variant="secondary" className="text-xs h-5">
+                            {currentTeacher?.branch || 'Не указан'}
+                          </Badge>
                         </div>
                       </CardContent>
                     </Card>
 
-                    {/* Resume */}
+                    {/* Contact Info */}
                     <Card>
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">О преподавателе</CardTitle>
+                        <CardTitle className="text-sm">Связь</CardTitle>
                       </CardHeader>
                       <CardContent className="pt-0">
                         <p className="text-xs text-muted-foreground leading-relaxed">
-                          {currentTeacher?.resume}
+                          {currentTeacher?.phone ? `Телефон: ${currentTeacher.phone}` : 'Телефон не указан'}
                         </p>
-                      </CardContent>
-                    </Card>
-
-                    {/* Comments */}
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">Комментарии</CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-0">
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          {currentTeacher?.comments}
-                        </p>
+                        {currentTeacher?.email && (
+                          <p className="text-xs text-muted-foreground leading-relaxed mt-1">
+                            Email: {currentTeacher.email}
+                          </p>
+                        )}
                       </CardContent>
                     </Card>
                   </div>
