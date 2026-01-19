@@ -1356,31 +1356,33 @@ export default function HolihopeImport() {
               
               {(() => {
                 // Detect stale import: is_running=true but last_updated_at is older than 3 minutes
-                const isStale = edUnitsProgress.isRunning && 
+                const isStale = edUnitsProgress.isRunning &&
                   edUnitsProgress.lastUpdatedAt &&
                   (Date.now() - edUnitsProgress.lastUpdatedAt.getTime()) > 3 * 60 * 1000;
-                
+
                 const officeCount = Math.max(1, Math.round(edUnitsProgress.totalCombinations / (5 * 17)));
                 const isCompleted = edUnitsProgress.officeIndex >= officeCount;
-                
-                // Show button if: stale import OR (not running AND not completed)
-                const showButton = isStale || (!edUnitsProgress.isRunning && !isCompleted);
-                
-          if (showButton && !isImporting) {
-            return (
-              <div className="flex gap-2">
-                <Button
-                  onClick={resumeEdUnitsImport}
-                  disabled={isImporting || isClearing}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700"
-                >
-                  🔄 {isStale ? 'Продолжить (завис)' : 'Продолжить'}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    if (!confirm('Сбросить прогресс Шага 12 и начать сначала? Все индексы будут обнулены.')) return;
-                    await supabase
+
+                const showResumeButton = isStale || (!edUnitsProgress.isRunning && !isCompleted);
+                const showResetButton = !isCompleted; // allow reset even while running
+
+                const handleResetStep12 = async () => {
+                  if (!confirm('Сбросить прогресс Шага 12 и начать сначала? Все индексы будут обнулены.')) return;
+
+                  try {
+                    const { data: progressRow, error: progressRowError } = await supabase
+                      .from('holihope_import_progress')
+                      .select('organization_id')
+                      .order('updated_at', { ascending: false })
+                      .limit(1)
+                      .maybeSingle();
+
+                    if (progressRowError) throw progressRowError;
+                    if (!progressRow?.organization_id) {
+                      throw new Error('Не удалось определить организацию для сброса прогресса');
+                    }
+
+                    const { error: resetError } = await supabase
                       .from('holihope_import_progress')
                       .update({
                         ed_units_office_index: 0,
@@ -1388,10 +1390,13 @@ export default function HolihopeImport() {
                         ed_units_time_index: 0,
                         ed_units_total_imported: 0,
                         ed_units_total_combinations: 0,
-                        ed_units_is_running: false
+                        ed_units_is_running: false,
+                        ed_units_last_updated_at: null,
                       })
-                      .order('updated_at', { ascending: false })
-                      .limit(1);
+                      .eq('organization_id', progressRow.organization_id);
+
+                    if (resetError) throw resetError;
+
                     setEdUnitsProgress(null);
                     setSteps((prev) =>
                       prev.map((s) =>
@@ -1400,17 +1405,44 @@ export default function HolihopeImport() {
                           : s
                       )
                     );
-                    toast({ title: 'Прогресс сброшен', description: 'Шаг 12 начнётся сначала с 2015 года' });
-                  }}
-                  disabled={isImporting || isClearing}
-                  className="text-red-600 border-red-300 hover:bg-red-50"
-                >
-                  ⟲ Сбросить
-                </Button>
-              </div>
-            );
-          }
-                
+
+                    toast({ title: 'Прогресс сброшен', description: 'Шаг 12 можно запустить заново' });
+                  } catch (e: any) {
+                    toast({
+                      title: 'Не удалось сбросить прогресс',
+                      description: e?.message ?? 'Ошибка при сбросе прогресса шага 12',
+                      variant: 'destructive',
+                    });
+                  }
+                };
+
+                if (showResumeButton || showResetButton) {
+                  return (
+                    <div className="flex flex-wrap gap-2">
+                      {showResumeButton && (
+                        <Button
+                          onClick={resumeEdUnitsImport}
+                          disabled={isImporting || isClearing}
+                          className="flex-1 bg-blue-600 hover:bg-blue-700"
+                        >
+                          🔄 {isStale ? 'Продолжить (завис)' : 'Продолжить'}
+                        </Button>
+                      )}
+
+                      {showResetButton && (
+                        <Button
+                          variant="destructive"
+                          onClick={handleResetStep12}
+                          disabled={isClearing}
+                          className="whitespace-nowrap"
+                        >
+                          ⟲ Сбросить
+                        </Button>
+                      )}
+                    </div>
+                  );
+                }
+
                 // Show completion message if completed
                 if (isCompleted && !edUnitsProgress.isRunning) {
                   return (
@@ -1419,7 +1451,7 @@ export default function HolihopeImport() {
                     </div>
                   );
                 }
-                
+
                 return null;
               })()}
             </div>
