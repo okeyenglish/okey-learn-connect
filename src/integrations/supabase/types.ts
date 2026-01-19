@@ -2541,6 +2541,10 @@ export type Database = {
           created_at: string | null
           current_offset: number | null
           current_step: number | null
+          ed_unit_students_is_running: boolean | null
+          ed_unit_students_last_updated_at: string | null
+          ed_unit_students_skip: number | null
+          ed_unit_students_total_imported: number | null
           ed_units_is_running: boolean | null
           ed_units_last_updated_at: string | null
           ed_units_office_index: number | null
@@ -2568,6 +2572,10 @@ export type Database = {
           created_at?: string | null
           current_offset?: number | null
           current_step?: number | null
+          ed_unit_students_is_running?: boolean | null
+          ed_unit_students_last_updated_at?: string | null
+          ed_unit_students_skip?: number | null
+          ed_unit_students_total_imported?: number | null
           ed_units_is_running?: boolean | null
           ed_units_last_updated_at?: string | null
           ed_units_office_index?: number | null
@@ -2595,6 +2603,10 @@ export type Database = {
           created_at?: string | null
           current_offset?: number | null
           current_step?: number | null
+          ed_unit_students_is_running?: boolean | null
+          ed_unit_students_last_updated_at?: string | null
+          ed_unit_students_skip?: number | null
+          ed_unit_students_total_imported?: number | null
           ed_units_is_running?: boolean | null
           ed_units_last_updated_at?: string | null
           ed_units_office_index?: number | null

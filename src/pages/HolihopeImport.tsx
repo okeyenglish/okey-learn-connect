@@ -50,6 +50,12 @@ export default function HolihopeImport() {
     isRunning: boolean;
     lastUpdatedAt: Date | null;
   } | null>(null);
+  const [edUnitStudentsProgress, setEdUnitStudentsProgress] = useState<{
+    skip: number;
+    totalImported: number;
+    isRunning: boolean;
+    lastUpdatedAt: Date | null;
+  } | null>(null);
   const [apiUsage, setApiUsage] = useState<{
     used: number;
     limit: number;
@@ -191,7 +197,7 @@ export default function HolihopeImport() {
         // 4) Get ed_units progress from holihope_import_progress
         const { data: holihopeProgress } = await supabase
           .from('holihope_import_progress')
-          .select('ed_units_office_index, ed_units_status_index, ed_units_time_index, ed_units_total_imported, ed_units_total_combinations, ed_units_is_running, ed_units_last_updated_at')
+          .select('ed_units_office_index, ed_units_status_index, ed_units_time_index, ed_units_total_imported, ed_units_total_combinations, ed_units_is_running, ed_units_last_updated_at, ed_unit_students_skip, ed_unit_students_total_imported, ed_unit_students_is_running, ed_unit_students_last_updated_at')
           .order('updated_at', { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -238,6 +244,33 @@ export default function HolihopeImport() {
                   : s
               )
             );
+          }
+          
+          // 5) Get ed_unit_students progress
+          if (holihopeProgress.ed_unit_students_skip !== undefined) {
+            setEdUnitStudentsProgress({
+              skip: holihopeProgress.ed_unit_students_skip || 0,
+              totalImported: holihopeProgress.ed_unit_students_total_imported || 0,
+              isRunning: holihopeProgress.ed_unit_students_is_running || false,
+              lastUpdatedAt: holihopeProgress.ed_unit_students_last_updated_at 
+                ? new Date(holihopeProgress.ed_unit_students_last_updated_at) 
+                : null,
+            });
+            
+            // Update step 13 message if there's progress
+            if ((holihopeProgress.ed_unit_students_total_imported || 0) > 0) {
+              setSteps((prev) =>
+                prev.map((s) =>
+                  s.id === 'ed_unit_students'
+                    ? {
+                        ...s,
+                        count: holihopeProgress.ed_unit_students_total_imported || 0,
+                        message: `Импортировано записей: ${holihopeProgress.ed_unit_students_total_imported || 0}`,
+                      }
+                    : s
+                )
+              );
+            }
           }
         }
       } catch (error) {
@@ -636,6 +669,30 @@ export default function HolihopeImport() {
       let skip = 0;
       let totalImported = 0;
       let hasMore = true;
+      
+      // For ed_unit_students, check if there's saved progress to resume from
+      if (step.action === 'import_ed_unit_students') {
+        try {
+          const { data: savedProgress } = await supabase
+            .from('holihope_import_progress')
+            .select('ed_unit_students_skip, ed_unit_students_total_imported')
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          if (savedProgress && savedProgress.ed_unit_students_skip > 0) {
+            skip = savedProgress.ed_unit_students_skip;
+            totalImported = savedProgress.ed_unit_students_total_imported || 0;
+            console.log(`📌 Resuming ed_unit_students from skip=${skip}, totalImported=${totalImported}`);
+            toast({
+              title: 'Продолжение импорта',
+              description: `Возобновляем с позиции ${skip}, уже импортировано: ${totalImported}`,
+            });
+          }
+        } catch (e) {
+          console.error('Error checking saved progress:', e);
+        }
+      }
       
       while (hasMore && !shouldStopImport) {
         const result = await executeStep(step, { skip, batch_mode: true, max_batches: 1 });
@@ -1332,6 +1389,116 @@ export default function HolihopeImport() {
                 
                 return null;
               })()}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Ed Unit Students Progress Card (Step 13) */}
+      {edUnitStudentsProgress && edUnitStudentsProgress.totalImported > 0 && (
+        <Card className="border-orange-500/50 bg-orange-50/50 dark:bg-orange-950/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-orange-700 dark:text-orange-300 text-base">
+              🔗 Прогресс связок ученик-группа (Шаг 13)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const secondsAgo = edUnitStudentsProgress.lastUpdatedAt 
+                      ? Math.floor((Date.now() - edUnitStudentsProgress.lastUpdatedAt.getTime()) / 1000)
+                      : null;
+                    const isActive = secondsAgo !== null && secondsAgo < 60;
+                    const isStale = secondsAgo !== null && secondsAgo >= 180;
+                    
+                    if (edUnitStudentsProgress.isRunning && isActive) {
+                      return (
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400">
+                          <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
+                          Активен ({secondsAgo}с назад)
+                        </span>
+                      );
+                    } else if (edUnitStudentsProgress.isRunning && isStale) {
+                      return (
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+                          <span className="h-2 w-2 bg-red-500 rounded-full"></span>
+                          Завис (нет ответа {secondsAgo}с)
+                        </span>
+                      );
+                    } else if (edUnitStudentsProgress.isRunning) {
+                      return (
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                          <span className="h-2 w-2 bg-amber-400 rounded-full animate-pulse"></span>
+                          Выполняется ({secondsAgo}с назад)
+                        </span>
+                      );
+                    } else {
+                      return (
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400">
+                          <span className="h-2 w-2 bg-gray-400 rounded-full"></span>
+                          Остановлен
+                        </span>
+                      );
+                    }
+                  })()}
+                </div>
+                {edUnitStudentsProgress.lastUpdatedAt && (
+                  <span className="text-xs text-muted-foreground">
+                    {edUnitStudentsProgress.lastUpdatedAt.toLocaleTimeString()}
+                  </span>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="p-2 bg-white/60 dark:bg-gray-800/60 rounded">
+                  <div className="text-xs text-muted-foreground">Позиция (skip)</div>
+                  <div className="font-semibold">{edUnitStudentsProgress.skip}</div>
+                </div>
+                <div className="p-2 bg-white/60 dark:bg-gray-800/60 rounded">
+                  <div className="text-xs text-muted-foreground">Импортировано</div>
+                  <div className="font-semibold text-orange-600">{edUnitStudentsProgress.totalImported}</div>
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                {!edUnitStudentsProgress.isRunning && (
+                  <>
+                    <Button
+                      onClick={() => {
+                        const step = steps.find(s => s.id === 'ed_unit_students');
+                        if (step) runSingleStep(step);
+                      }}
+                      disabled={isImporting}
+                      className="flex-1 bg-orange-600 hover:bg-orange-700"
+                    >
+                      🔄 Продолжить с позиции {edUnitStudentsProgress.skip}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        if (!confirm('Сбросить прогресс Шага 13 и начать сначала?')) return;
+                        await supabase
+                          .from('holihope_import_progress')
+                          .update({
+                            ed_unit_students_skip: 0,
+                            ed_unit_students_total_imported: 0,
+                            ed_unit_students_is_running: false
+                          })
+                          .order('updated_at', { ascending: false })
+                          .limit(1);
+                        setEdUnitStudentsProgress(null);
+                        toast({ title: 'Прогресс сброшен', description: 'Шаг 13 начнётся сначала' });
+                      }}
+                      disabled={isImporting}
+                      className="text-red-600 border-red-300 hover:bg-red-50"
+                    >
+                      ⟲ Сбросить
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
