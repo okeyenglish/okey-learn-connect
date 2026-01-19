@@ -677,9 +677,7 @@ export const ChatArea = ({
     
     // Добавляем платёжную ссылку если есть
     if (paymentLinkAttachment) {
-      const paymentText = paymentLinkAttachment.description
-        ? `💳 Ссылка на оплату (${paymentLinkAttachment.amount.toLocaleString('ru-RU')} ₽): ${paymentLinkAttachment.description}\n\n${paymentLinkAttachment.url}`
-        : `💳 Ссылка на оплату: ${paymentLinkAttachment.amount.toLocaleString('ru-RU')} ₽\n\n${paymentLinkAttachment.url}`;
+      const paymentText = `💳 Направляю Вам счёт на сумму ${paymentLinkAttachment.amount.toLocaleString('ru-RU')} ₽\n${paymentLinkAttachment.url}`;
       messageText = messageText ? `${messageText}\n\n${paymentText}` : paymentText;
     }
     
