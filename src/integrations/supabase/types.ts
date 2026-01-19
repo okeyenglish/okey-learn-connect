@@ -9218,6 +9218,12 @@ export type Database = {
         Args: { _subscription_id: string }
         Returns: Json
       }
+      get_teacher_client_ids: {
+        Args: never
+        Returns: {
+          client_id: string
+        }[]
+      }
       get_teacher_rate: {
         Args: {
           _branch?: string
