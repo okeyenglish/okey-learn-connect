@@ -4483,13 +4483,16 @@ Deno.serve(async (req) => {
           
           try {
             // Make API request to GetEdUnitStudents for this specific educational unit
-            // IMPORTANT: for groups, API expects original unit Id, not composite external_id with dates
-            const edUnitIdForApi = edUnit.type === 'group'
-              ? (typeof edUnitExternalId === 'string' ? edUnitExternalId.split('_')[0] : edUnitExternalId)
+            // IMPORTANT: API expects numeric edUnitId, not composite external_id with dates
+            // Both groups and individuals can have composite IDs like "18209_2025-01-01_2025-06-01"
+            const edUnitIdForApi = typeof edUnitExternalId === 'string' 
+              ? edUnitExternalId.split('_')[0] 
               : edUnitExternalId;
+            const expectedEdUnitId = parseInt(String(edUnitIdForApi), 10);
+            
             // ВАЖНО: queryPayers=true для получения массива Payers с ClientId
             const apiUrl = `${HOLIHOPE_DOMAIN}/GetEdUnitStudents?authkey=${HOLIHOPE_API_KEY}&edUnitId=${edUnitIdForApi}&queryPayers=true`;
-            console.log(`  Fetching students from: ${apiUrl}`);
+            console.log(`  Fetching students for edUnitId=${edUnitIdForApi} (from ${edUnitExternalId})...`);
             
             const response = await fetch(apiUrl, {
               method: 'GET',
@@ -4505,7 +4508,7 @@ Deno.serve(async (req) => {
             const raw = await response.json();
             
             // Extract array from response
-            const students = Array.isArray(raw)
+            let students = Array.isArray(raw)
               ? raw
               : (raw.EdUnitStudents || raw.edUnitStudents || raw.Students || raw.students || raw.data || []);
             
@@ -4515,7 +4518,29 @@ Deno.serve(async (req) => {
               continue;
             }
             
-            console.log(`  Found ${students.length} students for edUnit ${edUnitExternalId}`);
+            // Log unique EdUnitIds in response to detect API filter issues
+            const responseEdUnitIds = [...new Set(students.map(s => s.EdUnitId || s.edUnitId))];
+            console.log(`  Raw response: ${students.length} students, EdUnitIds: [${responseEdUnitIds.slice(0, 5).join(', ')}${responseEdUnitIds.length > 5 ? '...' : ''}]`);
+            
+            // Filter students to only those matching our requested edUnitId
+            if (!isNaN(expectedEdUnitId)) {
+              const beforeCount = students.length;
+              students = students.filter(s => {
+                const sEdUnitId = s.EdUnitId || s.edUnitId;
+                return sEdUnitId === expectedEdUnitId || sEdUnitId === String(expectedEdUnitId);
+              });
+              if (students.length !== beforeCount) {
+                console.log(`  ⚠️ Filtered from ${beforeCount} to ${students.length} students (expected EdUnitId=${expectedEdUnitId})`);
+              }
+            }
+            
+            if (students.length === 0) {
+              console.log(`  No matching students after filtering for edUnit ${edUnitExternalId}`);
+              skippedReasons.noStudentsInResponse++;
+              continue;
+            }
+            
+            console.log(`  ✓ Processing ${students.length} students for edUnit ${edUnitExternalId}`);
             
             // Process each student in this educational unit
             for (const studentData of students) {
