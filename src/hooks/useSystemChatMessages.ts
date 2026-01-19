@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTeacherChats } from '@/hooks/useTeacherChats';
 
 // Hook to fetch last message and unread count for system chats (corporate/teachers)
 export const useSystemChatMessages = () => {
   const [corporateChats, setCorporateChats] = useState<any[]>([]);
-  const [teacherChats, setTeacherChats] = useState<any[]>([]);
   const queryClient = useQueryClient();
 
   // Corporate branches mapping
@@ -19,15 +19,15 @@ export const useSystemChatMessages = () => {
     { id: 'online', name: 'Онлайн' },
   ];
 
-  // Load system chat data
-  const { data: systemChatsData, isLoading } = useQuery({
-    queryKey: ['system-chats'],
+  // Load corporate chats only (teachers now come from useTeacherChats)
+  const { data: corporateChatsData, isLoading: corporateLoading } = useQuery({
+    queryKey: ['system-chats', 'corporate'],
     queryFn: async () => {
-      // Get all system chats (corporate + teachers)
+      // Get corporate chat clients only
       const { data: clients, error: clientsError } = await supabase
         .from('clients')
         .select('id, name, branch')
-        .or('name.ilike.%Корпоративный чат%,name.ilike.%Чат педагогов%,name.ilike.%Преподаватель:%')
+        .or('name.ilike.%Корпоративный чат%,name.ilike.%Чат педагогов%')
         .order('updated_at', { ascending: false });
 
       if (clientsError) throw clientsError;
@@ -47,7 +47,8 @@ export const useSystemChatMessages = () => {
             .from('chat_messages')
             .select('*', { count: 'exact', head: true })
             .eq('client_id', client.id)
-            .eq('is_read', false);
+            .eq('is_read', false)
+            .eq('is_outgoing', false);
 
           return {
             id: client.id,
@@ -56,7 +57,7 @@ export const useSystemChatMessages = () => {
             lastMessage: lastMsg?.message_text || '',
             lastMessageTime: lastMsg?.created_at || '',
             unreadCount: unreadCount || 0,
-            type: client.name.includes('Корпоративный') ? 'corporate' : 'teachers'
+            type: 'corporate'
           };
         })
       );
@@ -65,16 +66,31 @@ export const useSystemChatMessages = () => {
     },
   });
 
-  useEffect(() => {
-    if (systemChatsData) {
-      const corporate = systemChatsData.filter(chat => chat.type === 'corporate');
-      const teachers = systemChatsData.filter(chat => chat.type === 'teachers');
-      setCorporateChats(corporate);
-      setTeacherChats(teachers);
-    }
-  }, [systemChatsData]);
+  // Use the new teacher chats hook
+  const { teachers: teacherChatsFromHook, totalUnread: teachersTotalUnread, isLoading: teachersLoading } = useTeacherChats(null);
 
-  // Debounced real-time subscription for system chats
+  // Transform teacher chats to match expected format
+  const teacherChats = useMemo(() => {
+    return teacherChatsFromHook.map(teacher => ({
+      id: teacher.id,
+      name: teacher.fullName,
+      branch: teacher.branch,
+      lastMessage: teacher.lastMessageText || '',
+      lastMessageTime: teacher.lastMessageTime || '',
+      unreadCount: teacher.unreadMessages,
+      type: 'teachers',
+      clientId: teacher.clientId,
+      phone: teacher.phone,
+    }));
+  }, [teacherChatsFromHook]);
+
+  useEffect(() => {
+    if (corporateChatsData) {
+      setCorporateChats(corporateChatsData);
+    }
+  }, [corporateChatsData]);
+
+  // Debounced real-time subscription for corporate chats
   useEffect(() => {
     let debounceTimer: NodeJS.Timeout | null = null;
     let pendingRefetch = false;
@@ -88,7 +104,7 @@ export const useSystemChatMessages = () => {
       
       debounceTimer = setTimeout(() => {
         if (pendingRefetch) {
-          queryClient.refetchQueries({ queryKey: ['system-chats'] });
+          queryClient.refetchQueries({ queryKey: ['system-chats', 'corporate'] });
           pendingRefetch = false;
         }
         debounceTimer = null;
@@ -96,8 +112,7 @@ export const useSystemChatMessages = () => {
     };
 
     const channel = supabase
-      .channel('system-chats-realtime')
-      // Only listen to INSERT events to prevent storms
+      .channel('corporate-chats-realtime')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_messages' },
@@ -116,6 +131,7 @@ export const useSystemChatMessages = () => {
   return {
     corporateChats,
     teacherChats,
-    isLoading,
+    teachersTotalUnread,
+    isLoading: corporateLoading || teachersLoading,
   };
 };

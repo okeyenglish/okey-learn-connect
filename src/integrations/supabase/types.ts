@@ -9239,6 +9239,16 @@ export type Database = {
         }
         Returns: number
       }
+      get_teacher_unread_counts: {
+        Args: never
+        Returns: {
+          client_id: string
+          last_message_text: string
+          last_message_time: string
+          teacher_id: string
+          unread_count: number
+        }[]
+      }
       get_unread_chat_threads: {
         Args: { p_limit?: number }
         Returns: {
