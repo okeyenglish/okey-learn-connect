@@ -4240,21 +4240,33 @@ Deno.serve(async (req) => {
               // Small delay to avoid overwhelming the server
               await new Promise(resolve => setTimeout(resolve, 1500));
               
-              console.log(`📦 Invoking next ed_units batch via auto-continue...`);
-              const { data, error } = await supabase.functions.invoke('import-holihope', {
-                body: {
+              console.log(`📦 Invoking next ed_units batch via auto-continue (direct HTTP)...`);
+              
+              // Use direct HTTP call with service role key to avoid auth issues
+              const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+              const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+              
+              const response = await fetch(`${supabaseUrl}/functions/v1/import-holihope`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${serviceRoleKey}`,
+                  'x-action': 'import_ed_units',
+                },
+                body: JSON.stringify({
                   action: 'import_ed_units',
                   office_index: nextOfficeIndex,
                   status_index: nextStatusIndex,
                   time_index: nextTimeIndex,
                   batch_size: batchSize,
                   full_history: fullHistory,
-                  auto_continue: true  // Mark as auto-continue to use params directly
-                }
+                  auto_continue: true
+                })
               });
               
-              if (error) {
-                console.error('❌ Error invoking next ed_units batch:', error);
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`❌ Error invoking next ed_units batch: HTTP ${response.status} - ${errorText}`);
               } else {
                 console.log('✅ Next ed_units batch invoked successfully');
               }
