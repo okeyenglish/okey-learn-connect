@@ -22,6 +22,22 @@ export const useOrganizationRealtimeMessages = () => {
 
     console.log('[useOrganizationRealtimeMessages] Setting up organization-wide channel:', organizationId);
 
+    const invalidateClientMessageQueries = (clientId: string) => {
+      queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['chat-messages-infinite', clientId] });
+      queryClient.invalidateQueries({
+        queryKey: ['chat-messages-optimized', clientId],
+        exact: false,
+      });
+    };
+
+    const invalidateThreadsQueries = () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
+      queryClient.invalidateQueries({ queryKey: ['unread-client-ids'] });
+    };
+
     // Create a single channel for all chat messages in the organization
     const channel = supabase
       .channel(`org_chat_messages_${organizationId}`)
@@ -38,23 +54,19 @@ export const useOrganizationRealtimeMessages = () => {
           const clientId = newMsg.client_id;
           
           console.log('[OrgRealtime] New message for client:', clientId);
-          
-          // Invalidate messages cache for this specific client
-          queryClient.invalidateQueries({ 
-            queryKey: ['chat-messages-optimized', clientId],
-            exact: false 
-          });
-          
+
+          // Invalidate messages caches for this specific client (all implementations)
+          invalidateClientMessageQueries(clientId);
+
           // If it's a client message, update unread counts
           if (newMsg.message_type === 'client' || !newMsg.is_outgoing) {
-            queryClient.invalidateQueries({ 
-              queryKey: ['client-unread-by-messenger', clientId] 
+            queryClient.invalidateQueries({
+              queryKey: ['client-unread-by-messenger', clientId],
             });
           }
-          
-          // Always update chat threads list for new messages
-          queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-          queryClient.invalidateQueries({ queryKey: ['chat-threads-optimized'] });
+
+          // Always update chat threads lists for new messages
+          invalidateThreadsQueries();
         }
       )
       .on(
@@ -71,16 +83,16 @@ export const useOrganizationRealtimeMessages = () => {
           
           console.log('[OrgRealtime] Message updated for client:', clientId);
           
-          // Invalidate messages cache for this specific client
-          queryClient.invalidateQueries({ 
-            queryKey: ['chat-messages-optimized', clientId],
-            exact: false 
-          });
-          
+          // Invalidate messages caches for this specific client
+          invalidateClientMessageQueries(clientId);
+
           // Update unread counts (message might have been marked as read)
-          queryClient.invalidateQueries({ 
-            queryKey: ['client-unread-by-messenger', clientId] 
+          queryClient.invalidateQueries({
+            queryKey: ['client-unread-by-messenger', clientId],
           });
+
+          // Message update can also affect last message preview / ordering
+          invalidateThreadsQueries();
         }
       )
       .on(
@@ -97,15 +109,11 @@ export const useOrganizationRealtimeMessages = () => {
           
           console.log('[OrgRealtime] Message deleted for client:', clientId);
           
-          // Invalidate messages cache for this specific client
-          queryClient.invalidateQueries({ 
-            queryKey: ['chat-messages-optimized', clientId],
-            exact: false 
-          });
-          
-          // Update chat threads list
-          queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-          queryClient.invalidateQueries({ queryKey: ['chat-threads-optimized'] });
+          // Invalidate messages caches for this specific client
+          invalidateClientMessageQueries(clientId);
+
+          // Update chat threads lists (delete can change last message)
+          invalidateThreadsQueries();
         }
       )
       .subscribe((status) => {
