@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, PanelLeft, PanelRight, CheckCheck, ListTodo } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, PanelLeft, PanelRight, CheckCheck, ListTodo, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -29,6 +29,7 @@ import { AttachedFile } from "./AttachedFile";
 import { InlinePendingGPTResponse } from "./InlinePendingGPTResponse";
 import { TextFormatToolbar } from "./TextFormatToolbar";
 import { CallHistory } from "./CallHistory";
+import { SendPaymentLinkModal } from "./SendPaymentLinkModal";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useMaxGreenApi } from "@/hooks/useMaxGreenApi";
 import { useMax } from "@/hooks/useMax";
@@ -114,6 +115,7 @@ export const ChatArea = ({
   const [showScheduledMessagesDialog, setShowScheduledMessagesDialog] = useState(false);
   const [editingScheduledMessage, setEditingScheduledMessage] = useState<ScheduledMessage | null>(null);
   const [showQuickResponsesModal, setShowQuickResponsesModal] = useState(false);
+  const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
   const [commentMode, setCommentMode] = useState(false);
   const [gptGenerating, setGptGenerating] = useState(false);
   const [quotedText, setQuotedText] = useState<string | null>(null);
@@ -2344,6 +2346,18 @@ export const ChatArea = ({
                   <Mic className="h-4 w-4" />
                 </Button>
                 
+                {/* Payment link button */}
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-8 w-8 p-0"
+                  disabled={!!pendingMessage}
+                  onClick={() => setShowPaymentLinkModal(true)}
+                  title="Выставить счёт"
+                >
+                  <CreditCard className="h-4 w-4" />
+                </Button>
+                
                 {/* Schedule message button */}
                 <Dialog open={showScheduleDialog} onOpenChange={(open) => {
                   setShowScheduleDialog(open);
@@ -2560,6 +2574,18 @@ export const ChatArea = ({
           />
         </Suspense>
       )}
+
+      {/* Payment Link Modal */}
+      <SendPaymentLinkModal
+        open={showPaymentLinkModal}
+        onOpenChange={setShowPaymentLinkModal}
+        clientId={clientId}
+        clientName={displayName || clientName}
+        onSendMessage={async (text) => {
+          // Отправляем сообщение напрямую без задержки
+          await sendMessageNow(text, []);
+        }}
+      />
 
     </div>
   );

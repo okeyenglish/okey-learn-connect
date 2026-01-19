@@ -4546,6 +4546,7 @@ export type Database = {
       online_payments: {
         Row: {
           amount: number
+          client_id: string | null
           created_at: string | null
           description: string | null
           error_code: string | null
@@ -4559,13 +4560,14 @@ export type Database = {
           raw_request: Json | null
           raw_response: Json | null
           status: string
-          student_id: string
+          student_id: string | null
           tbank_payment_id: string | null
           terminal_id: string
           updated_at: string | null
         }
         Insert: {
           amount: number
+          client_id?: string | null
           created_at?: string | null
           description?: string | null
           error_code?: string | null
@@ -4579,13 +4581,14 @@ export type Database = {
           raw_request?: Json | null
           raw_response?: Json | null
           status?: string
-          student_id: string
+          student_id?: string | null
           tbank_payment_id?: string | null
           terminal_id: string
           updated_at?: string | null
         }
         Update: {
           amount?: number
+          client_id?: string | null
           created_at?: string | null
           description?: string | null
           error_code?: string | null
@@ -4599,12 +4602,19 @@ export type Database = {
           raw_request?: Json | null
           raw_response?: Json | null
           status?: string
-          student_id?: string
+          student_id?: string | null
           tbank_payment_id?: string | null
           terminal_id?: string
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "online_payments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "online_payments_organization_id_fkey"
             columns: ["organization_id"]
