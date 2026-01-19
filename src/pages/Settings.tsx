@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Building2, MapPin, Palette, CreditCard, Users } from 'lucide-react';
+import { ArrowLeft, Building2, MapPin, Palette, CreditCard, Users, Banknote } from 'lucide-react';
 import { OrganizationSettings } from '@/components/settings/OrganizationSettings';
 import { BranchesSettings } from '@/components/settings/BranchesSettings';
 import { BrandingSettings } from '@/components/settings/BrandingSettings';
 import { SubscriptionSettings } from '@/components/settings/SubscriptionSettings';
 import { UserManagementSettings } from '@/components/settings/UserManagementSettings';
 import { TeacherRegistrationLink } from '@/components/settings/TeacherRegistrationLink';
+import { PaymentTerminalsSettings } from '@/components/settings/PaymentTerminalsSettings';
 import { useAuth } from '@/hooks/useAuth';
 
 const Settings = () => {
@@ -47,7 +48,7 @@ const Settings = () => {
       {/* Content */}
       <main className="container max-w-7xl mx-auto p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
             <TabsTrigger value="organization" className="gap-2">
               <Building2 className="h-4 w-4" />
               <span className="hidden sm:inline">Организация</span>
@@ -59,6 +60,10 @@ const Settings = () => {
             <TabsTrigger value="branding" className="gap-2">
               <Palette className="h-4 w-4" />
               <span className="hidden sm:inline">Брендинг</span>
+            </TabsTrigger>
+            <TabsTrigger value="payments" className="gap-2">
+              <Banknote className="h-4 w-4" />
+              <span className="hidden sm:inline">Онлайн-оплаты</span>
             </TabsTrigger>
             <TabsTrigger value="subscription" className="gap-2">
               <CreditCard className="h-4 w-4" />
@@ -110,6 +115,10 @@ const Settings = () => {
                 <BrandingSettings />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="payments" className="space-y-4">
+            <PaymentTerminalsSettings />
           </TabsContent>
 
           <TabsContent value="subscription" className="space-y-4">
