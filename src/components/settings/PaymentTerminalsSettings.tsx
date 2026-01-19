@@ -261,7 +261,7 @@ export const PaymentTerminalsSettings = () => {
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                           </AlertDialogTrigger>
-                          <AlertDialogContent>
+                          <AlertDialogContent className="z-[100]">
                             <AlertDialogHeader>
                               <AlertDialogTitle>Удалить терминал?</AlertDialogTitle>
                               <AlertDialogDescription>
