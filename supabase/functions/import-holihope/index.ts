@@ -5326,24 +5326,44 @@ Deno.serve(async (req) => {
         
         console.log(`Total personal tests fetched: ${allTests.length}`);
         
-        // OPTIMIZATION: Pre-load all students into a Map for O(1) lookup
-        console.log('Pre-loading students for batch processing...');
-        const { data: allStudents, error: studentsError } = await supabase
-          .from('students')
-          .select('id, external_id')
-          .eq('organization_id', orgId);
+        // OPTIMIZATION: Pre-load ALL students with pagination (Supabase default limit is 1000)
+        console.log('Pre-loading ALL students with pagination...');
+        let allStudents: any[] = [];
+        let studentFrom = 0;
+        const STUDENT_PAGE_SIZE = 1000;
+        let hasMoreStudents = true;
         
-        if (studentsError) {
-          throw new Error(`Failed to load students: ${studentsError.message}`);
+        while (hasMoreStudents) {
+          const { data: studentBatch, error: studentBatchError } = await supabase
+            .from('students')
+            .select('id, external_id')
+            .eq('organization_id', orgId)
+            .range(studentFrom, studentFrom + STUDENT_PAGE_SIZE - 1);
+          
+          if (studentBatchError) {
+            console.error(`Error loading students batch at ${studentFrom}:`, studentBatchError);
+            break;
+          }
+          
+          if (studentBatch && studentBatch.length > 0) {
+            allStudents = [...allStudents, ...studentBatch];
+            studentFrom += STUDENT_PAGE_SIZE;
+            hasMoreStudents = studentBatch.length === STUDENT_PAGE_SIZE;
+            console.log(`Loaded ${allStudents.length} students so far...`);
+          } else {
+            hasMoreStudents = false;
+          }
         }
         
+        console.log(`Total loaded: ${allStudents.length} students`);
+        
         const studentMap = new Map<string, string>();
-        for (const student of (allStudents || [])) {
+        for (const student of allStudents) {
           if (student.external_id) {
             studentMap.set(student.external_id, student.id);
           }
         }
-        console.log(`Loaded ${studentMap.size} students into lookup map`);
+        console.log(`Built lookup map with ${studentMap.size} students`);
         
         // Process all tests and collect records for batch insert
         const testsToInsert: any[] = [];
