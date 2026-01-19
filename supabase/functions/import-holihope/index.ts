@@ -4599,11 +4599,15 @@ Deno.serve(async (req) => {
               
               const rawStatus = (studentData.Status ?? studentData.status ?? '').toString();
               // Map Holihope status to our enum (active, paused, completed, dropped)
+              // Added 'expelled' for English API responses
               const VALID_GROUP_STUDENT_STATUSES = ['active', 'paused', 'completed', 'dropped'];
               let mappedStatus = /reserve|резерв/i.test(rawStatus) ? 'paused' 
-                          : /stopped|отчисл|выбыл|прекрат/i.test(rawStatus) ? 'dropped' 
+                          : /stopped|expelled|отчисл|выбыл|прекрат/i.test(rawStatus) ? 'dropped' 
                           : /завершен|completed/i.test(rawStatus) ? 'completed'
                           : 'active';
+              
+              // Log status mapping for debugging
+              console.log(`  Student ${studentId}: rawStatus="${rawStatus}" -> mappedStatus="${mappedStatus}"`);
               
               // Final validation - ensure status is valid enum value
               const status = VALID_GROUP_STUDENT_STATUSES.includes(mappedStatus) ? mappedStatus : 'active';
@@ -4781,7 +4785,7 @@ Deno.serve(async (req) => {
         progress[0].cumulativeTotal = cumulativeTotal;
         
         // Save progress to DB for resumption
-        await supabase
+        const { error: progressUpdateError } = await supabase
           .from('holihope_import_progress')
           .update({
             ed_unit_students_skip: progress[0].nextSkip,
@@ -4789,8 +4793,13 @@ Deno.serve(async (req) => {
             ed_unit_students_is_running: progress[0].hasMore,
             ed_unit_students_last_updated_at: new Date().toISOString()
           })
-          .order('updated_at', { ascending: false })
-          .limit(1);
+          .eq('organization_id', orgId);
+        
+        if (progressUpdateError) {
+          console.error(`❌ Failed to save progress:`, progressUpdateError);
+        } else {
+          console.log(`✅ Saved progress: skip=${progress[0].nextSkip}, totalImported=${cumulativeTotal}`);
+        }
         
         console.log(`📊 Saved progress: skip=${progress[0].nextSkip}, totalImported=${cumulativeTotal}`);
         
@@ -4804,14 +4813,17 @@ Deno.serve(async (req) => {
         progress[0].nextSkip = skipParam + take;
         
         // Save error state but preserve skip for resumption
-        await supabase
+        const { error: progressErrorUpdate } = await supabase
           .from('holihope_import_progress')
           .update({
             ed_unit_students_is_running: false,
             ed_unit_students_last_updated_at: new Date().toISOString()
           })
-          .order('updated_at', { ascending: false })
-          .limit(1);
+          .eq('organization_id', orgId);
+        
+        if (progressErrorUpdate) {
+          console.error(`❌ Failed to save error state:`, progressErrorUpdate);
+        }
       }
       
       // AUTO-CONTINUE: Always try to continue, even after partial errors
