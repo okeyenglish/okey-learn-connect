@@ -36,7 +36,7 @@ interface FamilyCardProps {
   familyGroupId: string;
   activeMemberId?: string;
   onSwitchMember?: (memberId: string) => void;
-  onOpenChat?: (memberId: string) => void;
+  onOpenChat?: (memberId: string, messengerType?: 'whatsapp' | 'telegram' | 'max') => void;
   onCall?: (memberId: string) => void;
   onPhoneSwitch?: (phoneId: string) => void;
   activePhoneId?: string;
@@ -286,15 +286,9 @@ export const FamilyCard = ({
               }))}
               email={activeMember.email}
               onMessengerClick={(phoneId, messenger) => {
-                // Set the active phone and messenger type
+                // Set the active phone and open chat with correct messenger type
                 handlePhoneClick(phoneId);
-                if (messenger === 'whatsapp') {
-                  onOpenChat?.(activeMember.id);
-                } else if (messenger === 'telegram') {
-                  onOpenChat?.(activeMember.id);
-                } else if (messenger === 'max') {
-                  onOpenChat?.(activeMember.id);
-                }
+                onOpenChat?.(activeMember.id, messenger);
               }}
             />
             
