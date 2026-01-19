@@ -257,7 +257,7 @@ export default function HolihopeImport() {
                 : null,
             });
             
-            // Update step 13 message if there's progress
+            // Update step 13 count only (message will be shown in dedicated progress card)
             if ((holihopeProgress.ed_unit_students_total_imported || 0) > 0) {
               setSteps((prev) =>
                 prev.map((s) =>
@@ -265,7 +265,7 @@ export default function HolihopeImport() {
                     ? {
                         ...s,
                         count: holihopeProgress.ed_unit_students_total_imported || 0,
-                        message: `Импортировано записей: ${holihopeProgress.ed_unit_students_total_imported || 0}`,
+                        // Don't set message here - avoid duplicate display with count
                       }
                     : s
                 )

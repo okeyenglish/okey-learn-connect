@@ -4399,23 +4399,30 @@ Deno.serve(async (req) => {
         const batchMode = body.batch_mode === true;
         const take = body.take ? Number(body.take) : 30; // Reduced from 100 to 30 for reliability
         
-        // Check if we should resume from saved progress
+        // ALWAYS load saved progress from DB to ensure monotonic totalImported
         let skipParam = body.skip || 0;
         let totalImportedFromProgress = 0;
         
-        // If starting fresh (skip=0 and no explicit skip), try to resume from DB progress
-        if (body.skip === undefined || body.skip === 0) {
-          const { data: savedProgress } = await supabase
-            .from('holihope_import_progress')
-            .select('ed_unit_students_skip, ed_unit_students_total_imported, ed_unit_students_is_running')
-            .eq('organization_id', orgId)
-            .maybeSingle();
+        // Always fetch current progress from DB to avoid counter decreasing
+        const { data: savedProgress } = await supabase
+          .from('holihope_import_progress')
+          .select('ed_unit_students_skip, ed_unit_students_total_imported, ed_unit_students_is_running')
+          .eq('organization_id', orgId)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (savedProgress) {
+          // Always use saved totalImported as baseline (prevents counter from decreasing)
+          totalImportedFromProgress = savedProgress.ed_unit_students_total_imported || 0;
           
-          if (savedProgress && savedProgress.ed_unit_students_skip > 0) {
-            skipParam = savedProgress.ed_unit_students_skip;
-            totalImportedFromProgress = savedProgress.ed_unit_students_total_imported || 0;
-            console.log(`📌 Resuming from saved progress: skip=${skipParam}, totalImported=${totalImportedFromProgress}`);
+          // If no explicit skip provided, resume from saved position
+          if (body.skip === undefined || body.skip === 0) {
+            if (savedProgress.ed_unit_students_skip > 0) {
+              skipParam = savedProgress.ed_unit_students_skip;
+            }
           }
+          console.log(`📌 Loaded DB progress: skip=${skipParam}, totalImported=${totalImportedFromProgress} (body.skip=${body.skip})`);
         }
         
         console.log(`⏱️ Time budget: ${TIME_BUDGET_MS}ms, take=${take}, skip=${skipParam}`);
@@ -4820,12 +4827,13 @@ Deno.serve(async (req) => {
           progress[0].nextSkip = skipParam + take;
         }
         
-        // Calculate cumulative total imported
-        const cumulativeTotal = totalImportedFromProgress + groupLinksCount + individualLinksCount;
+        // Calculate cumulative total imported - use Math.max to prevent counter from ever decreasing
+        const newTotal = totalImportedFromProgress + groupLinksCount + individualLinksCount;
+        const cumulativeTotal = Math.max(totalImportedFromProgress, newTotal);
         progress[0].cumulativeTotal = cumulativeTotal;
         
         // Save progress to DB for resumption
-        console.log(`💾 Saving progress: skip=${progress[0].nextSkip}, totalImported=${cumulativeTotal}, hasMore=${progress[0].hasMore}`);
+        console.log(`💾 Saving progress: skip=${progress[0].nextSkip}, prevTotal=${totalImportedFromProgress}, newTotal=${newTotal}, cumulativeTotal=${cumulativeTotal}, hasMore=${progress[0].hasMore}`);
         const { error: progressUpdateError } = await supabase
           .from('holihope_import_progress')
           .update({
