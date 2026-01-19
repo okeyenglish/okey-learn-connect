@@ -4392,8 +4392,37 @@ Deno.serve(async (req) => {
 
       try {
         const batchMode = body.batch_mode === true;
-        const skipParam = body.skip || 0;
-        const take = body.take ? Number(body.take) : 100; // Process 100 units per batch (was 10)
+        const take = body.take ? Number(body.take) : 100; // Process 100 units per batch
+        
+        // Check if we should resume from saved progress
+        let skipParam = body.skip || 0;
+        let totalImportedFromProgress = 0;
+        
+        // If starting fresh (skip=0 and no explicit skip), try to resume from DB progress
+        if (body.skip === undefined || body.skip === 0) {
+          const { data: savedProgress } = await supabase
+            .from('holihope_import_progress')
+            .select('ed_unit_students_skip, ed_unit_students_total_imported, ed_unit_students_is_running')
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          if (savedProgress && savedProgress.ed_unit_students_skip > 0) {
+            skipParam = savedProgress.ed_unit_students_skip;
+            totalImportedFromProgress = savedProgress.ed_unit_students_total_imported || 0;
+            console.log(`📌 Resuming from saved progress: skip=${skipParam}, totalImported=${totalImportedFromProgress}`);
+          }
+        }
+        
+        // Mark as running and update progress
+        await supabase
+          .from('holihope_import_progress')
+          .update({
+            ed_unit_students_is_running: true,
+            ed_unit_students_last_updated_at: new Date().toISOString()
+          })
+          .order('updated_at', { ascending: false })
+          .limit(1);
 
         // Fetch educational units from DB (both groups and individual lessons) with external_id
         console.log(`Fetching educational units from DB (skip=${skipParam}, take=${take})...`);
@@ -4747,6 +4776,24 @@ Deno.serve(async (req) => {
         progress[0].hasMore = totalProcessed >= take; // If we got full batch, likely more to process
         progress[0].nextSkip = skipParam + take;
         
+        // Calculate cumulative total imported
+        const cumulativeTotal = totalImportedFromProgress + groupLinksCount + individualLinksCount;
+        progress[0].cumulativeTotal = cumulativeTotal;
+        
+        // Save progress to DB for resumption
+        await supabase
+          .from('holihope_import_progress')
+          .update({
+            ed_unit_students_skip: progress[0].nextSkip,
+            ed_unit_students_total_imported: cumulativeTotal,
+            ed_unit_students_is_running: progress[0].hasMore,
+            ed_unit_students_last_updated_at: new Date().toISOString()
+          })
+          .order('updated_at', { ascending: false })
+          .limit(1);
+        
+        console.log(`📊 Saved progress: skip=${progress[0].nextSkip}, totalImported=${cumulativeTotal}`);
+        
       } catch (error) {
         console.error('Error importing ed unit students:', error);
         progress[0].status = 'error';
@@ -4755,6 +4802,16 @@ Deno.serve(async (req) => {
         // Even on error, try to calculate hasMore for potential retry
         progress[0].hasMore = true; // Assume there's more to try
         progress[0].nextSkip = skipParam + take;
+        
+        // Save error state but preserve skip for resumption
+        await supabase
+          .from('holihope_import_progress')
+          .update({
+            ed_unit_students_is_running: false,
+            ed_unit_students_last_updated_at: new Date().toISOString()
+          })
+          .order('updated_at', { ascending: false })
+          .limit(1);
       }
       
       // AUTO-CONTINUE: Always try to continue, even after partial errors
