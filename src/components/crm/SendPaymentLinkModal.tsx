@@ -26,7 +26,6 @@ export const SendPaymentLinkModal = ({
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleGenerateLink = async () => {
@@ -52,11 +51,22 @@ export const SendPaymentLinkModal = ({
       if (error) throw error;
       if (!data.success) throw new Error(data.error);
 
-      setPaymentUrl(data.payment_url);
+      // Сразу добавляем ссылку в поле ввода и закрываем модалку
+      onPaymentLinkGenerated({
+        url: data.payment_url,
+        amount: parseFloat(amount),
+        description: description || undefined,
+      });
+      
       toast({
         title: 'Ссылка создана',
-        description: 'Ссылка на оплату успешно сгенерирована',
+        description: 'Ссылка добавлена в поле ввода',
       });
+      
+      // Сбрасываем и закрываем
+      setAmount('');
+      setDescription('');
+      onOpenChange(false);
     } catch (error: any) {
       console.error('Error generating payment link:', error);
       toast({
@@ -69,21 +79,9 @@ export const SendPaymentLinkModal = ({
     }
   };
 
-  const handleAddToMessage = () => {
-    if (!paymentUrl) return;
-
-    onPaymentLinkGenerated({
-      url: paymentUrl,
-      amount: parseFloat(amount),
-      description: description || undefined,
-    });
-    handleClose();
-  };
-
   const handleClose = () => {
     setAmount('');
     setDescription('');
-    setPaymentUrl(null);
     onOpenChange(false);
   };
 
@@ -110,10 +108,7 @@ export const SendPaymentLinkModal = ({
               step="0.01"
               placeholder="0.00"
               value={amount}
-              onChange={(e) => {
-                setAmount(e.target.value);
-                setPaymentUrl(null);
-              }}
+              onChange={(e) => setAmount(e.target.value)}
               disabled={isGenerating}
             />
           </div>
@@ -124,25 +119,12 @@ export const SendPaymentLinkModal = ({
               id="description"
               placeholder="Например: Оплата за октябрь"
               value={description}
-              onChange={(e) => {
-                setDescription(e.target.value);
-                setPaymentUrl(null);
-              }}
+              onChange={(e) => setDescription(e.target.value)}
               disabled={isGenerating}
               className="resize-none"
               rows={2}
             />
           </div>
-
-          {paymentUrl && (
-            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center gap-2 text-sm text-green-800 mb-2">
-                <Link2 className="h-4 w-4" />
-                <span className="font-medium">Ссылка готова!</span>
-              </div>
-              <p className="text-xs text-green-700 break-all">{paymentUrl}</p>
-            </div>
-          )}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
@@ -150,29 +132,22 @@ export const SendPaymentLinkModal = ({
             Отмена
           </Button>
           
-          {!paymentUrl ? (
-            <Button
-              onClick={handleGenerateLink}
-              disabled={!amount || parseFloat(amount) <= 0 || isGenerating}
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Создание...
-                </>
-              ) : (
-                <>
-                  <Link2 className="h-4 w-4 mr-2" />
-                  Создать ссылку
-                </>
-              )}
-            </Button>
-          ) : (
-            <Button onClick={handleAddToMessage}>
-              <Plus className="h-4 w-4 mr-2" />
-              Добавить в сообщение
-            </Button>
-          )}
+          <Button
+            onClick={handleGenerateLink}
+            disabled={!amount || parseFloat(amount) <= 0 || isGenerating}
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Создание...
+              </>
+            ) : (
+              <>
+                <Link2 className="h-4 w-4 mr-2" />
+                Создать ссылку
+              </>
+            )}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
