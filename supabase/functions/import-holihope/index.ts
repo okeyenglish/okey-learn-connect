@@ -3745,10 +3745,14 @@ Deno.serve(async (req) => {
                 const actualNextTi = nextTi >= timeRanges.length ? 0 : nextTi;
                 const actualNextSi = nextSi >= statuses.length ? 0 : nextSi;
                 
+                // When loop finishes (nextOi >= officeIds.length), save explicit final state
+                // officeIndex = officeIds.length signals "completed"
+                const isCompleted = nextOi >= officeIds.length;
+                
                 await updateHolihopeProgress(supabase, {
-                  ed_units_office_index: nextOi >= officeIds.length ? oi : nextOi,
-                  ed_units_status_index: nextOi >= officeIds.length ? si : actualNextSi,
-                  ed_units_time_index: nextOi >= officeIds.length ? ti : actualNextTi,
+                  ed_units_office_index: isCompleted ? officeIds.length : nextOi,
+                  ed_units_status_index: isCompleted ? 0 : actualNextSi,
+                  ed_units_time_index: isCompleted ? 0 : actualNextTi,
                   ed_units_total_imported: fetchedCount + previouslyImported,
                   ed_units_last_updated_at: new Date().toISOString(),
                 });
@@ -4246,12 +4250,21 @@ Deno.serve(async (req) => {
         const duplicatesFiltered = fetchedCount - uniqueUnitsProcessed;
         
         // Save final progress to DB
+        // When completed (hasMore=false), set explicit final state for clear UI detection
         await updateHolihopeProgress(supabase, {
+          ed_units_office_index: hasMore ? nextOfficeIndex : officeIds.length, // officeIds.length = completed
+          ed_units_status_index: hasMore ? nextStatusIndex : 0,
+          ed_units_time_index: hasMore ? nextTimeIndex : 0,
           ed_units_total_imported: actualCount,
           ed_units_total_combinations: totalCombinations,
           ed_units_is_running: hasMore, // Still running if has more
           ed_units_last_updated_at: new Date().toISOString(),
         });
+        
+        if (!hasMore) {
+          exitReason = 'completed';
+          console.log(`🎉 Step 12 COMPLETED. Total imported: ${actualCount}, Total combinations: ${totalCombinations}`);
+        }
         
         if (hasMore) {
           progress[0].message = `Обработано ${currentPosition}/${totalCombinations} комбинаций (${progressPercentage}%). Получено из API: ${fetchedCount}, уникальных: ${uniqueUnitsProcessed}, дубликатов отфильтровано: ${duplicatesFiltered}. Всего в БД: ${actualCount}. Exit: ${exitReason}`;

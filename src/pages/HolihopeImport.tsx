@@ -162,20 +162,48 @@ export default function HolihopeImport() {
           .maybeSingle();
         
         if (holihopeProgress) {
-          const currentPosition = 
-            (holihopeProgress.ed_units_office_index || 0) * 5 * 17 + 
-            (holihopeProgress.ed_units_status_index || 0) * 17 + 
-            (holihopeProgress.ed_units_time_index || 0);
+          const totalCombs = holihopeProgress.ed_units_total_combinations || 1615;
+          // Calculate officeCount dynamically: totalCombinations = offices * 5 statuses * 17 time slots
+          const officeCount = Math.max(1, Math.round(totalCombs / (5 * 17)));
+          
+          const officeIdx = holihopeProgress.ed_units_office_index || 0;
+          const statusIdx = holihopeProgress.ed_units_status_index || 0;
+          const timeIdx = holihopeProgress.ed_units_time_index || 0;
+          
+          // currentPosition = processed combinations
+          // When completed: officeIndex = officeCount, statusIndex = 0, timeIndex = 0
+          const currentPosition = Math.min(
+            officeIdx * 5 * 17 + statusIdx * 17 + timeIdx,
+            totalCombs
+          );
+          
+          // Detect completion: officeIndex >= officeCount means all offices processed
+          const isCompleted = officeIdx >= officeCount;
           
           setEdUnitsProgress({
-            officeIndex: holihopeProgress.ed_units_office_index || 0,
-            statusIndex: holihopeProgress.ed_units_status_index || 0,
-            timeIndex: holihopeProgress.ed_units_time_index || 0,
+            officeIndex: officeIdx,
+            statusIndex: statusIdx,
+            timeIndex: timeIdx,
             totalImported: holihopeProgress.ed_units_total_imported || 0,
-            totalCombinations: holihopeProgress.ed_units_total_combinations || 1615,
+            totalCombinations: totalCombs,
             isRunning: holihopeProgress.ed_units_is_running || false,
             lastUpdatedAt: holihopeProgress.ed_units_last_updated_at ? new Date(holihopeProgress.ed_units_last_updated_at) : null,
           });
+          
+          // Auto-complete Step 12 in UI if data shows it's done
+          if (isCompleted && !holihopeProgress.ed_units_is_running) {
+            setSteps((prev) =>
+              prev.map((s) =>
+                s.id === 'ed_units'
+                  ? {
+                      ...s,
+                      status: 'completed',
+                      message: `Шаг 12 завершён. Импортировано: ${holihopeProgress.ed_units_total_imported || 0}`,
+                    }
+                  : s
+              )
+            );
+          }
         }
       } catch (error) {
         console.error('Error polling progress:', error);
@@ -428,116 +456,112 @@ export default function HolihopeImport() {
             );
           }
         }
-        // For ed_units, use batch mode with office/status/time indices
+        // For ed_units: start once and let server auto-continue
         else if (step.action === 'import_ed_units') {
-          let totalImported = 0;
-          let totalFetched = 0;
-          let shouldContinueImport = true;
-          let batchParams = { 
-            batch_size: 2, // Reduced: process 2 requests per batch to avoid timeout
+          const batchParams = { 
+            batch_size: 2,
             office_index: 0,
             status_index: 0,
             time_index: 0,
-            full_history: true // Import full history without date limits
+            full_history: true
           };
           
-          while (!shouldStopImport && shouldContinueImport) {
-            let retries = 0;
-            const maxRetries = 4; // Increased max retries
-            let batchSuccess = false;
+          console.log('Starting ed_units import with auto-continue on server...', batchParams);
+          const result = await executeStep(step, batchParams) as any;
+          console.log('Initial batch result:', result);
+          
+          if (!result.success) {
+            // Check if already running - that's OK, just poll for progress
+            if (result.alreadyRunning) {
+              console.log('Ed units import already running, switching to poll mode');
+              toast({
+                title: 'Импорт уже выполняется',
+                description: 'Шаг 12 уже запущен на сервере. Прогресс обновляется автоматически.',
+              });
+              setPollInterval(3000);
+            } else {
+              console.error('Failed to start ed_units import');
+            }
+          } else {
+            const progress = result.progress;
+            const stats = result.stats;
+            const hasMore = progress?.hasMore || false;
             
-            while (retries < maxRetries && !batchSuccess && !shouldStopImport) {
-              try {
-                // Exponential backoff delay
-                const retryDelay = retries > 0 ? Math.min(2000 * Math.pow(2, retries - 1), 16000) : 0;
-                if (retryDelay > 0) {
-                  console.log(`Waiting ${retryDelay}ms before retry...`);
-                  await new Promise((resolve) => setTimeout(resolve, retryDelay));
-                }
+            setSteps((prev) =>
+              prev.map((s) =>
+                s.id === step.id
+                  ? {
+                      ...s,
+                      count: stats?.totalImported || 0,
+                      message: hasMore 
+                        ? `Запущен. Импорт продолжается автоматически на сервере...`
+                        : `Завершён. Импортировано: ${stats?.totalImported || 0}`,
+                      status: hasMore ? 'in_progress' : 'completed',
+                    }
+                  : s
+              )
+            );
+            
+            if (hasMore && result.autoContinue) {
+              // Server will auto-continue - wait for completion by polling
+              toast({
+                title: 'Импорт запущен',
+                description: 'Шаг 12 продолжается автоматически на сервере. Дождитесь завершения перед следующим шагом.',
+              });
+              setPollInterval(3000);
+              
+              // Wait for step 12 to complete before moving to step 13
+              // Poll until isRunning=false and officeIndex >= officeCount
+              let waitAttempts = 0;
+              const maxWaitAttempts = 600; // ~30 minutes with 3s interval
+              
+              while (waitAttempts < maxWaitAttempts && !shouldStopImport) {
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                waitAttempts++;
                 
-                console.log(`Executing batch (attempt ${retries + 1}/${maxRetries}) with params:`, batchParams);
-                const result = await executeStep(step, batchParams);
-                console.log('Batch result:', result);
+                const { data: holihopeProgress } = await supabase
+                  .from('holihope_import_progress')
+                  .select('ed_units_office_index, ed_units_is_running, ed_units_total_combinations, ed_units_total_imported')
+                  .order('updated_at', { ascending: false })
+                  .limit(1)
+                  .maybeSingle();
                 
-                if (!result.success) {
-                  console.error('Batch failed');
-                  retries++;
-                  if (retries >= maxRetries) {
-                    console.error('Max retries reached, stopping');
-                    shouldContinueImport = false;
+                if (holihopeProgress) {
+                  const totalCombs = holihopeProgress.ed_units_total_combinations || 1615;
+                  const officeCount = Math.max(1, Math.round(totalCombs / (5 * 17)));
+                  const isCompleted = (holihopeProgress.ed_units_office_index || 0) >= officeCount;
+                  
+                  if (isCompleted && !holihopeProgress.ed_units_is_running) {
+                    console.log('Step 12 completed, proceeding to next step');
+                    setSteps((prev) =>
+                      prev.map((s) =>
+                        s.id === step.id
+                          ? {
+                              ...s,
+                              count: holihopeProgress.ed_units_total_imported || 0,
+                              message: `Завершён. Импортировано: ${holihopeProgress.ed_units_total_imported || 0}`,
+                              status: 'completed',
+                            }
+                          : s
+                      )
+                    );
                     break;
                   }
-                  continue;
                 }
                 
-                batchSuccess = true;
-                
-                const progress = result.progress;
-                const stats = result.stats;
-                const nextBatch = result.nextBatch;
-                
-                totalImported += stats?.totalImported || 0;
-                totalFetched += stats?.totalFetched || 0;
-                
-                const hasMore = progress?.hasMore || false;
-                const progressPercent = stats?.progressPercentage || 0;
-                const currentPos = stats?.currentPosition || 0;
-                const totalCombs = stats?.totalCombinations || 1615;
-                
-                console.log(`Batch completed: imported=${stats?.totalImported}, fetched=${stats?.totalFetched}, hasMore=${hasMore}, progress=${progressPercent}%`);
-                
-                setSteps((prev) =>
-                  prev.map((s) =>
-                    s.id === step.id
-                      ? {
-                          ...s,
-                          count: totalImported,
-                          message: `Обработано ${currentPos}/${totalCombs} комбинаций (${progressPercent}%). Импортировано: ${totalImported} единиц.`,
-                          status: hasMore ? 'in_progress' : 'completed',
-                        }
-                      : s
-                  )
-                );
-                
-                if (!hasMore) {
-                  console.log('Import completed, exiting loop');
-                  shouldContinueImport = false;
-                  break;
+                // Update UI every 10 attempts
+                if (waitAttempts % 10 === 0) {
+                  console.log(`Still waiting for step 12 to complete... (attempt ${waitAttempts})`);
                 }
-                
-                // Update batch parameters for next iteration
-                if (nextBatch) {
-                  batchParams = nextBatch;
-                  console.log('Updated batch params for next iteration:', batchParams);
-                } else {
-                  console.log('No nextBatch provided, stopping');
-                  shouldContinueImport = false;
-                  break;
-                }
-                
-                // Small delay between batches
-                await new Promise((resolve) => setTimeout(resolve, 1000));
-              } catch (error) {
-                console.error('Error in batch retry loop:', error);
-                retries++;
-                if (retries >= maxRetries) {
-                  toast({
-                    title: 'Ошибка в цикле импорта',
-                    description: error instanceof Error ? error.message : 'Неизвестная ошибка',
-                    variant: 'destructive',
-                  });
-                  shouldContinueImport = false;
-                  break;
-                }
-                console.log(`Retrying in 2 seconds...`);
-                await new Promise((resolve) => setTimeout(resolve, 2000));
               }
-            }
-            
-            if (!batchSuccess) {
-              console.error('Batch failed after all retries, stopping');
-              shouldContinueImport = false;
-              break;
+              
+              if (waitAttempts >= maxWaitAttempts) {
+                toast({
+                  title: 'Таймаут ожидания',
+                  description: 'Шаг 12 всё ещё выполняется. Продолжите полный импорт позже.',
+                  variant: 'destructive',
+                });
+              }
             }
           }
         }
@@ -1166,35 +1190,71 @@ export default function HolihopeImport() {
                 )}
               </div>
               
-              <div className="grid grid-cols-4 gap-3 text-sm">
-                <div className="p-2 bg-white/60 dark:bg-gray-800/60 rounded">
-                  <div className="text-xs text-muted-foreground">Офис</div>
-                  <div className="font-semibold">{edUnitsProgress.officeIndex + 1} / 19</div>
-                </div>
-                <div className="p-2 bg-white/60 dark:bg-gray-800/60 rounded">
-                  <div className="text-xs text-muted-foreground">Статус</div>
-                  <div className="font-semibold">{['Reserve', 'Forming', 'Working', 'Stopped', 'Finished'][edUnitsProgress.statusIndex] || '?'}</div>
-                </div>
-                <div className="p-2 bg-white/60 dark:bg-gray-800/60 rounded">
-                  <div className="text-xs text-muted-foreground">Время</div>
-                  <div className="font-semibold">{6 + edUnitsProgress.timeIndex}:00</div>
-                </div>
-                <div className="p-2 bg-white/60 dark:bg-gray-800/60 rounded">
-                  <div className="text-xs text-muted-foreground">Импортировано</div>
-                  <div className="font-semibold text-blue-600">{edUnitsProgress.totalImported}</div>
-                </div>
-              </div>
+              {(() => {
+                // Calculate officeCount dynamically from totalCombinations
+                const officeCount = Math.max(1, Math.round(edUnitsProgress.totalCombinations / (5 * 17)));
+                const isCompleted = edUnitsProgress.officeIndex >= officeCount;
+                
+                return (
+                  <div className="grid grid-cols-4 gap-3 text-sm">
+                    <div className="p-2 bg-white/60 dark:bg-gray-800/60 rounded">
+                      <div className="text-xs text-muted-foreground">Офис</div>
+                      <div className="font-semibold">
+                        {isCompleted 
+                          ? <span className="text-green-600">✓ Все ({officeCount})</span>
+                          : `${edUnitsProgress.officeIndex + 1} / ${officeCount}`
+                        }
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white/60 dark:bg-gray-800/60 rounded">
+                      <div className="text-xs text-muted-foreground">Статус</div>
+                      <div className="font-semibold">
+                        {isCompleted 
+                          ? <span className="text-green-600">—</span>
+                          : (['Reserve', 'Forming', 'Working', 'Stopped', 'Finished'][edUnitsProgress.statusIndex] || '?')
+                        }
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white/60 dark:bg-gray-800/60 rounded">
+                      <div className="text-xs text-muted-foreground">Время</div>
+                      <div className="font-semibold">
+                        {isCompleted 
+                          ? <span className="text-green-600">—</span>
+                          : `${6 + edUnitsProgress.timeIndex}:00`
+                        }
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white/60 dark:bg-gray-800/60 rounded">
+                      <div className="text-xs text-muted-foreground">Импортировано</div>
+                      <div className="font-semibold text-blue-600">{edUnitsProgress.totalImported}</div>
+                    </div>
+                  </div>
+                );
+              })()}
               
               {(() => {
-                const currentPosition = 
-                  edUnitsProgress.officeIndex * 5 * 17 + 
-                  edUnitsProgress.statusIndex * 17 + 
-                  edUnitsProgress.timeIndex;
-                const progress = Math.round((currentPosition / edUnitsProgress.totalCombinations) * 100);
+                const officeCount = Math.max(1, Math.round(edUnitsProgress.totalCombinations / (5 * 17)));
+                const isCompleted = edUnitsProgress.officeIndex >= officeCount;
+                
+                const currentPosition = isCompleted 
+                  ? edUnitsProgress.totalCombinations 
+                  : Math.min(
+                      edUnitsProgress.officeIndex * 5 * 17 + 
+                      edUnitsProgress.statusIndex * 17 + 
+                      edUnitsProgress.timeIndex,
+                      edUnitsProgress.totalCombinations
+                    );
+                const progress = Math.min(100, Math.round((currentPosition / edUnitsProgress.totalCombinations) * 100));
+                
                 return (
                   <div className="space-y-1">
                     <div className="flex justify-between text-xs">
-                      <span>Комбинаций: {currentPosition} / {edUnitsProgress.totalCombinations}</span>
+                      <span>
+                        {isCompleted 
+                          ? <span className="text-green-600 font-semibold">✓ Завершено</span>
+                          : `Комбинаций: ${currentPosition} / ${edUnitsProgress.totalCombinations}`
+                        }
+                      </span>
                       <span className="font-semibold">{progress}%</span>
                     </div>
                     <Progress value={progress} className="h-2" />
@@ -1204,19 +1264,15 @@ export default function HolihopeImport() {
               
               {(() => {
                 // Detect stale import: is_running=true but last_updated_at is older than 3 minutes
-                // Lowered from 5 minutes for faster detection
                 const isStale = edUnitsProgress.isRunning && 
                   edUnitsProgress.lastUpdatedAt &&
                   (Date.now() - edUnitsProgress.lastUpdatedAt.getTime()) > 3 * 60 * 1000;
                 
-                const currentPosition = 
-                  edUnitsProgress.officeIndex * 5 * 17 + 
-                  edUnitsProgress.statusIndex * 17 + 
-                  edUnitsProgress.timeIndex;
-                const isIncomplete = currentPosition < edUnitsProgress.totalCombinations;
+                const officeCount = Math.max(1, Math.round(edUnitsProgress.totalCombinations / (5 * 17)));
+                const isCompleted = edUnitsProgress.officeIndex >= officeCount;
                 
-                // Show button if: stale import OR (not running AND incomplete)
-                const showButton = isStale || (!edUnitsProgress.isRunning && isIncomplete);
+                // Show button if: stale import OR (not running AND not completed)
+                const showButton = isStale || (!edUnitsProgress.isRunning && !isCompleted);
                 
                 if (showButton && !isImporting) {
                   return (
@@ -1229,6 +1285,16 @@ export default function HolihopeImport() {
                     </Button>
                   );
                 }
+                
+                // Show completion message if completed
+                if (isCompleted && !edUnitsProgress.isRunning) {
+                  return (
+                    <div className="text-center py-2 text-green-600 font-medium">
+                      ✓ Шаг 12 полностью завершён
+                    </div>
+                  );
+                }
+                
                 return null;
               })()}
             </div>
