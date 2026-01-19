@@ -11,7 +11,7 @@ interface SendMessageParams {
 }
 
 interface WhatsAppSettings {
-  provider: 'greenapi' | 'wpp';
+  provider: 'greenapi' | 'wpp' | 'wappi';
   instanceId: string;
   apiToken: string;
   apiUrl: string;
@@ -22,6 +22,9 @@ interface WhatsAppSettings {
   wppBaseUrl?: string;
   wppApiKey?: string;
   wppWebhookSecret?: string;
+  // Wappi specific
+  wappiProfileId?: string;
+  wappiApiToken?: string;
 }
 
 export const useWhatsApp = () => {
@@ -46,7 +49,7 @@ export const useWhatsApp = () => {
       }
 
       const settings = data.settings as any;
-      const provider = (data.provider === 'wpp' ? 'wpp' : 'greenapi') as 'greenapi' | 'wpp';
+      const provider = (data.provider === 'wpp' ? 'wpp' : data.provider === 'wappi' ? 'wappi' : 'greenapi') as 'greenapi' | 'wpp' | 'wappi';
       
       return {
         provider,
@@ -58,7 +61,9 @@ export const useWhatsApp = () => {
         wppSession: settings?.wppSession || 'default',
         wppBaseUrl: settings?.wppBaseUrl || '',
         wppApiKey: settings?.wppApiKey || '',
-        wppWebhookSecret: settings?.wppWebhookSecret || ''
+        wppWebhookSecret: settings?.wppWebhookSecret || '',
+        wappiProfileId: settings?.wappiProfileId || '',
+        wappiApiToken: settings?.wappiApiToken || ''
       };
 
     } catch (error: any) {
@@ -75,7 +80,7 @@ export const useWhatsApp = () => {
       // Получаем настройки для определения провайдера
       const settings = await getMessengerSettings();
       const provider = settings?.provider || 'greenapi';
-      const functionName = provider === 'wpp' ? 'wpp-send' : 'whatsapp-send';
+      const functionName = provider === 'wpp' ? 'wpp-send' : provider === 'wappi' ? 'wappi-whatsapp-send' : 'whatsapp-send';
 
       const { data, error } = await supabase.functions.invoke(functionName, {
         body: params
@@ -160,9 +165,11 @@ export const useWhatsApp = () => {
         ...(settings.wppBaseUrl !== undefined ? { wppBaseUrl: settings.wppBaseUrl } : {}),
         ...(settings.wppApiKey !== undefined ? { wppApiKey: settings.wppApiKey } : {}),
         ...(settings.wppWebhookSecret !== undefined ? { wppWebhookSecret: settings.wppWebhookSecret } : {}),
+        ...(settings.wappiProfileId !== undefined ? { wappiProfileId: settings.wappiProfileId } : {}),
+        ...(settings.wappiApiToken !== undefined ? { wappiApiToken: settings.wappiApiToken } : {}),
       };
 
-      const provider = (settings.provider ?? (existing?.provider === 'wpp' ? 'wpp' : 'greenapi')) as 'greenapi' | 'wpp';
+      const provider = (settings.provider ?? (existing?.provider === 'wpp' ? 'wpp' : existing?.provider === 'wappi' ? 'wappi' : 'greenapi')) as 'greenapi' | 'wpp' | 'wappi';
       const isEnabled = settings.isEnabled ?? existing?.is_enabled ?? false;
       const webhookUrl = settings.webhookUrl !== undefined ? settings.webhookUrl : existing?.webhook_url;
 
@@ -207,16 +214,16 @@ export const useWhatsApp = () => {
     }
   }, [toast]);
 
-  const testConnection = useCallback(async (providerOverride?: 'greenapi' | 'wpp') => {
+  const testConnection = useCallback(async (providerOverride?: 'greenapi' | 'wpp' | 'wappi') => {
     setLoading(true);
     try {
       // Используем выбранного в UI провайдера, если передан; иначе читаем из БД
-      let provider: 'greenapi' | 'wpp' = providerOverride || 'greenapi';
+      let provider: 'greenapi' | 'wpp' | 'wappi' = providerOverride || 'greenapi';
       if (!providerOverride) {
         const dbSettings = await getMessengerSettings();
-        provider = (dbSettings?.provider || 'greenapi') as 'greenapi' | 'wpp';
+        provider = (dbSettings?.provider || 'greenapi') as 'greenapi' | 'wpp' | 'wappi';
       }
-      const functionName = provider === 'wpp' ? 'wpp-send' : 'whatsapp-send';
+      const functionName = provider === 'wpp' ? 'wpp-send' : provider === 'wappi' ? 'wappi-whatsapp-send' : 'whatsapp-send';
 
       // Проверяем состояние инстанса через edge функцию
       const { data, error } = await supabase.functions.invoke(functionName, {
@@ -278,19 +285,19 @@ export const useWhatsApp = () => {
     }
   }, []);
 
-  const getConnectionStatus = useCallback(async (providerOverride?: 'greenapi' | 'wpp'): Promise<{
+  const getConnectionStatus = useCallback(async (providerOverride?: 'greenapi' | 'wpp' | 'wappi'): Promise<{
     status: 'online' | 'offline' | 'connecting' | 'error';
     phone?: string;
     name?: string;
   }> => {
     try {
-      let provider: 'greenapi' | 'wpp' = providerOverride || 'greenapi';
+      let provider: 'greenapi' | 'wpp' | 'wappi' = providerOverride || 'greenapi';
       if (!providerOverride) {
         const dbSettings = await getMessengerSettings();
         provider = dbSettings?.provider || 'greenapi';
       }
       
-      const functionName = provider === 'wpp' ? 'wpp-status' : 'whatsapp-send';
+      const functionName = provider === 'wpp' ? 'wpp-status' : provider === 'wappi' ? 'wappi-whatsapp-status' : 'whatsapp-send';
       
       const { data, error } = await supabase.functions.invoke(functionName, {
         body: provider === 'greenapi' ? { action: 'get_state' } : undefined
@@ -303,6 +310,13 @@ export const useWhatsApp = () => {
         const status = data?.status || data?.state;
         return {
           status: status === 'CONNECTED' || status === 'isLogged' ? 'online' : 'offline',
+          phone: data?.wid || data?.phone,
+          name: data?.pushname
+        };
+      } else if (provider === 'wappi') {
+        const status = data?.status || data?.state;
+        return {
+          status: status === 'CONNECTED' || status === 'online' || status === 'connected' ? 'online' : 'offline',
           phone: data?.wid || data?.phone,
           name: data?.pushname
         };
@@ -371,7 +385,7 @@ export const useWhatsApp = () => {
       // Get provider settings
       const settings = await getMessengerSettings();
       const provider = settings?.provider || 'greenapi';
-      const functionName = provider === 'wpp' ? 'wpp-delete' : 'delete-whatsapp-message';
+      const functionName = provider === 'wpp' ? 'wpp-delete' : provider === 'wappi' ? 'wappi-whatsapp-delete' : 'delete-whatsapp-message';
 
       const { data, error } = await supabase.functions.invoke(functionName, {
         body: { messageId, clientId }
@@ -403,7 +417,7 @@ export const useWhatsApp = () => {
       // Get provider settings
       const settings = await getMessengerSettings();
       const provider = settings?.provider || 'greenapi';
-      const functionName = provider === 'wpp' ? 'wpp-edit' : 'edit-whatsapp-message';
+      const functionName = provider === 'wpp' ? 'wpp-edit' : provider === 'wappi' ? 'wappi-whatsapp-edit' : 'edit-whatsapp-message';
 
       const { data, error } = await supabase.functions.invoke(functionName, {
         body: { messageId, newMessage, clientId }
@@ -435,7 +449,7 @@ export const useWhatsApp = () => {
       // Get provider settings
       const settings = await getMessengerSettings();
       const provider = settings?.provider || 'greenapi';
-      const functionName = provider === 'wpp' ? 'wpp-download' : 'download-whatsapp-file';
+      const functionName = provider === 'wpp' ? 'wpp-download' : provider === 'wappi' ? 'wappi-whatsapp-download' : 'download-whatsapp-file';
 
       const { data, error } = await supabase.functions.invoke(functionName, {
         body: { messageId, organizationId }
