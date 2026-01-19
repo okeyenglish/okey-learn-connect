@@ -107,7 +107,7 @@ interface RpcStudent {
   first_name?: string;
   last_name?: string;
   middle_name?: string;
-  birth_date?: string;
+  date_of_birth?: string;
   avatar_url?: string;
   is_active: boolean;
   group_courses: RpcGroupCourse[];
@@ -253,8 +253,8 @@ export const useFamilyData = (familyGroupId?: string) => {
           firstName,
           lastName,
           middleName: student.middle_name || '',
-          age: calculateAge(student.birth_date),
-          dateOfBirth: student.birth_date || undefined,
+          age: calculateAge(student.date_of_birth),
+          dateOfBirth: student.date_of_birth || undefined,
           status: student.is_active ? 'active' : 'inactive',
           notes: undefined,
           courses,
