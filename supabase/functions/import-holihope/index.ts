@@ -5503,14 +5503,35 @@ Deno.serve(async (req) => {
 
     // Import: Group Tests
     if (action === 'import_group_tests') {
-      console.log('Importing group tests...');
+      console.log('=== STEP 16: Importing group tests (optimized) ===');
       progress.push({ step: 'import_group_tests', status: 'in_progress' });
 
       try {
+        // 1. Pre-load all learning_groups into Map for O(1) lookup
+        console.log('Loading all learning_groups...');
+        const { data: allGroups, error: groupsError } = await supabase
+          .from('learning_groups')
+          .select('id, external_id')
+          .eq('organization_id', orgId);
+
+        if (groupsError) {
+          throw new Error(`Failed to load learning_groups: ${groupsError.message}`);
+        }
+
+        const groupMap = new Map<string, string>();
+        for (const group of allGroups || []) {
+          if (group.external_id) {
+            groupMap.set(group.external_id.toString(), group.id);
+          }
+        }
+        console.log(`Loaded ${groupMap.size} learning groups into lookup map`);
+
+        // 2. Fetch all group tests from API with pagination
         let skip = 0;
         const take = 100;
-        let allTests = [];
+        let allTests: any[] = [];
 
+        console.log('Fetching group tests from Holihope API...');
         while (true) {
           const response = await fetch(`${HOLIHOPE_DOMAIN}/GetEdUnitTestResults?authkey=${HOLIHOPE_API_KEY}&take=${take}&skip=${skip}`, {
             method: 'GET',
@@ -5524,32 +5545,77 @@ Deno.serve(async (req) => {
           allTests = allTests.concat(tests);
           
           skip += take;
+          console.log(`Fetched ${allTests.length} tests so far...`);
           if (tests.length < take) break;
         }
-        
-        let importedCount = 0;
+        console.log(`Total tests fetched from API: ${allTests.length}`);
+
+        // 3. Prepare all records for batch insert
+        const testsToInsert: any[] = [];
+        let skippedCount = 0;
+
         for (const test of allTests) {
-          const { data: edUnit } = await supabase.from('educational_units').select('id').eq('external_id', test.edUnitId?.toString()).single();
-          if (!edUnit) continue;
+          // API returns EdUnitId (capital letters)
+          const edUnitId = test.EdUnitId?.toString() || test.edUnitId?.toString();
+          const groupId = groupMap.get(edUnitId);
           
-          await supabase.from('group_tests').upsert({
-            ed_unit_id: edUnit.id,
-            test_name: test.testName || 'Без названия',
-            test_date: test.testDate || new Date().toISOString().split('T')[0],
-            subject: test.subject || null,
-            level: test.level || null,
-            max_score: test.maxScore || null,
-            average_score: test.averageScore || null,
-            comments: test.comments || null,
+          if (!groupId) {
+            skippedCount++;
+            continue;
+          }
+          
+          testsToInsert.push({
+            ed_unit_id: edUnitId,
+            learning_group_id: groupId,
+            test_name: test.TestTypeName || test.testName || 'Без названия',
+            test_date: (test.DateTime || test.testDate || new Date().toISOString()).split('T')[0],
+            subject: test.Subject || test.subject || null,
+            level: test.Level || test.level || null,
+            max_score: test.MaxScore || test.maxScore || null,
+            average_score: test.AverageScore || test.averageScore || null,
+            comments: test.Comments || test.comments || null,
             organization_id: orgId,
-            external_id: test.id?.toString(),
-          }, { onConflict: 'external_id' });
-          importedCount++;
+            external_id: (test.Id || test.id)?.toString(),
+            holihope_metadata: test,
+          });
         }
+
+        console.log(`Prepared ${testsToInsert.length} tests for import (${skippedCount} skipped - no matching group)`);
+
+        // 4. Batch upsert (500 records per batch)
+        const BATCH_SIZE = 500;
+        let importedCount = 0;
+        const totalBatches = Math.ceil(testsToInsert.length / BATCH_SIZE);
+
+        for (let i = 0; i < testsToInsert.length; i += BATCH_SIZE) {
+          const batch = testsToInsert.slice(i, i + BATCH_SIZE);
+          const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+          
+          const { error: upsertError } = await supabase
+            .from('group_tests')
+            .upsert(batch, { onConflict: 'external_id,organization_id' });
+          
+          if (upsertError) {
+            console.error(`Batch ${batchNum}/${totalBatches} error:`, upsertError.message);
+            // Fallback: insert one by one
+            for (const record of batch) {
+              const { error: singleError } = await supabase
+                .from('group_tests')
+                .upsert(record, { onConflict: 'external_id,organization_id' });
+              if (!singleError) importedCount++;
+            }
+          } else {
+            importedCount += batch.length;
+            console.log(`Batch ${batchNum}/${totalBatches} completed (${importedCount}/${testsToInsert.length})`);
+          }
+        }
+
+        console.log(`=== STEP 16 COMPLETE: Imported ${importedCount} group tests ===`);
         
         progress[0].status = 'completed';
         progress[0].count = importedCount;
-        progress[0].message = `Imported ${importedCount} group tests`;
+        progress[0].skipped = skippedCount;
+        progress[0].message = `Imported ${importedCount} group tests (${skippedCount} skipped)`;
       } catch (error) {
         console.error('Error importing group tests:', error);
         progress[0].status = 'error';
