@@ -1366,17 +1366,50 @@ export default function HolihopeImport() {
                 // Show button if: stale import OR (not running AND not completed)
                 const showButton = isStale || (!edUnitsProgress.isRunning && !isCompleted);
                 
-                if (showButton && !isImporting) {
-                  return (
-                    <Button
-                      onClick={resumeEdUnitsImport}
-                      disabled={isImporting || isClearing}
-                      className="w-full bg-blue-600 hover:bg-blue-700"
-                    >
-                      🔄 {isStale ? 'Продолжить (импорт завис)' : 'Продолжить импорт учебных единиц'}
-                    </Button>
-                  );
-                }
+          if (showButton && !isImporting) {
+            return (
+              <div className="flex gap-2">
+                <Button
+                  onClick={resumeEdUnitsImport}
+                  disabled={isImporting || isClearing}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                >
+                  🔄 {isStale ? 'Продолжить (завис)' : 'Продолжить'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    if (!confirm('Сбросить прогресс Шага 12 и начать сначала? Все индексы будут обнулены.')) return;
+                    await supabase
+                      .from('holihope_import_progress')
+                      .update({
+                        ed_units_office_index: 0,
+                        ed_units_status_index: 0,
+                        ed_units_time_index: 0,
+                        ed_units_total_imported: 0,
+                        ed_units_total_combinations: 0,
+                        ed_units_is_running: false
+                      })
+                      .order('updated_at', { ascending: false })
+                      .limit(1);
+                    setEdUnitsProgress(null);
+                    setSteps((prev) =>
+                      prev.map((s) =>
+                        s.id === 'ed_units'
+                          ? { ...s, status: 'pending', message: undefined, count: undefined }
+                          : s
+                      )
+                    );
+                    toast({ title: 'Прогресс сброшен', description: 'Шаг 12 начнётся сначала с 2015 года' });
+                  }}
+                  disabled={isImporting || isClearing}
+                  className="text-red-600 border-red-300 hover:bg-red-50"
+                >
+                  ⟲ Сбросить
+                </Button>
+              </div>
+            );
+          }
                 
                 // Show completion message if completed
                 if (isCompleted && !edUnitsProgress.isRunning) {
