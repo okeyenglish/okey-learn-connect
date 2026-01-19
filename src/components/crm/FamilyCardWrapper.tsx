@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FamilyCard } from "./FamilyCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { normalizePhone } from "@/utils/phoneNormalization";
 
 interface FamilyCardWrapperProps {
   clientId: string;
@@ -20,7 +21,7 @@ export const FamilyCardWrapper = ({ clientId, onOpenChat }: FamilyCardWrapperPro
   const ensurePhoneNumberExists = async (cId: string, phone: string | null) => {
     if (!phone) return;
 
-    // Check if phone number record already exists
+    // Check if phone number record already exists for this client
     const { data: existing } = await supabase
       .from('client_phone_numbers')
       .select('id')
@@ -39,6 +40,92 @@ export const FamilyCardWrapper = ({ clientId, onOpenChat }: FamilyCardWrapperPro
       });
 
     console.log('Created phone number record for client:', cId);
+  };
+
+  const getNormalizedPhoneForClient = async (cId: string): Promise<string | null> => {
+    // 1) Prefer clients.phone
+    const { data: client } = await supabase
+      .from('clients')
+      .select('phone')
+      .eq('id', cId)
+      .maybeSingle();
+
+    const fromClient = client?.phone ? normalizePhone(client.phone) : '';
+    if (fromClient) return fromClient;
+
+    // 2) Fallback to client_phone_numbers (primary if possible)
+    const { data: phones } = await supabase
+      .from('client_phone_numbers')
+      .select('phone, is_primary')
+      .eq('client_id', cId)
+      .order('is_primary', { ascending: false })
+      .limit(1);
+
+    const fromPhones = phones?.[0]?.phone ? normalizePhone(phones[0].phone) : '';
+    return fromPhones || null;
+  };
+
+  const getStudentsCountForGroup = async (groupId: string): Promise<number> => {
+    const { count } = await supabase
+      .from('students')
+      .select('id', { count: 'exact', head: true })
+      .eq('family_group_id', groupId);
+
+    return count || 0;
+  };
+
+  const findBestFamilyGroupByPhone = async (phoneNorm: string): Promise<{ groupId: string; studentsCount: number } | null> => {
+    if (!phoneNorm) return null;
+
+    // Find all client IDs that have this phone (either in clients.phone or in client_phone_numbers)
+    const [{ data: clientsByPhone }, { data: phoneRows }] = await Promise.all([
+      supabase.from('clients').select('id').eq('phone', phoneNorm),
+      supabase.from('client_phone_numbers').select('client_id').eq('phone', phoneNorm),
+    ]);
+
+    const ids = new Set<string>();
+    (clientsByPhone || []).forEach((c: any) => c?.id && ids.add(c.id));
+    (phoneRows || []).forEach((r: any) => r?.client_id && ids.add(r.client_id));
+
+    const clientIds = Array.from(ids);
+    if (clientIds.length === 0) return null;
+
+    const { data: members } = await supabase
+      .from('family_members')
+      .select('family_group_id')
+      .in('client_id', clientIds);
+
+    const groupIds = Array.from(new Set((members || []).map((m: any) => m.family_group_id).filter(Boolean)));
+    if (groupIds.length === 0) return null;
+
+    // Choose group with max students
+    const counts = await Promise.all(
+      groupIds.map(async (gid) => ({ gid, cnt: await getStudentsCountForGroup(gid) }))
+    );
+
+    counts.sort((a, b) => b.cnt - a.cnt);
+    return { groupId: counts[0].gid, studentsCount: counts[0].cnt };
+  };
+
+  const ensureClientLinkedToFamilyGroup = async (cId: string, groupId: string) => {
+    // already linked?
+    const { data: existing } = await supabase
+      .from('family_members')
+      .select('id')
+      .eq('client_id', cId)
+      .eq('family_group_id', groupId)
+      .maybeSingle();
+
+    if (existing?.id) return;
+
+    await supabase
+      .from('family_members')
+      .insert({
+        family_group_id: groupId,
+        client_id: cId,
+        relationship_type: 'parent',
+        is_primary_contact: false,
+      });
   };
 
   const createFamilyGroupForClient = async (cId: string) => {
@@ -122,32 +209,55 @@ export const FamilyCardWrapper = ({ clientId, onOpenChat }: FamilyCardWrapperPro
 
         if (error) throw error;
 
-        // Take the first one where client is primary, or just the first one if none
+        // Ensure phone number exists for existing clients too
+        const { data: client } = await supabase
+          .from('clients')
+          .select('phone')
+          .eq('id', clientId)
+          .maybeSingle();
+
+        if (client?.phone) {
+          await ensurePhoneNumberExists(clientId, client.phone);
+        }
+
+        // Resolve phone-based family group (to prevent duplicates and fix missed links)
+        const phoneNorm = await getNormalizedPhoneForClient(clientId);
+        const bestByPhone = phoneNorm ? await findBestFamilyGroupByPhone(phoneNorm) : null;
+
         const primaryGroup = data?.find(fm => fm.is_primary_contact);
         const selectedGroup = primaryGroup || data?.[0];
-        
-        if (selectedGroup?.family_group_id) {
-          // Ensure phone number exists for existing clients too
-          const { data: client } = await supabase
-            .from('clients')
-            .select('phone')
-            .eq('id', clientId)
-            .single();
 
-          if (client?.phone) {
-            await ensurePhoneNumberExists(clientId, client.phone);
+        if (selectedGroup?.family_group_id) {
+          // If current group is empty but there is another group with same phone that has students, switch to it
+          if (bestByPhone && bestByPhone.groupId !== selectedGroup.family_group_id && bestByPhone.studentsCount > 0) {
+            const currentCount = await getStudentsCountForGroup(selectedGroup.family_group_id);
+            if (currentCount === 0) {
+              await ensureClientLinkedToFamilyGroup(clientId, bestByPhone.groupId);
+              setFamilyGroupId(bestByPhone.groupId);
+              createAttemptedRef.current = null;
+              return;
+            }
           }
 
           setFamilyGroupId(selectedGroup.family_group_id);
           createAttemptedRef.current = null; // Reset for next client
+          return;
+        }
+
+        // No family group for this client yet
+        if (bestByPhone?.groupId) {
+          await ensureClientLinkedToFamilyGroup(clientId, bestByPhone.groupId);
+          setFamilyGroupId(bestByPhone.groupId);
+          createAttemptedRef.current = null;
+          return;
+        }
+
+        // Fallback: auto-create
+        const newGroupId = await createFamilyGroupForClient(clientId);
+        if (newGroupId) {
+          setFamilyGroupId(newGroupId);
         } else {
-          // No family group found - auto-create one
-          const newGroupId = await createFamilyGroupForClient(clientId);
-          if (newGroupId) {
-            setFamilyGroupId(newGroupId);
-          } else {
-            setError('Не удалось создать карточку клиента');
-          }
+          setError('Не удалось создать карточку клиента');
         }
       } catch (err) {
         console.error('Error fetching family group ID:', err);
