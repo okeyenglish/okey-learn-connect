@@ -13,8 +13,10 @@ import {
   Plus, 
   Trash2, 
   Check, 
-  X 
+  X,
+  PhoneCall
 } from "lucide-react";
+import OnlinePBXPhone from "@/components/WebRTCPhone";
 
 interface PhoneNumber {
   id: string;
@@ -156,7 +158,10 @@ export const PhoneNumberManager = ({
           </div>
           
           {editingId !== phoneNumber.id && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* OnlinePBX Call Button */}
+              <OnlinePBXPhone phoneNumber={phoneNumber.phone} />
+              
               {phoneNumber.isWhatsappEnabled && (
                 <Button 
                   size="sm" 
