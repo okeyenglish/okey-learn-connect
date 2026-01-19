@@ -2310,6 +2310,9 @@ export const ChatArea = ({
                   onFileUpload={(fileInfo) => {
                     setAttachedFiles(prev => [...prev, fileInfo]);
                   }}
+                  onFileRemove={(url) => {
+                    setAttachedFiles(prev => prev.filter(f => f.url !== url));
+                  }}
                   disabled={!!pendingMessage}
                   maxFiles={5}
                   maxSize={10}
