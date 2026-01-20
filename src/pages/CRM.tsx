@@ -1732,10 +1732,7 @@ const CRMContent = () => {
 
   return (
       <TooltipProvider>
-        <div className={cn(
-          "crm-container h-screen flex flex-col overflow-hidden",
-          isMobile && activeTab === 'chats' && "pb-16" // Отступ снизу только когда видна мобильная навигация
-        )}>
+        <div className="crm-container h-screen flex flex-col overflow-hidden">
       {/* Фиксированные вкладки сверху на мобильной версии */}
       {isMobile && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b shadow-sm">
