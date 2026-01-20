@@ -1,15 +1,15 @@
 import { Card, CardContent } from "@/components/ui/card";
 import OptimizedImage from "@/components/OptimizedImage";
-import teacherFemale1 from "@/assets/teacher-female-1.png";
-import teacherFemale2 from "@/assets/teacher-female-2.png";
-import teacherFemale4 from "@/assets/teacher-female-4.png";
-import teacherFemale5 from "@/assets/teacher-female-5.png";
-import teacherFemale6 from "@/assets/teacher-female-6.png";
-import teacherMale1 from "@/assets/teacher-male-1.png";
-import teacherMale2 from "@/assets/teacher-male-2.png";
-import teacherMale3 from "@/assets/teacher-male-3.png";
-import teacherMale4 from "@/assets/teacher-male-4.png";
-import teacherMale5 from "@/assets/teacher-male-5.png";
+import teacherFemale1 from "@/assets/teacher-female-1.webp";
+import teacherFemale2 from "@/assets/teacher-female-2.webp";
+import teacherFemale4 from "@/assets/teacher-female-4.webp";
+import teacherFemale5 from "@/assets/teacher-female-5.webp";
+import teacherFemale6 from "@/assets/teacher-female-6.webp";
+import teacherMale1 from "@/assets/teacher-male-1.webp";
+import teacherMale2 from "@/assets/teacher-male-2.webp";
+import teacherMale3 from "@/assets/teacher-male-3.webp";
+import teacherMale4 from "@/assets/teacher-male-4.webp";
+import teacherMale5 from "@/assets/teacher-male-5.webp";
 
 interface Teacher {
   id: string;
