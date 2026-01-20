@@ -132,7 +132,7 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
           </div>
           
           {/* Preview row */}
-          <p className="text-xs text-muted-foreground truncate mt-0.5">
+          <p className="text-xs text-muted-foreground line-clamp-1 break-all mt-0.5">
             {previewText || 'Нет сообщений'}
           </p>
         </div>
