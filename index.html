@@ -153,24 +153,34 @@
     
     <div id="root"></div>
     <script type="module" src="/src/main.tsx" defer></script>
-    <!-- Cache service worker for better caching -->
+    <!-- Cache/service worker registration -->
     <script defer>
-      // IMPORTANT: Service workers can easily cause "Invalid hook call" issues in the Preview
-      // by serving a mix of cached + fresh JS chunks. We disable SW in preview environments.
+      // IMPORTANT: Service workers can cause "stale UI" by serving cached JS chunks.
+      // We disable SW in preview environments, and provide a one-time "cache reset" via ?nosw=1.
       if ("serviceWorker" in navigator) {
         const host = window.location.hostname;
         const isPreview = host.includes("lovableproject.com") || host.startsWith("id-preview--");
 
         window.addEventListener("load", async () => {
           try {
-            if (isPreview) {
-              // Ensure preview always runs on fresh assets
+            const qs = new URLSearchParams(window.location.search);
+            const shouldReset = qs.has("nosw");
+
+            // Preview: ensure always fresh assets
+            // nosw=1: allow users to force-reset SW + CacheStorage on their device
+            if (isPreview || shouldReset) {
               const regs = await navigator.serviceWorker.getRegistrations();
               await Promise.all(regs.map((r) => r.unregister()));
 
               if ("caches" in window) {
                 const keys = await caches.keys();
                 await Promise.all(keys.map((k) => caches.delete(k)));
+              }
+
+              if (shouldReset) {
+                qs.delete("nosw");
+                const next = `${window.location.pathname}${qs.toString() ? "?" + qs.toString() : ""}${window.location.hash || ""}`;
+                window.location.replace(next);
               }
               return;
             }
