@@ -26,6 +26,7 @@ interface AuthContextType {
   hasPermission: (permission: string, resource: string) => Promise<boolean>;
   hasPermissionSync: (permission: string, resource: string) => boolean;
   loading: boolean;
+  rolesLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -60,11 +61,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
+  const [rolesLoading, setRolesLoading] = useState(true);
   const [isRoleEmulation, setIsRoleEmulation] = useState(false);
   const [originalRoles, setOriginalRoles] = useState<AppRole[]>([]);
 
   const fetchProfile = async (userId: string) => {
     console.log('🔍 fetchProfile called for userId:', userId);
+    setRolesLoading(true);
     
     let fetchedRole: AppRole | null = null;
     let fetchedRoles: AppRole[] = [];
@@ -87,11 +90,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       
       setRole(fetchedRole);
       setRoles(fetchedRoles);
+      setRolesLoading(false);
       
       console.log('✅ Roles set in state:', { role: fetchedRole, roles: fetchedRoles });
       
     } catch (error) {
       console.error('❌ Error fetching roles:', error);
+      setRolesLoading(false);
     }
     
     try {
@@ -224,6 +229,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           setProfile(null);
           setRole(null);
           setRoles([]);
+          setRolesLoading(false);
           setPermissions({});
         }
         
@@ -382,6 +388,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     role,
     roles,
     loading,
+    rolesLoading,
     signIn,
     signUp,
     signOut,
