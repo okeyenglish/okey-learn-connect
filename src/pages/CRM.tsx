@@ -3728,26 +3728,28 @@ const CRMContent = () => {
               </div>
             </div>
           ) : activeChatId && activeChatType === 'client' ? (
-            <ChatArea 
-              clientId={activeChatId}
-              clientName={getActiveClientInfo().name}
-              clientPhone={getActiveClientInfo().phone}
-              clientComment={getActiveClientInfo().comment}
-              onMessageChange={setHasUnsavedChat}
-              activePhoneId={activePhoneId}
-              onOpenTaskModal={() => setShowAddTaskModal(true)}
-              onOpenInvoiceModal={() => setShowInvoiceModal(true)}
-              onBackToList={isMobile ? () => {
-                setActiveChatId('');
-                setActiveTab('chats');
-              } : undefined}
-              onChatAction={handleChatAction}
-              rightPanelCollapsed={rightPanelCollapsed}
-              onToggleRightPanel={() => setRightPanelCollapsed(!rightPanelCollapsed)}
-              initialMessengerTab={selectedMessengerTab?.tab}
-              messengerTabTimestamp={selectedMessengerTab?.ts}
-              initialSearchQuery={chatInitialSearchQuery}
-            />
+            <div className={isMobile ? 'pb-16' : ''}>
+              <ChatArea 
+                clientId={activeChatId}
+                clientName={getActiveClientInfo().name}
+                clientPhone={getActiveClientInfo().phone}
+                clientComment={getActiveClientInfo().comment}
+                onMessageChange={setHasUnsavedChat}
+                activePhoneId={activePhoneId}
+                onOpenTaskModal={() => setShowAddTaskModal(true)}
+                onOpenInvoiceModal={() => setShowInvoiceModal(true)}
+                onBackToList={isMobile ? () => {
+                  setActiveChatId('');
+                  setActiveTab('chats');
+                } : undefined}
+                onChatAction={handleChatAction}
+                rightPanelCollapsed={rightPanelCollapsed}
+                onToggleRightPanel={() => setRightPanelCollapsed(!rightPanelCollapsed)}
+                initialMessengerTab={selectedMessengerTab?.tab}
+                messengerTabTimestamp={selectedMessengerTab?.ts}
+                initialSearchQuery={chatInitialSearchQuery}
+              />
+            </div>
           ) : activeChatType === 'corporate' ? (
             <CorporateChatArea 
               onMessageChange={setHasUnsavedChat}
