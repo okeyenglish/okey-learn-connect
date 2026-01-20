@@ -159,7 +159,12 @@
       // We disable SW in preview environments, and provide a one-time "cache reset" via ?nosw=1.
       if ("serviceWorker" in navigator) {
         const host = window.location.hostname;
-        const isPreview = host.includes("lovableproject.com") || host.startsWith("id-preview--");
+        // Treat Lovable preview/staging hostnames as "preview" so we never cache/serve stale JS.
+        // (Users sometimes open preview URLs like `preview--*.lovable.app`.)
+        const isPreview =
+          host.includes("lovableproject.com") ||
+          host.startsWith("id-preview--") ||
+          host.startsWith("preview--");
 
         window.addEventListener("load", async () => {
           try {
