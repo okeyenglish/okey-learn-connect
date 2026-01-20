@@ -26,7 +26,7 @@ import { useMax } from '@/hooks/useMax';
 import { useTelegramWappi } from '@/hooks/useTelegramWappi';
 import { supabase } from '@/integrations/supabase/client';
 import { AddTeacherModal } from '@/components/admin/AddTeacherModal';
-import { useTeacherChats, useEnsureTeacherClient, TeacherChatItem } from '@/hooks/useTeacherChats';
+import { useTeacherChats, useEnsureTeacherClient, TeacherChatItem, useTeacherChatMessages } from '@/hooks/useTeacherChats';
 
 interface TeacherGroup {
   id: string;
@@ -186,7 +186,8 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   }, [selectedTeacherId, userBranch, dbTeachers, findOrCreateClient]);
 
   const clientId = resolvedClientId || '';
-  const { messages } = useChatMessages(clientId);
+  // Use special RPC for teacher messages that bypasses RLS org filter
+  const { messages } = useTeacherChatMessages(clientId);
   const sendMessage = useSendMessage();
   const markAsRead = useMarkAsRead();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);

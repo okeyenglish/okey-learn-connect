@@ -1,7 +1,37 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useCallback } from 'react';
 import { normalizePhone } from '@/utils/phoneNormalization';
+
+/**
+ * Hook to load teacher chat messages using SECURITY DEFINER RPC
+ * This bypasses RLS org filter for teacher-linked clients
+ */
+export const useTeacherChatMessages = (clientId: string) => {
+  const { data: messages, isLoading, error } = useQuery({
+    queryKey: ['teacher-chat-messages', clientId],
+    queryFn: async () => {
+      if (!clientId) return [];
+      
+      const { data, error } = await supabase.rpc('get_teacher_chat_messages', {
+        p_client_id: clientId
+      });
+      
+      if (error) {
+        console.error('[useTeacherChatMessages] Error:', error);
+        throw error;
+      }
+      
+      return data || [];
+    },
+    enabled: !!clientId,
+    staleTime: 30 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  return { messages: messages || [], isLoading, error };
+};
 
 export interface TeacherChatItem {
   id: string; // teacher.id from teachers table

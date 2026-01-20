@@ -9218,6 +9218,27 @@ export type Database = {
         Args: { _subscription_id: string }
         Returns: Json
       }
+      get_teacher_chat_messages: {
+        Args: { p_client_id: string }
+        Returns: {
+          call_duration: string
+          client_id: string
+          created_at: string
+          external_message_id: string
+          file_name: string
+          file_type: string
+          file_url: string
+          id: string
+          is_outgoing: boolean
+          is_read: boolean
+          message_status: string
+          message_text: string
+          message_type: string
+          messenger_type: string
+          phone_number_id: string
+          system_type: string
+        }[]
+      }
       get_teacher_client_ids: {
         Args: never
         Returns: {
