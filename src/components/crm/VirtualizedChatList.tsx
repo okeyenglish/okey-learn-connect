@@ -14,6 +14,7 @@ interface VirtualizedChatListProps {
   isChatReadGlobally: (chatId: string) => boolean;
   isInWorkByOthers: (chatId: string) => boolean;
   getPinnedByUserName: (chatId: string) => string;
+  messageSearchClientIds?: string[];
   onChatClick: (chatId: string, type: string) => void;
   onChatAction: (chatId: string, action: string) => void;
   onBulkSelect: (chatId: string) => void;
@@ -35,6 +36,7 @@ export const VirtualizedChatList = React.memo(({
   isChatReadGlobally,
   isInWorkByOthers,
   getPinnedByUserName,
+  messageSearchClientIds = [],
   onChatClick,
   onChatAction,
   onBulkSelect,
@@ -184,6 +186,7 @@ export const VirtualizedChatList = React.memo(({
                   profile={profile}
                   bulkSelectMode={bulkSelectMode}
                   isSelected={selectedChatIds.has(chat.id)}
+                  foundInMessages={chat.foundInMessages || messageSearchClientIds.includes(chat.id)}
                   onChatClick={() => onChatClick(chat.id, chat.type)}
                   onMarkUnread={() => onChatAction(chat.id, 'unread')}
                   onPinDialog={() => onChatAction(chat.id, 'pin')}

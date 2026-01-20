@@ -1,7 +1,7 @@
 import React from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Pin } from "lucide-react";
+import { Pin, MessageSquare } from "lucide-react";
 import { ChatContextMenu } from "./ChatContextMenu";
 
 interface ChatListItemProps {
@@ -26,6 +26,7 @@ interface ChatListItemProps {
   profile?: any;
   bulkSelectMode: boolean;
   isSelected: boolean;
+  foundInMessages?: boolean;
   onChatClick: () => void;
   onMarkUnread: () => void;
   onPinDialog: () => void;
@@ -48,6 +49,7 @@ export const ChatListItem = React.memo(({
   profile,
   bulkSelectMode,
   isSelected,
+  foundInMessages,
   onChatClick,
   onMarkUnread,
   onPinDialog,
@@ -134,6 +136,12 @@ export const ChatListItem = React.memo(({
                     У {pinnedByUserName}
                   </Badge>
                 )}
+                {foundInMessages && (
+                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 flex items-center gap-0.5">
+                    <MessageSquare className="h-2.5 w-2.5" />
+                    В сообщениях
+                  </Badge>
+                )}
               </div>
               
               <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
@@ -180,7 +188,8 @@ export const ChatListItem = React.memo(({
     prevProps.showEye === nextProps.showEye &&
     prevProps.bulkSelectMode === nextProps.bulkSelectMode &&
     prevProps.isSelected === nextProps.isSelected &&
-    prevProps.isInWorkByOthers === nextProps.isInWorkByOthers
+    prevProps.isInWorkByOthers === nextProps.isInWorkByOthers &&
+    prevProps.foundInMessages === nextProps.foundInMessages
   );
 });
 

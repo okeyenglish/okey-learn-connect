@@ -18,6 +18,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useClients, useSearchClients, useCreateClient } from "@/hooks/useClients";
 import { useClientIdsByPhoneSearch } from "@/hooks/useClientIdsByPhoneSearch";
 import { usePhoneSearchThreads } from "@/hooks/usePhoneSearchThreads";
+import { useClientNameSearch } from "@/hooks/useClientNameSearch";
+import { useMessageContentSearch } from "@/hooks/useMessageContentSearch";
 import { useClientStatus } from "@/hooks/useClientStatus";
 import { useRealtimeMessages, useMarkAsRead, useMarkAsUnread } from "@/hooks/useChatMessages";
 import { useChatThreadsInfinite } from "@/hooks/useChatThreadsInfinite";
@@ -983,36 +985,52 @@ const CRMContent = () => {
   });
 
   const { data: phoneSearchClientIds = [], isLoading: phoneSearchLoading } = useClientIdsByPhoneSearch(chatSearchQuery);
-  const phoneSearchClientIdsSet = useMemo(() => new Set(phoneSearchClientIds), [phoneSearchClientIds]);
   
-  // Debug logging for phone search
-  console.log('[CRM] Phone search state:', { 
+  // Search by client name (first_name, last_name, name)
+  const { data: nameSearchClientIds = [] } = useClientNameSearch(chatSearchQuery);
+  
+  // Search by message content (debounced 500ms via minQueryLength 3)
+  const { data: messageSearchClientIds = [] } = useMessageContentSearch(chatSearchQuery);
+  
+  // Combine all search results into a single Set
+  const allSearchClientIds = useMemo(() => {
+    const ids = new Set<string>();
+    phoneSearchClientIds.forEach(id => ids.add(id));
+    nameSearchClientIds.forEach(id => ids.add(id));
+    messageSearchClientIds.forEach(id => ids.add(id));
+    return ids;
+  }, [phoneSearchClientIds, nameSearchClientIds, messageSearchClientIds]);
+  
+  // Debug logging for all search types
+  console.log('[CRM] Search state:', { 
     query: chatSearchQuery, 
-    clientIdsFound: phoneSearchClientIds.length,
-    isLoading: phoneSearchLoading,
-    ids: phoneSearchClientIds.slice(0, 5)
+    phoneIds: phoneSearchClientIds.length,
+    nameIds: nameSearchClientIds.length,
+    messageIds: messageSearchClientIds.length,
+    totalUniqueIds: allSearchClientIds.size
   });
   
-  // Load full thread data for phone search results that are not in loaded threads
-  const { data: phoneSearchThreads = [], isLoading: phoneThreadsLoading } = usePhoneSearchThreads(phoneSearchClientIds, threadClientIdsSet);
+  // Load full thread data for search results that are not in loaded threads
+  const allSearchClientIdsArray = useMemo(() => Array.from(allSearchClientIds), [allSearchClientIds]);
+  const { data: phoneSearchThreads = [], isLoading: phoneThreadsLoading } = usePhoneSearchThreads(allSearchClientIdsArray, threadClientIdsSet);
   
-  console.log('[CRM] Phone search threads:', {
+  console.log('[CRM] Search threads loaded:', {
     threadsLoaded: phoneSearchThreads.length,
     isLoading: phoneThreadsLoading
   });
   
-  // Merge phone search threads into allChats
+  // Merge search threads into allChats
   const allChatsWithPhoneSearch = useMemo(() => {
-    console.log('[CRM] allChatsWithPhoneSearch recalc:', {
-      phoneSearchThreadsCount: phoneSearchThreads.length,
+    console.log('[CRM] allChatsWithSearch recalc:', {
+      searchThreadsCount: phoneSearchThreads.length,
       allChatsCount: allChats.length,
-      phoneSearchClientIds: phoneSearchClientIds.slice(0, 5),
+      allSearchClientIds: allSearchClientIds.size,
     });
     
     if (phoneSearchThreads.length === 0) {
       // Even if no threads loaded yet, check if we're waiting for them
-      if (phoneSearchClientIds.length > 0 && phoneThreadsLoading) {
-        console.log('[CRM] Phone threads still loading, returning allChats for now');
+      if (allSearchClientIds.size > 0 && phoneThreadsLoading) {
+        console.log('[CRM] Search threads still loading, returning allChats for now');
       }
       return allChats;
     }
@@ -1021,7 +1039,6 @@ const CRMContent = () => {
     const newChats = phoneSearchThreads
       .filter(thread => {
         const exists = existingIds.has(thread.client_id);
-        console.log(`[CRM] Phone thread ${thread.client_id} (${thread.client_name}): exists=${exists}`);
         return !exists;
       })
       .map(thread => {
@@ -1047,13 +1064,15 @@ const CRMContent = () => {
           type: 'client' as const,
           timestamp: thread.last_message_time ? new Date(thread.last_message_time).getTime() : 0,
           avatar_url: displayAvatar,
-          last_unread_messenger: thread.last_unread_messenger
+          last_unread_messenger: thread.last_unread_messenger,
+          // Mark if found via message search
+          foundInMessages: messageSearchClientIds.includes(thread.client_id)
         };
       });
     
-    console.log('[CRM] Adding phone search threads:', newChats.length, newChats.map(c => ({ id: c.id, name: c.name, phone: c.phone })));
+    console.log('[CRM] Adding search threads:', newChats.length);
     return [...allChats, ...newChats];
-  }, [allChats, phoneSearchThreads, phoneSearchClientIds, phoneThreadsLoading]);
+  }, [allChats, phoneSearchThreads, allSearchClientIds, phoneThreadsLoading, messageSearchClientIds]);
 
   // Helper to normalize phone for comparison
   const normalizePhoneForSearch = (phone: string | null | undefined) => 
@@ -1066,7 +1085,7 @@ const CRMContent = () => {
     chatSearchQuery.length === 0 || 
     (chat.name?.toLowerCase?.().includes(chatSearchQuery.toLowerCase()) ?? false) ||
     (isPhoneSearch && normalizePhoneForSearch(chat.phone).includes(normalizedSearchQuery)) ||
-    (chat.type === 'client' && phoneSearchClientIdsSet.has(chat.id))
+    (chat.type === 'client' && allSearchClientIds.has(chat.id))
   )
     .filter(chat => !getChatState(chat.id).isArchived) // Скрываем архивированные чаты
     .filter(chat => {
@@ -3193,6 +3212,7 @@ const CRMContent = () => {
                           isChatReadGlobally={isChatReadGlobally}
                           isInWorkByOthers={isInWorkByOthers}
                           getPinnedByUserName={getPinnedByUserName}
+                          messageSearchClientIds={messageSearchClientIds}
                           onChatClick={handleChatClick}
                           onChatAction={handleChatAction}
                           onBulkSelect={handleBulkSelectToggle}
@@ -3233,6 +3253,7 @@ const CRMContent = () => {
                         isChatReadGlobally={isChatReadGlobally}
                         isInWorkByOthers={isInWorkByOthers}
                         getPinnedByUserName={getPinnedByUserName}
+                        messageSearchClientIds={messageSearchClientIds}
                         onChatClick={handleChatClick}
                         onChatAction={handleChatAction}
                         onBulkSelect={handleBulkSelectToggle}
@@ -3577,6 +3598,7 @@ const CRMContent = () => {
                           isChatReadGlobally={isChatReadGlobally}
                           isInWorkByOthers={isInWorkByOthers}
                           getPinnedByUserName={getPinnedByUserName}
+                          messageSearchClientIds={messageSearchClientIds}
                           onChatClick={handleChatClick}
                           onChatAction={handleChatAction}
                           onBulkSelect={handleBulkSelectToggle}
@@ -3617,6 +3639,7 @@ const CRMContent = () => {
                         isChatReadGlobally={isChatReadGlobally}
                         isInWorkByOthers={isInWorkByOthers}
                         getPinnedByUserName={getPinnedByUserName}
+                        messageSearchClientIds={messageSearchClientIds}
                         onChatClick={handleChatClick}
                         onChatAction={handleChatAction}
                         onBulkSelect={handleBulkSelectToggle}
