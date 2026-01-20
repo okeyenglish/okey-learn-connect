@@ -780,8 +780,8 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             </div>
           </div>
 
-          <ScrollArea className="flex-1">
-            <div className="p-2">
+          <ScrollArea className="flex-1 pb-20">
+            <div className="p-2 pb-16">
               {isLoadingTeachers ? (
                 <>
                   {[1, 2, 3, 4, 5].map((i) => (

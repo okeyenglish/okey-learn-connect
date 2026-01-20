@@ -373,7 +373,7 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
             <AddCorporateChatModal onChatAdded={() => window.location.reload()} />
           </div>
           
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto pb-20">
             <div className="p-3 space-y-2">
               {branchesWithData.map((branch) => {
                 return (

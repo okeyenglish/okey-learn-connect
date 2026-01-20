@@ -59,7 +59,7 @@ import { DashboardModal } from "@/components/dashboards/DashboardModal";
 import { ScheduleModal } from "@/components/schedule/ScheduleModal";
 import { GroupsModal } from "@/components/learning-groups/GroupsModal";
 import { IndividualLessonsModal } from "@/components/individual-lessons/IndividualLessonsModal";
-import { MobileBottomNavigation } from "@/components/crm/MobileBottomNavigation";
+import { MobileChatNavigation } from "@/components/crm/MobileChatNavigation";
 import { MobileNewChatModal } from "@/components/crm/MobileNewChatModal";
 import { EducationSubmenu } from "@/components/learning-groups/EducationSubmenu";
 import { usePinnedModalsDB, PinnedModal } from "@/hooks/usePinnedModalsDB";
@@ -1554,16 +1554,26 @@ const CRMContent = () => {
     }
   };
 
+  const handleMobileClientsClick = () => {
+    setActiveChatType('client');
+    setActiveChatId(null);
+    if (isMobile) {
+      setLeftSidebarOpen(false);
+      setRightSidebarOpen(false);
+    }
+  };
+
+  const handleMobileCommunitiesClick = () => {
+    setActiveChatType('communities');
+    setActiveChatId(null);
+    if (isMobile) {
+      setLeftSidebarOpen(false);
+      setRightSidebarOpen(false);
+    }
+  };
+
   const handleMobileNewChatClick = () => {
     setShowNewChatModal(true);
-  };
-
-  const handleMobileAssistantClick = () => {
-    setVoiceAssistantOpen(true);
-  };
-
-  const handleMobileScheduleClick = () => {
-    setShowScheduleModal(true);
   };
 
   // Обработчики для закрепления модальных окон
@@ -3428,7 +3438,7 @@ const CRMContent = () => {
                   </DropdownMenu>
                 </div>
               </div>
-              <div className="flex-1 overflow-auto">
+              <div className="flex-1 overflow-auto pb-20">
                 <div className="p-4 flex flex-col h-full">
                   {/* Закрепленные чаты */}
                   {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
@@ -3941,16 +3951,18 @@ const CRMContent = () => {
         }}
       />
 
-      {/* Мобильная нижняя навигация - показываем только внутри открытого диалога */}
-      {isMobile && !!activeChatId && (
-        <MobileBottomNavigation
+      {/* Мобильная нижняя навигация чатов - показываем в разделе чатов */}
+      {isMobile && activeTab === 'chats' && (
+        <MobileChatNavigation
           onCorporateClick={handleMobileCorporateClick}
           onTeachersClick={handleMobileTeachersClick}
+          onClientsClick={handleMobileClientsClick}
+          onCommunitiesClick={handleMobileCommunitiesClick}
           onNewChatClick={handleMobileNewChatClick}
-          onScheduleClick={handleMobileScheduleClick}
-          onAssistantClick={handleMobileAssistantClick}
           corporateUnreadCount={corporateChats?.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0) || 0}
           teachersUnreadCount={teacherChats?.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0) || 0}
+          clientsUnreadCount={threads?.filter((t: any) => t.unread_count > 0).length || 0}
+          communitiesUnreadCount={communityUnread || 0}
           activeChatType={activeChatType}
         />
       )}
