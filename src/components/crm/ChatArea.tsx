@@ -1430,7 +1430,7 @@ export const ChatArea = ({
       }}
     >
       {/* Chat Header */}
-      <div className={`border-b shrink-0 relative ${isMobile ? 'bg-background sticky top-0 z-20' : 'p-3'}`}>
+      <div className={`border-b shrink-0 relative ${isMobile ? 'bg-background sticky top-12 z-40' : 'p-3'}`}>
         {/* Mobile: Compact header with contact info and actions on the same line */}
         {isMobile && (
           <div className="flex items-center justify-between p-2 bg-background">
