@@ -2108,7 +2108,7 @@ export const ChatArea = ({
       </div>
 
       {/* Message Input */}
-      <div className={`border-t p-2 shrink-0 ${isMobile ? 'pb-20' : ''}`}>
+      <div className={`border-t p-2 shrink-0 ${isMobile && !onBackToList ? 'pb-20' : ''}`}>
         {/* Pending message with countdown */}
         {pendingMessage && (
           <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">

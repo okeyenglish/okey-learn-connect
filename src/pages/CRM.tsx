@@ -3952,8 +3952,8 @@ const CRMContent = () => {
         }}
       />
 
-      {/* Мобильная нижняя навигация чатов - показываем в разделе чатов */}
-      {isMobile && activeTab === 'chats' && (
+      {/* Мобильная нижняя навигация чатов - показываем только в списке (не в диалоге) */}
+      {isMobile && activeTab === 'chats' && !activeChatId && (
         <MobileChatNavigation
           onCorporateClick={handleMobileCorporateClick}
           onTeachersClick={handleMobileTeachersClick}
