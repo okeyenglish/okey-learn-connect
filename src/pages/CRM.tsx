@@ -3728,8 +3728,8 @@ const CRMContent = () => {
               </div>
             </div>
           ) : activeChatId && activeChatType === 'client' ? (
-            <div>
-              <ChatArea 
+            <div className="flex-1 flex flex-col min-h-0">
+              <ChatArea
                 clientId={activeChatId}
                 clientName={getActiveClientInfo().name}
                 clientPhone={getActiveClientInfo().phone}

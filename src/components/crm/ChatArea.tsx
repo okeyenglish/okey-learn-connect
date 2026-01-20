@@ -2237,7 +2237,7 @@ export const ChatArea = ({
                 <Button 
                   size="sm" 
                   variant="ghost" 
-                  className={`hidden md:flex h-6 w-6 md:h-8 md:w-8 p-0 ${commentMode ? "bg-yellow-100 text-yellow-700" : ""}`}
+                  className={`h-6 w-6 md:h-8 md:w-8 p-0 ${commentMode ? "bg-yellow-100 text-yellow-700" : ""}`}
                   disabled={!!pendingMessage}
                   onClick={() => setCommentMode(!commentMode)}
                   title="Режим комментариев"
@@ -2247,14 +2247,14 @@ export const ChatArea = ({
                 <Button 
                   size="sm" 
                   variant="ghost" 
-                  className={`hidden md:flex h-6 w-6 md:h-8 md:w-8 p-0 ${gptGenerating ? "bg-blue-100 text-blue-700" : ""}`}
+                  className={`h-6 w-6 md:h-8 md:w-8 p-0 ${gptGenerating ? "bg-blue-100 text-blue-700" : ""}`}
                   disabled={!!pendingMessage || gptGenerating}
                   onClick={generateGPTResponse}
                   title="Генерировать ответ с помощью GPT"
                 >
                   <Bot className={`h-4 w-4 ${gptGenerating ? "animate-pulse" : ""}`} />
                 </Button>
-                <Button size="sm" variant="ghost" className="hidden md:flex h-6 w-6 md:h-8 md:w-8 p-0" disabled={!!pendingMessage}>
+                <Button size="sm" variant="ghost" className="h-6 w-6 md:h-8 md:w-8 p-0" disabled={!!pendingMessage}>
                   <Mic className="h-4 w-4" />
                 </Button>
                 
