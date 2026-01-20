@@ -585,7 +585,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
   // Messenger tabs component
   const MessengerTabs = () => (
-    <Tabs value={activeMessengerTab} onValueChange={handleMessengerTabChange} className="flex-1 flex flex-col min-h-0">
+    <Tabs value={activeMessengerTab} onValueChange={handleMessengerTabChange} className="flex-1 flex flex-col overflow-hidden">
       <TabsList className="grid w-full grid-cols-5 rounded-none bg-muted/30 border-b h-9 shrink-0">
         <TabsTrigger value="whatsapp" className="text-xs relative data-[state=active]:bg-green-500 data-[state=active]:text-white">
           WhatsApp
@@ -619,34 +619,34 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="whatsapp" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">
-        <div className="flex-1 overflow-y-auto p-3">
+      <TabsContent value="whatsapp" className="flex-1 mt-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden">
+        <div className="flex-1 overflow-y-auto p-3 min-h-0">
           {renderMessageList(whatsappMessages, whatsappEndRef, whatsappClientAvatar)}
         </div>
       </TabsContent>
 
-      <TabsContent value="telegram" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">
-        <div className="flex-1 overflow-y-auto p-3">
+      <TabsContent value="telegram" className="flex-1 mt-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden">
+        <div className="flex-1 overflow-y-auto p-3 min-h-0">
           {renderMessageList(telegramMessages, telegramEndRef, telegramClientAvatar)}
         </div>
       </TabsContent>
 
-      <TabsContent value="max" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">
-        <div className="flex-1 overflow-y-auto p-3">
+      <TabsContent value="max" className="flex-1 mt-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden">
+        <div className="flex-1 overflow-y-auto p-3 min-h-0">
           {renderMessageList(maxMessages, maxEndRef, maxClientAvatar)}
         </div>
       </TabsContent>
 
-      <TabsContent value="email" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">
-        <div className="flex-1 overflow-y-auto p-3">
+      <TabsContent value="email" className="flex-1 mt-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden">
+        <div className="flex-1 overflow-y-auto p-3 min-h-0">
           <div className="text-center text-muted-foreground text-sm py-8">
             Email переписка (в разработке)
           </div>
         </div>
       </TabsContent>
 
-      <TabsContent value="calls" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">
-        <div className="flex-1 overflow-y-auto p-3">
+      <TabsContent value="calls" className="flex-1 mt-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden">
+        <div className="flex-1 overflow-y-auto p-3 min-h-0">
           <CallHistory clientId={clientId} />
         </div>
       </TabsContent>
