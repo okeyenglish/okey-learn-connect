@@ -585,8 +585,12 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
   // Messenger tabs component
   const MessengerTabs = () => (
-    <Tabs value={activeMessengerTab} onValueChange={handleMessengerTabChange} className="flex-1 flex flex-col overflow-hidden">
-      <TabsList className="grid w-full grid-cols-5 rounded-none bg-muted/30 border-b h-9 shrink-0">
+    <Tabs
+      value={activeMessengerTab}
+      onValueChange={handleMessengerTabChange}
+      className="flex-1 min-w-0 flex flex-col overflow-hidden"
+    >
+      <TabsList className="grid w-full min-w-0 grid-cols-5 rounded-none bg-muted/30 border-b h-9 shrink-0">
         <TabsTrigger value="whatsapp" className="text-xs relative data-[state=active]:bg-green-500 data-[state=active]:text-white">
           WhatsApp
           {(unreadByMessenger?.whatsapp || 0) > 0 && (
@@ -888,9 +892,9 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
   // Desktop view: show both teacher list and chat
   return (
-    <div className="h-full flex">
+    <div className="h-full flex min-w-0 overflow-hidden">
       {/* Compact Teachers List */}
-      <div className="w-72 border-r border-border flex flex-col">
+      <div className="w-72 shrink-0 border-r border-border flex flex-col bg-background relative z-10">
         <div className="p-2 border-b border-border">
           <div className="flex gap-1">
             <div className="flex-1 relative">
@@ -982,7 +986,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       </div>
 
       {/* Chat Area with Header */}
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden">
         {/* Header - Fixed height */}
         <div className="p-3 border-b border-border bg-background shrink-0 h-16 flex items-center">
           <div className="flex items-center justify-between w-full">
