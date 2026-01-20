@@ -1681,7 +1681,7 @@ export const ChatArea = ({
       {/* Chat Messages with Tabs */}
       <div className="flex-1 overflow-hidden min-h-0">
         <Tabs value={activeMessengerTab} onValueChange={handleTabChange} className="h-full flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-5 rounded-none bg-muted/30 border-b">
+          <TabsList className="grid w-full grid-cols-5 rounded-none bg-muted/30 border-b shrink-0">
             <TabsTrigger 
               value="whatsapp" 
               className="text-xs relative data-[state=active]:bg-green-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
