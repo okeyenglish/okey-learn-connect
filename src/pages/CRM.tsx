@@ -1733,8 +1733,8 @@ const CRMContent = () => {
   return (
       <TooltipProvider>
         <div className="crm-container h-screen flex flex-col overflow-hidden">
-      {/* Фиксированные вкладки сверху на мобильной версии */}
-      {isMobile && (
+      {/* Фиксированные вкладки сверху на мобильной версии - скрываем когда открыт чат с клиентом */}
+      {isMobile && !(activeChatId && activeChatType === 'client') && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b shadow-sm">
           <div className="flex items-center">
             <Button
@@ -1767,24 +1767,6 @@ const CRMContent = () => {
             >
               Чаты{totalUnreadCount > 0 && ` (${totalUnreadCount})`}
             </Button>
-            {/* Кнопка О клиенте - показывается только при активном чате с клиентом */}
-            {activeChatId && activeChatType === 'client' && (
-              <Sheet open={rightSidebarOpen} onOpenChange={setRightSidebarOpen}>
-                <SheetTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className={`px-4 h-12 font-medium rounded-none transition-colors border-l ${
-                      rightSidebarOpen 
-                        ? 'bg-muted text-foreground' 
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                    }`}
-                  >
-                    О клиенте
-                  </Button>
-                </SheetTrigger>
-              </Sheet>
-            )}
             {/* Скрипты и аватарка менеджера на мобильной версии - убираем скрипты */}
             <div className="flex items-center px-4 h-14 border-l bg-background gap-2">
               <ManagerMenu
@@ -1858,8 +1840,7 @@ const CRMContent = () => {
         </div>
       )}
 
-      {/* Основная область */}
-      <div className={`relative z-0 isolate flex flex-1 w-full overflow-hidden ${isMobile ? 'pt-12' : ''}`}>
+      <div className={`relative z-0 isolate flex flex-1 w-full overflow-hidden ${isMobile && !(activeChatId && activeChatType === 'client') ? 'pt-12' : ''}`}>
         {/* Left Unified Sidebar - Desktop */}
         <div className={`${
           isMobile ? 'hidden' : 'flex'
@@ -3742,6 +3723,7 @@ const CRMContent = () => {
                 onChatAction={handleChatAction}
                 rightPanelCollapsed={rightPanelCollapsed}
                 onToggleRightPanel={() => setRightPanelCollapsed(!rightPanelCollapsed)}
+                onOpenClientInfo={isMobile ? () => setRightSidebarOpen(true) : undefined}
                 initialMessengerTab={selectedMessengerTab?.tab}
                 messengerTabTimestamp={selectedMessengerTab?.ts}
                 initialSearchQuery={chatInitialSearchQuery}
