@@ -118,7 +118,7 @@ const queryClient = new QueryClient({
 
 const AppContent = () => {
   const location = useLocation();
-  const isCRMPage = location.pathname === '/newcrm';
+  const isCRMPage = location.pathname === '/newcrm' || location.pathname === '/';
   const isPortalPage = location.pathname === '/student-portal' || location.pathname === '/teacher-portal' || location.pathname === '/methodist-portal' || location.pathname.startsWith('/teacher-group/');
   const isProgramsPage = location.pathname === '/programs' || location.pathname.startsWith('/programs/');
 
