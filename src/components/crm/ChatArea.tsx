@@ -2215,10 +2215,10 @@ export const ChatArea = ({
               disabled={loading || !!pendingMessage || isOtherUserTyping}
             />
             
-            {/* Bottom row: All icons responsive */}
-            <div ref={composerRef} className="flex flex-wrap items-center gap-1">
+            {/* Bottom row: All icons in scrollable row on mobile */}
+            <div ref={composerRef} className="flex items-center gap-1 overflow-x-auto">
               {/* Action icons */}
-              <div className="flex flex-wrap items-center gap-1 flex-1 min-w-0">
+              <div className="flex items-center gap-0.5 flex-1 min-w-0 shrink-0">
                 <FileUpload
                   key={`file-upload-${fileUploadResetKey}`}
                   onFileUpload={(fileInfo) => {
