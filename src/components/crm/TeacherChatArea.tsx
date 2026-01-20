@@ -755,27 +755,14 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     if (!selectedTeacherId) {
       return (
         <div className="flex flex-col h-full min-h-0 bg-background">
-          <div className="p-3 border-b">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <GraduationCap className="h-5 w-5 text-slate-600" />
-                <h2 className="font-semibold text-base">Преподаватели</h2>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="text-xs">
-                  {filteredTeachers.length + 1}
-                </Badge>
-                <AddTeacherModal onTeacherAdded={() => window.location.reload()} />
-              </div>
-            </div>
-            
-            <div className="relative mt-3">
+        <div className="p-3 border-b">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
                 placeholder="Поиск преподавателя..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-8 text-sm"
+                className="pl-10 h-9 text-sm"
               />
             </div>
           </div>
@@ -896,23 +883,13 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       {/* Compact Teachers List */}
       <div className="w-72 border-r border-border flex flex-col">
         <div className="p-3 border-b border-border">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-foreground">Преподаватели</h2>
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-xs">
-                {filteredTeachers.length + 1}
-              </Badge>
-              <AddTeacherModal onTeacherAdded={() => window.location.reload()} />
-            </div>
-          </div>
-          
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
               placeholder="Поиск преподавателя..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-8 text-sm"
+              className="pl-10 h-9 text-sm"
             />
           </div>
         </div>
