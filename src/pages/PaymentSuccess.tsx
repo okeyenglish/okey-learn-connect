@@ -60,7 +60,7 @@ const PaymentSuccess = () => {
           
           {status !== 'loading' && (
             <div className="flex flex-col gap-2">
-              <Button onClick={() => navigate('/newcrm')} className="w-full">
+              <Button onClick={() => navigate('/')} className="w-full">
                 Вернуться в CRM
               </Button>
               <Button variant="outline" onClick={() => window.close()}>

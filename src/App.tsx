@@ -118,7 +118,7 @@ const queryClient = new QueryClient({
 
 const AppContent = () => {
   const location = useLocation();
-  const isCRMPage = location.pathname === '/newcrm' || location.pathname === '/';
+  const isCRMPage = location.pathname === '/';
   const isPortalPage = location.pathname === '/student-portal' || location.pathname === '/teacher-portal' || location.pathname === '/methodist-portal' || location.pathname.startsWith('/teacher-group/');
   const isProgramsPage = location.pathname === '/programs' || location.pathname.startsWith('/programs/');
 
@@ -216,7 +216,6 @@ const AppContent = () => {
       <Header />
       <main className="flex-1 pb-16 lg:pb-0">
         <Routes>
-          <Route path="/main" element={<Index />} />
           <Route path="/branches" element={
             <Suspense fallback={<LoadingComponent />}>
               <Branches />
@@ -314,11 +313,7 @@ const AppContent = () => {
               </Suspense>
             </ProtectedRoute>
           } />
-          <Route path="/newcrm" element={
-            <Suspense fallback={<LoadingComponent />}>
-              <CRM />
-            </Suspense>
-          } />
+          <Route path="/main" element={<Index />} />
           <Route path="/crm/*" element={
             <Suspense fallback={<LoadingComponent />}>
               <UnifiedCRM />
