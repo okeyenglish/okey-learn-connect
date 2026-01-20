@@ -10,8 +10,38 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ChatBot from "@/components/ChatBot";
 import ScrollToTop from "@/components/ScrollToTop";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+
+// Disable pinch-to-zoom and double-tap zoom on iOS Safari
+const useDisableMobileZoom = () => {
+  useEffect(() => {
+    const opts: AddEventListenerOptions = { passive: false };
+
+    const preventGesture = (e: Event) => e.preventDefault();
+    
+    // iOS Safari pinch zoom emits non-standard gesture events
+    document.addEventListener("gesturestart", preventGesture, opts);
+    document.addEventListener("gesturechange", preventGesture, opts);
+    document.addEventListener("gestureend", preventGesture, opts);
+
+    // Prevent double-tap zoom
+    let lastTouchEnd = 0;
+    const preventDoubleTap = (e: TouchEvent) => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) e.preventDefault();
+      lastTouchEnd = now;
+    };
+    document.addEventListener("touchend", preventDoubleTap, opts);
+
+    return () => {
+      document.removeEventListener("gesturestart", preventGesture);
+      document.removeEventListener("gesturechange", preventGesture);
+      document.removeEventListener("gestureend", preventGesture);
+      document.removeEventListener("touchend", preventDoubleTap);
+    };
+  }, []);
+};
 
 // Immediate load for critical pages
 import Index from "./pages/Index";
@@ -446,21 +476,25 @@ const AppContent = () => {
   );
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <LanguageProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <ScrollToTop />
-            <AppContent />
-          </BrowserRouter>
-        </TooltipProvider>
-      </LanguageProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  useDisableMobileZoom();
+  
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <LanguageProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <ScrollToTop />
+              <AppContent />
+            </BrowserRouter>
+          </TooltipProvider>
+        </LanguageProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
