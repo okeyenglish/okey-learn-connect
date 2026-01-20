@@ -15,8 +15,9 @@ interface VirtualizedChatListProps {
   isInWorkByOthers: (chatId: string) => boolean;
   getPinnedByUserName: (chatId: string) => string;
   messageSearchClientIds?: string[];
+  getMessengerType?: (clientId: string) => 'whatsapp' | 'telegram' | 'max' | null;
   searchQuery?: string;
-  onChatClick: (chatId: string, type: string, foundInMessages?: boolean) => void;
+  onChatClick: (chatId: string, type: string, foundInMessages?: boolean, messengerType?: 'whatsapp' | 'telegram' | 'max' | null) => void;
   onChatAction: (chatId: string, action: string) => void;
   onBulkSelect: (chatId: string) => void;
   onDeleteChat?: (chatId: string, chatName: string) => void;
@@ -38,6 +39,7 @@ export const VirtualizedChatList = React.memo(({
   isInWorkByOthers,
   getPinnedByUserName,
   messageSearchClientIds = [],
+  getMessengerType,
   searchQuery = '',
   onChatClick,
   onChatAction,
@@ -190,7 +192,11 @@ export const VirtualizedChatList = React.memo(({
                   isSelected={selectedChatIds.has(chat.id)}
                   foundInMessages={chat.foundInMessages || messageSearchClientIds.includes(chat.id)}
                   searchQuery={searchQuery}
-                  onChatClick={() => onChatClick(chat.id, chat.type, chat.foundInMessages || messageSearchClientIds.includes(chat.id))}
+                  onChatClick={() => {
+                    const foundInMessages = chat.foundInMessages || messageSearchClientIds.includes(chat.id);
+                    const messengerType = foundInMessages && getMessengerType ? getMessengerType(chat.id) : null;
+                    onChatClick(chat.id, chat.type, foundInMessages, messengerType);
+                  }}
                   onMarkUnread={() => onChatAction(chat.id, 'unread')}
                   onPinDialog={() => onChatAction(chat.id, 'pin')}
                   onArchive={() => onChatAction(chat.id, 'archive')}

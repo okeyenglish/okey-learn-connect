@@ -3,9 +3,14 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentOrganizationId } from '@/lib/organizationHelpers';
 
+export interface MessageSearchResult {
+  clientId: string;
+  messengerType: 'whatsapp' | 'telegram' | 'max' | null;
+}
+
 /**
  * Hook to search chat messages by message_text content using full-text search.
- * Returns an array of unique client IDs that have matching messages.
+ * Returns an array of client IDs with their messenger types where the message was found.
  * Uses GIN index for 100x faster search.
  * Debounced by 300ms for performance.
  */
@@ -23,12 +28,12 @@ export const useMessageContentSearch = (query: string) => {
   // Only search if query is 3+ chars
   const enabled = debouncedQuery.length >= 3;
 
-  return useQuery({
+  const queryResult = useQuery({
     queryKey: ['message-content-search', debouncedQuery],
     enabled,
     staleTime: 60_000,
     gcTime: 5 * 60_000,
-    queryFn: async () => {
+    queryFn: async (): Promise<MessageSearchResult[]> => {
       console.log(`[useMessageContentSearch] FTS search for: "${debouncedQuery}"`);
       const orgId = await getCurrentOrganizationId();
 
@@ -45,9 +50,32 @@ export const useMessageContentSearch = (query: string) => {
         throw error;
       }
 
-      const ids = (data || []).map((row: { client_id: string }) => row.client_id);
-      console.log(`[useMessageContentSearch] Found ${ids.length} client IDs via FTS`);
-      return ids;
+      const results = (data || []).map((row: { client_id: string; messenger_type: string | null }) => ({
+        clientId: row.client_id,
+        messengerType: row.messenger_type as 'whatsapp' | 'telegram' | 'max' | null
+      }));
+      
+      console.log(`[useMessageContentSearch] Found ${results.length} client IDs via FTS`);
+      return results;
     },
   });
+
+  // Create a map for quick messenger type lookup
+  const messengerTypeMap = new Map<string, 'whatsapp' | 'telegram' | 'max' | null>();
+  if (queryResult.data) {
+    queryResult.data.forEach(result => {
+      messengerTypeMap.set(result.clientId, result.messengerType);
+    });
+  }
+
+  // Also return clientIds for backward compatibility
+  const clientIds = queryResult.data?.map(r => r.clientId) || [];
+
+  return {
+    ...queryResult,
+    data: clientIds,
+    results: queryResult.data || [],
+    messengerTypeMap,
+    getMessengerType: (clientId: string) => messengerTypeMap.get(clientId) || null
+  };
 };

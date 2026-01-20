@@ -992,7 +992,7 @@ const CRMContent = () => {
   const { data: nameSearchClientIds = [], isLoading: nameSearchLoading } = useClientNameSearch(chatSearchQuery);
   
   // Search by message content (debounced 500ms via minQueryLength 3)
-  const { data: messageSearchClientIds = [], isLoading: messageSearchLoading } = useMessageContentSearch(chatSearchQuery);
+  const { data: messageSearchClientIds = [], isLoading: messageSearchLoading, getMessengerType } = useMessageContentSearch(chatSearchQuery);
   
   // Combine all search results into a single Set
   const allSearchClientIds = useMemo(() => {
@@ -1218,8 +1218,8 @@ const CRMContent = () => {
   }, [selectedChatIds]);
 
   // Обработчики для чатов
-  const handleChatClick = useCallback(async (chatId: string, chatType: 'client' | 'corporate' | 'teachers', foundInMessages?: boolean) => {
-    console.log('Переключение на чат:', { chatId, chatType, foundInMessages });
+  const handleChatClick = useCallback(async (chatId: string, chatType: 'client' | 'corporate' | 'teachers', foundInMessages?: boolean, messengerType?: 'whatsapp' | 'telegram' | 'max' | null) => {
+    console.log('Переключение на чат:', { chatId, chatType, foundInMessages, messengerType });
     
     // Только переключаемся на новый чат, если это действительно другой чат
     const isNewChat = activeChatId !== chatId || activeChatType !== chatType;
@@ -1227,8 +1227,15 @@ const CRMContent = () => {
     setActiveChatType(chatType);
     
     // If chat was found via message search, pass search query to ChatArea
+    // and switch to the messenger tab where the message was found
     if (foundInMessages && chatSearchQuery && chatSearchQuery.length >= 3) {
       setChatInitialSearchQuery(chatSearchQuery);
+      
+      // Switch to the messenger tab where the message was found
+      const foundMessenger = messengerType || getMessengerType(chatId);
+      if (foundMessenger) {
+        setSelectedMessengerTab({ tab: foundMessenger, ts: Date.now() });
+      }
     } else {
       setChatInitialSearchQuery(undefined);
     }
@@ -1342,7 +1349,7 @@ const CRMContent = () => {
     if (isMobile) {
       setLeftSidebarOpen(false);
     }
-  }, [activeChatId, activeChatType, markChatAsReadGlobally, markChatMessagesAsReadMutation, markAsReadMutation, markAsRead, teacherChats, clients, threads, isMobile, chatSearchQuery]);
+  }, [activeChatId, activeChatType, markChatAsReadGlobally, markChatMessagesAsReadMutation, markAsReadMutation, markAsRead, teacherChats, clients, threads, isMobile, chatSearchQuery, getMessengerType]);
 
   const handleChatAction = useCallback((chatId: string, action: 'unread' | 'pin' | 'archive' | 'block') => {
     if (action === 'unread') {
@@ -3225,6 +3232,7 @@ const CRMContent = () => {
                           isInWorkByOthers={isInWorkByOthers}
                           getPinnedByUserName={getPinnedByUserName}
                           messageSearchClientIds={messageSearchClientIds}
+                          getMessengerType={getMessengerType}
                           searchQuery={chatSearchQuery}
                           onChatClick={handleChatClick}
                           onChatAction={handleChatAction}
@@ -3267,6 +3275,7 @@ const CRMContent = () => {
                         isInWorkByOthers={isInWorkByOthers}
                         getPinnedByUserName={getPinnedByUserName}
                         messageSearchClientIds={messageSearchClientIds}
+                        getMessengerType={getMessengerType}
                         searchQuery={chatSearchQuery}
                         onChatClick={handleChatClick}
                         onChatAction={handleChatAction}
@@ -3625,6 +3634,7 @@ const CRMContent = () => {
                           isInWorkByOthers={isInWorkByOthers}
                           getPinnedByUserName={getPinnedByUserName}
                           messageSearchClientIds={messageSearchClientIds}
+                          getMessengerType={getMessengerType}
                           searchQuery={chatSearchQuery}
                           onChatClick={handleChatClick}
                           onChatAction={handleChatAction}
@@ -3667,6 +3677,7 @@ const CRMContent = () => {
                         isInWorkByOthers={isInWorkByOthers}
                         getPinnedByUserName={getPinnedByUserName}
                         messageSearchClientIds={messageSearchClientIds}
+                        getMessengerType={getMessengerType}
                         searchQuery={chatSearchQuery}
                         onChatClick={handleChatClick}
                         onChatAction={handleChatAction}

@@ -9410,12 +9410,20 @@ export type Database = {
           id: string
         }[]
       }
-      search_messages_by_text: {
-        Args: { p_limit?: number; p_org_id: string; p_search_text: string }
-        Returns: {
-          client_id: string
-        }[]
-      }
+      search_messages_by_text:
+        | {
+            Args: { p_limit?: number; p_org_id: string; p_search_text: string }
+            Returns: {
+              client_id: string
+            }[]
+          }
+        | {
+            Args: { p_limit?: number; p_org_id: string; p_search_text: string }
+            Returns: {
+              client_id: string
+              messenger_type: string
+            }[]
+          }
       send_internal_chat_message: {
         Args: {
           p_chat_id: string
