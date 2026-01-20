@@ -66,14 +66,11 @@ export const MobileChatNavigation = ({
       />
       
       <div className={cn(
-        "relative z-10 flex flex-col items-center justify-center transition-all duration-300",
-        isActive ? "text-primary transform -translate-y-0.5" : "text-muted-foreground"
+        "relative z-10 flex flex-col items-center justify-center transition-colors duration-300",
+        isActive ? "text-primary" : "text-muted-foreground"
       )}>
         <div className="relative">
-          <Icon className={cn(
-            "h-5 w-5 mb-1 transition-transform duration-300",
-            isActive && "scale-110"
-          )} />
+          <Icon className="h-5 w-5 mb-1" />
           {unreadCount > 0 && (
             <Badge 
               variant="destructive" 
