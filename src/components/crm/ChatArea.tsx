@@ -1458,26 +1458,8 @@ export const ChatArea = ({
               </div>
             </div>
             
-            {/* Action buttons moved to the right */}
+            {/* Action buttons moved to the right - only Search, Phone, User visible, rest in dropdown */}
             <div className="flex items-center gap-1 flex-shrink-0">
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="crm-btn h-8 w-8 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
-                title="Добавить задачу"
-                onClick={() => (onOpenTaskModal ? onOpenTaskModal() : setShowAddTaskModal(true))}
-              >
-                <Plus className="h-4 w-4 stroke-1" />
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="crm-btn h-8 w-8 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
-                title="Выставить счёт"
-                onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}
-              >
-                <FileText className="h-4 w-4 stroke-1" />
-              </Button>
               <Button 
                 size="sm" 
                 variant="outline"
@@ -1496,15 +1478,6 @@ export const ChatArea = ({
               >
                 <Phone className="h-4 w-4 stroke-1" />
               </Button>
-              <Button 
-                size="sm" 
-                variant="outline"
-                className="h-8 w-8 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
-                title="Переслать"
-                onClick={handleToggleSelectionMode}
-              >
-                <Forward className="h-4 w-4 stroke-1" />
-              </Button>
               {/* Кнопка "О клиенте" */}
               {onOpenClientInfo && (
                 <Button 
@@ -1518,39 +1491,53 @@ export const ChatArea = ({
                 </Button>
               )}
               
-              {/* Settings dropdown with all the removed options */}
-              {onChatAction && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="h-8 w-8 p-0"
-                      title="Настройки чата"
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 bg-background border shadow-lg z-50">
-                    <DropdownMenuItem onClick={() => onChatAction(clientId, 'unread')}>
-                      <BellOff className="mr-2 h-4 w-4" />
-                      <span>Отметить непрочитанным</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onChatAction(clientId, 'pin')}>
-                      <Pin className="mr-2 h-4 w-4 text-purple-600" />
-                      <span>Закрепить диалог</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onChatAction(clientId, 'block')}>
-                      <Lock className="mr-2 h-4 w-4" />
-                      <span>Заблокировать клиента</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onChatAction(clientId, 'archive')}>
-                      <Archive className="mr-2 h-4 w-4 text-orange-600" />
-                      <span>Архивировать</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+              {/* More actions dropdown - contains all other actions */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="h-8 w-8 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                    title="Ещё"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-background border shadow-lg z-50">
+                  <DropdownMenuItem onClick={() => (onOpenTaskModal ? onOpenTaskModal() : setShowAddTaskModal(true))}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    <span>Добавить задачу</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    <span>Выставить счёт</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleToggleSelectionMode}>
+                    <Forward className="mr-2 h-4 w-4" />
+                    <span>Переслать</span>
+                  </DropdownMenuItem>
+                  {onChatAction && (
+                    <>
+                      <DropdownMenuItem onClick={() => onChatAction(clientId, 'unread')}>
+                        <BellOff className="mr-2 h-4 w-4" />
+                        <span>Отметить непрочитанным</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onChatAction(clientId, 'pin')}>
+                        <Pin className="mr-2 h-4 w-4 text-purple-600" />
+                        <span>Закрепить диалог</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onChatAction(clientId, 'block')}>
+                        <Lock className="mr-2 h-4 w-4" />
+                        <span>Заблокировать клиента</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onChatAction(clientId, 'archive')}>
+                        <Archive className="mr-2 h-4 w-4 text-orange-600" />
+                        <span>Архивировать</span>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         )}
