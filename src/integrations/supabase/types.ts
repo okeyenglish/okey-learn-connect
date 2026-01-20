@@ -7720,6 +7720,49 @@ export type Database = {
           },
         ]
       }
+      teacher_client_links: {
+        Row: {
+          client_id: string | null
+          created_at: string | null
+          teacher_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string | null
+          teacher_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string | null
+          teacher_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_client_links_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_client_links_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: true
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_client_links_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: true
+            referencedRelation: "teachers_with_branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teacher_earnings: {
         Row: {
           academic_hours: number
@@ -9413,6 +9456,7 @@ export type Database = {
         }
         Returns: string
       }
+      refresh_teacher_client_links: { Args: never; Returns: undefined }
       refund_lesson_to_subscription: {
         Args: {
           _lesson_session_id: string
