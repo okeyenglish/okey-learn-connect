@@ -8,11 +8,15 @@ export interface MessageSearchResult {
   messengerType: 'whatsapp' | 'telegram' | 'max' | null;
 }
 
+// Progressive search intervals in days
+const SEARCH_INTERVALS = [90, 180, null]; // null = all time
+
 /**
  * Hook to search chat messages by message_text content using full-text search.
  * Returns an array of client IDs with their messenger types where the message was found.
- * Uses GIN index for 100x faster search.
- * Debounced by 300ms for performance.
+ * Uses GIN index for faster search.
+ * Progressive search: starts with 90 days, expands if no results found.
+ * Debounced by 200ms for performance.
  */
 export const useMessageContentSearch = (query: string) => {
   const trimmedQuery = query.trim();
@@ -21,7 +25,7 @@ export const useMessageContentSearch = (query: string) => {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedQuery(trimmedQuery);
-    }, 300);
+    }, 200); // Reduced from 300ms to 200ms after index optimization
     return () => clearTimeout(timer);
   }, [trimmedQuery]);
 
@@ -34,29 +38,48 @@ export const useMessageContentSearch = (query: string) => {
     staleTime: 60_000,
     gcTime: 5 * 60_000,
     queryFn: async (): Promise<MessageSearchResult[]> => {
-      console.log(`[useMessageContentSearch] FTS search for: "${debouncedQuery}"`);
+      console.log(`[useMessageContentSearch] Starting progressive FTS search for: "${debouncedQuery}"`);
+      const startTime = performance.now();
       const orgId = await getCurrentOrganizationId();
 
-      // Use RPC with full-text search (GIN index)
-      const { data, error } = await supabase
-        .rpc('search_messages_by_text', {
-          p_org_id: orgId,
-          p_search_text: debouncedQuery,
-          p_limit: 50
-        });
+      // Progressive search: try increasingly larger time windows
+      for (const daysBack of SEARCH_INTERVALS) {
+        const intervalLabel = daysBack ? `${daysBack} days` : 'all time';
+        console.log(`[useMessageContentSearch] Searching ${intervalLabel}...`);
+        
+        const intervalStart = performance.now();
+        
+        const { data, error } = await supabase
+          .rpc('search_messages_by_text', {
+            p_org_id: orgId,
+            p_search_text: debouncedQuery,
+            p_limit: 50,
+            p_days_back: daysBack
+          });
 
-      if (error) {
-        console.error('[useMessageContentSearch] RPC error:', error);
-        throw error;
+        const intervalDuration = (performance.now() - intervalStart).toFixed(0);
+
+        if (error) {
+          console.error('[useMessageContentSearch] RPC error:', error);
+          throw error;
+        }
+
+        if (data && data.length > 0) {
+          const totalDuration = (performance.now() - startTime).toFixed(0);
+          console.log(`[useMessageContentSearch] Found ${data.length} results in ${intervalLabel} (${intervalDuration}ms, total: ${totalDuration}ms)`);
+          
+          return (data || []).map((row: { client_id: string; messenger_type: string | null }) => ({
+            clientId: row.client_id,
+            messengerType: row.messenger_type as 'whatsapp' | 'telegram' | 'max' | null
+          }));
+        }
+        
+        console.log(`[useMessageContentSearch] No results in ${intervalLabel} (${intervalDuration}ms), expanding...`);
       }
 
-      const results = (data || []).map((row: { client_id: string; messenger_type: string | null }) => ({
-        clientId: row.client_id,
-        messengerType: row.messenger_type as 'whatsapp' | 'telegram' | 'max' | null
-      }));
-      
-      console.log(`[useMessageContentSearch] Found ${results.length} client IDs via FTS`);
-      return results;
+      const totalDuration = (performance.now() - startTime).toFixed(0);
+      console.log(`[useMessageContentSearch] No results found in any interval (total: ${totalDuration}ms)`);
+      return [];
     },
   });
 
