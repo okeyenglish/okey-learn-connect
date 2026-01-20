@@ -99,7 +99,37 @@ export const FamilyCard = ({
   const otherMembers = familyData.members.filter(m => m.id !== activeMember?.id);
   const parentMembers = otherMembers.filter(m => m.relationship === 'parent');
 
-  const getRelationshipLabel = (relationship: string) => {
+  // Normalize phone number for comparison
+  const normalizePhone = (phone: string | undefined | null): string => {
+    if (!phone) return '';
+    return phone.replace(/\D/g, '').replace(/^8/, '7');
+  };
+
+  // Check if member is also a student (adult student)
+  const isAdultStudent = (member: FamilyMember): boolean => {
+    if (!familyData?.students?.length) return false;
+    
+    // Get all phone numbers for this member
+    const memberPhones = [
+      normalizePhone(member.phone),
+      ...(member.phoneNumbers || []).map(p => normalizePhone(p.phone))
+    ].filter(Boolean);
+    
+    if (memberPhones.length === 0) return false;
+    
+    // Check if any student has a matching phone
+    return familyData.students.some(student => {
+      const studentPhone = normalizePhone(student.phone);
+      return studentPhone && memberPhones.includes(studentPhone);
+    });
+  };
+
+  const getRelationshipLabel = (relationship: string, member?: FamilyMember) => {
+    // If member is also a student, show "Взрослый ученик"
+    if (member && isAdultStudent(member)) {
+      return 'Взрослый ученик';
+    }
+    
     switch (relationship) {
       case 'main': return 'Основной контакт';
       case 'spouse': return 'Супруг(а)';
@@ -135,7 +165,12 @@ export const FamilyCard = ({
     return null;
   };
 
-  const getRelationshipIcon = (relationship: string) => {
+  const getRelationshipIcon = (relationship: string, member?: FamilyMember) => {
+    // If member is also a student, show GraduationCap icon
+    if (member && isAdultStudent(member)) {
+      return GraduationCap;
+    }
+    
     switch (relationship) {
       case 'main': return User;
       case 'spouse': return Heart;
@@ -269,7 +304,7 @@ export const FamilyCard = ({
                   )}
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  {getRelationshipLabel(activeMember.relationship)}
+                  {getRelationshipLabel(activeMember.relationship, activeMember)}
                 </p>
               </div>
             </div>
@@ -490,7 +525,7 @@ export const FamilyCard = ({
           ) : (
             <div className="space-y-2">
               {parentMembers.map((member) => {
-                const RelationIcon = getRelationshipIcon(member.relationship);
+                const RelationIcon = getRelationshipIcon(member.relationship, member);
                 return (
                   <Card 
                     key={member.id} 
@@ -524,7 +559,7 @@ export const FamilyCard = ({
                              <div className="flex items-center gap-2">
                                <p className="text-xs text-muted-foreground">{member.phone}</p>
                               <Badge variant="outline" className="text-xs">
-                                {getRelationshipLabel(member.relationship)}
+                                {getRelationshipLabel(member.relationship, member)}
                               </Badge>
                             </div>
                           </div>
