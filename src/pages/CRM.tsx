@@ -3213,6 +3213,7 @@ const CRMContent = () => {
                           isInWorkByOthers={isInWorkByOthers}
                           getPinnedByUserName={getPinnedByUserName}
                           messageSearchClientIds={messageSearchClientIds}
+                          searchQuery={chatSearchQuery}
                           onChatClick={handleChatClick}
                           onChatAction={handleChatAction}
                           onBulkSelect={handleBulkSelectToggle}
@@ -3254,6 +3255,7 @@ const CRMContent = () => {
                         isInWorkByOthers={isInWorkByOthers}
                         getPinnedByUserName={getPinnedByUserName}
                         messageSearchClientIds={messageSearchClientIds}
+                        searchQuery={chatSearchQuery}
                         onChatClick={handleChatClick}
                         onChatAction={handleChatAction}
                         onBulkSelect={handleBulkSelectToggle}
@@ -3599,6 +3601,7 @@ const CRMContent = () => {
                           isInWorkByOthers={isInWorkByOthers}
                           getPinnedByUserName={getPinnedByUserName}
                           messageSearchClientIds={messageSearchClientIds}
+                          searchQuery={chatSearchQuery}
                           onChatClick={handleChatClick}
                           onChatAction={handleChatAction}
                           onBulkSelect={handleBulkSelectToggle}
@@ -3640,6 +3643,7 @@ const CRMContent = () => {
                         isInWorkByOthers={isInWorkByOthers}
                         getPinnedByUserName={getPinnedByUserName}
                         messageSearchClientIds={messageSearchClientIds}
+                        searchQuery={chatSearchQuery}
                         onChatClick={handleChatClick}
                         onChatAction={handleChatAction}
                         onBulkSelect={handleBulkSelectToggle}

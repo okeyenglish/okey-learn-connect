@@ -27,6 +27,7 @@ interface ChatListItemProps {
   bulkSelectMode: boolean;
   isSelected: boolean;
   foundInMessages?: boolean;
+  searchQuery?: string;
   onChatClick: () => void;
   onMarkUnread: () => void;
   onPinDialog: () => void;
@@ -36,6 +37,31 @@ interface ChatListItemProps {
   onLinkToClient?: () => void;
   onBulkSelect?: () => void;
 }
+
+// Highlight matching text with yellow background
+const HighlightText = ({ text, query }: { text: string; query?: string }) => {
+  if (!query || query.length < 2) {
+    return <>{text}</>;
+  }
+  
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escapedQuery})`, 'gi');
+  const parts = text.split(regex);
+  
+  return (
+    <>
+      {parts.map((part, index) => 
+        regex.test(part) ? (
+          <mark key={index} className="bg-yellow-200 dark:bg-yellow-800 text-inherit rounded-sm px-0.5">
+            {part}
+          </mark>
+        ) : (
+          <span key={index}>{part}</span>
+        )
+      )}
+    </>
+  );
+};
 
 export const ChatListItem = React.memo(({ 
   chat, 
@@ -50,6 +76,7 @@ export const ChatListItem = React.memo(({
   bulkSelectMode,
   isSelected,
   foundInMessages,
+  searchQuery,
   onChatClick,
   onMarkUnread,
   onPinDialog,
@@ -118,7 +145,7 @@ export const ChatListItem = React.memo(({
               <div className="flex-1 min-w-0 overflow-hidden">
               <div className="flex items-center gap-1.5 mb-0">
                 <p className={`text-sm ${displayUnread ? 'font-semibold' : 'font-medium'} truncate`}>
-                  {chat.name}
+                  <HighlightText text={chat.name} query={searchQuery} />
                 </p>
                 {isPinned && (
                   <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
@@ -189,7 +216,8 @@ export const ChatListItem = React.memo(({
     prevProps.bulkSelectMode === nextProps.bulkSelectMode &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isInWorkByOthers === nextProps.isInWorkByOthers &&
-    prevProps.foundInMessages === nextProps.foundInMessages
+    prevProps.foundInMessages === nextProps.foundInMessages &&
+    prevProps.searchQuery === nextProps.searchQuery
   );
 });
 
