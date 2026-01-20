@@ -987,10 +987,10 @@ const CRMContent = () => {
   const { data: phoneSearchClientIds = [], isLoading: phoneSearchLoading } = useClientIdsByPhoneSearch(chatSearchQuery);
   
   // Search by client name (first_name, last_name, name)
-  const { data: nameSearchClientIds = [] } = useClientNameSearch(chatSearchQuery);
+  const { data: nameSearchClientIds = [], isLoading: nameSearchLoading } = useClientNameSearch(chatSearchQuery);
   
   // Search by message content (debounced 500ms via minQueryLength 3)
-  const { data: messageSearchClientIds = [] } = useMessageContentSearch(chatSearchQuery);
+  const { data: messageSearchClientIds = [], isLoading: messageSearchLoading } = useMessageContentSearch(chatSearchQuery);
   
   // Combine all search results into a single Set
   const allSearchClientIds = useMemo(() => {
@@ -1018,6 +1018,9 @@ const CRMContent = () => {
     threadsLoaded: phoneSearchThreads.length,
     isLoading: phoneThreadsLoading
   });
+  
+  // Combined search loading state
+  const isSearchLoading = chatSearchQuery.length >= 2 && (phoneSearchLoading || nameSearchLoading || messageSearchLoading || phoneThreadsLoading);
   
   // Merge search threads into allChats
   const allChatsWithPhoneSearch = useMemo(() => {
@@ -3265,7 +3268,18 @@ const CRMContent = () => {
                     </div>
                   )}
 
-                  {filteredChats.length === 0 && chatSearchQuery && (
+                  {chatSearchQuery && isSearchLoading && (
+                    <div className="flex flex-col items-center justify-center py-12 gap-3">
+                      <div className="relative">
+                        <div className="h-8 w-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                      </div>
+                      <p className="text-sm text-muted-foreground animate-pulse">
+                        Поиск...
+                      </p>
+                    </div>
+                  )}
+
+                  {filteredChats.length === 0 && chatSearchQuery && !isSearchLoading && (
                     <div className="text-center py-8">
                       <p className="text-sm text-muted-foreground">
                         Чаты не найдены
