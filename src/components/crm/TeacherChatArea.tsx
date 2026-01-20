@@ -27,6 +27,7 @@ import { useTelegramWappi } from '@/hooks/useTelegramWappi';
 import { supabase } from '@/integrations/supabase/client';
 import { AddTeacherModal } from '@/components/admin/AddTeacherModal';
 import { useTeacherChats, useEnsureTeacherClient, TeacherChatItem, useTeacherChatMessages } from '@/hooks/useTeacherChats';
+import { TeacherListItem } from './TeacherListItem';
 
 interface TeacherGroup {
   id: string;
@@ -66,7 +67,7 @@ interface Teacher {
 // Тип для преподавателей из БД - теперь импортируется из useTeacherChats
 type DbTeacher = TeacherChatItem;
 
-const DEFAULT_SUBJECT = 'Английский';
+
 
 
 interface TeacherChatAreaProps {
@@ -776,53 +777,14 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
                   {/* Individual Teachers */}
                   {filteredTeachers.map((teacher) => (
-                    <div
+                    <TeacherListItem
                       key={teacher.id}
+                      teacher={teacher}
+                      isSelected={false}
+                      pinCount={pinCounts[teacher.id] || 0}
                       onClick={() => onSelectTeacher(teacher.id)}
-                      className="p-3 rounded-lg cursor-pointer transition-colors mb-2 hover:bg-muted/50 border bg-card"
-                    >
-                      <div className="flex items-start space-x-3">
-                        <div className="relative">
-                          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-sm font-medium text-primary">
-                            {(teacher.firstName?.[0] || teacher.fullName?.[0] || '•')}{(teacher.lastName?.[0] || '')}
-                          </div>
-                          {teacher.isOnline && (
-                            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border border-background"></div>
-                          )}
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <h3 className="font-medium text-sm text-foreground">
-                              {teacher.fullName}
-                            </h3>
-                            <div className="flex items-center gap-1">
-                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                                {teacher.lastMessageTime 
-                                  ? new Date(teacher.lastMessageTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-                                  : ''}
-                              </span>
-                              {pinCounts[teacher.id] > 0 && (
-                                <Pin className="h-3 w-3 text-muted-foreground" />
-                              )}
-                              {teacher.unreadMessages > 0 && (
-                                <Badge variant="destructive" className="h-5 min-w-5 p-0 flex items-center justify-center text-xs rounded-full">
-                                  {teacher.unreadMessages}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {teacher.branch} • {DEFAULT_SUBJECT}
-                          </p>
-                          
-                          <p className="text-xs text-muted-foreground truncate">
-                            {teacher.lastMessageText || 'нет сообщений'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+                      compact={false}
+                    />
                   ))}
                 </>
               )}
@@ -956,57 +918,14 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
                 {/* Individual Teachers */}
                 {filteredTeachers.map((teacher) => (
-                  <div
+                  <TeacherListItem
                     key={teacher.id}
+                    teacher={teacher}
+                    isSelected={selectedTeacherId === teacher.id}
+                    pinCount={pinCounts[teacher.id] || 0}
                     onClick={() => onSelectTeacher(teacher.id)}
-                    className={`p-2 rounded-lg cursor-pointer transition-colors mb-1 ${
-                      selectedTeacherId === teacher.id
-                        ? 'bg-muted border border-border'
-                        : 'hover:bg-muted/50'
-                    }`}
-                  >
-                    <div className="flex items-start space-x-2">
-                      <div className="relative">
-                        <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium text-primary">
-                          {(teacher.firstName?.[0] || teacher.fullName?.[0] || '•')}{(teacher.lastName?.[0] || '')}
-                        </div>
-                        {teacher.isOnline && (
-                          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border border-background"></div>
-                        )}
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-medium text-sm text-foreground truncate">
-                            {teacher.fullName}
-                          </h3>
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                              {teacher.lastMessageTime 
-                                ? new Date(teacher.lastMessageTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-                                : ''}
-                            </span>
-                            {pinCounts[teacher.id] > 0 && (
-                              <Pin className="h-3 w-3 text-muted-foreground" />
-                            )}
-                            {teacher.unreadMessages > 0 && (
-                              <Badge variant="destructive" className="h-4 min-w-4 p-0 flex items-center justify-center text-xs rounded-full">
-                                {teacher.unreadMessages}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <p className="text-xs text-muted-foreground truncate">
-                          {teacher.branch} • {DEFAULT_SUBJECT}
-                        </p>
-                        
-                        <p className="text-xs text-muted-foreground truncate">
-                          {teacher.lastMessageText || 'нет сообщений'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                    compact={true}
+                  />
                 ))}
               </>
             )}
