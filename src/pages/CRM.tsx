@@ -3299,9 +3299,16 @@ const CRMContent = () => {
                   )}
 
                   {filteredChats.length === 0 && chatSearchQuery && !isSearchLoading && (
-                    <div className="text-center py-8">
-                      <p className="text-sm text-muted-foreground">
-                        Чаты не найдены
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-sm">
+                      <div className="relative">
+                        <Search className="h-10 w-10 text-muted-foreground/50" />
+                        <X className="h-4 w-4 text-destructive absolute -bottom-1 -right-1 bg-background rounded-full" />
+                      </div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Ничего не найдено
+                      </p>
+                      <p className="text-xs text-muted-foreground/70">
+                        Попробуйте изменить запрос
                       </p>
                     </div>
                   )}
