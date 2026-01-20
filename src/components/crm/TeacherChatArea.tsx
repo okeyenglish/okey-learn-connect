@@ -557,26 +557,44 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="whatsapp" className="flex-1 overflow-y-auto p-3 mt-0">
-        {renderMessageList(whatsappMessages, whatsappEndRef, whatsappClientAvatar)}
+      <TabsContent value="whatsapp" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
+        <ScrollArea className="h-full">
+          <div className="p-3">
+            {renderMessageList(whatsappMessages, whatsappEndRef, whatsappClientAvatar)}
+          </div>
+        </ScrollArea>
       </TabsContent>
 
-      <TabsContent value="telegram" className="flex-1 overflow-y-auto p-3 mt-0">
-        {renderMessageList(telegramMessages, telegramEndRef, telegramClientAvatar)}
+      <TabsContent value="telegram" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
+        <ScrollArea className="h-full">
+          <div className="p-3">
+            {renderMessageList(telegramMessages, telegramEndRef, telegramClientAvatar)}
+          </div>
+        </ScrollArea>
       </TabsContent>
 
-      <TabsContent value="max" className="flex-1 overflow-y-auto p-3 mt-0">
-        {renderMessageList(maxMessages, maxEndRef, maxClientAvatar)}
+      <TabsContent value="max" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
+        <ScrollArea className="h-full">
+          <div className="p-3">
+            {renderMessageList(maxMessages, maxEndRef, maxClientAvatar)}
+          </div>
+        </ScrollArea>
       </TabsContent>
 
-      <TabsContent value="email" className="flex-1 overflow-y-auto p-3 mt-0">
-        <div className="text-center text-muted-foreground text-sm py-8">
-          Email переписка (в разработке)
-        </div>
+      <TabsContent value="email" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
+        <ScrollArea className="h-full">
+          <div className="p-3 text-center text-muted-foreground text-sm py-8">
+            Email переписка (в разработке)
+          </div>
+        </ScrollArea>
       </TabsContent>
 
-      <TabsContent value="calls" className="flex-1 overflow-y-auto p-3 mt-0">
-        <CallHistory clientId={clientId} />
+      <TabsContent value="calls" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
+        <ScrollArea className="h-full">
+          <div className="p-3">
+            <CallHistory clientId={clientId} />
+          </div>
+        </ScrollArea>
       </TabsContent>
     </Tabs>
   );
@@ -779,11 +797,16 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                               {teacher.fullName}
                             </h3>
                             <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                {teacher.lastMessageTime 
+                                  ? new Date(teacher.lastMessageTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+                                  : ''}
+                              </span>
                               {pinCounts[teacher.id] > 0 && (
                                 <Pin className="h-3 w-3 text-muted-foreground" />
                               )}
                               {teacher.unreadMessages > 0 && (
-                                <Badge variant="destructive" className="h-5 w-5 p-0 flex items-center justify-center text-xs rounded-sm">
+                                <Badge variant="destructive" className="h-5 min-w-5 p-0 flex items-center justify-center text-xs rounded-full">
                                   {teacher.unreadMessages}
                                 </Badge>
                               )}
@@ -794,8 +817,8 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                             {teacher.branch} • {DEFAULT_SUBJECT}
                           </p>
                           
-                          <p className="text-xs text-muted-foreground">
-                            {teacher.lastSeen}
+                          <p className="text-xs text-muted-foreground truncate">
+                            {teacher.lastMessageText || 'нет сообщений'}
                           </p>
                         </div>
                       </div>
@@ -958,11 +981,16 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                             {teacher.fullName}
                           </h3>
                           <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                              {teacher.lastMessageTime 
+                                ? new Date(teacher.lastMessageTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+                                : ''}
+                            </span>
                             {pinCounts[teacher.id] > 0 && (
                               <Pin className="h-3 w-3 text-muted-foreground" />
                             )}
                             {teacher.unreadMessages > 0 && (
-                              <Badge variant="destructive" className="h-4 w-4 p-0 flex items-center justify-center text-xs rounded-sm">
+                              <Badge variant="destructive" className="h-4 min-w-4 p-0 flex items-center justify-center text-xs rounded-full">
                                 {teacher.unreadMessages}
                               </Badge>
                             )}
@@ -973,8 +1001,8 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                           {teacher.branch} • {DEFAULT_SUBJECT}
                         </p>
                         
-                        <p className="text-xs text-muted-foreground">
-                          {teacher.lastSeen}
+                        <p className="text-xs text-muted-foreground truncate">
+                          {teacher.lastMessageText || 'нет сообщений'}
                         </p>
                       </div>
                     </div>
