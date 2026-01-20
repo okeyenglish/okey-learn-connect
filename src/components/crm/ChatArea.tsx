@@ -56,6 +56,7 @@ interface ChatAreaProps {
   onToggleRightPanel?: () => void; // Toggle right panel
   initialMessengerTab?: 'whatsapp' | 'telegram' | 'max'; // Initial messenger tab to show
   messengerTabTimestamp?: number; // Timestamp to force tab switch
+  initialSearchQuery?: string; // Search query to auto-open search and scroll to match
 }
 
 interface ScheduledMessage {
@@ -81,7 +82,8 @@ export const ChatArea = ({
   rightPanelCollapsed = false,
   onToggleRightPanel,
   initialMessengerTab,
-  messengerTabTimestamp
+  messengerTabTimestamp,
+  initialSearchQuery
 }: ChatAreaProps) => {
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -238,6 +240,22 @@ export const ChatArea = ({
   useEffect(() => {
     // When client changes, reset the flag so we can set the initial tab
     setInitialTabSet(null);
+  }, [clientId]);
+  
+  // Handle initial search query from message search (auto-open search modal)
+  const [initialSearchApplied, setInitialSearchApplied] = useState<string | null>(null);
+  useEffect(() => {
+    if (initialSearchQuery && initialSearchQuery !== initialSearchApplied) {
+      console.log('[ChatArea] Auto-opening search with query:', initialSearchQuery);
+      setSearchQuery(initialSearchQuery);
+      setShowSearchInput(true);
+      setInitialSearchApplied(initialSearchQuery);
+    }
+  }, [initialSearchQuery, initialSearchApplied]);
+  
+  // Reset initial search when clientId changes
+  useEffect(() => {
+    setInitialSearchApplied(null);
   }, [clientId]);
   
   // Set initial tab to the one with the last message when client changes

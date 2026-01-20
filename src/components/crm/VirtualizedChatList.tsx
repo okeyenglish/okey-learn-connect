@@ -16,7 +16,7 @@ interface VirtualizedChatListProps {
   getPinnedByUserName: (chatId: string) => string;
   messageSearchClientIds?: string[];
   searchQuery?: string;
-  onChatClick: (chatId: string, type: string) => void;
+  onChatClick: (chatId: string, type: string, foundInMessages?: boolean) => void;
   onChatAction: (chatId: string, action: string) => void;
   onBulkSelect: (chatId: string) => void;
   onDeleteChat?: (chatId: string, chatName: string) => void;
@@ -190,7 +190,7 @@ export const VirtualizedChatList = React.memo(({
                   isSelected={selectedChatIds.has(chat.id)}
                   foundInMessages={chat.foundInMessages || messageSearchClientIds.includes(chat.id)}
                   searchQuery={searchQuery}
-                  onChatClick={() => onChatClick(chat.id, chat.type)}
+                  onChatClick={() => onChatClick(chat.id, chat.type, chat.foundInMessages || messageSearchClientIds.includes(chat.id))}
                   onMarkUnread={() => onChatAction(chat.id, 'unread')}
                   onPinDialog={() => onChatAction(chat.id, 'pin')}
                   onArchive={() => onChatAction(chat.id, 'archive')}
