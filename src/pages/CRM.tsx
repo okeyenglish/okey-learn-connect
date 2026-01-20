@@ -3659,6 +3659,7 @@ const CRMContent = () => {
                           hasNextPage={hasNextPage}
                           isFetchingNextPage={isFetchingNextPage}
                           onLoadMore={loadMore}
+                          bottomPadding={'calc(4rem + env(safe-area-inset-bottom, 0px))'}
                         />
                       </div>
                     </>

@@ -26,6 +26,8 @@ interface VirtualizedChatListProps {
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
   onLoadMore?: () => void;
+  // UI
+  bottomPadding?: string;
 }
 
 export const VirtualizedChatList = React.memo(({
@@ -48,7 +50,8 @@ export const VirtualizedChatList = React.memo(({
   onLinkChat,
   hasNextPage,
   isFetchingNextPage,
-  onLoadMore
+  onLoadMore,
+  bottomPadding,
 }: VirtualizedChatListProps) => {
   const parentRef = useRef<HTMLDivElement>(null);
   const hoverTimerRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
