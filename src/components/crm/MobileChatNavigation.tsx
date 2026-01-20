@@ -47,28 +47,48 @@ export const MobileChatNavigation = ({
     unreadCount?: number;
     isActive?: boolean;
   }) => (
-    <Button
-      variant="ghost"
+    <button
       className={cn(
-        "flex flex-col items-center justify-center h-16 flex-1 relative transition-colors duration-200 px-1",
-        "text-muted-foreground hover:text-primary hover:bg-accent/50",
-        isActive && "text-primary bg-accent/30"
+        "flex flex-col items-center justify-center h-16 flex-1 relative px-1",
+        "transition-all duration-300 ease-out",
+        "text-muted-foreground"
       )}
       onClick={onClick}
     >
-      <div className="relative">
-        <Icon className="h-5 w-5 mb-1" />
-        {unreadCount > 0 && (
-          <Badge 
-            variant="destructive" 
-            className="absolute -top-2 -right-3 h-5 min-w-[20px] rounded-sm p-0 flex items-center justify-center text-xs"
-          >
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </Badge>
+      {/* Animated background pill */}
+      <div 
+        className={cn(
+          "absolute inset-1 rounded-2xl transition-all duration-300 ease-out",
+          isActive 
+            ? "bg-primary/10 scale-100 opacity-100" 
+            : "bg-transparent scale-90 opacity-0"
         )}
+      />
+      
+      <div className={cn(
+        "relative z-10 flex flex-col items-center justify-center transition-all duration-300",
+        isActive ? "text-primary transform -translate-y-0.5" : "text-muted-foreground"
+      )}>
+        <div className="relative">
+          <Icon className={cn(
+            "h-5 w-5 mb-1 transition-transform duration-300",
+            isActive && "scale-110"
+          )} />
+          {unreadCount > 0 && (
+            <Badge 
+              variant="destructive" 
+              className="absolute -top-2 -right-3 h-5 min-w-[20px] rounded-sm p-0 flex items-center justify-center text-xs"
+            >
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </Badge>
+          )}
+        </div>
+        <span className={cn(
+          "text-[10px] font-medium leading-tight text-center transition-all duration-300",
+          isActive && "font-semibold"
+        )}>{label}</span>
       </div>
-      <span className="text-[10px] font-medium leading-tight text-center">{label}</span>
-    </Button>
+    </button>
   );
 
   const handleMenuToggle = () => {
