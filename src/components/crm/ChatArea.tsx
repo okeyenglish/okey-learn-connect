@@ -2094,7 +2094,7 @@ export const ChatArea = ({
       </div>
 
       {/* Message Input */}
-      <div className="border-t p-3 shrink-0">
+      <div className="border-t p-2 shrink-0">
         {/* Pending message with countdown */}
         {pendingMessage && (
           <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">
@@ -2115,7 +2115,7 @@ export const ChatArea = ({
           </div>
         )}
         
-          <div className="space-y-2">
+          <div className="space-y-1">
             {/* Character counter and warning */}
             {message.length > 0 && (
               <div className="flex justify-between items-center text-xs text-muted-foreground px-1">
@@ -2147,7 +2147,7 @@ export const ChatArea = ({
               </div>
             )}
           
-          <div className="space-y-2 relative">
+          <div className="space-y-1 relative">
             {/* Payment link attachment preview */}
             {paymentLinkAttachment && (
               <div className="flex items-start gap-2 p-2 bg-amber-50 rounded-md border-l-4 border-amber-500">
