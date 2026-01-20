@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Search, Phone, MessageCircle, Calendar, Users, Clock, Send, ArrowLeft, GraduationCap, Zap, Pin, Paperclip, Mail } from 'lucide-react';
+import { Search, Phone, MessageCircle, Calendar, Users, Clock, Send, ArrowLeft, GraduationCap, Zap, Pin, Paperclip, Mail, RefreshCcw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -188,7 +188,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
   const clientId = resolvedClientId || '';
   // Use special RPC for teacher messages that bypasses RLS org filter
-  const { messages } = useTeacherChatMessages(clientId);
+  const { messages, isLoading: messagesLoading, error: messagesError, refetch: refetchMessages, isFetching: messagesFetching } = useTeacherChatMessages(clientId);
   const sendMessage = useSendMessage();
   const markAsRead = useMarkAsRead();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
@@ -203,6 +203,24 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const { unreadCounts: unreadByMessenger } = useClientUnreadByMessenger(clientId);
   
   useRealtimeMessages(clientId);
+  
+  // Auto-switch to the messenger tab of the last message when selecting a teacher
+  useEffect(() => {
+    if (selectedTeacherId && selectedTeacherId !== 'teachers-group') {
+      const teacher = dbTeachers.find(t => t.id === selectedTeacherId);
+      if (teacher?.lastMessengerType) {
+        const messengerMap: Record<string, string> = {
+          'whatsapp': 'whatsapp',
+          'telegram': 'telegram',
+          'max': 'max',
+        };
+        const newTab = messengerMap[teacher.lastMessengerType] || 'whatsapp';
+        if (newTab !== activeMessengerTab) {
+          setActiveMessengerTab(newTab);
+        }
+      }
+    }
+  }, [selectedTeacherId, dbTeachers]);
 
   // Reset avatars when client changes
   useEffect(() => {
@@ -468,6 +486,40 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
   // Render message list for a specific messenger
   const renderMessageList = (msgList: any[], endRef: React.RefObject<HTMLDivElement>, avatar: string | null) => {
+    // Show loading state
+    if (messagesLoading && msgList.length === 0) {
+      return (
+        <div className="space-y-2 p-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
+              <Skeleton className={`h-12 ${i % 2 === 0 ? 'w-48' : 'w-56'} rounded-lg`} />
+            </div>
+          ))}
+        </div>
+      );
+    }
+    
+    // Show error state with retry button
+    if (messagesError && msgList.length === 0) {
+      return (
+        <div className="text-center py-8">
+          <div className="text-muted-foreground text-sm mb-2">
+            Ошибка загрузки сообщений
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetchMessages()}
+            disabled={messagesFetching}
+            className="gap-2"
+          >
+            <RefreshCcw className={`h-4 w-4 ${messagesFetching ? 'animate-spin' : ''}`} />
+            Повторить
+          </Button>
+        </div>
+      );
+    }
+    
     const formattedMessages = msgList.map(formatMessage);
     
     return (
@@ -558,44 +610,32 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="whatsapp" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
-        <ScrollArea className="h-full">
-          <div className="p-3">
-            {renderMessageList(whatsappMessages, whatsappEndRef, whatsappClientAvatar)}
-          </div>
-        </ScrollArea>
+      <TabsContent value="whatsapp" className="flex-1 p-3 overflow-y-auto mt-0 data-[state=inactive]:hidden">
+        <div className="space-y-1">
+          {renderMessageList(whatsappMessages, whatsappEndRef, whatsappClientAvatar)}
+        </div>
       </TabsContent>
 
-      <TabsContent value="telegram" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
-        <ScrollArea className="h-full">
-          <div className="p-3">
-            {renderMessageList(telegramMessages, telegramEndRef, telegramClientAvatar)}
-          </div>
-        </ScrollArea>
+      <TabsContent value="telegram" className="flex-1 p-3 overflow-y-auto mt-0 data-[state=inactive]:hidden">
+        <div className="space-y-1">
+          {renderMessageList(telegramMessages, telegramEndRef, telegramClientAvatar)}
+        </div>
       </TabsContent>
 
-      <TabsContent value="max" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
-        <ScrollArea className="h-full">
-          <div className="p-3">
-            {renderMessageList(maxMessages, maxEndRef, maxClientAvatar)}
-          </div>
-        </ScrollArea>
+      <TabsContent value="max" className="flex-1 p-3 overflow-y-auto mt-0 data-[state=inactive]:hidden">
+        <div className="space-y-1">
+          {renderMessageList(maxMessages, maxEndRef, maxClientAvatar)}
+        </div>
       </TabsContent>
 
-      <TabsContent value="email" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
-        <ScrollArea className="h-full">
-          <div className="p-3 text-center text-muted-foreground text-sm py-8">
-            Email переписка (в разработке)
-          </div>
-        </ScrollArea>
+      <TabsContent value="email" className="flex-1 p-3 overflow-y-auto mt-0 data-[state=inactive]:hidden">
+        <div className="text-center text-muted-foreground text-sm py-8">
+          Email переписка (в разработке)
+        </div>
       </TabsContent>
 
-      <TabsContent value="calls" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
-        <ScrollArea className="h-full">
-          <div className="p-3">
-            <CallHistory clientId={clientId} />
-          </div>
-        </ScrollArea>
+      <TabsContent value="calls" className="flex-1 p-3 overflow-y-auto mt-0 data-[state=inactive]:hidden">
+        <CallHistory clientId={clientId} />
       </TabsContent>
     </Tabs>
   );

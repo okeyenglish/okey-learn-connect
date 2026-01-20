@@ -9303,6 +9303,7 @@ export type Database = {
           client_id: string
           last_message_text: string
           last_message_time: string
+          last_messenger_type: string
           teacher_id: string
           unread_count: number
         }[]

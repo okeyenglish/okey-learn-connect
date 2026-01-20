@@ -8,11 +8,12 @@ import { normalizePhone } from '@/utils/phoneNormalization';
  * This bypasses RLS org filter for teacher-linked clients
  */
 export const useTeacherChatMessages = (clientId: string) => {
-  const { data: messages, isLoading, error } = useQuery({
+  const { data: messages, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['teacher-chat-messages', clientId],
     queryFn: async () => {
       if (!clientId) return [];
       
+      console.log('[useTeacherChatMessages] Fetching for client:', clientId);
       const { data, error } = await supabase.rpc('get_teacher_chat_messages', {
         p_client_id: clientId
       });
@@ -22,15 +23,18 @@ export const useTeacherChatMessages = (clientId: string) => {
         throw error;
       }
       
+      console.log('[useTeacherChatMessages] Fetched', data?.length || 0, 'messages');
       return data || [];
     },
     enabled: !!clientId,
     staleTime: 30 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });
 
-  return { messages: messages || [], isLoading, error };
+  return { messages: messages || [], isLoading, isFetching, error, refetch };
 };
 
 export interface TeacherChatItem {
@@ -49,6 +53,7 @@ export interface TeacherChatItem {
   unreadMessages: number;
   lastMessageTime: string | null;
   lastMessageText: string | null;
+  lastMessengerType: string | null; // which messenger had the last message
   lastSeen: string;
   isOnline: boolean;
 }
@@ -59,6 +64,7 @@ interface TeacherUnreadCount {
   unread_count: number;
   last_message_time: string | null;
   last_message_text: string | null;
+  last_messenger_type: string | null;
 }
 
 /**
@@ -137,6 +143,7 @@ export const useTeacherChats = (branch?: string | null) => {
         unreadMessages: unreadData?.unread_count || 0,
         lastMessageTime: unreadData?.last_message_time || null,
         lastMessageText: unreadData?.last_message_text || null,
+        lastMessengerType: unreadData?.last_messenger_type || null,
         lastSeen: unreadData?.last_message_time 
           ? new Date(unreadData.last_message_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
           : 'нет сообщений',
