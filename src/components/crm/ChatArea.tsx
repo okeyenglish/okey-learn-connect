@@ -2258,11 +2258,12 @@ export const ChatArea = ({
                   <Mic className="h-4 w-4" />
                 </Button>
                 
-                {/* Payment link button */}
+                {/* Desktop: show all icons, Mobile: hide in dropdown */}
+                {/* Payment link button - desktop only */}
                 <Button 
                   size="sm" 
                   variant="ghost" 
-                  className="h-6 w-6 md:h-8 md:w-8 p-0"
+                  className="hidden md:flex h-8 w-8 p-0"
                   disabled={!!pendingMessage}
                   onClick={() => setShowPaymentLinkModal(true)}
                   title="Выставить счёт"
@@ -2270,7 +2271,7 @@ export const ChatArea = ({
                   <CreditCard className="h-4 w-4" />
                 </Button>
                 
-                {/* Schedule message button */}
+                {/* Schedule message button - desktop only */}
                 <Dialog open={showScheduleDialog} onOpenChange={(open) => {
                   setShowScheduleDialog(open);
                   if (!open) {
@@ -2285,7 +2286,7 @@ export const ChatArea = ({
                     <Button 
                       size="sm" 
                       variant="ghost" 
-                      className="h-6 w-6 md:h-8 md:w-8 p-0"
+                      className="hidden md:flex h-8 w-8 p-0"
                       disabled={loading || !message.trim() || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
                     >
                       <Clock className="h-4 w-4" />
@@ -2334,14 +2335,14 @@ export const ChatArea = ({
                   </DialogContent>
                 </Dialog>
 
-                {/* Scheduled messages button */}
+                {/* Scheduled messages button - desktop only */}
                 {scheduledMessages.length > 0 && (
                   <Dialog open={showScheduledMessagesDialog} onOpenChange={setShowScheduledMessagesDialog}>
                     <DialogTrigger asChild>
                       <Button 
                         size="sm" 
                         variant="ghost" 
-                        className="h-6 w-6 md:h-8 md:w-8 p-0 relative"
+                        className="hidden md:flex h-8 w-8 p-0 relative"
                       >
                         <Calendar className="h-4 w-4" />
                         <Badge 
@@ -2393,7 +2394,7 @@ export const ChatArea = ({
                   </Dialog>
                 )}
                 
-                {/* Разделитель и кнопка "Не требует ответа" - только если последнее сообщение входящее */}
+                {/* Разделитель и кнопка "Не требует ответа" - только desktop */}
                 {isLastMessageIncoming && (
                   <>
                     <div className="h-6 w-px bg-border mx-1 hidden md:block" />
@@ -2401,29 +2402,87 @@ export const ChatArea = ({
                     <Button 
                       size="sm" 
                       variant="outline" 
-                      className="h-6 w-6 p-0 lg:h-8 lg:w-auto lg:px-3 text-xs lg:text-sm gap-1 lg:gap-2 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                      className="hidden lg:flex h-8 w-auto px-3 text-sm gap-2 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
                       onClick={handleMarkAsNoResponseNeeded}
                       disabled={!!pendingMessage}
                       title="Пометить как не требующий ответа"
                     >
-                      <CheckCheck className="h-3.5 w-3.5 lg:h-4 lg:w-4" />
-                      <span className="hidden lg:inline">Не требует ответа</span>
+                      <CheckCheck className="h-4 w-4" />
+                      <span>Не требует ответа</span>
                     </Button>
                   </>
                 )}
                 
-                {/* Кнопка "Поставить задачу" */}
+                {/* Кнопка "Поставить задачу" - только desktop */}
                 <Button 
                   size="sm" 
                   variant="outline" 
-                  className="h-6 w-6 p-0 lg:h-8 lg:w-auto lg:px-3 text-xs lg:text-sm gap-1 lg:gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+                  className="hidden lg:flex h-8 w-auto px-3 text-sm gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
                   onClick={handleOpenTaskModalAndMarkRead}
                   disabled={!!pendingMessage}
                   title="Поставить задачу"
                 >
-                  <ListTodo className="h-3.5 w-3.5 lg:h-4 lg:w-4" />
-                  <span className="hidden lg:inline">Поставить задачу</span>
+                  <ListTodo className="h-4 w-4" />
+                  <span>Поставить задачу</span>
                 </Button>
+                
+                {/* Mobile: More actions dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-6 w-6 p-0 md:hidden"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 bg-background z-50">
+                    <DropdownMenuItem 
+                      onClick={() => setShowPaymentLinkModal(true)}
+                      disabled={!!pendingMessage}
+                      className="flex items-center gap-2"
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      <span>Выставить счёт</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => message.trim() && setShowScheduleDialog(true)}
+                      disabled={loading || !message.trim() || !!pendingMessage}
+                      className="flex items-center gap-2"
+                    >
+                      <Clock className="h-4 w-4" />
+                      <span>Запланировать</span>
+                    </DropdownMenuItem>
+                    {scheduledMessages.length > 0 && (
+                      <DropdownMenuItem 
+                        onClick={() => setShowScheduledMessagesDialog(true)}
+                        className="flex items-center gap-2"
+                      >
+                        <Calendar className="h-4 w-4" />
+                        <span>Запланированные ({scheduledMessages.length})</span>
+                      </DropdownMenuItem>
+                    )}
+                    {isLastMessageIncoming && (
+                      <DropdownMenuItem 
+                        onClick={handleMarkAsNoResponseNeeded}
+                        disabled={!!pendingMessage}
+                        className="flex items-center gap-2 text-green-700"
+                      >
+                        <CheckCheck className="h-4 w-4" />
+                        <span>Не требует ответа</span>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem 
+                      onClick={handleOpenTaskModalAndMarkRead}
+                      disabled={!!pendingMessage}
+                      className="flex items-center gap-2 text-blue-700"
+                    >
+                      <ListTodo className="h-4 w-4" />
+                      <span>Поставить задачу</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               
               {/* Send button - icon only on mobile/tablet, icon+text on large desktop */}
               <Button 
