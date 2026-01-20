@@ -20,30 +20,43 @@ export const usePhoneSearchThreads = (
     staleTime: 30_000,
     gcTime: 5 * 60_000,
     queryFn: async (): Promise<ChatThread[]> => {
-      console.log(`[usePhoneSearchThreads] Loading ${missingClientIds.length} missing threads for phone search...`, missingClientIds);
+      console.log(`[usePhoneSearchThreads] Loading ${missingClientIds.length} missing threads...`);
       const startTime = performance.now();
 
-      // Try RPC first
-      const { data, error } = await supabase
-        .rpc('get_chat_threads_by_client_ids', { p_client_ids: missingClientIds });
-
-      if (error) {
-        console.error('[usePhoneSearchThreads] RPC failed, falling back to direct query:', error);
-        return await fetchThreadsDirectly(missingClientIds);
+      // Chunk into groups of 20 to prevent timeouts
+      const CHUNK_SIZE = 20;
+      const chunks: string[][] = [];
+      for (let i = 0; i < missingClientIds.length; i += CHUNK_SIZE) {
+        chunks.push(missingClientIds.slice(i, i + CHUNK_SIZE));
       }
 
-      const threads = mapRpcToThreads(data || []);
-      
-      // If RPC returned empty but we have client IDs, use fallback (RPC might have issues)
-      if (threads.length === 0 && missingClientIds.length > 0) {
-        console.log('[usePhoneSearchThreads] RPC returned empty, trying fallback...');
-        const fallbackThreads = await fetchThreadsDirectly(missingClientIds);
-        console.log(`[usePhoneSearchThreads] Fallback loaded ${fallbackThreads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
-        return fallbackThreads;
-      }
-      
-      console.log(`[usePhoneSearchThreads] Loaded ${threads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
-      return threads;
+      // Process chunks in parallel
+      const results = await Promise.all(
+        chunks.map(async (chunk) => {
+          try {
+            const { data, error } = await supabase
+              .rpc('get_chat_threads_by_client_ids', { p_client_ids: chunk });
+
+            if (error) {
+              console.error('[usePhoneSearchThreads] RPC failed for chunk, using fallback:', error);
+              return await fetchThreadsDirectly(chunk);
+            }
+
+            const threads = mapRpcToThreads(data || []);
+            if (threads.length === 0 && chunk.length > 0) {
+              return await fetchThreadsDirectly(chunk);
+            }
+            return threads;
+          } catch (e) {
+            console.error('[usePhoneSearchThreads] Chunk error:', e);
+            return await fetchThreadsDirectly(chunk);
+          }
+        })
+      );
+
+      const allThreads = results.flat();
+      console.log(`[usePhoneSearchThreads] Loaded ${allThreads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
+      return allThreads;
     },
   });
 };

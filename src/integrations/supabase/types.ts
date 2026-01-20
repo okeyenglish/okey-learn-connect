@@ -9404,6 +9404,18 @@ export type Database = {
         Args: { p_organization_id: string; p_use_case?: string }
         Returns: string
       }
+      search_clients_by_name: {
+        Args: { p_limit?: number; p_org_id: string; p_search_text: string }
+        Returns: {
+          id: string
+        }[]
+      }
+      search_messages_by_text: {
+        Args: { p_limit?: number; p_org_id: string; p_search_text: string }
+        Returns: {
+          client_id: string
+        }[]
+      }
       send_internal_chat_message: {
         Args: {
           p_chat_id: string
