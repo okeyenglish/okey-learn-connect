@@ -1,5 +1,3 @@
-import { JSDOM } from "jsdom";
-
 export interface QualityCheck {
   passed: boolean;
   details: {
@@ -21,14 +19,16 @@ export interface QualityCheck {
 
 /**
  * Проверяет качество HTML-контента перед публикацией
+ * Использует браузерный DOMParser вместо jsdom
  */
 export function checkContentQuality(
   html: string,
   minWords = 1200,
   isLocal = false
 ): QualityCheck {
-  const dom = new JSDOM(`<div id="root">${html}</div>`);
-  const root = dom.window.document.getElementById("root")!;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(`<div id="root">${html}</div>`, "text/html");
+  const root = doc.getElementById("root")!;
   const text = root.textContent?.trim() || "";
   const words = text.split(/\s+/).filter(w => w.length > 0).length;
   
@@ -133,8 +133,9 @@ export function checkUniqueness(html: string, existingContent: string[]): number
  * Убирает HTML-теги и оставляет только текст
  */
 function stripHtml(html: string): string {
-  const dom = new JSDOM(html);
-  return dom.window.document.body.textContent || '';
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  return doc.body.textContent || '';
 }
 
 /**
@@ -167,8 +168,9 @@ export function validateInternalLinks(html: string, validRoutes: string[]): {
   valid: string[];
   invalid: string[];
 } {
-  const dom = new JSDOM(`<div id="root">${html}</div>`);
-  const root = dom.window.document.getElementById("root")!;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(`<div id="root">${html}</div>`, "text/html");
+  const root = doc.getElementById("root")!;
   const links = Array.from(root.querySelectorAll('a[href^="/"]')) as HTMLAnchorElement[];
   
   const valid: string[] = [];
