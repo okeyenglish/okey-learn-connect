@@ -2487,7 +2487,7 @@ export const ChatArea = ({
               
               {/* Send button - wider on mobile for easier tap */}
               <Button 
-                className={`h-11 min-w-[88px] px-5 rounded-full lg:h-[40px] lg:w-auto lg:px-8 lg:gap-2 ml-auto ${
+                className={`h-11 min-w-[88px] px-5 rounded-xl lg:h-[40px] lg:w-auto lg:px-8 lg:gap-2 lg:rounded-md ml-auto ${
                   commentMode ? "bg-yellow-500 hover:bg-yellow-600" : ""
                 }`}
                 onClick={handleSendMessage}
