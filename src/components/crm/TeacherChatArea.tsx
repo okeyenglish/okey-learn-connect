@@ -590,35 +590,51 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       onValueChange={handleMessengerTabChange}
       className="flex-1 min-w-0 flex flex-col overflow-hidden"
     >
-      <TabsList className="grid w-full min-w-0 grid-cols-5 rounded-none bg-muted/30 border-b h-9 shrink-0">
-        <TabsTrigger value="whatsapp" className="text-xs relative data-[state=active]:bg-green-500 data-[state=active]:text-white">
-          WhatsApp
+      {/* Make the messenger tabs horizontally scrollable so they never overlap adjacent columns on narrow desktops */}
+      <TabsList className="w-full min-w-0 rounded-none bg-muted/30 border-b h-9 shrink-0 flex gap-1 overflow-x-auto overflow-y-hidden">
+        <TabsTrigger
+          value="whatsapp"
+          className="relative flex-1 min-w-[84px] px-2 text-[11px] data-[state=active]:bg-green-500 data-[state=active]:text-white"
+        >
+          <span className="truncate">WhatsApp</span>
           {(unreadByMessenger?.whatsapp || 0) > 0 && (
             <span className="absolute -top-1 -right-1 bg-destructive text-white text-[10px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
               {unreadByMessenger?.whatsapp}
             </span>
           )}
         </TabsTrigger>
-        <TabsTrigger value="telegram" className="text-xs relative data-[state=active]:bg-blue-500 data-[state=active]:text-white">
-          Telegram
+        <TabsTrigger
+          value="telegram"
+          className="relative flex-1 min-w-[84px] px-2 text-[11px] data-[state=active]:bg-blue-500 data-[state=active]:text-white"
+        >
+          <span className="truncate">Telegram</span>
           {(unreadByMessenger?.telegram || 0) > 0 && (
             <span className="absolute -top-1 -right-1 bg-destructive text-white text-[10px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
               {unreadByMessenger?.telegram}
             </span>
           )}
         </TabsTrigger>
-        <TabsTrigger value="max" className="text-xs relative data-[state=active]:bg-purple-500 data-[state=active]:text-white">
-          Max
+        <TabsTrigger
+          value="max"
+          className="relative flex-1 min-w-[64px] px-2 text-[11px] data-[state=active]:bg-purple-500 data-[state=active]:text-white"
+        >
+          <span className="truncate">Max</span>
           {(unreadByMessenger?.max || 0) > 0 && (
             <span className="absolute -top-1 -right-1 bg-destructive text-white text-[10px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
               {unreadByMessenger?.max}
             </span>
           )}
         </TabsTrigger>
-        <TabsTrigger value="email" className="text-xs relative data-[state=active]:bg-orange-500 data-[state=active]:text-white">
+        <TabsTrigger
+          value="email"
+          className="relative flex-1 min-w-[44px] px-2 text-[11px] data-[state=active]:bg-orange-500 data-[state=active]:text-white"
+        >
           <Mail className="h-3 w-3" />
         </TabsTrigger>
-        <TabsTrigger value="calls" className="text-xs relative data-[state=active]:bg-rose-500 data-[state=active]:text-white">
+        <TabsTrigger
+          value="calls"
+          className="relative flex-1 min-w-[44px] px-2 text-[11px] data-[state=active]:bg-rose-500 data-[state=active]:text-white"
+        >
           <Phone className="h-3 w-3" />
         </TabsTrigger>
       </TabsList>
