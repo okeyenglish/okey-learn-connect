@@ -1,4 +1,5 @@
-import { Building2, GraduationCap, Plus, Users, MessageCircle } from "lucide-react";
+import { useState } from "react";
+import { Building2, GraduationCap, Plus, Users, MessageCircle, CreditCard, ListTodo, UserPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -9,6 +10,8 @@ interface MobileChatNavigationProps {
   onClientsClick: () => void;
   onCommunitiesClick: () => void;
   onNewChatClick: () => void;
+  onPaymentClick?: () => void;
+  onTaskClick?: () => void;
   corporateUnreadCount?: number;
   teachersUnreadCount?: number;
   clientsUnreadCount?: number;
@@ -22,12 +25,15 @@ export const MobileChatNavigation = ({
   onClientsClick,
   onCommunitiesClick,
   onNewChatClick,
+  onPaymentClick,
+  onTaskClick,
   corporateUnreadCount = 0,
   teachersUnreadCount = 0,
   clientsUnreadCount = 0,
   communitiesUnreadCount = 0,
   activeChatType
 }: MobileChatNavigationProps) => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const NavButton = ({ 
     icon: Icon, 
     label, 
@@ -65,51 +71,107 @@ export const MobileChatNavigation = ({
     </Button>
   );
 
+  const handleMenuToggle = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
+  const handleActionClick = (action: () => void | undefined) => {
+    setIsMenuOpen(false);
+    action?.();
+  };
+
+  const actionButtons = [
+    { icon: CreditCard, label: 'Оплата', onClick: onPaymentClick, color: 'bg-green-500 hover:bg-green-600' },
+    { icon: ListTodo, label: 'Задача', onClick: onTaskClick, color: 'bg-blue-500 hover:bg-blue-600' },
+    { icon: UserPlus, label: 'Контакт', onClick: onNewChatClick, color: 'bg-purple-500 hover:bg-purple-600' },
+  ];
+
   return (
-    <div
-      className="fixed bottom-0 left-0 right-0 z-[60] bg-background border-t border-border shadow-lg md:hidden"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-    >
-      <div className="flex items-center justify-around h-16 px-1">
-        <NavButton
-          icon={Building2}
-          label="Корпчаты"
-          onClick={onCorporateClick}
-          unreadCount={corporateUnreadCount}
-          isActive={activeChatType === 'corporate'}
+    <>
+      {/* Overlay */}
+      {isMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/40 z-[55] md:hidden animate-fade-in"
+          onClick={() => setIsMenuOpen(false)}
         />
-        <NavButton
-          icon={GraduationCap}
-          label="Преподы"
-          onClick={onTeachersClick}
-          unreadCount={teachersUnreadCount}
-          isActive={activeChatType === 'teachers'}
-        />
-        <Button
-          className={cn(
-            "flex flex-col items-center justify-center h-12 w-12 rounded-full",
-            "bg-primary text-primary-foreground hover:bg-primary/90",
-            "shadow-lg transform hover:scale-105 transition-all duration-200"
-          )}
-          onClick={onNewChatClick}
-        >
-          <Plus className="h-6 w-6" />
-        </Button>
-        <NavButton
-          icon={Users}
-          label="Клиенты"
-          onClick={onClientsClick}
-          unreadCount={clientsUnreadCount}
-          isActive={activeChatType === 'client'}
-        />
-        <NavButton
-          icon={MessageCircle}
-          label="Сообщества"
-          onClick={onCommunitiesClick}
-          unreadCount={communitiesUnreadCount}
-          isActive={activeChatType === 'communities'}
-        />
+      )}
+
+      <div
+        className="fixed bottom-0 left-0 right-0 z-[60] bg-background border-t border-border shadow-lg md:hidden"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        {/* Floating action buttons */}
+        <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-4 flex flex-col items-center gap-3 pointer-events-none">
+          {actionButtons.map((action, index) => (
+            <div
+              key={action.label}
+              className={cn(
+                "pointer-events-auto transition-all duration-300 ease-out",
+                isMenuOpen
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-8 pointer-events-none"
+              )}
+              style={{
+                transitionDelay: isMenuOpen ? `${(actionButtons.length - 1 - index) * 50}ms` : '0ms'
+              }}
+            >
+              <button
+                className={cn(
+                  "flex items-center gap-3 px-4 py-2.5 rounded-full shadow-lg text-white font-medium transition-transform active:scale-95",
+                  action.color
+                )}
+                onClick={() => handleActionClick(action.onClick!)}
+              >
+                <action.icon className="h-5 w-5" />
+                <span className="text-sm">{action.label}</span>
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-around h-16 px-1">
+          <NavButton
+            icon={Building2}
+            label="Корпчаты"
+            onClick={onCorporateClick}
+            unreadCount={corporateUnreadCount}
+            isActive={activeChatType === 'corporate'}
+          />
+          <NavButton
+            icon={GraduationCap}
+            label="Преподы"
+            onClick={onTeachersClick}
+            unreadCount={teachersUnreadCount}
+            isActive={activeChatType === 'teachers'}
+          />
+          <Button
+            className={cn(
+              "flex flex-col items-center justify-center h-14 w-14 rounded-full",
+              "shadow-lg transform transition-all duration-300 ease-out",
+              isMenuOpen 
+                ? "bg-destructive text-destructive-foreground hover:bg-destructive/90 rotate-45" 
+                : "bg-primary text-primary-foreground hover:bg-primary/90 rotate-0"
+            )}
+            onClick={handleMenuToggle}
+          >
+            <Plus className="h-7 w-7" />
+          </Button>
+          <NavButton
+            icon={Users}
+            label="Клиенты"
+            onClick={onClientsClick}
+            unreadCount={clientsUnreadCount}
+            isActive={activeChatType === 'client'}
+          />
+          <NavButton
+            icon={MessageCircle}
+            label="Сообщества"
+            onClick={onCommunitiesClick}
+            unreadCount={communitiesUnreadCount}
+            isActive={activeChatType === 'communities'}
+          />
+        </div>
       </div>
-    </div>
+    </>
   );
 };
