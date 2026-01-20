@@ -42,8 +42,10 @@ export const MessageContextMenu = ({
 
   // Обработчик для долгого нажатия (мобильные устройства)
   const handleTouchStart = (e: React.TouchEvent) => {
+    // Prevent text selection on long press
+    e.preventDefault();
+    
     const timer = setTimeout(() => {
-      e.preventDefault();
       const touch = e.touches[0];
       setMenuPosition({ x: touch.clientX, y: touch.clientY });
       setShowContextMenu(true);
@@ -137,7 +139,8 @@ export const MessageContextMenu = ({
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           onTouchMove={handleTouchMove}
-          className="touch-none"
+          className="touch-none select-none"
+          style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
         >
           {children}
         </div>
