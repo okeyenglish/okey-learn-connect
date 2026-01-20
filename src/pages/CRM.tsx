@@ -1178,6 +1178,12 @@ const CRMContent = () => {
     [filteredChats, getChatState]
   );
 
+  // Только клиентские чаты для мобильного списка (без корпоративных, преподавателей, сообществ)
+  const mobileClientChats = useMemo(() => 
+    filteredChats.filter(chat => chat.type === 'client'),
+    [filteredChats]
+  );
+
   const activeChats = useMemo(() => 
     filteredChats
       .filter(chat => !getChatState(chat.id).isPinned)
@@ -1189,6 +1195,20 @@ const CRMContent = () => {
         return showEye || unreadByMessages;
       }),
     [filteredChats, getChatState, showOnlyUnread]
+  );
+
+  // Активные чаты только клиентов для мобильной версии
+  const mobileActiveChats = useMemo(() => 
+    mobileClientChats
+      .filter(chat => !getChatState(chat.id).isPinned)
+      .filter(chat => {
+        if (!showOnlyUnread) return true;
+        const chatState = getChatState(chat.id);
+        const showEye = !!chatState?.isUnread;
+        const unreadByMessages = chat.unread > 0;
+        return showEye || unreadByMessages;
+      }),
+    [mobileClientChats, getChatState, showOnlyUnread]
   );
 
   // Архивные чаты - отдельный список
@@ -3350,7 +3370,7 @@ const CRMContent = () => {
                 </button>
               ))}
             </div>
-          ) : isMobile && activeTab === 'chats' && !activeChatId ? (
+          ) : isMobile && activeTab === 'chats' && !activeChatId && activeChatType === 'client' ? (
             <div className="flex flex-col h-full">
               <div className="p-3 border-b space-y-3 shrink-0 bg-card">
                 <div className="flex gap-2">
@@ -3441,7 +3461,7 @@ const CRMContent = () => {
               <div className="flex-1 overflow-auto pb-20">
                 <div className="p-4 flex flex-col h-full">
                   {/* Закрепленные чаты */}
-                  {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
+                  {mobileClientChats.some(chat => getChatState(chat.id).isPinned) && (
                     <div className="mb-1">
                       <button 
                         className="w-full flex items-center justify-between px-3 py-1.5 mb-2 hover:bg-accent/50 rounded-lg transition-all duration-200 group"
@@ -3458,7 +3478,7 @@ const CRMContent = () => {
                           </h3>
                         </div>
                         {(() => {
-                           const pinnedUnreadCount = filteredChats
+                           const pinnedUnreadCount = mobileClientChats
                              .filter(chat => getChatState(chat.id).isPinned)
                              .filter(chat => {
                                const chatState = getChatState(chat.id);
@@ -3476,7 +3496,7 @@ const CRMContent = () => {
                       </button>
                        {isPinnedSectionOpen && (
                          <div className="space-y-1 mb-2">
-                           {filteredChats
+                           {mobileClientChats
                              .filter(chat => getChatState(chat.id).isPinned)
                             .map((chat) => {
                               const chatState = getChatState(chat.id);
@@ -3616,14 +3636,14 @@ const CRMContent = () => {
                           </h3>
                           <div className="flex items-center gap-2">
                             {/* Unread filter button - only show if there are unread chats */}
-                            {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || (chat.unread > 0))).length > 0 && (
+                            {mobileClientChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || (chat.unread > 0))).length > 0 && (
                               <Button
                                 variant={showOnlyUnread ? "default" : "outline"}
                                 size="sm"
                                 className="h-5 px-2 py-0.5 text-xs min-w-[20px]"
                                 onClick={() => setShowOnlyUnread(!showOnlyUnread)}
                               >
-                                {filteredChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || (chat.unread > 0))).length}
+                                {mobileClientChats.filter(chat => !getChatState(chat.id).isPinned && (getChatState(chat.id)?.isUnread || (chat.unread > 0))).length}
                               </Button>
                             )}
                             {/* Archive button */}
@@ -3641,7 +3661,7 @@ const CRMContent = () => {
                           </div>
                         </div>
                         <VirtualizedChatList
-                          chats={activeChats}
+                          chats={mobileActiveChats}
                           activeChatId={activeChatId}
                           profile={profile}
                           bulkSelectMode={bulkSelectMode}
