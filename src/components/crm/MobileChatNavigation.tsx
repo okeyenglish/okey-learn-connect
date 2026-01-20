@@ -81,9 +81,9 @@ export const MobileChatNavigation = ({
   };
 
   const actionButtons = [
-    { icon: CreditCard, label: 'Оплата', onClick: onPaymentClick, color: 'bg-green-500 hover:bg-green-600' },
-    { icon: ListTodo, label: 'Задача', onClick: onTaskClick, color: 'bg-blue-500 hover:bg-blue-600' },
-    { icon: UserPlus, label: 'Контакт', onClick: onNewChatClick, color: 'bg-purple-500 hover:bg-purple-600' },
+    { icon: CreditCard, label: 'Оплата', onClick: onPaymentClick },
+    { icon: ListTodo, label: 'Задача', onClick: onTaskClick },
+    { icon: UserPlus, label: 'Контакт', onClick: onNewChatClick },
   ];
 
   return (
@@ -116,13 +116,10 @@ export const MobileChatNavigation = ({
               }}
             >
               <button
-                className={cn(
-                  "flex items-center gap-3 px-4 py-2.5 rounded-full shadow-lg text-white font-medium transition-transform active:scale-95",
-                  action.color
-                )}
+                className="flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg bg-card border border-border text-foreground font-medium transition-transform active:scale-95 min-w-[140px]"
                 onClick={() => handleActionClick(action.onClick!)}
               >
-                <action.icon className="h-5 w-5" />
+                <action.icon className="h-5 w-5 text-muted-foreground" />
                 <span className="text-sm">{action.label}</span>
               </button>
             </div>
