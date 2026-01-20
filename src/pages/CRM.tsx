@@ -3436,8 +3436,8 @@ const CRMContent = () => {
                   </DropdownMenu>
                 </div>
               </div>
-              <div className="flex-1 overflow-auto" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>
-                <div className="px-4 pt-4 pb-2 flex flex-col">
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <div className="px-4 pt-4 pb-2 flex flex-col flex-1 min-h-0">
                   {/* Закрепленные чаты */}
                   {mobileClientChats.some(chat => getChatState(chat.id).isPinned) && (
                     <div className="mb-1">
