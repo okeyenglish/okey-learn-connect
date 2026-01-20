@@ -9411,7 +9411,12 @@ export type Database = {
         }[]
       }
       search_messages_by_text: {
-        Args: { p_limit?: number; p_org_id: string; p_search_text: string }
+        Args: {
+          p_days_back?: number
+          p_limit?: number
+          p_org_id: string
+          p_search_text: string
+        }
         Returns: {
           client_id: string
           messenger_type: string
