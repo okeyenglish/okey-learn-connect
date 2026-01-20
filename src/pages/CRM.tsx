@@ -294,6 +294,8 @@ const CRMContent = () => {
   const [linkChatModal, setLinkChatModal] = useState<{ open: boolean; chatId: string; chatName: string }>({ open: false, chatId: '', chatName: '' });
   const [isDeletingChat, setIsDeletingChat] = useState(false);
   const [selectedMessengerTab, setSelectedMessengerTab] = useState<{ tab: 'whatsapp' | 'telegram' | 'max'; ts: number } | undefined>(undefined);
+  // Search query to pass to ChatArea when chat was found via message search
+  const [chatInitialSearchQuery, setChatInitialSearchQuery] = useState<string | undefined>(undefined);
   
   // Критичные данные - загружаем ТОЛЬКО threads с infinite scroll (50 за раз)
   // useClients убран из критического пути - 27К клиентов тормозили загрузку
@@ -1216,13 +1218,20 @@ const CRMContent = () => {
   }, [selectedChatIds]);
 
   // Обработчики для чатов
-  const handleChatClick = useCallback(async (chatId: string, chatType: 'client' | 'corporate' | 'teachers') => {
-    console.log('Переключение на чат:', { chatId, chatType });
+  const handleChatClick = useCallback(async (chatId: string, chatType: 'client' | 'corporate' | 'teachers', foundInMessages?: boolean) => {
+    console.log('Переключение на чат:', { chatId, chatType, foundInMessages });
     
     // Только переключаемся на новый чат, если это действительно другой чат
     const isNewChat = activeChatId !== chatId || activeChatType !== chatType;
     setActiveChatId(chatId);
     setActiveChatType(chatType);
+    
+    // If chat was found via message search, pass search query to ChatArea
+    if (foundInMessages && chatSearchQuery && chatSearchQuery.length >= 3) {
+      setChatInitialSearchQuery(chatSearchQuery);
+    } else {
+      setChatInitialSearchQuery(undefined);
+    }
     
     // Загружаем информацию о клиенте, если её нет в кэше
     if (chatType === 'client' && isNewChat) {
@@ -1333,7 +1342,7 @@ const CRMContent = () => {
     if (isMobile) {
       setLeftSidebarOpen(false);
     }
-  }, [activeChatId, activeChatType, markChatAsReadGlobally, markChatMessagesAsReadMutation, markAsReadMutation, markAsRead, teacherChats, clients, threads, isMobile]);
+  }, [activeChatId, activeChatType, markChatAsReadGlobally, markChatMessagesAsReadMutation, markAsReadMutation, markAsRead, teacherChats, clients, threads, isMobile, chatSearchQuery]);
 
   const handleChatAction = useCallback((chatId: string, action: 'unread' | 'pin' | 'archive' | 'block') => {
     if (action === 'unread') {
@@ -3269,11 +3278,12 @@ const CRMContent = () => {
                   )}
 
                   {chatSearchQuery && isSearchLoading && (
-                    <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-sm z-10">
                       <div className="relative">
-                        <div className="h-8 w-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                        <Search className="h-10 w-10 text-primary animate-bounce" />
+                        <div className="absolute inset-0 h-10 w-10 rounded-full border-2 border-primary/30 animate-ping" />
                       </div>
-                      <p className="text-sm text-muted-foreground animate-pulse">
+                      <p className="text-sm font-medium text-muted-foreground">
                         Поиск...
                       </p>
                     </div>
@@ -3688,6 +3698,7 @@ const CRMContent = () => {
               onToggleRightPanel={() => setRightPanelCollapsed(!rightPanelCollapsed)}
               initialMessengerTab={selectedMessengerTab?.tab}
               messengerTabTimestamp={selectedMessengerTab?.ts}
+              initialSearchQuery={chatInitialSearchQuery}
             />
           ) : activeChatType === 'corporate' ? (
             <CorporateChatArea 
