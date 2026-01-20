@@ -1739,7 +1739,7 @@ export const ChatArea = ({
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="whatsapp" className="flex-1 p-3 overflow-y-auto mt-0">
+          <TabsContent value="whatsapp" className="flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0">
             <div className="space-y-1">
               {loadingMessages ? (
                 <MessageSkeleton count={6} />
@@ -1897,7 +1897,7 @@ export const ChatArea = ({
               <div ref={whatsappEndRef} />
             </TabsContent>
           
-          <TabsContent value="telegram" className="flex-1 p-3 overflow-y-auto mt-0">
+          <TabsContent value="telegram" className="flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0">
             <div className="space-y-1">
               {loadingMessages ? (
                 <MessageSkeleton count={6} />
@@ -1986,7 +1986,7 @@ export const ChatArea = ({
             <div ref={telegramEndRef} />
           </TabsContent>
           
-          <TabsContent value="max" className="flex-1 p-3 overflow-y-auto mt-0">
+          <TabsContent value="max" className="flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0">
             <div className="space-y-1">
               {loadingMessages ? (
                 <MessageSkeleton count={6} />
@@ -2093,7 +2093,7 @@ export const ChatArea = ({
             <div ref={maxEndRef} />
           </TabsContent>
           
-          <TabsContent value="email" className="flex-1 p-3 overflow-y-auto mt-0">
+          <TabsContent value="email" className="flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0">
             <div className="space-y-1">
               <div className="text-center text-muted-foreground text-sm py-4">
                 История переписки Email
@@ -2101,7 +2101,7 @@ export const ChatArea = ({
             </div>
           </TabsContent>
           
-          <TabsContent value="calls" className="flex-1 p-3 overflow-y-auto mt-0">
+          <TabsContent value="calls" className="flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0">
             <CallHistory clientId={clientId} />
           </TabsContent>
         </Tabs>
