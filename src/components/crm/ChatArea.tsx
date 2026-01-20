@@ -2215,10 +2215,10 @@ export const ChatArea = ({
               disabled={loading || !!pendingMessage || isOtherUserTyping}
             />
             
-            {/* Bottom row: All icons in scrollable row on mobile */}
-            <div ref={composerRef} className="flex items-center gap-1 overflow-x-auto">
+            {/* Bottom row: All icons fit screen on mobile */}
+            <div ref={composerRef} className="flex items-center gap-0.5 w-full">
               {/* Action icons */}
-              <div className="flex items-center gap-0.5 flex-1 min-w-0 shrink-0">
+              <div className="flex items-center gap-0.5 flex-1 min-w-0">
                 <FileUpload
                   key={`file-upload-${fileUploadResetKey}`}
                   onFileUpload={(fileInfo) => {
@@ -2231,13 +2231,13 @@ export const ChatArea = ({
                   maxFiles={5}
                   maxSize={10}
                 />
-                <Button size="sm" variant="ghost" className="h-7 w-7 md:h-8 md:w-8 p-0" disabled={!!pendingMessage} onClick={() => setShowQuickResponsesModal(true)}>
+                <Button size="sm" variant="ghost" className="h-6 w-6 md:h-8 md:w-8 p-0" disabled={!!pendingMessage} onClick={() => setShowQuickResponsesModal(true)}>
                   <Zap className="h-4 w-4" />
                 </Button>
                 <Button 
                   size="sm" 
                   variant="ghost" 
-                  className={`h-7 w-7 md:h-8 md:w-8 p-0 ${commentMode ? "bg-yellow-100 text-yellow-700" : ""}`}
+                  className={`h-6 w-6 md:h-8 md:w-8 p-0 ${commentMode ? "bg-yellow-100 text-yellow-700" : ""}`}
                   disabled={!!pendingMessage}
                   onClick={() => setCommentMode(!commentMode)}
                   title="Режим комментариев"
@@ -2247,14 +2247,14 @@ export const ChatArea = ({
                 <Button 
                   size="sm" 
                   variant="ghost" 
-                  className={`h-7 w-7 md:h-8 md:w-8 p-0 ${gptGenerating ? "bg-blue-100 text-blue-700" : ""}`}
+                  className={`h-6 w-6 md:h-8 md:w-8 p-0 ${gptGenerating ? "bg-blue-100 text-blue-700" : ""}`}
                   disabled={!!pendingMessage || gptGenerating}
                   onClick={generateGPTResponse}
                   title="Генерировать ответ с помощью GPT"
                 >
                   <Bot className={`h-4 w-4 ${gptGenerating ? "animate-pulse" : ""}`} />
                 </Button>
-                <Button size="sm" variant="ghost" className="h-7 w-7 md:h-8 md:w-8 p-0" disabled={!!pendingMessage}>
+                <Button size="sm" variant="ghost" className="h-6 w-6 md:h-8 md:w-8 p-0" disabled={!!pendingMessage}>
                   <Mic className="h-4 w-4" />
                 </Button>
                 
@@ -2262,7 +2262,7 @@ export const ChatArea = ({
                 <Button 
                   size="sm" 
                   variant="ghost" 
-                  className="h-7 w-7 md:h-8 md:w-8 p-0"
+                  className="h-6 w-6 md:h-8 md:w-8 p-0"
                   disabled={!!pendingMessage}
                   onClick={() => setShowPaymentLinkModal(true)}
                   title="Выставить счёт"
@@ -2285,7 +2285,7 @@ export const ChatArea = ({
                     <Button 
                       size="sm" 
                       variant="ghost" 
-                      className="h-7 w-7 md:h-8 md:w-8 p-0"
+                      className="h-6 w-6 md:h-8 md:w-8 p-0"
                       disabled={loading || !message.trim() || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
                     >
                       <Clock className="h-4 w-4" />
@@ -2341,7 +2341,7 @@ export const ChatArea = ({
                       <Button 
                         size="sm" 
                         variant="ghost" 
-                        className="h-7 w-7 md:h-8 md:w-8 p-0 relative"
+                        className="h-6 w-6 md:h-8 md:w-8 p-0 relative"
                       >
                         <Calendar className="h-4 w-4" />
                         <Badge 
@@ -2401,7 +2401,7 @@ export const ChatArea = ({
                     <Button 
                       size="sm" 
                       variant="outline" 
-                      className="h-8 px-2 lg:px-3 text-xs lg:text-sm gap-1 lg:gap-2 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                      className="h-6 w-6 p-0 lg:h-8 lg:w-auto lg:px-3 text-xs lg:text-sm gap-1 lg:gap-2 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
                       onClick={handleMarkAsNoResponseNeeded}
                       disabled={!!pendingMessage}
                       title="Пометить как не требующий ответа"
@@ -2416,7 +2416,7 @@ export const ChatArea = ({
                 <Button 
                   size="sm" 
                   variant="outline" 
-                  className="h-8 px-2 lg:px-3 text-xs lg:text-sm gap-1 lg:gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+                  className="h-6 w-6 p-0 lg:h-8 lg:w-auto lg:px-3 text-xs lg:text-sm gap-1 lg:gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
                   onClick={handleOpenTaskModalAndMarkRead}
                   disabled={!!pendingMessage}
                   title="Поставить задачу"
