@@ -70,10 +70,11 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
   const flags = getSubjectFlags(teacher.subjects);
   const messageTime = formatMessageTime(teacher.lastMessageTime);
   
-  // Truncate preview text
-  const previewText = teacher.lastMessageText 
-    ? teacher.lastMessageText.slice(0, 50) + (teacher.lastMessageText.length > 50 ? '...' : '')
-    : '';
+  // Truncate preview text and remove "OKEY ENGLISH [Branch]" prefix
+  let previewText = teacher.lastMessageText || '';
+  // Remove "OKEY ENGLISH Окская" or similar patterns
+  previewText = previewText.replace(/^OKEY ENGLISH\s+[^\s]+\s*/i, '');
+  previewText = previewText.slice(0, 50) + (previewText.length > 50 ? '...' : '');
   
   const containerPadding = compact ? 'p-2' : 'p-3';
   const avatarSize = compact ? 'h-10 w-10' : 'h-12 w-12';

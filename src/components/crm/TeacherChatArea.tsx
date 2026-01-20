@@ -290,6 +290,15 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       markAsRead.mutate(clientId);
     }
   }, [clientId, messages.length]);
+  
+  // Auto-scroll to bottom when messages load or change
+  useEffect(() => {
+    if (messages.length > 0 && !messagesLoading) {
+      // Small delay to ensure DOM has updated
+      const timer = setTimeout(() => scrollToBottom(false), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [messages.length, messagesLoading, activeMessengerTab]);
 
   // Filter messages by messenger type
   const whatsappMessages = useMemo(() => 
@@ -610,32 +619,36 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="whatsapp" className="flex-1 p-3 overflow-y-auto mt-0 data-[state=inactive]:hidden">
-        <div className="space-y-1">
+      <TabsContent value="whatsapp" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">
+        <div className="flex-1 overflow-y-auto p-3">
           {renderMessageList(whatsappMessages, whatsappEndRef, whatsappClientAvatar)}
         </div>
       </TabsContent>
 
-      <TabsContent value="telegram" className="flex-1 p-3 overflow-y-auto mt-0 data-[state=inactive]:hidden">
-        <div className="space-y-1">
+      <TabsContent value="telegram" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">
+        <div className="flex-1 overflow-y-auto p-3">
           {renderMessageList(telegramMessages, telegramEndRef, telegramClientAvatar)}
         </div>
       </TabsContent>
 
-      <TabsContent value="max" className="flex-1 p-3 overflow-y-auto mt-0 data-[state=inactive]:hidden">
-        <div className="space-y-1">
+      <TabsContent value="max" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">
+        <div className="flex-1 overflow-y-auto p-3">
           {renderMessageList(maxMessages, maxEndRef, maxClientAvatar)}
         </div>
       </TabsContent>
 
-      <TabsContent value="email" className="flex-1 p-3 overflow-y-auto mt-0 data-[state=inactive]:hidden">
-        <div className="text-center text-muted-foreground text-sm py-8">
-          Email переписка (в разработке)
+      <TabsContent value="email" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">
+        <div className="flex-1 overflow-y-auto p-3">
+          <div className="text-center text-muted-foreground text-sm py-8">
+            Email переписка (в разработке)
+          </div>
         </div>
       </TabsContent>
 
-      <TabsContent value="calls" className="flex-1 p-3 overflow-y-auto mt-0 data-[state=inactive]:hidden">
-        <CallHistory clientId={clientId} />
+      <TabsContent value="calls" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">
+        <div className="flex-1 overflow-y-auto p-3">
+          <CallHistory clientId={clientId} />
+        </div>
       </TabsContent>
     </Tabs>
   );
