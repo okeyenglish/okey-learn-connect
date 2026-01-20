@@ -1732,7 +1732,7 @@ const CRMContent = () => {
 
   return (
       <TooltipProvider>
-        <div className="crm-container h-screen h-[100dvh] flex flex-col overflow-hidden">
+        <div className="crm-container h-[100svh] flex flex-col overflow-hidden">
       {/* Фиксированные вкладки сверху на мобильной версии - скрываем когда открыт чат с клиентом */}
       {isMobile && !(activeChatId && activeChatType === 'client') && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b shadow-sm">
@@ -1840,7 +1840,7 @@ const CRMContent = () => {
         </div>
       )}
 
-      <div className={`relative z-0 isolate flex flex-1 w-full overflow-hidden ${isMobile && !(activeChatId && activeChatType === 'client') ? 'pt-12' : ''}`}>
+      <div className={`relative z-0 isolate flex flex-1 min-h-0 w-full overflow-hidden ${isMobile && !(activeChatId && activeChatType === 'client') ? 'pt-12' : ''}`}>
         {/* Left Unified Sidebar - Desktop */}
         <div className={`${
           isMobile ? 'hidden' : 'flex'
