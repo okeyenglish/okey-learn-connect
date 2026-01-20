@@ -14,24 +14,26 @@ export const useTeacherChatMessages = (clientId: string) => {
       if (!clientId) return [];
       
       console.log('[useTeacherChatMessages] Fetching for client:', clientId);
+      const startTime = performance.now();
       const { data, error } = await supabase.rpc('get_teacher_chat_messages', {
         p_client_id: clientId
       });
+      const elapsed = performance.now() - startTime;
       
       if (error) {
         console.error('[useTeacherChatMessages] Error:', error);
         throw error;
       }
       
-      console.log('[useTeacherChatMessages] Fetched', data?.length || 0, 'messages');
+      console.log(`[useTeacherChatMessages] Fetched ${data?.length || 0} messages in ${elapsed.toFixed(2)}ms`);
       return data || [];
     },
     enabled: !!clientId,
     staleTime: 30 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+    retry: 5,
+    retryDelay: (attemptIndex) => Math.min(500 * 2 ** attemptIndex, 8000),
   });
 
   return { messages: messages || [], isLoading, isFetching, error, refetch };
