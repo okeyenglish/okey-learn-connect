@@ -2485,15 +2485,15 @@ export const ChatArea = ({
                   </DropdownMenuContent>
                 </DropdownMenu>
               
-              {/* Send button - icon only on mobile/tablet, icon+text on large desktop */}
+              {/* Send button - wider on mobile for easier tap */}
               <Button 
-                className={`h-8 w-8 p-0 lg:h-[40px] lg:w-auto lg:px-8 lg:gap-2 ml-auto ${
+                className={`h-10 w-16 p-0 rounded-full lg:h-[40px] lg:w-auto lg:px-8 lg:gap-2 ml-auto ${
                   commentMode ? "bg-yellow-500 hover:bg-yellow-600" : ""
                 }`}
                 onClick={handleSendMessage}
                 disabled={(loading || maxLoading) || (!message.trim() && attachedFiles.length === 0) || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
               >
-                <Send className="h-4 w-4" />
+                <Send className="h-5 w-5" />
                 <span className="hidden lg:inline">Отправить</span>
               </Button>
               </div>
