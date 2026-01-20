@@ -1,32 +1,44 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentOrganizationId } from '@/lib/organizationHelpers';
 
 /**
  * Hook to search chat messages by message_text content.
  * Returns an array of unique client IDs that have matching messages.
+ * Debounced by 400ms for performance (message search is heavier).
  */
 export const useMessageContentSearch = (query: string) => {
   const trimmedQuery = query.trim();
-  // Only search if query is 3+ chars (message search is expensive)
-  const enabled = trimmedQuery.length >= 3;
+  // Debounce message search by 400ms (it's expensive)
+  const [debouncedQuery, setDebouncedQuery] = useState(trimmedQuery);
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(trimmedQuery);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [trimmedQuery]);
+
+  // Only search if query is 3+ chars
+  const enabled = debouncedQuery.length >= 3;
 
   return useQuery({
-    queryKey: ['message-content-search', trimmedQuery],
+    queryKey: ['message-content-search', debouncedQuery],
     enabled,
-    staleTime: 30_000,
+    staleTime: 60_000, // Cache for 1 minute
     gcTime: 5 * 60_000,
     queryFn: async () => {
-      console.log(`[useMessageContentSearch] Searching for: "${trimmedQuery}"`);
+      console.log(`[useMessageContentSearch] Searching for: "${debouncedQuery}"`);
       const orgId = await getCurrentOrganizationId();
 
       const { data, error } = await supabase
         .from('chat_messages')
         .select('client_id')
         .eq('organization_id', orgId)
-        .ilike('message_text', `%${trimmedQuery}%`)
+        .ilike('message_text', `%${debouncedQuery}%`)
         .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(100); // Reduced for speed
 
       if (error) {
         console.error('[useMessageContentSearch] Error:', error);
