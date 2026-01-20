@@ -76,68 +76,66 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
   previewText = previewText.replace(/^OKEY ENGLISH\s+[^\s]+\s*/i, '');
   previewText = previewText.slice(0, 50) + (previewText.length > 50 ? '...' : '');
   
-  const containerPadding = compact ? 'p-2' : 'p-3';
-  const avatarSize = compact ? 'h-10 w-10' : 'h-12 w-12';
-  const avatarTextSize = compact ? 'text-xs' : 'text-sm';
+  const containerPadding = compact ? 'p-2' : 'p-2';
+  const avatarSize = compact ? 'h-9 w-9' : 'h-9 w-9';
+  const avatarTextSize = compact ? 'text-xs' : 'text-xs';
   
   return (
-    <div
+    <button
       onClick={onClick}
-      className={`${containerPadding} rounded-lg cursor-pointer transition-colors mb-1 ${
+      className={`w-full text-left ${containerPadding} rounded-lg transition-all duration-200 relative mb-0.5 border ${
         isSelected
-          ? 'bg-muted border border-border'
-          : 'hover:bg-muted/50'
+          ? 'bg-accent/50 shadow-sm border-accent'
+          : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
       }`}
     >
-      <div className="flex items-start gap-3">
-        {/* Avatar */}
-        <Avatar className={`${avatarSize} shrink-0`}>
-          <AvatarImage src={undefined} alt={teacher.fullName} />
-          <AvatarFallback className={`bg-primary/10 text-primary font-medium ${avatarTextSize}`}>
-            {initials}
-          </AvatarFallback>
-        </Avatar>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-2 flex-1 min-w-0">
+          {/* Avatar */}
+          <Avatar className={`${avatarSize} flex-shrink-0 ring-2 ring-border/30`}>
+            <AvatarImage src={undefined} alt={teacher.fullName} />
+            <AvatarFallback className={`bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))] font-medium ${avatarTextSize}`}>
+              {initials}
+            </AvatarFallback>
+          </Avatar>
         
-        {/* Content */}
-        <div className="flex-1 min-w-0 overflow-hidden">
-          {/* Top row: Name + flags + time */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 min-w-0 flex-1">
-              <span className="font-medium text-sm text-foreground truncate">
+          {/* Content */}
+          <div className="flex-1 min-w-0 overflow-hidden">
+            {/* Top row: Name + flags */}
+            <div className="flex items-center gap-1.5 mb-0">
+              <span className="font-medium text-sm truncate">
                 {teacher.fullName}
               </span>
               {flags && (
                 <span className="text-sm shrink-0">{flags}</span>
               )}
+              {pinCount > 0 && (
+                <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+              )}
             </div>
             
-            <div className="flex items-center gap-1.5 shrink-0">
-              {messageTime && (
-                <span className="text-[10px] text-muted-foreground">
-                  {messageTime}
-                </span>
-              )}
-              {pinCount > 0 && (
-                <Pin className="h-3 w-3 text-muted-foreground" />
-              )}
-              {teacher.unreadMessages > 0 && (
-                <Badge 
-                  variant="destructive" 
-                  className="h-5 min-w-5 px-1.5 flex items-center justify-center text-xs rounded-full"
-                >
-                  {teacher.unreadMessages}
-                </Badge>
-              )}
-            </div>
+            {/* Preview row */}
+            <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
+              {previewText || 'Нет сообщений'}
+            </p>
           </div>
-          
-          {/* Preview row */}
-          <p className="text-xs text-muted-foreground line-clamp-1 break-all mt-0.5">
-            {previewText || 'Нет сообщений'}
-          </p>
+        </div>
+        
+        {/* Right side: time + unread */}
+        <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+          {messageTime && (
+            <span className="text-[10px] text-muted-foreground font-medium">
+              {messageTime}
+            </span>
+          )}
+          {teacher.unreadMessages > 0 && (
+            <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm font-semibold">
+              {teacher.unreadMessages}
+            </span>
+          )}
         </div>
       </div>
-    </div>
+    </button>
   );
 };
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Search, Phone, MessageCircle, Calendar, Users, Clock, Send, ArrowLeft, GraduationCap, Zap, Pin, Paperclip, Mail, RefreshCcw } from 'lucide-react';
+import { Search, Phone, MessageCircle, Calendar, Users, Clock, Send, ArrowLeft, GraduationCap, Zap, Pin, Paperclip, Mail, RefreshCcw, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -755,15 +755,24 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     if (!selectedTeacherId) {
       return (
         <div className="flex flex-col h-full min-h-0 bg-background">
-        <div className="p-3 border-b">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Поиск преподавателя..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-9 text-sm"
-              />
+          <div className="p-2 border-b">
+            <div className="flex gap-1">
+              <div className="flex-1 relative">
+                <Input
+                  placeholder="Поиск по чатам..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-8 text-sm pr-8"
+                />
+                <Search className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 w-8 px-0 rounded-lg border border-muted text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <Filter className="h-4 w-4" />
+              </Button>
             </div>
           </div>
 
@@ -772,9 +781,9 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
               {isLoadingTeachers ? (
                 <>
                   {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="p-3 rounded-lg mb-2 border bg-card">
-                      <div className="flex items-start space-x-3">
-                        <Skeleton className="w-10 h-10 rounded-full" />
+                    <div key={i} className="p-2 rounded-lg mb-0.5 border bg-card">
+                      <div className="flex items-start gap-2">
+                        <Skeleton className="w-9 h-9 rounded-full" />
                         <div className="flex-1 space-y-2">
                           <Skeleton className="h-4 w-32" />
                           <Skeleton className="h-3 w-24" />
@@ -787,33 +796,33 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
               ) : (
                 <>
                   {/* Group Chat for All Teachers */}
-                  <div
+                  <button
                     onClick={() => onSelectTeacher('teachers-group')}
-                    className="p-3 rounded-lg cursor-pointer transition-colors mb-2 hover:bg-muted/50 border bg-card"
+                    className="w-full p-2 text-left rounded-lg transition-all duration-200 relative mb-0.5 border bg-card hover:bg-accent/30 hover:shadow-sm border-border/50"
                   >
-                    <div className="flex items-start space-x-3">
-                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-sm font-medium text-primary">
-                        ЧП
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-medium text-sm text-foreground">
-                            Чат педагогов
-                          </h3>
-                          <div className="flex items-center gap-1">
-                            {pinCounts['teachers-group'] > 0 && (
-                              <Pin className="h-3 w-3 text-muted-foreground" />
-                            )}
-                          </div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2 flex-1 min-w-0">
+                        <div className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium text-primary">
+                          ЧП
                         </div>
                         
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Общий чат всех преподавателей
-                        </p>
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <div className="flex items-center gap-1.5 mb-0">
+                            <p className="text-sm font-medium truncate">
+                              Чат педагогов
+                            </p>
+                            {pinCounts['teachers-group'] > 0 && (
+                              <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+                            )}
+                          </div>
+                          
+                          <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
+                            Общий чат всех преподавателей
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </button>
 
                   {/* Individual Teachers */}
                   {filteredTeachers.map((teacher) => (
@@ -882,15 +891,24 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     <div className="h-full flex">
       {/* Compact Teachers List */}
       <div className="w-72 border-r border-border flex flex-col">
-        <div className="p-3 border-b border-border">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Поиск преподавателя..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-9 text-sm"
-            />
+        <div className="p-2 border-b border-border">
+          <div className="flex gap-1">
+            <div className="flex-1 relative">
+              <Input
+                placeholder="Поиск по чатам..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-8 text-sm pr-8"
+              />
+              <Search className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-8 w-8 px-0 rounded-lg border border-muted text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <Filter className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
@@ -899,9 +917,9 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             {isLoadingTeachers ? (
               <>
                 {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="p-2 rounded-lg mb-2 border bg-card">
-                    <div className="flex items-start space-x-2">
-                      <Skeleton className="w-8 h-8 rounded-full" />
+                  <div key={i} className="p-2 rounded-lg mb-0.5 border bg-card">
+                    <div className="flex items-start gap-2">
+                      <Skeleton className="w-9 h-9 rounded-full" />
                       <div className="flex-1 space-y-2">
                         <Skeleton className="h-3 w-24" />
                         <Skeleton className="h-3 w-16" />
@@ -914,37 +932,37 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             ) : (
               <>
                 {/* Group Chat for All Teachers */}
-                <div
+                <button
                   onClick={() => onSelectTeacher('teachers-group')}
-                  className={`p-2 rounded-lg cursor-pointer transition-colors mb-2 ${
+                  className={`w-full text-left p-2 rounded-lg transition-all duration-200 relative mb-0.5 border ${
                     selectedTeacherId === 'teachers-group'
-                      ? 'bg-muted border border-border'
-                      : 'hover:bg-muted/50'
+                      ? 'bg-accent/50 shadow-sm border-accent'
+                      : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
                   }`}
                 >
-                  <div className="flex items-start space-x-2">
-                    <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium text-primary">
-                      ЧП
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-medium text-sm text-foreground truncate">
-                          Чат педагогов
-                        </h3>
-                        <div className="flex items-center gap-1">
-                          {pinCounts['teachers-group'] > 0 && (
-                            <Pin className="h-3 w-3 text-muted-foreground" />
-                          )}
-                        </div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2 flex-1 min-w-0">
+                      <div className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium text-primary">
+                        ЧП
                       </div>
                       
-                      <p className="text-xs text-muted-foreground truncate">
-                        Общий чат всех преподавателей
-                      </p>
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <div className="flex items-center gap-1.5 mb-0">
+                          <p className="text-sm font-medium truncate">
+                            Чат педагогов
+                          </p>
+                          {pinCounts['teachers-group'] > 0 && (
+                            <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+                          )}
+                        </div>
+                        
+                        <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
+                          Общий чат всех преподавателей
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                </button>
 
                 {/* Individual Teachers */}
                 {filteredTeachers.map((teacher) => (
