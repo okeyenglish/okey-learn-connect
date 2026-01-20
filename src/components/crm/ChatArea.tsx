@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, PanelLeft, PanelRight, CheckCheck, ListTodo, CreditCard } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, PanelLeft, PanelRight, CheckCheck, ListTodo, CreditCard, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -54,6 +54,7 @@ interface ChatAreaProps {
   onChatAction?: (chatId: string, action: 'unread' | 'pin' | 'archive' | 'block') => void; // Chat actions
   rightPanelCollapsed?: boolean; // State of right panel
   onToggleRightPanel?: () => void; // Toggle right panel
+  onOpenClientInfo?: () => void; // Open client info panel on mobile
   initialMessengerTab?: 'whatsapp' | 'telegram' | 'max'; // Initial messenger tab to show
   messengerTabTimestamp?: number; // Timestamp to force tab switch
   initialSearchQuery?: string; // Search query to auto-open search and scroll to match
@@ -81,6 +82,7 @@ export const ChatArea = ({
   onChatAction,
   rightPanelCollapsed = false,
   onToggleRightPanel,
+  onOpenClientInfo,
   initialMessengerTab,
   messengerTabTimestamp,
   initialSearchQuery
@@ -1430,7 +1432,7 @@ export const ChatArea = ({
       }}
     >
       {/* Chat Header */}
-      <div className={`border-b shrink-0 relative ${isMobile ? 'bg-background sticky top-12 z-40' : 'p-3'}`}>
+      <div className={`border-b shrink-0 relative ${isMobile ? 'bg-background sticky top-0 z-40' : 'p-3'}`}>
         {/* Mobile: Compact header with contact info and actions on the same line */}
         {isMobile && (
           <div className="flex items-center justify-between p-2 bg-background">
@@ -1498,11 +1500,23 @@ export const ChatArea = ({
                 size="sm" 
                 variant="outline"
                 className="h-8 w-8 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
-                title="Выделить сообщения"
+                title="Переслать"
                 onClick={handleToggleSelectionMode}
               >
                 <Forward className="h-4 w-4 stroke-1" />
               </Button>
+              {/* Кнопка "О клиенте" */}
+              {onOpenClientInfo && (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="h-8 w-8 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                  title="О клиенте"
+                  onClick={onOpenClientInfo}
+                >
+                  <User className="h-4 w-4 stroke-1" />
+                </Button>
+              )}
               
               {/* Settings dropdown with all the removed options */}
               {onChatAction && (
