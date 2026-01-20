@@ -20,7 +20,7 @@ const Settings = () => {
   const [activeTab, setActiveTab] = useState('organization');
 
   const handleBack = () => {
-    navigate('/');
+    navigate('/newcrm');
   };
 
   return (

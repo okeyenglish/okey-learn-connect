@@ -585,56 +585,36 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
   // Messenger tabs component
   const MessengerTabs = () => (
-    <Tabs
-      value={activeMessengerTab}
-      onValueChange={handleMessengerTabChange}
-      className="flex-1 min-w-0 flex flex-col overflow-hidden"
-    >
-      {/* Make the messenger tabs horizontally scrollable so they never overlap adjacent columns on narrow desktops */}
-      <TabsList className="w-full min-w-0 rounded-none bg-muted/30 border-b h-9 shrink-0 flex gap-1 overflow-x-auto overflow-y-hidden">
-        <TabsTrigger
-          value="whatsapp"
-          className="relative flex-1 min-w-[84px] px-2 text-[11px] data-[state=active]:bg-green-500 data-[state=active]:text-white"
-        >
-          <span className="truncate">WhatsApp</span>
+    <Tabs value={activeMessengerTab} onValueChange={handleMessengerTabChange} className="flex-1 flex flex-col overflow-hidden">
+      <TabsList className="grid w-full grid-cols-5 rounded-none bg-muted/30 border-b h-9 shrink-0">
+        <TabsTrigger value="whatsapp" className="text-xs relative data-[state=active]:bg-green-500 data-[state=active]:text-white">
+          WhatsApp
           {(unreadByMessenger?.whatsapp || 0) > 0 && (
             <span className="absolute -top-1 -right-1 bg-destructive text-white text-[10px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
               {unreadByMessenger?.whatsapp}
             </span>
           )}
         </TabsTrigger>
-        <TabsTrigger
-          value="telegram"
-          className="relative flex-1 min-w-[84px] px-2 text-[11px] data-[state=active]:bg-blue-500 data-[state=active]:text-white"
-        >
-          <span className="truncate">Telegram</span>
+        <TabsTrigger value="telegram" className="text-xs relative data-[state=active]:bg-blue-500 data-[state=active]:text-white">
+          Telegram
           {(unreadByMessenger?.telegram || 0) > 0 && (
             <span className="absolute -top-1 -right-1 bg-destructive text-white text-[10px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
               {unreadByMessenger?.telegram}
             </span>
           )}
         </TabsTrigger>
-        <TabsTrigger
-          value="max"
-          className="relative flex-1 min-w-[64px] px-2 text-[11px] data-[state=active]:bg-purple-500 data-[state=active]:text-white"
-        >
-          <span className="truncate">Max</span>
+        <TabsTrigger value="max" className="text-xs relative data-[state=active]:bg-purple-500 data-[state=active]:text-white">
+          Max
           {(unreadByMessenger?.max || 0) > 0 && (
             <span className="absolute -top-1 -right-1 bg-destructive text-white text-[10px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
               {unreadByMessenger?.max}
             </span>
           )}
         </TabsTrigger>
-        <TabsTrigger
-          value="email"
-          className="relative flex-1 min-w-[44px] px-2 text-[11px] data-[state=active]:bg-orange-500 data-[state=active]:text-white"
-        >
+        <TabsTrigger value="email" className="text-xs relative data-[state=active]:bg-orange-500 data-[state=active]:text-white">
           <Mail className="h-3 w-3" />
         </TabsTrigger>
-        <TabsTrigger
-          value="calls"
-          className="relative flex-1 min-w-[44px] px-2 text-[11px] data-[state=active]:bg-rose-500 data-[state=active]:text-white"
-        >
+        <TabsTrigger value="calls" className="text-xs relative data-[state=active]:bg-rose-500 data-[state=active]:text-white">
           <Phone className="h-3 w-3" />
         </TabsTrigger>
       </TabsList>
@@ -908,9 +888,9 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
   // Desktop view: show both teacher list and chat
   return (
-    <div className="h-full flex min-w-0 overflow-hidden">
+    <div className="h-full flex">
       {/* Compact Teachers List */}
-      <div className="w-72 shrink-0 border-r border-border flex flex-col bg-background relative z-10">
+      <div className="w-72 border-r border-border flex flex-col">
         <div className="p-2 border-b border-border">
           <div className="flex gap-1">
             <div className="flex-1 relative">
@@ -1002,7 +982,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       </div>
 
       {/* Chat Area with Header */}
-      <div className="flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0">
         {/* Header - Fixed height */}
         <div className="p-3 border-b border-border bg-background shrink-0 h-16 flex items-center">
           <div className="flex items-center justify-between w-full">
@@ -1041,9 +1021,9 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         </div>
 
         {/* Compact Tabs - Fixed height */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <div className="shrink-0 px-3 pt-2">
-            <TabsList className="grid w-full grid-cols-3 h-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+          <div className="shrink-0">
+            <TabsList className="grid w-full grid-cols-3 mx-3 mt-2 h-8">
               <TabsTrigger value="диалог" className="text-xs">Диалог</TabsTrigger>
               <TabsTrigger value="расписание" className="text-xs">Расписание</TabsTrigger>
               <TabsTrigger value="профиль" className="text-xs">О преподавателе</TabsTrigger>
@@ -1052,14 +1032,14 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
             {/* Chat tab - Диалог */}
-            <TabsContent value="диалог" className="h-full m-0 flex flex-col flex-1 data-[state=inactive]:hidden">
+            <TabsContent value="диалог" className="h-full m-0 flex flex-col flex-1">
               {/* Messenger Tabs */}
               <MessengerTabs />
             </TabsContent>
 
             {/* Schedule tab - only for individual teachers */}
             {!isGroupChat && (
-              <TabsContent value="расписание" className="h-full m-0 data-[state=inactive]:hidden">
+              <TabsContent value="расписание" className="h-full m-0">
                 <ScrollArea className="flex-1 p-3">
                   <div className="text-center py-8 text-sm text-muted-foreground">
                     Расписание преподавателя будет доступно позже
@@ -1070,7 +1050,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
             {/* Teacher Profile tab - only for individual teachers */}
             {!isGroupChat && (
-              <TabsContent value="профиль" className="h-full m-0 data-[state=inactive]:hidden">
+              <TabsContent value="профиль" className="h-full m-0">
                 <ScrollArea className="h-full p-3">
                   <div className="space-y-4">
                     {/* Basic Info */}
@@ -1149,7 +1129,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             {/* Group chat schedule */}
             {isGroupChat && (
               <>
-                <TabsContent value="расписание" className="h-full m-0 data-[state=inactive]:hidden">
+                <TabsContent value="расписание" className="h-full m-0">
                   <ScrollArea className="h-full p-3">
                     <div className="text-center py-8">
                       <Calendar className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
@@ -1158,7 +1138,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                   </ScrollArea>
                 </TabsContent>
 
-                <TabsContent value="профиль" className="h-full m-0 data-[state=inactive]:hidden">
+                <TabsContent value="профиль" className="h-full m-0">
                   <ScrollArea className="h-full p-3">
                     <div className="text-center py-8">
                       <Users className="h-8 w-8 text-muted-foreground mx-auto mb-4" />

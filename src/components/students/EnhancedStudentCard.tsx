@@ -338,7 +338,7 @@ export function EnhancedStudentCard({
   };
 
   const handleCopyStudentLink = () => {
-    const url = `${window.location.origin}/?studentId=${student.id}`;
+    const url = `${window.location.origin}/newcrm/main?studentId=${student.id}`;
     navigator.clipboard.writeText(url).then(() => {
       toast.success('Ссылка скопирована в буфер обмена');
     }).catch(() => {

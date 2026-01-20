@@ -118,31 +118,15 @@ const queryClient = new QueryClient({
 
 const AppContent = () => {
   const location = useLocation();
-  const isCRMPage = location.pathname === '/' || location.pathname.startsWith('/?');
+  const isCRMPage = location.pathname === '/newcrm' || location.pathname === '/';
   const isPortalPage = location.pathname === '/student-portal' || location.pathname === '/teacher-portal' || location.pathname === '/methodist-portal' || location.pathname.startsWith('/teacher-group/');
   const isProgramsPage = location.pathname === '/programs' || location.pathname.startsWith('/programs/');
-  const isMainPage = location.pathname === '/main';
 
-  // CRM Dashboard at root
   if (isCRMPage) {
     return (
       <Suspense fallback={<LoadingComponent />}>
         <CRM />
       </Suspense>
-    );
-  }
-
-  // Main landing page
-  if (isMainPage) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1 pb-16 lg:pb-0">
-          <Index />
-        </main>
-        <Footer />
-        <ChatBot />
-      </div>
     );
   }
 
@@ -232,6 +216,7 @@ const AppContent = () => {
       <Header />
       <main className="flex-1 pb-16 lg:pb-0">
         <Routes>
+          <Route path="/main" element={<Index />} />
           <Route path="/branches" element={
             <Suspense fallback={<LoadingComponent />}>
               <Branches />
@@ -329,7 +314,11 @@ const AppContent = () => {
               </Suspense>
             </ProtectedRoute>
           } />
-          <Route path="/main" element={<Index />} />
+          <Route path="/newcrm" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <CRM />
+            </Suspense>
+          } />
           <Route path="/crm/*" element={
             <Suspense fallback={<LoadingComponent />}>
               <UnifiedCRM />
