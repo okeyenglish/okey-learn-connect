@@ -1021,9 +1021,9 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         </div>
 
         {/* Compact Tabs - Fixed height */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-          <div className="shrink-0">
-            <TabsList className="grid w-full grid-cols-3 mx-3 mt-2 h-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="shrink-0 px-3 pt-2">
+            <TabsList className="grid w-full grid-cols-3 h-8">
               <TabsTrigger value="диалог" className="text-xs">Диалог</TabsTrigger>
               <TabsTrigger value="расписание" className="text-xs">Расписание</TabsTrigger>
               <TabsTrigger value="профиль" className="text-xs">О преподавателе</TabsTrigger>
@@ -1032,14 +1032,14 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
             {/* Chat tab - Диалог */}
-            <TabsContent value="диалог" className="h-full m-0 flex flex-col flex-1">
+            <TabsContent value="диалог" className="h-full m-0 flex flex-col flex-1 data-[state=inactive]:hidden">
               {/* Messenger Tabs */}
               <MessengerTabs />
             </TabsContent>
 
             {/* Schedule tab - only for individual teachers */}
             {!isGroupChat && (
-              <TabsContent value="расписание" className="h-full m-0">
+              <TabsContent value="расписание" className="h-full m-0 data-[state=inactive]:hidden">
                 <ScrollArea className="flex-1 p-3">
                   <div className="text-center py-8 text-sm text-muted-foreground">
                     Расписание преподавателя будет доступно позже
@@ -1050,7 +1050,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
             {/* Teacher Profile tab - only for individual teachers */}
             {!isGroupChat && (
-              <TabsContent value="профиль" className="h-full m-0">
+              <TabsContent value="профиль" className="h-full m-0 data-[state=inactive]:hidden">
                 <ScrollArea className="h-full p-3">
                   <div className="space-y-4">
                     {/* Basic Info */}
@@ -1129,7 +1129,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             {/* Group chat schedule */}
             {isGroupChat && (
               <>
-                <TabsContent value="расписание" className="h-full m-0">
+                <TabsContent value="расписание" className="h-full m-0 data-[state=inactive]:hidden">
                   <ScrollArea className="h-full p-3">
                     <div className="text-center py-8">
                       <Calendar className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
@@ -1138,7 +1138,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                   </ScrollArea>
                 </TabsContent>
 
-                <TabsContent value="профиль" className="h-full m-0">
+                <TabsContent value="профиль" className="h-full m-0 data-[state=inactive]:hidden">
                   <ScrollArea className="h-full p-3">
                     <div className="text-center py-8">
                       <Users className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
