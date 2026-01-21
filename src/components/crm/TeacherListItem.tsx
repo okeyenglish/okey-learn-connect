@@ -76,7 +76,7 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
   return (
     <button
       onClick={onClick}
-      className={`w-full p-2 text-left rounded-lg transition-all duration-200 relative mb-0.5 border select-none ${
+      className={`w-full max-w-full overflow-hidden p-2 text-left rounded-lg transition-all duration-200 relative mb-0.5 border select-none touch-none ${
         isSelected
           ? 'bg-accent/50 shadow-sm border-accent'
           : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
@@ -93,17 +93,17 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
           </Avatar>
           
           {/* Content - flexible, truncates */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 overflow-hidden">
             {/* Name row */}
-            <div className="flex items-center gap-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-0 min-w-0">
               <p className="text-sm font-medium truncate flex-1 min-w-0">
                 {teacher.fullName}
               </p>
-              {flags && <span className="text-[10px] flex-shrink-0 ml-auto">{flags}</span>}
-              {pinCount > 0 && <Pin className="h-3 w-3 text-orange-500 flex-shrink-0" />}
+              {flags && <span className="text-xs flex-shrink-0">{flags}</span>}
+              {pinCount > 0 && <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />}
             </div>
             {/* Preview */}
-            <p className="text-xs text-muted-foreground truncate">
+            <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
               {previewText || 'Нет сообщений'}
             </p>
           </div>
@@ -117,7 +117,7 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
             </span>
           )}
           {teacher.unreadMessages > 0 && (
-            <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm font-semibold">
+            <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1">
               {teacher.unreadMessages}
             </span>
           )}
