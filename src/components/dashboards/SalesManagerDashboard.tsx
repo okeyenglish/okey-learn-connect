@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Phone, Calendar, DollarSign, TrendingUp, Users, Target } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { CallStatisticsWidget } from "./CallStatisticsWidget";
 
 export const SalesManagerDashboard = () => {
   // Mock data - replace with actual API calls
@@ -154,6 +155,9 @@ export const SalesManagerDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Call Statistics Widget */}
+      <CallStatisticsWidget />
 
       {/* Leads Activity */}
       <Card>
