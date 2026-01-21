@@ -3732,15 +3732,17 @@ const CRMContent = () => {
               onMessageChange={setHasUnsavedChat}
             />
           ) : activeChatType === 'teachers' ? (
-            <TeacherChatArea 
-              selectedTeacherId={activeChatId === 'teachers' ? 'teachers-group' : activeChatId}
-              onSelectTeacher={(teacherId: string | null) => {
-                setSelectedTeacherId(teacherId);
-                if (teacherId) {
-                  handleChatClick(teacherId, 'teachers');
-                }
-              }}
-            />
+            <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden">
+              <TeacherChatArea 
+                selectedTeacherId={activeChatId === 'teachers' ? 'teachers-group' : activeChatId}
+                onSelectTeacher={(teacherId: string | null) => {
+                  setSelectedTeacherId(teacherId);
+                  if (teacherId) {
+                    handleChatClick(teacherId, 'teachers');
+                  }
+                }}
+              />
+            </div>
           ) : activeChatType === 'communities' ? (
             <CommunityChatArea 
               onMessageChange={setHasUnsavedChat}
