@@ -30,27 +30,38 @@ export interface PushNotificationState {
 
 export function usePushNotifications() {
   const { user } = useAuth();
+  
+  // Check support synchronously on mount
+  const isSupported = 
+    typeof window !== 'undefined' &&
+    'serviceWorker' in navigator && 
+    'PushManager' in window && 
+    'Notification' in window;
+
   const [state, setState] = useState<PushNotificationState>({
-    isSupported: false,
-    permission: 'default',
+    isSupported,
+    permission: typeof window !== 'undefined' && 'Notification' in window 
+      ? Notification.permission 
+      : 'default',
     isSubscribed: false,
     isLoading: true,
   });
 
-  // Check if push notifications are supported
-  const checkSupport = useCallback(() => {
-    const isSupported = 
-      'serviceWorker' in navigator && 
-      'PushManager' in window && 
-      'Notification' in window;
-    
-    return isSupported;
-  }, []);
-
   // Get current subscription status
   const checkSubscription = useCallback(async () => {
-    if (!checkSupport() || !user) {
-      setState(prev => ({ ...prev, isLoading: false, isSupported: checkSupport() }));
+    if (!isSupported) {
+      setState(prev => ({ ...prev, isLoading: false }));
+      return;
+    }
+
+    // If no user, just update permission but don't check subscription
+    if (!user) {
+      setState(prev => ({ 
+        ...prev, 
+        isSupported: true,
+        permission: Notification.permission,
+        isLoading: false 
+      }));
       return;
     }
 
@@ -66,9 +77,14 @@ export function usePushNotifications() {
       });
     } catch (error) {
       console.error('Error checking push subscription:', error);
-      setState(prev => ({ ...prev, isLoading: false }));
+      setState(prev => ({ 
+        ...prev, 
+        isSupported: true,
+        permission: Notification.permission,
+        isLoading: false 
+      }));
     }
-  }, [checkSupport, user]);
+  }, [isSupported, user]);
 
   useEffect(() => {
     checkSubscription();
@@ -81,7 +97,7 @@ export function usePushNotifications() {
       return false;
     }
 
-    if (!checkSupport()) {
+    if (!isSupported) {
       toast.error('Push-уведомления не поддерживаются в этом браузере');
       return false;
     }
@@ -155,7 +171,7 @@ export function usePushNotifications() {
       setState(prev => ({ ...prev, isLoading: false }));
       return false;
     }
-  }, [user, checkSupport]);
+  }, [user, isSupported]);
 
   // Unsubscribe from push notifications
   const unsubscribe = useCallback(async (): Promise<boolean> => {
