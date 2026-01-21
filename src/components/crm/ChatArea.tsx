@@ -2394,45 +2394,45 @@ export const ChatArea = ({
                   </Dialog>
                 )}
                 
-                {/* Разделитель и кнопка "Не требует ответа" - только desktop */}
+                {/* Разделитель и кнопка "Не требует ответа" - только на больших экранах (xl+) */}
                 {isLastMessageIncoming && (
                   <>
-                    <div className="h-6 w-px bg-border mx-1 hidden md:block" />
+                    <div className="h-6 w-px bg-border mx-1 hidden xl:block" />
                     
                     <Button 
                       size="sm" 
                       variant="outline" 
-                      className="hidden md:flex h-8 px-2 xl:px-3 text-sm gap-1 xl:gap-2 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                      className="hidden xl:flex h-8 px-3 text-sm gap-2 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
                       onClick={handleMarkAsNoResponseNeeded}
                       disabled={!!pendingMessage}
                       title="Пометить как не требующий ответа"
                     >
                       <CheckCheck className="h-4 w-4 shrink-0" />
-                      <span className="hidden xl:inline">Не требует ответа</span>
+                      <span>Не требует ответа</span>
                     </Button>
                   </>
                 )}
                 
-                {/* Кнопка "Поставить задачу" - только desktop */}
+                {/* Кнопка "Поставить задачу" - только на больших экранах (xl+) */}
                 <Button 
                   size="sm" 
                   variant="outline" 
-                  className="hidden md:flex h-8 px-2 xl:px-3 text-sm gap-1 xl:gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+                  className="hidden xl:flex h-8 px-3 text-sm gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
                   onClick={handleOpenTaskModalAndMarkRead}
                   disabled={!!pendingMessage}
                   title="Поставить задачу"
                 >
                   <ListTodo className="h-4 w-4 shrink-0" />
-                  <span className="hidden xl:inline">Поставить задачу</span>
+                  <span>Поставить задачу</span>
                 </Button>
                 
-                {/* Mobile: More actions dropdown */}
+                {/* Dropdown для действий - на md-lg экранах и мобильных */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button 
                       size="sm" 
                       variant="ghost" 
-                      className="h-6 w-6 p-0 md:hidden"
+                      className="h-8 w-8 p-0 xl:hidden"
                     >
                       <MoreVertical className="h-4 w-4" />
                     </Button>
@@ -2484,9 +2484,9 @@ export const ChatArea = ({
                   </DropdownMenuContent>
                 </DropdownMenu>
               
-              {/* Send button - wider on mobile for easier tap */}
+              {/* Send button */}
               <Button 
-                className={`h-11 min-w-[44px] md:min-w-[88px] px-3 md:px-5 rounded-xl xl:h-[40px] xl:w-auto xl:px-8 xl:gap-2 xl:rounded-md ml-auto ${
+                className={`h-11 min-w-[44px] px-4 rounded-xl xl:h-[40px] xl:px-6 xl:gap-2 xl:rounded-md ml-auto shrink-0 ${
                   commentMode ? "bg-yellow-500 hover:bg-yellow-600" : ""
                 }`}
                 onClick={handleSendMessage}
