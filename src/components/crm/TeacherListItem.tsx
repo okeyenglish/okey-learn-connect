@@ -83,13 +83,13 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left ${containerPadding} rounded-lg transition-all duration-200 relative mb-0.5 border ${
+      className={`w-full text-left ${containerPadding} rounded-lg transition-all duration-200 relative mb-0.5 border overflow-hidden ${
         isSelected
           ? 'bg-accent/50 shadow-sm border-accent'
           : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
       }`}
     >
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-2 min-w-0">
         <div className="flex items-start gap-2 flex-1 min-w-0">
           {/* Avatar */}
           <Avatar className={`${avatarSize} flex-shrink-0 ring-2 ring-border/30`}>
@@ -102,8 +102,8 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
           {/* Content */}
           <div className="flex-1 min-w-0 overflow-hidden">
             {/* Top row: Name + flags */}
-            <div className="flex items-center gap-1.5 mb-0">
-              <span className="font-medium text-sm truncate">
+            <div className="flex items-center gap-1.5 mb-0 min-w-0 overflow-hidden">
+              <span className="font-medium text-sm truncate flex-1 min-w-0">
                 {teacher.fullName}
               </span>
               {flags && (
