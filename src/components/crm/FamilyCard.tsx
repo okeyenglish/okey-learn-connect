@@ -60,7 +60,7 @@ export const FamilyCard = ({
     setActiveTab("children");
   }, [familyGroupId]);
   const [autoMessagesEnabled, setAutoMessagesEnabled] = useState(true);
-  const [selectedBranch, setSelectedBranch] = useState("Окская");
+  const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
   const [isChangingBranch, setIsChangingBranch] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
@@ -70,6 +70,40 @@ export const FamilyCard = ({
   const { familyData, loading, error, refetch } = useFamilyData(familyGroupId);
   const { groups: allGroups } = useLearningGroups();
   const { branches: organizationBranches } = useOrganization();
+  
+  // Normalize branch name from Hollihope format to organization_branches format
+  const normalizeBranchName = (branch?: string | null): string | null => {
+    if (!branch) return null;
+    // Remove common prefixes from Hollihope data
+    const prefixes = ['OKEY ENGLISH ', "O'KEY ENGLISH ", "O'KEY English "];
+    let normalized = branch;
+    for (const prefix of prefixes) {
+      if (branch.startsWith(prefix)) {
+        normalized = branch.slice(prefix.length).trim();
+        break;
+      }
+    }
+    // Match against organization branches
+    const matchedBranch = organizationBranches.find(
+      ob => ob.name.toLowerCase() === normalized.toLowerCase() ||
+            ob.name.toLowerCase().includes(normalized.toLowerCase()) ||
+            normalized.toLowerCase().includes(ob.name.toLowerCase())
+    );
+    return matchedBranch?.name || normalized;
+  };
+  
+  // Initialize selectedBranch from client data
+  useEffect(() => {
+    if (familyData) {
+      const activeMember = familyData.members.find(m => m.id === activeMemberId) || 
+                           familyData.members.find(m => m.isPrimaryContact) || 
+                           familyData.members[0];
+      // Get branch from active member and normalize it
+      const memberBranch = normalizeBranchName(activeMember?.branch);
+      const branch = memberBranch || organizationBranches[0]?.name || null;
+      setSelectedBranch(branch);
+    }
+  }, [familyData, activeMemberId, organizationBranches]);
   
   const selectedGroup = allGroups?.find(g => g.id === selectedCourseId) || null;
   

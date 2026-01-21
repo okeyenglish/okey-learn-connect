@@ -22,6 +22,7 @@ export interface FamilyMember {
   name: string;
   phone: string;
   email?: string;
+  branch?: string;
   relationship: 'main' | 'spouse' | 'parent' | 'guardian' | 'other';
   lastContact?: string;
   unreadMessages?: number;
@@ -83,6 +84,7 @@ interface RpcMember {
   name: string;
   phone?: string;
   email?: string;
+  branch?: string;
   avatar_url?: string;
   relationship_type: string;
   is_primary_contact: boolean;
@@ -204,6 +206,7 @@ export const useFamilyData = (familyGroupId?: string) => {
         name: member.name,
         phone: member.phone || '',
         email: member.email || undefined,
+        branch: member.branch || undefined,
         relationship: member.relationship_type as FamilyMember['relationship'],
         isPrimaryContact: member.is_primary_contact,
         unreadMessages: 0,
