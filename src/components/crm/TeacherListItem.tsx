@@ -108,15 +108,15 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
           </p>
         </div>
         
-        {/* Right: Time + Unread - fixed width */}
-        <div className="flex flex-col items-end shrink-0 w-12">
+        {/* Right: Time + Unread */}
+        <div className="flex flex-col items-end shrink-0">
           {messageTime && (
-            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+            <span className="text-[11px] text-muted-foreground whitespace-nowrap">
               {messageTime}
             </span>
           )}
           {teacher.unreadMessages > 0 && (
-            <span className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full font-semibold min-w-[18px] text-center mt-0.5">
+            <span className="bg-destructive text-destructive-foreground text-[11px] px-2 py-0.5 rounded-full font-semibold min-w-[22px] text-center mt-1">
               {teacher.unreadMessages}
             </span>
           )}
