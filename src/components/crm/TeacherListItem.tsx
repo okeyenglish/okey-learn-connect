@@ -76,7 +76,7 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
   return (
     <button
       onClick={onClick}
-      className={`w-full p-2 text-left rounded-lg transition-all duration-200 relative mb-0.5 border select-none touch-none ${
+      className={`w-full p-2 text-left rounded-lg transition-all duration-200 relative mb-0.5 border select-none touch-manipulation ${
         isSelected
           ? 'bg-accent/50 shadow-sm border-accent'
           : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
