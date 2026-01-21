@@ -2814,7 +2814,7 @@ const CRMContent = () => {
                   </div>
                   {!bulkSelectMode && (
                     <>
-                      <DropdownMenu open={showFilters} onOpenChange={setShowFilters}>
+                      <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button 
                             variant="ghost" 
@@ -3357,7 +3357,7 @@ const CRMContent = () => {
                       size="sm"
                     />
                   </div>
-                  <DropdownMenu open={showFilters} onOpenChange={setShowFilters}>
+                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button 
                         variant="ghost" 
