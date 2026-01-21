@@ -777,7 +777,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
           </div>
 
           <ScrollArea className="flex-1 pb-20 overflow-hidden">
-            <div className="p-2 pb-16 overflow-hidden">
+            <div className="pb-16 overflow-hidden">
               {isLoadingTeachers ? (
                 <>
                   {[1, 2, 3, 4, 5].map((i) => (
@@ -913,7 +913,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         </div>
 
         <ScrollArea className="flex-1 overflow-hidden">
-          <div className="p-2 overflow-hidden">
+          <div className="overflow-hidden">
             {isLoadingTeachers ? (
               <>
                 {[1, 2, 3, 4, 5].map((i) => (

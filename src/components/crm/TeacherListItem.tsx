@@ -92,9 +92,9 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
           
           <div className="flex-1 min-w-0 overflow-hidden">
             <div className="flex items-center gap-1.5 mb-0">
-              <p className="text-sm font-medium truncate">
+              <span className="text-sm font-medium truncate max-w-[60%]">
                 {teacher.fullName}
-              </p>
+              </span>
               {flags && <span className="text-xs flex-shrink-0">{flags}</span>}
               {pinCount > 0 && <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />}
             </div>
