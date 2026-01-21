@@ -2402,13 +2402,13 @@ export const ChatArea = ({
                     <Button 
                       size="sm" 
                       variant="outline" 
-                      className="hidden lg:flex h-8 w-auto px-3 text-sm gap-2 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                      className="hidden md:flex h-8 px-2 xl:px-3 text-sm gap-1 xl:gap-2 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
                       onClick={handleMarkAsNoResponseNeeded}
                       disabled={!!pendingMessage}
                       title="Пометить как не требующий ответа"
                     >
-                      <CheckCheck className="h-4 w-4" />
-                      <span>Не требует ответа</span>
+                      <CheckCheck className="h-4 w-4 shrink-0" />
+                      <span className="hidden xl:inline">Не требует ответа</span>
                     </Button>
                   </>
                 )}
@@ -2417,13 +2417,13 @@ export const ChatArea = ({
                 <Button 
                   size="sm" 
                   variant="outline" 
-                  className="hidden lg:flex h-8 w-auto px-3 text-sm gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+                  className="hidden md:flex h-8 px-2 xl:px-3 text-sm gap-1 xl:gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
                   onClick={handleOpenTaskModalAndMarkRead}
                   disabled={!!pendingMessage}
                   title="Поставить задачу"
                 >
-                  <ListTodo className="h-4 w-4" />
-                  <span>Поставить задачу</span>
+                  <ListTodo className="h-4 w-4 shrink-0" />
+                  <span className="hidden xl:inline">Поставить задачу</span>
                 </Button>
                 
                 {/* Mobile: More actions dropdown */}
@@ -2486,15 +2486,15 @@ export const ChatArea = ({
               
               {/* Send button - wider on mobile for easier tap */}
               <Button 
-                className={`h-11 min-w-[88px] px-5 rounded-xl lg:h-[40px] lg:w-auto lg:px-8 lg:gap-2 lg:rounded-md ml-auto ${
+                className={`h-11 min-w-[44px] md:min-w-[88px] px-3 md:px-5 rounded-xl xl:h-[40px] xl:w-auto xl:px-8 xl:gap-2 xl:rounded-md ml-auto ${
                   commentMode ? "bg-yellow-500 hover:bg-yellow-600" : ""
                 }`}
                 onClick={handleSendMessage}
                 disabled={(loading || maxLoading) || (!message.trim() && attachedFiles.length === 0) || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
                 aria-label="Отправить"
               >
-                <Send className="h-5 w-5" />
-                <span className="hidden lg:inline">Отправить</span>
+                <Send className="h-5 w-5 shrink-0" />
+                <span className="hidden xl:inline">Отправить</span>
               </Button>
               </div>
             </div>
