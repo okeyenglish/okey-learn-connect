@@ -4,6 +4,7 @@ import { DollarSign, Users, TrendingUp, TrendingDown, UserCheck } from "lucide-r
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { CallStatisticsWidget } from "./CallStatisticsWidget";
 
 export const OwnerDashboard = () => {
   // Current month revenue
@@ -341,6 +342,9 @@ export const OwnerDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Call Statistics Widget */}
+      <CallStatisticsWidget />
     </div>
   );
 };
