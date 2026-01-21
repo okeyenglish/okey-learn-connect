@@ -2134,25 +2134,15 @@ export const ChatArea = ({
                 <p className="text-xs text-muted-foreground">Прикрепленные файлы:</p>
                 <div className="flex flex-wrap gap-2">
                   {attachedFiles.map((file, index) => (
-                    <div key={index} className="relative">
-                      <AttachedFile
-                        url={file.url}
-                        name={file.name}
-                        type={file.type}
-                        size={file.size}
-                        className="max-w-xs"
-                      />
-                      {/* Delete button overlay */}
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="absolute -top-2 -right-2 h-6 w-6 p-0 rounded-full shadow-md z-10"
-                        onClick={() => setAttachedFiles(prev => prev.filter((_, i) => i !== index))}
-                        title="Удалить файл"
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
+                    <AttachedFile
+                      key={index}
+                      url={file.url}
+                      name={file.name}
+                      type={file.type}
+                      size={file.size}
+                      className="max-w-xs"
+                      onRemove={() => setAttachedFiles(prev => prev.filter((_, i) => i !== index))}
+                    />
                   ))}
                 </div>
               </div>

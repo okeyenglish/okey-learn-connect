@@ -1,7 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
-import { File, Image, Video, Music, FileText, Download, ExternalLink, Play, Pause, Volume2, VolumeX, Maximize2, Loader2, FileAudio, MessageSquareText } from 'lucide-react';
+import { File, Image, Video, Music, FileText, Download, ExternalLink, Play, Pause, Volume2, VolumeX, Maximize2, Loader2, FileAudio, MessageSquareText, Trash2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useWhatsAppFile } from '@/hooks/useWhatsAppFile';
 import { useAudioTranscription } from '@/hooks/useAudioTranscription';
@@ -15,9 +15,10 @@ interface AttachedFileProps {
   className?: string;
   chatId?: string;
   messageId?: string;
+  onRemove?: () => void;
 }
 
-export const AttachedFile = ({ url, name, type, size, className, chatId, messageId }: AttachedFileProps) => {
+export const AttachedFile = ({ url, name, type, size, className, chatId, messageId, onRemove }: AttachedFileProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -260,6 +261,17 @@ export const AttachedFile = ({ url, name, type, size, className, chatId, message
                 <Download className="h-3 w-3" />
               )}
             </Button>
+            {onRemove && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                onClick={onRemove}
+                title="Удалить"
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            )}
           </div>
         </div>
       </Card>
@@ -328,6 +340,17 @@ export const AttachedFile = ({ url, name, type, size, className, chatId, message
                 <Download className="h-3 w-3" />
               )}
             </Button>
+            {onRemove && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                onClick={onRemove}
+                title="Удалить"
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            )}
           </div>
         </div>
         
