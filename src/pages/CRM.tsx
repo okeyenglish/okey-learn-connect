@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useClients, useSearchClients, useCreateClient } from "@/hooks/useClients";
 import { useClientIdsByPhoneSearch } from "@/hooks/useClientIdsByPhoneSearch";
 import { usePhoneSearchThreads } from "@/hooks/usePhoneSearchThreads";
+import { usePinnedChatThreads } from "@/hooks/usePinnedChatThreads";
 import { useClientNameSearch } from "@/hooks/useClientNameSearch";
 import { useMessageContentSearch } from "@/hooks/useMessageContentSearch";
 import { useClientStatus } from "@/hooks/useClientStatus";
@@ -1030,68 +1031,80 @@ const CRMContent = () => {
   const allSearchClientIdsArray = useMemo(() => Array.from(allSearchClientIds), [allSearchClientIds]);
   const { data: phoneSearchThreads = [], isLoading: phoneThreadsLoading } = usePhoneSearchThreads(allSearchClientIdsArray, threadClientIdsSet);
   
+  // Load pinned chat threads that are NOT in the loaded threads
+  const { data: pinnedChatThreads = [], isLoading: pinnedThreadsLoading } = usePinnedChatThreads(pinnedChatIds, threadClientIdsSet);
+  
   console.log('[CRM] Search threads loaded:', {
     threadsLoaded: phoneSearchThreads.length,
-    isLoading: phoneThreadsLoading
+    isLoading: phoneThreadsLoading,
+    pinnedThreadsLoaded: pinnedChatThreads.length
   });
   
   // Combined search loading state
   const isSearchLoading = chatSearchQuery.length >= 2 && (phoneSearchLoading || nameSearchLoading || messageSearchLoading || phoneThreadsLoading);
   
-  // Merge search threads into allChats
+  // Merge search threads and pinned threads into allChats
   const allChatsWithPhoneSearch = useMemo(() => {
     console.log('[CRM] allChatsWithSearch recalc:', {
       searchThreadsCount: phoneSearchThreads.length,
+      pinnedThreadsCount: pinnedChatThreads.length,
       allChatsCount: allChats.length,
       allSearchClientIds: allSearchClientIds.size,
     });
     
-    if (phoneSearchThreads.length === 0) {
-      // Even if no threads loaded yet, check if we're waiting for them
-      if (allSearchClientIds.size > 0 && phoneThreadsLoading) {
-        console.log('[CRM] Search threads still loading, returning allChats for now');
-      }
-      return allChats;
-    }
-    
     const existingIds = new Set(allChats.map(c => c.id));
-    const newChats = phoneSearchThreads
-      .filter(thread => {
-        const exists = existingIds.has(thread.client_id);
-        return !exists;
-      })
+    
+    // Helper to convert thread to chat format
+    const threadToChat = (thread: any, foundInMessages = false) => {
+      let displayAvatar: string | null = null;
+      if (thread.last_unread_messenger === 'telegram' && thread.telegram_avatar_url) {
+        displayAvatar = thread.telegram_avatar_url;
+      } else if (thread.last_unread_messenger === 'whatsapp' && thread.whatsapp_avatar_url) {
+        displayAvatar = thread.whatsapp_avatar_url;
+      } else if (thread.last_unread_messenger === 'max' && thread.max_avatar_url) {
+        displayAvatar = thread.max_avatar_url;
+      } else {
+        displayAvatar = thread.telegram_avatar_url || thread.whatsapp_avatar_url || thread.max_avatar_url || thread.avatar_url || null;
+      }
+      
+      return {
+        id: thread.client_id,
+        name: formatClientDisplayName(thread.client_name ?? 'Без имени', thread.first_name, thread.last_name, thread.whatsapp_chat_id, thread.telegram_chat_id, thread.max_chat_id, thread.client_phone),
+        phone: thread.client_phone,
+        branch: thread.client_branch,
+        lastMessage: thread.last_message?.trim?.() || 'Нет сообщений',
+        time: formatTime(thread.last_message_time),
+        unread: thread.unread_count,
+        type: 'client' as const,
+        timestamp: thread.last_message_time ? new Date(thread.last_message_time).getTime() : 0,
+        avatar_url: displayAvatar,
+        last_unread_messenger: thread.last_unread_messenger,
+        foundInMessages
+      };
+    };
+    
+    // Add pinned threads first (they should always be visible)
+    const pinnedChatsFromThreads = pinnedChatThreads
+      .filter(thread => !existingIds.has(thread.client_id))
       .map(thread => {
-        let displayAvatar: string | null = null;
-        if (thread.last_unread_messenger === 'telegram' && thread.telegram_avatar_url) {
-          displayAvatar = thread.telegram_avatar_url;
-        } else if (thread.last_unread_messenger === 'whatsapp' && thread.whatsapp_avatar_url) {
-          displayAvatar = thread.whatsapp_avatar_url;
-        } else if (thread.last_unread_messenger === 'max' && thread.max_avatar_url) {
-          displayAvatar = thread.max_avatar_url;
-        } else {
-          displayAvatar = thread.telegram_avatar_url || thread.whatsapp_avatar_url || thread.max_avatar_url || thread.avatar_url || null;
-        }
-        
-        return {
-          id: thread.client_id,
-          name: formatClientDisplayName(thread.client_name ?? 'Без имени', thread.first_name, thread.last_name, thread.whatsapp_chat_id, thread.telegram_chat_id, thread.max_chat_id, thread.client_phone),
-          phone: thread.client_phone,
-          branch: thread.client_branch,
-          lastMessage: thread.last_message?.trim?.() || 'Нет сообщений',
-          time: formatTime(thread.last_message_time),
-          unread: thread.unread_count,
-          type: 'client' as const,
-          timestamp: thread.last_message_time ? new Date(thread.last_message_time).getTime() : 0,
-          avatar_url: displayAvatar,
-          last_unread_messenger: thread.last_unread_messenger,
-          // Mark if found via message search
-          foundInMessages: messageSearchClientIds.includes(thread.client_id)
-        };
+        existingIds.add(thread.client_id); // Mark as added
+        return threadToChat(thread, false);
       });
     
-    console.log('[CRM] Adding search threads:', newChats.length);
-    return [...allChats, ...newChats];
-  }, [allChats, phoneSearchThreads, allSearchClientIds, phoneThreadsLoading, messageSearchClientIds]);
+    // Add search threads
+    const searchChats = phoneSearchThreads
+      .filter(thread => !existingIds.has(thread.client_id))
+      .map(thread => threadToChat(thread, messageSearchClientIds.includes(thread.client_id)));
+    
+    if (pinnedChatsFromThreads.length > 0 || searchChats.length > 0) {
+      console.log('[CRM] Adding threads:', {
+        pinned: pinnedChatsFromThreads.length,
+        search: searchChats.length
+      });
+    }
+    
+    return [...allChats, ...pinnedChatsFromThreads, ...searchChats];
+  }, [allChats, phoneSearchThreads, pinnedChatThreads, allSearchClientIds, phoneThreadsLoading, messageSearchClientIds]);
 
   // Helper to normalize phone for comparison
   const normalizePhoneForSearch = (phone: string | null | undefined) => 
