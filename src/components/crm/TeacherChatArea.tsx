@@ -1022,8 +1022,8 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
         {/* Compact Tabs - Fixed height */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-          <div className="shrink-0">
-            <TabsList className="grid w-full grid-cols-3 mx-3 mt-2 h-8">
+          <div className="shrink-0 px-3">
+            <TabsList className="grid w-full grid-cols-3 mt-2 h-8">
               <TabsTrigger value="диалог" className="text-xs">Диалог</TabsTrigger>
               <TabsTrigger value="расписание" className="text-xs">Расписание</TabsTrigger>
               <TabsTrigger value="профиль" className="text-xs">О преподавателе</TabsTrigger>

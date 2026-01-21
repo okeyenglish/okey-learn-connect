@@ -3352,7 +3352,7 @@ const CRMContent = () => {
         </div>
 
         {/* Center - Chat Area или Мобильный контент */}
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-background">
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-background relative">
           {/* Показываем меню на мобильной версии когда активна вкладка menu */}
           {isMobile && activeTab === 'menu' ? (
             <div className="p-4 space-y-2 overflow-y-auto">
@@ -3789,6 +3789,17 @@ const CRMContent = () => {
               </div>
             </div>
           )}
+          
+          {/* Плавающая кнопка AI Центра для десктопа - внутри центрального контейнера */}
+          {!isMobile && !voiceAssistantOpen && activeChatType === 'client' && (
+            <Button
+              onClick={() => setVoiceAssistantOpen(true)}
+              className="absolute bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-40 bg-primary hover:bg-primary/90"
+              size="icon"
+            >
+              <Bot className="h-6 w-6" />
+            </Button>
+          )}
         </div>
 
         {/* Right Sidebar - Desktop */}
@@ -3937,16 +3948,6 @@ const CRMContent = () => {
         return null;
       })}
       
-      {/* Плавающая кнопка AI Центра для десктопа */}
-      {!isMobile && !voiceAssistantOpen && (
-        <Button
-          onClick={() => setVoiceAssistantOpen(true)}
-          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50 bg-primary hover:bg-primary/90"
-          size="icon"
-        >
-          <Bot className="h-6 w-6" />
-        </Button>
-      )}
       
       {/* AI Центр */}
       <AIHub 
