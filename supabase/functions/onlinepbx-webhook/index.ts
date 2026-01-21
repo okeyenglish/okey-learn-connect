@@ -255,8 +255,96 @@ serve(async (req) => {
           }
         }
       } else {
-        // Create new call log entry
-        console.log('Creating new call log for phone (normalized):', normalizedPhone);
+        // Check for deduplication: look for recent call from the same number within 60 seconds
+        const sixtySecondsAgo = new Date(Date.now() - 60000).toISOString();
+        console.log('Checking for recent calls from same number within 60 seconds...');
+        
+        const { data: recentCall, error: recentCallError } = await supabase
+          .from('call_logs')
+          .select('id, status, direction, phone_number, started_at')
+          .eq('phone_number', selectedPhone)
+          .eq('direction', direction)
+          .gte('started_at', sixtySecondsAgo)
+          .order('started_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (recentCallError) {
+          console.error('Error checking for recent calls:', recentCallError);
+        }
+        
+        if (recentCall) {
+          // Found a recent call from the same number - update instead of creating new
+          console.log('Found recent call from same number, updating instead of creating new. Call ID:', recentCall.id);
+          
+          // Define status priority: answered > busy > failed > missed > initiated
+          const statusPriority: { [key: string]: number } = {
+            'answered': 5,
+            'busy': 4,
+            'failed': 3,
+            'missed': 2,
+            'initiated': 1
+          };
+          
+          const currentPriority = statusPriority[recentCall.status] || 0;
+          const newPriority = statusPriority[status] || 0;
+          
+          // Only update if new status has higher or equal priority
+          if (newPriority >= currentPriority) {
+            console.log(`Updating status from '${recentCall.status}' to '${status}' (priority ${currentPriority} -> ${newPriority})`);
+            
+            const updateData: any = {
+              status,
+              updated_at: new Date().toISOString()
+            };
+            
+            if (durationSeconds !== null) {
+              updateData.duration_seconds = durationSeconds;
+            }
+            
+            if (webhookData.end_time) {
+              updateData.ended_at = new Date(webhookData.end_time).toISOString();
+            }
+            
+            // Update external_call_id if we have it now
+            if (externalCallId) {
+              updateData.external_call_id = externalCallId;
+            }
+            
+            const { error: dedupeUpdateError } = await supabase
+              .from('call_logs')
+              .update(updateData)
+              .eq('id', recentCall.id);
+            
+            if (dedupeUpdateError) {
+              console.error('Error updating deduplicated call log:', dedupeUpdateError);
+            } else {
+              console.log('Successfully updated existing call log via deduplication');
+            }
+          } else {
+            console.log(`Skipping status update: current '${recentCall.status}' (priority ${currentPriority}) is higher than new '${status}' (priority ${newPriority})`);
+          }
+          
+          // Return success - we've handled this as a deduplicated update
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              message: 'Webhook processed - deduplicated to existing call',
+              callId: recentCall.id,
+              phoneNumber: selectedPhone,
+              normalizedPhone,
+              status,
+              deduplicated: true
+            }),
+            { 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: 200 
+            }
+          );
+        }
+        
+        // No recent call found, create new call log entry
+        console.log('No recent call found, creating new call log for phone (normalized):', normalizedPhone);
         
         // Try to find client by phone number in clients.phone OR client_phone_numbers.phone
         let clientId: string | null = null;
