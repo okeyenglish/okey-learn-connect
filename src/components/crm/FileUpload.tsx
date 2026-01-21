@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -20,6 +20,10 @@ interface FileUploadProps {
   maxSize?: number; // in MB
 }
 
+export interface FileUploadRef {
+  uploadFiles: (files: File[]) => void;
+}
+
 interface UploadingFile {
   file: File;
   progress: number;
@@ -28,14 +32,14 @@ interface UploadingFile {
   error?: string;
 }
 
-export const FileUpload = ({ 
+export const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(({ 
   onFileUpload, 
   onFileRemove,
   onFilesChange, 
   disabled = false,
   maxFiles = 5,
   maxSize = 10 // 10MB
-}: FileUploadProps) => {
+}, ref) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -211,6 +215,13 @@ export const FileUpload = ({
     }
   }, [disabled, maxFiles, maxSize, onFileUpload, onFilesChange, toast]);
 
+  // Expose uploadFiles method via ref for external usage (e.g., drag and drop from parent)
+  useImperativeHandle(ref, () => ({
+    uploadFiles: (files: File[]) => {
+      handleFiles(files);
+    }
+  }), [handleFiles]);
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -336,4 +347,6 @@ export const FileUpload = ({
       />
     </div>
   );
-};
+});
+
+FileUpload.displayName = 'FileUpload';

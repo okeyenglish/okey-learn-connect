@@ -23,7 +23,7 @@ import { AddTaskModal } from "./AddTaskModal";
 import { CreateInvoiceModal } from "./CreateInvoiceModal";
 import { ForwardMessageModal } from "./ForwardMessageModal";
 import { QuickResponsesModal } from "./QuickResponsesModal";
-import { FileUpload } from "./FileUpload";
+import { FileUpload, FileUploadRef } from "./FileUpload";
 import { AttachedFile } from "./AttachedFile";
 import { InlinePendingGPTResponse } from "./InlinePendingGPTResponse";
 import { TextFormatToolbar } from "./TextFormatToolbar";
@@ -118,6 +118,7 @@ export const ChatArea = ({
     size: number;
   }>>([]);
   const [fileUploadResetKey, setFileUploadResetKey] = useState(0);
+  const fileUploadRef = useRef<FileUploadRef>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showScheduledMessagesDialog, setShowScheduledMessagesDialog] = useState(false);
   const [editingScheduledMessage, setEditingScheduledMessage] = useState<ScheduledMessage | null>(null);
@@ -1424,10 +1425,10 @@ export const ChatArea = ({
         setIsDragOver(false);
         
         const files = Array.from(e.dataTransfer.files);
-        files.forEach(file => {
-          // Handle dropped files through FileUpload component
-          console.log('File dropped:', file);
-        });
+        if (files.length > 0 && fileUploadRef.current) {
+          console.log('File dropped, uploading:', files.map(f => f.name));
+          fileUploadRef.current.uploadFiles(files);
+        }
       }}
     >
       {/* Chat Header */}
@@ -2221,6 +2222,7 @@ export const ChatArea = ({
               {/* Action icons */}
               <div className="flex items-center gap-0.5 flex-1 min-w-0">
                 <FileUpload
+                  ref={fileUploadRef}
                   key={`file-upload-${fileUploadResetKey}`}
                   onFileUpload={(fileInfo) => {
                     setAttachedFiles(prev => [...prev, fileInfo]);
