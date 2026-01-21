@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { UserCircle, Mail, Phone, MapPin, BookOpen, FileText, Bell, Edit, Calendar, Clock, TrendingUp, DollarSign, IdCard } from 'lucide-react';
 import { Teacher } from '@/hooks/useTeachers';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PushNotificationToggle } from '@/components/notifications/PushNotificationToggle';
 import { useTeacherWorkload, useTeacherLessonsHistory } from '@/hooks/useTeacherWorkload';
 import { useTeacherRates } from '@/hooks/useTeacherSalary';
 import { format } from 'date-fns';
@@ -333,6 +334,9 @@ export const TeacherProfile = ({ teacher }: TeacherProfileProps) => {
                   </h3>
                   
                   <div className="space-y-4">
+                    {/* Push notifications */}
+                    <PushNotificationToggle variant="card" />
+
                     <Card className="p-4">
                       <div className="flex items-center justify-between">
                         <div>
