@@ -42,13 +42,17 @@ export const MessageContextMenu = ({
 
   // Обработчик для долгого нажатия (мобильные устройства)
   const handleTouchStart = (e: React.TouchEvent) => {
-    // Prevent text selection on long press
-    e.preventDefault();
+    // Save touch position for long press detection
+    const touch = e.touches[0];
+    const startX = touch.clientX;
+    const startY = touch.clientY;
     
     const timer = setTimeout(() => {
-      const touch = e.touches[0];
-      setMenuPosition({ x: touch.clientX, y: touch.clientY });
+      // Only prevent default and show menu after long press confirmed
+      setMenuPosition({ x: startX, y: startY });
       setShowContextMenu(true);
+      // Clear text selection when menu opens
+      window.getSelection()?.removeAllRanges();
     }, 500); // 500ms для долгого нажатия
     setLongPressTimer(timer);
   };
@@ -139,7 +143,7 @@ export const MessageContextMenu = ({
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           onTouchMove={handleTouchMove}
-          className="touch-none select-none"
+          className="select-none"
           style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
         >
           {children}
