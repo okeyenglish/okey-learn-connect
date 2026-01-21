@@ -287,3 +287,6 @@ verify_jwt = false
 
 [functions.tbank-status]
 verify_jwt = true
+
+[functions.test-onlinepbx]
+verify_jwt = true
