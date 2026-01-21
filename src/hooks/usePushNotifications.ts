@@ -38,6 +38,36 @@ export function usePushNotifications() {
     'PushManager' in window && 
     'Notification' in window;
 
+  const getSWRegistration = useCallback(async (): Promise<ServiceWorkerRegistration | null> => {
+    if (!isSupported) return null;
+
+    // 1) Try existing registration for current scope
+    try {
+      const existing = await navigator.serviceWorker.getRegistration();
+      if (existing) return existing;
+    } catch {
+      // ignore
+    }
+
+    // 2) Try registering (in case injectRegister is disabled and load hook didn't fire yet)
+    try {
+      await navigator.serviceWorker.register('/sw.js');
+    } catch {
+      // ignore
+    }
+
+    // 3) Wait for ready, but don't hang forever (mobile Safari can stall here)
+    try {
+      const ready = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+      ]);
+      return ready ? (ready as ServiceWorkerRegistration) : null;
+    } catch {
+      return null;
+    }
+  }, [isSupported]);
+
   const [state, setState] = useState<PushNotificationState>({
     isSupported,
     permission: typeof window !== 'undefined' && 'Notification' in window 
@@ -66,7 +96,16 @@ export function usePushNotifications() {
     }
 
     try {
-      const registration = await navigator.serviceWorker.ready;
+      const registration = await getSWRegistration();
+      if (!registration) {
+        setState({
+          isSupported: true,
+          permission: Notification.permission,
+          isSubscribed: false,
+          isLoading: false,
+        });
+        return;
+      }
       const subscription = await registration.pushManager.getSubscription();
       
       setState({
@@ -84,7 +123,7 @@ export function usePushNotifications() {
         isLoading: false 
       }));
     }
-  }, [isSupported, user]);
+  }, [isSupported, user, getSWRegistration]);
 
   useEffect(() => {
     checkSubscription();
@@ -115,7 +154,12 @@ export function usePushNotifications() {
       }
 
       // Get service worker registration
-      const registration = await navigator.serviceWorker.ready;
+      const registration = await getSWRegistration();
+      if (!registration) {
+        toast.error('Сервис-воркер не готов (обновите страницу)');
+        setState(prev => ({ ...prev, isLoading: false }));
+        return false;
+      }
       
       // Subscribe to push
       const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
@@ -171,7 +215,7 @@ export function usePushNotifications() {
       setState(prev => ({ ...prev, isLoading: false }));
       return false;
     }
-  }, [user, isSupported]);
+  }, [user, isSupported, getSWRegistration]);
 
   // Unsubscribe from push notifications
   const unsubscribe = useCallback(async (): Promise<boolean> => {
@@ -180,7 +224,11 @@ export function usePushNotifications() {
     setState(prev => ({ ...prev, isLoading: true }));
 
     try {
-      const registration = await navigator.serviceWorker.ready;
+      const registration = await getSWRegistration();
+      if (!registration) {
+        setState(prev => ({ ...prev, isSubscribed: false, isLoading: false }));
+        return true;
+      }
       const subscription = await registration.pushManager.getSubscription();
 
       if (subscription) {
@@ -209,7 +257,7 @@ export function usePushNotifications() {
       setState(prev => ({ ...prev, isLoading: false }));
       return false;
     }
-  }, [user]);
+  }, [user, getSWRegistration]);
 
   // Toggle subscription
   const toggle = useCallback(async () => {
