@@ -554,6 +554,137 @@ serve(async (req) => {
           }
         }
         
+        // Send notification for missed incoming calls
+        if (status === 'missed' && direction === 'incoming') {
+          console.log('Missed incoming call detected, sending notification...');
+          
+          // Find responsible employee by extension
+          let responsibleEmployeeId: string | null = null;
+          let employeeName = '';
+          
+          if (rawTo) {
+            const { data: employee } = await supabase
+              .from('profiles')
+              .select('id, first_name, last_name, extension_number')
+              .eq('extension_number', rawTo)
+              .maybeSingle();
+            
+            if (employee) {
+              responsibleEmployeeId = employee.id;
+              employeeName = `${employee.first_name || ''} ${employee.last_name || ''}`.trim();
+              console.log('Found responsible employee for notification:', employeeName);
+            }
+          }
+          
+          // Get client name if exists
+          let clientName = formatPhoneForSearch(normalizedPhone);
+          if (clientId) {
+            const { data: clientData } = await supabase
+              .from('clients')
+              .select('name')
+              .eq('id', clientId)
+              .single();
+            if (clientData?.name) {
+              clientName = clientData.name;
+            }
+          }
+          
+          // Create notification for the responsible employee
+          if (responsibleEmployeeId) {
+            const { error: notifError } = await supabase
+              .from('notifications')
+              .insert({
+                recipient_id: responsibleEmployeeId,
+                recipient_type: 'employee',
+                title: 'Пропущенный звонок',
+                message: `Пропущенный входящий звонок от ${clientName} (${formatPhoneForSearch(normalizedPhone)})`,
+                notification_type: 'missed_call',
+                status: 'pending',
+                delivery_method: ['in_app', 'push'],
+                metadata: {
+                  call_log_id: newCallLog.id,
+                  client_id: clientId,
+                  phone_number: selectedPhone,
+                  normalized_phone: normalizedPhone
+                }
+              });
+            
+            if (notifError) {
+              console.error('Error creating missed call notification:', notifError);
+            } else {
+              console.log('Missed call notification created for employee:', employeeName);
+            }
+            
+            // Also create a system message in chat for visibility
+            const { error: chatMsgError } = await supabase
+              .from('chat_messages')
+              .insert({
+                client_id: clientId,
+                message_text: `⚠️ Пропущенный звонок! Клиент: ${clientName}. Ответственный: ${employeeName}`,
+                message_type: 'system',
+                is_outgoing: false,
+                system_type: 'missed_call_notification',
+                organization_id: organizationId
+              });
+            
+            if (chatMsgError) {
+              console.error('Error creating missed call chat message:', chatMsgError);
+            }
+          } else {
+            // No responsible employee found, notify all managers
+            console.log('No responsible employee found, creating general missed call notification');
+            
+            // Get all active managers
+            const { data: managers } = await supabase
+              .from('profiles')
+              .select('id')
+              .in('role', ['admin', 'manager'])
+              .limit(10);
+            
+            if (managers && managers.length > 0) {
+              const notifications = managers.map(m => ({
+                recipient_id: m.id,
+                recipient_type: 'employee',
+                title: 'Пропущенный звонок',
+                message: `Пропущенный входящий звонок от ${clientName} (${formatPhoneForSearch(normalizedPhone)})`,
+                notification_type: 'missed_call',
+                status: 'pending',
+                delivery_method: ['in_app', 'push'],
+                metadata: {
+                  call_log_id: newCallLog.id,
+                  client_id: clientId,
+                  phone_number: selectedPhone,
+                  normalized_phone: normalizedPhone
+                }
+              }));
+              
+              const { error: bulkNotifError } = await supabase
+                .from('notifications')
+                .insert(notifications);
+              
+              if (bulkNotifError) {
+                console.error('Error creating bulk missed call notifications:', bulkNotifError);
+              } else {
+                console.log(`Created ${managers.length} missed call notifications for managers`);
+              }
+            }
+            
+            // Create system message anyway
+            if (clientId) {
+              await supabase
+                .from('chat_messages')
+                .insert({
+                  client_id: clientId,
+                  message_text: `⚠️ Пропущенный звонок от ${clientName}!`,
+                  message_type: 'system',
+                  is_outgoing: false,
+                  system_type: 'missed_call_notification',
+                  organization_id: organizationId
+                });
+            }
+          }
+        }
+        
         callLog = newCallLog; // Set for response
       }
 
