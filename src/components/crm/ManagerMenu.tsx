@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, Settings, Key, LogOut, ChevronDown, Shield, Bell, BellOff } from "lucide-react";
+import { User, Settings, Key, LogOut, ChevronDown, Shield, Bell, BellOff, Send } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +17,8 @@ import { AdminModal } from "@/components/admin/AdminModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface ManagerMenuProps {
   managerName: string;
@@ -31,13 +33,14 @@ export const ManagerMenu = ({
   avatarUrl, 
   onSignOut 
 }: ManagerMenuProps) => {
-  const { role, roles } = useAuth();
+  const { role, roles, user } = useAuth();
   const { isSupported, isSubscribed, isLoading: pushLoading, toggle } = usePushNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
+  const [testPushLoading, setTestPushLoading] = useState(false);
   const isMobile = useIsMobile();
   
   // Check if user is admin or methodist
@@ -53,6 +56,41 @@ export const ManagerMenu = ({
     e.preventDefault();
     e.stopPropagation();
     await toggle();
+  };
+
+  const handleTestPush = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) return;
+    
+    setTestPushLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-push-notification', {
+        body: {
+          userId: user.id,
+          payload: {
+            title: 'Тестовое уведомление 🔔',
+            body: `Push работает! ${new Date().toLocaleTimeString('ru-RU')}`,
+            icon: '/pwa-192x192.png',
+            tag: 'test-push',
+            url: '/crm',
+          },
+        },
+      });
+
+      if (error) throw error;
+      
+      if (data?.sent > 0) {
+        toast.success(`Push отправлен`);
+      } else {
+        toast.warning('Нет активных подписок');
+      }
+    } catch (err) {
+      console.error('Test push error:', err);
+      toast.error('Ошибка отправки');
+    } finally {
+      setTestPushLoading(false);
+    }
   };
 
   const handleProfileClick = () => {
@@ -185,6 +223,15 @@ export const ManagerMenu = ({
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
+            {isSubscribed && (
+              <div 
+                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted rounded-sm text-sm"
+                onClick={handleTestPush}
+              >
+                <Send className="h-4 w-4 text-muted-foreground" />
+                <span>{testPushLoading ? 'Отправка...' : 'Тест push'}</span>
+              </div>
+            )}
           </>
         )}
         
