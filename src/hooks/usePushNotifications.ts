@@ -290,10 +290,11 @@ export function usePushNotifications() {
       }
 
       // Subscribe to push
+      // iOS Safari is picky about the key type; pass Uint8Array (not .buffer) for best compatibility.
       const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: applicationServerKey.buffer as ArrayBuffer,
+        applicationServerKey,
       });
 
       const subscriptionJson = subscription.toJSON();
@@ -339,7 +340,11 @@ export function usePushNotifications() {
 
     } catch (error) {
       console.error('Error subscribing to push:', error);
-      toast.error('Ошибка при подписке на уведомления');
+      const err = error as any;
+      const name = err?.name ? String(err.name) : 'Ошибка';
+      const msg = err?.message ? String(err.message) : '';
+      const details = msg ? `: ${msg}` : '';
+      toast.error(`Ошибка при подписке (${name})${details}`);
       setState(prev => ({ ...prev, isLoading: false }));
       return false;
     }
