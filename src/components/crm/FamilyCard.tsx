@@ -16,6 +16,7 @@ import { useLearningGroups } from "@/hooks/useLearningGroups";
 import type { PhoneNumber as PhoneNumberType } from "@/types/phone";
 import { supabase } from "@/integrations/supabase/client";
 import { usePinnedModalsDB } from "@/hooks/usePinnedModalsDB";
+import { useOrganization } from "@/hooks/useOrganization";
 import { 
   Users, 
   Phone, 
@@ -68,6 +69,7 @@ export const FamilyCard = ({
   const [selectedCourseType, setSelectedCourseType] = useState<'group' | 'individual' | null>(null);
   const { familyData, loading, error, refetch } = useFamilyData(familyGroupId);
   const { groups: allGroups } = useLearningGroups();
+  const { branches: organizationBranches } = useOrganization();
   
   const selectedGroup = allGroups?.find(g => g.id === selectedCourseId) || null;
   
@@ -369,15 +371,11 @@ export const FamilyCard = ({
                   onBlur={() => setIsChangingBranch(false)}
                   autoFocus
                 >
-                  <option value="Котельники">Котельники</option>
-                  <option value="Новокосино">Новокосино</option>
-                  <option value="Окская">Окская</option>
-                  <option value="Стахановская">Стахановская</option>
-                  <option value="Солнцево">Солнцево</option>
-                  <option value="Мытищи">Мытищи</option>
-                  <option value="Люберцы">Люберцы</option>
-                  <option value="Красная горка">Красная горка</option>
-                  <option value="Онлайн школа">Онлайн школа</option>
+                  {organizationBranches.map((branch) => (
+                    <option key={branch.id} value={branch.name}>
+                      {branch.name}
+                    </option>
+                  ))}
                 </select>
               ) : (
                 <span 
