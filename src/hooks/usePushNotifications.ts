@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -30,6 +30,8 @@ export interface PushNotificationState {
 
 export function usePushNotifications() {
   const { user } = useAuth();
+
+  const lastSWErrorRef = useRef<unknown>(null);
   
   const isPreviewHost = (() => {
     if (typeof window === 'undefined') return false;
@@ -59,35 +61,75 @@ export function usePushNotifications() {
     isLoading: true,
   });
 
-  // Helper to get SW registration with fallback
+  // Helper to get SW registration with activation/ready handling
   const getSWRegistration = useCallback(async (): Promise<ServiceWorkerRegistration | null> => {
     if (!isSupported) return null;
 
+    const waitForActivation = async (
+      reg: ServiceWorkerRegistration,
+      timeoutMs = 15000
+    ): Promise<ServiceWorkerRegistration | null> => {
+      if (reg.active) return reg;
+
+      const sw = reg.installing || reg.waiting;
+      if (sw) {
+        await new Promise<void>((resolve) => {
+          const t = window.setTimeout(resolve, timeoutMs);
+          const onState = () => {
+            if (sw.state === 'activated') {
+              window.clearTimeout(t);
+              sw.removeEventListener('statechange', onState);
+              resolve();
+            }
+          };
+          sw.addEventListener('statechange', onState);
+        });
+      }
+
+      // navigator.serviceWorker.ready resolves only when there's an active controller.
+      // On mobile Safari first install may take noticeably longer, so we race with a longer timeout.
+      try {
+        const ready = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise<null>((resolve) => window.setTimeout(() => resolve(null), timeoutMs)),
+        ]);
+        if (ready) return ready as ServiceWorkerRegistration;
+      } catch {
+        // ignore
+      }
+
+      return reg.active ? reg : null;
+    };
+
     // 1) Try existing registration for current scope
     try {
-      const existing = await navigator.serviceWorker.getRegistration();
-      if (existing?.active) return existing;
+      const existing = await navigator.serviceWorker.getRegistration('/');
+      if (existing) {
+        const activated = await waitForActivation(existing);
+        if (activated) return activated;
+      }
     } catch {
       // ignore
     }
 
     // 2) Register SW (production only)
     try {
-      return await navigator.serviceWorker.register('/sw.js');
+      const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      // Force a check for updates (best-effort)
+      try {
+        await reg.update();
+      } catch {
+        // ignore
+      }
+
+      const activated = await waitForActivation(reg);
+      if (activated) return activated;
     } catch (e) {
+      lastSWErrorRef.current = e;
       console.warn('[Push] SW register failed:', e);
     }
 
-    // 3) Last resort: wait for ready with timeout
-    try {
-      const ready = await Promise.race([
-        navigator.serviceWorker.ready,
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
-      ]);
-      return ready ? (ready as ServiceWorkerRegistration) : null;
-    } catch {
-      return null;
-    }
+    return null;
   }, [isSupported]);
 
   // Get current subscription status
@@ -173,7 +215,9 @@ export function usePushNotifications() {
       // Get service worker registration
       const registration = await getSWRegistration();
       if (!registration) {
-        toast.error('Сервис-воркер не готов (обновите страницу)');
+        const err = lastSWErrorRef.current as any;
+        const extra = err?.name ? ` (${err.name})` : '';
+        toast.error(`Сервис-воркер не готов${extra}. Откройте в Safari (не в режиме инкогнито) и обновите страницу`);
         setState(prev => ({ ...prev, isLoading: false }));
         return false;
       }
