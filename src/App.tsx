@@ -100,6 +100,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const WhatsAppSessions = lazy(() => import("./pages/WhatsAppSessions"));
 const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess'));
 const PaymentFail = lazy(() => import('./pages/PaymentFail'));
+const Install = lazy(() => import('./pages/Install'));
 
 // Loading component for better UX
 const LoadingComponent = () => (
@@ -455,6 +456,11 @@ const AppContent = () => {
           <Route path="/payment-fail" element={
             <Suspense fallback={<LoadingComponent />}>
               <PaymentFail />
+            </Suspense>
+          } />
+          <Route path="/install" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <Install />
             </Suspense>
           } />
           <Route path="/5000" element={
