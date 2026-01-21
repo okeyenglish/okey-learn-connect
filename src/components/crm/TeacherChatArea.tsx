@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Search, Phone, MessageCircle, Calendar, Users, Clock, Send, ArrowLeft, GraduationCap, Zap, Pin, Paperclip, Mail, RefreshCcw, Filter } from 'lucide-react';
+import { Search, Phone, MessageCircle, Calendar, Users, Clock, Send, ArrowLeft, GraduationCap, Zap, Pin, Paperclip, Mail, RefreshCcw, Filter, MoreVertical } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -851,34 +851,68 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     // Показываем чат (мобильный)
     return (
       <div className="flex flex-col h-full min-h-0 bg-background">
-        {/* Chat Header with Back Button */}
-        <div className="border-b p-3 shrink-0">
-          <div className="flex items-center gap-3">
-            <Button 
-              size="sm" 
-              variant="ghost" 
-              className="h-8 w-8 p-0"
-              onClick={handleBackToList}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex-1">
-              <h2 className="font-semibold text-base flex items-center gap-2">
-                <GraduationCap className="h-4 w-4 text-slate-600" />
-                {isGroupChat ? 'Чат педагогов' : currentTeacher?.fullName}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {isGroupChat 
-                  ? 'Общий чат всех преподавателей' 
-                  : `${currentTeacher?.branch} • ${currentTeacher?.phone}`
-                }
-              </p>
-            </div>
-            {!isGroupChat && currentTeacher?.phone && (
-              <Button size="sm" variant="outline" className="h-8 w-8 p-0">
-                <Phone className="h-4 w-4" />
+        {/* Chat Header - like client chat */}
+        <div className="border-b shrink-0 bg-background">
+          <div className="flex items-center justify-between p-2">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                className="h-8 w-8 p-0 flex-shrink-0"
+                onClick={() => onSelectTeacher(null)}
+              >
+                <ArrowLeft className="h-4 w-4" />
               </Button>
-            )}
+              <div className="flex-1 min-w-0">
+                <h2 className="font-semibold text-sm text-foreground truncate">
+                  {isGroupChat ? 'Чат педагогов' : currentTeacher?.fullName}
+                </h2>
+                <p className="text-xs text-muted-foreground truncate">
+                  {isGroupChat 
+                    ? 'Общий чат всех преподавателей' 
+                    : currentTeacher?.phone || 'Телефон не указан'
+                  }
+                </p>
+              </div>
+            </div>
+            
+            {/* Action buttons - Search, Phone, User, More */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="h-8 w-8 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                title="Поиск в чате"
+              >
+                <Search className="h-4 w-4 stroke-1" />
+              </Button>
+              {!isGroupChat && currentTeacher?.phone && (
+                <Button
+                  size="sm" 
+                  variant="outline"
+                  className="h-8 w-8 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                  title="Позвонить"
+                >
+                  <Phone className="h-4 w-4 stroke-1" />
+                </Button>
+              )}
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="h-8 w-8 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                title="О преподавателе"
+              >
+                <Users className="h-4 w-4 stroke-1" />
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="h-8 w-8 p-0 border-muted-foreground/40 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                title="Ещё"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
