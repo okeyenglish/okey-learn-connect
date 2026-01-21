@@ -888,9 +888,9 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
   // Desktop view: show both teacher list and chat
   return (
-    <div className="h-full w-full min-h-0 min-w-0 overflow-hidden grid grid-cols-[288px,minmax(0,1fr)]">
-      {/* Compact Teachers List */}
-      <div className="border-r border-border flex flex-col overflow-hidden min-w-0">
+    <div className="h-full w-full min-h-0 min-w-0 overflow-hidden flex isolate">
+      {/* Compact Teachers List - fixed width */}
+      <div className="w-72 shrink-0 border-r border-border flex flex-col overflow-hidden">
         <div className="p-2 border-b border-border">
           <div className="flex gap-1">
             <div className="flex-1 relative">
@@ -981,8 +981,8 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         </ScrollArea>
       </div>
 
-      {/* Chat Area with Header */}
-      <div className="min-w-0 flex flex-col min-h-0 overflow-hidden">
+      {/* Chat Area with Header - flexible width */}
+      <div className="flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden">
         {/* Header - Fixed height */}
         <div className="p-3 border-b border-border bg-background shrink-0 h-16 flex items-center">
           <div className="flex items-center justify-between w-full">
