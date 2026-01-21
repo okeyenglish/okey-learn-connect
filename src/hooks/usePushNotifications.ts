@@ -38,6 +38,17 @@ export function usePushNotifications() {
     'PushManager' in window && 
     'Notification' in window;
 
+  // useState MUST come before any useCallback
+  const [state, setState] = useState<PushNotificationState>({
+    isSupported,
+    permission: typeof window !== 'undefined' && 'Notification' in window 
+      ? Notification.permission 
+      : 'default',
+    isSubscribed: false,
+    isLoading: true,
+  });
+
+  // Helper to get SW registration with fallback
   const getSWRegistration = useCallback(async (): Promise<ServiceWorkerRegistration | null> => {
     if (!isSupported) return null;
 
@@ -67,15 +78,6 @@ export function usePushNotifications() {
       return null;
     }
   }, [isSupported]);
-
-  const [state, setState] = useState<PushNotificationState>({
-    isSupported,
-    permission: typeof window !== 'undefined' && 'Notification' in window 
-      ? Notification.permission 
-      : 'default',
-    isSubscribed: false,
-    isLoading: true,
-  });
 
   // Get current subscription status
   const checkSubscription = useCallback(async () => {
