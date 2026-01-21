@@ -29,37 +29,36 @@ export interface PushNotificationState {
 }
 
 export function usePushNotifications() {
+  // === ALL HOOKS FIRST (unconditional, stable order) ===
   const { user } = useAuth();
-
   const lastSWErrorRef = useRef<unknown>(null);
-  
-  const isPreviewHost = (() => {
-    if (typeof window === 'undefined') return false;
-    const host = window.location.hostname;
-    return (
-      host.includes('lovableproject.com') ||
-      host.startsWith('id-preview--') ||
-      host.startsWith('preview--')
-    );
-  })();
 
-  // Check support synchronously on mount
-  const isSupported = 
+  // Compute derived booleans (no hooks here)
+  const isPreviewHost =
+    typeof window !== 'undefined' &&
+    (window.location.hostname.includes('lovableproject.com') ||
+      window.location.hostname.startsWith('id-preview--') ||
+      window.location.hostname.startsWith('preview--'));
+
+  const isSupported =
     typeof window !== 'undefined' &&
     !isPreviewHost &&
-    'serviceWorker' in navigator && 
-    'PushManager' in window && 
+    'serviceWorker' in navigator &&
+    'PushManager' in window &&
     'Notification' in window;
 
-  // useState MUST come before any useCallback
-  const [state, setState] = useState<PushNotificationState>({
+  const initialPermission: NotificationPermission | 'default' =
+    typeof window !== 'undefined' && 'Notification' in window
+      ? Notification.permission
+      : 'default';
+
+  // useState (always called, stable position)
+  const [state, setState] = useState<PushNotificationState>(() => ({
     isSupported,
-    permission: typeof window !== 'undefined' && 'Notification' in window 
-      ? Notification.permission 
-      : 'default',
+    permission: initialPermission,
     isSubscribed: false,
     isLoading: true,
-  });
+  }));
 
   // Helper to get SW registration with activation/ready handling
   const getSWRegistration = useCallback(async (): Promise<ServiceWorkerRegistration | null> => {
