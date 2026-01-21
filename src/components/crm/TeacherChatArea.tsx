@@ -658,7 +658,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     if (activeMessengerTab === 'email' || activeMessengerTab === 'calls') return null;
     
     return (
-      <div className="border-t p-3 shrink-0">
+      <div className="border-t p-3 pb-6 shrink-0">
         {/* Attached files preview */}
         {attachedFiles.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-2">
@@ -673,26 +673,30 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
           </div>
         )}
         
-        <div className="flex items-end gap-2">
-          <div className="flex-1">
-            <Textarea
-              placeholder={isGroupChat ? "Написать в общий чат..." : "Написать сообщение..."}
-              value={message}
-              onChange={(e) => handleMessageChange(e.target.value)}
-              className="min-h-[40px] max-h-[120px] resize-none text-sm"
-              rows={1}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  if (attachedFiles.length > 0) {
-                    handleSendWithFile();
-                  } else {
-                    handleSendMessage();
-                  }
+        <div className="space-y-2">
+          {/* Textarea on top */}
+          <Textarea
+            placeholder={isGroupChat ? "Написать в общий чат..." : "Написать сообщение..."}
+            value={message}
+            onChange={(e) => handleMessageChange(e.target.value)}
+            className="min-h-[48px] max-h-[120px] resize-none text-base"
+            rows={1}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (attachedFiles.length > 0) {
+                  handleSendWithFile();
+                } else {
+                  handleSendMessage();
                 }
-              }}
-            />
-            <div className="flex items-center gap-1 mt-2">
+              }
+            }}
+          />
+          
+          {/* Bottom row: icons on left, send button on right */}
+          <div className="flex items-center gap-0.5 w-full">
+            {/* Action icons */}
+            <div className="flex items-center gap-0.5 flex-1 min-w-0">
               <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setShowQuickResponsesModal(true)}>
                 <Zap className="h-4 w-4" />
               </Button>
@@ -729,15 +733,16 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                 </DialogContent>
               </Dialog>
             </div>
+            
+            {/* Send button - wide, rounded, on the right */}
+            <Button 
+              className="h-12 min-w-[88px] px-6 rounded-xl shrink-0 ml-auto"
+              onClick={attachedFiles.length > 0 ? handleSendWithFile : handleSendMessage} 
+              disabled={(!message.trim() && attachedFiles.length === 0) || !clientId || whatsappLoading || maxLoading}
+            >
+              <Send className="h-5 w-5" />
+            </Button>
           </div>
-          <Button 
-            size="icon" 
-            className="rounded-sm h-10 w-10 shrink-0" 
-            onClick={attachedFiles.length > 0 ? handleSendWithFile : handleSendMessage} 
-            disabled={(!message.trim() && attachedFiles.length === 0) || !clientId || whatsappLoading || maxLoading}
-          >
-            <Send className="h-4 w-4" />
-          </Button>
         </div>
         <QuickResponsesModal
           open={showQuickResponsesModal}
