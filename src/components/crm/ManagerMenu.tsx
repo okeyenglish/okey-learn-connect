@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, Settings, Key, LogOut, ChevronDown, Shield } from "lucide-react";
+import { User, Settings, Key, LogOut, ChevronDown, Shield, Bell, BellOff } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,12 +9,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Switch } from "@/components/ui/switch";
 import { ProfileModal } from "./ProfileModal";
 import { ChangePasswordModal } from "./ChangePasswordModal";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { AdminModal } from "@/components/admin/AdminModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 interface ManagerMenuProps {
   managerName: string;
@@ -30,6 +32,7 @@ export const ManagerMenu = ({
   onSignOut 
 }: ManagerMenuProps) => {
   const { role, roles } = useAuth();
+  const { isSupported, isSubscribed, isLoading: pushLoading, toggle } = usePushNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -45,6 +48,12 @@ export const ManagerMenu = ({
   
   // Debug logging
   console.log('🔐 ManagerMenu roles check:', { role, roles, isAdmin, isMethodist, canAccessAdmin });
+
+  const handleNotificationToggle = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await toggle();
+  };
 
   const handleProfileClick = () => {
     setShowProfileModal(true);
@@ -152,6 +161,31 @@ export const ManagerMenu = ({
             <Shield className="h-4 w-4" />
             <span>Админ-панель</span>
           </DropdownMenuItem>
+        )}
+        
+        {isSupported && (
+          <>
+            <DropdownMenuSeparator />
+            <div 
+              className="flex items-center justify-between gap-2 px-3 py-2 cursor-pointer hover:bg-muted rounded-sm"
+              onClick={handleNotificationToggle}
+            >
+              <div className="flex items-center gap-2">
+                {isSubscribed ? (
+                  <Bell className="h-4 w-4 text-primary" />
+                ) : (
+                  <BellOff className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className="text-sm">Уведомления</span>
+              </div>
+              <Switch 
+                checked={isSubscribed} 
+                disabled={pushLoading}
+                onCheckedChange={() => toggle()}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          </>
         )}
         
         <DropdownMenuSeparator />

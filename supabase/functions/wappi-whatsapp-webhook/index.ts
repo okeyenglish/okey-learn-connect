@@ -366,6 +366,32 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
 
   console.log(`Saved incoming Wappi message from ${phoneNumber}: ${messageText}`)
 
+  // Send push notifications to managers/admins with chat access
+  try {
+    const { data: chatUsers } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .in('role', ['admin', 'manager']);
+
+    if (chatUsers && chatUsers.length > 0) {
+      const userIds = chatUsers.map((u: { user_id: string }) => u.user_id);
+      await supabase.functions.invoke('send-push-notification', {
+        body: {
+          userIds,
+          payload: {
+            title: `💬 ${client.name}`,
+            body: messageText.slice(0, 100) + (messageText.length > 100 ? '...' : ''),
+            icon: '/pwa-192x192.png',
+            url: `/crm?clientId=${client.id}`,
+            tag: `chat-${client.id}`,
+          },
+        },
+      });
+    }
+  } catch (pushErr) {
+    console.error('Error sending push notification:', pushErr);
+  }
+
   // Trigger delayed GPT response
   setTimeout(async () => {
     try {
