@@ -62,8 +62,7 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
   teacher,
   isSelected,
   pinCount,
-  onClick,
-  compact = false
+  onClick
 }) => {
   const initials = `${teacher.lastName?.[0] || ''}${teacher.firstName?.[0] || ''}`.toUpperCase() || '•';
   const flags = getSubjectFlags(teacher.subjects);
@@ -72,18 +71,19 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
   // Truncate preview text and remove "OKEY ENGLISH [Branch]" prefix
   let previewText = teacher.lastMessageText || '';
   previewText = previewText.replace(/^OKEY ENGLISH\s+[^\s]+\s*/i, '');
+  previewText = previewText.slice(0, 50) + (previewText.length > 50 ? '...' : '');
   
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left p-2 rounded-lg transition-all duration-200 mb-0.5 border ${
+      className={`w-full min-w-0 overflow-hidden text-left p-2 rounded-lg transition-all duration-200 mb-0.5 border ${
         isSelected
           ? 'bg-accent/50 shadow-sm border-accent'
           : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
       }`}
     >
       {/* Main row: Avatar + Content + Meta */}
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-2 min-w-0">
         {/* Avatar - fixed size */}
         <Avatar className="h-9 w-9 shrink-0 ring-2 ring-border/30">
           <AvatarImage src={undefined} alt={teacher.fullName} />
@@ -93,10 +93,10 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
         </Avatar>
         
         {/* Middle: Name + Preview - flexible, truncates */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 pr-1">
           {/* Name row */}
-          <div className="flex items-center gap-1">
-            <span className="font-medium text-sm truncate">
+          <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+            <span className="font-medium text-sm truncate flex-1 min-w-0">
               {teacher.fullName}
             </span>
             {flags && <span className="text-xs shrink-0">{flags}</span>}
@@ -109,7 +109,7 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
         </div>
         
         {/* Right: Time + Unread - fixed width */}
-        <div className="flex flex-col items-end shrink-0 w-10">
+        <div className="flex flex-col items-end shrink-0 w-12">
           {messageTime && (
             <span className="text-[10px] text-muted-foreground whitespace-nowrap">
               {messageTime}
