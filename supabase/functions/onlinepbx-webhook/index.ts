@@ -258,7 +258,7 @@ serve(async (req) => {
         // Create new call log entry
         console.log('Creating new call log for phone (normalized):', normalizedPhone);
         
-        // Try to find client by phone number (exact, then fallback by last 10 digits)
+        // Try to find client by phone number in clients.phone OR client_phone_numbers.phone
         let clientId: string | null = null;
         try {
           const formattedPhone = formatPhoneForSearch(normalizedPhone);
@@ -272,6 +272,7 @@ serve(async (req) => {
 
           console.log('Searching for client with phone variants:', variants);
 
+          // First try clients.phone
           for (const v of variants) {
             const { data: exact, error: exactErr } = await supabase
               .from('clients')
@@ -283,14 +284,37 @@ serve(async (req) => {
             }
             if (exact) { 
               matched = exact; 
-              console.log('Found exact match with variant:', v);
+              console.log('Found exact match in clients.phone:', v);
               break; 
             }
           }
 
+          // Then try client_phone_numbers table
+          if (!matched) {
+            console.log('Searching in client_phone_numbers table...');
+            for (const v of variants) {
+              const { data: phoneRecord, error: phoneErr } = await supabase
+                .from('client_phone_numbers')
+                .select('client_id, phone')
+                .eq('phone', v as string)
+                .maybeSingle();
+              if (phoneErr) {
+                console.error('Phone numbers search error:', phoneErr);
+              }
+              if (phoneRecord) { 
+                matched = { id: phoneRecord.client_id, phone: phoneRecord.phone };
+                console.log('Found match in client_phone_numbers:', v);
+                break; 
+              }
+            }
+          }
+
+          // Fallback: search by last 10 digits in both tables
           if (!matched && normalizedPhone.length >= 10) {
             const last10 = normalizedPhone.slice(-10);
             console.log('Fallback search with last 10 digits:', last10);
+            
+            // Try clients.phone
             const { data: list, error: likeErr } = await supabase
               .from('clients')
               .select('id, phone')
@@ -300,7 +324,22 @@ serve(async (req) => {
               console.error('Fallback phone search error:', likeErr);
             } else if (list && list.length > 0) {
               matched = list[0];
-              console.log('Found fallback match:', matched.phone);
+              console.log('Found fallback match in clients:', matched.phone);
+            }
+            
+            // If still not found, try client_phone_numbers
+            if (!matched) {
+              const { data: phoneList, error: phoneListErr } = await supabase
+                .from('client_phone_numbers')
+                .select('client_id, phone')
+                .ilike('phone', `%${last10}`)
+                .limit(5);
+              if (phoneListErr) {
+                console.error('Fallback phone_numbers search error:', phoneListErr);
+              } else if (phoneList && phoneList.length > 0) {
+                matched = { id: phoneList[0].client_id, phone: phoneList[0].phone };
+                console.log('Found fallback match in client_phone_numbers:', matched.phone);
+              }
             }
           }
 
@@ -318,12 +357,12 @@ serve(async (req) => {
           // Create new client if not found
           console.log('Client not found, creating new client for phone:', selectedPhone);
           
-          // Get default organization (first active organization)
+          // Get default organization - use hardcoded ID since is_active doesn't exist
+          const defaultOrgId = '00000000-0000-0000-0000-000000000001';
           const { data: defaultOrg } = await supabase
             .from('organizations')
             .select('id')
-            .eq('is_active', true)
-            .limit(1)
+            .eq('id', defaultOrgId)
             .single();
           
           if (!defaultOrg) {
