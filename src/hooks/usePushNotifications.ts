@@ -55,19 +55,32 @@ export function usePushNotifications() {
     // 1) Try existing registration for current scope
     try {
       const existing = await navigator.serviceWorker.getRegistration();
-      if (existing) return existing;
+      if (existing?.active) return existing;
     } catch {
       // ignore
     }
 
-    // 2) Try registering (in case injectRegister is disabled and load hook didn't fire yet)
+    // 2) Force register SW (override preview disabling for push testing)
     try {
-      await navigator.serviceWorker.register('/sw.js');
-    } catch {
-      // ignore
+      const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      // Wait for SW to become active
+      if (reg.installing || reg.waiting) {
+        await new Promise<void>((resolve) => {
+          const sw = reg.installing || reg.waiting;
+          if (!sw) { resolve(); return; }
+          sw.addEventListener('statechange', () => {
+            if (sw.state === 'activated') resolve();
+          });
+          // Timeout fallback
+          setTimeout(resolve, 3000);
+        });
+      }
+      return reg;
+    } catch (e) {
+      console.warn('[Push] SW register failed:', e);
     }
 
-    // 3) Wait for ready, but don't hang forever (mobile Safari can stall here)
+    // 3) Last resort: wait for ready with timeout
     try {
       const ready = await Promise.race([
         navigator.serviceWorker.ready,
