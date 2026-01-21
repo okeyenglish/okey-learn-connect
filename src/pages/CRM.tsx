@@ -1837,7 +1837,7 @@ const CRMContent = () => {
         </div>
       )}
 
-      <div className={`relative z-0 isolate flex flex-1 min-h-0 w-full overflow-hidden ${isMobile && !(activeChatId && activeChatType === 'client') ? 'pt-12' : ''}`}>
+      <div className={`flex flex-1 min-h-0 w-full overflow-hidden ${isMobile && !(activeChatId && activeChatType === 'client') ? 'pt-12' : ''}`}> 
         {/* Left Unified Sidebar - Desktop */}
         <div className={`${
           isMobile ? 'hidden' : 'flex'
