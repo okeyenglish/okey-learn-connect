@@ -426,7 +426,10 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                   <p className="text-sm leading-relaxed italic text-muted-foreground">*Данное сообщение удалено*</p>
                 ) : (
                   <div>
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{renderMessageWithLinks(editedMessage)}</p>
+                    {/* Hide placeholder text like [documentMessage] if file is attached */}
+                    {!(fileUrl && /^\[(imageMessage|videoMessage|audioMessage|documentMessage)\]$/.test(message)) && (
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{renderMessageWithLinks(editedMessage)}</p>
+                    )}
                     {systemType === 'comment' && managerName && (
                       <div className="text-xs text-amber-700 mt-1 flex items-center gap-1">
                         <MessageCircle className="h-3 w-3" />
