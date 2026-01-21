@@ -43,6 +43,8 @@ export function usePushNotifications() {
   const isSupported =
     typeof window !== 'undefined' &&
     !isPreviewHost &&
+    window.isSecureContext &&
+    window.location.protocol === 'https:' &&
     'serviceWorker' in navigator &&
     'PushManager' in window &&
     'Notification' in window;
@@ -63,6 +65,38 @@ export function usePushNotifications() {
   // Helper to get SW registration with activation/ready handling
   const getSWRegistration = useCallback(async (): Promise<ServiceWorkerRegistration | null> => {
     if (!isSupported) return null;
+
+    const captureSWDiagnostics = async (err: unknown) => {
+      try {
+        const res = await fetch('/sw.js', {
+          cache: 'no-store',
+          credentials: 'same-origin',
+        });
+        const ct = res.headers.get('content-type');
+        // Don't pull huge body; just enough to see if it's HTML.
+        const text = await res.text();
+        const snippet = text.slice(0, 120);
+        lastSWErrorRef.current = {
+          name: (err as any)?.name,
+          message: (err as any)?.message,
+          swStatus: res.status,
+          swContentType: ct,
+          swSnippet: snippet,
+          href: window.location.href,
+          ua: navigator.userAgent,
+          secure: window.isSecureContext,
+        };
+        console.warn('[Push] SW diagnostics:', lastSWErrorRef.current);
+      } catch (e) {
+        lastSWErrorRef.current = {
+          name: (err as any)?.name,
+          message: (err as any)?.message,
+          diagError: (e as any)?.message || String(e),
+          href: typeof window !== 'undefined' ? window.location.href : undefined,
+        };
+        console.warn('[Push] SW diagnostics failed:', lastSWErrorRef.current);
+      }
+    };
 
     const waitForActivation = async (
       reg: ServiceWorkerRegistration,
@@ -113,6 +147,7 @@ export function usePushNotifications() {
 
     // 2) Register SW (production only)
     try {
+      // Try normal register first
       const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
       // Force a check for updates (best-effort)
       try {
@@ -124,8 +159,18 @@ export function usePushNotifications() {
       const activated = await waitForActivation(reg);
       if (activated) return activated;
     } catch (e) {
-      lastSWErrorRef.current = e;
+      await captureSWDiagnostics(e);
       console.warn('[Push] SW register failed:', e);
+
+      // Fallback: cache-bust URL (some iOS setups get a cached HTML fallback)
+      try {
+        const reg2 = await navigator.serviceWorker.register(`/sw.js?sw-bust=${Date.now()}`, { scope: '/' });
+        const activated2 = await waitForActivation(reg2);
+        if (activated2) return activated2;
+      } catch (e2) {
+        await captureSWDiagnostics(e2);
+        console.warn('[Push] SW register failed (bust):', e2);
+      }
     }
 
     return null;
@@ -215,8 +260,11 @@ export function usePushNotifications() {
       const registration = await getSWRegistration();
       if (!registration) {
         const err = lastSWErrorRef.current as any;
-        const extra = err?.name ? ` (${err.name})` : '';
-        toast.error(`Сервис-воркер не готов${extra}. Откройте в Safari (не в режиме инкогнито) и обновите страницу`);
+        const name = err?.name ? String(err.name) : 'Ошибка';
+        const msg = err?.message ? String(err.message) : '';
+        const details = msg ? `: ${msg}` : '';
+        // Keep user-facing text short; diagnostics go to console.
+        toast.error(`Сервис-воркер не готов (${name})${details}`);
         setState(prev => ({ ...prev, isLoading: false }));
         return false;
       }
