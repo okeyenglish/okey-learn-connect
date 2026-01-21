@@ -306,52 +306,20 @@ export const FileUpload = ({
         </Card>
       )}
 
-      {/* Uploading files list */}
-      {uploadingFiles.length > 0 && (
+      {/* Uploading files list - only show while uploading, hide completed files */}
+      {uploadingFiles.filter(f => f.status === 'uploading').length > 0 && (
         <div className="space-y-2">
-          {uploadingFiles.map((uploadingFile, index) => (
-            <Card key={index} className="p-3">
-              <div className="flex items-center gap-3">
-                <div className="flex-shrink-0">
+          {uploadingFiles.filter(f => f.status === 'uploading').map((uploadingFile, index) => (
+            <Card key={index} className="p-2">
+              <div className="flex items-center gap-2">
+                <div className="flex-shrink-0 text-muted-foreground">
                   {getFileIcon(uploadingFile.file.type)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
+                  <p className="text-xs font-medium truncate">
                     {uploadingFile.file.name}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatFileSize(uploadingFile.file.size)}
-                  </p>
-                  {uploadingFile.status === 'uploading' && (
-                    <Progress value={uploadingFile.progress} className="mt-1 h-1" />
-                  )}
-                  {uploadingFile.status === 'error' && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {uploadingFile.error}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
-                  {uploadingFile.status === 'completed' && uploadingFile.url && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 w-6 p-0"
-                      onClick={() => window.open(uploadingFile.url, '_blank')}
-                      title="Открыть файл"
-                    >
-                      <Download className="h-3 w-3" />
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 w-6 p-0"
-                    onClick={() => removeUploadingFile(uploadingFile)}
-                    title="Удалить"
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
+                  <Progress value={uploadingFile.progress} className="mt-1 h-1" />
                 </div>
               </div>
             </Card>
