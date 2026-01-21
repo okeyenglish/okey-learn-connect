@@ -3773,6 +3773,9 @@ const CRMContent = () => {
                   setSelectedTeacherId(teacherId);
                   if (teacherId) {
                     handleChatClick(teacherId, 'teachers');
+                  } else {
+                    // Back to the teachers list inside the teachers folder (mobile + desktop)
+                    setActiveChatId(null);
                   }
                 }}
               />
