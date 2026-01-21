@@ -491,19 +491,23 @@ serve(async (req) => {
           }
         }
 
-        // Get organization_id from the client
-        let organizationId: string | null = null;
+        // Get organization_id from the client (required for call_logs.organization_id NOT NULL)
+        // Use maybeSingle() so missing client rows don't crash the webhook.
+        let organizationId: string = '00000000-0000-0000-0000-000000000001';
         if (clientId) {
-          const { data: clientData } = await supabase
+          const { data: clientData, error: clientOrgErr } = await supabase
             .from('clients')
             .select('organization_id')
             .eq('id', clientId)
-            .single();
-          organizationId = clientData?.organization_id || null;
-        }
-        // Fallback to default organization
-        if (!organizationId) {
-          organizationId = '00000000-0000-0000-0000-000000000001';
+            .maybeSingle();
+
+          if (clientOrgErr) {
+            console.error('Error fetching organization_id for client:', clientOrgErr);
+          }
+
+          if (clientData?.organization_id) {
+            organizationId = clientData.organization_id;
+          }
         }
 
         const newCallData: any = {
