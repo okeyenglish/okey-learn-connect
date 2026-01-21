@@ -52,11 +52,6 @@ export const ManagerMenu = ({
   // Debug logging
   console.log('🔐 ManagerMenu roles check:', { role, roles, isAdmin, isMethodist, canAccessAdmin });
 
-  const handleNotificationToggle = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    await toggle();
-  };
 
   const handleTestPush = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -204,10 +199,7 @@ export const ManagerMenu = ({
         {isSupported && (
           <>
             <DropdownMenuSeparator />
-            <div 
-              className="flex items-center justify-between gap-2 px-3 py-2 cursor-pointer hover:bg-muted rounded-sm"
-              onClick={handleNotificationToggle}
-            >
+            <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-sm">
               <div className="flex items-center gap-2">
                 {isSubscribed ? (
                   <Bell className="h-4 w-4 text-primary" />
@@ -220,17 +212,16 @@ export const ManagerMenu = ({
                 checked={isSubscribed} 
                 disabled={pushLoading}
                 onCheckedChange={() => toggle()}
-                onClick={(e) => e.stopPropagation()}
               />
             </div>
             {isSubscribed && (
-              <div 
-                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted rounded-sm text-sm"
+              <DropdownMenuItem
                 onClick={handleTestPush}
+                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted"
               >
                 <Send className="h-4 w-4 text-muted-foreground" />
                 <span>{testPushLoading ? 'Отправка...' : 'Тест push'}</span>
-              </div>
+              </DropdownMenuItem>
             )}
           </>
         )}
