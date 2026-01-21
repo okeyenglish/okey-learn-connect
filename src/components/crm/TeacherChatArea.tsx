@@ -889,8 +889,8 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   // Desktop view: show both teacher list and chat
   return (
     <div className="h-full flex-1 min-h-0 min-w-0 overflow-hidden flex isolate">
-      {/* Compact Teachers List - fixed width */}
-      <div className="w-72 shrink-0 border-r border-border flex flex-col overflow-hidden">
+      {/* Compact Teachers List - fixed width (increased by 20%) */}
+      <div className="w-[345px] shrink-0 border-r border-border flex flex-col overflow-hidden">
         <div className="p-2 border-b border-border">
           <div className="flex gap-1">
             <div className="flex-1 relative">
