@@ -1,0 +1,2 @@
+-- Удаляем старые подписки, чтобы форсировать переподписку с правильным ключом
+DELETE FROM push_subscriptions WHERE device_info->>'vapidPublicKeyPrefix' IS NULL OR device_info->>'vapidPublicKeyPrefix' = '';
