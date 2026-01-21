@@ -290,3 +290,6 @@ verify_jwt = true
 
 [functions.test-onlinepbx]
 verify_jwt = true
+
+[functions.send-push-notification]
+verify_jwt = true
