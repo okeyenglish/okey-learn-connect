@@ -64,6 +64,7 @@ import { MobileNewChatModal } from "@/components/crm/MobileNewChatModal";
 import { EducationSubmenu } from "@/components/learning-groups/EducationSubmenu";
 import { usePinnedModalsDB, PinnedModal } from "@/hooks/usePinnedModalsDB";
 import { useChatStatesDB } from "@/hooks/useChatStatesDB";
+import { usePinnedChatIds } from "@/hooks/usePinnedChatIds";
 import useSharedChatStates from "@/hooks/useSharedChatStates";
 import { useGlobalChatReadStatus } from "@/hooks/useGlobalChatReadStatus";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -342,10 +343,16 @@ const CRMContent = () => {
     isPinned 
   } = usePinnedModalsDB();
 
-  // visibleChatIds - ограничиваем только реально видимыми (первые 200) + активный + системные
+  // Get pinned chat IDs first - they must always be in visibleChatIds
+  const { pinnedChatIds } = usePinnedChatIds();
+
+  // visibleChatIds - ограничиваем только реально видимыми (первые 200) + активный + системные + закреплённые
   // Это предотвращает огромные запросы к chat_states при infinite scroll
   const visibleChatIds = useMemo(() => {
     const ids = new Set<string>();
+    
+    // ВАЖНО: Всегда включаем закреплённые чаты
+    pinnedChatIds.forEach(id => ids.add(id));
     
     // Только первые 200 threads (достаточно для viewport + буфер)
     const visibleThreads = (threads || []).slice(0, 200);
@@ -361,7 +368,7 @@ const CRMContent = () => {
     (teacherChats || []).forEach((c: any) => c?.id && ids.add(c.id));
     
     return Array.from(ids);
-  }, [threads, corporateChats, teacherChats, activeChatId]);
+  }, [threads, corporateChats, teacherChats, activeChatId, pinnedChatIds]);
 
   const { 
     chatStates, 
