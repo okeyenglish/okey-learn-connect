@@ -2095,7 +2095,7 @@ export const ChatArea = ({
       </div>
 
       {/* Message Input */}
-      <div className={`border-t p-2 shrink-0 ${isMobile && !onBackToList ? 'pb-20' : ''}`}>
+      <div className={`border-t p-2 pb-6 shrink-0 ${isMobile && !onBackToList ? 'pb-20' : ''}`}>
         {/* Pending message with countdown */}
         {pendingMessage && (
           <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">
@@ -2487,9 +2487,9 @@ export const ChatArea = ({
                   </DropdownMenuContent>
                 </DropdownMenu>
               
-              {/* Send button */}
+              {/* Send button - wider and taller for better tap target */}
               <Button 
-                className={`h-11 min-w-[44px] px-4 rounded-xl xl:h-[40px] xl:px-6 xl:gap-2 xl:rounded-md ml-auto shrink-0 ${
+                className={`h-12 min-w-[88px] px-6 rounded-xl xl:h-[40px] xl:px-6 xl:gap-2 xl:rounded-md ml-auto shrink-0 ${
                   commentMode ? "bg-yellow-500 hover:bg-yellow-600" : ""
                 }`}
                 onClick={handleSendMessage}
