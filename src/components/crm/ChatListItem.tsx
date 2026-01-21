@@ -102,7 +102,7 @@ export const ChatListItem = React.memo(({
       isUnread={displayUnread}
     >
       <button 
-        className={`w-full p-2 text-left rounded-lg transition-all duration-200 relative mb-0.5 border ${
+        className={`w-full p-2 text-left rounded-lg transition-all duration-200 relative mb-0.5 border select-none touch-none ${
           isPinned 
             ? `border-orange-200 bg-gradient-to-r ${
                 isActive 
