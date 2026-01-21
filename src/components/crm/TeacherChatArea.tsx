@@ -15,6 +15,7 @@ import { FileUpload } from './FileUpload';
 import { AttachedFile } from './AttachedFile';
 import { DateSeparator, shouldShowDateSeparator } from './DateSeparator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from "sonner";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages, useClientUnreadByMessenger } from '@/hooks/useChatMessages';
@@ -693,19 +694,22 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             }}
           />
           
-          {/* Bottom row: icons on left, send button on right */}
+          {/* Bottom row: All icons fit screen on mobile */}
           <div className="flex items-center gap-0.5 w-full">
             {/* Action icons */}
             <div className="flex items-center gap-0.5 flex-1 min-w-0">
-              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setShowQuickResponsesModal(true)}>
-                <Zap className="h-4 w-4" />
-              </Button>
               <FileUpload
                 onFileUpload={(file) => setAttachedFiles(prev => [...prev, file])}
               />
+              <Button size="sm" variant="ghost" className="h-6 w-6 md:h-8 md:w-8 p-0" onClick={() => setShowQuickResponsesModal(true)}>
+                <Zap className="h-4 w-4" />
+              </Button>
+              <Button size="sm" variant="ghost" className="h-6 w-6 md:h-8 md:w-8 p-0">
+                <MessageCircle className="h-4 w-4" />
+              </Button>
               <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
                 <DialogTrigger asChild>
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={!message.trim()}>
+                  <Button size="sm" variant="ghost" className="h-6 w-6 md:h-8 md:w-8 p-0" disabled={!message.trim()}>
                     <Clock className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
@@ -732,6 +736,19 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                   </div>
                 </DialogContent>
               </Dialog>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="ghost" className="h-6 w-6 md:h-8 md:w-8 p-0">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 bg-background z-50">
+                  <DropdownMenuItem className="flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    <span>Запланировать</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             
             {/* Send button - wide, rounded, on the right */}
