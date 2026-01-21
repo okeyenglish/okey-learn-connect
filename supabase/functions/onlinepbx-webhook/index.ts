@@ -491,6 +491,21 @@ serve(async (req) => {
           }
         }
 
+        // Get organization_id from the client
+        let organizationId: string | null = null;
+        if (clientId) {
+          const { data: clientData } = await supabase
+            .from('clients')
+            .select('organization_id')
+            .eq('id', clientId)
+            .single();
+          organizationId = clientData?.organization_id || null;
+        }
+        // Fallback to default organization
+        if (!organizationId) {
+          organizationId = '00000000-0000-0000-0000-000000000001';
+        }
+
         const newCallData: any = {
           client_id: clientId,
           phone_number: selectedPhone,
@@ -499,7 +514,8 @@ serve(async (req) => {
           duration_seconds: durationSeconds,
           started_at: webhookData.start_time ? new Date(webhookData.start_time).toISOString() : new Date().toISOString(),
           external_call_id: externalCallId || (webhookData as any).call_id || null,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          organization_id: organizationId
         };
 
         if (webhookData.end_time) {
