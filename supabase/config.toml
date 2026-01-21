@@ -293,3 +293,6 @@ verify_jwt = true
 
 [functions.send-push-notification]
 verify_jwt = true
+
+[functions.lesson-reminders]
+verify_jwt = false

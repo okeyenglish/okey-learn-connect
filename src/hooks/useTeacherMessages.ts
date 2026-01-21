@@ -3,6 +3,36 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+// Helper function to send push notifications without blocking
+const sendPushToManagers = async (teacherName: string, messageText: string, messageId: string) => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const response = await (supabase as any)
+      .from('profiles')
+      .select('id')
+      .eq('role', 'manager');
+
+    const managers = response.data as { id: string }[] | null;
+    if (managers && managers.length > 0) {
+      const managerIds = managers.map((m) => m.id);
+      await supabase.functions.invoke('send-push-notification', {
+        body: {
+          userIds: managerIds,
+          payload: {
+            title: '📝 Новое сообщение на модерацию',
+            body: `От ${teacherName}: ${messageText.slice(0, 50)}...`,
+            icon: '/pwa-192x192.png',
+            url: '/crm?tab=messages',
+            tag: `teacher-message-${messageId}`,
+          },
+        },
+      });
+    }
+  } catch (err) {
+    console.error('Push notification error:', err);
+  }
+};
+
 export interface TeacherMessage {
   id: string;
   teacher_id: string;
@@ -76,6 +106,10 @@ export const useTeacherMessages = () => {
         .single();
 
       if (error) throw error;
+
+      // Send push notification to managers about new message for moderation (fire-and-forget)
+      sendPushToManagers(teacherName, messageData.message_text, data.id);
+
       return data;
     },
     onSuccess: () => {
@@ -122,13 +156,34 @@ export const useTeacherMessages = () => {
         .single();
 
       if (error) throw error;
+
+      // Notify teacher about moderation result
+      try {
+        const statusText = status === 'approved' ? '✅ одобрено' : '❌ отклонено';
+        await supabase.functions.invoke('send-push-notification', {
+          body: {
+            userId: data.teacher_id,
+            payload: {
+              title: `Сообщение ${statusText}`,
+              body: status === 'approved' 
+                ? 'Ваше сообщение будет отправлено клиентам'
+                : moderationNotes || 'Сообщение не прошло модерацию',
+              icon: '/pwa-192x192.png',
+              url: '/teacher-portal?tab=messages',
+              tag: `moderation-${messageId}`,
+            },
+          },
+        });
+      } catch (pushError) {
+        console.error('Push notification error:', pushError);
+      }
+
       return data;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['teacher_messages'] });
       
       if (data.status === 'approved') {
-        // Здесь будет логика отправки через WhatsApp
         toast({
           title: "Сообщение одобрено",
           description: "Сообщение будет отправлено клиентам через WhatsApp",
