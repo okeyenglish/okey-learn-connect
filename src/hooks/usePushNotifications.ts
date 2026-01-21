@@ -114,7 +114,7 @@ export function usePushNotifications() {
         throw new Error('Invalid subscription data');
       }
 
-      // Save subscription to database
+      // Save subscription to database with VAPID key info for debugging
       const { error } = await supabase
         .from('push_subscriptions')
         .upsert({
@@ -126,6 +126,8 @@ export function usePushNotifications() {
             userAgent: navigator.userAgent,
             platform: navigator.platform,
             language: navigator.language,
+            vapidPublicKeyPrefix: VAPID_PUBLIC_KEY.substring(0, 12),
+            subscribedAt: new Date().toISOString(),
           },
           is_active: true,
         }, {

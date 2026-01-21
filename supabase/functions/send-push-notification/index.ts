@@ -338,7 +338,10 @@ serve(async (req) => {
       throw new Error('Missing VAPID keys - please configure VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY secrets');
     }
 
-    console.log(`VAPID public key length: ${vapidPublicKey.length}`);
+    // Diagnostic logging for VAPID key matching
+    console.log(`[VAPID-DIAG] Public key prefix: ${vapidPublicKey.substring(0, 12)}...`);
+    console.log(`[VAPID-DIAG] Public key length: ${vapidPublicKey.length}`);
+    console.log(`[VAPID-DIAG] Private key length: ${vapidPrivateKey.length}`);
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { autoRefreshToken: false, persistSession: false }
@@ -389,6 +392,13 @@ serve(async (req) => {
     }
 
     console.log(`Found ${subscriptions.length} subscriptions to notify`);
+    
+    // Log subscription VAPID info for debugging mismatch
+    subscriptions.forEach((sub, idx) => {
+      const deviceInfo = sub.device_info as Record<string, unknown> | null;
+      const subVapidPrefix = deviceInfo?.vapidPublicKeyPrefix || 'N/A';
+      console.log(`[SUB-${idx}] endpoint: ${sub.endpoint.substring(0, 60)}... vapidPrefix: ${subVapidPrefix}`);
+    });
 
     const results = await Promise.all(
       subscriptions.map(async (sub) => {
