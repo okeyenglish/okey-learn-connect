@@ -31,9 +31,20 @@ export interface PushNotificationState {
 export function usePushNotifications() {
   const { user } = useAuth();
   
+  const isPreviewHost = (() => {
+    if (typeof window === 'undefined') return false;
+    const host = window.location.hostname;
+    return (
+      host.includes('lovableproject.com') ||
+      host.startsWith('id-preview--') ||
+      host.startsWith('preview--')
+    );
+  })();
+
   // Check support synchronously on mount
   const isSupported = 
     typeof window !== 'undefined' &&
+    !isPreviewHost &&
     'serviceWorker' in navigator && 
     'PushManager' in window && 
     'Notification' in window;
@@ -60,22 +71,9 @@ export function usePushNotifications() {
       // ignore
     }
 
-    // 2) Force register SW (override preview disabling for push testing)
+    // 2) Register SW (production only)
     try {
-      const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-      // Wait for SW to become active
-      if (reg.installing || reg.waiting) {
-        await new Promise<void>((resolve) => {
-          const sw = reg.installing || reg.waiting;
-          if (!sw) { resolve(); return; }
-          sw.addEventListener('statechange', () => {
-            if (sw.state === 'activated') resolve();
-          });
-          // Timeout fallback
-          setTimeout(resolve, 3000);
-        });
-      }
-      return reg;
+      return await navigator.serviceWorker.register('/sw.js');
     } catch (e) {
       console.warn('[Push] SW register failed:', e);
     }
@@ -152,7 +150,11 @@ export function usePushNotifications() {
     }
 
     if (!isSupported) {
+      if (isPreviewHost) {
+        toast.error('Push недоступен в предпросмотре. Откройте опубликованный домен (crm.academyos.ru)');
+      } else {
       toast.error('Push-уведомления не поддерживаются в этом браузере');
+      }
       return false;
     }
 
