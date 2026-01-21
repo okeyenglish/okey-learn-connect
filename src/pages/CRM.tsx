@@ -1734,16 +1734,16 @@ const CRMContent = () => {
         <div className="crm-container h-[100svh] flex flex-col overflow-hidden">
       {/* Фиксированные вкладки сверху на мобильной версии - скрываем когда открыт чат с клиентом */}
       {isMobile && !(activeChatId && activeChatType === 'client') && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b shadow-sm">
-          <div className="flex items-center">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b">
+          <div className="flex items-center h-11">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => handleTabChange('menu')}
-              className={`flex-1 rounded-none h-12 font-medium transition-colors ${
+              className={`flex-1 rounded-none h-full text-sm font-medium transition-colors ${
                 activeTab === 'menu' 
-                  ? 'bg-muted text-foreground' 
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  ? 'text-primary border-b-2 border-primary bg-transparent' 
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Меню
@@ -1753,21 +1753,19 @@ const CRMContent = () => {
               size="sm"
               onClick={() => {
                 handleTabChange('chats');
-                // При нажатии на "Чаты" сбрасываем активный чат и возвращаемся к списку
                 if (isMobile && activeChatId) {
                   setActiveChatId('');
                 }
               }}
-              className={`flex-1 rounded-none h-12 font-medium transition-colors ${
+              className={`flex-1 rounded-none h-full text-sm font-medium transition-colors ${
                 activeTab === 'chats' 
-                  ? 'bg-muted text-foreground' 
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  ? 'text-primary border-b-2 border-primary bg-transparent' 
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Чаты{totalUnreadCount > 0 && ` (${totalUnreadCount})`}
             </Button>
-            {/* Скрипты и аватарка менеджера на мобильной версии - убираем скрипты */}
-            <div className="flex items-center px-4 h-14 border-l bg-background gap-2">
+            <div className="px-3 h-full flex items-center border-l">
               <ManagerMenu
                 managerName={profile && profile.first_name && profile.last_name 
                   ? `${profile.first_name} ${profile.last_name}` 
