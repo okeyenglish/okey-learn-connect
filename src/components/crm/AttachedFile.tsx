@@ -247,20 +247,22 @@ export const AttachedFile = ({ url, name, type, size, className, chatId, message
                 </Button>
               }
             />
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-6 w-6 p-0"
-              onClick={handleDownload}
-              title="Скачать"
-              disabled={downloadLoading}
-            >
-              {downloadLoading ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Download className="h-3 w-3" />
-              )}
-            </Button>
+            {!onRemove && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 w-6 p-0"
+                onClick={handleDownload}
+                title="Скачать"
+                disabled={downloadLoading}
+              >
+                {downloadLoading ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Download className="h-3 w-3" />
+                )}
+              </Button>
+            )}
             {onRemove && (
               <Button
                 size="sm"
@@ -326,20 +328,22 @@ export const AttachedFile = ({ url, name, type, size, className, chatId, message
                 </div>
               </DialogContent>
             </Dialog>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-6 w-6 p-0"
-              onClick={handleDownload}
-              title="Скачать"
-              disabled={downloadLoading}
-            >
-              {downloadLoading ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Download className="h-3 w-3" />
-              )}
-            </Button>
+            {!onRemove && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 w-6 p-0"
+                onClick={handleDownload}
+                title="Скачать"
+                disabled={downloadLoading}
+              >
+                {downloadLoading ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Download className="h-3 w-3" />
+                )}
+              </Button>
+            )}
             {onRemove && (
               <Button
                 size="sm"
