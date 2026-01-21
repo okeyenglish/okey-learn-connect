@@ -93,17 +93,17 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
           </Avatar>
           
           {/* Content - flexible, truncates */}
-          <div className="flex-1 min-w-0 overflow-hidden">
+          <div className="flex-1 min-w-0">
             {/* Name row */}
-            <div className="flex items-center gap-1.5 mb-0">
-              <p className="text-sm font-medium truncate">
+            <div className="flex items-center gap-1 min-w-0">
+              <p className="text-sm font-medium truncate flex-1 min-w-0">
                 {teacher.fullName}
               </p>
-              {flags && <span className="text-xs flex-shrink-0">{flags}</span>}
-              {pinCount > 0 && <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />}
+              {flags && <span className="text-[10px] flex-shrink-0 ml-auto">{flags}</span>}
+              {pinCount > 0 && <Pin className="h-3 w-3 text-orange-500 flex-shrink-0" />}
             </div>
             {/* Preview */}
-            <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
+            <p className="text-xs text-muted-foreground truncate">
               {previewText || 'Нет сообщений'}
             </p>
           </div>
