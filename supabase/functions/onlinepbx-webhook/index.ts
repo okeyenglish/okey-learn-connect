@@ -7,16 +7,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Validation schema for webhook data
+// Validation schema for webhook data - relaxed to accept OnlinePBX format
 const WebhookSchema = z.object({
   event: z.string().optional(),
-  direction: z.enum(['incoming', 'outgoing']).optional(),
+  direction: z.enum(['incoming', 'outgoing', 'inbound', 'outbound']).optional(),
   caller: z.string().optional(),
   callee: z.string().optional(),
   uuid: z.string().optional(),
   call_duration: z.string().or(z.number()).optional(),
   dialog_duration: z.string().or(z.number()).optional(),
-  download_url: z.string().url().optional(),
+  download_url: z.string().optional(), // Can be empty string
   hangup_cause: z.string().optional(),
 }).passthrough(); // Allow additional fields
 
@@ -100,8 +100,31 @@ serve(async (req) => {
       console.log('Content-Type:', contentType);
       console.log('Webhook data received:', JSON.stringify(webhookData, null, 2));
 
-      // Map OnlinePBX status to our status
-      const mapStatus = (pbxStatus: string): string => {
+      // Map OnlinePBX event/status to our status
+      const mapStatus = (event: string | undefined, hangupCause: string | undefined, pbxStatus: string | undefined): string => {
+        // First check event type - OnlinePBX sends events like "call_missed", "call_answered", etc.
+        const eventLower = (event || '').toLowerCase();
+        if (eventLower.includes('missed') || eventLower === 'call_missed') return 'missed';
+        if (eventLower.includes('answered') || eventLower === 'call_answered') return 'answered';
+        if (eventLower.includes('busy') || eventLower === 'call_busy') return 'busy';
+        if (eventLower.includes('failed') || eventLower === 'call_failed') return 'failed';
+        
+        // Then check hangup_cause
+        const hangupMap: { [key: string]: string } = {
+          'NORMAL_CLEARING': 'answered',
+          'USER_BUSY': 'busy',
+          'NO_ANSWER': 'missed',
+          'ORIGINATOR_CANCEL': 'missed',
+          'CALL_REJECTED': 'missed',
+          'NO_USER_RESPONSE': 'missed',
+          'UNALLOCATED_NUMBER': 'failed',
+          'SUBSCRIBER_ABSENT': 'failed',
+        };
+        if (hangupCause && hangupMap[hangupCause.toUpperCase()]) {
+          return hangupMap[hangupCause.toUpperCase()];
+        }
+        
+        // Finally check status field
         const statusMap: { [key: string]: string } = {
           'ANSWER': 'answered',
           'BUSY': 'busy',
@@ -111,18 +134,15 @@ serve(async (req) => {
           'CHANUNAVAIL': 'failed',
           'HANGUP': 'answered'
         };
-        return statusMap[pbxStatus?.toUpperCase()] || 'failed';
+        return statusMap[pbxStatus?.toUpperCase()] || 'missed'; // Default to missed for incoming calls
       };
 
-      // Validate webhook data
-      try {
-        WebhookSchema.parse(webhookData);
-      } catch (validationError) {
-        console.warn('Webhook validation warning:', validationError);
-        // Continue processing but log the warning
-      }
+      // Log event type for debugging
+      const eventType = (webhookData as any).event;
+      const hangupCause = (webhookData as any).hangup_cause;
+      console.log('Event type:', eventType, 'Hangup cause:', hangupCause);
 
-      const status = mapStatus(webhookData.status || (webhookData as any).call_status || '');
+      const status = mapStatus(eventType, hangupCause, webhookData.status || (webhookData as any).call_status || '');
       let direction = (webhookData.direction as 'incoming' | 'outgoing') || (webhookData as any).call_direction || (webhookData as any)['Direction'];
       
       // Map OnlinePBX directions to database format
