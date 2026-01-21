@@ -76,47 +76,48 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
   return (
     <button
       onClick={onClick}
-      className={`w-full min-w-0 overflow-hidden text-left p-2 rounded-lg transition-all duration-200 mb-0.5 border ${
+      className={`w-full p-2 text-left rounded-lg transition-all duration-200 relative mb-0.5 border select-none ${
         isSelected
           ? 'bg-accent/50 shadow-sm border-accent'
           : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
       }`}
     >
-      {/* Main row: Avatar + Content + Meta */}
-      <div className="flex items-start gap-2 min-w-0">
-        {/* Avatar - fixed size */}
-        <Avatar className="h-9 w-9 shrink-0 ring-2 ring-border/30">
-          <AvatarImage src={undefined} alt={teacher.fullName} />
-          <AvatarFallback className="bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))] font-medium text-xs">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
-        
-        {/* Middle: Name + Preview - flexible, truncates */}
-        <div className="flex-1 min-w-0 pr-1">
-          {/* Name row */}
-          <div className="flex items-center gap-1 min-w-0 overflow-hidden">
-            <span className="font-medium text-sm truncate flex-1 min-w-0">
-              {teacher.fullName}
-            </span>
-            {flags && <span className="text-xs shrink-0">{flags}</span>}
-            {pinCount > 0 && <Pin className="h-3 w-3 text-orange-500 shrink-0" />}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-2 flex-1 min-w-0">
+          {/* Avatar - fixed size */}
+          <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30">
+            <AvatarImage src={undefined} alt={teacher.fullName} />
+            <AvatarFallback className="bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))] font-medium text-xs">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          
+          {/* Content - flexible, truncates */}
+          <div className="flex-1 min-w-0 overflow-hidden">
+            {/* Name row */}
+            <div className="flex items-center gap-1.5 mb-0">
+              <p className="text-sm font-medium truncate">
+                {teacher.fullName}
+              </p>
+              {flags && <span className="text-xs flex-shrink-0">{flags}</span>}
+              {pinCount > 0 && <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />}
+            </div>
+            {/* Preview */}
+            <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
+              {previewText || 'Нет сообщений'}
+            </p>
           </div>
-          {/* Preview */}
-          <p className="text-xs text-muted-foreground truncate">
-            {previewText || 'Нет сообщений'}
-          </p>
         </div>
         
-        {/* Right: Time + Unread */}
-        <div className="flex flex-col items-end shrink-0">
+        {/* Right: Time + Unread - fixed width */}
+        <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
           {messageTime && (
-            <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+            <span className="text-[10px] text-muted-foreground font-medium">
               {messageTime}
             </span>
           )}
           {teacher.unreadMessages > 0 && (
-            <span className="bg-destructive text-destructive-foreground text-[11px] px-2 py-0.5 rounded-full font-semibold min-w-[22px] text-center mt-1">
+            <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm font-semibold">
               {teacher.unreadMessages}
             </span>
           )}
