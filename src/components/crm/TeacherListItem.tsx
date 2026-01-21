@@ -1,5 +1,4 @@
 import React from 'react';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Pin } from 'lucide-react';
 import { TeacherChatItem } from '@/hooks/useTeacherChats';
@@ -102,8 +101,8 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
           {/* Content */}
           <div className="flex-1 min-w-0 overflow-hidden">
             {/* Top row: Name + flags */}
-            <div className="flex items-center gap-1 mb-0 min-w-0">
-              <span className="font-medium text-sm truncate min-w-0">
+            <div className="flex items-center gap-1 mb-0 min-w-0 overflow-hidden">
+              <span className="font-medium text-sm truncate flex-1 min-w-0">
                 {teacher.fullName}
               </span>
               {flags && (
@@ -122,14 +121,14 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
         </div>
         
         {/* Right side: time + unread */}
-        <div className="flex flex-col items-end gap-0.5 shrink-0 ml-1">
+        <div className="flex flex-col items-end gap-0.5 shrink-0 ml-1 w-12">
           {messageTime && (
             <span className="text-[10px] text-muted-foreground">
               {messageTime}
             </span>
           )}
           {teacher.unreadMessages > 0 && (
-            <span className="bg-primary text-white text-[10px] px-1.5 py-0.5 rounded-full font-semibold min-w-[18px] text-center">
+            <span className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full font-semibold min-w-[18px] text-center">
               {teacher.unreadMessages}
             </span>
           )}
