@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Building2, GraduationCap, Plus, Users, MessageCircle, CreditCard, ListTodo, UserPlus, X } from "lucide-react";
+import { Building2, GraduationCap, Plus, Users, MessageCircle, CreditCard, ListTodo, UserPlus, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -100,7 +100,8 @@ export const MobileChatNavigation = ({
   const actionButtons = [
     { icon: CreditCard, label: 'Оплата', onClick: onPaymentClick },
     { icon: ListTodo, label: 'Задача', onClick: onTaskClick },
-    { icon: UserPlus, label: 'Контакт', onClick: onNewChatClick },
+    { icon: Briefcase, label: 'Сотрудник', onClick: onNewChatClick },
+    { icon: UserPlus, label: 'Клиент', onClick: onNewChatClick },
   ];
 
   return (
