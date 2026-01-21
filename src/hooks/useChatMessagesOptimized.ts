@@ -45,7 +45,7 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
         const messages = hasMore ? fallbackMessages.slice(0, limit) : fallbackMessages;
 
         const endTime = performance.now();
-        console.log(`[useChatMessagesOptimized] Fallback completed in ${(endTime - startTime).toFixed(2)}ms`);
+        console.log(`[useChatMessagesOptimized] Fallback completed in ${(endTime - startTime).toFixed(2)}ms, ${messages.length} messages`);
 
         return {
           messages: (messages as ChatMessage[]).reverse(),
@@ -68,9 +68,11 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
       };
     },
     enabled: !!clientId,
-    ...chatQueryConfig,
-    // Keep previous data while loading new chat for smooth transitions
-    placeholderData: (previousData) => previousData,
+    // Important: Use shorter staleTime so messages are refreshed more often
+    staleTime: 5 * 1000, // 5 seconds - messages are refreshed quickly
+    gcTime: 10 * 60 * 1000, // 10 minutes cache
+    refetchOnWindowFocus: true, // Refetch when window gains focus for fresh data
+    refetchOnMount: 'always', // Always refetch when component mounts (chat opened)
   });
 };
 
@@ -146,9 +148,10 @@ export const usePrefetchMessages = () => {
   const prefetch = (clientId: string) => {
     if (!clientId) return;
 
-    // Check if already cached to avoid unnecessary prefetch
-    const existing = queryClient.getQueryData(['chat-messages-optimized', clientId, MESSAGES_PER_PAGE]);
-    if (existing) return;
+    // Check if already cached and fresh (within 5 seconds) to avoid unnecessary prefetch
+    const existingState = queryClient.getQueryState(['chat-messages-optimized', clientId, MESSAGES_PER_PAGE]);
+    const isFresh = existingState?.dataUpdatedAt && (Date.now() - existingState.dataUpdatedAt < 5000);
+    if (isFresh) return;
 
     queryClient.prefetchQuery({
       queryKey: ['chat-messages-optimized', clientId, MESSAGES_PER_PAGE],
@@ -176,7 +179,7 @@ export const usePrefetchMessages = () => {
           totalCount: messages.length
         };
       },
-      staleTime: chatQueryConfig.staleTime,
+      staleTime: 5 * 1000, // 5 seconds - same as main query
     });
   };
 
