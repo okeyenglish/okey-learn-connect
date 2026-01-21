@@ -68,7 +68,15 @@ export const useOrganization = () => {
         .order('sort_order', { ascending: true });
 
       if (error) throw error;
-      return data as OrganizationBranch[];
+      
+      // Удаление дубликатов по названию (оставляем первую запись)
+      const uniqueBranches = (data as OrganizationBranch[]).reduce((acc, branch) => {
+        const existing = acc.find(b => b.name === branch.name);
+        if (!existing) acc.push(branch);
+        return acc;
+      }, [] as OrganizationBranch[]);
+      
+      return uniqueBranches;
     },
     enabled: !!profile?.organization_id,
   });
