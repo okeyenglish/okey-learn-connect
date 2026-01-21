@@ -30,6 +30,7 @@ interface ChatListItemProps {
   searchQuery?: string;
   onChatClick: () => void;
   onMarkUnread: () => void;
+  onMarkRead?: () => void;
   onPinDialog: () => void;
   onArchive: () => void;
   onBlock?: () => void;
@@ -79,6 +80,7 @@ export const ChatListItem = React.memo(({
   searchQuery,
   onChatClick,
   onMarkUnread,
+  onMarkRead,
   onPinDialog,
   onArchive,
   onBlock,
@@ -89,6 +91,7 @@ export const ChatListItem = React.memo(({
   return (
     <ChatContextMenu
       onMarkUnread={onMarkUnread}
+      onMarkRead={onMarkRead}
       onPinDialog={onPinDialog}
       onArchive={onArchive}
       onBlock={onBlock}
@@ -96,6 +99,7 @@ export const ChatListItem = React.memo(({
       onLinkToClient={onLinkToClient}
       isPinned={isPinned}
       isArchived={isArchived}
+      isUnread={displayUnread}
     >
       <button 
         className={`w-full p-2 text-left rounded-lg transition-all duration-200 relative mb-0.5 border ${

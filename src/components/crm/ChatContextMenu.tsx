@@ -7,6 +7,7 @@ import {
   ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import { 
+  MessageCircle,
   MessageCircleOff, 
   Pin, 
   Archive, 
@@ -18,6 +19,7 @@ import {
 interface ChatContextMenuProps {
   children: ReactNode;
   onMarkUnread: () => void;
+  onMarkRead?: () => void;
   onPinDialog: () => void;
   onArchive: () => void;
   onBlock?: () => void;
@@ -25,28 +27,48 @@ interface ChatContextMenuProps {
   onLinkToClient?: () => void;
   isPinned?: boolean;
   isArchived?: boolean;
+  isUnread?: boolean;
 }
 
 export const ChatContextMenu = ({ 
   children, 
   onMarkUnread, 
+  onMarkRead,
   onPinDialog, 
   onArchive,
   onBlock,
   onDelete,
   onLinkToClient,
   isPinned = false,
-  isArchived = false 
+  isArchived = false,
+  isUnread = false
 }: ChatContextMenuProps) => {
+  const handleReadStatusToggle = () => {
+    if (isUnread && onMarkRead) {
+      onMarkRead();
+    } else {
+      onMarkUnread();
+    }
+  };
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         {children}
       </ContextMenuTrigger>
       <ContextMenuContent className="w-56">
-        <ContextMenuItem onClick={onMarkUnread} className="cursor-pointer">
-          <MessageCircleOff className="mr-2 h-4 w-4" />
-          Отметить непрочитанным
+        <ContextMenuItem onClick={handleReadStatusToggle} className="cursor-pointer">
+          {isUnread ? (
+            <>
+              <MessageCircle className="mr-2 h-4 w-4" />
+              Отметить прочитанным
+            </>
+          ) : (
+            <>
+              <MessageCircleOff className="mr-2 h-4 w-4" />
+              Отметить непрочитанным
+            </>
+          )}
         </ContextMenuItem>
         
         <ContextMenuItem onClick={onPinDialog} className="cursor-pointer">

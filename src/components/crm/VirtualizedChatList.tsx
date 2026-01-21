@@ -205,6 +205,7 @@ export const VirtualizedChatList = React.memo(({
                     onChatClick(chat.id, chat.type, foundInMessages, messengerType);
                   }}
                   onMarkUnread={() => onChatAction(chat.id, 'unread')}
+                  onMarkRead={() => onChatAction(chat.id, 'read')}
                   onPinDialog={() => onChatAction(chat.id, 'pin')}
                   onArchive={() => onChatAction(chat.id, 'archive')}
                   onBlock={chat.type === 'client' ? () => onChatAction(chat.id, 'block') : undefined}

@@ -1398,19 +1398,23 @@ const CRMContent = () => {
     }
   }, [activeChatId, activeChatType, markChatAsReadGlobally, markChatMessagesAsReadMutation, markAsReadMutation, markAsRead, teacherChats, clients, threads, isMobile, chatSearchQuery, getMessengerType]);
 
-  const handleChatAction = useCallback((chatId: string, action: 'unread' | 'pin' | 'archive' | 'block') => {
+  const handleChatAction = useCallback((chatId: string, action: 'unread' | 'read' | 'pin' | 'archive' | 'block') => {
     if (action === 'unread') {
       // 1) Флаг чата для текущего пользователя
       markAsUnread(chatId);
       // 2) Обновим сообщения в таблице, чтобы счётчик нитей тоже мог обновиться
       markAsUnreadMutation.mutate(chatId);
+    } else if (action === 'read') {
+      // Отметить как прочитанное
+      markAsRead(chatId);
+      markAsReadMutation.mutate(chatId);
     } else if (action === 'pin') {
       togglePin(chatId);
     } else if (action === 'archive') {
       toggleArchive(chatId);
     }
     console.log(`${action} для чата:`, chatId);
-  }, [markAsUnread, markAsUnreadMutation, togglePin, toggleArchive]);
+  }, [markAsUnread, markAsUnreadMutation, markAsRead, markAsReadMutation, togglePin, toggleArchive]);
 
   // Delete chat handler
   const handleDeleteChat = useCallback(async (chatId: string, chatName: string) => {
@@ -3060,11 +3064,13 @@ const CRMContent = () => {
                               <ChatContextMenu
                                 key={chat.id}
                                 onMarkUnread={() => handleChatAction(chat.id, 'unread')}
+                                onMarkRead={() => handleChatAction(chat.id, 'read')}
                                 onPinDialog={() => handleChatAction(chat.id, 'pin')}
                                 onArchive={() => handleChatAction(chat.id, 'archive')}
                                 onBlock={() => handleChatAction(chat.id, 'block')}
                                 isPinned={chatState.isPinned}
                                 isArchived={chatState.isArchived}
+                                isUnread={displayUnread}
                               >
                                  <button 
                                    className={`w-full p-2 text-left rounded-lg transition-colors relative border-l-2 border-orange-400 ${
