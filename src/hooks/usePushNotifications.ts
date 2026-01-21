@@ -1,3 +1,4 @@
+/* @refresh reset */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -263,8 +264,12 @@ export function usePushNotifications() {
         const name = err?.name ? String(err.name) : 'Ошибка';
         const msg = err?.message ? String(err.message) : '';
         const details = msg ? `: ${msg}` : '';
+        const swHint =
+          err?.swStatus || err?.swContentType
+            ? ` | /sw.js: ${err?.swStatus ?? '?'} ${err?.swContentType ?? ''}`
+            : '';
         // Keep user-facing text short; diagnostics go to console.
-        toast.error(`Сервис-воркер не готов (${name})${details}`);
+        toast.error(`Сервис-воркер не готов (${name})${details}${swHint}`);
         setState(prev => ({ ...prev, isLoading: false }));
         return false;
       }
