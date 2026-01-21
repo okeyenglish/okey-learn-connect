@@ -55,7 +55,7 @@ interface TeacherListItemProps {
   isSelected: boolean;
   pinCount: number;
   onClick: () => void;
-  compact?: boolean; // desktop = true, mobile = false
+  compact?: boolean;
 }
 
 export const TeacherListItem: React.FC<TeacherListItemProps> = ({
@@ -71,64 +71,52 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
   
   // Truncate preview text and remove "OKEY ENGLISH [Branch]" prefix
   let previewText = teacher.lastMessageText || '';
-  // Remove "OKEY ENGLISH Окская" or similar patterns
   previewText = previewText.replace(/^OKEY ENGLISH\s+[^\s]+\s*/i, '');
-  previewText = previewText.slice(0, 50) + (previewText.length > 50 ? '...' : '');
-  
-  const containerPadding = compact ? 'p-2' : 'p-2';
-  const avatarSize = compact ? 'h-9 w-9' : 'h-9 w-9';
-  const avatarTextSize = compact ? 'text-xs' : 'text-xs';
   
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left ${containerPadding} rounded-lg transition-all duration-200 relative mb-0.5 border overflow-hidden ${
+      className={`w-full text-left p-2 rounded-lg transition-all duration-200 mb-0.5 border ${
         isSelected
           ? 'bg-accent/50 shadow-sm border-accent'
           : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
       }`}
     >
-      <div className="flex items-start justify-between gap-2 min-w-0">
-        <div className="flex items-start gap-2 flex-1 min-w-0">
-          {/* Avatar */}
-          <Avatar className={`${avatarSize} flex-shrink-0 ring-2 ring-border/30`}>
-            <AvatarImage src={undefined} alt={teacher.fullName} />
-            <AvatarFallback className={`bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))] font-medium ${avatarTextSize}`}>
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+      {/* Main row: Avatar + Content + Meta */}
+      <div className="flex items-start gap-2">
+        {/* Avatar - fixed size */}
+        <Avatar className="h-9 w-9 shrink-0 ring-2 ring-border/30">
+          <AvatarImage src={undefined} alt={teacher.fullName} />
+          <AvatarFallback className="bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))] font-medium text-xs">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
         
-          {/* Content */}
-          <div className="flex-1 min-w-0 overflow-hidden">
-            {/* Top row: Name + flags */}
-            <div className="flex items-center gap-1 mb-0 min-w-0 overflow-hidden">
-              <span className="font-medium text-sm truncate flex-1 min-w-0">
-                {teacher.fullName}
-              </span>
-              {flags && (
-                <span className="text-xs shrink-0">{flags}</span>
-              )}
-              {pinCount > 0 && (
-                <Pin className="h-3 w-3 text-orange-500 flex-shrink-0" />
-              )}
-            </div>
-            
-            {/* Preview row */}
-            <p className="text-xs text-muted-foreground truncate">
-              {previewText || 'Нет сообщений'}
-            </p>
+        {/* Middle: Name + Preview - flexible, truncates */}
+        <div className="flex-1 min-w-0">
+          {/* Name row */}
+          <div className="flex items-center gap-1">
+            <span className="font-medium text-sm truncate">
+              {teacher.fullName}
+            </span>
+            {flags && <span className="text-xs shrink-0">{flags}</span>}
+            {pinCount > 0 && <Pin className="h-3 w-3 text-orange-500 shrink-0" />}
           </div>
+          {/* Preview */}
+          <p className="text-xs text-muted-foreground truncate">
+            {previewText || 'Нет сообщений'}
+          </p>
         </div>
         
-        {/* Right side: time + unread */}
-        <div className="flex flex-col items-end gap-0.5 shrink-0 ml-1 w-12">
+        {/* Right: Time + Unread - fixed width */}
+        <div className="flex flex-col items-end shrink-0 w-10">
           {messageTime && (
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
               {messageTime}
             </span>
           )}
           {teacher.unreadMessages > 0 && (
-            <span className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full font-semibold min-w-[18px] text-center">
+            <span className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full font-semibold min-w-[18px] text-center mt-0.5">
               {teacher.unreadMessages}
             </span>
           )}
