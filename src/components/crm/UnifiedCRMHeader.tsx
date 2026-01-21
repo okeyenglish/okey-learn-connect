@@ -205,7 +205,7 @@ export const UnifiedCRMHeader = () => {
           >
             <span className="text-primary font-bold text-xl">🎓</span>
             <span className="hidden font-bold sm:inline-block">
-              O'KEY ENGLISH
+              ACADEMYOS
             </span>
           </Button>
         </div>
