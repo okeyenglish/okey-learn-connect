@@ -205,7 +205,17 @@ async function handleIncomingMessage(supabase: any, organizationId: string, webh
       fileUrl = messageData.fileMessageData?.downloadUrl;
       fileName = messageData.fileMessageData?.fileName;
       fileType = messageData.fileMessageData?.mimeType;
-      messageText = messageData.fileMessageData?.caption || `[${messageData.typeMessage}]`;
+      // Use caption if available, otherwise create readable message based on type
+      if (messageData.fileMessageData?.caption) {
+        messageText = messageData.fileMessageData.caption;
+      } else {
+        const typeName = messageData.typeMessage;
+        if (typeName === 'imageMessage') messageText = '🖼️ Изображение';
+        else if (typeName === 'videoMessage') messageText = '🎬 Видео';
+        else if (typeName === 'audioMessage') messageText = '🎵 Аудио';
+        else if (typeName === 'documentMessage') messageText = `📄 ${fileName || 'Документ'}`;
+        else messageText = '📎 Файл';
+      }
       messageType = messageData.typeMessage.replace('Message', '');
       break;
     
@@ -593,7 +603,17 @@ async function handleOutgoingMessage(supabase: any, organizationId: string, webh
       fileUrl = messageData.fileMessageData?.downloadUrl;
       fileName = messageData.fileMessageData?.fileName;
       fileType = messageData.fileMessageData?.mimeType;
-      messageText = messageData.fileMessageData?.caption || `[${messageData.typeMessage}]`;
+      // Use caption if available, otherwise create readable message based on type
+      if (messageData.fileMessageData?.caption) {
+        messageText = messageData.fileMessageData.caption;
+      } else {
+        const typeName = messageData.typeMessage;
+        if (typeName === 'imageMessage') messageText = '🖼️ Изображение';
+        else if (typeName === 'videoMessage') messageText = '🎬 Видео';
+        else if (typeName === 'audioMessage') messageText = '🎵 Аудио';
+        else if (typeName === 'documentMessage') messageText = `📄 ${fileName || 'Документ'}`;
+        else messageText = '📎 Файл';
+      }
       break;
     
     case 'locationMessage':
