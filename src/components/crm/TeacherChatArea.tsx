@@ -982,7 +982,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       </div>
 
       {/* Chat Area with Header - flexible width */}
-      <div className="flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden">
+      <div className="w-0 flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden">
         {/* Header - Fixed height */}
         <div className="p-3 border-b border-border bg-background shrink-0 h-16 flex items-center">
           <div className="flex items-center justify-between w-full">
