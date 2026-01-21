@@ -73,8 +73,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useOrganizationRealtimeMessages } from "@/hooks/useOrganizationRealtimeMessages";
 import { useManagerBranches } from "@/hooks/useManagerBranches";
-import crmLogo from "@/assets/crm-logo.png";
-import { 
+import {
   Search, 
   CheckSquare, 
   FileText, 
@@ -1786,7 +1785,7 @@ const CRMContent = () => {
         <div className="bg-background border-b shrink-0">
           <div className="flex items-center justify-between w-full mx-auto px-4 h-14">
             <div className="flex items-center gap-3 flex-1">
-              <img src={crmLogo} alt="CRM Logo" className="h-8 w-8 flex-shrink-0" />
+              <span className="text-primary font-bold text-xl flex-shrink-0">🎓</span>
               <div className="min-w-0">
                 <h1 className="text-lg sm:text-xl font-bold truncate">
                   {organization?.name || "O'KEY ENGLISH"} CRM

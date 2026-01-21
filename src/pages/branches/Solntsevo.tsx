@@ -7,7 +7,6 @@ import PriceCalculator from "@/components/PriceCalculator";
 import YandexReviews from "@/components/YandexReviews";
 import { TeachersSection } from "@/components/TeachersSection";
 import { BranchPhotoCarousel } from "@/components/branches/BranchPhotoCarousel";
-import solntsevoImage from "@/assets/solntsevo-branch.jpg";
 import SEOHead from "@/components/SEOHead";
 import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
 
