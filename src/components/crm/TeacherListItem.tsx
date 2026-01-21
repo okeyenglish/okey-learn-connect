@@ -102,34 +102,34 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
           {/* Content */}
           <div className="flex-1 min-w-0 overflow-hidden">
             {/* Top row: Name + flags */}
-            <div className="flex items-center gap-1.5 mb-0 min-w-0 overflow-hidden">
-              <span className="font-medium text-sm truncate flex-1 min-w-0">
+            <div className="flex items-center gap-1 mb-0 min-w-0">
+              <span className="font-medium text-sm truncate min-w-0">
                 {teacher.fullName}
               </span>
               {flags && (
-                <span className="text-sm shrink-0">{flags}</span>
+                <span className="text-xs shrink-0">{flags}</span>
               )}
               {pinCount > 0 && (
-                <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+                <Pin className="h-3 w-3 text-orange-500 flex-shrink-0" />
               )}
             </div>
             
             {/* Preview row */}
-            <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
+            <p className="text-xs text-muted-foreground truncate">
               {previewText || 'Нет сообщений'}
             </p>
           </div>
         </div>
         
         {/* Right side: time + unread */}
-        <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+        <div className="flex flex-col items-end gap-0.5 shrink-0 ml-1">
           {messageTime && (
-            <span className="text-[10px] text-muted-foreground font-medium">
+            <span className="text-[10px] text-muted-foreground">
               {messageTime}
             </span>
           )}
           {teacher.unreadMessages > 0 && (
-            <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm font-semibold">
+            <span className="bg-primary text-white text-[10px] px-1.5 py-0.5 rounded-full font-semibold min-w-[18px] text-center">
               {teacher.unreadMessages}
             </span>
           )}
