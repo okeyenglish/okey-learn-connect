@@ -1,15 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
 import OptimizedImage from "@/components/OptimizedImage";
-import teacherFemale1 from "@/assets/teacher-female-1.png";
-import teacherFemale2 from "@/assets/teacher-female-2.png";
-import teacherFemale4 from "@/assets/teacher-female-4.png";
-import teacherFemale5 from "@/assets/teacher-female-5.png";
-import teacherFemale6 from "@/assets/teacher-female-6.png";
-import teacherMale1 from "@/assets/teacher-male-1.png";
-import teacherMale2 from "@/assets/teacher-male-2.png";
-import teacherMale3 from "@/assets/teacher-male-3.png";
-import teacherMale4 from "@/assets/teacher-male-4.png";
-import teacherMale5 from "@/assets/teacher-male-5.png";
 
 interface Teacher {
   id: string;
@@ -18,66 +8,70 @@ interface Teacher {
   image: string;
 }
 
+// Placeholder images for teachers (lightweight)
+const TEACHER_PLACEHOLDER = "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&h=200&fit=crop&crop=face";
+const TEACHER_PLACEHOLDER_MALE = "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop&crop=face";
+
 const teachers: Teacher[] = [
   {
     id: "1",
     name: "Анна Петрова",
     specialization: "Преподаватель по подготовке к международным экзаменам Cambridge",
-    image: teacherFemale1
+    image: TEACHER_PLACEHOLDER
   },
   {
     id: "2",
     name: "Елена Смирнова",
     specialization: "Преподаватель по подготовке к государственным экзаменам",
-    image: teacherFemale2
+    image: TEACHER_PLACEHOLDER
   },
   {
     id: "4",
     name: "Александр Козлов",
     specialization: "Преподаватель разговорного английского",
-    image: teacherMale3
+    image: TEACHER_PLACEHOLDER_MALE
   },
   {
     id: "5",
     name: "Дмитрий Волков",
     specialization: "Преподаватель английского языка",
-    image: teacherMale4
+    image: TEACHER_PLACEHOLDER_MALE
   },
   {
     id: "6",
     name: "Ольга Николаева",
     specialization: "Преподаватель английского для детей",
-    image: teacherFemale4
+    image: TEACHER_PLACEHOLDER
   },
   {
     id: "7",
     name: "Юлия Морозова",
     specialization: "Преподаватель английского языка",
-    image: teacherFemale5
+    image: TEACHER_PLACEHOLDER
   },
   {
     id: "8",
     name: "Emmanuel Mwazo",
     specialization: "Спикинг тренер",
-    image: teacherMale5
+    image: TEACHER_PLACEHOLDER_MALE
   },
   {
     id: "9",
     name: "Светлана Федорова",
     specialization: "Методист и преподаватель английского языка",
-    image: teacherFemale6
+    image: TEACHER_PLACEHOLDER
   },
   {
     id: "10",
     name: "Игорь Сидоров",
     specialization: "Преподаватель английского языка",
-    image: teacherMale1
+    image: TEACHER_PLACEHOLDER_MALE
   },
   {
     id: "11",
     name: "Андрей Романов",
     specialization: "Преподаватель по подготовке к ЕГЭ и ОГЭ",
-    image: teacherMale2
+    image: TEACHER_PLACEHOLDER_MALE
   }
 ];
 

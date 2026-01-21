@@ -5,7 +5,6 @@ import { Globe, Monitor, Headphones, Clock, Users, Award } from "lucide-react";
 import ScheduleTable from "@/components/ScheduleTable";
 import PriceCalculator from "@/components/PriceCalculator";
 import { BranchPhotoGallery } from "@/components/branches/BranchPhotoGallery";
-import onlineSchoolImage from "@/assets/online-learning-new.png";
 import SEOHead from "@/components/SEOHead";
 import { branchSEOData, generateBranchJsonLd } from "@/data/seoData";
 

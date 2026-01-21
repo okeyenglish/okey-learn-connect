@@ -4,10 +4,12 @@ import kotelnikiImage from "@/assets/kotelniki-branch.jpg";
 import okskayaImage from "@/assets/okskaya-branch.jpg";
 import lyubertsyImage from "@/assets/lyubertsy-branch.jpg";
 import stakhanovskayaImage from "@/assets/stakhanovskaya-branch.jpg";
-import mytishchiImage from "@/assets/mytishchi-branch.jpg";
 import krasnayaGorkaImage from "@/assets/krasnaya-gorka-branch.jpg";
-import solntsevoImage from "@/assets/solntsevo-branch.jpg";
-import onlineSchoolImage from "@/assets/online-learning-new.png";
+
+// Placeholder URLs for deleted heavy images
+const SOLNTSEVO_PLACEHOLDER = "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&h=600&fit=crop";
+const MYTISHCHI_PLACEHOLDER = "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&h=600&fit=crop";
+const ONLINE_PLACEHOLDER = "https://images.unsplash.com/photo-1588196749597-9ff075ee6b5b?w=800&h=600&fit=crop";
 
 export interface Branch {
   id: string;
@@ -75,7 +77,7 @@ export const branches: Branch[] = [
     address: "ул. Богданова, 6к1",
     metro: "Солнцево",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
-    image: solntsevoImage,
+    image: SOLNTSEVO_PLACEHOLDER,
     features: ["Новые классы", "Удобная парковка", "Детская площадка"]
   },
   { 
@@ -84,7 +86,7 @@ export const branches: Branch[] = [
     address: "ул. Борисовка, 16А",
     metro: "Мытищи (МЦД-1)",
     workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
-    image: mytishchiImage,
+    image: MYTISHCHI_PLACEHOLDER,
     features: ["Просторные аудитории", "Техническое оснащение", "Буфет"]
   },
   { 
@@ -111,7 +113,7 @@ export const branches: Branch[] = [
     address: "Cambridge One платформа",
     metro: "По всей планете",
     workingHours: "24/7 доступ к материалам",
-    image: onlineSchoolImage,
+    image: ONLINE_PLACEHOLDER,
     features: ["Cambridge One", "Интерактивные уроки", "Гибкое расписание"]
   }
 ];
