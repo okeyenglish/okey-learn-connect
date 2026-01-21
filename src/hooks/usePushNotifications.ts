@@ -258,8 +258,23 @@ export function usePushNotifications() {
       }
 
       // Get service worker registration
-      const registration = await getSWRegistration();
-      if (!registration) {
+      let registration = await getSWRegistration();
+
+      // On iOS PWA first load the SW may not be active yet even after registration.
+      // Ensure we have an active registration via ready.
+      if (!registration || !registration.active) {
+        try {
+          const ready = await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise<null>((r) => window.setTimeout(() => r(null), 20000)),
+          ]);
+          if (ready) registration = ready as ServiceWorkerRegistration;
+        } catch {
+          // ignore
+        }
+      }
+
+      if (!registration || !registration.active) {
         const err = lastSWErrorRef.current as any;
         const name = err?.name ? String(err.name) : 'Ошибка';
         const msg = err?.message ? String(err.message) : '';
@@ -273,7 +288,7 @@ export function usePushNotifications() {
         setState(prev => ({ ...prev, isLoading: false }));
         return false;
       }
-      
+
       // Subscribe to push
       const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
       const subscription = await registration.pushManager.subscribe({
