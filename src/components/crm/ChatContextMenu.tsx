@@ -43,6 +43,14 @@ export const ChatContextMenu = ({
   isArchived = false,
   isUnread = false
 }: ChatContextMenuProps) => {
+  const clearNativeSelection = () => {
+    try {
+      window.getSelection?.()?.removeAllRanges();
+    } catch {
+      // noop
+    }
+  };
+
   const handleReadStatusToggle = () => {
     if (isUnread && onMarkRead) {
       onMarkRead();
@@ -52,7 +60,11 @@ export const ChatContextMenu = ({
   };
 
   return (
-    <ContextMenu>
+    <ContextMenu
+      onOpenChange={(open) => {
+        if (open) clearNativeSelection();
+      }}
+    >
       <ContextMenuTrigger asChild>
         {children}
       </ContextMenuTrigger>
