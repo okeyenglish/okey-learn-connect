@@ -9030,26 +9030,53 @@ export type Database = {
           whatsapp_chat_id: string
         }[]
       }
-      get_chat_threads_optimized: {
-        Args: { p_limit?: number }
-        Returns: {
-          avatar_url: string
-          client_name: string
-          client_phone: string
-          clt_id: string
-          last_message_text: string
-          last_message_time: string
-          last_messenger_type: string
-          last_unread_messenger: string
-          max_avatar_url: string
-          max_chat_id: string
-          telegram_avatar_url: string
-          telegram_chat_id: string
-          unread_count: number
-          whatsapp_avatar_url: string
-          whatsapp_chat_id: string
-        }[]
-      }
+      get_chat_threads_optimized:
+        | {
+            Args: { p_limit?: number }
+            Returns: {
+              avatar_url: string
+              client_name: string
+              client_phone: string
+              clt_id: string
+              last_message_text: string
+              last_message_time: string
+              last_messenger_type: string
+              last_unread_messenger: string
+              max_avatar_url: string
+              max_chat_id: string
+              telegram_avatar_url: string
+              telegram_chat_id: string
+              unread_count: number
+              whatsapp_avatar_url: string
+              whatsapp_chat_id: string
+            }[]
+          }
+        | {
+            Args: {
+              p_archived?: boolean
+              p_limit?: number
+              p_offset?: number
+              p_search?: string
+              p_unread_only?: boolean
+            }
+            Returns: {
+              avatar_url: string
+              client_name: string
+              client_phone: string
+              clt_id: string
+              last_message_text: string
+              last_message_time: string
+              last_messenger_type: string
+              last_unread_messenger: string
+              max_avatar_url: string
+              max_chat_id: string
+              telegram_avatar_url: string
+              telegram_chat_id: string
+              unread_count: number
+              whatsapp_avatar_url: string
+              whatsapp_chat_id: string
+            }[]
+          }
       get_chat_threads_optimized_v2: {
         Args: { p_limit?: number; p_offset?: number; p_organization_id: string }
         Returns: {
