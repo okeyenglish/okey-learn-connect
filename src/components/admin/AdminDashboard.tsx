@@ -24,6 +24,7 @@ import { RoutingRulesSettings } from "./RoutingRulesSettings";
 import { MessengersSettings } from "./MessengersSettings";
 import { SyncDashboard } from "./SyncDashboard";
 import { PaymentTerminalsSettings } from "@/components/settings/PaymentTerminalsSettings";
+import { OnlinePBXSettings } from "./OnlinePBXSettings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -48,6 +49,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <AdminCoursePricing />;
       case "messengers":
         return <MessengersSettings />;
+      case "telephony":
+        return <OnlinePBXSettings />;
       case "textbooks":
         return <TextbookManager />;
       case "references":
@@ -155,6 +158,14 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle className="text-green-600">💬 Мессенджеры</CardTitle>
                   <CardDescription>WhatsApp, Telegram, MAX - все интеграции</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              {/* Телефония */}
+              <Card className="cursor-pointer hover:bg-muted/50 border-blue-200" onClick={() => setCurrentSection("telephony")}>
+                <CardHeader>
+                  <CardTitle className="text-blue-600">📞 Телефония (OnlinePBX)</CardTitle>
+                  <CardDescription>Настройка интеграции с виртуальной АТС</CardDescription>
                 </CardHeader>
               </Card>
               

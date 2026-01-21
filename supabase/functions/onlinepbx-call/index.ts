@@ -42,15 +42,51 @@ serve(async (req) => {
 
     console.log('OnlinePBX call request:', { to_number, from_user });
 
-    // Get user profile for operator information including extension number
+    // Get user profile for operator information including extension number and organization
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
-      .select('first_name, last_name, branch, extension_number')
+      .select('first_name, last_name, branch, extension_number, organization_id')
       .eq('id', from_user)
       .single();
 
     if (profileError || !profile) {
       throw new Error('User profile not found');
+    }
+
+    if (!profile.organization_id) {
+      throw new Error('User has no organization assigned');
+    }
+
+    // Get OnlinePBX config from system_settings for this organization
+    const { data: settingsData, error: settingsError } = await supabaseClient
+      .from('system_settings')
+      .select('setting_value')
+      .eq('organization_id', profile.organization_id)
+      .eq('setting_key', 'onlinepbx_config')
+      .maybeSingle();
+
+    if (settingsError) {
+      console.error('Error fetching OnlinePBX settings:', settingsError);
+      throw new Error('Failed to fetch OnlinePBX settings');
+    }
+
+    if (!settingsData?.setting_value) {
+      throw new Error('OnlinePBX не настроен для вашей организации. Обратитесь к администратору.');
+    }
+
+    const config = settingsData.setting_value as {
+      pbx_domain: string;
+      api_key_id: string;
+      api_key_secret: string;
+      is_enabled: boolean;
+    };
+
+    if (!config.is_enabled) {
+      throw new Error('Интеграция с OnlinePBX отключена для вашей организации');
+    }
+
+    if (!config.pbx_domain || !config.api_key_id || !config.api_key_secret) {
+      throw new Error('OnlinePBX настроен неполностью. Проверьте настройки интеграции.');
     }
 
     // Get operator extension from user profile
@@ -79,7 +115,8 @@ serve(async (req) => {
         phone_number: to_number,
         direction: 'outgoing',
         status: 'initiated',
-        initiated_by: from_user
+        initiated_by: from_user,
+        organization_id: profile.organization_id
       })
       .select()
       .single();
@@ -88,16 +125,12 @@ serve(async (req) => {
       console.error('Failed to create call log:', callLogError);
     }
 
-    // Get OnlinePBX credentials
-    const onlinePbxKeyId = Deno.env.get('ONLINEPBX_KEY_ID');
-    const onlinePbxKey = Deno.env.get('ONLINEPBX_KEY');
-
-    if (!onlinePbxKeyId || !onlinePbxKey) {
-      throw new Error('OnlinePBX credentials not configured');
-    }
+    // Use credentials from organization settings
+    const pbxDomain = config.pbx_domain;
+    const onlinePbxKeyId = config.api_key_id;
+    const onlinePbxKey = config.api_key_secret;
 
     // OnlinePBX API v3 with HMAC-SHA256 authentication
-    const pbxDomain = 'pbx11034.onpbx.ru';
     const apiPath = `/${pbxDomain}/call/now.json`;
     const onlinePbxUrl = `https://api.onlinepbx.ru${apiPath}`;
 
