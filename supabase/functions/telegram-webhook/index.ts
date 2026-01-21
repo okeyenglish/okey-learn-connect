@@ -713,10 +713,10 @@ async function enrichClientFromTelegram(
   if (!clientId) return;
 
   try {
-    // Get current client data
+    // Get current client data - including first_name/last_name to check for structured names
     const { data: currentClient, error: fetchError } = await supabase
       .from('clients')
-      .select('name, phone, avatar_url, telegram_avatar_url, holihope_metadata')
+      .select('name, first_name, last_name, phone, avatar_url, telegram_avatar_url, holihope_metadata')
       .eq('id', clientId)
       .single();
 
@@ -727,17 +727,26 @@ async function enrichClientFromTelegram(
 
     const updateData: Record<string, any> = {};
 
-    // Check if current name is auto-generated
+    // CRITICAL: Check if client already has a proper structured name from CRM
+    // If first_name or last_name is set - DO NOT overwrite from Telegram
+    const hasStructuredName = (currentClient.first_name && currentClient.first_name.trim() !== '') || 
+                              (currentClient.last_name && currentClient.last_name.trim() !== '');
+    
+    if (hasStructuredName) {
+      console.log(`Client ${clientId} has structured name (${currentClient.first_name} ${currentClient.last_name}), skipping Telegram name enrichment`);
+    }
+
+    // Check if current name is auto-generated (only relevant if no structured name)
     const currentName = currentClient.name || '';
-    const isAutoName = currentName === 'Без имени' ||
+    const isAutoName = !hasStructuredName && (currentName === 'Без имени' ||
                        currentName.startsWith('Клиент ') || 
                        currentName.startsWith('+') || 
                        /^\d+$/.test(currentName) ||
                        currentName.includes('@c.us') ||
                        currentName.startsWith('MAX User') ||
                        currentName.startsWith('Telegram ') ||
-                       currentName.startsWith('User ');
-
+                       currentName.startsWith('User ') ||
+                       currentName.startsWith('@'));
     // Build final name from contact data
     const { contactName, username } = contactData;
     let finalName: string | null = null;

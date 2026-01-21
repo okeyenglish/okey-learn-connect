@@ -8885,6 +8885,16 @@ export type Database = {
           teacher_id: string
         }[]
       }
+      enrich_client_from_telegram: {
+        Args: {
+          p_avatar_url: string
+          p_client_id: string
+          p_contact_name: string
+          p_phone: string
+          p_username: string
+        }
+        Returns: undefined
+      }
       fail_ai_key_job: {
         Args: { p_backoff_seconds: number; p_error: string; p_id: number }
         Returns: undefined
