@@ -31,7 +31,7 @@ export function TestPushButton({ variant = 'outline', size = 'sm', className }: 
             body: `Push работает! Время: ${new Date().toLocaleTimeString('ru-RU')}`,
             icon: '/pwa-192x192.png',
             badge: '/pwa-192x192.png',
-            tag: 'test-push',
+            tag: `test-push-${Date.now()}`, // Unique tag to prevent iOS from collapsing notifications
             url: '/crm',
           },
         },
