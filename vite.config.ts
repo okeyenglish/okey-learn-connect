@@ -50,8 +50,8 @@ export default defineConfig(({ mode }) => ({
       },
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        // Ensure the custom SW code is included
-        injectionPoint: undefined
+        // Ensure Workbox precache manifest gets injected into `self.__WB_MANIFEST`
+        injectionPoint: 'self.__WB_MANIFEST'
       },
       devOptions: {
         enabled: true,
