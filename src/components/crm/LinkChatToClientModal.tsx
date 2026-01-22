@@ -304,18 +304,10 @@ export const LinkChatToClientModal = ({
         throw messagesError;
       }
 
-      // Transfer phone numbers that don't exist in target
-      const { data: currentPhones } = await supabase
-        .from("client_phone_numbers")
-        .select("*")
-        .eq("client_id", chatClientId);
-
-      console.log("Current phones to transfer:", currentPhones?.length);
-
       // Get target's existing phones to avoid duplicates
       const { data: targetPhones } = await supabase
         .from("client_phone_numbers")
-        .select("phone")
+        .select("*")
         .eq("client_id", selectedClientId);
 
       const targetPhoneSet = new Set(
@@ -328,15 +320,59 @@ export const LinkChatToClientModal = ({
       }
 
       // Transfer phone numbers from client_phone_numbers table
+      const { data: currentPhones } = await supabase
+        .from("client_phone_numbers")
+        .select("*")
+        .eq("client_id", chatClientId);
+
+      console.log("Current phones to transfer:", currentPhones?.length);
+
       if (currentPhones && currentPhones.length > 0) {
-        const phonesToTransfer = currentPhones.filter(
-          (p) => !targetPhoneSet.has(p.phone.replace(/\D/g, ""))
-        );
-
-        console.log("Phones to transfer after dedup:", phonesToTransfer.length);
-
-        if (phonesToTransfer.length > 0) {
-          for (const phone of phonesToTransfer) {
+        for (const phone of currentPhones) {
+          const phoneDigits = phone.phone.replace(/\D/g, "");
+          
+          if (targetPhoneSet.has(phoneDigits)) {
+            // Phone exists in target - update messenger links if current has them
+            const targetPhone = (targetPhones || []).find(
+              (tp) => tp.phone.replace(/\D/g, "") === phoneDigits
+            );
+            
+            if (targetPhone) {
+              const updateData: Record<string, any> = {};
+              
+              // Transfer Telegram link if current has it and target doesn't
+              if (phone.telegram_chat_id && !targetPhone.telegram_chat_id) {
+                updateData.telegram_chat_id = phone.telegram_chat_id;
+                updateData.telegram_user_id = phone.telegram_user_id;
+                updateData.telegram_avatar_url = phone.telegram_avatar_url;
+                updateData.is_telegram_enabled = true;
+              }
+              
+              // Transfer WhatsApp link if current has it and target doesn't
+              if (phone.whatsapp_chat_id && !targetPhone.whatsapp_chat_id) {
+                updateData.whatsapp_chat_id = phone.whatsapp_chat_id;
+                updateData.whatsapp_avatar_url = phone.whatsapp_avatar_url;
+                updateData.is_whatsapp_enabled = true;
+              }
+              
+              // Transfer MAX link if current has it and target doesn't
+              if (phone.max_chat_id && !targetPhone.max_chat_id) {
+                updateData.max_chat_id = phone.max_chat_id;
+                updateData.max_user_id = phone.max_user_id;
+                updateData.max_avatar_url = phone.max_avatar_url;
+              }
+              
+              if (Object.keys(updateData).length > 0) {
+                console.log("Updating target phone with messenger links:", updateData);
+                await supabase
+                  .from("client_phone_numbers")
+                  .update(updateData)
+                  .eq("id", targetPhone.id);
+              }
+            }
+          } else {
+            // Phone doesn't exist in target - transfer it
+            console.log("Transferring phone:", phone.phone);
             const { error: phoneError } = await supabase
               .from("client_phone_numbers")
               .update({ client_id: selectedClientId, is_primary: false })
@@ -344,34 +380,44 @@ export const LinkChatToClientModal = ({
             
             if (phoneError) {
               console.error("Error transferring phone:", phone.phone, phoneError);
-              // Continue with other phones
+            } else {
+              targetPhoneSet.add(phoneDigits);
             }
           }
         }
       }
 
-      // IMPORTANT: Also transfer the main phone from clients table
-      // If current client has a phone and target doesn't have it
+      // IMPORTANT: Transfer the main phone from clients table with messenger associations
       if (currentClient.phone) {
         const currentPhoneDigits = currentClient.phone.replace(/\D/g, "");
         
-        // Check if this phone already exists in target's phone numbers
         if (!targetPhoneSet.has(currentPhoneDigits)) {
-          console.log("Transferring main phone to client_phone_numbers:", currentClient.phone);
+          console.log("Creating phone record with messenger links:", currentClient.phone);
           
-          // Add as a new phone number record for the target client
+          // Create phone number record with messenger associations from current client
+          const phoneInsertData = {
+            client_id: selectedClientId,
+            phone: currentClient.phone as string,
+            is_primary: !targetClient.phone,
+            phone_type: "mobile" as const,
+            telegram_chat_id: currentClient.telegram_chat_id || null,
+            telegram_user_id: currentClient.telegram_user_id || null,
+            telegram_avatar_url: currentClient.telegram_avatar_url || null,
+            is_telegram_enabled: !!currentClient.telegram_chat_id,
+            whatsapp_chat_id: currentClient.whatsapp_chat_id || null,
+            whatsapp_avatar_url: currentClient.whatsapp_avatar_url || null,
+            is_whatsapp_enabled: !!currentClient.whatsapp_chat_id,
+            max_chat_id: currentClient.max_chat_id || null,
+            max_user_id: currentClient.max_user_id || null,
+            max_avatar_url: currentClient.max_avatar_url || null,
+          };
+          
           const { error: insertPhoneError } = await supabase
             .from("client_phone_numbers")
-            .insert({
-              client_id: selectedClientId,
-              phone: currentClient.phone,
-              is_primary: !targetClient.phone, // Make primary only if target has no phone
-              phone_type: "mobile"
-            });
+            .insert(phoneInsertData);
           
           if (insertPhoneError) {
             console.error("Error inserting main phone:", insertPhoneError);
-            // Not critical, continue
           }
           
           // Update target client's main phone if they don't have one
@@ -383,6 +429,42 @@ export const LinkChatToClientModal = ({
             
             if (updatePhoneError) {
               console.error("Error updating target phone:", updatePhoneError);
+            }
+          }
+        } else {
+          // Phone already exists in target - ensure messenger links are updated
+          const existingTargetPhone = (targetPhones || []).find(
+            (tp) => tp.phone.replace(/\D/g, "") === currentPhoneDigits
+          );
+          
+          if (existingTargetPhone) {
+            const updateData: Record<string, any> = {};
+            
+            if (currentClient.telegram_chat_id && !existingTargetPhone.telegram_chat_id) {
+              updateData.telegram_chat_id = currentClient.telegram_chat_id;
+              updateData.telegram_user_id = currentClient.telegram_user_id;
+              updateData.telegram_avatar_url = currentClient.telegram_avatar_url;
+              updateData.is_telegram_enabled = true;
+            }
+            
+            if (currentClient.whatsapp_chat_id && !existingTargetPhone.whatsapp_chat_id) {
+              updateData.whatsapp_chat_id = currentClient.whatsapp_chat_id;
+              updateData.whatsapp_avatar_url = currentClient.whatsapp_avatar_url;
+              updateData.is_whatsapp_enabled = true;
+            }
+            
+            if (currentClient.max_chat_id && !existingTargetPhone.max_chat_id) {
+              updateData.max_chat_id = currentClient.max_chat_id;
+              updateData.max_user_id = currentClient.max_user_id;
+              updateData.max_avatar_url = currentClient.max_avatar_url;
+            }
+            
+            if (Object.keys(updateData).length > 0) {
+              console.log("Updating existing phone with messenger links:", updateData);
+              await supabase
+                .from("client_phone_numbers")
+                .update(updateData)
+                .eq("id", existingTargetPhone.id);
             }
           }
         }
