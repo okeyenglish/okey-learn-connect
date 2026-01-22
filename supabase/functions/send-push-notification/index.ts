@@ -401,8 +401,9 @@ serve(async (req) => {
           for (const sub of subscriptions) {
             const userKey = String(sub.user_id);
             const prev = latestByUser.get(userKey);
-            const subTime = sub.created_at ? Date.parse(String(sub.created_at)) : 0;
-            const prevTime = prev?.created_at ? Date.parse(String(prev.created_at)) : 0;
+            // Use updated_at instead of created_at - upsert updates updated_at, not created_at
+            const subTime = sub.updated_at ? Date.parse(String(sub.updated_at)) : 0;
+            const prevTime = prev?.updated_at ? Date.parse(String(prev.updated_at)) : 0;
             if (!prev || subTime >= prevTime) latestByUser.set(userKey, sub);
           }
           return Array.from(latestByUser.values());
