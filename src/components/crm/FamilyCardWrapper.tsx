@@ -182,7 +182,7 @@ export const FamilyCardWrapper = ({ clientId, onOpenChat }: FamilyCardWrapperPro
       console.log('Auto-created family group for client:', cId, group.id);
       return group.id;
     } catch (err: any) {
-      console.error('Error creating family group:', err);
+      console.error('Error creating family group:', err?.message || err, err?.details || '', err?.hint || '');
       return null;
     } finally {
       setCreating(false);
