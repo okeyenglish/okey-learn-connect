@@ -53,32 +53,47 @@ export const LinkChatToClientModal = ({
         /^[0-9a-fA-F-]{36}$/.test(idSearch); // UUID format
 
       if (isIdSearch) {
-        // Extract ID - remove # and C prefix if present
+        // Extract ID - remove # prefix if present
         let searchId = idSearch;
         if (searchId.startsWith("#")) searchId = searchId.slice(1);
-        if (searchId.toLowerCase().startsWith("c")) searchId = searchId.slice(1);
         searchId = searchId.trim();
+        
+        // Normalize: client_number in DB is stored as "C99746" (with C prefix)
+        // User might search: #C99746, C99746, #99746, or just 99746
+        let clientNumberSearch = searchId;
+        if (!clientNumberSearch.toLowerCase().startsWith("c")) {
+          // User entered just number like 99746 - add C prefix
+          clientNumberSearch = `C${clientNumberSearch}`;
+        } else {
+          // Normalize case - DB stores as uppercase C
+          clientNumberSearch = `C${clientNumberSearch.slice(1)}`;
+        }
 
-        // Search by client_number or id (UUID)
+        console.log('[LinkChat] Searching by ID:', { original: idSearch, normalized: clientNumberSearch });
+
+        // Search by client_number (e.g., C99746) or full UUID
         const { data: clientsById, error } = await supabase
           .from("clients")
           .select("id, name, phone, email, avatar_url, telegram_chat_id, whatsapp_chat_id, max_chat_id, client_number")
           .eq("is_active", true)
           .neq("id", chatClientId)
-          .or(`client_number.eq.${searchId},id.eq.${idSearch}`)
+          .or(`client_number.eq.${clientNumberSearch},id.eq.${idSearch}`)
           .limit(10);
 
         if (error) {
+          console.log('[LinkChat] ID search error, trying client_number only:', error.message);
           // If query fails (e.g. invalid UUID), try just client_number
           const { data: clientsByNumber } = await supabase
             .from("clients")
             .select("id, name, phone, email, avatar_url, telegram_chat_id, whatsapp_chat_id, max_chat_id, client_number")
             .eq("is_active", true)
             .neq("id", chatClientId)
-            .eq("client_number", searchId)
+            .eq("client_number", clientNumberSearch)
             .limit(10);
+          console.log('[LinkChat] Fallback search result:', clientsByNumber?.length || 0);
           return clientsByNumber || [];
         }
+        console.log('[LinkChat] ID search result:', clientsById?.length || 0);
         return clientsById || [];
       }
 
