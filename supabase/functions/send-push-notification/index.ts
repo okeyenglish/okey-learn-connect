@@ -292,7 +292,7 @@ async function sendWebPush(
         'Content-Encoding': 'aes128gcm',
         'Content-Length': body.length.toString(),
         'TTL': '86400',
-        'Urgency': 'normal',
+        'Urgency': 'high', // High urgency for iOS - critical for immediate delivery
         'Authorization': vapidAuth,
       },
       body: body,
@@ -351,6 +351,13 @@ serve(async (req) => {
     console.log('Push request:', JSON.stringify(body, null, 2));
 
     const { userId, userIds, payload } = body;
+
+    // Server-side unique tag enforcement: if client sends static "test-push", make it unique
+    // This prevents iOS from silently collapsing notifications even if client code is outdated
+    if (payload.tag === 'test-push') {
+      payload.tag = `test-push-${Date.now()}`;
+      console.log(`[TAG-FIX] Replaced static "test-push" with unique tag: ${payload.tag}`);
+    }
 
     if (!payload || !payload.title) {
       return new Response(

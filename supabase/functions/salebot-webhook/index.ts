@@ -199,8 +199,7 @@ serve(async (req) => {
 
       organizationId = defaultOrg.id
 
-      // Determine messenger type from client_type
-      const messengerType = getMessengerType(payload.client.client_type)
+      // Use messengerType already determined above (line 121)
       
       // Create new client with correct messenger identifiers
       const clientName = payload.client.name || `Salebot ${payload.client.id}`
@@ -254,9 +253,8 @@ serve(async (req) => {
       })
     }
 
-    // Determine message properties
+    // Determine message properties (messengerType already defined at line 121)
     const isFromClient = payload.is_input === 1
-    const messengerType = getMessengerType(payload.client.client_type)
     
     // Extract file URL from attachments
     let fileUrl: string | null = null
