@@ -289,6 +289,14 @@ export function usePushNotifications() {
         return false;
       }
 
+      // Clean up ALL old subscriptions for this user before creating new one
+      // This ensures only the current device/browser endpoint is active
+      console.log('[Push] Cleaning old subscriptions for user:', user.id);
+      await supabase
+        .from('push_subscriptions')
+        .delete()
+        .eq('user_id', user.id);
+
       // Subscribe to push
       // iOS Safari is picky about the key type; pass Uint8Array (not .buffer) for best compatibility.
       const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
