@@ -391,17 +391,39 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Found ${subscriptions.length} subscriptions to notify`);
+    // For test pushes, sending to multiple stale subscriptions on the same device can result
+    // in notifications being immediately replaced (same tag) or delivered to an old/broken SW.
+    // To make the "Test push" button reliable, send only to the latest subscription per user.
+    const isTestPush = typeof payload.tag === 'string' && payload.tag.startsWith('test-push');
+    const subscriptionsToNotify = isTestPush
+      ? (() => {
+          const latestByUser = new Map<string, any>();
+          for (const sub of subscriptions) {
+            const userKey = String(sub.user_id);
+            const prev = latestByUser.get(userKey);
+            const subTime = sub.created_at ? Date.parse(String(sub.created_at)) : 0;
+            const prevTime = prev?.created_at ? Date.parse(String(prev.created_at)) : 0;
+            if (!prev || subTime >= prevTime) latestByUser.set(userKey, sub);
+          }
+          return Array.from(latestByUser.values());
+        })()
+      : subscriptions;
+
+    console.log(
+      isTestPush
+        ? `Found ${subscriptions.length} active subscriptions; using ${subscriptionsToNotify.length} latest for test push`
+        : `Found ${subscriptions.length} subscriptions to notify`
+    );
     
     // Log subscription VAPID info for debugging mismatch
-    subscriptions.forEach((sub, idx) => {
+    subscriptionsToNotify.forEach((sub, idx) => {
       const deviceInfo = sub.device_info as Record<string, unknown> | null;
       const subVapidPrefix = deviceInfo?.vapidPublicKeyPrefix || 'N/A';
       console.log(`[SUB-${idx}] endpoint: ${sub.endpoint.substring(0, 60)}... vapidPrefix: ${subVapidPrefix}`);
     });
 
     const results = await Promise.all(
-      subscriptions.map(async (sub) => {
+      subscriptionsToNotify.map(async (sub) => {
         const result = await sendWebPush(
           { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
           payload,
