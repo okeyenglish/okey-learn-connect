@@ -37,11 +37,50 @@ export const LinkChatToClientModal = ({
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [isLinking, setIsLinking] = useState(false);
 
-  // Search for clients with improved phone search
+  // Search for clients with improved phone search and ID search
   const { data: clients = [], isLoading } = useQuery({
     queryKey: ["clients-for-link", searchQuery],
     queryFn: async () => {
       if (!searchQuery || searchQuery.length < 2) return [];
+
+      // Check if searching by internal ID (format: #C12345 or C12345 or just 12345 or UUID)
+      const idSearch = searchQuery.trim();
+      const isIdSearch =
+        idSearch.startsWith("#C") ||
+        idSearch.startsWith("#c") ||
+        idSearch.startsWith("C") ||
+        idSearch.startsWith("c") ||
+        /^[0-9a-fA-F-]{36}$/.test(idSearch); // UUID format
+
+      if (isIdSearch) {
+        // Extract ID - remove # and C prefix if present
+        let searchId = idSearch;
+        if (searchId.startsWith("#")) searchId = searchId.slice(1);
+        if (searchId.toLowerCase().startsWith("c")) searchId = searchId.slice(1);
+        searchId = searchId.trim();
+
+        // Search by client_number or id (UUID)
+        const { data: clientsById, error } = await supabase
+          .from("clients")
+          .select("id, name, phone, email, avatar_url, telegram_chat_id, whatsapp_chat_id, max_chat_id, client_number")
+          .eq("is_active", true)
+          .neq("id", chatClientId)
+          .or(`client_number.eq.${searchId},id.eq.${idSearch}`)
+          .limit(10);
+
+        if (error) {
+          // If query fails (e.g. invalid UUID), try just client_number
+          const { data: clientsByNumber } = await supabase
+            .from("clients")
+            .select("id, name, phone, email, avatar_url, telegram_chat_id, whatsapp_chat_id, max_chat_id, client_number")
+            .eq("is_active", true)
+            .neq("id", chatClientId)
+            .eq("client_number", searchId)
+            .limit(10);
+          return clientsByNumber || [];
+        }
+        return clientsById || [];
+      }
 
       // Normalize phone - extract only digits
       const phoneDigits = searchQuery.replace(/\D/g, "");
@@ -99,7 +138,7 @@ export const LinkChatToClientModal = ({
       // Fetch full client data
       const { data: fullClients, error } = await supabase
         .from("clients")
-        .select("id, name, phone, email, avatar_url, telegram_chat_id, whatsapp_chat_id, max_chat_id")
+        .select("id, name, phone, email, avatar_url, telegram_chat_id, whatsapp_chat_id, max_chat_id, client_number")
         .in("id", Array.from(clientIds))
         .eq("is_active", true)
         .limit(30);
@@ -428,7 +467,7 @@ export const LinkChatToClientModal = ({
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Поиск по имени, телефону или email..."
+                placeholder="Поиск по имени, телефону, email или #ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -471,9 +510,16 @@ export const LinkChatToClientModal = ({
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">
-                          {client.name}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-sm truncate">
+                            {client.name}
+                          </p>
+                          {client.client_number && (
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              #C{client.client_number}
+                            </span>
+                          )}
+                        </div>
                         <div className="flex gap-1 flex-wrap">
                           {client.telegram_chat_id && (
                             <Badge
