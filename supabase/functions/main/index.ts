@@ -38,23 +38,57 @@ Deno.serve(async (req) => {
   console.log(`[main] Routing to: ${functionName}, remainder: ${remainderPath}`);
 
   try {
-    const servicePath = `../${functionName}`;
+    // servicePath resolution differs between self-hosted setups.
+    // We'll try a small set of known-good candidates to avoid
+    // "failed to bootstrap runtime: could not find an appropriate entrypoint".
+    const servicePathCandidates = [
+      `${functionName}`,
+      `./${functionName}`,
+      `../${functionName}`,
+      `/home/deno/functions/${functionName}`,
+      `/home/deno/functions/${functionName}/index.ts`,
+    ];
     const envVarsObj = Deno.env.toObject();
     const envVars = Object.entries(envVarsObj);
 
-    // @ts-ignore - EdgeRuntime is available in Supabase edge-runtime
-    const worker = await EdgeRuntime.userWorkers.create({
-      servicePath,
-      memoryLimitMb: 256,
-      workerTimeoutMs: 5 * 60 * 1000,
-      noModuleCache: false,
-      envVars,
-      forceCreate: false,
-      cpuTimeSoftLimitMs: 10000,
-      cpuTimeHardLimitMs: 20000,
-      staticPatterns: [],
-      context: { useReadSyncFileAPI: true },
-    });
+    const createWorker = async (servicePath: string) => {
+      // @ts-ignore - EdgeRuntime is available in Supabase edge-runtime
+      return await EdgeRuntime.userWorkers.create({
+        servicePath,
+        memoryLimitMb: 256,
+        workerTimeoutMs: 5 * 60 * 1000,
+        noModuleCache: false,
+        envVars,
+        forceCreate: false,
+        cpuTimeSoftLimitMs: 10000,
+        cpuTimeHardLimitMs: 20000,
+        staticPatterns: [],
+        context: { useReadSyncFileAPI: true },
+      });
+    };
+
+    let worker: any;
+    let lastErr: unknown = null;
+    for (const candidate of servicePathCandidates) {
+      try {
+        console.log(`[main] Creating worker for ${functionName} with servicePath=${candidate}`);
+        worker = await createWorker(candidate);
+        break;
+      } catch (e) {
+        lastErr = e;
+        const msg = e instanceof Error ? e.message : String(e);
+        console.warn(`[main] Worker create failed for ${functionName} with servicePath=${candidate}: ${msg}`);
+      }
+    }
+
+    if (!worker) {
+      const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+      throw new Error(
+        `All servicePath candidates failed for ${functionName}. Last error: ${msg}. Tried: ${servicePathCandidates.join(
+          ', ',
+        )}`,
+      );
+    }
 
     const forwardUrl = new URL(req.url);
     forwardUrl.pathname = remainderPath;
@@ -63,7 +97,7 @@ Deno.serve(async (req) => {
     return await worker.fetch(forwardedReq);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error("[main] worker error:", msg);
+    console.error(`[main] worker error for ${functionName}:`, msg);
 
     return new Response(
       JSON.stringify({ error: "main worker error", details: msg }),
