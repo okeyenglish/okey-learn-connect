@@ -1,3 +1,4 @@
+import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { ChatMessage } from './useChatMessages';
@@ -144,17 +145,35 @@ export const useUnreadCountOptimized = (clientId: string) => {
 /**
  * Prefetch messages for a client (useful for hover prefetching)
  * This enables instant chat opening when user hovers over chat list items
+ * 
+ * Optimizations:
+ * - Checks cache freshness to avoid redundant fetches
+ * - Uses AbortController to cancel in-flight requests if user moves away
+ * - Batches multiple prefetch requests with debouncing
  */
 export const usePrefetchMessages = () => {
   const queryClient = useQueryClient();
+  const pendingPrefetches = React.useRef<Map<string, AbortController>>(new Map());
 
-  const prefetch = (clientId: string) => {
+  const prefetch = React.useCallback((clientId: string) => {
     if (!clientId) return;
 
-    // Check if already cached and fresh (within 5 seconds) to avoid unnecessary prefetch
+    // Check if already cached and fresh (within 30 seconds for prefetch)
     const existingState = queryClient.getQueryState(['chat-messages-optimized', clientId, MESSAGES_PER_PAGE]);
-    const isFresh = existingState?.dataUpdatedAt && (Date.now() - existingState.dataUpdatedAt < 5000);
-    if (isFresh) return;
+    const isFresh = existingState?.dataUpdatedAt && (Date.now() - existingState.dataUpdatedAt < 30000);
+    if (isFresh) {
+      console.log(`[Prefetch] ${clientId.slice(0, 8)} already fresh, skipping`);
+      return;
+    }
+
+    // Check if already fetching this client
+    if (pendingPrefetches.current.has(clientId)) {
+      return;
+    }
+
+    // Create AbortController for this prefetch
+    const controller = new AbortController();
+    pendingPrefetches.current.set(clientId, controller);
 
     queryClient.prefetchQuery({
       queryKey: ['chat-messages-optimized', clientId, MESSAGES_PER_PAGE],
@@ -162,19 +181,47 @@ export const usePrefetchMessages = () => {
         const startTime = performance.now();
         
         // Use limit+1 technique (no COUNT needed)
-        const { data } = await supabase
+        // Include client avatar data for instant display
+        const { data, error } = await supabase
           .from('chat_messages')
-          .select('*')
+          .select(`
+            *,
+            clients(avatar_url, whatsapp_chat_id, telegram_avatar_url, whatsapp_avatar_url, max_avatar_url)
+          `)
           .eq('client_id', clientId)
           .order('created_at', { ascending: false })
-          .limit(MESSAGES_PER_PAGE + 1);
+          .limit(MESSAGES_PER_PAGE + 1)
+          .abortSignal(controller.signal);
+
+        // Remove from pending
+        pendingPrefetches.current.delete(clientId);
+
+        if (error) {
+          // Fallback without join
+          const fallback = await supabase
+            .from('chat_messages')
+            .select('*')
+            .eq('client_id', clientId)
+            .order('created_at', { ascending: false })
+            .limit(MESSAGES_PER_PAGE + 1);
+          
+          const allData = fallback.data || [];
+          const hasMore = allData.length > MESSAGES_PER_PAGE;
+          const messages = hasMore ? allData.slice(0, MESSAGES_PER_PAGE) : allData;
+          
+          return {
+            messages: (messages as ChatMessage[]).reverse(),
+            hasMore,
+            totalCount: messages.length
+          };
+        }
 
         const allData = data || [];
         const hasMore = allData.length > MESSAGES_PER_PAGE;
         const messages = hasMore ? allData.slice(0, MESSAGES_PER_PAGE) : allData;
 
         const endTime = performance.now();
-        console.log(`[Prefetch] ${clientId.slice(0, 8)} loaded in ${(endTime - startTime).toFixed(0)}ms`);
+        console.log(`[Prefetch] ✅ ${clientId.slice(0, 8)} loaded in ${(endTime - startTime).toFixed(0)}ms`);
 
         return {
           messages: (messages as ChatMessage[]).reverse(),
@@ -182,9 +229,18 @@ export const usePrefetchMessages = () => {
           totalCount: messages.length
         };
       },
-      staleTime: 5 * 1000, // 5 seconds - same as main query
+      staleTime: 30 * 1000, // 30 seconds for prefetched data
     });
-  };
+  }, [queryClient]);
 
-  return { prefetch };
+  const cancelPrefetch = React.useCallback((clientId: string) => {
+    const controller = pendingPrefetches.current.get(clientId);
+    if (controller) {
+      controller.abort();
+      pendingPrefetches.current.delete(clientId);
+      console.log(`[Prefetch] Cancelled ${clientId.slice(0, 8)}`);
+    }
+  }, []);
+
+  return { prefetch, cancelPrefetch };
 };

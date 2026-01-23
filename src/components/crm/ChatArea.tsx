@@ -133,6 +133,7 @@ export const ChatArea = ({
   const [gptGenerating, setGptGenerating] = useState(false);
   const [quotedText, setQuotedText] = useState<string | null>(null);
   const [activeMessengerTab, setActiveMessengerTab] = useState("whatsapp");
+  const [isTabTransitioning, setIsTabTransitioning] = useState(false);
   
   
   // Функция для форматирования отображаемого имени (Фамилия Имя, без отчества)
@@ -312,9 +313,18 @@ export const ChatArea = ({
 
   // Mark messages as read when switching tabs - только прокрутка, НЕ отметка прочитанности
   const handleTabChange = (newTab: string) => {
+    if (newTab === activeMessengerTab) return;
+    
+    // Start transition animation
+    setIsTabTransitioning(true);
     setActiveMessengerTab(newTab);
+    
     // при переключении вкладки сразу показываем последние сообщения
-    setTimeout(() => scrollToBottom(false, newTab), 0);
+    setTimeout(() => {
+      scrollToBottom(false, newTab);
+      // End transition after scroll completes
+      setIsTabTransitioning(false);
+    }, 50);
     
     // НЕ помечаем автоматически сообщения как прочитанные
     // Менеджер должен явно нажать "Не требует ответа" или отправить сообщение
@@ -1726,9 +1736,9 @@ export const ChatArea = ({
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="whatsapp" className="flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0">
+          <TabsContent value="whatsapp" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-opacity duration-150 ${isTabTransitioning ? 'opacity-50' : 'opacity-100'}`}>
             <div className="space-y-1">
-              {loadingMessages ? (
+              {loadingMessages || isTabTransitioning ? (
                 <MessageSkeleton count={6} />
               ) : whatsappMessages.length > 0 ? (
                 <>
@@ -1884,9 +1894,9 @@ export const ChatArea = ({
               <div ref={whatsappEndRef} />
             </TabsContent>
           
-          <TabsContent value="telegram" className="flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0">
+          <TabsContent value="telegram" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-opacity duration-150 ${isTabTransitioning ? 'opacity-50' : 'opacity-100'}`}>
             <div className="space-y-1">
-              {loadingMessages ? (
+              {loadingMessages || isTabTransitioning ? (
                 <MessageSkeleton count={6} />
               ) : telegramMessages.length > 0 ? (
                 <>
@@ -1973,9 +1983,9 @@ export const ChatArea = ({
             <div ref={telegramEndRef} />
           </TabsContent>
           
-          <TabsContent value="max" className="flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0">
+          <TabsContent value="max" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-opacity duration-150 ${isTabTransitioning ? 'opacity-50' : 'opacity-100'}`}>
             <div className="space-y-1">
-              {loadingMessages ? (
+              {loadingMessages || isTabTransitioning ? (
                 <MessageSkeleton count={6} />
               ) : maxMessages.length > 0 ? (
                 <>
@@ -2080,7 +2090,7 @@ export const ChatArea = ({
             <div ref={maxEndRef} />
           </TabsContent>
           
-          <TabsContent value="email" className="flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0">
+          <TabsContent value="email" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-opacity duration-150 ${isTabTransitioning ? 'opacity-50' : 'opacity-100'}`}>
             <div className="space-y-1">
               <div className="text-center text-muted-foreground text-sm py-4">
                 История переписки Email
@@ -2088,7 +2098,7 @@ export const ChatArea = ({
             </div>
           </TabsContent>
           
-          <TabsContent value="calls" className="flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0">
+          <TabsContent value="calls" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-opacity duration-150 ${isTabTransitioning ? 'opacity-50' : 'opacity-100'}`}>
             <CallHistory clientId={clientId} />
           </TabsContent>
         </Tabs>
