@@ -1,0 +1,62 @@
+name: Deploy Edge Functions to Self-Hosted
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SELFHOSTED_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SELFHOSTED_SSH_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: Backup existing functions
+        run: |
+          ssh ${{ secrets.SELFHOSTED_SSH_USER }}@${{ secrets.SELFHOSTED_SSH_HOST }} \
+            "cp -r ${{ secrets.SELFHOSTED_FUNCTIONS_PATH }} ${{ secrets.SELFHOSTED_FUNCTIONS_PATH }}.backup.$(date +%Y%m%d%H%M%S)" || true
+      
+      - name: Sync Edge Functions
+        run: |
+          rsync -avz --delete \
+            ./supabase/functions/ \
+            ${{ secrets.SELFHOSTED_SSH_USER }}@${{ secrets.SELFHOSTED_SSH_HOST }}:${{ secrets.SELFHOSTED_FUNCTIONS_PATH }}/
+      
+      - name: Restart Edge Runtime
+        run: |
+          ssh ${{ secrets.SELFHOSTED_SSH_USER }}@${{ secrets.SELFHOSTED_SSH_HOST }} << 'EOF'
+            cd /home/automation/supabase-project
+            docker compose restart supabase-edge-functions
+            sleep 5
+            docker ps | grep edge
+            echo "=== Last 20 lines of edge-functions logs ==="
+            docker logs --tail 20 supabase-edge-functions
+          EOF
+      
+      - name: Smoke test
+        run: |
+          sleep 3
+          echo "Testing salebot-webhook..."
+          curl -sf https://api.academyos.ru/functions/v1/salebot-webhook || echo "⚠ Failed"
+          
+          echo "Testing wappi-whatsapp-send..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.academyos.ru/functions/v1/wappi-whatsapp-send)
+          echo "Response: $STATUS"
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Edge Functions Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "- Server: api.academyos.ru" >> $GITHUB_STEP_SUMMARY
+          echo "- Time: $(date -u)" >> $GITHUB_STEP_SUMMARY
