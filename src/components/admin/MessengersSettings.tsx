@@ -5,6 +5,7 @@ import { WhatsAppSettings } from './WhatsAppSettings';
 import { MaxGreenApiSettings } from './MaxGreenApiSettings';
 import { TelegramWappiSettings } from './TelegramWappiSettings';
 import { SalebotSettings } from './SalebotSettings';
+import { WebhookUrlReset } from './WebhookUrlReset';
 
 export const MessengersSettings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('whatsapp');
@@ -20,6 +21,9 @@ export const MessengersSettings: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Webhook URL Reset utility */}
+      <WebhookUrlReset />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
