@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageSquare, MessageCircle, Send } from 'lucide-react';
+import { MessageSquare, MessageCircle, Send, Bot } from 'lucide-react';
 import { WhatsAppSettings } from './WhatsAppSettings';
 import { MaxGreenApiSettings } from './MaxGreenApiSettings';
 import { TelegramWappiSettings } from './TelegramWappiSettings';
+import { SalebotSettings } from './SalebotSettings';
 
 export const MessengersSettings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('whatsapp');
@@ -21,7 +22,7 @@ export const MessengersSettings: React.FC = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+        <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
           <TabsTrigger value="whatsapp" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4 text-green-600" />
             <span className="hidden sm:inline">WhatsApp</span>
@@ -29,6 +30,10 @@ export const MessengersSettings: React.FC = () => {
           <TabsTrigger value="telegram" className="flex items-center gap-2">
             <Send className="h-4 w-4 text-blue-500" />
             <span className="hidden sm:inline">Telegram</span>
+          </TabsTrigger>
+          <TabsTrigger value="salebot" className="flex items-center gap-2">
+            <Bot className="h-4 w-4 text-orange-500" />
+            <span className="hidden sm:inline">Salebot</span>
           </TabsTrigger>
           <TabsTrigger value="max" className="flex items-center gap-2">
             <MessageCircle className="h-4 w-4 text-purple-500" />
@@ -42,6 +47,10 @@ export const MessengersSettings: React.FC = () => {
 
         <TabsContent value="telegram" className="mt-6">
           <TelegramWappiSettings />
+        </TabsContent>
+
+        <TabsContent value="salebot" className="mt-6">
+          <SalebotSettings />
         </TabsContent>
 
         <TabsContent value="max" className="mt-6">
