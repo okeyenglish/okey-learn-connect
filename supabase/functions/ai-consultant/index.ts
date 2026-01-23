@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,10 +13,14 @@ serve(async (req) => {
   }
 
   try {
-    const { message, audio, consultantType, systemPrompt } = await req.json();
+    const { message, audio, consultantType, systemPrompt, organizationId } = await req.json();
     
     if (!consultantType) {
       throw new Error('consultantType is required');
+    }
+
+    if (!organizationId) {
+      throw new Error('organizationId is required');
     }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -23,14 +28,27 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     let userMessage = message;
 
     // Если есть аудио, сначала транскрибируем его с помощью OpenAI Whisper
     if (audio) {
       try {
-        const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-        if (!OPENAI_API_KEY) {
-          throw new Error('OPENAI_API_KEY is not configured');
+        // Получаем OpenAI API Key из настроек организации
+        const { data: aiSettings } = await supabase
+          .from('messenger_settings')
+          .select('settings')
+          .eq('organization_id', organizationId)
+          .eq('messenger_type', 'openai')
+          .maybeSingle();
+
+        const openaiApiKey = aiSettings?.settings?.openaiApiKey || Deno.env.get('OPENAI_API_KEY');
+        
+        if (!openaiApiKey) {
+          throw new Error('OpenAI API key not configured for transcription');
         }
 
         const binaryAudio = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
@@ -42,7 +60,7 @@ serve(async (req) => {
         const transcriptionResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'Authorization': `Bearer ${openaiApiKey}`,
           },
           body: formData,
         });
