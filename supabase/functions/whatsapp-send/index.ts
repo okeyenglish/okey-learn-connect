@@ -1,20 +1,9 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-// Green-API настройки из environment variables
-const greenApiUrl = Deno.env.get('GREEN_API_URL')!
-const greenApiIdInstance = Deno.env.get('GREEN_API_ID_INSTANCE')!
-const greenApiToken = Deno.env.get('GREEN_API_TOKEN_INSTANCE')!
-
-// Создаем клиент Supabase
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
+};
 
 interface SendMessageRequest {
   clientId: string;
@@ -22,6 +11,7 @@ interface SendMessageRequest {
   phoneNumber?: string;
   fileUrl?: string;
   fileName?: string;
+  phoneId?: string;
 }
 
 interface GreenAPIResponse {
@@ -30,29 +20,98 @@ interface GreenAPIResponse {
   message?: string;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     const payload = await req.json().catch(() => ({} as any));
 
+    // Get user from auth header for authenticated requests
+    const authHeader = req.headers.get('Authorization');
+    let organizationId: string | null = null;
+
+    if (authHeader) {
+      const { data: { user }, error: authError } = await supabase.auth.getUser(
+        authHeader.replace('Bearer ', '')
+      );
+
+      if (!authError && user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('organization_id')
+          .eq('id', user.id)
+          .single();
+        
+        organizationId = profile?.organization_id;
+      }
+    }
+
     // Handle get_state action (for connection status check)
-    if (payload?.action === 'get_state') {
-      if (!greenApiUrl || !greenApiIdInstance || !greenApiToken) {
+    if (payload?.action === 'get_state' || payload?.action === 'test_connection') {
+      if (!organizationId) {
         return new Response(JSON.stringify({ 
           success: false, 
-          error: 'Missing Green-API secrets'
+          error: 'Organization not found'
+        }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Get WhatsApp settings from messenger_settings (per-organization)
+      const { data: messengerSettings, error: settingsError } = await supabase
+        .from('messenger_settings')
+        .select('settings, is_enabled')
+        .eq('organization_id', organizationId)
+        .eq('messenger_type', 'whatsapp')
+        .maybeSingle();
+
+      if (settingsError || !messengerSettings?.settings) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'WhatsApp not configured for your organization'
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+
+      const settings = messengerSettings.settings as any;
+      const greenApiUrl = settings.apiUrl || 'https://api.green-api.com';
+      const greenApiIdInstance = settings.instanceId;
+      const greenApiToken = settings.apiToken;
+
+      if (!greenApiIdInstance || !greenApiToken) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'Missing Green API credentials in organization settings'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       try {
-        const state = await getInstanceState();
+        const state = await getInstanceState(greenApiUrl, greenApiIdInstance, greenApiToken);
         const stateValue = state?.stateInstance || state?.state || state?.status;
         const authorized = String(stateValue || '').toLowerCase() === 'authorized';
+        
+        if (payload?.action === 'test_connection') {
+          const message = authorized
+            ? 'Instance authorized'
+            : (state?.error === 'NON_JSON_RESPONSE'
+                ? 'Green-API returned non-JSON (check API URL)'
+                : `State: ${stateValue ?? 'unknown'}`);
+          return new Response(JSON.stringify({ success: authorized, state, message }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
         return new Response(JSON.stringify({ 
           success: authorized, 
           state,
@@ -67,37 +126,7 @@ serve(async (req) => {
       }
     }
 
-    if (payload?.action === 'test_connection') {
-      // Check required secrets first
-      if (!greenApiUrl || !greenApiIdInstance || !greenApiToken) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: 'Missing Green-API secrets (GREEN_API_URL, GREEN_API_ID_INSTANCE, GREEN_API_TOKEN_INSTANCE)'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      try {
-        const state = await getInstanceState();
-        const stateValue = state?.stateInstance || state?.state || state?.status;
-        const authorized = String(stateValue || '').toLowerCase() === 'authorized';
-        const debug = state?.raw ? { rawSnippet: String(state.raw).slice(0, 200) } : undefined;
-        const message = authorized
-          ? 'Instance authorized'
-          : (state?.error === 'NON_JSON_RESPONSE'
-              ? 'Green-API returned non-JSON (check GREEN_API_URL)'
-              : `State: ${stateValue ?? 'unknown'}`);
-        return new Response(JSON.stringify({ success: authorized, state, message, ...debug }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      } catch (e: any) {
-        return new Response(JSON.stringify({ success: false, error: e?.message || 'Failed to reach Green-API' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-    }
-
-    const { clientId, message, phoneNumber, fileUrl, fileName, phoneId } = payload as SendMessageRequest & { phoneId?: string }
+    const { clientId, message, phoneNumber, fileUrl, fileName, phoneId } = payload as SendMessageRequest;
     
     // Validate clientId before proceeding
     if (!clientId) {
@@ -110,21 +139,50 @@ serve(async (req) => {
       });
     }
     
-    console.log('Sending message:', { clientId, message, phoneNumber, fileUrl, fileName, phoneId })
+    console.log('Sending message:', { clientId, message, phoneNumber, fileUrl, fileName, phoneId });
 
     // Получаем данные клиента
     const { data: client, error: clientError } = await supabase
       .from('clients')
       .select('*')
       .eq('id', clientId)
-      .single()
+      .single();
 
     if (clientError || !client) {
-      throw new Error(`Client not found: ${clientError?.message}`)
+      throw new Error(`Client not found: ${clientError?.message}`);
+    }
+
+    // Use client's organization_id
+    organizationId = client.organization_id;
+
+    // Get WhatsApp settings from messenger_settings (per-organization)
+    const { data: messengerSettings, error: settingsError } = await supabase
+      .from('messenger_settings')
+      .select('settings, is_enabled')
+      .eq('organization_id', organizationId)
+      .eq('messenger_type', 'whatsapp')
+      .maybeSingle();
+
+    if (settingsError) {
+      console.error('Error fetching WhatsApp settings:', settingsError);
+      throw new Error('Failed to fetch WhatsApp settings');
+    }
+
+    if (!messengerSettings || !messengerSettings.is_enabled) {
+      throw new Error('WhatsApp integration not configured or disabled for this organization');
+    }
+
+    const settings = messengerSettings.settings as any;
+    const greenApiUrl = settings.apiUrl || 'https://api.green-api.com';
+    const greenApiIdInstance = settings.instanceId;
+    const greenApiToken = settings.apiToken;
+
+    if (!greenApiIdInstance || !greenApiToken) {
+      throw new Error('WhatsApp credentials not configured (instanceId or apiToken missing)');
     }
 
     // Определяем chat ID для WhatsApp
-    let chatId = null
+    let chatId: string | null = null;
     
     // Priority 1: Use specified phone number's chat ID
     if (phoneId) {
@@ -133,15 +191,15 @@ serve(async (req) => {
         .select('whatsapp_chat_id, phone')
         .eq('id', phoneId)
         .eq('client_id', clientId)
-        .single()
+        .single();
       
       if (phoneRecord) {
-        chatId = phoneRecord.whatsapp_chat_id
+        chatId = phoneRecord.whatsapp_chat_id;
         if (!chatId && phoneRecord.phone) {
-          const cleanPhone = phoneRecord.phone.replace(/[^\d]/g, '')
-          chatId = `${cleanPhone}@c.us`
+          const cleanPhone = phoneRecord.phone.replace(/[^\d]/g, '');
+          chatId = `${cleanPhone}@c.us`;
         }
-        console.log('Using specified phone:', phoneId, 'chatId:', chatId)
+        console.log('Using specified phone:', phoneId, 'chatId:', chatId);
       }
     }
     
@@ -152,26 +210,26 @@ serve(async (req) => {
         .select('whatsapp_chat_id, phone')
         .eq('client_id', clientId)
         .eq('is_primary', true)
-        .single()
+        .single();
       
       if (primaryPhone) {
-        chatId = primaryPhone.whatsapp_chat_id
+        chatId = primaryPhone.whatsapp_chat_id;
         if (!chatId && primaryPhone.phone) {
-          const cleanPhone = primaryPhone.phone.replace(/[^\d]/g, '')
-          chatId = `${cleanPhone}@c.us`
+          const cleanPhone = primaryPhone.phone.replace(/[^\d]/g, '');
+          chatId = `${cleanPhone}@c.us`;
         }
-        console.log('Using primary phone chatId:', chatId)
+        console.log('Using primary phone chatId:', chatId);
       }
     }
     
     // Priority 3: Fall back to client's whatsapp_chat_id (backward compatibility)
     if (!chatId) {
-      chatId = client.whatsapp_chat_id
+      chatId = client.whatsapp_chat_id;
     }
     
     // Priority 4: Use provided phone number or client phone
     if (!chatId) {
-      let phone = phoneNumber || client.phone
+      let phone = phoneNumber || client.phone;
       
       // Если номера нет, ищем в client_phone_numbers
       if (!phone) {
@@ -181,7 +239,7 @@ serve(async (req) => {
           .eq('client_id', clientId)
           .eq('is_whatsapp_enabled', true)
           .limit(1)
-          .single()
+          .single();
         
         if (!phoneNumbers?.phone) {
           // Пробуем получить любой номер
@@ -190,42 +248,42 @@ serve(async (req) => {
             .select('phone')
             .eq('client_id', clientId)
             .limit(1)
-            .single()
+            .single();
           
-          phone = anyPhone?.phone
+          phone = anyPhone?.phone;
         } else {
-          phone = phoneNumbers.phone
+          phone = phoneNumbers.phone;
         }
       }
       
       if (!phone) {
-        throw new Error('No phone number available for client')
+        throw new Error('No phone number available for client');
       }
       
       // Форматируем номер для WhatsApp (убираем + и другие символы)
-      const cleanPhone = phone.replace(/[^\d]/g, '')
-      chatId = `${cleanPhone}@c.us`
+      const cleanPhone = phone.replace(/[^\d]/g, '');
+      chatId = `${cleanPhone}@c.us`;
       
       // Сохраняем chat ID в базе данных
       await supabase
         .from('clients')
         .update({ whatsapp_chat_id: chatId })
-        .eq('id', clientId)
+        .eq('id', clientId);
     }
 
-    let greenApiResponse: GreenAPIResponse
+    let greenApiResponse: GreenAPIResponse;
 
     // Отправляем сообщение или файл
     if (fileUrl) {
-      greenApiResponse = await sendFileMessage(chatId, fileUrl, fileName, message)
+      greenApiResponse = await sendFileMessage(greenApiUrl, greenApiIdInstance, greenApiToken, chatId, fileUrl, fileName, message);
     } else {
-      greenApiResponse = await sendTextMessage(chatId, message)
+      greenApiResponse = await sendTextMessage(greenApiUrl, greenApiIdInstance, greenApiToken, chatId, message);
     }
 
-    console.log('Green-API response:', greenApiResponse)
+    console.log('Green-API response:', greenApiResponse);
 
     // Сохраняем сообщение в базу данных
-    const messageStatus = greenApiResponse.error ? 'failed' : 'queued'
+    const messageStatus = greenApiResponse.error ? 'failed' : 'queued';
     
     const { data: savedMessage, error: saveError } = await supabase
       .from('chat_messages')
@@ -244,11 +302,11 @@ serve(async (req) => {
         file_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null
       })
       .select()
-      .single()
+      .single();
 
     if (saveError) {
-      console.error('Error saving message to database:', saveError)
-      throw saveError
+      console.error('Error saving message to database:', saveError);
+      throw saveError;
     }
 
     // Обновляем время последнего сообщения у клиента
@@ -257,7 +315,7 @@ serve(async (req) => {
       .update({ 
         last_message_at: new Date().toISOString()
       })
-      .eq('id', clientId)
+      .eq('id', clientId);
 
     return new Response(JSON.stringify({
       success: !greenApiResponse.error,
@@ -266,10 +324,10 @@ serve(async (req) => {
       error: greenApiResponse.error
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    });
 
   } catch (error) {
-    console.error('Error sending message:', error)
+    console.error('Error sending message:', error);
     
     return new Response(JSON.stringify({ 
       success: false,
@@ -277,14 +335,20 @@ serve(async (req) => {
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    });
   }
-})
+});
 
-async function sendTextMessage(chatId: string, message: string): Promise<GreenAPIResponse> {
-  const url = `${greenApiUrl}/waInstance${greenApiIdInstance}/sendMessage/${greenApiToken}`
+async function sendTextMessage(
+  apiUrl: string,
+  instanceId: string,
+  apiToken: string,
+  chatId: string,
+  message: string
+): Promise<GreenAPIResponse> {
+  const url = `${apiUrl}/waInstance${instanceId}/sendMessage/${apiToken}`;
   
-  console.log('Sending text message to:', chatId)
+  console.log('Sending text message to:', chatId);
   
   const response = await fetch(url, {
     method: 'POST',
@@ -295,30 +359,38 @@ async function sendTextMessage(chatId: string, message: string): Promise<GreenAP
       chatId,
       message
     })
-  })
+  });
 
-  const text = await response.text()
-  let result: any
+  const text = await response.text();
+  let result: any;
   
   try {
-    result = JSON.parse(text)
+    result = JSON.parse(text);
   } catch (e) {
-    console.error('Green-API returned non-JSON response:', text.substring(0, 200))
-    return { error: `Invalid API response: ${text.substring(0, 100)}` }
+    console.error('Green-API returned non-JSON response:', text.substring(0, 200));
+    return { error: `Invalid API response: ${text.substring(0, 100)}` };
   }
   
   if (!response.ok) {
-    console.error('Green-API error:', result)
-    return { error: result.message || 'Failed to send message' }
+    console.error('Green-API error:', result);
+    return { error: result.message || 'Failed to send message' };
   }
   
-  return result
+  return result;
 }
 
-async function sendFileMessage(chatId: string, fileUrl: string, fileName?: string, caption?: string): Promise<GreenAPIResponse> {
-  const url = `${greenApiUrl}/waInstance${greenApiIdInstance}/sendFileByUrl/${greenApiToken}`
+async function sendFileMessage(
+  apiUrl: string,
+  instanceId: string,
+  apiToken: string,
+  chatId: string,
+  fileUrl: string,
+  fileName?: string,
+  caption?: string
+): Promise<GreenAPIResponse> {
+  const url = `${apiUrl}/waInstance${instanceId}/sendFileByUrl/${apiToken}`;
   
-  console.log('Sending file message to:', chatId, 'File:', fileUrl)
+  console.log('Sending file message to:', chatId, 'File:', fileUrl);
   
   const response = await fetch(url, {
     method: 'POST',
@@ -331,82 +403,59 @@ async function sendFileMessage(chatId: string, fileUrl: string, fileName?: strin
       fileName: fileName || 'file',
       caption: caption
     })
-  })
+  });
 
-  const text = await response.text()
-  let result: any
+  const text = await response.text();
+  let result: any;
   
   try {
-    result = JSON.parse(text)
+    result = JSON.parse(text);
   } catch (e) {
-    console.error('Green-API returned non-JSON response:', text.substring(0, 200))
-    return { error: `Invalid API response: ${text.substring(0, 100)}` }
+    console.error('Green-API returned non-JSON response:', text.substring(0, 200));
+    return { error: `Invalid API response: ${text.substring(0, 100)}` };
   }
   
   if (!response.ok) {
-    console.error('Green-API error:', result)
-    return { error: result.message || 'Failed to send file' }
+    console.error('Green-API error:', result);
+    return { error: result.message || 'Failed to send file' };
   }
   
-  return result
+  return result;
 }
 
 function getFileTypeFromUrl(url: string): string | null {
   try {
-    const urlObj = new URL(url)
-    const pathname = urlObj.pathname
-    const extension = pathname.split('.').pop()?.toLowerCase()
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname;
+    const extension = pathname.split('.').pop()?.toLowerCase();
     
-    if (!extension) return null
+    if (!extension) return null;
     
-    const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp']
-    const videoTypes = ['mp4', 'avi', 'mov', 'wmv', 'flv']
-    const audioTypes = ['mp3', 'wav', 'ogg', 'm4a']
-    const documentTypes = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']
+    const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    const videoTypes = ['mp4', 'avi', 'mov', 'wmv', 'flv'];
+    const audioTypes = ['mp3', 'wav', 'ogg', 'm4a'];
+    const documentTypes = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
     
-    if (imageTypes.includes(extension)) return 'image'
-    if (videoTypes.includes(extension)) return 'video'
-    if (audioTypes.includes(extension)) return 'audio'
-    if (documentTypes.includes(extension)) return 'document'
+    if (imageTypes.includes(extension)) return 'image';
+    if (videoTypes.includes(extension)) return 'video';
+    if (audioTypes.includes(extension)) return 'audio';
+    if (documentTypes.includes(extension)) return 'document';
     
-    return 'file'
+    return 'file';
   } catch {
-    return null
+    return null;
   }
 }
 
-// Дополнительные функции для работы с Green-API
-
-export async function getInstanceState(): Promise<any> {
-  const url = `${greenApiUrl}/waInstance${greenApiIdInstance}/getStateInstance/${greenApiToken}`
+async function getInstanceState(apiUrl: string, instanceId: string, apiToken: string): Promise<any> {
+  const url = `${apiUrl}/waInstance${instanceId}/getStateInstance/${apiToken}`;
   
-  const response = await fetch(url)
-  const text = await response.text()
+  const response = await fetch(url);
+  const text = await response.text();
   try {
-    return JSON.parse(text)
+    return JSON.parse(text);
   } catch {
     // Возвращаем "сырое" тело, чтобы увидеть, что именно прислал Green-API
-    return { raw: text, error: 'NON_JSON_RESPONSE' }
+    return { raw: text, error: 'NON_JSON_RESPONSE' };
   }
-}
-
-export async function getSettings(): Promise<any> {
-  const url = `${greenApiUrl}/waInstance${greenApiIdInstance}/getSettings/${greenApiToken}`
-  
-  const response = await fetch(url)
-  return await response.json()
-}
-
-export async function setSettings(settings: any): Promise<any> {
-  const url = `${greenApiUrl}/waInstance${greenApiIdInstance}/setSettings/${greenApiToken}`
-  
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(settings)
-  })
-  
-  return await response.json()
 }

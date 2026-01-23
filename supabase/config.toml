@@ -323,3 +323,6 @@ verify_jwt = false
 
 [functions.process-events]
 verify_jwt = false
+
+[functions.ai-settings]
+verify_jwt = true
