@@ -51,10 +51,34 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Flip the flag to stop
+    // Parse body to check for force_reset mode
+    let forceReset = false;
+    try {
+      const body = await req.json();
+      forceReset = body?.force_reset === true;
+    } catch {
+      // No body or invalid JSON - that's OK
+    }
+
+    // If force_reset, completely reset all flags
+    const updateData = forceReset 
+      ? { 
+          is_running: false, 
+          is_paused: false, 
+          requires_manual_restart: false,
+          resync_mode: false,
+          fill_ids_mode: false,
+          updated_at: new Date().toISOString()
+        }
+      : { 
+          is_running: false, 
+          is_paused: true,
+          updated_at: new Date().toISOString()
+        };
+
     const { data: updated, error: updateError } = await supabase
       .from('salebot_import_progress')
-      .update({ is_running: false, is_paused: true })
+      .update(updateData)
       .eq('id', progress.id)
       .select()
       .single();
@@ -67,8 +91,14 @@ Deno.serve(async (req) => {
       });
     }
 
+    const message = forceReset 
+      ? 'Импорт Salebot принудительно сброшен (все флаги очищены)'
+      : 'Импорт Salebot остановлен';
+
+    console.log(`✅ ${message}:`, updated);
+
     return new Response(
-      JSON.stringify({ ok: true, message: 'Импорт Salebot остановлен', progress: updated }),
+      JSON.stringify({ ok: true, message, progress: updated, forceReset }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   } catch (err) {

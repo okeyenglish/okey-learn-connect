@@ -329,23 +329,17 @@ export function SyncDashboard() {
     try {
       setIsResettingStuck(true);
       
-      const { data: progress } = await supabase
-        .from('salebot_import_progress')
-        .select('id')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .single();
+      // Use the salebot-stop Edge Function with force_reset mode
+      const response = await fetch('https://api.academyos.ru/functions/v1/salebot-stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force_reset: true })
+      });
       
-      if (progress?.id) {
-        await supabase
-          .from('salebot_import_progress')
-          .update({ 
-            is_running: false, 
-            is_paused: false,
-            resync_mode: false,
-            fill_ids_mode: false
-          })
-          .eq('id', progress.id);
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Ошибка сброса процесса');
       }
       
       // Reset local state
@@ -357,14 +351,15 @@ export function SyncDashboard() {
       setIsImporting(false);
       
       toast({
-        title: 'Зависший процесс сброшен',
-        description: 'Теперь можно запустить новый импорт.',
+        title: '✅ Процесс сброшен',
+        description: result.message || 'Все флаги очищены. Можно запустить новый импорт.',
       });
       
       await fetchProgressOnly();
     } catch (error: any) {
+      console.error('Reset error:', error);
       toast({
-        title: 'Ошибка',
+        title: 'Ошибка сброса',
         description: error.message,
         variant: 'destructive',
       });
