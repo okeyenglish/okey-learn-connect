@@ -63,3 +63,31 @@ export const realtimeQueryConfig = {
   gcTime: 1 * 60 * 1000, // Короткий кэш 1 минута
   refetchOnWindowFocus: true,
 };
+
+/**
+ * Batched query invalidation helper
+ * Groups multiple invalidations into a single batch for performance
+ */
+export const batchInvalidate = (queryClient: QueryClient, keys: string[][]) => {
+  // Use setTimeout to batch invalidations in next tick
+  setTimeout(() => {
+    keys.forEach(key => {
+      queryClient.invalidateQueries({ queryKey: key });
+    });
+  }, 0);
+};
+
+/**
+ * Smart refetch strategy - only refetch if data is stale
+ */
+export const smartRefetch = (queryClient: QueryClient, queryKey: string[]) => {
+  const state = queryClient.getQueryState(queryKey);
+  if (!state) return;
+
+  const isStale = state.dataUpdatedAt && (Date.now() - state.dataUpdatedAt > 30000);
+  const isFetching = state.fetchStatus === 'fetching';
+
+  if (isStale && !isFetching) {
+    queryClient.invalidateQueries({ queryKey });
+  }
+};
