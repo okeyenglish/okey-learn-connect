@@ -2,7 +2,6 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
 
-const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -49,6 +48,23 @@ const SCHOOL_BRIEF_PROMPT = `Ты - SEO-редактор языковой шко
 
 Верни ТОЛЬКО валидный JSON без дополнительного текста.`;
 
+async function getOpenAIKey(supabase: any, organizationId: string): Promise<string> {
+  const { data: aiSettings } = await supabase
+    .from('messenger_settings')
+    .select('settings')
+    .eq('organization_id', organizationId)
+    .eq('messenger_type', 'openai')
+    .maybeSingle();
+
+  const apiKey = aiSettings?.settings?.openaiApiKey || Deno.env.get('OPENAI_API_KEY');
+  
+  if (!apiKey) {
+    throw new Error('OpenAI API key not configured for this organization');
+  }
+  
+  return apiKey;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -63,6 +79,9 @@ serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Получаем OpenAI API Key из настроек организации
+    const openaiApiKey = await getOpenAIKey(supabase, organizationId);
 
     // Получаем идею и кластер
     const { data: idea, error: ideaError } = await supabase
@@ -99,7 +118,7 @@ serve(async (req) => {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

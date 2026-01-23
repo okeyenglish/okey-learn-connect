@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,15 +13,32 @@ serve(async (req) => {
   }
 
   try {
-    const { audioUrl } = await req.json();
+    const { audioUrl, organizationId } = await req.json();
     
     if (!audioUrl) {
       throw new Error('No audio URL provided');
     }
 
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!organizationId) {
+      throw new Error('organizationId is required');
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Получаем OpenAI API Key из настроек организации
+    const { data: aiSettings } = await supabase
+      .from('messenger_settings')
+      .select('settings')
+      .eq('organization_id', organizationId)
+      .eq('messenger_type', 'openai')
+      .maybeSingle();
+
+    const openaiApiKey = aiSettings?.settings?.openaiApiKey || Deno.env.get('OPENAI_API_KEY');
+    
     if (!openaiApiKey) {
-      throw new Error('OpenAI API key not configured');
+      throw new Error('OpenAI API key not configured for this organization');
     }
 
     console.log('Transcribing audio from URL:', audioUrl);
