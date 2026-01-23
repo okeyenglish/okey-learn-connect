@@ -73,6 +73,9 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
     gcTime: 10 * 60 * 1000, // 10 minutes cache
     refetchOnWindowFocus: true, // Refetch when window gains focus for fresh data
     refetchOnMount: 'always', // Always refetch when component mounts (chat opened)
+    // CRITICAL: Do NOT keep previous client's data - show loading state immediately
+    // This prevents showing old chat while loading new one
+    placeholderData: undefined,
   });
 };
 
