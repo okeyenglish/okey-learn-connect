@@ -7,6 +7,7 @@ const corsHeaders = {
 
 interface TelegramSettings {
   profileId: string;
+  apiToken: string;
   webhookUrl: string;
   isEnabled: boolean;
 }
@@ -27,7 +28,6 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const wappiApiToken = Deno.env.get('WAPPI_API_TOKEN');
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -69,10 +69,10 @@ Deno.serve(async (req) => {
 
     switch (req.method) {
       case 'GET':
-        return await getTelegramSettings(supabase, organizationId, wappiApiToken);
+        return await getTelegramSettings(supabase, organizationId);
       case 'POST':
         const body = await req.json();
-        return await saveTelegramSettings(supabase, organizationId, body, wappiApiToken, supabaseUrl);
+        return await saveTelegramSettings(supabase, organizationId, body, supabaseUrl);
       case 'DELETE':
         return await deleteTelegramSettings(supabase, organizationId);
       default:
@@ -92,8 +92,7 @@ Deno.serve(async (req) => {
 
 async function getTelegramSettings(
   supabase: any, 
-  organizationId: string, 
-  wappiApiToken: string | undefined
+  organizationId: string
 ): Promise<Response> {
   const { data: messengerSettings, error } = await supabase
     .from('messenger_settings')
@@ -112,15 +111,19 @@ async function getTelegramSettings(
 
   let instanceState: TelegramInstanceState | null = null;
   
-  if (messengerSettings?.settings?.profileId && wappiApiToken) {
+  // Use apiToken from settings (per-organization)
+  const apiToken = messengerSettings?.settings?.apiToken;
+  
+  if (messengerSettings?.settings?.profileId && apiToken) {
     instanceState = await checkInstanceState(
       messengerSettings.settings.profileId,
-      wappiApiToken
+      apiToken
     );
   }
 
   const settings: TelegramSettings | null = messengerSettings ? {
     profileId: messengerSettings.settings?.profileId || '',
+    apiToken: messengerSettings.settings?.apiToken ? '••••••••' + messengerSettings.settings.apiToken.slice(-4) : '',
     webhookUrl: messengerSettings.settings?.webhookUrl || '',
     isEnabled: messengerSettings.is_enabled || false
   } : null;
@@ -134,11 +137,10 @@ async function getTelegramSettings(
 async function saveTelegramSettings(
   supabase: any,
   organizationId: string,
-  body: { profileId: string; isEnabled?: boolean },
-  wappiApiToken: string | undefined,
+  body: { profileId: string; apiToken: string; isEnabled?: boolean },
   supabaseUrl: string
 ): Promise<Response> {
-  const { profileId, isEnabled = true } = body;
+  const { profileId, apiToken, isEnabled = true } = body;
 
   if (!profileId) {
     return new Response(
@@ -147,24 +149,25 @@ async function saveTelegramSettings(
     );
   }
 
-  if (!wappiApiToken) {
+  if (!apiToken) {
     return new Response(
-      JSON.stringify({ error: 'WAPPI_API_TOKEN not configured' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: 'API Token is required' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 
-  // Check instance state
-  const instanceState = await checkInstanceState(profileId, wappiApiToken);
+  // Check instance state using the provided apiToken
+  const instanceState = await checkInstanceState(profileId, apiToken);
   
   console.log('Telegram instance state:', instanceState);
 
   // Generate webhook URL
   const webhookUrl = `${supabaseUrl}/functions/v1/telegram-webhook`;
 
-  // Save settings
+  // Save settings with apiToken
   const settingsData = {
     profileId,
+    apiToken,
     webhookUrl
   };
 
@@ -190,12 +193,13 @@ async function saveTelegramSettings(
     );
   }
 
-  // Setup webhook in Wappi.pro
-  const webhookResult = await setupWebhook(profileId, webhookUrl, wappiApiToken);
+  // Setup webhook in Wappi.pro using the provided apiToken
+  const webhookResult = await setupWebhook(profileId, webhookUrl, apiToken);
   console.log('Webhook setup result:', webhookResult);
 
   const settings: TelegramSettings = {
     profileId,
+    apiToken: '••••••••' + apiToken.slice(-4), // Mask token in response
     webhookUrl,
     isEnabled
   };

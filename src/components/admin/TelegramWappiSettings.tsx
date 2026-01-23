@@ -14,7 +14,9 @@ import {
   Loader2, 
   AlertCircle, 
   ExternalLink,
-  Trash2
+  Trash2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useTelegramWappi } from '@/hooks/useTelegramWappi';
 import { useToast } from '@/hooks/use-toast';
@@ -32,6 +34,8 @@ export const TelegramWappiSettings: React.FC = () => {
   
   const { toast } = useToast();
   const [profileId, setProfileId] = useState('');
+  const [apiToken, setApiToken] = useState('');
+  const [showApiToken, setShowApiToken] = useState(false);
   const [isEnabled, setIsEnabled] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -39,6 +43,8 @@ export const TelegramWappiSettings: React.FC = () => {
   useEffect(() => {
     if (settings) {
       setProfileId(settings.profileId || '');
+      // Don't populate apiToken - it's masked from server
+      setApiToken('');
       setIsEnabled(settings.isEnabled || false);
     }
   }, [settings]);
@@ -53,15 +59,28 @@ export const TelegramWappiSettings: React.FC = () => {
       return;
     }
 
+    // If no existing settings, apiToken is required
+    if (!settings && !apiToken.trim()) {
+      toast({
+        title: "Ошибка",
+        description: "Введите API Token",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSaving(true);
-    await saveSettings(profileId.trim(), isEnabled);
+    // Pass empty string to keep existing token, or new token to update
+    await saveSettings(profileId.trim(), apiToken.trim(), isEnabled);
     setIsSaving(false);
+    setApiToken(''); // Clear after save for security
   };
 
   const handleDelete = async () => {
     if (confirm('Вы уверены, что хотите удалить настройки Telegram?')) {
       await deleteSettings();
       setProfileId('');
+      setApiToken('');
       setIsEnabled(false);
     }
   };
@@ -191,6 +210,42 @@ export const TelegramWappiSettings: React.FC = () => {
           </p>
         </div>
 
+        {/* API Token */}
+        <div className="space-y-2">
+          <Label htmlFor="apiToken">API Token</Label>
+          <div className="relative">
+            <Input
+              id="apiToken"
+              type={showApiToken ? 'text' : 'password'}
+              value={apiToken}
+              onChange={(e) => setApiToken(e.target.value)}
+              placeholder={settings?.apiToken ? 'Оставьте пустым чтобы сохранить текущий' : 'Введите API Token из Wappi.pro'}
+              className="pr-10"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+              onClick={() => setShowApiToken(!showApiToken)}
+            >
+              {showApiToken ? (
+                <EyeOff className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <Eye className="h-4 w-4 text-muted-foreground" />
+              )}
+            </Button>
+          </div>
+          {settings?.apiToken && (
+            <p className="text-xs text-muted-foreground">
+              Текущий токен: {settings.apiToken}
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            API Token можно найти в личном кабинете Wappi.pro в разделе "API"
+          </p>
+        </div>
+
         {/* Webhook URL */}
         <div className="space-y-2">
           <Label>Webhook URL</Label>
@@ -232,9 +287,9 @@ export const TelegramWappiSettings: React.FC = () => {
               </li>
               <li>Создайте Telegram профиль в личном кабинете</li>
               <li>Авторизуйте свой Telegram аккаунт по QR-коду</li>
-              <li>Скопируйте Profile ID и вставьте выше</li>
-              <li>Убедитесь, что WAPPI_API_TOKEN добавлен в секреты Supabase</li>
-              <li>Нажмите "Сохранить" для активации</li>
+              <li>Скопируйте <strong>Profile ID</strong> из раздела "Профили"</li>
+              <li>Скопируйте <strong>API Token</strong> из раздела "API"</li>
+              <li>Вставьте оба значения выше и нажмите "Сохранить"</li>
             </ol>
           </AlertDescription>
         </Alert>
