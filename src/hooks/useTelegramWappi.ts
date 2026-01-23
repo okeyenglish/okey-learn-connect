@@ -176,7 +176,7 @@ export const useTelegramWappi = () => {
   }, [toast]);
 
   const getWebhookUrl = useCallback((): string => {
-    return `https://kbojujfwtvmsgudumown.supabase.co/functions/v1/telegram-webhook`;
+    return `https://api.academyos.ru/functions/v1/telegram-webhook`;
   }, []);
 
   useEffect(() => {

@@ -104,7 +104,7 @@ export const AssistantTab = ({ teacherId, context }: AssistantTabProps) => {
 
       // Вызываем edge function для стриминга
       const response = await fetch(
-        'https://kbojujfwtvmsgudumown.supabase.co/functions/v1/teacher-assistant',
+        'https://api.academyos.ru/functions/v1/teacher-assistant',
         {
           method: 'POST',
           headers: {

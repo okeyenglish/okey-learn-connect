@@ -305,7 +305,7 @@ export const PaymentTerminalsSettings = () => {
             <h4 className="font-medium text-foreground mb-1">2. Настройте Notification URL</h4>
             <p>В личном кабинете Т-Банка укажите URL для уведомлений:</p>
             <code className="block bg-muted px-2 py-1 rounded mt-1">
-              https://kbojujfwtvmsgudumown.supabase.co/functions/v1/tbank-webhook
+              https://api.academyos.ru/functions/v1/tbank-webhook
             </code>
           </div>
           <div>

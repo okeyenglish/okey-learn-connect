@@ -157,7 +157,7 @@ export const useMaxGreenApi = () => {
   }, [toast]);
 
   const getWebhookUrl = useCallback(() => {
-    return `https://kbojujfwtvmsgudumown.supabase.co/functions/v1/max-webhook`;
+    return `https://api.academyos.ru/functions/v1/max-webhook`;
   }, []);
 
   return {
