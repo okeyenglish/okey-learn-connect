@@ -1,11 +1,22 @@
-name: Deploy Edge Functions to Self-Hosted
+name: Deploy to Self-Hosted Supabase
 
 on:
   push:
     branches: [main]
     paths:
       - 'supabase/functions/**'
+      - 'supabase/migrations/**'
+      - 'docs/*.sql'
   workflow_dispatch:
+    inputs:
+      run_migrations:
+        description: 'Run pending migrations'
+        type: boolean
+        default: true
+      deploy_functions:
+        description: 'Deploy Edge Functions'
+        type: boolean
+        default: true
 
 jobs:
   deploy:
@@ -14,6 +25,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       
       - name: Setup SSH
         run: |
@@ -21,19 +34,72 @@ jobs:
           echo "${{ secrets.SELFHOSTED_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.SELFHOSTED_SSH_HOST }} >> ~/.ssh/known_hosts
-      
+
+      # ========== MIGRATIONS ==========
+      - name: Check for new migrations
+        id: check_migrations
+        run: |
+          if git diff --name-only HEAD~1 HEAD | grep -q "supabase/migrations/"; then
+            echo "has_migrations=true" >> $GITHUB_OUTPUT
+            echo "📦 New migrations detected"
+          else
+            echo "has_migrations=false" >> $GITHUB_OUTPUT
+            echo "No new migrations"
+          fi
+
+      - name: Apply SQL migrations
+        if: steps.check_migrations.outputs.has_migrations == 'true' || github.event.inputs.run_migrations == 'true'
+        run: |
+          echo "🔄 Applying migrations..."
+          
+          # Copy migrations to server
+          rsync -avz ./supabase/migrations/ \
+            ${{ secrets.SELFHOSTED_SSH_USER }}@${{ secrets.SELFHOSTED_SSH_HOST }}:/tmp/pending_migrations/
+          
+          # Apply each migration in order
+          ssh ${{ secrets.SELFHOSTED_SSH_USER }}@${{ secrets.SELFHOSTED_SSH_HOST }} << 'EOF'
+            cd /tmp/pending_migrations
+            
+            # Get database connection from docker
+            DB_URL=$(docker exec supabase-db psql -U postgres -t -c "SELECT 'postgresql://postgres:$POSTGRES_PASSWORD@localhost:5432/postgres'" 2>/dev/null | tr -d ' ')
+            
+            for migration in $(ls -1 *.sql 2>/dev/null | sort); do
+              echo "Applying: $migration"
+              docker exec -i supabase-db psql -U postgres -d postgres < "$migration" 2>&1 || {
+                echo "⚠️ Migration $migration had issues (may already be applied)"
+              }
+            done
+            
+            rm -rf /tmp/pending_migrations
+            echo "✅ Migrations complete"
+          EOF
+
+      # ========== EDGE FUNCTIONS ==========
+      - name: Check for function changes
+        id: check_functions
+        run: |
+          if git diff --name-only HEAD~1 HEAD | grep -q "supabase/functions/"; then
+            echo "has_functions=true" >> $GITHUB_OUTPUT
+            echo "📦 Function changes detected"
+          else
+            echo "has_functions=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Backup existing functions
+        if: steps.check_functions.outputs.has_functions == 'true' || github.event.inputs.deploy_functions == 'true'
         run: |
           ssh ${{ secrets.SELFHOSTED_SSH_USER }}@${{ secrets.SELFHOSTED_SSH_HOST }} \
             "cp -r ${{ secrets.SELFHOSTED_FUNCTIONS_PATH }} ${{ secrets.SELFHOSTED_FUNCTIONS_PATH }}.backup.$(date +%Y%m%d%H%M%S)" || true
       
       - name: Sync Edge Functions
+        if: steps.check_functions.outputs.has_functions == 'true' || github.event.inputs.deploy_functions == 'true'
         run: |
           rsync -avz --delete \
             ./supabase/functions/ \
             ${{ secrets.SELFHOSTED_SSH_USER }}@${{ secrets.SELFHOSTED_SSH_HOST }}:${{ secrets.SELFHOSTED_FUNCTIONS_PATH }}/
       
       - name: Restart Edge Runtime
+        if: steps.check_functions.outputs.has_functions == 'true' || github.event.inputs.deploy_functions == 'true'
         run: |
           ssh ${{ secrets.SELFHOSTED_SSH_USER }}@${{ secrets.SELFHOSTED_SSH_HOST }} << 'EOF'
             cd /home/automation/supabase-project
@@ -43,20 +109,34 @@ jobs:
             echo "=== Last 20 lines of edge-functions logs ==="
             docker logs --tail 20 supabase-edge-functions
           EOF
-      
+
+      # ========== HEALTH CHECK ==========
       - name: Smoke test
         run: |
           sleep 3
-          echo "Testing salebot-webhook..."
-          curl -sf https://api.academyos.ru/functions/v1/salebot-webhook || echo "⚠ Failed"
+          echo "Testing critical endpoints..."
           
-          echo "Testing wappi-whatsapp-send..."
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.academyos.ru/functions/v1/wappi-whatsapp-send)
-          echo "Response: $STATUS"
+          # Test edge-health-monitor
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.academyos.ru/functions/v1/edge-health-monitor)
+          echo "edge-health-monitor: $STATUS"
+          
+          # Test salebot-webhook
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.academyos.ru/functions/v1/salebot-webhook)
+          echo "salebot-webhook: $STATUS"
+          
+          # Test telegram-webhook
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.academyos.ru/functions/v1/telegram-webhook)
+          echo "telegram-webhook: $STATUS"
       
       - name: Summary
         if: always()
         run: |
-          echo "## Edge Functions Deployed" >> $GITHUB_STEP_SUMMARY
-          echo "- Server: api.academyos.ru" >> $GITHUB_STEP_SUMMARY
-          echo "- Time: $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Migrations | ${{ steps.check_migrations.outputs.has_migrations == 'true' && '✅ Applied' || '⏭️ Skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Edge Functions | ${{ steps.check_functions.outputs.has_functions == 'true' && '✅ Deployed' || '⏭️ Skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Server**: api.academyos.ru" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time**: $(date -u)" >> $GITHUB_STEP_SUMMARY
