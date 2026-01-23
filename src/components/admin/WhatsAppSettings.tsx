@@ -103,7 +103,7 @@ export const WhatsAppSettings: React.FC = () => {
     if (!data?.webhookUrl) {
       const provider = data?.provider || 'greenapi';
       const webhookFn = provider === 'wpp' ? 'wpp-webhook' : provider === 'wappi' ? 'wappi-whatsapp-webhook' : 'whatsapp-webhook';
-      const webhookUrl = `https://kbojujfwtvmsgudumown.supabase.co/functions/v1/${webhookFn}`;
+      const webhookUrl = `https://api.academyos.ru/functions/v1/${webhookFn}`;
       setSettings(prev => ({ ...prev, webhookUrl }));
     }
   };
@@ -149,7 +149,7 @@ export const WhatsAppSettings: React.FC = () => {
       
       if (field === 'provider') {
         const webhookFn = value === 'wpp' ? 'wpp-webhook' : value === 'wappi' ? 'wappi-whatsapp-webhook' : 'whatsapp-webhook';
-        updated.webhookUrl = `https://kbojujfwtvmsgudumown.supabase.co/functions/v1/${webhookFn}`;
+        updated.webhookUrl = `https://api.academyos.ru/functions/v1/${webhookFn}`;
       }
       
       return updated;

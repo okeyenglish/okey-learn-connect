@@ -36,7 +36,7 @@ export function OnlinePBXSettings() {
   const organizationId = profile?.organization_id;
   
   // Generate webhook URL for this organization
-  const webhookUrl = `https://kbojujfwtvmsgudumown.supabase.co/functions/v1/onlinepbx-webhook`;
+  const webhookUrl = `https://api.academyos.ru/functions/v1/onlinepbx-webhook`;
 
   useEffect(() => {
     if (organizationId) {
