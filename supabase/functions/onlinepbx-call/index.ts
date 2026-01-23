@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -24,6 +23,41 @@ async function generateSignature(key: string, message: string): Promise<string> 
   const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
   const hashArray = Array.from(new Uint8Array(signature));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Get OnlinePBX config from messenger_settings (with fallback to system_settings for migration)
+async function getOnlinePBXConfig(supabase: any, organizationId: string) {
+  // First try messenger_settings (new approach)
+  const { data: messengerSettings, error: msError } = await supabase
+    .from('messenger_settings')
+    .select('settings, is_enabled')
+    .eq('organization_id', organizationId)
+    .eq('messenger_type', 'onlinepbx')
+    .maybeSingle();
+
+  if (!msError && messengerSettings?.settings) {
+    const settings = messengerSettings.settings;
+    return {
+      pbx_domain: settings.pbxDomain || settings.pbx_domain,
+      api_key_id: settings.apiKeyId || settings.api_key_id,
+      api_key_secret: settings.apiKeySecret || settings.api_key_secret,
+      is_enabled: messengerSettings.is_enabled
+    };
+  }
+
+  // Fallback to system_settings (legacy)
+  const { data: systemSettings, error: ssError } = await supabase
+    .from('system_settings')
+    .select('setting_value')
+    .eq('organization_id', organizationId)
+    .eq('setting_key', 'onlinepbx_config')
+    .maybeSingle();
+
+  if (!ssError && systemSettings?.setting_value) {
+    return systemSettings.setting_value;
+  }
+
+  return null;
 }
 
 serve(async (req) => {
@@ -57,29 +91,12 @@ serve(async (req) => {
       throw new Error('User has no organization assigned');
     }
 
-    // Get OnlinePBX config from system_settings for this organization
-    const { data: settingsData, error: settingsError } = await supabaseClient
-      .from('system_settings')
-      .select('setting_value')
-      .eq('organization_id', profile.organization_id)
-      .eq('setting_key', 'onlinepbx_config')
-      .maybeSingle();
+    // Get OnlinePBX config from messenger_settings or system_settings
+    const config = await getOnlinePBXConfig(supabaseClient, profile.organization_id);
 
-    if (settingsError) {
-      console.error('Error fetching OnlinePBX settings:', settingsError);
-      throw new Error('Failed to fetch OnlinePBX settings');
-    }
-
-    if (!settingsData?.setting_value) {
+    if (!config) {
       throw new Error('OnlinePBX не настроен для вашей организации. Обратитесь к администратору.');
     }
-
-    const config = settingsData.setting_value as {
-      pbx_domain: string;
-      api_key_id: string;
-      api_key_secret: string;
-      is_enabled: boolean;
-    };
 
     if (!config.is_enabled) {
       throw new Error('Интеграция с OnlinePBX отключена для вашей организации');

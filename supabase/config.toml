@@ -326,3 +326,6 @@ verify_jwt = false
 
 [functions.ai-settings]
 verify_jwt = true
+
+[functions.onlinepbx-settings]
+verify_jwt = true
