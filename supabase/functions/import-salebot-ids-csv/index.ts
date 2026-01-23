@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
 
 const FUNCTION_VERSION = '2026-01-15-1925';
 

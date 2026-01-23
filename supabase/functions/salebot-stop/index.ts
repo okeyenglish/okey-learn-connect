@@ -1,7 +1,7 @@
 // Stop Salebot import edge function
 // Public endpoint to force-stop ongoing Salebot chat import by flipping is_running flag
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
