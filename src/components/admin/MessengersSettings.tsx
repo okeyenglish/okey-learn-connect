@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageSquare, MessageCircle, Send, Bot } from 'lucide-react';
+import { MessageSquare, MessageCircle, Send, Bot, Sparkles } from 'lucide-react';
 import { WhatsAppSettings } from './WhatsAppSettings';
 import { MaxGreenApiSettings } from './MaxGreenApiSettings';
 import { TelegramWappiSettings } from './TelegramWappiSettings';
 import { SalebotSettings } from './SalebotSettings';
+import { OpenAISettings } from './OpenAISettings';
 import { WebhookUrlReset } from './WebhookUrlReset';
 
 export const MessengersSettings: React.FC = () => {
@@ -26,7 +27,7 @@ export const MessengersSettings: React.FC = () => {
       <WebhookUrlReset />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
+        <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
           <TabsTrigger value="whatsapp" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4 text-green-600" />
             <span className="hidden sm:inline">WhatsApp</span>
@@ -42,6 +43,10 @@ export const MessengersSettings: React.FC = () => {
           <TabsTrigger value="max" className="flex items-center gap-2">
             <MessageCircle className="h-4 w-4 text-purple-500" />
             <span className="hidden sm:inline">MAX</span>
+          </TabsTrigger>
+          <TabsTrigger value="openai" className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-emerald-500" />
+            <span className="hidden sm:inline">OpenAI</span>
           </TabsTrigger>
         </TabsList>
 
@@ -59,6 +64,10 @@ export const MessengersSettings: React.FC = () => {
 
         <TabsContent value="max" className="mt-6">
           <MaxGreenApiSettings />
+        </TabsContent>
+
+        <TabsContent value="openai" className="mt-6">
+          <OpenAISettings />
         </TabsContent>
       </Tabs>
     </div>
