@@ -314,7 +314,7 @@ $$;
   "variable": [
     {
       "key": "base_url",
-      "value": "https://kbojujfwtvmsgudumown.supabase.co/rest/v1"
+      "value": "https://api.academyos.ru/rest/v1"
     },
     {
       "key": "apikey",
