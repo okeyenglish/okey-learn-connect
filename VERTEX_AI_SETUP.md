@@ -87,7 +87,7 @@ import { VertexAITester } from '@/components/developer/VertexAITester';
 
 ```bash
 curl -X POST \
-  https://kbojujfwtvmsgudumown.supabase.co/functions/v1/test-vertex-ai \
+  https://api.academyos.ru/functions/v1/test-vertex-ai \
   -H "Authorization: Bearer YOUR_ANON_KEY" \
   -H "Content-Type: application/json" \
   -d '{
