@@ -50,7 +50,7 @@ brew install supabase/tap/supabase
 2. Выбрать проект **OKey English CRM**
 3. Скопировать **Project ref** из URL или Settings → General
 
-**Пример:** `kbojujfwtvmsgudumown`
+**Пример:** `academyos` (для self-hosted)
 
 ### 2. SUPABASE_DB_URL
 
@@ -110,9 +110,9 @@ API ключ OpenAI для работы GPT-4o.
    - **Project URL** → `SUPABASE_URL`
    - **anon public** ключ → `SUPABASE_ANON_KEY`
 
-**Примеры:**
+**Примеры (self-hosted):**
 ```
-SUPABASE_URL=https://kbojujfwtvmsgudumown.supabase.co
+SUPABASE_URL=https://api.academyos.ru
 SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
@@ -125,11 +125,11 @@ SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Создать файл `.env.deployment` в корне проекта:
 
 ```bash
-# Supabase Project
-export SUPABASE_PROJECT_REF="kbojujfwtvmsgudumown"
-export SUPABASE_DB_URL="postgresql://postgres.PROJECT_REF:PASSWORD@HOST:PORT/postgres"
+# Supabase Project (Self-Hosted)
+export SUPABASE_PROJECT_REF="academyos"
+export SUPABASE_DB_URL="postgresql://postgres:PASSWORD@db.academyos.ru:5432/postgres"
 export SUPABASE_ACCESS_TOKEN="sbp_your_token"
-export SUPABASE_URL="https://kbojujfwtvmsgudumown.supabase.co"
+export SUPABASE_URL="https://api.academyos.ru"
 export SUPABASE_ANON_KEY="eyJhbGciOi..."
 
 # OpenAI
@@ -178,43 +178,34 @@ supabase secrets list --project-ref "$SUPABASE_PROJECT_REF"
 
 ---
 
-## Деплой через Lovable
+## Деплой в Self-Hosted окружение
 
-Для деплоя в Lovable Preview окружении:
+### Шаг 1: Применить миграцию
 
-### Шаг 1: Применить миграцию вручную
-
-1. Открыть [Supabase SQL Editor](https://supabase.com/dashboard/project/kbojujfwtvmsgudumown/sql/new)
-2. Скопировать содержимое файла `supabase/migrations/20250131000000_create_apps_store.sql`
-3. Вставить в SQL Editor
-4. Нажать **Run**
-5. Дождаться успешного выполнения (зелёная галочка)
+```bash
+psql "$SUPABASE_DB_URL" -f supabase/migrations/20250131000000_create_apps_store.sql
+```
 
 ### Шаг 2: Применить Storage конфигурацию
 
-1. В том же [SQL Editor](https://supabase.com/dashboard/project/kbojujfwtvmsgudumown/sql/new)
-2. Скопировать содержимое файла `supabase/storage/apps_bucket.sql`
-3. Вставить и выполнить
-4. Проверить создание bucket в [Storage](https://supabase.com/dashboard/project/kbojujfwtvmsgudumown/storage/buckets)
+```bash
+psql "$SUPABASE_DB_URL" -f supabase/storage/apps_bucket.sql
+```
 
-### Шаг 3: Настроить секреты через Lovable UI
+### Шаг 3: Настроить секреты
 
-В Lovable:
-1. Открыть **Settings** → **Edge Functions Secrets**
-2. Добавить секрет:
-   - **Name:** `OPENAI_API_KEY`
-   - **Value:** `sk-proj-your_key`
-3. Сохранить
+```bash
+# Через Docker
+docker exec supabase-functions \
+  supabase secrets set OPENAI_API_KEY="sk-proj-your_key"
+```
 
 ### Шаг 4: Деплой Edge Functions
 
-Edge Functions автоматически деплоятся при изменении кода в Lovable.
-
-Если нужен ручной деплой:
 ```bash
-supabase functions deploy generate-app --project-ref kbojujfwtvmsgudumown
-supabase functions deploy suggest-or-generate --project-ref kbojujfwtvmsgudumown
-supabase functions deploy improve-app --project-ref kbojujfwtvmsgudumown
+supabase functions deploy generate-app --project-ref academyos
+supabase functions deploy suggest-or-generate --project-ref academyos
+supabase functions deploy improve-app --project-ref academyos
 ```
 
 ---
@@ -231,10 +222,10 @@ supabase functions deploy improve-app --project-ref kbojujfwtvmsgudumown
 
 | Name | Value | Описание |
 |------|-------|----------|
-| `SUPABASE_PROJECT_REF` | `kbojujfwtvmsgudumown` | Project ref |
+| `SUPABASE_PROJECT_REF` | `academyos` | Project ref |
 | `SUPABASE_DB_URL` | `postgresql://postgres...` | Строка подключения |
 | `SUPABASE_ACCESS_TOKEN` | `sbp_...` | CLI токен |
-| `SUPABASE_URL` | `https://...supabase.co` | Project URL |
+| `SUPABASE_URL` | `https://api.academyos.ru` | Project URL |
 | `SUPABASE_ANON_KEY` | `eyJhbGciOi...` | Anon ключ |
 | `OPENAI_API_KEY` | `sk-proj-...` | OpenAI ключ |
 
@@ -315,17 +306,12 @@ AND policyname LIKE '%apps%';
 ### 3. Проверка Edge Functions
 
 ```bash
-# Проверить список функций
-supabase functions list --project-ref kbojujfwtvmsgudumown
+# Проверить список функций (для self-hosted)
+docker logs supabase-functions
 
-# Проверить логи
-supabase functions logs generate-app --project-ref kbojujfwtvmsgudumown
+# Или через логи
+docker logs supabase-functions | grep generate-app
 ```
-
-Или через Dashboard:
-- [generate-app logs](https://supabase.com/dashboard/project/kbojujfwtvmsgudumown/functions/generate-app/logs)
-- [improve-app logs](https://supabase.com/dashboard/project/kbojujfwtvmsgudumown/functions/improve-app/logs)
-- [suggest-or-generate logs](https://supabase.com/dashboard/project/kbojujfwtvmsgudumown/functions/suggest-or-generate/logs)
 
 ### 4. E2E тест через UI
 
@@ -377,7 +363,7 @@ DELETE FROM storage.buckets WHERE id = 'apps';
 ### Откат секретов
 
 ```bash
-supabase secrets unset OPENAI_API_KEY --project-ref kbojujfwtvmsgudumown
+docker exec supabase-functions supabase secrets unset OPENAI_API_KEY
 ```
 
 ---
@@ -403,11 +389,11 @@ psql "$SUPABASE_DB_URL" -f supabase/migrations/20250131000000_create_apps_store.
 
 **Решение:**
 ```bash
-# Проверить секреты
-supabase secrets list --project-ref kbojujfwtvmsgudumown
+# Проверить секреты в self-hosted
+docker exec supabase-functions env | grep OPENAI
 
 # Установить секрет
-supabase secrets set OPENAI_API_KEY="sk-proj-..." --project-ref kbojujfwtvmsgudumown
+docker exec supabase-functions supabase secrets set OPENAI_API_KEY="sk-proj-..."
 ```
 
 ### Ошибка: "Failed to upload to storage"
@@ -447,10 +433,13 @@ CREATE EXTENSION IF NOT EXISTS vector;
 **Причина:** Функция не задеплоена или есть ошибка в коде.
 
 **Решение:**
-1. Проверить логи: [Functions → generate-app → Logs](https://supabase.com/dashboard/project/kbojujfwtvmsgudumown/functions/generate-app/logs)
+1. Проверить логи:
+   ```bash
+   docker logs supabase-functions | grep generate-app
+   ```
 2. Задеплоить заново:
    ```bash
-   supabase functions deploy generate-app --project-ref kbojujfwtvmsgudumown
+   supabase functions deploy generate-app --project-ref academyos
    ```
 3. Проверить сетевые запросы в браузере (DevTools → Network)
 
@@ -458,12 +447,9 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 ## Полезные ссылки
 
-- [Supabase SQL Editor](https://supabase.com/dashboard/project/kbojujfwtvmsgudumown/sql/new)
-- [Storage Buckets](https://supabase.com/dashboard/project/kbojujfwtvmsgudumown/storage/buckets)
-- [Edge Functions](https://supabase.com/dashboard/project/kbojujfwtvmsgudumown/functions)
-- [Edge Functions Secrets](https://supabase.com/dashboard/project/kbojujfwtvmsgudumown/settings/functions)
-- [Database Settings](https://supabase.com/dashboard/project/kbojujfwtvmsgudumown/settings/database)
-- [API Settings](https://supabase.com/dashboard/project/kbojujfwtvmsgudumown/settings/api)
+- [Supabase Self-Hosted Docs](https://supabase.com/docs/guides/self-hosting)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [Edge Functions Guide](https://supabase.com/docs/guides/functions)
 
 ---
 
