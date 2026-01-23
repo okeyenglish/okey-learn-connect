@@ -21,14 +21,6 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const wappiApiToken = Deno.env.get('WAPPI_API_TOKEN');
-
-    if (!wappiApiToken) {
-      return new Response(
-        JSON.stringify({ error: 'WAPPI_API_TOKEN not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -68,32 +60,35 @@ Deno.serve(async (req) => {
 
     const organizationId = profile.organization_id;
 
-    // Get Telegram settings
-    const { data: settings, error: settingsError } = await supabase
+    // Get Telegram settings from messenger_settings (per-organization)
+    const { data: messengerSettings, error: settingsError } = await supabase
       .from('messenger_settings')
       .select('settings, is_enabled')
       .eq('organization_id', organizationId)
       .eq('messenger_type', 'telegram')
       .maybeSingle();
 
-    if (settingsError || !settings) {
+    if (settingsError) {
+      console.error('Error fetching Telegram settings:', settingsError);
       return new Response(
-        JSON.stringify({ error: 'Telegram not configured' }),
+        JSON.stringify({ error: 'Failed to fetch Telegram settings' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!messengerSettings || !messengerSettings.is_enabled) {
+      return new Response(
+        JSON.stringify({ error: 'Telegram integration not configured or disabled' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!settings.is_enabled) {
-      return new Response(
-        JSON.stringify({ error: 'Telegram integration is disabled' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const profileId = messengerSettings.settings?.profileId;
+    const wappiApiToken = messengerSettings.settings?.apiToken;
 
-    const profileId = settings.settings?.profileId;
-    if (!profileId) {
+    if (!profileId || !wappiApiToken) {
       return new Response(
-        JSON.stringify({ error: 'Profile ID not configured' }),
+        JSON.stringify({ error: 'Telegram Profile ID or API Token not configured' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -198,7 +193,7 @@ Deno.serve(async (req) => {
     
     console.log('Sending Telegram message to:', recipient, 'usePhoneNumber:', usePhoneNumber);
 
-    // Send message via Wappi.pro
+    // Send message via Wappi.pro using per-organization apiToken
     let sendResult;
     if (fileUrl) {
       sendResult = await sendFileMessage(profileId, recipient, fileUrl, text || '', wappiApiToken);

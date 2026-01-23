@@ -21,14 +21,6 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const wappiApiToken = Deno.env.get('WAPPI_API_TOKEN');
-
-    if (!wappiApiToken) {
-      return new Response(
-        JSON.stringify({ error: 'WAPPI_API_TOKEN not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -68,22 +60,31 @@ Deno.serve(async (req) => {
 
     const organizationId = profile.organization_id;
 
-    // Get Telegram settings
-    const { data: settings, error: settingsError } = await supabase
+    // Get Telegram settings from messenger_settings (per-organization)
+    const { data: messengerSettings, error: settingsError } = await supabase
       .from('messenger_settings')
       .select('settings')
       .eq('organization_id', organizationId)
       .eq('messenger_type', 'telegram')
       .maybeSingle();
 
-    if (settingsError || !settings?.settings?.profileId) {
+    if (settingsError) {
+      console.error('Error fetching Telegram settings:', settingsError);
       return new Response(
-        JSON.stringify({ error: 'Telegram not configured' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Failed to fetch Telegram settings' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const profileId = settings.settings.profileId;
+    const profileId = messengerSettings?.settings?.profileId;
+    const wappiApiToken = messengerSettings?.settings?.apiToken;
+
+    if (!profileId || !wappiApiToken) {
+      return new Response(
+        JSON.stringify({ error: 'Telegram not configured (missing profileId or apiToken)' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const body = await req.json();
     const { clientId, chatId: providedChatId } = body;
@@ -116,7 +117,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get contact info from Wappi.pro
+    // Get contact info from Wappi.pro using per-organization apiToken
     const contactResult = await getContactInfo(profileId, chatId, wappiApiToken);
 
     if (!contactResult.success) {

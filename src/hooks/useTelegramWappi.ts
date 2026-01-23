@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export interface TelegramSettings {
   profileId: string;
+  apiToken: string;
   webhookUrl: string;
   isEnabled: boolean;
 }
@@ -57,13 +58,14 @@ export const useTelegramWappi = () => {
 
   const saveSettings = useCallback(async (
     profileId: string,
+    apiToken: string,
     isEnabled: boolean = true
   ): Promise<boolean> => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('telegram-channels', {
         method: 'POST',
-        body: { profileId, isEnabled }
+        body: { profileId, apiToken, isEnabled }
       });
 
       if (error) throw error;
