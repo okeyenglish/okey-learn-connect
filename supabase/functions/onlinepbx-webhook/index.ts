@@ -16,9 +16,9 @@ const WebhookSchema = z.object({
   uuid: z.string().optional(),
   call_duration: z.string().or(z.number()).optional(),
   dialog_duration: z.string().or(z.number()).optional(),
-  download_url: z.string().optional(), // Can be empty string
+  download_url: z.string().optional(),
   hangup_cause: z.string().optional(),
-}).passthrough(); // Allow additional fields
+}).passthrough();
 
 interface OnlinePBXWebhookData {
   call_id?: string;
@@ -30,7 +30,68 @@ interface OnlinePBXWebhookData {
   end_time?: string;
   duration?: number;
   record_url?: string;
+  domain?: string;
+  pbx_domain?: string;
+  account?: string;
   [key: string]: any;
+}
+
+// Find organization by PBX domain from messenger_settings
+async function findOrganizationByPbxDomain(supabase: any, pbxDomain: string): Promise<string | null> {
+  if (!pbxDomain) return null;
+  
+  console.log('[onlinepbx-webhook] Looking up organization by PBX domain:', pbxDomain);
+  
+  // Search in messenger_settings where messenger_type = 'onlinepbx'
+  const { data: settings, error } = await supabase
+    .from('messenger_settings')
+    .select('organization_id, settings')
+    .eq('messenger_type', 'onlinepbx')
+    .eq('is_enabled', true);
+  
+  if (error) {
+    console.error('[onlinepbx-webhook] Error searching messenger_settings:', error);
+    return null;
+  }
+  
+  if (!settings || settings.length === 0) {
+    console.log('[onlinepbx-webhook] No OnlinePBX settings found in messenger_settings');
+  } else {
+    // Find matching domain (case-insensitive, handle both formats)
+    const normalizedDomain = pbxDomain.toLowerCase().replace(/\.onpbx\.ru$/, '');
+    
+    for (const setting of settings) {
+      const settingDomain = (setting.settings?.pbxDomain || setting.settings?.pbx_domain || '').toLowerCase();
+      const normalizedSettingDomain = settingDomain.replace(/\.onpbx\.ru$/, '');
+      
+      if (normalizedSettingDomain === normalizedDomain || settingDomain === pbxDomain.toLowerCase()) {
+        console.log('[onlinepbx-webhook] Found organization:', setting.organization_id, 'for domain:', pbxDomain);
+        return setting.organization_id;
+      }
+    }
+  }
+  
+  // Fallback: try system_settings for legacy configs
+  const { data: legacySettings } = await supabase
+    .from('system_settings')
+    .select('organization_id, setting_value')
+    .eq('setting_key', 'onlinepbx_config');
+  
+  if (legacySettings) {
+    const normalizedDomain = pbxDomain.toLowerCase().replace(/\.onpbx\.ru$/, '');
+    for (const setting of legacySettings) {
+      const settingDomain = (setting.setting_value?.pbx_domain || '').toLowerCase();
+      const normalizedSettingDomain = settingDomain.replace(/\.onpbx\.ru$/, '');
+      
+      if (normalizedSettingDomain === normalizedDomain || settingDomain === pbxDomain.toLowerCase()) {
+        console.log('[onlinepbx-webhook] Found organization (legacy):', setting.organization_id, 'for domain:', pbxDomain);
+        return setting.organization_id;
+      }
+    }
+  }
+  
+  console.log('[onlinepbx-webhook] No organization found for domain:', pbxDomain);
+  return null;
 }
 
 serve(async (req) => {
@@ -39,13 +100,11 @@ serve(async (req) => {
   console.log('URL:', req.url);
   console.log('Headers:', JSON.stringify(Object.fromEntries(req.headers.entries()), null, 2));
 
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
@@ -53,23 +112,18 @@ serve(async (req) => {
       console.error('Missing Supabase environment variables');
       return new Response(
         JSON.stringify({ error: 'Configuration error' }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500 
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
+      auth: { autoRefreshToken: false, persistSession: false }
     });
 
     if (req.method === 'POST') {
       const contentType = req.headers.get('content-type') || '';
       let webhookData: OnlinePBXWebhookData = {};
+      
       try {
         if (contentType.includes('application/json')) {
           webhookData = await req.json();
@@ -97,19 +151,43 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
         );
       }
+      
       console.log('Content-Type:', contentType);
       console.log('Webhook data received:', JSON.stringify(webhookData, null, 2));
 
+      // Extract PBX domain from webhook data
+      const pbxDomain = webhookData.domain || webhookData.pbx_domain || webhookData.account || 
+                        (webhookData as any).pbx || (webhookData as any).Domain || '';
+      console.log('[onlinepbx-webhook] PBX domain from webhook:', pbxDomain);
+
+      // Determine organization by PBX domain
+      let organizationId = await findOrganizationByPbxDomain(supabase, pbxDomain);
+      
+      // If no org found by domain, use first active OnlinePBX config as fallback
+      if (!organizationId) {
+        console.log('[onlinepbx-webhook] Trying fallback: first enabled OnlinePBX config');
+        const { data: anyConfig } = await supabase
+          .from('messenger_settings')
+          .select('organization_id')
+          .eq('messenger_type', 'onlinepbx')
+          .eq('is_enabled', true)
+          .limit(1)
+          .maybeSingle();
+        
+        if (anyConfig?.organization_id) {
+          organizationId = anyConfig.organization_id;
+          console.log('[onlinepbx-webhook] Using fallback organization:', organizationId);
+        }
+      }
+
       // Map OnlinePBX event/status to our status
       const mapStatus = (event: string | undefined, hangupCause: string | undefined, pbxStatus: string | undefined): string => {
-        // First check event type - OnlinePBX sends events like "call_missed", "call_answered", etc.
         const eventLower = (event || '').toLowerCase();
         if (eventLower.includes('missed') || eventLower === 'call_missed') return 'missed';
         if (eventLower.includes('answered') || eventLower === 'call_answered') return 'answered';
         if (eventLower.includes('busy') || eventLower === 'call_busy') return 'busy';
         if (eventLower.includes('failed') || eventLower === 'call_failed') return 'failed';
         
-        // Then check hangup_cause
         const hangupMap: { [key: string]: string } = {
           'NORMAL_CLEARING': 'answered',
           'USER_BUSY': 'busy',
@@ -124,7 +202,6 @@ serve(async (req) => {
           return hangupMap[hangupCause.toUpperCase()];
         }
         
-        // Finally check status field
         const statusMap: { [key: string]: string } = {
           'ANSWER': 'answered',
           'BUSY': 'busy',
@@ -134,10 +211,9 @@ serve(async (req) => {
           'CHANUNAVAIL': 'failed',
           'HANGUP': 'answered'
         };
-        return statusMap[pbxStatus?.toUpperCase()] || 'missed'; // Default to missed for incoming calls
+        return statusMap[pbxStatus?.toUpperCase()] || 'missed';
       };
 
-      // Log event type for debugging
       const eventType = (webhookData as any).event;
       const hangupCause = (webhookData as any).hangup_cause;
       console.log('Event type:', eventType, 'Hangup cause:', hangupCause);
@@ -145,18 +221,18 @@ serve(async (req) => {
       const status = mapStatus(eventType, hangupCause, webhookData.status || (webhookData as any).call_status || '');
       let direction = (webhookData.direction as 'incoming' | 'outgoing') || (webhookData as any).call_direction || (webhookData as any)['Direction'];
       
-      // Map OnlinePBX directions to database format
-      // OnlinePBX sends: 'inbound'/'outbound', Database expects: 'incoming'/'outgoing'
       if (direction === 'inbound' || direction === 'incoming') {
         direction = 'incoming' as any;
       } else if (direction === 'outbound' || direction === 'outgoing') {
         direction = 'outgoing' as any;
       } else if (!direction) {
-        direction = 'incoming' as any; // Default to incoming if not specified
+        direction = 'incoming' as any;
       }
+      
       const rawFrom = webhookData.from || (webhookData as any).src || (webhookData as any).caller_number || (webhookData as any).caller || (webhookData as any).callerid;
       const rawTo = webhookData.to || (webhookData as any).dst || (webhookData as any).called_number || (webhookData as any).callee || (webhookData as any).calledid;
       const selectedPhone = direction === 'incoming' ? (rawFrom || rawTo) : (rawTo || rawFrom);
+      
       const normalizePhone = (p?: string) => {
         if (!p) return '';
         const digits = (p.match(/\d+/g) || []).join('');
@@ -171,27 +247,22 @@ serve(async (req) => {
         }
         return digits;
       };
+      
       const normalizedPhone = normalizePhone(selectedPhone);
       const durationSeconds = (typeof webhookData.duration === 'string' ? parseInt(webhookData.duration) : webhookData.duration) || null;
 
-      // Basic validation
       if (!normalizedPhone) {
         console.log('No phone number found in webhook data');
         return new Response(
-          JSON.stringify({ 
-            success: true, 
-            message: 'Webhook processed but no phone number found'
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200 
-          }
+          JSON.stringify({ success: true, message: 'Webhook processed but no phone number found' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
         );
       }
 
       // Try to find existing call log by call_id
       let callLog = null;
       const externalCallId = (webhookData as any).call_id || (webhookData as any).callid || (webhookData as any)['call-id'] || (webhookData as any).uniqueid || (webhookData as any).uid;
+      
       if (externalCallId) {
         console.log('Looking for existing call log with external_call_id:', externalCallId);
         const { data: existingCall, error: findError } = await supabase
@@ -200,11 +271,9 @@ serve(async (req) => {
           .eq('external_call_id', externalCallId)
           .maybeSingle();
         
-        if (findError) {
-          console.error('Error finding existing call log:', findError);
-        } else {
+        if (!findError && existingCall) {
           callLog = existingCall;
-          console.log('Found existing call log:', callLog?.id);
+          console.log('Found existing call log:', callLog.id);
         }
       }
 
@@ -219,7 +288,6 @@ serve(async (req) => {
         if (webhookData.end_time) {
           updateData.ended_at = new Date(webhookData.end_time).toISOString();
         }
-
         if (durationSeconds !== null) {
           updateData.duration_seconds = durationSeconds;
         }
@@ -236,30 +304,19 @@ serve(async (req) => {
 
         console.log(`Updated call log ${callLog.id} with status: ${status}`);
         
-        // Generate summary for updated calls longer than 60 seconds
+        // Generate summary for calls > 60 seconds
         if (durationSeconds && durationSeconds > 60 && status === 'answered' && !callLog.summary) {
-          console.log('Updated call duration > 60 seconds, generating summary for call:', callLog.id);
+          console.log('Generating summary for call:', callLog.id);
           try {
-            const summaryResponse = await supabase.functions.invoke('generate-call-summary', {
-              body: { callId: callLog.id }
-            });
-            
-            if (summaryResponse.error) {
-              console.error('Error generating call summary:', summaryResponse.error);
-            } else {
-              console.log('Call summary generated successfully');
-            }
-          } catch (summaryError) {
-            console.error('Exception generating call summary:', summaryError);
-            // Don't fail the webhook for summary generation issues
+            await supabase.functions.invoke('generate-call-summary', { body: { callId: callLog.id } });
+          } catch (e) {
+            console.error('Error generating summary:', e);
           }
         }
       } else {
-        // Check for deduplication: look for recent call from the same number within 60 seconds
+        // Check for deduplication
         const sixtySecondsAgo = new Date(Date.now() - 60000).toISOString();
-        console.log('Checking for recent calls from same number within 60 seconds...');
-        
-        const { data: recentCall, error: recentCallError } = await supabase
+        const { data: recentCall } = await supabase
           .from('call_logs')
           .select('id, status, direction, phone_number, started_at')
           .eq('phone_number', selectedPhone)
@@ -269,332 +326,137 @@ serve(async (req) => {
           .limit(1)
           .maybeSingle();
         
-        if (recentCallError) {
-          console.error('Error checking for recent calls:', recentCallError);
-        }
-        
         if (recentCall) {
-          // Found a recent call from the same number - update instead of creating new
-          console.log('Found recent call from same number, updating instead of creating new. Call ID:', recentCall.id);
+          console.log('Found recent call, updating instead of creating new. Call ID:', recentCall.id);
           
-          // Define status priority: answered > busy > failed > missed > initiated
           const statusPriority: { [key: string]: number } = {
-            'answered': 5,
-            'busy': 4,
-            'failed': 3,
-            'missed': 2,
-            'initiated': 1
+            'answered': 5, 'busy': 4, 'failed': 3, 'missed': 2, 'initiated': 1
           };
           
-          const currentPriority = statusPriority[recentCall.status] || 0;
-          const newPriority = statusPriority[status] || 0;
-          
-          // Only update if new status has higher or equal priority
-          if (newPriority >= currentPriority) {
-            console.log(`Updating status from '${recentCall.status}' to '${status}' (priority ${currentPriority} -> ${newPriority})`);
+          if ((statusPriority[status] || 0) >= (statusPriority[recentCall.status] || 0)) {
+            const updateData: any = { status, updated_at: new Date().toISOString() };
+            if (durationSeconds !== null) updateData.duration_seconds = durationSeconds;
+            if (webhookData.end_time) updateData.ended_at = new Date(webhookData.end_time).toISOString();
+            if (externalCallId) updateData.external_call_id = externalCallId;
             
-            const updateData: any = {
-              status,
-              updated_at: new Date().toISOString()
-            };
-            
-            if (durationSeconds !== null) {
-              updateData.duration_seconds = durationSeconds;
-            }
-            
-            if (webhookData.end_time) {
-              updateData.ended_at = new Date(webhookData.end_time).toISOString();
-            }
-            
-            // Update external_call_id if we have it now
-            if (externalCallId) {
-              updateData.external_call_id = externalCallId;
-            }
-            
-            const { error: dedupeUpdateError } = await supabase
-              .from('call_logs')
-              .update(updateData)
-              .eq('id', recentCall.id);
-            
-            if (dedupeUpdateError) {
-              console.error('Error updating deduplicated call log:', dedupeUpdateError);
-            } else {
-              console.log('Successfully updated existing call log via deduplication');
-            }
-          } else {
-            console.log(`Skipping status update: current '${recentCall.status}' (priority ${currentPriority}) is higher than new '${status}' (priority ${newPriority})`);
+            await supabase.from('call_logs').update(updateData).eq('id', recentCall.id);
           }
           
-          // Return success - we've handled this as a deduplicated update
           return new Response(
-            JSON.stringify({ 
-              success: true, 
-              message: 'Webhook processed - deduplicated to existing call',
-              callId: recentCall.id,
-              phoneNumber: selectedPhone,
-              normalizedPhone,
-              status,
-              deduplicated: true
-            }),
-            { 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              status: 200 
-            }
+            JSON.stringify({ success: true, message: 'Deduplicated to existing call', callId: recentCall.id, deduplicated: true }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
           );
         }
         
-        // No recent call found, create new call log entry
-        console.log('No recent call found, creating new call log for phone (normalized):', normalizedPhone);
+        // Create new call log
+        console.log('Creating new call log for phone:', normalizedPhone);
         
-        // Try to find client by phone number in clients.phone OR client_phone_numbers.phone
+        // Find client by phone
         let clientId: string | null = null;
-        try {
-          const formattedPhone = formatPhoneForSearch(normalizedPhone);
-          const variants = Array.from(new Set([
-            selectedPhone,
-            normalizedPhone,
-            '+' + normalizedPhone,
-            formattedPhone
-          ].filter(Boolean)));
-          let matched: any = null;
-
-          console.log('Searching for client with phone variants:', variants);
-
-          // First try clients.phone
-          for (const v of variants) {
-            const { data: exact, error: exactErr } = await supabase
-              .from('clients')
-              .select('id, phone')
-              .eq('phone', v as string)
-              .maybeSingle();
-            if (exactErr) {
-              console.error('Exact phone search error:', exactErr);
-            }
-            if (exact) { 
-              matched = exact; 
-              console.log('Found exact match in clients.phone:', v);
-              break; 
-            }
-          }
-
-          // Then try client_phone_numbers table
-          if (!matched) {
-            console.log('Searching in client_phone_numbers table...');
-            for (const v of variants) {
-              const { data: phoneRecord, error: phoneErr } = await supabase
-                .from('client_phone_numbers')
-                .select('client_id, phone')
-                .eq('phone', v as string)
-                .maybeSingle();
-              if (phoneErr) {
-                console.error('Phone numbers search error:', phoneErr);
-              }
-              if (phoneRecord) { 
-                matched = { id: phoneRecord.client_id, phone: phoneRecord.phone };
-                console.log('Found match in client_phone_numbers:', v);
-                break; 
-              }
-            }
-          }
-
-          // Fallback: search by last 10 digits in both tables
-          if (!matched && normalizedPhone.length >= 10) {
-            const last10 = normalizedPhone.slice(-10);
-            console.log('Fallback search with last 10 digits:', last10);
-            
-            // Try clients.phone
-            const { data: list, error: likeErr } = await supabase
-              .from('clients')
-              .select('id, phone')
-              .ilike('phone', `%${last10}`)
-              .limit(5);
-            if (likeErr) {
-              console.error('Fallback phone search error:', likeErr);
-            } else if (list && list.length > 0) {
-              matched = list[0];
-              console.log('Found fallback match in clients:', matched.phone);
-            }
-            
-            // If still not found, try client_phone_numbers
-            if (!matched) {
-              const { data: phoneList, error: phoneListErr } = await supabase
-                .from('client_phone_numbers')
-                .select('client_id, phone')
-                .ilike('phone', `%${last10}`)
-                .limit(5);
-              if (phoneListErr) {
-                console.error('Fallback phone_numbers search error:', phoneListErr);
-              } else if (phoneList && phoneList.length > 0) {
-                matched = { id: phoneList[0].client_id, phone: phoneList[0].phone };
-                console.log('Found fallback match in client_phone_numbers:', matched.phone);
-              }
-            }
-          }
-
-          if (matched) {
-            clientId = matched.id;
-            console.log('Matched client:', clientId, 'stored phone:', matched.phone);
-          } else {
-            console.log('No client found for phone:', selectedPhone);
-          }
-        } catch (e) {
-          console.error('Client lookup exception:', e);
-        }
-
-        if (!clientId) {
-          // Create new client if not found
-          console.log('Client not found, creating new client for phone:', selectedPhone);
+        const formattedPhone = formatPhoneForSearch(normalizedPhone);
+        const variants = [selectedPhone, normalizedPhone, '+' + normalizedPhone, formattedPhone].filter(Boolean);
+        
+        for (const v of variants) {
+          const { data: client } = await supabase
+            .from('clients')
+            .select('id, organization_id')
+            .eq('phone', v)
+            .maybeSingle();
           
-          // Get default organization - use hardcoded ID since is_active doesn't exist
-          const defaultOrgId = '00000000-0000-0000-0000-000000000001';
+          if (client) {
+            clientId = client.id;
+            // Use client's organization if we don't have one from domain
+            if (!organizationId && client.organization_id) {
+              organizationId = client.organization_id;
+              console.log('[onlinepbx-webhook] Using client organization:', organizationId);
+            }
+            break;
+          }
+        }
+        
+        // Try client_phone_numbers
+        if (!clientId) {
+          for (const v of variants) {
+            const { data: phoneRecord } = await supabase
+              .from('client_phone_numbers')
+              .select('client_id')
+              .eq('phone', v)
+              .maybeSingle();
+            
+            if (phoneRecord) {
+              clientId = phoneRecord.client_id;
+              break;
+            }
+          }
+        }
+        
+        // Fallback search by last 10 digits
+        if (!clientId && normalizedPhone.length >= 10) {
+          const last10 = normalizedPhone.slice(-10);
+          const { data: list } = await supabase
+            .from('clients')
+            .select('id, organization_id')
+            .ilike('phone', `%${last10}`)
+            .limit(1);
+          
+          if (list && list.length > 0) {
+            clientId = list[0].id;
+            if (!organizationId && list[0].organization_id) {
+              organizationId = list[0].organization_id;
+            }
+          }
+        }
+        
+        // Final fallback for organization
+        if (!organizationId) {
           const { data: defaultOrg } = await supabase
             .from('organizations')
             .select('id')
-            .eq('id', defaultOrgId)
+            .limit(1)
             .single();
           
-          if (!defaultOrg) {
-            console.error('No active organization found');
-            return new Response(
-              JSON.stringify({
-                success: false,
-                error: 'No active organization found'
-              }),
-              {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                status: 500
-              }
-            );
-          }
+          organizationId = defaultOrg?.id || '00000000-0000-0000-0000-000000000001';
+          console.log('[onlinepbx-webhook] Using fallback organization:', organizationId);
+        }
+        
+        // Create client if not found
+        if (!clientId && direction === 'incoming') {
+          console.log('Creating new client for phone:', selectedPhone);
           
-          // Try to find responsible employee by extension (for incoming calls)
-          let responsibleEmployeeId = null;
-          if (direction === 'incoming' && rawTo) {
-            const { data: employee } = await supabase
-              .from('profiles')
-              .select('id, first_name, last_name, extension_number')
-              .eq('extension_number', rawTo)
-              .maybeSingle();
-            
-            if (employee) {
-              responsibleEmployeeId = employee.id;
-              console.log('Found responsible employee:', employee.first_name, employee.last_name);
-            }
-          }
-          
-          // Create new client
-          const clientName = `Клиент ${formatPhoneForSearch(normalizedPhone)}`;
           const { data: newClient, error: clientError } = await supabase
             .from('clients')
             .insert({
-              name: clientName,
+              name: `Клиент ${formattedPhone}`,
               phone: selectedPhone,
-              branch: 'Окская', // Default branch
-              organization_id: defaultOrg.id,
-              notes: `Создан автоматически из звонка ${direction === 'incoming' ? 'входящего' : 'исходящего'} ${new Date().toLocaleDateString('ru-RU')}`
+              branch: 'Окская',
+              organization_id: organizationId,
+              notes: `Создан автоматически из входящего звонка ${new Date().toLocaleDateString('ru-RU')}`
             })
             .select('id')
             .single();
           
-          if (clientError) {
-            console.error('Error creating client:', clientError);
-            return new Response(
-              JSON.stringify({
-                success: false,
-                error: 'Failed to create client',
-                details: clientError.message
-              }),
-              {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                status: 500
-              }
-            );
-          }
-          
-          clientId = newClient.id;
-          console.log('Created new client with ID:', clientId);
-          
-          // Create lead for incoming calls
-          if (direction === 'incoming') {
-            console.log('Creating lead for incoming call');
+          if (!clientError && newClient) {
+            clientId = newClient.id;
+            console.log('Created new client:', clientId);
             
-            // Get "New" status
+            // Create lead for incoming calls
             const { data: newStatus } = await supabase
               .from('lead_statuses')
               .select('id')
               .eq('slug', 'new')
               .single();
             
-            // Get "Phone" source
-            const { data: phoneSource } = await supabase
-              .from('lead_sources')
-              .select('id')
-              .ilike('name', '%телефон%')
-              .limit(1)
-              .single();
-            
             if (newStatus) {
-              const { data: newLead, error: leadError } = await supabase
-                .from('leads')
-                .insert({
-                  first_name: 'Клиент',
-                  last_name: formatPhoneForSearch(normalizedPhone),
-                  phone: selectedPhone,
-                  branch: 'Окская',
-                  organization_id: defaultOrg.id,
-                  status_id: newStatus.id,
-                  lead_source_id: phoneSource?.id || null,
-                  assigned_to: responsibleEmployeeId,
-                  notes: `Создан автоматически из входящего звонка ${new Date().toLocaleString('ru-RU')}`
-                })
-                .select('id')
-                .single();
-              
-              if (leadError) {
-                console.error('Error creating lead:', leadError);
-              } else {
-                console.log('Created lead with ID:', newLead.id);
-              }
+              await supabase.from('leads').insert({
+                first_name: 'Клиент',
+                last_name: formattedPhone,
+                phone: selectedPhone,
+                branch: 'Окская',
+                organization_id: organizationId,
+                status_id: newStatus.id,
+                notes: `Создан из входящего звонка ${new Date().toLocaleString('ru-RU')}`
+              });
             }
-          }
-          
-          // Create chat message about new client
-          const systemMessage = direction === 'incoming' 
-            ? `Новый входящий звонок от ${formatPhoneForSearch(normalizedPhone)}. Клиент создан автоматически.`
-            : `Исходящий звонок на ${formatPhoneForSearch(normalizedPhone)}. Клиент создан автоматически.`;
-          
-          const { error: messageError } = await supabase
-            .from('chat_messages')
-            .insert({
-              client_id: clientId,
-              message_text: systemMessage,
-              message_type: 'system',
-              is_outgoing: false,
-              system_type: 'call_notification'
-            });
-          
-          if (messageError) {
-            console.error('Error creating system message:', messageError);
-            // Don't fail the whole process for this
-          }
-        }
-
-        // Get organization_id from the client (required for call_logs.organization_id NOT NULL)
-        // Use maybeSingle() so missing client rows don't crash the webhook.
-        let organizationId: string = '00000000-0000-0000-0000-000000000001';
-        if (clientId) {
-          const { data: clientData, error: clientOrgErr } = await supabase
-            .from('clients')
-            .select('organization_id')
-            .eq('id', clientId)
-            .maybeSingle();
-
-          if (clientOrgErr) {
-            console.error('Error fetching organization_id for client:', clientOrgErr);
-          }
-
-          if (clientData?.organization_id) {
-            organizationId = clientData.organization_id;
           }
         }
 
@@ -605,7 +467,7 @@ serve(async (req) => {
           status,
           duration_seconds: durationSeconds,
           started_at: webhookData.start_time ? new Date(webhookData.start_time).toISOString() : new Date().toISOString(),
-          external_call_id: externalCallId || (webhookData as any).call_id || null,
+          external_call_id: externalCallId || null,
           updated_at: new Date().toISOString(),
           organization_id: organizationId
         };
@@ -625,111 +487,51 @@ serve(async (req) => {
           throw insertError;
         }
 
-        console.log('Created new call log for client', clientId, 'status:', status);
+        console.log('Created call log:', newCallLog.id, 'for org:', organizationId, 'status:', status);
         
-        // Generate summary for calls longer than 60 seconds
+        // Generate summary for calls > 60 seconds
         if (durationSeconds && durationSeconds > 60 && status === 'answered') {
-          console.log('Call duration > 60 seconds, generating summary for call:', newCallLog.id);
           try {
-            const summaryResponse = await supabase.functions.invoke('generate-call-summary', {
-              body: { callId: newCallLog.id }
-            });
-            
-            if (summaryResponse.error) {
-              console.error('Error generating call summary:', summaryResponse.error);
-            } else {
-              console.log('Call summary generated successfully');
-            }
-          } catch (summaryError) {
-            console.error('Exception generating call summary:', summaryError);
-            // Don't fail the webhook for summary generation issues
+            await supabase.functions.invoke('generate-call-summary', { body: { callId: newCallLog.id } });
+          } catch (e) {
+            console.error('Error generating summary:', e);
           }
         }
         
-        // Send notification for missed incoming calls
+        // Notify about missed calls
         if (status === 'missed' && direction === 'incoming') {
-          console.log('Missed incoming call detected, sending notification...');
+          console.log('Missed incoming call, creating notification');
           
-          // Find responsible employee by extension
           let responsibleEmployeeId: string | null = null;
-          let employeeName = '';
-          
           if (rawTo) {
             const { data: employee } = await supabase
               .from('profiles')
-              .select('id, first_name, last_name, extension_number')
+              .select('id')
               .eq('extension_number', rawTo)
+              .eq('organization_id', organizationId)
               .maybeSingle();
-            
-            if (employee) {
-              responsibleEmployeeId = employee.id;
-              employeeName = `${employee.first_name || ''} ${employee.last_name || ''}`.trim();
-              console.log('Found responsible employee for notification:', employeeName);
-            }
+            responsibleEmployeeId = employee?.id || null;
           }
           
-          // Get client name if exists
-          let clientName = formatPhoneForSearch(normalizedPhone);
-          if (clientId) {
-            const { data: clientData } = await supabase
-              .from('clients')
-              .select('name')
-              .eq('id', clientId)
-              .single();
-            if (clientData?.name) {
-              clientName = clientData.name;
-            }
-          }
+          const clientName = formattedPhone;
           
-          // Create notification for the responsible employee
           if (responsibleEmployeeId) {
-            const { error: notifError } = await supabase
-              .from('notifications')
-              .insert({
-                recipient_id: responsibleEmployeeId,
-                recipient_type: 'employee',
-                title: 'Пропущенный звонок',
-                message: `Пропущенный входящий звонок от ${clientName} (${formatPhoneForSearch(normalizedPhone)})`,
-                notification_type: 'missed_call',
-                status: 'pending',
-                delivery_method: ['in_app', 'push'],
-                metadata: {
-                  call_log_id: newCallLog.id,
-                  client_id: clientId,
-                  phone_number: selectedPhone,
-                  normalized_phone: normalizedPhone
-                }
-              });
-            
-            if (notifError) {
-              console.error('Error creating missed call notification:', notifError);
-            } else {
-              console.log('Missed call notification created for employee:', employeeName);
-            }
-            
-            // Also create a system message in chat for visibility
-            const { error: chatMsgError } = await supabase
-              .from('chat_messages')
-              .insert({
-                client_id: clientId,
-                message_text: `⚠️ Пропущенный звонок! Клиент: ${clientName}. Ответственный: ${employeeName}`,
-                message_type: 'system',
-                is_outgoing: false,
-                system_type: 'missed_call_notification',
-                organization_id: organizationId
-              });
-            
-            if (chatMsgError) {
-              console.error('Error creating missed call chat message:', chatMsgError);
-            }
+            await supabase.from('notifications').insert({
+              recipient_id: responsibleEmployeeId,
+              recipient_type: 'employee',
+              title: 'Пропущенный звонок',
+              message: `Пропущенный звонок от ${clientName}`,
+              notification_type: 'missed_call',
+              status: 'pending',
+              delivery_method: ['in_app', 'push'],
+              metadata: { call_log_id: newCallLog.id, phone_number: selectedPhone }
+            });
           } else {
-            // No responsible employee found, notify all managers
-            console.log('No responsible employee found, creating general missed call notification');
-            
-            // Get all active managers
+            // Notify all managers in this organization
             const { data: managers } = await supabase
               .from('profiles')
               .select('id')
+              .eq('organization_id', organizationId)
               .in('role', ['admin', 'manager'])
               .limit(10);
             
@@ -738,46 +540,31 @@ serve(async (req) => {
                 recipient_id: m.id,
                 recipient_type: 'employee',
                 title: 'Пропущенный звонок',
-                message: `Пропущенный входящий звонок от ${clientName} (${formatPhoneForSearch(normalizedPhone)})`,
+                message: `Пропущенный звонок от ${clientName}`,
                 notification_type: 'missed_call',
                 status: 'pending',
                 delivery_method: ['in_app', 'push'],
-                metadata: {
-                  call_log_id: newCallLog.id,
-                  client_id: clientId,
-                  phone_number: selectedPhone,
-                  normalized_phone: normalizedPhone
-                }
+                metadata: { call_log_id: newCallLog.id, phone_number: selectedPhone }
               }));
               
-              const { error: bulkNotifError } = await supabase
-                .from('notifications')
-                .insert(notifications);
-              
-              if (bulkNotifError) {
-                console.error('Error creating bulk missed call notifications:', bulkNotifError);
-              } else {
-                console.log(`Created ${managers.length} missed call notifications for managers`);
-              }
+              await supabase.from('notifications').insert(notifications);
             }
-            
-            // Create system message anyway
-            if (clientId) {
-              await supabase
-                .from('chat_messages')
-                .insert({
-                  client_id: clientId,
-                  message_text: `⚠️ Пропущенный звонок от ${clientName}!`,
-                  message_type: 'system',
-                  is_outgoing: false,
-                  system_type: 'missed_call_notification',
-                  organization_id: organizationId
-                });
-            }
+          }
+          
+          // System message in chat
+          if (clientId) {
+            await supabase.from('chat_messages').insert({
+              client_id: clientId,
+              message_text: `⚠️ Пропущенный звонок от ${clientName}!`,
+              message_type: 'system',
+              is_outgoing: false,
+              system_type: 'missed_call_notification',
+              organization_id: organizationId
+            });
           }
         }
         
-        callLog = newCallLog; // Set for response
+        callLog = newCallLog;
       }
 
       return new Response(
@@ -787,40 +574,23 @@ serve(async (req) => {
           callUpdated: !!callLog,
           phoneNumber: selectedPhone,
           normalizedPhone,
-          status
+          status,
+          organizationId
         }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200 
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
 
-    // Handle non-POST requests
     return new Response(
-      JSON.stringify({ 
-        success: true,
-        message: 'OnlinePBX Webhook is running',
-        method: req.method
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
+      JSON.stringify({ success: true, message: 'OnlinePBX Webhook is running', method: req.method }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
 
   } catch (error) {
     console.error('Webhook error:', error);
-    
     return new Response(
-      JSON.stringify({ 
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
-      }
+      JSON.stringify({ error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });
