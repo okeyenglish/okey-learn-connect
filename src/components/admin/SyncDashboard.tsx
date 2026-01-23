@@ -663,16 +663,17 @@ export function SyncDashboard() {
       const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
         body: { mode: 'sync_new' }
       });
-      if (error) throw error;
+      if (error) throw new Error(await getInvokeErrorMessage(error));
       
       toast({
         title: 'Синхронизация запущена',
         description: 'Поиск новых сообщений у существующих клиентов',
       });
     } catch (error: any) {
+      const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: msg,
         variant: 'destructive',
       });
     } finally {
@@ -708,7 +709,7 @@ export function SyncDashboard() {
       const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
         body: { mode: 'resync_messages' }
       });
-      if (error) throw error;
+      if (error) throw new Error(await getInvokeErrorMessage(error));
       
       const result = data as any;
       toast({
@@ -716,9 +717,10 @@ export function SyncDashboard() {
         description: `Обработано: ${result?.processedClients || 0} клиентов, новых сообщений: ${result?.newMessages || 0}`,
       });
     } catch (error: any) {
+      const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: msg,
         variant: 'destructive',
       });
     } finally {
@@ -757,7 +759,7 @@ export function SyncDashboard() {
       const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
         body: { mode: 'background_chain' }
       });
-      if (error) throw error;
+      if (error) throw new Error(await getInvokeErrorMessage(error));
       
       toast({
         title: '🚀 Фоновый импорт запущен!',
@@ -766,9 +768,10 @@ export function SyncDashboard() {
       
       // Don't set isSyncingWithIds to false immediately - let polling show real status
     } catch (error: any) {
+      const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: msg,
         variant: 'destructive',
       });
       setIsSyncingWithIds(false);
@@ -831,7 +834,7 @@ export function SyncDashboard() {
       const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
         body: { mode: 'sync_with_salebot_ids' }
       });
-      if (error) throw error;
+      if (error) throw new Error(await getInvokeErrorMessage(error));
       
       const result = data as any;
       
@@ -873,9 +876,10 @@ export function SyncDashboard() {
           .eq('id', progress.id);
       }
     } catch (error: any) {
+      const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: msg,
         variant: 'destructive',
       });
     } finally {
@@ -911,7 +915,7 @@ export function SyncDashboard() {
       const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
         body: { mode: 'fill_salebot_ids' }
       });
-      if (error) throw error;
+      if (error) throw new Error(await getInvokeErrorMessage(error));
       
       const result = data as any;
       toast({
@@ -919,9 +923,10 @@ export function SyncDashboard() {
         description: `Обработано: ${result?.processedThisBatch || 0}, связано: ${result?.matchedThisBatch || 0}`,
       });
     } catch (error: any) {
+      const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: msg,
         variant: 'destructive',
       });
     } finally {
@@ -983,7 +988,7 @@ export function SyncDashboard() {
       const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
         body: { mode: 'sync_new_clients_only' }
       });
-      if (error) throw error;
+      if (error) throw new Error(await getInvokeErrorMessage(error));
       
       const result = data as any;
       
@@ -1026,9 +1031,10 @@ export function SyncDashboard() {
           .eq('id', progress.id);
       }
     } catch (error: any) {
+      const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: msg,
         variant: 'destructive',
       });
     } finally {
@@ -1045,7 +1051,7 @@ export function SyncDashboard() {
       const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
         body: { mode: 'full_reimport' }
       });
-      if (error) throw error;
+      if (error) throw new Error(await getInvokeErrorMessage(error));
       
       const result = data as any;
       toast({
@@ -1053,9 +1059,10 @@ export function SyncDashboard() {
         description: `Прогресс сброшен, импорт начнётся с начала списка. Клиентов: ${result?.totalClients || 0}, сообщений: ${result?.messagesImported || 0}`,
       });
     } catch (error: any) {
+      const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: msg,
         variant: 'destructive',
       });
     } finally {
