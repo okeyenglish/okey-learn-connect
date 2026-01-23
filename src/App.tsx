@@ -101,7 +101,7 @@ const WhatsAppSessions = lazy(() => import("./pages/WhatsAppSessions"));
 const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess'));
 const PaymentFail = lazy(() => import('./pages/PaymentFail'));
 const Install = lazy(() => import('./pages/Install'));
-
+const SystemMonitor = lazy(() => import('./pages/SystemMonitor'));
 // Loading component for better UX
 const LoadingComponent = () => (
   <div className="flex items-center justify-center min-h-[400px]">
@@ -462,6 +462,13 @@ const AppContent = () => {
             <Suspense fallback={<LoadingComponent />}>
               <Install />
             </Suspense>
+          } />
+          <Route path="/system-monitor" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Suspense fallback={<LoadingComponent />}>
+                <SystemMonitor />
+              </Suspense>
+            </ProtectedRoute>
           } />
           <Route path="/5000" element={
             <Suspense fallback={<LoadingComponent />}>
