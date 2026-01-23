@@ -76,6 +76,8 @@ Deno.serve(async (req) => {
 
         // Minimal fetch to ensure the worker boots and handles a request.
         const probe = new Request("http://localhost/", { method: "OPTIONS" });
+        // @ts-ignore - EdgeRuntime is available in Supabase edge-runtime
+        EdgeRuntime.applySupabaseTag(req, probe);
         const res = await worker.fetch(probe);
         await res.text();
 
@@ -159,6 +161,11 @@ Deno.serve(async (req) => {
     forwardUrl.pathname = remainderPath;
 
     const forwardedReq = new Request(forwardUrl.toString(), req);
+
+    // Apply Supabase tag to the cloned request to prevent streamRid errors
+    // @ts-ignore - EdgeRuntime is available in Supabase edge-runtime
+    EdgeRuntime.applySupabaseTag(req, forwardedReq);
+
     return await worker.fetch(forwardedReq);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
