@@ -9,10 +9,14 @@ interface LessonSession {
   id: string;
   lesson_date: string;
   start_time: string;
-  teacher_id: string;
+  teacher_name: string;
   group_id: string;
-  group_name?: string;
+  status: string;
+  reminder_sent?: boolean;
+  learning_groups?: { name: string };
 }
+
+console.log('[lesson-reminders] Function booted');
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -40,21 +44,24 @@ Deno.serve(async (req) => {
     console.log(`[lesson-reminders] Checking lessons between ${currentTime} and ${targetTime} on ${todayDate}`);
 
     // Find lessons starting in ~15 minutes that haven't been notified
+    // Using lesson_sessions table (not group_sessions)
     const { data: upcomingLessons, error: lessonsError } = await supabase
-      .from('group_sessions')
+      .from('lesson_sessions')
       .select(`
         id,
         lesson_date,
         start_time,
-        teacher_id,
+        teacher_name,
         group_id,
+        status,
         reminder_sent,
-        groups!inner(name)
+        learning_groups!inner(name)
       `)
       .eq('lesson_date', todayDate)
+      .eq('status', 'scheduled')
       .gte('start_time', currentTime)
       .lte('start_time', targetTime)
-      .neq('reminder_sent', true)
+      .or('reminder_sent.is.null,reminder_sent.eq.false')
       .limit(50);
 
     if (lessonsError) {
@@ -73,21 +80,36 @@ Deno.serve(async (req) => {
 
     const notificationResults = [];
 
-    for (const lesson of upcomingLessons) {
+    for (const lesson of upcomingLessons as LessonSession[]) {
       try {
-        const groupName = (lesson.groups as any)?.name || 'Группа';
+        const groupName = lesson.learning_groups?.name || 'Группа';
         
-        // Get teacher's user_id from teachers table
-        const { data: teacher, error: teacherError } = await supabase
+        // Find teacher by name (teacher_name contains full name like "Иван Петров")
+        const teacherNameParts = lesson.teacher_name?.split(' ') || [];
+        
+        let teacherQuery = supabase
           .from('teachers')
-          .select('user_id, first_name')
-          .eq('id', lesson.teacher_id)
-          .single();
+          .select('user_id, first_name, last_name');
+        
+        // Try to match by first_name or last_name
+        if (teacherNameParts.length >= 2) {
+          teacherQuery = teacherQuery.or(
+            `first_name.ilike.%${teacherNameParts[0]}%,last_name.ilike.%${teacherNameParts[1]}%`
+          );
+        } else if (teacherNameParts.length === 1) {
+          teacherQuery = teacherQuery.or(
+            `first_name.ilike.%${teacherNameParts[0]}%,last_name.ilike.%${teacherNameParts[0]}%`
+          );
+        }
 
-        if (teacherError || !teacher?.user_id) {
-          console.log(`[lesson-reminders] No user_id for teacher ${lesson.teacher_id}`);
+        const { data: teachers, error: teacherError } = await teacherQuery.limit(1);
+
+        if (teacherError || !teachers || teachers.length === 0 || !teachers[0]?.user_id) {
+          console.log(`[lesson-reminders] No user_id found for teacher "${lesson.teacher_name}"`);
           continue;
         }
+
+        const teacher = teachers[0];
 
         // Send push notification
         const { error: pushError } = await supabase.functions.invoke('send-push-notification', {
@@ -98,7 +120,7 @@ Deno.serve(async (req) => {
               body: `${groupName} в ${lesson.start_time}`,
               icon: '/pwa-192x192.png',
               url: '/teacher-portal?tab=schedule',
-              tag: `lesson-${lesson.id}`,
+              tag: `lesson-${lesson.id}-${Date.now()}`,
             },
           },
         });
@@ -110,14 +132,18 @@ Deno.serve(async (req) => {
         }
 
         // Mark lesson as notified
-        await supabase
-          .from('group_sessions')
+        const { error: updateError } = await supabase
+          .from('lesson_sessions')
           .update({ reminder_sent: true })
           .eq('id', lesson.id);
 
+        if (updateError) {
+          console.error(`[lesson-reminders] Failed to update reminder_sent for ${lesson.id}:`, updateError);
+        }
+
         notificationResults.push({
           lessonId: lesson.id,
-          teacherId: lesson.teacher_id,
+          teacherName: lesson.teacher_name,
           success: !pushError,
         });
 
