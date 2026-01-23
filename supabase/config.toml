@@ -296,3 +296,30 @@ verify_jwt = true
 
 [functions.lesson-reminders]
 verify_jwt = false
+
+[functions.edge-health-monitor]
+verify_jwt = false
+
+[functions.tbank-init-client]
+verify_jwt = true
+
+[functions.wpp-disconnect]
+verify_jwt = true
+
+[functions.wpp-diagnostics]
+verify_jwt = true
+
+[functions.openrouter-provisioner]
+verify_jwt = true
+
+[functions.ai-consultant]
+verify_jwt = true
+
+[functions.chat-with-ai]
+verify_jwt = true
+
+[functions.sla-monitor]
+verify_jwt = false
+
+[functions.process-events]
+verify_jwt = false
