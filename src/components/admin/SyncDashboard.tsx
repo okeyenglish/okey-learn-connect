@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useOrganization } from '@/hooks/useOrganization';
+import { getInvokeErrorMessage } from '@/lib/functionsInvokeError';
 
 interface SalebotProgress {
   totalClientsProcessed: number;
@@ -329,18 +330,15 @@ export function SyncDashboard() {
     try {
       setIsResettingStuck(true);
       
-      // Use the salebot-stop Edge Function with force_reset mode
-      const response = await fetch('https://api.academyos.ru/functions/v1/salebot-stop', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ force_reset: true })
+      const { data, error } = await supabase.functions.invoke('salebot-stop', {
+        body: { force_reset: true },
       });
-      
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.error || 'Ошибка сброса процесса');
+
+      if (error) {
+        throw new Error(await getInvokeErrorMessage(error));
       }
+
+      const result = data as any;
       
       // Reset local state
       setIsSyncingWithIds(false);
@@ -358,9 +356,10 @@ export function SyncDashboard() {
       await fetchProgressOnly();
     } catch (error: any) {
       console.error('Reset error:', error);
+      const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка сброса',
-        description: error.message,
+        description: msg,
         variant: 'destructive',
       });
     } finally {
@@ -406,7 +405,7 @@ export function SyncDashboard() {
         
         if (error) {
           console.error('Error triggering background chain:', error);
-          throw error;
+          throw new Error(await getInvokeErrorMessage(error));
         }
         
         toast({
@@ -417,9 +416,10 @@ export function SyncDashboard() {
       
       await fetchProgressOnly();
     } catch (error: any) {
+      const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: msg,
         variant: 'destructive',
       });
     } finally {
@@ -458,7 +458,7 @@ export function SyncDashboard() {
         body: { mode: 'background_chain' }
       });
       
-      if (error) throw error;
+      if (error) throw new Error(await getInvokeErrorMessage(error));
       
       toast({
         title: '🔄 Импорт продолжен',
@@ -467,9 +467,10 @@ export function SyncDashboard() {
       
       await fetchProgressOnly();
     } catch (error: any) {
+      const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: msg,
         variant: 'destructive',
       });
     } finally {
@@ -589,16 +590,17 @@ export function SyncDashboard() {
       
       // Trigger import
       const { error } = await supabase.functions.invoke('import-salebot-chats-auto');
-      if (error) throw error;
+      if (error) throw new Error(await getInvokeErrorMessage(error));
       
       toast({
         title: 'Импорт возобновлён',
         description: 'Автоматический импорт Salebot успешно запущен',
       });
     } catch (error: any) {
+      const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: msg,
         variant: 'destructive',
       });
     } finally {
@@ -611,7 +613,7 @@ export function SyncDashboard() {
       setIsRunningBatch(true);
       
       const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto');
-      if (error) throw error;
+      if (error) throw new Error(await getInvokeErrorMessage(error));
       
       const result = data as any;
       
@@ -628,9 +630,10 @@ export function SyncDashboard() {
         });
       }
     } catch (error: any) {
+      const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: msg,
         variant: 'destructive',
       });
     } finally {
