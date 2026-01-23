@@ -50,28 +50,24 @@ jobs:
       - name: Apply SQL migrations
         if: steps.check_migrations.outputs.has_migrations == 'true' || github.event.inputs.run_migrations == 'true'
         run: |
-          echo "🔄 Applying migrations..."
+          echo "🔄 Applying migrations with version tracking..."
           
           # Copy migrations to server
           rsync -avz ./supabase/migrations/ \
             ${{ secrets.SELFHOSTED_SSH_USER }}@${{ secrets.SELFHOSTED_SSH_HOST }}:/tmp/pending_migrations/
           
-          # Apply each migration in order
+          # Copy migration script
+          scp ./scripts/apply-migrations.sh \
+            ${{ secrets.SELFHOSTED_SSH_USER }}@${{ secrets.SELFHOSTED_SSH_HOST }}:/tmp/apply-migrations.sh
+          
+          # Run migration script on server
           ssh ${{ secrets.SELFHOSTED_SSH_USER }}@${{ secrets.SELFHOSTED_SSH_HOST }} << 'EOF'
-            cd /tmp/pending_migrations
+            chmod +x /tmp/apply-migrations.sh
+            /tmp/apply-migrations.sh /tmp/pending_migrations
             
-            # Get database connection from docker
-            DB_URL=$(docker exec supabase-db psql -U postgres -t -c "SELECT 'postgresql://postgres:$POSTGRES_PASSWORD@localhost:5432/postgres'" 2>/dev/null | tr -d ' ')
-            
-            for migration in $(ls -1 *.sql 2>/dev/null | sort); do
-              echo "Applying: $migration"
-              docker exec -i supabase-db psql -U postgres -d postgres < "$migration" 2>&1 || {
-                echo "⚠️ Migration $migration had issues (may already be applied)"
-              }
-            done
-            
+            # Cleanup
             rm -rf /tmp/pending_migrations
-            echo "✅ Migrations complete"
+            rm -f /tmp/apply-migrations.sh
           EOF
 
       # ========== EDGE FUNCTIONS ==========
