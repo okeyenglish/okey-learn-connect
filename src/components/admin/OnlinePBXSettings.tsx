@@ -8,68 +8,62 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Phone, Copy, CheckCircle, XCircle, RefreshCw, ExternalLink } from "lucide-react";
+import { Loader2, Phone, Copy, CheckCircle, XCircle, RefreshCw, ExternalLink, Eye, EyeOff } from "lucide-react";
 
 interface OnlinePBXConfig {
-  pbx_domain: string;
-  api_key_id: string;
-  api_key_secret: string;
-  is_enabled: boolean;
+  pbxDomain: string;
+  apiKeyId: string;
+  apiKeySecret: string;
 }
 
 const defaultConfig: OnlinePBXConfig = {
-  pbx_domain: "",
-  api_key_id: "",
-  api_key_secret: "",
-  is_enabled: false
+  pbxDomain: "",
+  apiKeyId: "",
+  apiKeySecret: ""
 };
 
 export function OnlinePBXSettings() {
   const { profile } = useAuth();
   const [config, setConfig] = useState<OnlinePBXConfig>(defaultConfig);
+  const [isEnabled, setIsEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'connected' | 'error'>('unknown');
   const [copied, setCopied] = useState(false);
+  const [configured, setConfigured] = useState(false);
+  const [showApiKeyId, setShowApiKeyId] = useState(false);
+  const [showApiKeySecret, setShowApiKeySecret] = useState(false);
 
-  const organizationId = profile?.organization_id;
-  
-  // Generate webhook URL for this organization
   const webhookUrl = `https://api.academyos.ru/functions/v1/onlinepbx-webhook`;
 
   useEffect(() => {
-    if (organizationId) {
+    if (profile?.organization_id) {
       loadSettings();
     }
-  }, [organizationId]);
+  }, [profile?.organization_id]);
 
   const loadSettings = async () => {
-    if (!organizationId) return;
-    
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('system_settings')
-        .select('setting_value')
-        .eq('organization_id', organizationId)
-        .eq('setting_key', 'onlinepbx_config')
-        .maybeSingle();
+      
+      const { data, error } = await supabase.functions.invoke('onlinepbx-settings', {
+        method: 'GET'
+      });
 
       if (error) throw error;
 
-      if (data?.setting_value) {
-        const savedConfig = data.setting_value as Record<string, unknown>;
+      if (data?.success) {
         setConfig({
-          pbx_domain: String(savedConfig.pbx_domain || ''),
-          api_key_id: String(savedConfig.api_key_id || ''),
-          api_key_secret: String(savedConfig.api_key_secret || ''),
-          is_enabled: Boolean(savedConfig.is_enabled)
+          pbxDomain: data.settings?.pbxDomain || '',
+          apiKeyId: data.settings?.apiKeyId || '',
+          apiKeySecret: data.settings?.apiKeySecret || ''
         });
+        setIsEnabled(data.isEnabled || false);
+        setConfigured(data.configured || false);
         
-        // If we have credentials, check connection status
-        if (savedConfig.api_key_id && savedConfig.api_key_secret) {
-          setConnectionStatus(savedConfig.is_enabled ? 'connected' : 'unknown');
+        if (data.configured && data.isEnabled) {
+          setConnectionStatus('connected');
         }
       }
     } catch (error) {
@@ -81,58 +75,43 @@ export function OnlinePBXSettings() {
   };
 
   const handleSave = async () => {
-    if (!organizationId) {
-      toast.error('Не удалось определить организацию');
+    if (!config.pbxDomain) {
+      toast.error('Введите домен PBX');
       return;
     }
 
-    if (!config.pbx_domain || !config.api_key_id || !config.api_key_secret) {
-      toast.error('Заполните все обязательные поля');
-      return;
+    // Only require new values if not already configured
+    if (!configured) {
+      if (!config.apiKeyId || !config.apiKeySecret) {
+        toast.error('Заполните все обязательные поля');
+        return;
+      }
     }
 
     try {
       setSaving(true);
 
-      // Check if settings exist
-      const { data: existing } = await supabase
-        .from('system_settings')
-        .select('id')
-        .eq('organization_id', organizationId)
-        .eq('setting_key', 'onlinepbx_config')
-        .maybeSingle();
+      const { data, error } = await supabase.functions.invoke('onlinepbx-settings', {
+        method: 'POST',
+        body: {
+          pbxDomain: config.pbxDomain,
+          apiKeyId: config.apiKeyId,
+          apiKeySecret: config.apiKeySecret,
+          isEnabled
+        }
+      });
 
-      const settingValue = {
-        pbx_domain: config.pbx_domain,
-        api_key_id: config.api_key_id,
-        api_key_secret: config.api_key_secret,
-        is_enabled: config.is_enabled
-      };
+      if (error) throw error;
 
-      if (existing) {
-        const { error } = await supabase
-          .from('system_settings')
-          .update({ 
-            setting_value: settingValue,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existing.id);
-        
-        if (error) throw error;
+      if (data?.success) {
+        toast.success('Настройки сохранены');
+        setConfigured(true);
+        setConnectionStatus(isEnabled ? 'connected' : 'unknown');
+        // Reload to get masked values
+        await loadSettings();
       } else {
-        const { error } = await supabase
-          .from('system_settings')
-          .insert({
-            organization_id: organizationId,
-            setting_key: 'onlinepbx_config',
-            setting_value: settingValue
-          });
-        
-        if (error) throw error;
+        throw new Error(data?.error || 'Unknown error');
       }
-
-      toast.success('Настройки сохранены');
-      setConnectionStatus(config.is_enabled ? 'connected' : 'unknown');
     } catch (error) {
       console.error('Error saving OnlinePBX settings:', error);
       toast.error('Ошибка сохранения настроек');
@@ -142,7 +121,13 @@ export function OnlinePBXSettings() {
   };
 
   const handleTestConnection = async () => {
-    if (!config.pbx_domain || !config.api_key_id || !config.api_key_secret) {
+    // For testing, we need actual values, not masked ones
+    if (config.apiKeyId?.startsWith('••••') || config.apiKeySecret?.startsWith('••••')) {
+      toast.error('Введите новые API ключи для проверки подключения');
+      return;
+    }
+
+    if (!config.pbxDomain || !config.apiKeyId || !config.apiKeySecret) {
       toast.error('Заполните все поля для проверки подключения');
       return;
     }
@@ -152,9 +137,9 @@ export function OnlinePBXSettings() {
       
       const { data, error } = await supabase.functions.invoke('test-onlinepbx', {
         body: {
-          pbx_domain: config.pbx_domain,
-          api_key_id: config.api_key_id,
-          api_key_secret: config.api_key_secret
+          pbx_domain: config.pbxDomain,
+          api_key_id: config.apiKeyId,
+          api_key_secret: config.apiKeySecret
         }
       });
 
@@ -185,6 +170,12 @@ export function OnlinePBXSettings() {
     } catch (error) {
       toast.error('Не удалось скопировать');
     }
+  };
+
+  const handleClearAndEdit = (field: 'apiKeyId' | 'apiKeySecret') => {
+    setConfig(prev => ({ ...prev, [field]: '' }));
+    if (field === 'apiKeyId') setShowApiKeyId(true);
+    if (field === 'apiKeySecret') setShowApiKeySecret(true);
   };
 
   if (loading) {
@@ -242,8 +233,8 @@ export function OnlinePBXSettings() {
             <Input
               id="pbx_domain"
               placeholder="pbx11034.onpbx.ru"
-              value={config.pbx_domain}
-              onChange={(e) => setConfig({ ...config, pbx_domain: e.target.value })}
+              value={config.pbxDomain}
+              onChange={(e) => setConfig({ ...config, pbxDomain: e.target.value })}
             />
             <p className="text-xs text-muted-foreground">
               Домен вашей АТС, например: pbx11034.onpbx.ru
@@ -252,23 +243,60 @@ export function OnlinePBXSettings() {
 
           <div className="space-y-2">
             <Label htmlFor="api_key_id">API Key ID</Label>
-            <Input
-              id="api_key_id"
-              placeholder="Идентификатор API-ключа"
-              value={config.api_key_id}
-              onChange={(e) => setConfig({ ...config, api_key_id: e.target.value })}
-            />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  id="api_key_id"
+                  type={showApiKeyId ? "text" : "password"}
+                  placeholder="Идентификатор API-ключа"
+                  value={config.apiKeyId}
+                  onChange={(e) => setConfig({ ...config, apiKeyId: e.target.value })}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3"
+                  onClick={() => setShowApiKeyId(!showApiKeyId)}
+                >
+                  {showApiKeyId ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+              {configured && config.apiKeyId?.startsWith('••••') && (
+                <Button variant="outline" size="sm" onClick={() => handleClearAndEdit('apiKeyId')}>
+                  Изменить
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="api_key_secret">API Key Secret</Label>
-            <Input
-              id="api_key_secret"
-              type="password"
-              placeholder="Секретный ключ API"
-              value={config.api_key_secret}
-              onChange={(e) => setConfig({ ...config, api_key_secret: e.target.value })}
-            />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  id="api_key_secret"
+                  type={showApiKeySecret ? "text" : "password"}
+                  placeholder="Секретный ключ API"
+                  value={config.apiKeySecret}
+                  onChange={(e) => setConfig({ ...config, apiKeySecret: e.target.value })}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3"
+                  onClick={() => setShowApiKeySecret(!showApiKeySecret)}
+                >
+                  {showApiKeySecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+              {configured && config.apiKeySecret?.startsWith('••••') && (
+                <Button variant="outline" size="sm" onClick={() => handleClearAndEdit('apiKeySecret')}>
+                  Изменить
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center justify-between pt-2">
@@ -280,8 +308,8 @@ export function OnlinePBXSettings() {
             </div>
             <Switch
               id="is_enabled"
-              checked={config.is_enabled}
-              onCheckedChange={(checked) => setConfig({ ...config, is_enabled: checked })}
+              checked={isEnabled}
+              onCheckedChange={setIsEnabled}
             />
           </div>
 
@@ -290,7 +318,11 @@ export function OnlinePBXSettings() {
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Сохранить
             </Button>
-            <Button variant="outline" onClick={handleTestConnection} disabled={testing}>
+            <Button 
+              variant="outline" 
+              onClick={handleTestConnection} 
+              disabled={testing || (config.apiKeyId?.startsWith('••••') || config.apiKeySecret?.startsWith('••••'))}
+            >
               {testing ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
