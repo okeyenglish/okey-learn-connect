@@ -25,6 +25,8 @@ import { MessengersSettings } from "./MessengersSettings";
 import { SyncDashboard } from "./SyncDashboard";
 import { PaymentTerminalsSettings } from "@/components/settings/PaymentTerminalsSettings";
 import { OnlinePBXSettings } from "./OnlinePBXSettings";
+import { WebhooksDirectory } from "./WebhooksDirectory";
+import { SystemMonitorPanel } from "./SystemMonitorPanel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -83,6 +85,10 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <BranchPhotosManager />;
       case "routing-rules":
         return <RoutingRulesSettings />;
+      case "webhooks":
+        return <WebhooksDirectory />;
+      case "system-monitor":
+        return <SystemMonitorPanel />;
       case "sync":
         return <SyncDashboard />;
       case "payment-terminals":
@@ -174,6 +180,22 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle className="text-purple-600">🔀 Правила маршрутизации</CardTitle>
                   <CardDescription>Автоответы и распределение обращений</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              {/* Webhooks */}
+              <Card className="cursor-pointer hover:bg-muted/50 border-orange-200" onClick={() => setCurrentSection("webhooks")}>
+                <CardHeader>
+                  <CardTitle className="text-orange-600">🔗 Webhooks</CardTitle>
+                  <CardDescription>Все URL для интеграций</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              {/* System Monitor */}
+              <Card className="cursor-pointer hover:bg-muted/50 border-cyan-200" onClick={() => setCurrentSection("system-monitor")}>
+                <CardHeader>
+                  <CardTitle className="text-cyan-600">📊 Мониторинг</CardTitle>
+                  <CardDescription>Edge Functions и миграции</CardDescription>
                 </CardHeader>
               </Card>
               
