@@ -329,3 +329,6 @@ verify_jwt = true
 
 [functions.onlinepbx-settings]
 verify_jwt = true
+
+[functions.migrate-onlinepbx-settings]
+verify_jwt = true
