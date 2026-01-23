@@ -55,13 +55,13 @@ export const VirtualizedChatList = React.memo(({
 }: VirtualizedChatListProps) => {
   const parentRef = useRef<HTMLDivElement>(null);
   const hoverTimerRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
-  const { prefetch } = usePrefetchMessages();
+  const { prefetch, cancelPrefetch } = usePrefetchMessages();
 
   const virtualizer = useVirtualizer({
     count: chats.length + (hasNextPage ? 1 : 0), // +1 for loading indicator
     getScrollElement: () => parentRef.current,
     estimateSize: (index) => index === chats.length ? 48 : 60, // Loading row is smaller
-    overscan: 5,
+    overscan: 8, // Increased overscan for smoother scrolling and prefetch
   });
 
   // Infinite scroll: load more only when user actually scrolls near the bottom
@@ -91,8 +91,8 @@ export const VirtualizedChatList = React.memo(({
     return () => parentElement.removeEventListener('scroll', handleScroll);
   }, [hasNextPage, onLoadMore, isFetchingNextPage]);
 
-  // Debounced prefetch on hover - only prefetch if hovering for 150ms
-  // Prioritizes unread chats for instant prefetch
+  // Optimized prefetch with instant trigger for unread chats
+  // and debounced trigger for read chats to reduce unnecessary fetches
   const handleMouseEnter = useCallback((chatId: string, hasUnread: boolean) => {
     // Clear any existing timer for this chat
     const existingTimer = hoverTimerRef.current.get(chatId);
@@ -100,8 +100,9 @@ export const VirtualizedChatList = React.memo(({
       clearTimeout(existingTimer);
     }
 
-    // Instant prefetch for unread chats, debounced for others
-    const delay = hasUnread ? 0 : 150;
+    // Instant prefetch for unread chats (user likely to click)
+    // Short delay for read chats to avoid prefetching on accidental hovers
+    const delay = hasUnread ? 0 : 100;
     
     const timer = setTimeout(() => {
       prefetch(chatId);
@@ -112,13 +113,15 @@ export const VirtualizedChatList = React.memo(({
   }, [prefetch]);
 
   const handleMouseLeave = useCallback((chatId: string) => {
-    // Cancel prefetch if user leaves before delay
+    // Cancel timer if user leaves before delay
     const timer = hoverTimerRef.current.get(chatId);
     if (timer) {
       clearTimeout(timer);
       hoverTimerRef.current.delete(chatId);
     }
-  }, []);
+    // Cancel in-flight prefetch request
+    cancelPrefetch(chatId);
+  }, [cancelPrefetch]);
 
   return (
     <div 
