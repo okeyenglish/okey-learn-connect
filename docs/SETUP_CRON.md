@@ -1,8 +1,10 @@
 # Настройка Cron Job для OpenRouter Provisioner
 
-## Метод 1: Через Supabase Dashboard (Рекомендуется)
+> **Self-Hosted:** Используется `api.academyos.ru`
 
-1. Зайдите в Supabase Dashboard → SQL Editor
+## Метод 1: Через SQL (Рекомендуется)
+
+1. Зайдите в Supabase Dashboard → SQL Editor или подключитесь к PostgreSQL
 2. Выполните следующий SQL:
 
 ```sql
@@ -11,23 +13,15 @@ SELECT cron.schedule(
   '* * * * *',
   $$
   SELECT net.http_post(
-    url := 'https://kbojujfwtvmsgudumown.supabase.co/functions/v1/openrouter-provisioner',
-    headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtib2p1amZ3dHZtc2d1ZHVtb3duIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxOTQ5MzksImV4cCI6MjA3Mzc3MDkzOX0.4SZggdlllMM8SYUo9yZKR-fR-nK4fIL4ZMciQW2EaNY"}'::jsonb,
+    url := 'https://api.academyos.ru/functions/v1/openrouter-provisioner',
+    headers := '{"Content-Type": "application/json", "Authorization": "Bearer ВСТАВЬТЕ_ANON_KEY"}'::jsonb,
     body := '{}'::jsonb
   ) AS request_id;
   $$
 );
 ```
 
-## Метод 2: Через Supabase CLI
-
-```bash
-supabase functions schedule create \
-  --project-ref kbojujfwtvmsgudumown \
-  --name openrouter-provisioner-cron \
-  --cron "* * * * *" \
-  --endpoint /functions/v1/openrouter-provisioner
-```
+**Важно:** Замените `ВСТАВЬТЕ_ANON_KEY` на актуальный anon key self-hosted инстанса.
 
 ## Проверка статуса
 
@@ -69,8 +63,8 @@ SELECT cron.schedule(
   '*/2 * * * *',
   $$
   SELECT net.http_post(
-    url := 'https://kbojujfwtvmsgudumown.supabase.co/functions/v1/openrouter-provisioner',
-    headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtib2p1amZ3dHZtc2d1ZHVtb3duIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxOTQ5MzksImV4cCI6MjA3Mzc3MDkzOX0.4SZggdlllMM8SYUo9yZKR-fR-nK4fIL4ZMciQW2EaNY"}'::jsonb,
+    url := 'https://api.academyos.ru/functions/v1/openrouter-provisioner',
+    headers := '{"Content-Type": "application/json", "Authorization": "Bearer ВСТАВЬТЕ_ANON_KEY"}'::jsonb,
     body := '{}'::jsonb
   ) AS request_id;
   $$
@@ -110,4 +104,5 @@ SELECT
 FROM cron.job_run_details
 WHERE job_name = 'openrouter-provisioner-every-minute'
   AND start_time > NOW() - INTERVAL '1 hour';
+```
 ```

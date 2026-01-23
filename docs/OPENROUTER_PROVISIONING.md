@@ -70,11 +70,11 @@ SELECT * FROM ai_key_provision_jobs;
 
 ### 2. Добавьте секреты в Edge Functions
 
-В Supabase Dashboard → Edge Functions → Secrets добавьте:
+В self-hosted Supabase добавьте секреты:
 
 ```
 OPENROUTER_PROVISIONING_KEY=sk-or-prov-xxxxxxxxxxxxx
-SUPABASE_URL=https://kbojujfwtvmsgudumown.supabase.co
+SUPABASE_URL=https://api.academyos.ru
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 OR_BATCH_SIZE=5
 OR_DELAY_MS=1100
@@ -97,7 +97,7 @@ supabase functions deploy chat-with-ai
 
 ### 4. Настройте Cron Job
 
-Используйте инструмент в Supabase Dashboard или выполните SQL:
+Используйте SQL в self-hosted PostgreSQL:
 
 ```sql
 SELECT cron.schedule(
@@ -105,8 +105,8 @@ SELECT cron.schedule(
   '* * * * *',  -- Каждую минуту
   $$
   SELECT net.http_post(
-    url := 'https://kbojujfwtvmsgudumown.supabase.co/functions/v1/openrouter-provisioner',
-    headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtib2p1amZ3dHZtc2d1ZHVtb3duIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxOTQ5MzksImV4cCI6MjA3Mzc3MDkzOX0.4SZggdlllMM8SYUo9yZKR-fR-nK4fIL4ZMciQW2EaNY"}'::jsonb,
+    url := 'https://api.academyos.ru/functions/v1/openrouter-provisioner',
+    headers := '{"Content-Type": "application/json", "Authorization": "Bearer ВСТАВЬТЕ_ANON_KEY"}'::jsonb,
     body := '{}'::jsonb
   ) AS request_id;
   $$
@@ -255,8 +255,8 @@ LIMIT 10;
 ### Ручной запуск provisioner
 
 ```bash
-curl -X POST https://kbojujfwtvmsgudumown.supabase.co/functions/v1/openrouter-provisioner \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+curl -X POST https://api.academyos.ru/functions/v1/openrouter-provisioner \
+  -H "Authorization: Bearer ВСТАВЬТЕ_ANON_KEY"
 ```
 
 ### Создать тестовую задачу
