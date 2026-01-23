@@ -112,7 +112,7 @@ export default function SupabaseDiagnostics() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzU5Nzk1MjAwLCJleHAiOjE5MTc1NjE2MDB9.tV9TS2LhlqdbfCRP9UD3kiN3WdrFUvQdGJzZagWGBeM',
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY5MDg4ODgzLCJleHAiOjE5MjY3Njg4ODN9.WEsCyaCdQvxzVObedC-A9hWTJUSwI_p9nCG1wlbaNEg',
           },
           body: JSON.stringify({
             email: `test-diagnostic-${Date.now()}@example.com`,
