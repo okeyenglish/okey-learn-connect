@@ -1628,20 +1628,80 @@ Deno.serve(async (req) => {
     }
 
     // Пытаемся получить блокировку для запуска импорта через атомарную RPC функцию
+    console.log('🔒 Вызов RPC try_acquire_import_lock...');
     const { data: lockResult, error: lockError } = await supabase.rpc('try_acquire_import_lock');
     
     if (lockError) {
-      console.error('Ошибка получения блокировки:', lockError);
+      console.error('❌ Ошибка получения блокировки:', lockError);
+      
+      // Проверяем, существует ли функция вообще
+      const isRpcMissing = lockError.message?.includes('function') && 
+                           (lockError.message?.includes('does not exist') || lockError.message?.includes('not found'));
+      
+      const errorDetail = isRpcMissing 
+        ? 'RPC функция try_acquire_import_lock не существует в базе данных. Необходимо применить миграцию.'
+        : `Ошибка RPC: ${lockError.message} (код: ${lockError.code || 'unknown'})`;
+      
+      console.error('📋 Детали ошибки:', {
+        message: lockError.message,
+        code: lockError.code,
+        details: lockError.details,
+        hint: lockError.hint,
+        isRpcMissing
+      });
+      
       return new Response(
-        JSON.stringify({ error: `Ошибка получения блокировки импорта: ${lockError.message}` }),
+        JSON.stringify({ 
+          error: errorDetail,
+          errorType: isRpcMissing ? 'RPC_MISSING' : 'RPC_ERROR',
+          details: {
+            message: lockError.message,
+            code: lockError.code,
+            hint: lockError.hint
+          }
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log('🔓 Результат RPC:', JSON.stringify(lockResult));
+
     if (!lockResult || lockResult.length === 0) {
-      console.error('Не удалось получить данные блокировки');
+      console.error('⚠️ Пустой ответ от try_acquire_import_lock - возможно нет записи прогресса');
+      
+      // Попробуем создать запись прогресса, если её нет
+      const { data: existingProgress } = await supabase
+        .from('salebot_import_progress')
+        .select('id')
+        .limit(1)
+        .maybeSingle();
+      
+      if (!existingProgress) {
+        console.log('📝 Создаём начальную запись прогресса...');
+        const { error: createError } = await supabase
+          .from('salebot_import_progress')
+          .insert({
+            is_running: false,
+            is_paused: false,
+            current_offset: 0,
+            total_clients_processed: 0,
+            total_messages_imported: 0,
+            total_imported: 0
+          });
+        
+        if (createError) {
+          console.error('Ошибка создания записи прогресса:', createError);
+        } else {
+          console.log('✅ Запись прогресса создана. Повторите запрос.');
+        }
+      }
+      
       return new Response(
-        JSON.stringify({ error: 'Не удалось получить данные блокировки' }),
+        JSON.stringify({ 
+          error: 'Не удалось получить данные блокировки. Попробуйте снова.',
+          errorType: 'NO_PROGRESS_RECORD',
+          hint: 'Запись прогресса была создана автоматически. Повторите запрос.'
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
