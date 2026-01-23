@@ -1,5 +1,6 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1'
+
+console.log('salebot-webhook function booted')
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -71,10 +72,17 @@ interface SalebotWebhookPayload {
   error_message: string | null
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
+  }
+
+  // Support GET/HEAD for health checks
+  if (req.method === 'GET' || req.method === 'HEAD') {
+    return new Response(JSON.stringify({ ok: true, service: 'salebot-webhook' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
   }
 
   try {
