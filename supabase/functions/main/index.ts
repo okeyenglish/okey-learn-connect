@@ -27,8 +27,73 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const { name: functionName, remainderPath } = extractFunctionNameAndRemainder(url.pathname);
 
-  // Health endpoint
-  if (!functionName || functionName === "main" || functionName === "v1" || functionName === "functions") {
+  // Health endpoint + diagnostics
+  if (!functionName || functionName === "v1" || functionName === "functions") {
+    return new Response(
+      JSON.stringify({ status: "ok", message: "Edge Functions ready", ts: new Date().toISOString() }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  // Diagnostic endpoint: /functions/v1/main/diag?fn=salebot-webhook
+  if (functionName === "main" && remainderPath.replace(/\/+$/, "") === "/diag") {
+    const targetFn = url.searchParams.get("fn")?.trim();
+    if (!targetFn) {
+      return new Response(
+        JSON.stringify({ error: "Missing query param fn" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const servicePathCandidates = [
+      `${targetFn}`,
+      `./${targetFn}`,
+      `../${targetFn}`,
+      `/home/deno/functions/${targetFn}`,
+      `/home/deno/functions/${targetFn}/index.ts`,
+    ];
+
+    const envVarsObj = Deno.env.toObject();
+    const envVars = Object.entries(envVarsObj);
+
+    const results: Array<{ servicePath: string; ok: boolean; error?: string }> = [];
+
+    for (const candidate of servicePathCandidates) {
+      try {
+        // @ts-ignore
+        const worker = await EdgeRuntime.userWorkers.create({
+          servicePath: candidate,
+          memoryLimitMb: 256,
+          workerTimeoutMs: 30 * 1000,
+          noModuleCache: false,
+          envVars,
+          forceCreate: true,
+          cpuTimeSoftLimitMs: 5000,
+          cpuTimeHardLimitMs: 10000,
+          staticPatterns: [],
+          context: { useReadSyncFileAPI: true },
+        });
+
+        // Minimal fetch to ensure the worker boots and handles a request.
+        const probe = new Request("http://localhost/", { method: "OPTIONS" });
+        const res = await worker.fetch(probe);
+        await res.text();
+
+        results.push({ servicePath: candidate, ok: true });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        results.push({ servicePath: candidate, ok: false, error: msg });
+      }
+    }
+
+    return new Response(
+      JSON.stringify({ fn: targetFn, results }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  // Default health for /functions/v1/main
+  if (functionName === "main") {
     return new Response(
       JSON.stringify({ status: "ok", message: "Edge Functions ready", ts: new Date().toISOString() }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
