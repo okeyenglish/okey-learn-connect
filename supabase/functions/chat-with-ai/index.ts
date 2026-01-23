@@ -1,7 +1,7 @@
 // Chat with AI using organization/teacher-specific OpenRouter keys
 // This edge function routes requests through the appropriate key
 
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
