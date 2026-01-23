@@ -20,7 +20,9 @@ import {
   Route,
   MessagesSquare,
   Banknote,
-  Phone
+  Phone,
+  Webhook,
+  MonitorCheck
 } from "lucide-react";
 import {
   Sidebar,
@@ -46,6 +48,8 @@ const adminItems = [
   { title: "Мессенджеры", id: "messengers", icon: MessagesSquare },
   { title: "Телефония", id: "telephony", icon: Phone },
   { title: "Маршрутизация", id: "routing-rules", icon: Route },
+  { title: "Webhooks", id: "webhooks", icon: Webhook },
+  { title: "Мониторинг", id: "system-monitor", icon: MonitorCheck },
   { title: "Textbooks", id: "textbooks", icon: BookOpen },
   { title: "Справочники", id: "references", icon: Database },
   { title: "Фото филиалов", id: "branch-photos", icon: Image },
