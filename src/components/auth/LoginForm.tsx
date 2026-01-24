@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Building2, AlertCircle } from 'lucide-react';
+import { Loader2, Building2, AlertCircle, QrCode } from 'lucide-react';
 
 export const LoginForm = () => {
   const { signIn, signUp, loading } = useAuth();
@@ -165,15 +165,27 @@ export const LoginForm = () => {
                     'Войти'
                   )}
                 </Button>
-                <Button
-                  type="button"
-                  variant="link"
-                  className="w-full"
-                  onClick={() => navigate('/auth/forgot-password')}
-                  disabled={isLoading}
-                >
-                  Забыли пароль?
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => navigate('/auth/qr')}
+                    disabled={isLoading}
+                  >
+                    <QrCode className="h-4 w-4 mr-2" />
+                    Войти по QR
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="flex-1"
+                    onClick={() => navigate('/auth/forgot-password')}
+                    disabled={isLoading}
+                  >
+                    Забыли пароль?
+                  </Button>
+                </div>
               </form>
             </TabsContent>
             

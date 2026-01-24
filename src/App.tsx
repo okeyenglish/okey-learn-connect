@@ -89,6 +89,7 @@ const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const TeacherRegistration = lazy(() => import('./pages/auth/TeacherRegistration'));
+const QRLogin = lazy(() => import('./pages/auth/QRLogin'));
 const SupabaseDiagnostics = lazy(() => import('./pages/SupabaseDiagnostics'));
 const HolihopeImport = lazy(() => import('./pages/HolihopeImport'));
 const SeoManager = lazy(() => import('./pages/SeoManager'));
@@ -389,6 +390,11 @@ const AppContent = () => {
           <Route path="/register/teacher/:token" element={
             <Suspense fallback={<LoadingComponent />}>
               <TeacherRegistration />
+            </Suspense>
+          } />
+          <Route path="/auth/qr" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <QRLogin />
             </Suspense>
           } />
           <Route path="/diag" element={
