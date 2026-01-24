@@ -1420,6 +1420,7 @@ const CRMContent = () => {
 
   const confirmDeleteChat = useCallback(async () => {
     if (!deleteChatDialog.chatId) return;
+    const chatName = deleteChatDialog.chatName;
     setIsDeletingChat(true);
     try {
       const { error } = await supabase
@@ -1433,12 +1434,14 @@ const CRMContent = () => {
         setActiveChatId(null);
       }
       setDeleteChatDialog({ open: false, chatId: '', chatName: '' });
+      toast.success(`Чат с "${chatName}" удалён`);
     } catch (error) {
       console.error('Error deleting chat:', error);
+      toast.error('Не удалось удалить чат');
     } finally {
       setIsDeletingChat(false);
     }
-  }, [deleteChatDialog.chatId, activeChatId, queryClient, setActiveChatId]);
+  }, [deleteChatDialog.chatId, deleteChatDialog.chatName, activeChatId, queryClient, setActiveChatId]);
 
   // Link chat handler
   const handleLinkChat = useCallback((chatId: string, chatName: string) => {
