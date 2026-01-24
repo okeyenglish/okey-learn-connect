@@ -10,7 +10,7 @@ import { Calendar, Clock, MapPin, User, BookOpen, ChevronLeft, ChevronRight, Fil
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, isSameDay, startOfWeek, endOfWeek } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 const attendanceStatusMap = {
   present: { label: 'Присутствовал', variant: 'default' as const, color: 'text-green-600' },

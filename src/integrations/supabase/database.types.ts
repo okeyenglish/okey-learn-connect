@@ -134,6 +134,7 @@ export interface OrganizationBranch {
   phone: string | null;
   email: string | null;
   is_active: boolean;
+  sort_order?: number;
   created_at: string;
   updated_at: string;
 }
@@ -193,11 +194,17 @@ export interface IndividualLessonSession {
   id: string;
   student_id: string;
   teacher_id: string | null;
+  individual_lesson_id?: string | null;
   lesson_date: string;
   start_time: string | null;
   end_time: string | null;
+  duration?: number | null;
+  paid_minutes?: number | null;
   status: string | null;
   notes: string | null;
+  payment_id?: string | null;
+  is_additional?: boolean;
+  created_by?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -213,14 +220,21 @@ export interface StudentLessonSession {
 
 export interface KwCluster {
   id: string;
-  name: string;
+  name?: string;
   organization_id: string;
+  head_term: string;
+  slug: string;
+  intent?: string;
+  members?: string[];
+  score?: number;
+  status?: string;
   created_at: string;
 }
 
 export interface ContentIdea {
   id: string;
   title: string;
+  route?: string;
   organization_id: string;
   status: string | null;
   created_at: string;
@@ -228,17 +242,65 @@ export interface ContentIdea {
 
 export interface ContentDoc {
   id: string;
-  title: string;
+  title?: string;
   organization_id: string;
+  content_idea_id?: string;
+  content_ideas?: { title: string; route: string };
+  version?: number;
+  word_count?: number;
   status: string | null;
+  published_at?: string | null;
   created_at: string;
 }
 
 export interface KwNorm {
   id: string;
-  keyword: string;
+  keyword?: string;
+  phrase: string;
   organization_id: string;
+  region?: string;
+  monthly_searches?: number;
+  difficulty?: number;
+  intent?: string;
   created_at: string;
+}
+
+export interface SeoPage {
+  id: string;
+  organization_id: string;
+  url: string;
+  title?: string;
+  analysis?: Json;
+  last_analyzed_at?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface Classroom {
+  id: string;
+  name: string;
+  branch: string | null;
+  capacity: number;
+  is_online: boolean;
+  is_active: boolean;
+  organization_id?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface TeacherSubstitution {
+  id: string;
+  original_teacher_id: string;
+  substitute_teacher_id: string | null;
+  lesson_session_id: string | null;
+  individual_lesson_session_id?: string | null;
+  substitution_date: string;
+  reason?: string;
+  notes?: string;
+  status: string;
+  created_by?: string;
+  created_at: string;
+  updated_at?: string;
 }
 
 export interface ClientPhoneNumber {
@@ -308,6 +370,8 @@ export interface Payment {
   status: string;
   description: string | null;
   payment_method: string | null;
+  method?: string | null;
+  payment_date?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -406,6 +470,15 @@ export interface Course {
   price: number | null;
   is_active: boolean;
   created_at: string;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug?: string;
+  logo_url?: string | null;
+  created_at: string;
+  updated_at?: string;
 }
 
 // ============ RPC функции ============
@@ -532,6 +605,21 @@ export interface CustomDatabase {
         Insert: Partial<KwNorm>;
         Update: Partial<KwNorm>;
       };
+      seo_pages: {
+        Row: SeoPage;
+        Insert: Partial<SeoPage>;
+        Update: Partial<SeoPage>;
+      };
+      classrooms: {
+        Row: Classroom;
+        Insert: Partial<Classroom>;
+        Update: Partial<Classroom>;
+      };
+      teacher_substitutions: {
+        Row: TeacherSubstitution;
+        Insert: Partial<TeacherSubstitution>;
+        Update: Partial<TeacherSubstitution>;
+      };
       client_phone_numbers: {
         Row: ClientPhoneNumber;
         Insert: Partial<ClientPhoneNumber>;
@@ -616,6 +704,11 @@ export interface CustomDatabase {
         Row: Course;
         Insert: Partial<Course>;
         Update: Partial<Course>;
+      };
+      organizations: {
+        Row: Organization;
+        Insert: Partial<Organization>;
+        Update: Partial<Organization>;
       };
     };
     Views: {

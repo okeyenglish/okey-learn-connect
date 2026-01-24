@@ -17,7 +17,7 @@ import { useInitOnlinePayment } from '@/hooks/usePaymentTerminals';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { calculateLessonPrice } from '@/utils/lessonPricing';
 import { extractCourseName } from '@/utils/courseNameExtractor';
 import { CreditCard, Loader2 } from 'lucide-react';
