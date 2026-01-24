@@ -338,3 +338,12 @@ verify_jwt = true
 
 [functions.refresh-chat-threads-mv]
 verify_jwt = false
+
+[functions.qr-login-generate]
+verify_jwt = false
+
+[functions.qr-login-check]
+verify_jwt = false
+
+[functions.qr-login-confirm]
+verify_jwt = false
