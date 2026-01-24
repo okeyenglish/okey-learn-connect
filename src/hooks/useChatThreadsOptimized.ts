@@ -191,7 +191,7 @@ function mapRpcToThreads(data: any[], startTime: number): ChatThread[] {
   });
 
   const threads: ChatThread[] = filteredData.map((row: any) => ({
-    client_id: row.clt_id || row.client_id, // clt_id from optimized RPC, client_id fallback
+    client_id: row.client_id, // get_chat_threads_optimized returns client_id directly
     client_name: row.client_name || '',
     client_phone: row.client_phone || '',
     client_branch: row.client_branch || null,
@@ -199,7 +199,7 @@ function mapRpcToThreads(data: any[], startTime: number): ChatThread[] {
     telegram_avatar_url: row.telegram_avatar_url || null,
     whatsapp_avatar_url: row.whatsapp_avatar_url || null,
     max_avatar_url: row.max_avatar_url || null,
-    last_message: row.last_message_text || row.last_message || '', // last_message_text from RPC
+    last_message: row.last_message_text || row.last_message || '',
     last_message_time: row.last_message_time,
     unread_count: Number(row.unread_count) || 0,
     unread_by_messenger: {
@@ -207,9 +207,9 @@ function mapRpcToThreads(data: any[], startTime: number): ChatThread[] {
       telegram: Number(row.unread_telegram) || 0,
       max: Number(row.unread_max) || 0,
       email: Number(row.unread_email) || 0,
-      calls: Number(row.unread_calls) || 0,
+      calls: Number(row.missed_calls_count) || 0,
     } as UnreadByMessenger,
-    last_unread_messenger: row.last_unread_messenger || null,
+    last_unread_messenger: row.last_unread_messenger || row.last_messenger_type || null,
     messages: []
   }));
 
