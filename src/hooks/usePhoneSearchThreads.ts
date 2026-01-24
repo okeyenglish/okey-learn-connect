@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { ChatThread, UnreadByMessenger } from './useChatMessages';
 import { isGroupChatName, isTelegramGroup } from './useCommunityChats';
 
@@ -34,8 +34,8 @@ export const usePhoneSearchThreads = (
       const results = await Promise.all(
         chunks.map(async (chunk) => {
           try {
-            const { data, error } = await supabase
-              .rpc('get_chat_threads_by_client_ids', { p_client_ids: chunk });
+            const { data, error } = await (supabase
+              .rpc as any)('get_chat_threads_by_client_ids', { p_client_ids: chunk });
 
             if (error) {
               console.error('[usePhoneSearchThreads] RPC failed for chunk, using fallback:', error);
@@ -68,8 +68,8 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
   console.log('[usePhoneSearchThreads] fetchThreadsDirectly called for:', clientIds);
 
   // Fetch clients with their phone numbers
-  const { data: clients, error: clientsError } = await supabase
-    .from('clients')
+  const { data: clients, error: clientsError } = await (supabase
+    .from('clients' as any) as any)
     .select(`
       id,
       name,
@@ -93,8 +93,8 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
   console.log('[usePhoneSearchThreads] Fetched clients:', clients?.length || 0);
 
   // Fetch last message for each client
-  const { data: messages, error: messagesError } = await supabase
-    .from('chat_messages')
+  const { data: messages, error: messagesError } = await (supabase
+    .from('chat_messages' as any) as any)
     .select('client_id, message_text, created_at, is_read, messenger_type, message_type')
     .in('client_id', clientIds)
     .order('created_at', { ascending: false })
@@ -105,8 +105,8 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
   }
 
   // Group messages by client
-  const messagesByClient = new Map<string, typeof messages>();
-  (messages || []).forEach((msg) => {
+  const messagesByClient = new Map<string, any[]>();
+  (messages || []).forEach((msg: any) => {
     if (!messagesByClient.has(msg.client_id)) {
       messagesByClient.set(msg.client_id, []);
     }
@@ -115,7 +115,7 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
 
   // Build threads
   const threads: ChatThread[] = (clients || [])
-    .filter(client => {
+    .filter((client: any) => {
       // Filter out groups
       const telegramChatId = client.telegram_chat_id;
       if (telegramChatId && isTelegramGroup(String(telegramChatId))) {
@@ -129,7 +129,7 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
     .map((client: any) => {
       const clientMessages = messagesByClient.get(client.id) || [];
       const lastMessage = clientMessages[0];
-      const unreadMessages = clientMessages.filter(m => !m.is_read && m.message_type === 'client');
+      const unreadMessages = clientMessages.filter((m: any) => !m.is_read && m.message_type === 'client');
 
       // Calculate unread by messenger
       const unreadByMessenger: UnreadByMessenger = {
@@ -139,7 +139,7 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
         email: 0,
         calls: 0,
       };
-      unreadMessages.forEach(m => {
+      unreadMessages.forEach((m: any) => {
         const type = m.messenger_type as keyof UnreadByMessenger;
         if (type in unreadByMessenger) {
           unreadByMessenger[type]++;

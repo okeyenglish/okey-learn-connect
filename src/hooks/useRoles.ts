@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 
 type AppRole = 'admin' | 'branch_manager' | 'methodist' | 'head_teacher' | 'sales_manager' | 'marketing_manager' | 'manager' | 'accountant' | 'receptionist' | 'support' | 'teacher' | 'student' | 'parent';
@@ -41,8 +41,8 @@ export const useRoles = () => {
   const fetchUserRoles = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('user_roles')
+      const { data, error } = await (supabase
+        .from('user_roles' as any) as any)
         .select('*');
       
       if (error) throw error;
@@ -63,8 +63,8 @@ export const useRoles = () => {
   const fetchRolePermissions = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('role_permissions')
+      const { data, error } = await (supabase
+        .from('role_permissions' as any) as any)
         .select('*')
         .order('role', { ascending: true })
         .order('resource', { ascending: true });
@@ -121,8 +121,8 @@ export const useRoles = () => {
       console.log('Assigning role:', { userId, role });
       
       // Проверяем, есть ли уже такая роль у пользователя
-      const { data: existingRole, error: checkError } = await supabase
-        .from('user_roles')
+      const { data: existingRole, error: checkError } = await (supabase
+        .from('user_roles' as any) as any)
         .select('id')
         .eq('user_id', userId)
         .eq('role', role)
@@ -141,8 +141,8 @@ export const useRoles = () => {
         return false;
       }
       
-      const { error } = await supabase
-        .from('user_roles')
+      const { error } = await (supabase
+        .from('user_roles' as any) as any)
         .insert({ user_id: userId, role });
       
       if (error) {
@@ -179,8 +179,8 @@ export const useRoles = () => {
   // Отозвать роль у пользователя
   const revokeRole = async (userId: string, role: AppRole) => {
     try {
-      const { error } = await supabase
-        .from('user_roles')
+      const { error } = await (supabase
+        .from('user_roles' as any) as any)
         .delete()
         .eq('user_id', userId)
         .eq('role', role);

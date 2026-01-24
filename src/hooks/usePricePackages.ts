@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 
 export interface PricePackage {
@@ -48,8 +48,8 @@ export const usePricePackages = (filters?: {
   return useQuery({
     queryKey: ['price-packages', filters],
     queryFn: async () => {
-      let query = supabase
-        .from('price_packages' as any)
+      let query = (supabase
+        .from('price_packages' as any) as any)
         .select('*')
         .order('sort_order', { ascending: true });
 
@@ -68,7 +68,7 @@ export const usePricePackages = (filters?: {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as any as PricePackage[];
+      return (data || []) as PricePackage[];
     },
   });
 };
@@ -78,14 +78,14 @@ export const usePricePackage = (id?: string) => {
   return useQuery({
     queryKey: ['price-package', id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('price_packages' as any)
+      const { data, error } = await (supabase
+        .from('price_packages' as any) as any)
         .select('*')
         .eq('id', id)
         .single();
 
       if (error) throw error;
-      return data as any as PricePackage;
+      return data as PricePackage;
     },
     enabled: !!id,
   });
@@ -99,8 +99,8 @@ export const useUpsertPricePackage = () => {
   return useMutation({
     mutationFn: async (pkg: Partial<PricePackage> & { name: string; hours_count: number; price: number }) => {
       if (pkg.id) {
-        const { data, error } = await supabase
-          .from('price_packages' as any)
+        const { data, error } = await (supabase
+          .from('price_packages' as any) as any)
           .update({
             name: pkg.name,
             description: pkg.description,
@@ -127,8 +127,8 @@ export const useUpsertPricePackage = () => {
         if (error) throw error;
         return data;
       } else {
-        const { data, error } = await supabase
-          .from('price_packages' as any)
+        const { data, error } = await (supabase
+          .from('price_packages' as any) as any)
           .insert({
             name: pkg.name,
             description: pkg.description,
@@ -179,8 +179,8 @@ export const useDeletePricePackage = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('price_packages' as any)
+      const { error } = await (supabase
+        .from('price_packages' as any) as any)
         .delete()
         .eq('id', id);
 
@@ -213,8 +213,8 @@ export const useFreezePayment = () => {
       const today = new Date().toISOString().split('T')[0];
 
       // Создаём запись о заморозке
-      const { error: freezeError } = await supabase
-        .from('payment_freezes' as any)
+      const { error: freezeError } = await (supabase
+        .from('payment_freezes' as any) as any)
         .insert({
           payment_id: paymentId,
           freeze_start: today,
@@ -224,12 +224,12 @@ export const useFreezePayment = () => {
       if (freezeError) throw freezeError;
 
       // Обновляем оплату
-      const { error: paymentError } = await supabase
-        .from('payments')
+      const { error: paymentError } = await (supabase
+        .from('payments' as any) as any)
         .update({
           is_frozen: true,
           frozen_at: today,
-        } as any)
+        })
         .eq('id', paymentId);
 
       if (paymentError) throw paymentError;
@@ -262,8 +262,8 @@ export const useUnfreezePayment = () => {
       const today = new Date().toISOString().split('T')[0];
 
       // Получаем текущую заморозку
-      const { data: payment } = await supabase
-        .from('payments')
+      const { data: payment } = await (supabase
+        .from('payments' as any) as any)
         .select('frozen_at, freeze_days_used')
         .eq('id', paymentId)
         .single();
@@ -282,16 +282,16 @@ export const useUnfreezePayment = () => {
       }
 
       // Обновляем последнюю запись заморозки
-      const { data: freezes } = await supabase
-        .from('payment_freezes' as any)
+      const { data: freezes } = await (supabase
+        .from('payment_freezes' as any) as any)
         .select('id')
         .eq('payment_id', paymentId)
         .is('freeze_end', null)
         .limit(1);
 
       if (freezes && freezes.length > 0) {
-        await supabase
-          .from('payment_freezes' as any)
+        await (supabase
+          .from('payment_freezes' as any) as any)
           .update({
             freeze_end: today,
             days_count: additionalDays,
@@ -300,8 +300,8 @@ export const useUnfreezePayment = () => {
       }
 
       // Обновляем оплату и продлеваем срок действия
-      const { data: fullPayment } = await supabase
-        .from('payments')
+      const { data: fullPayment } = await (supabase
+        .from('payments' as any) as any)
         .select('expires_at')
         .eq('id', paymentId)
         .single();
@@ -323,8 +323,8 @@ export const useUnfreezePayment = () => {
         updateData.expires_at = newExpiresAt;
       }
 
-      const { error } = await supabase
-        .from('payments')
+      const { error } = await (supabase
+        .from('payments' as any) as any)
         .update(updateData)
         .eq('id', paymentId);
 
@@ -353,14 +353,14 @@ export const usePaymentFreezes = (paymentId?: string) => {
   return useQuery({
     queryKey: ['payment-freezes', paymentId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('payment_freezes' as any)
+      const { data, error } = await (supabase
+        .from('payment_freezes' as any) as any)
         .select('*')
         .eq('payment_id', paymentId)
         .order('freeze_start', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as any as PaymentFreeze[];
+      return (data || []) as PaymentFreeze[];
     },
     enabled: !!paymentId,
   });

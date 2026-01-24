@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { format } from 'date-fns';
 
 export interface SchoolLesson {
@@ -46,8 +46,8 @@ export const useSchoolCalendar = (startDate?: Date, endDate?: Date, branch?: str
       const end = format(endDate, 'yyyy-MM-dd');
 
       // Получаем все групповые занятия
-      const groupQuery = supabase
-        .from('lesson_sessions' as any)
+      const groupQuery = (supabase
+        .from('lesson_sessions' as any) as any)
         .select(`
           id,
           lesson_date,
@@ -65,8 +65,8 @@ export const useSchoolCalendar = (startDate?: Date, endDate?: Date, branch?: str
       let groupsData: any[] = [];
       
       if (groupIds.length > 0) {
-        const { data } = await supabase
-          .from('learning_groups' as any)
+        const { data } = await (supabase
+          .from('learning_groups' as any) as any)
           .select(`
             id,
             name,
@@ -84,8 +84,8 @@ export const useSchoolCalendar = (startDate?: Date, endDate?: Date, branch?: str
       }
 
       // Получаем индивидуальные занятия
-      const individualQuery = supabase
-        .from('individual_lesson_sessions' as any)
+      const individualQuery = (supabase
+        .from('individual_lesson_sessions' as any) as any)
         .select(`
           id,
           lesson_date,
@@ -103,8 +103,8 @@ export const useSchoolCalendar = (startDate?: Date, endDate?: Date, branch?: str
       let lessonsData: any[] = [];
       
       if (lessonIds.length > 0) {
-        const { data } = await supabase
-          .from('individual_lessons' as any)
+        const { data } = await (supabase
+          .from('individual_lessons' as any) as any)
           .select(`
             id,
             subject,
@@ -191,8 +191,8 @@ export const useClassroomSchedule = (branch?: string, date?: string) => {
       if (!branch || !date || branch === 'all') return [];
 
       // Получаем список кабинетов филиала
-      const { data: classrooms } = await supabase
-        .from('classrooms' as any)
+      const { data: classrooms } = await (supabase
+        .from('classrooms' as any) as any)
         .select('name, branch, capacity')
         .eq('branch', branch)
         .eq('is_active', true);
@@ -203,8 +203,8 @@ export const useClassroomSchedule = (branch?: string, date?: string) => {
       const start = format(new Date(date), 'yyyy-MM-dd');
       const end = start;
 
-      const groupQuery = supabase
-        .from('lesson_sessions' as any)
+      const groupQuery = (supabase
+        .from('lesson_sessions' as any) as any)
         .select(`
           id,
           lesson_date,
@@ -220,8 +220,8 @@ export const useClassroomSchedule = (branch?: string, date?: string) => {
       let groupsData: any[] = [];
       
       if (groupIds.length > 0) {
-        const { data } = await supabase
-          .from('learning_groups' as any)
+        const { data } = await (supabase
+          .from('learning_groups' as any) as any)
           .select(`
             id,
             name,
@@ -238,8 +238,8 @@ export const useClassroomSchedule = (branch?: string, date?: string) => {
         groupsData = data || [];
       }
 
-      const individualQuery = supabase
-        .from('individual_lesson_sessions' as any)
+      const individualQuery = (supabase
+        .from('individual_lesson_sessions' as any) as any)
         .select(`
           id,
           lesson_date,
@@ -255,8 +255,8 @@ export const useClassroomSchedule = (branch?: string, date?: string) => {
       let lessonsData: any[] = [];
       
       if (lessonIds.length > 0) {
-        const { data } = await supabase
-          .from('individual_lessons' as any)
+        const { data } = await (supabase
+          .from('individual_lessons' as any) as any)
           .select(`
             id,
             subject,

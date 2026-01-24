@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 
 // Типы для справочников
@@ -73,8 +73,8 @@ export const useSubjects = () => {
   return useQuery({
     queryKey: ['subjects'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('subjects')
+      const { data, error } = await (supabase
+        .from('subjects' as any) as any)
         .select('*')
         .order('sort_order', { ascending: true });
 
@@ -90,8 +90,8 @@ export const useCreateSubject = () => {
 
   return useMutation({
     mutationFn: async (subjectData: Omit<Subject, 'id' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await supabase
-        .from('subjects')
+      const { data, error } = await (supabase
+        .from('subjects' as any) as any)
         .insert(subjectData)
         .select()
         .single();
@@ -122,8 +122,8 @@ export const useUpdateSubject = () => {
 
   return useMutation({
     mutationFn: async (subjectData: Partial<Subject> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('subjects')
+      const { data, error } = await (supabase
+        .from('subjects' as any) as any)
         .update(subjectData)
         .eq('id', subjectData.id)
         .select()
@@ -155,8 +155,8 @@ export const useDeleteSubject = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('subjects')
+      const { error } = await (supabase
+        .from('subjects' as any) as any)
         .delete()
         .eq('id', id);
 
@@ -184,8 +184,8 @@ export const useProficiencyLevels = () => {
   return useQuery({
     queryKey: ['proficiency-levels'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('proficiency_levels')
+      const { data, error } = await (supabase
+        .from('proficiency_levels' as any) as any)
         .select('*')
         .order('level_order', { ascending: true });
 
@@ -201,8 +201,8 @@ export const useCreateProficiencyLevel = () => {
 
   return useMutation({
     mutationFn: async (levelData: Omit<ProficiencyLevel, 'id' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await supabase
-        .from('proficiency_levels')
+      const { data, error } = await (supabase
+        .from('proficiency_levels' as any) as any)
         .insert(levelData)
         .select()
         .single();
@@ -232,8 +232,8 @@ export const useLearningFormats = () => {
   return useQuery({
     queryKey: ['learning-formats'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('learning_formats')
+      const { data, error } = await (supabase
+        .from('learning_formats' as any) as any)
         .select('*')
         .order('name', { ascending: true });
 
@@ -248,8 +248,8 @@ export const useAgeCategories = () => {
   return useQuery({
     queryKey: ['age-categories'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('age_categories')
+      const { data, error } = await (supabase
+        .from('age_categories' as any) as any)
         .select('*')
         .order('min_age', { ascending: true });
 
@@ -264,8 +264,8 @@ export const useAbsenceReasons = () => {
   return useQuery({
     queryKey: ['absence-reasons'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('absence_reasons')
+      const { data, error } = await (supabase
+        .from('absence_reasons' as any) as any)
         .select('*')
         .order('name', { ascending: true });
 
@@ -280,8 +280,8 @@ export const useClassrooms = () => {
   return useQuery({
     queryKey: ['classrooms'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('classrooms')
+      const { data, error } = await (supabase
+        .from('classrooms' as any) as any)
         .select('*')
         .order('branch', { ascending: true });
 
@@ -297,8 +297,8 @@ export const useCreateClassroom = () => {
 
   return useMutation({
     mutationFn: async (classroomData: Omit<Classroom, 'id' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await supabase
-        .from('classrooms')
+      const { data, error } = await (supabase
+        .from('classrooms' as any) as any)
         .insert(classroomData)
         .select()
         .single();
@@ -329,8 +329,8 @@ export const useUpdateClassroom = () => {
 
   return useMutation({
     mutationFn: async (classroomData: Partial<Classroom> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('classrooms')
+      const { data, error } = await (supabase
+        .from('classrooms' as any) as any)
         .update(classroomData)
         .eq('id', classroomData.id)
         .select()
@@ -362,8 +362,8 @@ export const useDeleteClassroom = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('classrooms')
+      const { error } = await (supabase
+        .from('classrooms' as any) as any)
         .delete()
         .eq('id', id);
 

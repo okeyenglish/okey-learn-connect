@@ -1,6 +1,6 @@
 /* @refresh reset */
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
@@ -292,8 +292,8 @@ export function usePushNotifications() {
       // Clean up ALL old subscriptions for this user before creating new one
       // This ensures only the current device/browser endpoint is active
       console.log('[Push] Cleaning old subscriptions for user:', user.id);
-      await supabase
-        .from('push_subscriptions')
+      await (supabase
+        .from('push_subscriptions' as any) as any)
         .delete()
         .eq('user_id', user.id);
 
@@ -312,8 +312,8 @@ export function usePushNotifications() {
       }
 
       // Save subscription to database with VAPID key info for debugging
-      const { error } = await supabase
-        .from('push_subscriptions')
+      const { error } = await (supabase
+        .from('push_subscriptions' as any) as any)
         .upsert({
           user_id: user.id,
           endpoint: subscriptionJson.endpoint,
@@ -376,8 +376,8 @@ export function usePushNotifications() {
         await subscription.unsubscribe();
 
         // Remove from database
-        await supabase
-          .from('push_subscriptions')
+        await (supabase
+          .from('push_subscriptions' as any) as any)
           .delete()
           .eq('user_id', user.id)
           .eq('endpoint', subscription.endpoint);
