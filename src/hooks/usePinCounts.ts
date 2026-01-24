@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 export const usePinCounts = (chatIds: string[]) => {
   const [pinCounts, setPinCounts] = useState<Record<string, number>>({});
@@ -14,7 +14,7 @@ export const usePinCounts = (chatIds: string[]) => {
       }
 
       try {
-        const { data, error } = await supabase.rpc('get_chat_pin_counts', {
+        const { data, error } = await (supabase.rpc as any)('get_chat_pin_counts', {
           _chat_ids: chatIds
         });
 

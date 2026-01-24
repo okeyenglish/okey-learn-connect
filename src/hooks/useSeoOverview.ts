@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { getCurrentOrganizationId } from '@/lib/organizationHelpers';
 
 export interface KeywordWithStats {
@@ -37,8 +37,8 @@ export function useSeoOverview() {
     queryFn: async () => {
       const orgId = await getCurrentOrganizationId();
       
-      const { data: clusters, error } = await supabase
-        .from('kw_clusters')
+      const { data: clusters, error } = await (supabase
+        .from('kw_clusters' as any) as any)
         .select('*')
         .eq('organization_id', orgId)
         .order('score', { ascending: false })
@@ -48,9 +48,9 @@ export function useSeoOverview() {
 
       // Получаем количество связанных запросов для каждого кластера
       const clustersWithCounts = await Promise.all(
-        (clusters || []).map(async (cluster) => {
-          const { count } = await supabase
-            .from('kw_norm')
+        (clusters || []).map(async (cluster: any) => {
+          const { count } = await (supabase
+            .from('kw_norm' as any) as any)
             .select('*', { count: 'exact', head: true })
             .eq('organization_id', orgId)
             .ilike('phrase', `%${cluster.head_term}%`);
@@ -72,14 +72,14 @@ export function useSeoOverview() {
     queryFn: async () => {
       const orgId = await getCurrentOrganizationId();
       
-      const { data, error } = await supabase
-        .from('kw_norm')
+      const { data, error } = await (supabase
+        .from('kw_norm' as any) as any)
         .select('phrase, monthly_searches, wordstat_competition, source, last_updated')
         .eq('organization_id', orgId)
         .order('monthly_searches', { ascending: false, nullsFirst: false });
 
       if (error) throw error;
-      return data.map(d => ({
+      return (data || []).map((d: any) => ({
         phrase: d.phrase,
         monthly_searches: d.monthly_searches,
         wordstat_competition: d.wordstat_competition,
@@ -95,15 +95,15 @@ export function useSeoOverview() {
     queryFn: async () => {
       const orgId = await getCurrentOrganizationId();
       
-      const { data, error } = await supabase
-        .from('seo_pages')
+      const { data, error } = await (supabase
+        .from('seo_pages' as any) as any)
         .select('*')
         .eq('organization_id', orgId)
         .order('last_analyzed_at', { ascending: false, nullsFirst: false });
 
       if (error) throw error;
 
-      return (data || []).map(page => {
+      return (data || []).map((page: any) => {
         const analysisData = page.analysis as any;
         return {
           url: page.url,
@@ -122,20 +122,20 @@ export function useSeoOverview() {
     queryFn: async () => {
       const orgId = await getCurrentOrganizationId();
       
-      const { data, error } = await supabase
-        .from('search_console_queries')
+      const { data, error } = await (supabase
+        .from('search_console_queries' as any) as any)
         .select('position, clicks, impressions, query')
         .eq('organization_id', orgId);
 
       if (error) throw error;
 
       const avgPosition = data.length > 0
-        ? data.reduce((sum, q) => sum + (q.position || 0), 0) / data.length
+        ? data.reduce((sum: number, q: any) => sum + (q.position || 0), 0) / data.length
         : 0;
 
-      const top10 = data.filter(q => q.position && q.position <= 10).length;
-      const top20 = data.filter(q => q.position && q.position <= 20).length;
-      const totalClicks = data.reduce((sum, q) => sum + (q.clicks || 0), 0);
+      const top10 = data.filter((q: any) => q.position && q.position <= 10).length;
+      const top20 = data.filter((q: any) => q.position && q.position <= 20).length;
+      const totalClicks = data.reduce((sum: number, q: any) => sum + (q.clicks || 0), 0);
 
       return {
         avgPosition: Math.round(avgPosition * 10) / 10,
@@ -154,10 +154,10 @@ export function useSeoOverview() {
       const orgId = await getCurrentOrganizationId();
       
       const [clustersCount, ideasCount, docsCount, keywordsCount] = await Promise.all([
-        supabase.from('kw_clusters').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
-        supabase.from('content_ideas').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
-        supabase.from('content_docs').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
-        supabase.from('kw_norm').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
+        (supabase.from('kw_clusters' as any) as any).select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
+        (supabase.from('content_ideas' as any) as any).select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
+        (supabase.from('content_docs' as any) as any).select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
+        (supabase.from('kw_norm' as any) as any).select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
       ]);
 
       return {

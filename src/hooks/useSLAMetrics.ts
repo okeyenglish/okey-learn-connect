@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
 
 export interface SLAMetric {
@@ -36,8 +36,8 @@ export const useSLAMetrics = (filters?: {
   return useQuery({
     queryKey: ['sla-metrics', filters],
     queryFn: async () => {
-      let query = supabase
-        .from('sla_metrics' as any)
+      let query = (supabase
+        .from('sla_metrics' as any) as any)
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -53,7 +53,7 @@ export const useSLAMetrics = (filters?: {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data as unknown as SLAMetric[];
+      return data as SLAMetric[];
     },
   });
 };
@@ -62,14 +62,14 @@ export const useSLADashboard = (days: number = 30) => {
   return useQuery({
     queryKey: ['sla-dashboard', days],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('mv_sla_dashboard' as any)
+      const { data, error } = await (supabase
+        .from('mv_sla_dashboard' as any) as any)
         .select('*')
         .order('date', { ascending: false })
         .limit(days);
 
       if (error) throw error;
-      return data as unknown as SLADashboardStats[];
+      return data as SLADashboardStats[];
     },
   });
 };
@@ -87,7 +87,7 @@ export const useRecordSLAMetric = () => {
       threshold_minutes: number;
       organization_id: string;
     }) => {
-      const { data, error } = await supabase.rpc('record_sla_metric' as any, {
+      const { data, error } = await (supabase.rpc as any)('record_sla_metric', {
         p_metric_type: params.metric_type,
         p_entity_id: params.entity_id,
         p_entity_type: params.entity_type,
@@ -112,7 +112,7 @@ export const useRefreshSLADashboard = () => {
 
   return useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.rpc('refresh_advanced_materialized_views' as any);
+      const { data, error } = await (supabase.rpc as any)('refresh_advanced_materialized_views');
       if (error) throw error;
       return data;
     },

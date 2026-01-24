@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
 import { useEffect } from 'react';
@@ -27,8 +27,8 @@ export const usePendingGPTResponses = (clientId?: string) => {
       console.log('Fetching pending GPT responses for client:', clientId);
       console.log('Current time:', new Date().toISOString());
       
-      let queryBuilder = supabase
-        .from('pending_gpt_responses')
+      let queryBuilder = (supabase
+        .from('pending_gpt_responses' as any) as any)
         .select('*')
         .eq('status', 'pending')
         .gt('expires_at', new Date().toISOString()) // Only get non-expired responses
@@ -102,8 +102,8 @@ export const useApprovePendingResponse = () => {
       console.log('User ID:', user.id);
 
       // Get the pending response first
-      const { data: pendingResponse, error: fetchError } = await supabase
-        .from('pending_gpt_responses')
+      const { data: pendingResponse, error: fetchError } = await (supabase
+        .from('pending_gpt_responses' as any) as any)
         .select('*')
         .eq('id', responseId)
         .maybeSingle();
@@ -120,16 +120,16 @@ export const useApprovePendingResponse = () => {
       }
 
       // Optimistically hide the response immediately
-      queryClient.setQueryData<PendingGPTResponse[]>(['pending-gpt-responses', pendingResponse.client_id], (old) =>
+      queryClient.setQueryData<PendingGPTResponse[]>(['pending-gpt-responses', (pendingResponse as any).client_id], (old) =>
         (old || []).filter((r) => r.id !== responseId)
       );
 
-      const messageToSend = customMessage || pendingResponse.suggested_response;
+      const messageToSend = customMessage || (pendingResponse as any).suggested_response;
 
       // Send the message via WhatsApp
       const { data: sendResult, error: sendError } = await supabase.functions.invoke('whatsapp-send', {
         body: {
-          clientId: pendingResponse.client_id,
+          clientId: (pendingResponse as any).client_id,
           message: messageToSend
         }
       });
@@ -148,13 +148,13 @@ export const useApprovePendingResponse = () => {
       }
 
       // Update the pending response status
-      const { data: updateData, error: updateError } = await supabase
-        .from('pending_gpt_responses')
+      const { data: updateData, error: updateError } = await (supabase
+        .from('pending_gpt_responses' as any) as any)
         .update({
           status: 'approved',
           approved_by: user.id,
           sent_at: new Date().toISOString(),
-          original_response: customMessage ? pendingResponse.suggested_response : undefined
+          original_response: customMessage ? (pendingResponse as any).suggested_response : undefined
         })
         .eq('id', responseId)
         .select();
@@ -165,7 +165,7 @@ export const useApprovePendingResponse = () => {
         throw updateError;
       }
 
-      return { success: true, messageId: sendResult?.messageId, clientId: pendingResponse.client_id, responseId };
+      return { success: true, messageId: sendResult?.messageId, clientId: (pendingResponse as any).client_id, responseId };
     },
     onSuccess: (data) => {
       toast({
@@ -190,8 +190,8 @@ export const useApprovePendingResponse = () => {
       if (user) {
         (async () => {
           try {
-            const { error: updateError } = await supabase
-              .from('pending_gpt_responses')
+            const { error: updateError } = await (supabase
+              .from('pending_gpt_responses' as any) as any)
               .update({
                 status: 'failed'
               })
@@ -232,8 +232,8 @@ export const useDismissPendingResponse = () => {
 
       // Try to update status first
       console.log('Attempting to update status to dismissed...');
-      const { data: updateData, error: updateError } = await supabase
-        .from('pending_gpt_responses')
+      const { data: updateData, error: updateError } = await (supabase
+        .from('pending_gpt_responses' as any) as any)
         .update({
           status: 'dismissed',
           approved_by: user.id
@@ -246,8 +246,8 @@ export const useDismissPendingResponse = () => {
       if (updateError) {
         console.log('Update failed, trying delete...');
         // If update fails, try delete
-        const { data: deleteData, error: deleteError } = await supabase
-          .from('pending_gpt_responses')
+        const { data: deleteData, error: deleteError } = await (supabase
+          .from('pending_gpt_responses' as any) as any)
           .delete()
           .eq('id', responseId)
           .select();
@@ -290,8 +290,8 @@ export const useRejectPendingResponse = () => {
       }
       console.log('User ID:', user.id);
 
-      const { data, error } = await supabase
-        .from('pending_gpt_responses')
+      const { data, error } = await (supabase
+        .from('pending_gpt_responses' as any) as any)
         .update({
           status: 'rejected',
           approved_by: user.id

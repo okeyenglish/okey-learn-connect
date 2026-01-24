@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from './useAuth';
 
 /**
@@ -20,8 +20,8 @@ export const usePinnedChatIds = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('chat_states')
+      const { data, error } = await (supabase
+        .from('chat_states' as any) as any)
         .select('chat_id')
         .eq('user_id', user.id)
         .eq('is_pinned', true);
@@ -31,7 +31,7 @@ export const usePinnedChatIds = () => {
         return;
       }
 
-      setPinnedChatIds((data || []).map(d => d.chat_id));
+      setPinnedChatIds((data || []).map((d: any) => d.chat_id));
     } catch (error) {
       console.error('Error loading pinned chat IDs:', error);
     } finally {
