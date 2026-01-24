@@ -1,6 +1,5 @@
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -8,6 +7,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 
 interface DeleteChatDialogProps {
@@ -42,13 +42,13 @@ export const DeleteChatDialog = ({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isDeleting}>Отмена</AlertDialogCancel>
-          <AlertDialogAction
+          <Button
             onClick={onConfirm}
             disabled={isDeleting}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            variant="destructive"
           >
             {isDeleting ? "Удаление..." : "Удалить"}
-          </AlertDialogAction>
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
