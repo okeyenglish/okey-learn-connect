@@ -16,7 +16,7 @@ AS $$
 DECLARE
   last_refresh TIMESTAMPTZ;
   seconds_since NUMERIC;
-  max_stale_seconds NUMERIC := 60; -- Обновляем если данные старше 60 секунд
+  max_stale_seconds NUMERIC := 120; -- Обновляем если данные старше 2 минут
   start_time TIMESTAMPTZ := clock_timestamp();
   duration_ms NUMERIC;
 BEGIN
