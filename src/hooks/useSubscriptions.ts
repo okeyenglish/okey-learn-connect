@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
 
 export interface Subscription {
@@ -31,8 +31,8 @@ export const useSubscriptions = () => {
   return useQuery({
     queryKey: ['subscriptions'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('subscriptions')
+      const { data, error } = await (supabase
+        .from('subscriptions' as any) as any)
         .select(`
           *,
           student:students(id, name, phone)
@@ -50,8 +50,8 @@ export const useCreateSubscription = () => {
   
   return useMutation({
     mutationFn: async (subscriptionData: Omit<Subscription, 'id' | 'created_at' | 'updated_at' | 'student'>) => {
-      const { data, error } = await supabase
-        .from('subscriptions')
+      const { data, error } = await (supabase
+        .from('subscriptions' as any) as any)
         .insert(subscriptionData)
         .select()
         .single();
@@ -75,8 +75,8 @@ export const useUpdateSubscription = () => {
   
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Subscription> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('subscriptions')
+      const { data, error } = await (supabase
+        .from('subscriptions' as any) as any)
         .update(updates)
         .eq('id', id)
         .select()
@@ -112,8 +112,8 @@ export const useFreezeSubscription = () => {
       reason: string;
     }) => {
       // Temporary implementation - would use RPC function when it exists
-      const { data, error } = await supabase
-        .from('subscriptions')
+      const { data, error } = await (supabase
+        .from('subscriptions' as any) as any)
         .update({ status: 'paused' as const })
         .eq('id', subscriptionId)
         .select()
@@ -139,8 +139,8 @@ export const useUnfreezeSubscription = () => {
   return useMutation({
     mutationFn: async (subscriptionId: string) => {
       // Temporary implementation - would use RPC function when it exists
-      const { data, error } = await supabase
-        .from('subscriptions')
+      const { data, error } = await (supabase
+        .from('subscriptions' as any) as any)
         .update({ status: 'active' as const })
         .eq('id', subscriptionId)
         .select()

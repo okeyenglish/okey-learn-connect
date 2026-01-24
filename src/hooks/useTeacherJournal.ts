@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 export interface JournalGroup {
   id: string;
@@ -36,8 +36,8 @@ export const useTeacherGroups = (teacherName: string) => {
   return useQuery({
     queryKey: ['teacher-journal-groups', teacherName],
     queryFn: async () => {
-      const { data: groups, error } = await supabase
-        .from('learning_groups')
+      const { data: groups, error } = await (supabase
+        .from('learning_groups' as any) as any)
         .select(`
           id,
           name,
@@ -54,8 +54,8 @@ export const useTeacherGroups = (teacherName: string) => {
       // Для каждой группы получаем последние занятия
       const groupsWithSessions = await Promise.all(
         (groups || []).map(async (group: any) => {
-          const { data: sessions } = await supabase
-            .from('lesson_sessions')
+          const { data: sessions } = await (supabase
+            .from('lesson_sessions' as any) as any)
             .select('id, lesson_date, start_time, status')
             .eq('group_id', group.id)
             .order('lesson_date', { ascending: false })
@@ -83,8 +83,8 @@ export const useTeacherIndividualLessons = (teacherName: string) => {
   return useQuery({
     queryKey: ['teacher-journal-individual', teacherName],
     queryFn: async () => {
-      const { data: lessons, error } = await supabase
-        .from('individual_lessons')
+      const { data: lessons, error } = await (supabase
+        .from('individual_lessons' as any) as any)
         .select(`
           id,
           student_name,
@@ -103,8 +103,8 @@ export const useTeacherIndividualLessons = (teacherName: string) => {
       // Для каждого урока получаем последние сессии
       const lessonsWithSessions = await Promise.all(
         (lessons || []).map(async (lesson: any) => {
-          const { data: sessions } = await supabase
-            .from('individual_lesson_sessions')
+          const { data: sessions } = await (supabase
+            .from('individual_lesson_sessions' as any) as any)
             .select('id, lesson_date, status, duration')
             .eq('individual_lesson_id', lesson.id)
             .order('lesson_date', { ascending: false })
@@ -133,8 +133,8 @@ export const useGroupStudentsAttendance = (groupId: string, sessionId?: string) 
   return useQuery({
     queryKey: ['group-students-attendance', groupId, sessionId],
     queryFn: async () => {
-      const { data: students, error } = await supabase
-        .from('group_students')
+      const { data: students, error } = await (supabase
+        .from('group_students' as any) as any)
         .select(`
           id,
           status,
@@ -152,8 +152,8 @@ export const useGroupStudentsAttendance = (groupId: string, sessionId?: string) 
 
       // Если указана сессия, получаем посещаемость для неё
       if (sessionId) {
-        const { data: attendance } = await supabase
-          .from('student_lesson_sessions')
+        const { data: attendance } = await (supabase
+          .from('student_lesson_sessions' as any) as any)
           .select('student_id, attendance_status, notes')
           .eq('lesson_session_id', sessionId);
 

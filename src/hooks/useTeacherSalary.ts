@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 
 export interface TeacherRate {
@@ -60,8 +60,8 @@ export const useTeacherRates = (teacherId?: string) => {
   return useQuery({
     queryKey: ['teacher-rates', teacherId],
     queryFn: async () => {
-      let query = supabase
-        .from('teacher_rates')
+      let query = (supabase
+        .from('teacher_rates' as any) as any)
         .select('*')
         .order('valid_from', { ascending: false });
 
@@ -71,7 +71,7 @@ export const useTeacherRates = (teacherId?: string) => {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as unknown as TeacherRate[];
+      return (data || []) as TeacherRate[];
     },
     enabled: !!teacherId,
   });
@@ -81,8 +81,8 @@ export const useTeacherAccruals = (teacherId?: string, periodStart?: string, per
   return useQuery({
     queryKey: ['teacher-accruals', teacherId, periodStart, periodEnd],
     queryFn: async () => {
-      let query = supabase
-        .from('teacher_earnings')
+      let query = (supabase
+        .from('teacher_earnings' as any) as any)
         .select('*')
         .order('earning_date', { ascending: false });
 
@@ -100,7 +100,7 @@ export const useTeacherAccruals = (teacherId?: string, periodStart?: string, per
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as unknown as SalaryAccrual[];
+      return (data || []) as SalaryAccrual[];
     },
     enabled: !!teacherId,
   });
@@ -115,14 +115,14 @@ export const useTeacherSalaryStats = (
   return useQuery({
     queryKey: ['teacher-salary-stats', teacherId, periodStart, periodEnd],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_teacher_salary_stats' as any, {
+      const { data, error } = await (supabase.rpc as any)('get_teacher_salary_stats', {
         p_teacher_id: teacherId,
         p_period_start: periodStart,
         p_period_end: periodEnd,
       });
 
       if (error) throw error;
-      return data?.[0] as SalaryStats;
+      return (data as any)?.[0] as SalaryStats;
     },
     enabled: !!teacherId,
   });
@@ -137,8 +137,8 @@ export const useUpsertTeacherRate = () => {
     mutationFn: async (rate: Partial<TeacherRate> & { teacher_id: string; rate_type: string; rate_per_academic_hour: number; valid_from: string }) => {
       if (rate.id) {
         // Update existing rate
-        const { data, error } = await supabase
-          .from('teacher_rates')
+        const { data, error } = await (supabase
+          .from('teacher_rates' as any) as any)
           .update({
             rate_type: rate.rate_type,
             rate_per_academic_hour: rate.rate_per_academic_hour,
@@ -157,8 +157,8 @@ export const useUpsertTeacherRate = () => {
         return data;
       } else {
         // Insert new rate
-        const { data, error } = await supabase
-          .from('teacher_rates')
+        const { data, error } = await (supabase
+          .from('teacher_rates' as any) as any)
           .insert({
             teacher_id: rate.teacher_id,
             rate_type: rate.rate_type,
@@ -201,8 +201,8 @@ export const useDeleteTeacherRate = () => {
 
   return useMutation({
     mutationFn: async (rateId: string) => {
-      const { error } = await supabase
-        .from('teacher_rates')
+      const { error } = await (supabase
+        .from('teacher_rates' as any) as any)
         .delete()
         .eq('id', rateId);
 
@@ -232,8 +232,8 @@ export const useMarkAccrualsPaid = () => {
 
   return useMutation({
     mutationFn: async (accrualIds: string[]) => {
-      const { error } = await supabase
-        .from('teacher_earnings')
+      const { error } = await (supabase
+        .from('teacher_earnings' as any) as any)
         .update({
           status: 'paid',
         })

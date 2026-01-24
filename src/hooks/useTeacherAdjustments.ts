@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 
 export interface TeacherAdjustment {
@@ -28,8 +28,8 @@ export const useTeacherAdjustments = (
   return useQuery({
     queryKey: ['teacher-adjustments', teacherId, periodStart, periodEnd],
     queryFn: async () => {
-      let query = supabase
-        .from('teacher_adjustments' as any)
+      let query = (supabase
+        .from('teacher_adjustments' as any) as any)
         .select('*')
         .order('adjustment_date', { ascending: false });
 
@@ -47,7 +47,7 @@ export const useTeacherAdjustments = (
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as any as TeacherAdjustment[];
+      return (data || []) as TeacherAdjustment[];
     },
     enabled: !!teacherId,
   });
@@ -60,8 +60,8 @@ export const useCreateAdjustment = () => {
 
   return useMutation({
     mutationFn: async (adjustment: Omit<TeacherAdjustment, 'id' | 'created_at' | 'updated_at' | 'status'> & { status?: string }) => {
-      const { data, error } = await supabase
-        .from('teacher_adjustments' as any)
+      const { data, error } = await (supabase
+        .from('teacher_adjustments' as any) as any)
         .insert({
           teacher_id: adjustment.teacher_id,
           adjustment_type: adjustment.adjustment_type,
@@ -105,8 +105,8 @@ export const useUpdateAdjustment = () => {
 
   return useMutation({
     mutationFn: async ({ id, ...update }: Partial<TeacherAdjustment> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('teacher_adjustments' as any)
+      const { data, error } = await (supabase
+        .from('teacher_adjustments' as any) as any)
         .update({
           ...update,
           updated_at: new Date().toISOString(),
@@ -143,8 +143,8 @@ export const useDeleteAdjustment = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('teacher_adjustments' as any)
+      const { error } = await (supabase
+        .from('teacher_adjustments' as any) as any)
         .delete()
         .eq('id', id);
 
@@ -175,8 +175,8 @@ export const useMarkAdjustmentsPaid = () => {
 
   return useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase
-        .from('teacher_adjustments' as any)
+      const { error } = await (supabase
+        .from('teacher_adjustments' as any) as any)
         .update({ status: 'paid' })
         .in('id', ids);
 

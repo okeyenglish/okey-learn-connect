@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 export interface TaskLazy {
   id: string;
@@ -25,8 +25,8 @@ export const useTasksLazy = (enabled: boolean = false) => {
   const { data: tasks, isLoading, error } = useQuery({
     queryKey: ['tasks'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tasks')
+      const { data, error } = await (supabase
+        .from('tasks' as any) as any)
         .select('*')
         .order('created_at', { ascending: false});
       
