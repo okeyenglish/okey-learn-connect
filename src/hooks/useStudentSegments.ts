@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
 
 export interface StudentSegment {
@@ -20,8 +20,8 @@ export const useStudentSegments = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase
-        .from('student_segments')
+      const { data, error } = await (supabase
+        .from('student_segments' as any) as any)
         .select('*')
         .or(`created_by.eq.${user.id},is_global.eq.true`)
         .order('created_at', { ascending: false });
@@ -40,9 +40,9 @@ export const useCreateStudentSegment = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase
-        .from('student_segments')
-        .insert([{ ...segment, created_by: user.id } as any])
+      const { data, error } = await (supabase
+        .from('student_segments' as any) as any)
+        .insert([{ ...segment, created_by: user.id }])
         .select()
         .single();
 
@@ -65,9 +65,9 @@ export const useUpdateStudentSegment = () => {
 
   return useMutation({
     mutationFn: async ({ id, ...segment }: Partial<StudentSegment> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('student_segments')
-        .update(segment as any)
+      const { data, error } = await (supabase
+        .from('student_segments' as any) as any)
+        .update(segment)
         .eq('id', id)
         .select()
         .single();
@@ -91,8 +91,8 @@ export const useDeleteStudentSegment = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('student_segments')
+      const { error } = await (supabase
+        .from('student_segments' as any) as any)
         .delete()
         .eq('id', id);
 

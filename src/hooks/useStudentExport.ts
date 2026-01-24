@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import * as XLSX from 'xlsx';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
 
 export const useStudentExport = () => {
@@ -10,8 +10,8 @@ export const useStudentExport = () => {
     setIsExporting(true);
     try {
       // Fetch all students with details
-      const { data: students, error } = await supabase
-        .from('students')
+      const { data: students, error } = await (supabase
+        .from('students' as any) as any)
         .select(`
           *,
           family_groups:family_group_id (
@@ -30,8 +30,8 @@ export const useStudentExport = () => {
         const studentsWithDetails = await Promise.all(
           (students || []).map(async (student: any) => {
             // Fetch parents
-            const { data: familyMembers } = await supabase
-              .from('family_members')
+            const { data: familyMembers } = await (supabase
+              .from('family_members' as any) as any)
               .select(`
                 *,
                 clients:client_id (
@@ -48,8 +48,8 @@ export const useStudentExport = () => {
               .join(', ');
 
             // Fetch groups
-            const { data: groupStudents } = await supabase
-              .from('group_students')
+            const { data: groupStudents } = await (supabase
+              .from('group_students' as any) as any)
               .select(`
                 learning_groups (
                   name,
@@ -65,13 +65,13 @@ export const useStudentExport = () => {
               .join(', ');
 
             // Fetch payments total
-            const { data: payments } = await supabase
-              .from('payments')
+            const { data: payments } = await (supabase
+              .from('payments' as any) as any)
               .select('amount')
               .eq('student_id', student.id);
 
             const totalPayments = (payments || [])
-              .reduce((sum, p) => sum + (p.amount || 0), 0);
+              .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
 
             return {
               'Номер студента': student.student_number || '',

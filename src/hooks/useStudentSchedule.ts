@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 
 export interface StudentLesson {
@@ -35,8 +35,8 @@ export const useStudentSchedule = (
       const end = endDate || endOfMonth(new Date());
 
       // Получаем группы студента
-      const { data: studentGroups } = await supabase
-        .from('group_students' as any)
+      const { data: studentGroups } = await (supabase
+        .from('group_students' as any) as any)
         .select('group_id')
         .eq('student_id', studentId)
         .eq('status', 'active');
@@ -46,8 +46,8 @@ export const useStudentSchedule = (
       let groupLessons: any[] = [];
       if (groupIds.length > 0) {
         // Получаем групповые занятия
-        const { data, error: groupError } = await supabase
-          .from('lesson_sessions' as any)
+        const { data, error: groupError } = await (supabase
+          .from('lesson_sessions' as any) as any)
           .select(`
             id,
             lesson_date,
@@ -82,8 +82,8 @@ export const useStudentSchedule = (
       }
 
       // Получаем индивидуальные уроки студента
-      const { data: studentLessons } = await supabase
-        .from('individual_lessons' as any)
+      const { data: studentLessons } = await (supabase
+        .from('individual_lessons' as any) as any)
         .select('id')
         .eq('student_id', studentId);
 
@@ -92,8 +92,8 @@ export const useStudentSchedule = (
       let individualLessons: any[] = [];
       if (lessonIds.length > 0) {
         // Получаем индивидуальные занятия
-        const { data, error: individualError } = await supabase
-          .from('individual_lesson_sessions' as any)
+        const { data, error: individualError } = await (supabase
+          .from('individual_lesson_sessions' as any) as any)
           .select(`
             id,
             lesson_date,

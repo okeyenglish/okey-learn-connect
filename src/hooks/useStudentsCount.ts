@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 export const useStudentsCount = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: ['students', 'count'],
     queryFn: async () => {
-      const { count, error } = await supabase
-        .from('students')
+      const { count, error } = await (supabase
+        .from('students' as any) as any)
         .select('*', { count: 'exact', head: true });
       if (error) throw error;
       return count ?? 0;

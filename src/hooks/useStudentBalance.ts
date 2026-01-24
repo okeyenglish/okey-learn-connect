@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
 
 export interface StudentBalance {
@@ -30,14 +30,14 @@ export const useStudentBalance = (studentId: string | undefined) => {
     queryFn: async () => {
       if (!studentId) return null;
       
-      const { data, error } = await supabase
-        .from('student_balances' as any)
+      const { data, error } = await (supabase
+        .from('student_balances' as any) as any)
         .select('*')
         .eq('student_id', studentId)
         .maybeSingle();
 
       if (error) throw error;
-      return (data as any) as StudentBalance | null;
+      return data as StudentBalance | null;
     },
     enabled: !!studentId,
   });
@@ -50,16 +50,16 @@ export const useBalanceTransactions = (studentId: string | undefined) => {
     queryFn: async () => {
       if (!studentId) return [];
       
-      const { data: balanceData } = await supabase
-        .from('student_balances' as any)
+      const { data: balanceData } = await (supabase
+        .from('student_balances' as any) as any)
         .select('id')
         .eq('student_id', studentId)
         .maybeSingle();
 
       if (!balanceData) return [];
 
-      const { data, error } = await supabase
-        .from('balance_transactions' as any)
+      const { data, error } = await (supabase
+        .from('balance_transactions' as any) as any)
         .select('*')
         .eq('student_balance_id', (balanceData as any).id)
         .order('created_at', { ascending: false });
@@ -92,7 +92,7 @@ export const useAddBalanceTransaction = () => {
       paymentId?: string;
       lessonSessionId?: string;
     }) => {
-      const { data, error } = await supabase.rpc('add_balance_transaction' as any, {
+      const { data, error } = await (supabase.rpc as any)('add_balance_transaction', {
         _student_id: studentId,
         _amount: amount,
         _transaction_type: transactionType,
@@ -129,7 +129,7 @@ export const useGetStudentBalanceAmount = (studentId: string | undefined) => {
     queryFn: async () => {
       if (!studentId) return 0;
       
-      const { data, error } = await supabase.rpc('get_student_balance' as any, {
+      const { data, error } = await (supabase.rpc as any)('get_student_balance', {
         _student_id: studentId,
       });
 

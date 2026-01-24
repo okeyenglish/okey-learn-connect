@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { Student } from './useStudents';
 
 // Lazy-loaded version of useStudents - only loads when enabled
@@ -7,8 +7,8 @@ export const useStudentsLazy = (enabled: boolean = false) => {
   const { data: students, isLoading, error } = useQuery({
     queryKey: ['students'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('students')
+      const { data, error } = await (supabase
+        .from('students' as any) as any)
         .select('*')
         .order('created_at', { ascending: false })
         .limit(10000);

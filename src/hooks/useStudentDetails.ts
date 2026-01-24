@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 export interface StudentParent {
   id: string;
@@ -176,8 +176,8 @@ export const useStudentDetails = (studentId: string) => {
       if (!studentId) return null;
 
       // Fetch student basic info
-      const { data: student, error: studentError } = await supabase
-        .from('students')
+      const { data: student, error: studentError } = await (supabase
+        .from('students' as any) as any)
         .select('*')
         .eq('id', studentId)
         .single();
@@ -190,8 +190,8 @@ export const useStudentDetails = (studentId: string) => {
       // Fetch family members (parents/guardians)
       let parents: StudentParent[] = [];
       if (studentData.family_group_id) {
-        const { data: familyMembers, error: familyError } = await supabase
-          .from('family_members')
+        const { data: familyMembers, error: familyError } = await (supabase
+          .from('family_members' as any) as any)
           .select(`
             *,
             clients:client_id (
@@ -216,8 +216,8 @@ export const useStudentDetails = (studentId: string) => {
           // Fetch phone numbers for each parent
           const parentsWithPhones = await Promise.all(
             uniqueFamilyMembers.map(async (member: any) => {
-              const { data: phones } = await supabase
-                .from('client_phone_numbers')
+              const { data: phones } = await (supabase
+                .from('client_phone_numbers' as any) as any)
                 .select('*')
                 .eq('client_id', member.client_id);
 
@@ -243,8 +243,8 @@ export const useStudentDetails = (studentId: string) => {
       }
 
       // Fetch student groups
-      const { data: groupStudents } = await supabase
-        .from('group_students')
+      const { data: groupStudents } = await (supabase
+        .from('group_students' as any) as any)
         .select(`
           *,
           learning_groups (
@@ -269,8 +269,8 @@ export const useStudentDetails = (studentId: string) => {
         .eq('student_id', studentId);
 
       // Собираем оплаты по группам для расчета оплаченных занятий
-      const { data: paymentsByGroup } = await supabase
-        .from('payments')
+      const { data: paymentsByGroup } = await (supabase
+        .from('payments' as any) as any)
         .select('group_id, lessons_count')
         .eq('student_id', studentId)
         .not('group_id', 'is', null);

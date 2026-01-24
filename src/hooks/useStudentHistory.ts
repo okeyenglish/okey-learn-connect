@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 export interface StudentHistoryEvent {
   id: string;
@@ -19,8 +19,8 @@ export const useStudentHistory = (studentId: string) => {
   return useQuery({
     queryKey: ['student-history', studentId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('student_history')
+      const { data, error } = await (supabase
+        .from('student_history' as any) as any)
         .select(`
           *,
           profiles:changed_by (
