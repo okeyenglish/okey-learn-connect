@@ -44,7 +44,7 @@ BEGIN
 END;
 $$;
 
--- 3. Функция-триггер с дебаунсингом (30 секунд между обновлениями)
+-- 3. Функция-триггер с дебаунсингом (вызывает Edge Function через pg_net)
 CREATE OR REPLACE FUNCTION public.refresh_chat_threads_mv_debounced()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -53,15 +53,17 @@ AS $$
 DECLARE
   last_refresh TIMESTAMPTZ;
   min_interval INTERVAL := '30 seconds';
+  edge_function_url TEXT;
+  anon_key TEXT;
 BEGIN
   -- Получаем время последнего обновления
   SELECT last_refresh_at INTO last_refresh
   FROM public.chat_threads_mv_refresh_log
   WHERE id = 1;
   
-  -- Если прошло достаточно времени - обновляем
+  -- Если прошло достаточно времени - вызываем Edge Function
   IF last_refresh IS NULL OR (now() - last_refresh) > min_interval THEN
-    -- Обновляем лог сразу (предотвращает параллельные обновления)
+    -- Обновляем лог сразу (предотвращает параллельные вызовы)
     UPDATE public.chat_threads_mv_refresh_log
     SET 
       last_refresh_at = now(),
@@ -69,16 +71,50 @@ BEGIN
       last_triggered_by = TG_OP || ':' || COALESCE(NEW.client_id::text, OLD.client_id::text)
     WHERE id = 1;
     
-    -- Отправляем уведомление для внешнего обработчика
-    -- (Edge Function или pg_cron слушает этот канал)
-    PERFORM pg_notify('refresh_chat_threads_mv', json_build_object(
-      'triggered_at', now(),
-      'operation', TG_OP,
-      'client_id', COALESCE(NEW.client_id, OLD.client_id)
-    )::text);
+    -- URL Edge Function (self-hosted)
+    edge_function_url := 'https://api.academyos.ru/functions/v1/refresh-chat-threads-mv';
     
-    RAISE NOTICE '[chat_threads_mv] Refresh queued (last: %)', last_refresh;
+    -- Получаем ANON_KEY из vault или используем напрямую
+    -- Для self-hosted используем фиксированный ключ
+    SELECT decrypted_secret INTO anon_key
+    FROM vault.decrypted_secrets
+    WHERE name = 'SUPABASE_ANON_KEY'
+    LIMIT 1;
+    
+    -- Fallback если vault недоступен
+    IF anon_key IS NULL THEN
+      anon_key := current_setting('app.settings.anon_key', true);
+    END IF;
+    
+    -- Вызываем Edge Function асинхронно через pg_net
+    IF anon_key IS NOT NULL THEN
+      PERFORM net.http_post(
+        url := edge_function_url,
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer ' || anon_key
+        ),
+        body := jsonb_build_object(
+          'triggered_at', now(),
+          'operation', TG_OP,
+          'client_id', COALESCE(NEW.client_id, OLD.client_id)
+        )
+      );
+      
+      RAISE NOTICE '[chat_threads_mv] Edge Function called (last refresh: %)', last_refresh;
+    ELSE
+      -- Fallback: pg_notify для внешнего обработчика
+      PERFORM pg_notify('refresh_chat_threads_mv', json_build_object(
+        'triggered_at', now(),
+        'operation', TG_OP,
+        'client_id', COALESCE(NEW.client_id, OLD.client_id)
+      )::text);
+      
+      RAISE NOTICE '[chat_threads_mv] pg_notify sent (no anon_key found)';
+    END IF;
   END IF;
+  
+  RETURN COALESCE(NEW, OLD);
   
   RETURN COALESCE(NEW, OLD);
 END;
