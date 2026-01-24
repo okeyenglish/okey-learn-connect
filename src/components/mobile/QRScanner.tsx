@@ -217,6 +217,12 @@ export const QRScanner = ({ onClose }: QRScannerProps) => {
       if (!data.success) throw new Error(data.error || 'Ошибка подтверждения');
       
       setStatus('success');
+      
+      // Vibrate on success (works on Android and some other platforms)
+      if ('vibrate' in navigator) {
+        navigator.vibrate([100, 50, 100]); // Short-pause-short pattern
+      }
+      
       toast.success('Вход в веб-версию подтверждён!');
       
       // Close after showing success
