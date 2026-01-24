@@ -19,8 +19,7 @@ import { useClients, useSearchClients, useCreateClient } from "@/hooks/useClient
 import { useClientIdsByPhoneSearch } from "@/hooks/useClientIdsByPhoneSearch";
 import { usePhoneSearchThreads } from "@/hooks/usePhoneSearchThreads";
 import { usePinnedChatThreads } from "@/hooks/usePinnedChatThreads";
-import { useClientNameSearch } from "@/hooks/useClientNameSearch";
-import { useMessageContentSearch } from "@/hooks/useMessageContentSearch";
+import { useUnifiedSearch } from "@/hooks/useUnifiedSearch";
 import { useClientStatus } from "@/hooks/useClientStatus";
 import { useRealtimeMessages, useMarkAsRead, useMarkAsUnread } from "@/hooks/useChatMessages";
 import { useChatThreadsInfinite } from "@/hooks/useChatThreadsInfinite";
@@ -1001,22 +1000,20 @@ const CRMContent = () => {
     sample: allChats.slice(0, 5).map(c => ({ id: c.id, name: c.name, type: c.type }))
   });
 
-  const { data: phoneSearchClientIds = [], isLoading: phoneSearchLoading } = useClientIdsByPhoneSearch(chatSearchQuery);
-  
-  // Search by client name (first_name, last_name, name)
-  const { data: nameSearchClientIds = [], isLoading: nameSearchLoading } = useClientNameSearch(chatSearchQuery);
-  
-  // Search by message content (debounced 500ms via minQueryLength 3)
-  const { data: messageSearchClientIds = [], isLoading: messageSearchLoading, getMessengerType } = useMessageContentSearch(chatSearchQuery);
+  // === UNIFIED SEARCH: 1 RPC вместо 3 отдельных запросов ===
+  const { 
+    phoneIds: phoneSearchClientIds,
+    nameIds: nameSearchClientIds, 
+    messageIds: messageSearchClientIds,
+    allClientIds: allSearchClientIdsArray,
+    isLoading: unifiedSearchLoading,
+    getMessengerType 
+  } = useUnifiedSearch(chatSearchQuery);
   
   // Combine all search results into a single Set
   const allSearchClientIds = useMemo(() => {
-    const ids = new Set<string>();
-    phoneSearchClientIds.forEach(id => ids.add(id));
-    nameSearchClientIds.forEach(id => ids.add(id));
-    messageSearchClientIds.forEach(id => ids.add(id));
-    return ids;
-  }, [phoneSearchClientIds, nameSearchClientIds, messageSearchClientIds]);
+    return new Set(allSearchClientIdsArray);
+  }, [allSearchClientIdsArray]);
   
   // Debug logging for all search types
   console.log('[CRM] Search state:', { 
@@ -1028,7 +1025,6 @@ const CRMContent = () => {
   });
   
   // Load full thread data for search results that are not in loaded threads
-  const allSearchClientIdsArray = useMemo(() => Array.from(allSearchClientIds), [allSearchClientIds]);
   const { data: phoneSearchThreads = [], isLoading: phoneThreadsLoading } = usePhoneSearchThreads(allSearchClientIdsArray, threadClientIdsSet);
   
   // Load pinned chat threads that are NOT in the loaded threads
@@ -1041,7 +1037,7 @@ const CRMContent = () => {
   });
   
   // Combined search loading state
-  const isSearchLoading = chatSearchQuery.length >= 2 && (phoneSearchLoading || nameSearchLoading || messageSearchLoading || phoneThreadsLoading);
+  const isSearchLoading = chatSearchQuery.length >= 2 && (unifiedSearchLoading || phoneThreadsLoading);
   
   // Merge search threads and pinned threads into allChats
   const allChatsWithPhoneSearch = useMemo(() => {
