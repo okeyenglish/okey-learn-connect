@@ -16,22 +16,32 @@ export const useChatThreadsOptimized = () => {
   const [missingUnreadThreads, setMissingUnreadThreads] = useState<ChatThread[]>([]);
   const [isMissingLoading, setIsMissingLoading] = useState(false);
 
-  // Step 1: Fast load of recent threads
+  // Step 1: Fast load from materialized view (9ms) with fallback to optimized RPC (257ms)
   const recentThreadsQuery = useQuery({
     queryKey: ['chat-threads'],
     queryFn: async (): Promise<ChatThread[]> => {
-      console.log('[useChatThreadsOptimized] Step 1: Loading recent threads...');
+      console.log('[useChatThreadsOptimized] Step 1: Loading from materialized view...');
       const startTime = performance.now();
 
+      // Try materialized view first (fastest: ~9ms)
       const { data, error } = await supabase
-        .rpc('get_chat_threads_optimized', { p_limit: 200 });
+        .rpc('get_chat_threads_from_mv' as any, { p_limit: 200 });
 
       if (error) {
-        console.error('[useChatThreadsOptimized] RPC error, falling back:', error);
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .rpc('get_chat_threads_fast', { p_limit: 200 });
+        console.warn('[useChatThreadsOptimized] MV error, falling back to optimized RPC:', error.message);
         
-        if (fallbackError) throw fallbackError;
+        // Fallback to optimized RPC (~257ms)
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .rpc('get_chat_threads_optimized', { p_limit: 200 });
+        
+        if (fallbackError) {
+          console.error('[useChatThreadsOptimized] Optimized RPC also failed, trying fast:', fallbackError);
+          const { data: fastData, error: fastError } = await supabase
+            .rpc('get_chat_threads_fast', { p_limit: 200 });
+          if (fastError) throw fastError;
+          return mapRpcToThreads(fastData || [], startTime);
+        }
+        
         return mapRpcToThreads(fallbackData || [], startTime);
       }
 
