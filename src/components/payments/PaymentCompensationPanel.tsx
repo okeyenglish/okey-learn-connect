@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import {
   Card,
   CardContent,
@@ -44,9 +44,7 @@ interface Payment {
   payment_date: string;
   method: string;
   student_id: string;
-  students: {
-    name: string;
-  };
+  students: { name: string } | { name: string }[];
 }
 
 export const PaymentCompensationPanel = () => {
@@ -175,12 +173,16 @@ export const PaymentCompensationPanel = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {recentPayments?.map((payment) => (
+              {recentPayments?.map((payment: any) => {
+                  const studentName = Array.isArray(payment.students) 
+                    ? payment.students[0]?.name 
+                    : payment.students?.name;
+                  return (
                   <TableRow key={payment.id}>
                     <TableCell className="whitespace-nowrap">
                       {format(new Date(payment.payment_date), 'dd.MM.yyyy', { locale: ru })}
                     </TableCell>
-                    <TableCell>{payment.students.name}</TableCell>
+                    <TableCell>{studentName || '-'}</TableCell>
                     <TableCell>{payment.amount.toLocaleString('ru-RU')} ₽</TableCell>
                     <TableCell>
                       <Badge variant={getStatusBadge(payment.status)}>
@@ -201,7 +203,8 @@ export const PaymentCompensationPanel = () => {
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}

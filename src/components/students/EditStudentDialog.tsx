@@ -29,7 +29,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { Loader2, Calendar as CalendarIcon, Upload } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';

@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { IndividualLessonStatusModal } from './IndividualLessonStatusModal';
 import { MarkAttendanceModal } from './MarkAttendanceModal';
 import { AttendanceIndicator } from './AttendanceIndicator';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { ChevronDown, ChevronUp, History as HistoryIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';

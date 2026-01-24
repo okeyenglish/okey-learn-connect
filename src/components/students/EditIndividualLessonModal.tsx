@@ -9,7 +9,7 @@ import { Loader2, History } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUpdateIndividualLesson } from "@/hooks/useIndividualLessons";
 import { getBranchesForSelect } from "@/lib/branches";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { useClassrooms } from "@/hooks/useReferences";
 import { useTeachers, getTeacherFullName } from "@/hooks/useTeachers";
 import { LessonHistoryModal } from "./LessonHistoryModal";

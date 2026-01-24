@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import {
   Card,
   CardContent,
@@ -30,9 +30,7 @@ interface PendingPayment {
   method: string;
   description: string | null;
   student_id: string;
-  students: {
-    name: string;
-  };
+  students: { name: string } | { name: string }[];
   created_at: string;
 }
 
@@ -99,7 +97,11 @@ export const PendingPaymentsPanel = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pendingPayments.map((payment) => (
+              {pendingPayments.map((payment) => {
+                const studentName = Array.isArray(payment.students) 
+                  ? payment.students[0]?.name 
+                  : payment.students?.name;
+                return (
                 <TableRow key={payment.id}>
                   <TableCell className="whitespace-nowrap">
                     {format(new Date(payment.created_at), 'dd.MM.yyyy HH:mm', { locale: ru })}
@@ -107,7 +109,7 @@ export const PendingPaymentsPanel = () => {
                   <TableCell className="whitespace-nowrap">
                     {format(new Date(payment.payment_date), 'dd.MM.yyyy', { locale: ru })}
                   </TableCell>
-                  <TableCell>{payment.students.name}</TableCell>
+                  <TableCell>{studentName || '-'}</TableCell>
                   <TableCell className="max-w-xs truncate">
                     {payment.description || '-'}
                   </TableCell>
@@ -128,7 +130,8 @@ export const PendingPaymentsPanel = () => {
                     </Button>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         ) : (

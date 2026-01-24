@@ -8,7 +8,7 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Check, X, Clock, UserX } from 'lucide-react';
 import { useAttendance } from '@/hooks/useAttendance';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 interface Student {
   id: string;
