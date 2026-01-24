@@ -90,7 +90,15 @@ export const QRScanner = ({ onClose }: QRScannerProps) => {
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke('qr-login-confirm', {
-        body: { token },
+        body: { 
+          token,
+          session: {
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+            expires_at: session.expires_at,
+            expires_in: session.expires_in,
+          }
+        },
         headers: {
           Authorization: `Bearer ${session.access_token}`
         }
