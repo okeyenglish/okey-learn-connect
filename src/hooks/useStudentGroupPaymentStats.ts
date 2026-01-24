@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { useStudentGroupLessonSessions } from "./useStudentGroupLessonSessions";
 import { useEffect } from "react";
 
@@ -19,15 +19,15 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
   // Single query to get all data at once
   const [groupResponse, paymentsResponse, pricingResponse, allSessionsResponse, studentSessionsResponse, groupStudentResponse] = await Promise.all([
     // Get group info
-    supabase
-      .from('learning_groups')
+    (supabase
+      .from('learning_groups' as any) as any)
       .select('subject, capacity')
       .eq('id', groupId)
       .single(),
     
     // Get all payments for this student in this group
-    supabase
-      .from('payments')
+    (supabase
+      .from('payments' as any) as any)
       .select('amount, lessons_count')
       .eq('student_id', studentId)
       .eq('group_id', groupId)
@@ -37,27 +37,27 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
     Promise.resolve({ data: null }),
     
     // Get all lesson sessions for this group (including cancelled)
-    supabase
-      .from('lesson_sessions')
+    (supabase
+      .from('lesson_sessions' as any) as any)
       .select('id, lesson_date, status, start_time, end_time')
       .eq('group_id', groupId),
     
     // Get student's session records
-    supabase
-      .from('student_lesson_sessions')
+    (supabase
+      .from('student_lesson_sessions' as any) as any)
       .select('lesson_session_id, attendance_status, payment_status, payment_amount, is_cancelled_for_student, payment_coefficient')
       .eq('student_id', studentId),
 
     // Get student's enrollment date in the group
-    supabase
-      .from('group_students')
+    (supabase
+      .from('group_students' as any) as any)
       .select('enrollment_date, status')
       .eq('student_id', studentId)
       .eq('group_id', groupId)
       .maybeSingle()
   ]);
 
-  const group = groupResponse.data;
+  const group = groupResponse.data as any;
   const payments = paymentsResponse.data || [];
   const allSessions = allSessionsResponse.data || [];
   const studentSessions = studentSessionsResponse.data || [];
@@ -96,8 +96,8 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
     return true;
   });
   // Now fetch pricing if we have a subject
-  const { data: pricing } = await supabase
-    .from('group_course_prices')
+  const { data: pricing } = await (supabase
+    .from('group_course_prices' as any) as any)
     .select('duration_minutes, price_8_lessons, price_24_lessons, price_80_lessons')
     .eq('course_name', group?.subject || '')
     .maybeSingle();
@@ -122,16 +122,17 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
   // Calculate price per minute
   let pricePerMinute = 0;
   if (pricing) {
-    const avgPrice = (pricing.price_8_lessons / 8 + pricing.price_24_lessons / 24 + pricing.price_80_lessons / 80) / 3;
-    const durationForPrice = pricing.duration_minutes || derivedDuration || 80;
+    const pricingData = pricing as any;
+    const avgPrice = (pricingData.price_8_lessons / 8 + pricingData.price_24_lessons / 24 + pricingData.price_80_lessons / 80) / 3;
+    const durationForPrice = pricingData.duration_minutes || derivedDuration || 80;
     pricePerMinute = avgPrice / durationForPrice;
   }
 
   // Determine lesson duration priority: derived from sessions -> pricing -> fallback 80
-  const lessonDuration = derivedDuration || pricing?.duration_minutes || 80;
+  const lessonDuration = derivedDuration || (pricing as any)?.duration_minutes || 80;
   
-  const totalPaidAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-  const totalPaidAcademicHours = payments.reduce((sum, p) => sum + (p.lessons_count || 0), 0);
+  const totalPaidAmount = payments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+  const totalPaidAcademicHours = payments.reduce((sum: number, p: any) => sum + (p.lessons_count || 0), 0);
   const totalPaidMinutes = totalPaidAcademicHours * 40;
 
   // Calculate used sessions - only after enrollment, not cancelled for student, and actually conducted

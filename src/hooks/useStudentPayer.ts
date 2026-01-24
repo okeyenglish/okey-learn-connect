@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
 
 export interface StudentPayer {
@@ -21,8 +21,8 @@ export const useStudentPayer = (studentId: string) => {
   return useQuery({
     queryKey: ['student-payer', studentId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('student_payers')
+      const { data, error } = await (supabase
+        .from('student_payers' as any) as any)
         .select('*')
         .eq('student_id', studentId)
         .maybeSingle();
@@ -39,18 +39,18 @@ export const useUpsertStudentPayer = () => {
 
   return useMutation({
     mutationFn: async (payer: Omit<StudentPayer, 'created_at' | 'updated_at'>) => {
-      const { data, error } = await supabase
-        .from('student_payers')
-        .upsert([payer as any], { onConflict: 'student_id' })
+      const { data, error } = await (supabase
+        .from('student_payers' as any) as any)
+        .upsert([payer], { onConflict: 'student_id' })
         .select()
         .single();
 
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['student-payer', data.student_id] });
-      queryClient.invalidateQueries({ queryKey: ['student-details', data.student_id] });
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['student-payer', data?.student_id] });
+      queryClient.invalidateQueries({ queryKey: ['student-details', data?.student_id] });
       toast.success('Информация о плательщике сохранена');
     },
     onError: (error) => {
@@ -65,8 +65,8 @@ export const useDeleteStudentPayer = () => {
 
   return useMutation({
     mutationFn: async ({ id, studentId }: { id: string; studentId: string }) => {
-      const { error } = await supabase
-        .from('student_payers')
+      const { error } = await (supabase
+        .from('student_payers' as any) as any)
         .delete()
         .eq('id', id);
 

@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { useEffect } from "react";
 
 export interface StudentLessonSession {
@@ -33,29 +33,29 @@ const calculateStudentSessions = async (
     groupStudentResponse
   ] = await Promise.all([
     // Все занятия группы (включая отмененные)
-    supabase
-      .from('lesson_sessions')
+    (supabase
+      .from('lesson_sessions' as any) as any)
       .select('id, lesson_date, status, start_time, end_time, lesson_number')
       .eq('group_id', groupId)
       .order('lesson_date', { ascending: true }),
     
     // Персональные записи студента
-    supabase
-      .from('student_lesson_sessions')
+    (supabase
+      .from('student_lesson_sessions' as any) as any)
       .select('*')
       .eq('student_id', studentId),
     
     // Все платежи студента в группе
-    supabase
-      .from('payments')
+    (supabase
+      .from('payments' as any) as any)
       .select('lessons_count, created_at')
       .eq('student_id', studentId)
       .eq('group_id', groupId)
       .order('created_at', { ascending: true }),
     
     // Дата зачисления студента
-    supabase
-      .from('group_students')
+    (supabase
+      .from('group_students' as any) as any)
       .select('enrollment_date')
       .eq('student_id', studentId)
       .eq('group_id', groupId)
@@ -69,8 +69,8 @@ const calculateStudentSessions = async (
   const allSessions = groupSessionsResponse.data || [];
   const personalSessions = studentSessionsResponse.data || [];
   const payments = paymentsResponse.data || [];
-  const enrollmentDate = groupStudentResponse.data?.enrollment_date 
-    ? new Date(groupStudentResponse.data.enrollment_date) 
+  const enrollmentDate = (groupStudentResponse.data as any)?.enrollment_date 
+    ? new Date((groupStudentResponse.data as any).enrollment_date) 
     : null;
 
   if (enrollmentDate) {
@@ -79,13 +79,13 @@ const calculateStudentSessions = async (
 
   // Создаем Map для быстрого поиска персональных данных
   const personalDataMap = new Map();
-  personalSessions.forEach(session => {
+  personalSessions.forEach((session: any) => {
     personalDataMap.set(session.lesson_session_id, session);
   });
 
   // Считаем общее количество оплаченных минут
   let remainingPaidMinutes = payments.reduce(
-    (sum, p) => sum + (p.lessons_count || 0) * 40,
+    (sum: number, p: any) => sum + (p.lessons_count || 0) * 40,
     0
   );
 
@@ -104,7 +104,7 @@ const calculateStudentSessions = async (
   };
 
   // Фильтруем занятия с даты зачисления
-  const relevantSessions = allSessions.filter(session => {
+  const relevantSessions = allSessions.filter((session: any) => {
     const sessionDate = new Date(session.lesson_date);
     sessionDate.setHours(0, 0, 0, 0);
     return !enrollmentDate || sessionDate >= enrollmentDate;

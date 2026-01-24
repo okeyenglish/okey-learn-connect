@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { Student } from './useStudents';
 
 export interface StudentFilters {
@@ -20,8 +20,8 @@ export const useStudentsWithFilters = (filters?: StudentFilters) => {
   return useQuery({
     queryKey: ['students', 'filtered', filters],
     queryFn: async (): Promise<Student[]> => {
-      let query = supabase
-        .from('students')
+      let query = (supabase
+        .from('students' as any) as any)
         .select(`
           *,
           student_balances (balance),
@@ -34,7 +34,7 @@ export const useStudentsWithFilters = (filters?: StudentFilters) => {
           )
         `)
         .order('created_at', { ascending: false })
-        .limit(10000) as any; // Увеличен лимит до 10000 студентов
+        .limit(10000); // Увеличен лимит до 10000 студентов
 
       // Поиск по имени, телефону, email
       if (filters?.searchTerm && filters.searchTerm.trim()) {
@@ -51,7 +51,7 @@ export const useStudentsWithFilters = (filters?: StudentFilters) => {
 
       // Фильтр по статусу
       if (filters?.status && filters.status !== 'all') {
-        query = query.eq('status', filters.status as any);
+        query = query.eq('status', filters.status);
       }
 
       // Фильтр по возрасту
