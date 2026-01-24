@@ -14,7 +14,7 @@ import { GroupDetailModal } from "@/components/learning-groups/GroupDetailModal"
 import { IndividualLessonModal } from "@/components/teacher/IndividualLessonModal";
 import { useLearningGroups } from "@/hooks/useLearningGroups";
 import type { PhoneNumber as PhoneNumberType } from "@/types/phone";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { usePinnedModalsDB } from "@/hooks/usePinnedModalsDB";
 import { useOrganization } from "@/hooks/useOrganization";
 import { 

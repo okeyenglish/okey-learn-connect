@@ -249,6 +249,57 @@ export interface ClientPhoneNumber {
   created_at: string;
 }
 
+export interface AuditLog {
+  id: string;
+  aggregate_type: string;
+  aggregate_id: string;
+  event_type: string;
+  old_value: Json | null;
+  new_value: Json | null;
+  changed_by: string | null;
+  created_at: string;
+}
+
+export interface WebhookLog {
+  id: string;
+  webhook_type: string;
+  payload: Json | null;
+  response: Json | null;
+  status: string | null;
+  error_message: string | null;
+  created_at: string;
+}
+
+export interface CallLog {
+  id: string;
+  client_id: string | null;
+  phone_number: string;
+  direction: string;
+  status: string;
+  duration_seconds: number | null;
+  started_at: string;
+  ended_at: string | null;
+  summary: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface PendingGPTResponse {
+  id: string;
+  client_id: string;
+  status: string | null;
+  created_at: string;
+}
+
+export interface StudentCourse {
+  id: string;
+  student_id: string;
+  course_name: string;
+  payment_amount: number | null;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface GlobalEntityMapping {
   id: string;
   entity_type: string;
@@ -392,6 +443,31 @@ export interface CustomDatabase {
         Row: GlobalEntityMapping;
         Insert: Partial<GlobalEntityMapping>;
         Update: Partial<GlobalEntityMapping>;
+      };
+      audit_log: {
+        Row: AuditLog;
+        Insert: Partial<AuditLog>;
+        Update: Partial<AuditLog>;
+      };
+      webhook_logs: {
+        Row: WebhookLog;
+        Insert: Partial<WebhookLog>;
+        Update: Partial<WebhookLog>;
+      };
+      call_logs: {
+        Row: CallLog;
+        Insert: Partial<CallLog>;
+        Update: Partial<CallLog>;
+      };
+      pending_gpt_responses: {
+        Row: PendingGPTResponse;
+        Insert: Partial<PendingGPTResponse>;
+        Update: Partial<PendingGPTResponse>;
+      };
+      student_courses: {
+        Row: StudentCourse;
+        Insert: Partial<StudentCourse>;
+        Update: Partial<StudentCourse>;
       };
     };
     Views: {

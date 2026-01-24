@@ -25,7 +25,7 @@ import { useWhatsApp } from '@/hooks/useWhatsApp';
 import { useMaxGreenApi } from '@/hooks/useMaxGreenApi';
 import { useMax } from '@/hooks/useMax';
 import { useTelegramWappi } from '@/hooks/useTelegramWappi';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { AddTeacherModal } from '@/components/admin/AddTeacherModal';
 import { useTeacherChats, useEnsureTeacherClient, TeacherChatItem, useTeacherChatMessages } from '@/hooks/useTeacherChats';
 import { TeacherListItem } from './TeacherListItem';
