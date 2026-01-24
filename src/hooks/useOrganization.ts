@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from './useAuth';
 
 export interface Organization {
@@ -44,7 +44,7 @@ export const useOrganization = () => {
       if (!profile?.organization_id) return null;
 
       const { data, error } = await supabase
-        .from('organizations')
+        .from('organizations' as any)
         .select('*')
         .eq('id', profile.organization_id)
         .single();
@@ -61,7 +61,7 @@ export const useOrganization = () => {
       if (!profile?.organization_id) return [];
 
       const { data, error } = await supabase
-        .from('organization_branches')
+        .from('organization_branches' as any)
         .select('*')
         .eq('organization_id', profile.organization_id)
         .eq('is_active', true)

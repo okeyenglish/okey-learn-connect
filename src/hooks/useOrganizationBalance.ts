@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
 
 export interface OrganizationBalance {
@@ -35,7 +35,7 @@ export const useOrganizationBalance = (organizationId?: string) => {
       }
 
       const { data, error } = await supabase
-        .from('organization_balances')
+        .from('organization_balances' as any)
         .select('*')
         .eq('organization_id', organizationId)
         .single();
@@ -56,7 +56,7 @@ export const useBalanceTransactions = (organizationId?: string) => {
       }
 
       const { data, error } = await supabase
-        .from('organization_balance_transactions')
+        .from('organization_balance_transactions' as any)
         .select('*')
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
@@ -82,7 +82,7 @@ export const useTopUpBalance = () => {
       amount: number;
       description?: string;
     }) => {
-      const { data, error } = await supabase.rpc('topup_organization_balance', {
+      const { data, error } = await supabase.rpc('topup_organization_balance' as any, {
         p_organization_id: organizationId,
         p_amount: amount,
         p_description: description,

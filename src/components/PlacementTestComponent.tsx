@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Clock, Users, GraduationCap, Phone, Mail } from "lucide-react";
 import { questionBank } from "@/lib/questionBank";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 
 interface TestState {
   track: 'kids' | 'teens' | 'adults';

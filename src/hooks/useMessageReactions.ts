@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
 
 export interface MessageReaction {
@@ -26,7 +26,7 @@ export const useMessageReactions = (messageId: string) => {
     queryKey: ['message_reactions', messageId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('message_reactions')
+        .from('message_reactions' as any)
         .select(`
           id,
           message_id,
@@ -45,13 +45,13 @@ export const useMessageReactions = (messageId: string) => {
 
       // Получаем дополнительную информацию о пользователях и клиентах
       const reactionsWithDetails = await Promise.all(
-        (data || []).map(async (reaction) => {
+        ((data || []) as any[]).map(async (reaction) => {
           let profiles = null;
           let clients = null;
 
           if (reaction.user_id) {
             const { data: profile } = await supabase
-              .from('profiles')
+              .from('profiles' as any)
               .select('first_name, last_name, email')
               .eq('id', reaction.user_id)
               .single();
@@ -60,7 +60,7 @@ export const useMessageReactions = (messageId: string) => {
 
           if (reaction.client_id) {
             const { data: client } = await supabase
-              .from('clients')
+              .from('clients' as any)
               .select('name, avatar_url')
               .eq('id', reaction.client_id)
               .single();
@@ -89,7 +89,7 @@ export const useAddReaction = () => {
   return useMutation({
     mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
       const { data, error } = await supabase
-        .from('message_reactions')
+        .from('message_reactions' as any)
         .upsert({
           message_id: messageId,
           user_id: (await supabase.auth.getUser()).data.user?.id,
@@ -133,7 +133,7 @@ export const useRemoveReaction = () => {
   return useMutation({
     mutationFn: async (messageId: string) => {
       const { error } = await supabase
-        .from('message_reactions')
+        .from('message_reactions' as any)
         .delete()
         .eq('message_id', messageId)
         .eq('user_id', (await supabase.auth.getUser()).data.user?.id);

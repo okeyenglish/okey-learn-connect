@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { getCurrentOrganizationId } from '@/lib/organizationHelpers';
 
 export interface MessageSearchResult {
@@ -50,7 +50,7 @@ export const useMessageContentSearch = (query: string) => {
         const intervalStart = performance.now();
         
         const { data, error } = await supabase
-          .rpc('search_messages_by_text', {
+          .rpc('search_messages_by_text' as any, {
             p_org_id: orgId,
             p_search_text: debouncedQuery,
             p_limit: 50,
@@ -64,11 +64,13 @@ export const useMessageContentSearch = (query: string) => {
           throw error;
         }
 
-        if (data && data.length > 0) {
+        const results = data as any[] | null;
+
+        if (results && results.length > 0) {
           const totalDuration = (performance.now() - startTime).toFixed(0);
-          console.log(`[useMessageContentSearch] Found ${data.length} results in ${intervalLabel} (${intervalDuration}ms, total: ${totalDuration}ms)`);
+          console.log(`[useMessageContentSearch] Found ${results.length} results in ${intervalLabel} (${intervalDuration}ms, total: ${totalDuration}ms)`);
           
-          return (data || []).map((row: { client_id: string; messenger_type: string | null }) => ({
+          return results.map((row: { client_id: string; messenger_type: string | null }) => ({
             clientId: row.client_id,
             messengerType: row.messenger_type as 'whatsapp' | 'telegram' | 'max' | null
           }));

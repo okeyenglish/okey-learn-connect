@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 
 interface MaxSettings {
@@ -24,7 +24,7 @@ export const useMax = () => {
   const getMaxSettings = useCallback(async (): Promise<MaxSettings | null> => {
     try {
       const { data, error } = await supabase
-        .from('messenger_settings')
+        .from('messenger_settings' as any)
         .select('*')
         .eq('messenger_type', 'max')
         .maybeSingle();
@@ -32,12 +32,13 @@ export const useMax = () => {
       if (error) throw error;
       if (!data) return null;
 
-      const settings = data.settings as any;
+      const row = data as any;
+      const settings = row.settings as any;
       return {
         instanceId: settings?.instanceId || '',
         apiToken: settings?.apiToken || '',
-        webhookUrl: data.webhook_url || '',
-        isEnabled: data.is_enabled || false,
+        webhookUrl: row.webhook_url || '',
+        isEnabled: row.is_enabled || false,
       };
     } catch (error: any) {
       console.error('Error fetching MAX settings:', error);

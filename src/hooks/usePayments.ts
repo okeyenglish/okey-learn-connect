@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -30,7 +30,7 @@ export const usePayments = (filters?: any) => {
     setLoading(true);
     try {
       let query = supabase
-        .from('payments')
+        .from('payments' as any)
         .select('*')
         .order('payment_date', { ascending: false });
 
