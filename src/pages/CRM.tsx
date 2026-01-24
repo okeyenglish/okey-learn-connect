@@ -1266,6 +1266,13 @@ const CRMContent = () => {
     
     // Только переключаемся на новый чат, если это действительно другой чат
     const isNewChat = activeChatId !== chatId || activeChatType !== chatType;
+    
+    // ВАЖНО: Сначала сбрасываем activeClientInfo чтобы избежать race condition
+    // где старая информация клиента показывается для нового чата
+    if (isNewChat) {
+      setActiveClientInfo(null);
+    }
+    
     setActiveChatId(chatId);
     setActiveChatType(chatType);
     
