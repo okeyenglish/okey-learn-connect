@@ -282,10 +282,10 @@ export const AddGroupModal = ({ onGroupAdded }: AddGroupModalProps) => {
             .eq('slug', formData.course_slug)
             .single();
 
-          if (courses && newGroup) {
+          if (courses && newGroup && (newGroup as any).id) {
             await generateSchedule.mutateAsync({
-              groupId: newGroup.id,
-              courseId: courses.id,
+              groupId: (newGroup as any).id,
+              courseId: (courses as any).id,
               startDate: formData.period_start.toISOString().split('T')[0],
               scheduleDays: formData.schedule_days,
               startTime,

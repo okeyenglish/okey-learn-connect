@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
-import { Database } from '@/integrations/supabase/types';
+import { CustomDatabase } from '@/integrations/supabase/database.types';
 
 type DbInvoice = Database['public']['Tables']['invoices']['Row'];
 type DbInvoiceInsert = Database['public']['Tables']['invoices']['Insert'];

@@ -1,11 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
-import { Database } from "@/integrations/supabase/types";
+import { CustomDatabase } from "@/integrations/supabase/database.types";
 
-type Document = Database['public']['Tables']['documents']['Row'];
-type DocumentInsert = Database['public']['Tables']['documents']['Insert'];
-type DocumentUpdate = Database['public']['Tables']['documents']['Update'];
+// Document interface since this table may not exist in typed schema yet
+interface Document {
+  id: string;
+  name: string;
+  file_url: string;
+  student_id?: string | null;
+  organization_id?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+type DocumentInsert = Partial<Document>;
+type DocumentUpdate = Partial<Document>;
 
 export type { Document };
 

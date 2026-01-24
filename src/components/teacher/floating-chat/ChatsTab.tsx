@@ -61,7 +61,7 @@ export const ChatsTab = ({ teacherId }: ChatsTabProps) => {
 
       if (error) throw error;
       
-      return (data || []).map(tb => ({
+      return (data || []).map((tb: any) => ({
         id: tb.organization_branches?.id,
         name: tb.organization_branches?.name,
         organization_id: tb.organization_branches?.organization_id,
