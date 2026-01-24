@@ -1290,72 +1290,66 @@ const CRMContent = () => {
       setChatInitialSearchQuery(undefined);
     }
     
-    // Загружаем информацию о клиенте, если её нет в кэше
+    // Сначала СИНХРОННО устанавливаем данные из кэша, потом асинхронно подгружаем телефон
     if (chatType === 'client' && isNewChat) {
       const existingClient = clients.find(c => c.id === chatId);
       const existingThread = threads.find(t => t.client_id === chatId);
       
-      // Helper to get phone: try client.phone first, then fetch from client_phone_numbers
-      const getClientPhone = async (clientId: string, clientPhone?: string | null): Promise<string> => {
-        if (clientPhone) return clientPhone;
-        // First try to get primary phone
-        const { data: primaryPhone } = await supabase
-          .from('client_phone_numbers')
-          .select('phone')
-          .eq('client_id', clientId)
-          .eq('is_primary', true)
-          .maybeSingle();
-        if (primaryPhone?.phone) return primaryPhone.phone;
-        
-        // Fallback: get any phone number for this client
-        const { data: anyPhone } = await supabase
-          .from('client_phone_numbers')
-          .select('phone')
-          .eq('client_id', clientId)
-          .limit(1)
-          .maybeSingle();
-        return anyPhone?.phone || '';
-      };
-      
+      // Немедленно показываем данные из кэша (без ожидания загрузки телефона)
       if (existingClient) {
-        const phone = await getClientPhone(chatId, existingClient.phone);
         setActiveClientInfo({
           name: existingClient.name,
-          phone: phone,
+          phone: existingClient.phone || existingThread?.client_phone || '',
           comment: existingClient.notes || 'Клиент'
         });
       } else if (existingThread) {
-        const phone = existingThread.client_phone || await getClientPhone(chatId, null);
         setActiveClientInfo({
           name: existingThread.client_name,
-          phone: phone,
+          phone: existingThread.client_phone || '',
           comment: 'Клиент'
         });
-      } else {
-        // Загружаем из базы данных
-        try {
-          const { data: clientData, error } = await supabase
-            .from('clients')
-            .select('name, phone, notes')
-            .eq('id', chatId)
+      }
+      
+      // Асинхронно подгружаем телефон в фоне (не блокируя UI)
+      const loadPhoneAsync = async () => {
+        const getClientPhone = async (clientId: string, clientPhone?: string | null): Promise<string> => {
+          if (clientPhone) return clientPhone;
+          const { data: primaryPhone } = await supabase
+            .from('client_phone_numbers')
+            .select('phone')
+            .eq('client_id', clientId)
+            .eq('is_primary', true)
             .maybeSingle();
+          if (primaryPhone?.phone) return primaryPhone.phone;
           
-          if (!error && clientData) {
-            // Use the helper function that includes fallback logic
-            const phone = await getClientPhone(chatId, clientData.phone);
-            setActiveClientInfo({
-              name: clientData.name,
-              phone: phone,
-              comment: clientData.notes || 'Клиент'
-            });
-          } else {
-            setActiveClientInfo(null);
+          const { data: anyPhone } = await supabase
+            .from('client_phone_numbers')
+            .select('phone')
+            .eq('client_id', clientId)
+            .limit(1)
+            .maybeSingle();
+          return anyPhone?.phone || '';
+        };
+        
+        try {
+          // Только если телефон ещё не загружен
+          const currentPhone = existingClient?.phone || existingThread?.client_phone;
+          if (!currentPhone) {
+            const phone = await getClientPhone(chatId, null);
+            if (phone) {
+              // Обновляем только если это всё ещё активный чат
+              setActiveClientInfo(prev => 
+                prev ? { ...prev, phone } : null
+              );
+            }
           }
         } catch (err) {
-          console.error('Error loading client info:', err);
-          setActiveClientInfo(null);
+          console.error('Error loading phone async:', err);
         }
-      }
+      };
+      
+      // Запускаем асинхронную загрузку телефона БЕЗ await
+      loadPhoneAsync();
     } else if (chatType !== 'client') {
       setActiveClientInfo(null);
     }
