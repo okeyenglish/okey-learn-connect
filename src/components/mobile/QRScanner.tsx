@@ -12,12 +12,6 @@ interface QRScannerProps {
   onClose: () => void;
 }
 
-// Type for the barcode scanner result
-interface ScanResult {
-  hasContent: boolean;
-  content: string;
-}
-
 export const QRScanner = ({ onClose }: QRScannerProps) => {
   const navigate = useNavigate();
   const { session } = useAuth();
@@ -31,19 +25,28 @@ export const QRScanner = ({ onClose }: QRScannerProps) => {
 
   // Check if running in native Capacitor app
   useEffect(() => {
-    setIsNative(Capacitor.isNativePlatform());
+    const checkNative = Capacitor.isNativePlatform();
+    setIsNative(checkNative);
+    console.log('QRScanner: isNative =', checkNative);
   }, []);
 
-  // Start native Capacitor scanner
+  // Start native Capacitor scanner (only available in native app)
   const startNativeScanner = useCallback(async () => {
     try {
       setStatus('scanning');
       setError(null);
 
-      // Dynamically import the barcode scanner
-      // This will only work in the native Capacitor app after running `npx cap sync`
-      const { BarcodeScanner } = await import('@capacitor-community/barcode-scanner');
+      // Access the barcode scanner from the global Capacitor plugins
+      // This only works when the plugin is installed in the native app
+      const Plugins = (window as any).Capacitor?.Plugins;
+      const BarcodeScanner = Plugins?.BarcodeScanner;
       
+      if (!BarcodeScanner) {
+        console.log('Native BarcodeScanner not available, falling back to web');
+        await startWebScanner();
+        return;
+      }
+
       // Check camera permission
       const permissionStatus = await BarcodeScanner.checkPermission({ force: true });
       
@@ -55,14 +58,14 @@ export const QRScanner = ({ onClose }: QRScannerProps) => {
 
       // Make the webview transparent so we can see the camera
       document.querySelector('body')?.classList.add('scanner-active');
-      BarcodeScanner.hideBackground();
+      await BarcodeScanner.hideBackground();
 
       // Start scanning
-      const result: ScanResult = await BarcodeScanner.startScan();
+      const result = await BarcodeScanner.startScan();
       
       // Restore UI
       document.querySelector('body')?.classList.remove('scanner-active');
-      BarcodeScanner.showBackground();
+      await BarcodeScanner.showBackground();
 
       if (result.hasContent) {
         console.log('Native QR scanned:', result.content);
@@ -74,23 +77,22 @@ export const QRScanner = ({ onClose }: QRScannerProps) => {
       console.error('Native scanner error:', err);
       document.querySelector('body')?.classList.remove('scanner-active');
       
-      // If the native scanner is not available, fall back to web
-      if (err.message?.includes('not implemented') || err.message?.includes('not available')) {
-        console.log('Native scanner not available, falling back to web');
-        startWebScanner();
-      } else {
-        setError(err.message || 'Ошибка сканера');
-        setStatus('error');
-      }
+      // Fall back to web scanner
+      console.log('Falling back to web scanner');
+      await startWebScanner();
     }
   }, []);
 
   // Stop native scanner
   const stopNativeScanner = useCallback(async () => {
     try {
-      const { BarcodeScanner } = await import('@capacitor-community/barcode-scanner');
-      BarcodeScanner.stopScan();
-      BarcodeScanner.showBackground();
+      const Plugins = (window as any).Capacitor?.Plugins;
+      const BarcodeScanner = Plugins?.BarcodeScanner;
+      
+      if (BarcodeScanner) {
+        await BarcodeScanner.stopScan();
+        await BarcodeScanner.showBackground();
+      }
       document.querySelector('body')?.classList.remove('scanner-active');
     } catch (err) {
       // Ignore if not available
@@ -142,7 +144,7 @@ export const QRScanner = ({ onClose }: QRScannerProps) => {
         }
       }, 500);
     } else {
-      setError('Автоматическое сканирование недоступно в этом браузере. Откройте приложение на телефоне.');
+      setError('Автоматическое сканирование недоступно в этом браузере. Откройте приложение на телефоне или используйте Chrome/Edge.');
     }
   }, []);
 
@@ -310,7 +312,7 @@ export const QRScanner = ({ onClose }: QRScannerProps) => {
           </Card>
         )}
         
-        {status === 'scanning' && !isNative && (
+        {status === 'scanning' && (
           <div className="relative w-full max-w-sm aspect-square">
             <video 
               ref={videoRef}
@@ -337,26 +339,6 @@ export const QRScanner = ({ onClose }: QRScannerProps) => {
               Наведите камеру на QR-код
             </p>
           </div>
-        )}
-
-        {status === 'scanning' && isNative && (
-          <Card className="w-full max-w-sm bg-background/90">
-            <CardContent className="py-8 text-center">
-              <div className="w-48 h-48 mx-auto border-2 border-primary rounded-2xl relative mb-4">
-                <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-primary rounded-tl-xl" />
-                <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-primary rounded-tr-xl" />
-                <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-primary rounded-bl-xl" />
-                <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-primary rounded-br-xl" />
-                <Loader2 className="absolute inset-0 m-auto h-8 w-8 animate-spin text-primary" />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Наведите камеру на QR-код
-              </p>
-              <Button variant="outline" onClick={handleClose} className="mt-4">
-                Отмена
-              </Button>
-            </CardContent>
-          </Card>
         )}
         
         {status === 'confirming' && (
