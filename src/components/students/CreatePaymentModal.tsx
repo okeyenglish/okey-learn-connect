@@ -178,9 +178,11 @@ export function CreatePaymentModal({
             .eq('id', groupId)
             .maybeSingle();
           if (directGroup && directGroup.status === 'active') {
+            const coursesData = directGroup.courses as { title?: string } | { title?: string }[] | null;
+            const courseTitle = Array.isArray(coursesData) ? coursesData[0]?.title : coursesData?.title;
             finalGroups = [{
               ...directGroup,
-              course_name: directGroup.courses?.title || null
+              course_name: courseTitle || null
             }];
           }
         }

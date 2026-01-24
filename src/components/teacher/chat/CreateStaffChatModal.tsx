@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/select';
 import { Teacher } from '@/hooks/useTeachers';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 
 interface CreateStaffChatModalProps {

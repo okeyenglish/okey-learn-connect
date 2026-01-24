@@ -6,7 +6,7 @@ import { GraduationCap, LogOut, Home, Calendar, FileText, UserCircle, RefreshCcw
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { Teacher } from '@/hooks/useTeachers';
 import { CommandPalette } from '@/components/teacher/ui/CommandPalette';
 import { FloatingChatWidget } from '@/components/teacher/floating-chat/FloatingChatWidget';

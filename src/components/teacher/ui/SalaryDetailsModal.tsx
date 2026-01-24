@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar, Clock, Book, DollarSign, TrendingUp } from 'lucide-react';
 import { useTeacherSalaryStats, useTeacherRates } from '@/hooks/useTeacherSalary';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 

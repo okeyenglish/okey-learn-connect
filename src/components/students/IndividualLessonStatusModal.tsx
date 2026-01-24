@@ -14,7 +14,7 @@ import {
   XCircle,
   Clock
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { RescheduleIndividualLessonModal } from "./RescheduleIndividualLessonModal";

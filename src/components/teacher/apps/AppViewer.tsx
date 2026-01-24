@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Maximize2, Minimize2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 interface AppViewerProps {
   appId: string;
