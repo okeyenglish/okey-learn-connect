@@ -18,7 +18,7 @@ import { useTeachers, getTeacherFullName } from "@/hooks/useTeachers";
 import { getBranchesForSelect, getClassroomsForBranch } from "@/lib/branches";
 import { useCourseUnitsWithLessons } from "@/hooks/useCourseUnitsWithLessons";
 import { useGenerateCourseSchedule } from "@/hooks/useCourseSchedule";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 
 interface AddGroupModalProps {
   onGroupAdded?: () => void;

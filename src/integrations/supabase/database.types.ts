@@ -300,6 +300,58 @@ export interface StudentCourse {
   created_at: string;
 }
 
+export interface Payment {
+  id: string;
+  client_id: string | null;
+  student_id: string | null;
+  amount: number;
+  status: string;
+  description: string | null;
+  payment_method: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LearningGroup {
+  id: string;
+  name: string;
+  responsible_teacher: string | null;
+  current_students: number | null;
+  capacity: number | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LessonSession {
+  id: string;
+  learning_group_id: string | null;
+  teacher_name: string | null;
+  lesson_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  classroom: string | null;
+  status: string | null;
+  created_at: string;
+}
+
+export interface CronJobLog {
+  id: string;
+  job_name: string;
+  executed_at: string;
+  status: string;
+  response_data: Json | null;
+  error_message: string | null;
+  execution_time_ms: number | null;
+}
+
+export interface StudentBalance {
+  id: string;
+  student_id: string;
+  balance: number;
+  updated_at: string;
+}
+
 export interface GlobalEntityMapping {
   id: string;
   entity_type: string;
@@ -307,6 +359,52 @@ export interface GlobalEntityMapping {
   external_id: string;
   source: string;
   organization_id: string | null;
+  created_at: string;
+}
+
+export interface LeadSource {
+  id: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface LeadStatus {
+  id: string;
+  name: string;
+  color: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface GroupStudent {
+  id: string;
+  group_id: string;
+  student_id: string;
+  status: string;
+  enrollment_type: string | null;
+  enrollment_date: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface IndividualLesson {
+  id: string;
+  student_id: string;
+  teacher_id: string | null;
+  subject: string | null;
+  schedule: Json | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface Course {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number | null;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -468,6 +566,56 @@ export interface CustomDatabase {
         Row: StudentCourse;
         Insert: Partial<StudentCourse>;
         Update: Partial<StudentCourse>;
+      };
+      payments: {
+        Row: Payment;
+        Insert: Partial<Payment>;
+        Update: Partial<Payment>;
+      };
+      learning_groups: {
+        Row: LearningGroup;
+        Insert: Partial<LearningGroup>;
+        Update: Partial<LearningGroup>;
+      };
+      lesson_sessions: {
+        Row: LessonSession;
+        Insert: Partial<LessonSession>;
+        Update: Partial<LessonSession>;
+      };
+      cron_job_logs: {
+        Row: CronJobLog;
+        Insert: Partial<CronJobLog>;
+        Update: Partial<CronJobLog>;
+      };
+      student_balances: {
+        Row: StudentBalance;
+        Insert: Partial<StudentBalance>;
+        Update: Partial<StudentBalance>;
+      };
+      lead_sources: {
+        Row: LeadSource;
+        Insert: Partial<LeadSource>;
+        Update: Partial<LeadSource>;
+      };
+      lead_statuses: {
+        Row: LeadStatus;
+        Insert: Partial<LeadStatus>;
+        Update: Partial<LeadStatus>;
+      };
+      group_students: {
+        Row: GroupStudent;
+        Insert: Partial<GroupStudent>;
+        Update: Partial<GroupStudent>;
+      };
+      individual_lessons: {
+        Row: IndividualLesson;
+        Insert: Partial<IndividualLesson>;
+        Update: Partial<IndividualLesson>;
+      };
+      courses: {
+        Row: Course;
+        Insert: Partial<Course>;
+        Update: Partial<Course>;
       };
     };
     Views: {

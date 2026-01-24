@@ -9,7 +9,7 @@ import { useStudents } from "@/hooks/useStudents";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { useQuery } from "@tanstack/react-query";
 
 interface StudentScheduleViewProps {

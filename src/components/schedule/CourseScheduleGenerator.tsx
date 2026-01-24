@@ -9,7 +9,7 @@ import { CalendarDays, BookOpen, Clock, Users, Sparkles } from "lucide-react";
 import { useGenerateCourseSchedule } from "@/hooks/useCourseSchedule";
 import { useCourseUnitsWithLessons } from "@/hooks/useCourseUnitsWithLessons";
 import { useLearningGroups } from "@/hooks/useLearningGroups";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 
 interface CourseScheduleGeneratorProps {
   children: React.ReactNode;

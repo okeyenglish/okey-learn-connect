@@ -73,12 +73,12 @@ export const NewChatModal = ({ children, onCreateChat, onExistingClientFound }: 
       if (phoneError) throw phoneError;
       
       if (phoneNumbers && phoneNumbers.length > 0) {
-        const existingClient = phoneNumbers[0].clients;
-        if (existingClient.is_active) {
-          toast.info(`Клиент найден: ${existingClient.name}`, {
+        const existingClientData = phoneNumbers[0].clients as any;
+        if (existingClientData && existingClientData.is_active) {
+          toast.info(`Клиент найден: ${existingClientData.name}`, {
             description: "Переходим к существующему чату",
           });
-          onExistingClientFound?.(existingClient.id);
+          onExistingClientFound?.(existingClientData.id);
           setOpen(false);
           return true;
         }
