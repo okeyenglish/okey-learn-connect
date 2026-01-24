@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useState, useEffect } from 'react';
 import { startOfWeek, endOfWeek, format } from 'date-fns';
 
@@ -22,8 +22,8 @@ export const useTeacherBranches = (teacherId?: string) => {
     queryFn: async () => {
       if (!teacherId) return [];
 
-      const { data, error } = await supabase
-        .from('teacher_branches')
+      const { data, error } = await (supabase
+        .from('teacher_branches' as any) as any)
         .select(`
           branch_id,
           organization_branches (
@@ -92,8 +92,8 @@ export const useTeacherBranches = (teacherId?: string) => {
 
       const stats = await Promise.all(
         branches.map(async (branch) => {
-          const { count } = await supabase
-            .from('lesson_sessions')
+          const { count } = await (supabase
+            .from('lesson_sessions' as any) as any)
             .select('*, learning_groups!inner(teacher_id, branch)', { count: 'exact', head: true })
             .eq('learning_groups.teacher_id', teacherId)
             .eq('learning_groups.branch', branch.name)

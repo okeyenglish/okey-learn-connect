@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
 
 export interface SubscriptionPlan {
@@ -29,8 +29,8 @@ export const useSubscriptionPlans = () => {
   return useQuery({
     queryKey: ['subscription-plans'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('subscription_plans')
+      const { data, error } = await (supabase
+        .from('subscription_plans' as any) as any)
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -45,8 +45,8 @@ export const useCreateSubscriptionPlan = () => {
   
   return useMutation({
     mutationFn: async (planData: Omit<SubscriptionPlan, 'id' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await supabase
-        .from('subscription_plans')
+      const { data, error } = await (supabase
+        .from('subscription_plans' as any) as any)
         .insert(planData)
         .select()
         .single();
@@ -70,8 +70,8 @@ export const useUpdateSubscriptionPlan = () => {
   
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<SubscriptionPlan> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('subscription_plans')
+      const { data, error } = await (supabase
+        .from('subscription_plans' as any) as any)
         .update(updates)
         .eq('id', id)
         .select()
@@ -96,8 +96,8 @@ export const useDeleteSubscriptionPlan = () => {
   
   return useMutation({
     mutationFn: async (planId: string) => {
-      const { error } = await supabase
-        .from('subscription_plans')
+      const { error } = await (supabase
+        .from('subscription_plans' as any) as any)
         .delete()
         .eq('id', planId);
 

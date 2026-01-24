@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 
 // Helper function to send push notifications without blocking
 const sendPushToManagers = async (teacherName: string, messageText: string, messageId: string) => {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await (supabase as any)
-      .from('profiles')
+    const response = await (supabase
+      .from('profiles' as any) as any)
       .select('id')
       .eq('role', 'manager');
 
@@ -69,8 +68,8 @@ export const useTeacherMessages = () => {
   const { data: messages, isLoading } = useQuery({
     queryKey: ['teacher_messages'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('teacher_messages')
+      const { data, error } = await (supabase
+        .from('teacher_messages' as any) as any)
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -85,18 +84,19 @@ export const useTeacherMessages = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Пользователь не авторизован');
 
-      const { data: profile } = await supabase
-        .from('profiles')
+      const { data: profile } = await (supabase
+        .from('profiles' as any) as any)
         .select('first_name, last_name')
         .eq('id', user.id)
         .single();
 
-      const teacherName = profile 
-        ? `${profile.first_name} ${profile.last_name}`.trim()
+      const profileData = profile as { first_name?: string; last_name?: string } | null;
+      const teacherName = profileData 
+        ? `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim()
         : 'Преподаватель';
 
-      const { data, error } = await supabase
-        .from('teacher_messages')
+      const { data, error } = await (supabase
+        .from('teacher_messages' as any) as any)
         .insert({
           teacher_id: user.id,
           teacher_name: teacherName,
@@ -107,8 +107,9 @@ export const useTeacherMessages = () => {
 
       if (error) throw error;
 
+      const insertedData = data as { id: string };
       // Send push notification to managers about new message for moderation (fire-and-forget)
-      sendPushToManagers(teacherName, messageData.message_text, data.id);
+      sendPushToManagers(teacherName, messageData.message_text, insertedData.id);
 
       return data;
     },
@@ -143,8 +144,8 @@ export const useTeacherMessages = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Пользователь не авторизован');
 
-      const { data, error } = await supabase
-        .from('teacher_messages')
+      const { data, error } = await (supabase
+        .from('teacher_messages' as any) as any)
         .update({
           status,
           moderated_by: user.id,
@@ -157,12 +158,13 @@ export const useTeacherMessages = () => {
 
       if (error) throw error;
 
+      const updatedData = data as { teacher_id: string; status: string };
       // Notify teacher about moderation result
       try {
         const statusText = status === 'approved' ? '✅ одобрено' : '❌ отклонено';
         await supabase.functions.invoke('send-push-notification', {
           body: {
-            userId: data.teacher_id,
+            userId: updatedData.teacher_id,
             payload: {
               title: `Сообщение ${statusText}`,
               body: status === 'approved' 
@@ -183,7 +185,8 @@ export const useTeacherMessages = () => {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['teacher_messages'] });
       
-      if (data.status === 'approved') {
+      const resultData = data as { status: string };
+      if (resultData.status === 'approved') {
         toast({
           title: "Сообщение одобрено",
           description: "Сообщение будет отправлено клиентам через WhatsApp",

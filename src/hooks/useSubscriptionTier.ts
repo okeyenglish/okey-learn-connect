@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
 
 export type SubscriptionTier = 'free' | 'paid';
@@ -19,8 +19,8 @@ export const useOrganizationAISettings = (organizationId?: string) => {
   return useQuery({
     queryKey: ['organization_ai_settings', organizationId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('v_organization_ai_settings')
+      const { data, error } = await (supabase
+        .from('v_organization_ai_settings' as any) as any)
         .select('*')
         .eq('organization_id', organizationId!)
         .single();
@@ -43,8 +43,8 @@ export const useUpdateSubscriptionTier = () => {
       organizationId: string;
       tier: SubscriptionTier;
     }) => {
-      const { error } = await supabase
-        .from('organizations')
+      const { error } = await (supabase
+        .from('organizations' as any) as any)
         .update({ subscription_tier: tier })
         .eq('id', organizationId);
 
@@ -57,7 +57,7 @@ export const useUpdateSubscriptionTier = () => {
       toast.success('Тариф успешно обновлен');
     },
     onError: (error) => {
-      toast.error('Не удалось обновить тариф: ' + error.message);
+      toast.error('Не удалось обновить тариф: ' + (error as Error).message);
     },
   });
 };
@@ -66,8 +66,8 @@ export const useAIModelMappings = () => {
   return useQuery({
     queryKey: ['ai_model_mappings'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('ai_model_mappings')
+      const { data, error } = await (supabase
+        .from('ai_model_mappings' as any) as any)
         .select('*')
         .eq('is_active', true)
         .order('use_case', { ascending: true })
