@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export interface CommunityChat {

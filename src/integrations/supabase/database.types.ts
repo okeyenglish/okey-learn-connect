@@ -633,6 +633,33 @@ export interface StudentAttendance {
   created_at: string;
 }
 
+export interface ChatState {
+  id: string;
+  user_id: string;
+  chat_id: string;
+  is_pinned: boolean;
+  is_archived: boolean;
+  is_unread: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface StudentSegment {
+  id: string;
+  student_id: string;
+  segment_id: string;
+  created_at: string;
+}
+
+export interface Segment {
+  id: string;
+  name: string;
+  description?: string | null;
+  organization_id?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
 // ============ RPC функции ============
 
 export interface GetPublicScheduleResult {
@@ -916,6 +943,21 @@ export interface CustomDatabase {
         Row: StudentAttendance;
         Insert: Partial<StudentAttendance>;
         Update: Partial<StudentAttendance>;
+      };
+      chat_states: {
+        Row: ChatState;
+        Insert: Partial<ChatState>;
+        Update: Partial<ChatState>;
+      };
+      student_segments: {
+        Row: StudentSegment;
+        Insert: Partial<StudentSegment>;
+        Update: Partial<StudentSegment>;
+      };
+      segments: {
+        Row: Segment;
+        Insert: Partial<Segment>;
+        Update: Partial<Segment>;
       };
     };
     Views: {

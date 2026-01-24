@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { getCurrentOrganizationId } from '@/lib/organizationHelpers';
 
 const normalizePhoneForSearch = (input: string) => input.replace(/[\s\+\-\(\)]/g, '');
