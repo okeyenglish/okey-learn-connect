@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,8 +45,17 @@ export const LoginForm = () => {
       }
       setIsLoading(false);
     } else {
-      // Redirect to external CRM on successful login
-      window.location.href = 'https://crm.academyos.ru/';
+      // Redirect to external CRM with SSO tokens
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const params = new URLSearchParams({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+        window.location.href = `https://crm.academyos.ru/auth/sso?${params.toString()}`;
+      } else {
+        window.location.href = 'https://crm.academyos.ru/';
+      }
     }
   };
 

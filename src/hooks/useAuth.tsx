@@ -206,8 +206,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             console.log('Current path:', currentPath);
             
             if (currentPath === '/auth') {
-              console.log('Redirecting to external CRM');
-              window.location.href = 'https://crm.academyos.ru/';
+              console.log('Redirecting to external CRM with SSO');
+              // Get fresh session for SSO redirect
+              const { data: { session: freshSession } } = await supabase.auth.getSession();
+              if (freshSession) {
+                const params = new URLSearchParams({
+                  access_token: freshSession.access_token,
+                  refresh_token: freshSession.refresh_token,
+                });
+                window.location.href = `https://crm.academyos.ru/auth/sso?${params.toString()}`;
+              } else {
+                window.location.href = 'https://crm.academyos.ru/';
+              }
             }
           }, 0);
         } else if (session?.user) {
