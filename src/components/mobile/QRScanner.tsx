@@ -119,15 +119,29 @@ export const QRScanner = ({ onClose }: QRScannerProps) => {
         }
       );
 
-      const data = await response.json().catch(() => ({}));
+      let data: any = {};
+      const responseText = await response.text();
+      
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        console.error('Response is not JSON:', responseText);
+      }
+
+      console.log('QR confirm response:', { 
+        status: response.status, 
+        ok: response.ok, 
+        data, 
+        responseText: responseText.substring(0, 500) 
+      });
 
       if (!response.ok) {
-        const serverError = data?.error || data?.message || `HTTP ${response.status}`;
+        const serverError = data?.error || data?.message || responseText || `Ошибка сервера (HTTP ${response.status})`;
         throw new Error(serverError);
       }
 
       if (!data.success) {
-        throw new Error(data.error || 'Ошибка подтверждения');
+        throw new Error(data.error || 'Сервер вернул неуспешный ответ');
       }
 
       setStatus('success');
