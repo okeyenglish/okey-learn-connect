@@ -20,6 +20,17 @@ img[alt*="avatar"],
 @tailwind components;
 @tailwind utilities;
 
+/* Scanner active state for native Capacitor barcode scanner */
+body.scanner-active {
+  background: transparent !important;
+  --background: transparent !important;
+}
+
+body.scanner-active ion-app,
+body.scanner-active #root {
+  background: transparent !important;
+}
+
 /* O'KEY ENGLISH Design System - All colors MUST be HSL */
 
 @layer base {
