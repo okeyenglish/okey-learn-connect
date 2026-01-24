@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Plus, Edit, Trash2, Save, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabaseTyped as supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
 
 interface FAQ {

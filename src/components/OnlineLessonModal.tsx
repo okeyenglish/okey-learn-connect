@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabaseTyped as supabase } from "@/integrations/supabase/typedClient";
 import { Loader2, Video, X } from "lucide-react";
 
 interface OnlineLessonModalProps {

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabaseTyped as supabase } from "@/integrations/supabase/typedClient";
 import { Loader2, Video, RefreshCw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
