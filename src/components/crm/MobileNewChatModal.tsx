@@ -9,7 +9,7 @@ import {
   User
 } from "lucide-react";
 import { useSearchClients, useCreateClient } from "@/hooks/useClients";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { toast } from "sonner";
 
 interface MobileNewChatModalProps {

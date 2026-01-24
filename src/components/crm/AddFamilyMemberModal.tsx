@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { UserPlus, Loader2, User, Phone, Mail, Heart, FileText, Star, Users } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabaseTyped as supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
 import { PhoneNumbersEditor } from "./PhoneNumbersEditor";
 import type { PhoneNumber } from "@/types/phone";

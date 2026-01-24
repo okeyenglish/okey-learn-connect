@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useWhatsApp } from '@/hooks/useWhatsApp';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { Loader2, CheckCircle, XCircle, Send, Edit, Trash2, Download } from 'lucide-react';
 
 export const WppTestPanel = () => {

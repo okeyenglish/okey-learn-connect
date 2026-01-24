@@ -34,7 +34,7 @@ import { useMaxGreenApi } from "@/hooks/useMaxGreenApi";
 import { useMax } from "@/hooks/useMax";
 import { useTelegramWappi } from "@/hooks/useTelegramWappi";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { usePendingGPTResponses } from "@/hooks/usePendingGPTResponses";
 import { useMarkChatMessagesAsReadByMessenger, useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
 import { useQueryClient } from "@tanstack/react-query";

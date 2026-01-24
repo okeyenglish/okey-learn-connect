@@ -31,6 +31,9 @@ export const supabaseTyped = createClient<any>(
   }
 );
 
+// Alias for easier migration - allows: import { supabase } from "@/integrations/supabase/typedClient"
+export const supabase = supabaseTyped;
+
 // Re-export types for convenience
 export type { CustomDatabase } from './database.types';
 export * from './database.types';

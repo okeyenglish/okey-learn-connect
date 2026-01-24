@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { OptimizedAttachedFile } from "./OptimizedAttachedFile";
 import { MessageReadIndicator } from "./MessageReadIndicator";
 import { MessageReactions } from "./MessageReactions";

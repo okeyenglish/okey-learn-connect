@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, X } from "lucide-react";
 import { WhatsAppConnector } from "./WhatsAppConnector";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 
 export const WhatsAppStatusNotification = () => {
   const [isConnected, setIsConnected] = useState(false);

@@ -12,7 +12,7 @@ import { useMarkChatMessagesAsRead } from '@/hooks/useMessageReadStatus';
 import { useTypingStatus } from '@/hooks/useTypingStatus';
 import { toast } from "sonner";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { AddCorporateChatModal } from './AddCorporateChatModal';
 
 interface CorporateChatAreaProps {
