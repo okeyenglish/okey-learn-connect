@@ -1547,8 +1547,16 @@ const CRMContent = () => {
     };
   };
 
+  // Мемоизированная информация о текущем клиенте для ChatArea
+  // Вызываем getActiveClientInfo ОДИН раз, чтобы избежать race conditions
+  const currentChatClientInfo = useMemo(() => {
+    if (!activeChatId || activeChatType !== 'client') {
+      return { name: 'Выберите чат', phone: '', comment: '' };
+    }
+    return getActiveClientInfo(activeChatId);
+  }, [activeChatId, activeChatType, activeClientInfo, clients, threads]);
+
   const handleCreateNewChat = async (contactInfo: any) => {
-    
     try {
       // Create new client in database
       const newClient = await createClient.mutateAsync({
@@ -3745,9 +3753,9 @@ const CRMContent = () => {
               <ChatArea
                 key={activeChatId}
                 clientId={activeChatId}
-                clientName={getActiveClientInfo().name}
-                clientPhone={getActiveClientInfo().phone}
-                clientComment={getActiveClientInfo().comment}
+                clientName={currentChatClientInfo.name}
+                clientPhone={currentChatClientInfo.phone}
+                clientComment={currentChatClientInfo.comment}
                 onMessageChange={setHasUnsavedChat}
                 activePhoneId={activePhoneId}
                 onOpenTaskModal={() => setShowAddTaskModal(true)}
