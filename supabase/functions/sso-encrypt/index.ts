@@ -28,46 +28,11 @@ function encrypt(text: string, key: string): string {
   return btoa(String.fromCharCode(...encryptedPayload));
 }
 
-// Log SSO event to database
-async function logSSOEvent(
-  supabase: ReturnType<typeof createClient>,
-  eventType: string,
-  userId: string | null,
-  success: boolean,
-  req: Request,
-  errorMessage?: string,
-  metadata?: Record<string, unknown>
-) {
-  try {
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "unknown";
-    const userAgent = req.headers.get("user-agent") || "unknown";
-    const origin = req.headers.get("origin") || req.headers.get("referer") || "unknown";
-
-    await supabase.from("sso_audit_logs").insert({
-      event_type: eventType,
-      user_id: userId,
-      ip_address: ip,
-      user_agent: userAgent,
-      source_domain: origin,
-      target_domain: "crm.academyos.ru",
-      success,
-      error_message: errorMessage,
-      metadata: metadata || {},
-    });
-  } catch (error) {
-    console.error("Failed to log SSO event:", error);
-  }
-}
-
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
-
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
   try {
     const encryptionKey = Deno.env.get("SSO_ENCRYPTION_KEY");
@@ -82,16 +47,15 @@ Deno.serve(async (req) => {
     // Verify authorization
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      // Log failed attempt
-      const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
-      await logSSOEvent(serviceClient, "encrypt", null, false, req, "Missing authorization header");
-      
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -99,11 +63,6 @@ Deno.serve(async (req) => {
     const { data: claimsData, error: claimsError } = await supabase.auth.getUser();
     if (claimsError || !claimsData?.user) {
       console.error("Auth error:", claimsError);
-      
-      // Log failed attempt
-      const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
-      await logSSOEvent(serviceClient, "encrypt", null, false, req, claimsError?.message || "Invalid token");
-      
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -113,10 +72,6 @@ Deno.serve(async (req) => {
     const { access_token, refresh_token } = await req.json();
 
     if (!access_token || !refresh_token) {
-      // Log failed attempt
-      const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
-      await logSSOEvent(serviceClient, "encrypt", claimsData.user.id, false, req, "Missing tokens");
-      
       return new Response(
         JSON.stringify({ error: "Missing tokens" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -127,12 +82,6 @@ Deno.serve(async (req) => {
     const tokensPayload = JSON.stringify({ access_token, refresh_token });
     const encryptedPayload = encrypt(tokensPayload, encryptionKey);
 
-    // Log successful encryption
-    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
-    await logSSOEvent(serviceClient, "encrypt", claimsData.user.id, true, req, undefined, {
-      email: claimsData.user.email,
-    });
-
     console.log("SSO tokens encrypted successfully for user:", claimsData.user.id);
 
     return new Response(
@@ -142,13 +91,6 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error("SSO encrypt error:", error);
-    
-    // Log error
-    try {
-      const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
-      await logSSOEvent(serviceClient, "encrypt", null, false, req, String(error));
-    } catch {}
-    
     return new Response(
       JSON.stringify({ error: "Encryption failed" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

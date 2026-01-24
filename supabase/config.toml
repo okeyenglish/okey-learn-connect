@@ -1,1 +1,355 @@
-project_id = "igqdjqmohwsgyeuhitqg"
+project_id = "kbojujfwtvmsgudumown"
+
+[functions.telegram-channels]
+verify_jwt = true
+
+[functions.telegram-webhook]
+verify_jwt = false
+
+[functions.telegram-send]
+verify_jwt = true
+
+[functions.telegram-get-avatar]
+verify_jwt = true
+
+[functions.telegram-get-contact-info]
+verify_jwt = true
+
+[functions.max-webhook]
+verify_jwt = false
+
+[functions.max-send]
+verify_jwt = true
+
+[functions.max-channels]
+verify_jwt = true
+
+[functions.max-edit]
+verify_jwt = true
+
+[functions.max-delete]
+verify_jwt = true
+
+[functions.max-typing]
+verify_jwt = true
+
+[functions.max-check-availability]
+verify_jwt = true
+
+[functions.max-get-avatar]
+verify_jwt = true
+
+[functions.max-get-contacts]
+verify_jwt = true
+
+[functions.max-get-contact-info]
+verify_jwt = true
+
+[functions.wpp-start]
+verify_jwt = true
+
+[functions.whatsapp-check-availability]
+verify_jwt = true
+
+[functions.whatsapp-get-avatar]
+verify_jwt = false
+
+[functions.whatsapp-get-contacts]
+verify_jwt = true
+
+[functions.whatsapp-get-contact-info]
+verify_jwt = true
+
+[functions.whatsapp-typing]
+verify_jwt = true
+
+[functions.wpp-status]
+verify_jwt = true
+
+[functions.wpp-send]
+verify_jwt = true
+
+[functions.wpp-webhook]
+verify_jwt = false
+
+[functions.get-ai-provider]
+verify_jwt = true
+
+[functions.set-ai-provider]
+verify_jwt = true
+
+[functions.test-vertex-ai]
+verify_jwt = true
+
+[functions.generate-image]
+verify_jwt = true
+
+[functions.admin-reset-password]
+verify_jwt = true
+
+[functions.bbb-meeting]
+verify_jwt = true
+
+[functions.create-teacher-rooms]
+verify_jwt = true
+
+[functions.ask]
+verify_jwt = true
+
+[functions.delete-whatsapp-message]
+verify_jwt = true
+
+[functions.download-whatsapp-file]
+verify_jwt = true
+
+[functions.edit-whatsapp-message]
+verify_jwt = true
+
+[functions.generate-call-summary]
+verify_jwt = true
+
+[functions.generate-delayed-gpt-response]
+verify_jwt = true
+
+[functions.generate-gpt-response]
+verify_jwt = true
+
+[functions.generate-mini-group-name]
+verify_jwt = true
+
+[functions.get-employees]
+verify_jwt = true
+
+[functions.import-students]
+verify_jwt = true
+
+[functions.import-holihope]
+verify_jwt = true
+
+[functions.index-content]
+verify_jwt = true
+
+[functions.onlinepbx-call]
+verify_jwt = true
+
+[functions.onlinepbx-webhook]
+verify_jwt = false
+
+[functions.request-callback]
+verify_jwt = false
+
+[functions.sync-auto-groups]
+verify_jwt = true
+
+[functions.sync-single-auto-group]
+verify_jwt = true
+
+[functions.transcribe-audio]
+verify_jwt = true
+
+[functions.voice-assistant]
+verify_jwt = true
+
+[functions.webhook-proxy]
+verify_jwt = false
+
+[functions.whatsapp-send]
+verify_jwt = true
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.auto-payment-notifications]
+verify_jwt = true
+
+[functions.send-payment-notifications]
+verify_jwt = true
+
+[functions.import-salebot-chats]
+verify_jwt = true
+
+[functions.import-salebot-chats-auto]
+verify_jwt = true
+
+[functions.salebot-stop]
+verify_jwt = true
+
+[functions.salebot-webhook]
+verify_jwt = false
+
+[functions.seo-suggest-ideas]
+verify_jwt = true
+
+[functions.seo-create-brief]
+verify_jwt = true
+
+[functions.seo-generate-content]
+verify_jwt = true
+
+[functions.seo-reoptimize-page]
+verify_jwt = true
+
+[functions.seo-yandex-export]
+verify_jwt = true
+
+[functions.seo-indexnow]
+verify_jwt = true
+
+[functions.seo-collect-wordstat]
+verify_jwt = true
+
+[functions.seo-import-gsc]
+verify_jwt = true
+
+[functions.seo-analyze-page]
+verify_jwt = true
+
+[functions.seo-yandex-info]
+verify_jwt = true
+
+[functions.seo-check-tokens]
+verify_jwt = true
+
+[functions.seo-wordstat]
+verify_jwt = true
+
+[functions.seo-enrich-clusters]
+verify_jwt = true
+
+[functions.seo-auto-cluster]
+verify_jwt = true
+
+[functions.sitemap]
+verify_jwt = false
+
+[functions.create-teacher-test-data]
+verify_jwt = true
+
+[functions.create-student-test-data]
+verify_jwt = true
+
+[functions.suggest-or-generate]
+verify_jwt = true
+
+[functions.generate-app]
+verify_jwt = true
+
+[functions.improve-app]
+verify_jwt = true
+
+[functions.publish-app]
+verify_jwt = true
+
+[functions.manage-app]
+verify_jwt = true
+
+[functions.teacher-assistant]
+verify_jwt = true
+
+[functions.homework-suggestions]
+verify_jwt = true
+
+[functions.wpp-delete]
+verify_jwt = true
+
+[functions.wpp-edit]
+verify_jwt = true
+
+[functions.wpp-download]
+verify_jwt = true
+
+[functions.import-salebot-ids-csv]
+verify_jwt = true
+
+[functions.wappi-whatsapp-send]
+verify_jwt = true
+
+[functions.wappi-whatsapp-webhook]
+verify_jwt = false
+
+[functions.wappi-whatsapp-status]
+verify_jwt = true
+
+[functions.wappi-whatsapp-edit]
+verify_jwt = true
+
+[functions.wappi-whatsapp-delete]
+verify_jwt = true
+
+[functions.wappi-whatsapp-download]
+verify_jwt = true
+
+[functions.tbank-init]
+verify_jwt = true
+
+[functions.tbank-webhook]
+verify_jwt = false
+
+[functions.tbank-status]
+verify_jwt = true
+
+[functions.test-onlinepbx]
+verify_jwt = true
+
+[functions.send-push-notification]
+verify_jwt = true
+
+[functions.lesson-reminders]
+verify_jwt = false
+
+[functions.edge-health-monitor]
+verify_jwt = false
+
+[functions.tbank-init-client]
+verify_jwt = true
+
+[functions.wpp-disconnect]
+verify_jwt = true
+
+[functions.wpp-diagnostics]
+verify_jwt = true
+
+[functions.openrouter-provisioner]
+verify_jwt = true
+
+[functions.ai-consultant]
+verify_jwt = true
+
+[functions.chat-with-ai]
+verify_jwt = true
+
+[functions.sla-monitor]
+verify_jwt = false
+
+[functions.process-events]
+verify_jwt = false
+
+[functions.ai-settings]
+verify_jwt = true
+
+[functions.onlinepbx-settings]
+verify_jwt = true
+
+[functions.migrate-onlinepbx-settings]
+verify_jwt = true
+
+[functions.migrate-messenger-settings]
+verify_jwt = true
+
+[functions.refresh-chat-threads-mv]
+verify_jwt = false
+
+[functions.qr-login-generate]
+verify_jwt = false
+
+[functions.qr-login-check]
+verify_jwt = false
+
+[functions.qr-login-confirm]
+verify_jwt = false
+
+[functions.sso-encrypt]
+verify_jwt = false
+
+[functions.sso-decrypt]
+verify_jwt = false
