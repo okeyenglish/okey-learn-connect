@@ -88,24 +88,47 @@ export const QRScanner = ({ onClose }: QRScannerProps) => {
       return;
     }
 
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke('qr-login-confirm', {
-        body: { 
-          token,
-          session: {
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-            expires_at: session.expires_at,
-            expires_in: session.expires_in,
-          }
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
-      });
+    // Edge Function требует и access_token, и refresh_token
+    if (!session.refresh_token) {
+      setError('Сессия неполная. Выйдите и войдите в приложение заново.');
+      setStatus('error');
+      isProcessingRef.current = false;
+      return;
+    }
 
-      if (fnError) throw fnError;
-      if (!data.success) throw new Error(data.error || 'Ошибка подтверждения');
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/qr-login-confirm`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            token,
+            session: {
+              access_token: session.access_token,
+              refresh_token: session.refresh_token,
+              expires_at: session.expires_at,
+              expires_in: session.expires_in,
+              token_type: session.token_type || 'bearer',
+            }
+          }),
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const serverError = data?.error || data?.message || `HTTP ${response.status}`;
+        throw new Error(serverError);
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Ошибка подтверждения');
+      }
 
       setStatus('success');
 
