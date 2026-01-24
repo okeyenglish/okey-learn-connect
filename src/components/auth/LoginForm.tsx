@@ -42,9 +42,11 @@ export const LoginForm = () => {
       } else {
         setError(error.message);
       }
+      setIsLoading(false);
+    } else {
+      // Redirect to external CRM on successful login
+      window.location.href = 'https://crm.academyos.ru/';
     }
-    
-    setIsLoading(false);
   };
 
   const handleSignUp = async (e: React.FormEvent) => {

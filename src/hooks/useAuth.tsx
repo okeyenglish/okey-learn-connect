@@ -206,18 +206,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             console.log('Current path:', currentPath);
             
             if (currentPath === '/auth') {
-              console.log('Redirecting based on role:', roleData);
-              if (roleData === 'student') {
-                window.location.href = '/student-portal';
-              } else if (roleData === 'teacher') {
-                window.location.href = '/teacher-portal';
-              } else if (roleData === 'admin') {
-                window.location.href = '/admin';
-              } else if (['manager', 'methodist', 'branch_manager', 'head_teacher', 'sales_manager', 'marketing_manager', 'accountant', 'receptionist'].includes(roleData)) {
-                window.location.href = '/crm';
-              } else {
-                window.location.href = '/crm';
-              }
+              console.log('Redirecting to external CRM');
+              window.location.href = 'https://crm.academyos.ru/';
             }
           }, 0);
         } else if (session?.user) {
