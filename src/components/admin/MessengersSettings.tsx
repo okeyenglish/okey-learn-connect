@@ -28,7 +28,7 @@ import { SalebotSettings } from './SalebotSettings';
 import { OpenAISettings } from './OpenAISettings';
 import { OnlinePBXSettings } from './OnlinePBXSettings';
 import { WebhookUrlReset } from './WebhookUrlReset';
-import { supabase } from '@/integrations/supabase/client';
+import { supabaseTyped as supabase } from '@/integrations/supabase/typedClient';
 import { useOrganization } from '@/hooks/useOrganization';
 import { cn } from '@/lib/utils';
 

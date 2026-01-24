@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Key, Eye, EyeOff, CheckCircle, XCircle, ExternalLink, RefreshCw, Trash2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabaseTyped as supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 
 interface AISettings {
