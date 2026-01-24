@@ -206,15 +206,44 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             console.log('Current path:', currentPath);
             
             if (currentPath === '/auth') {
-              console.log('Redirecting to external CRM with SSO');
+              console.log('Redirecting to external CRM with encrypted SSO');
               // Get fresh session for SSO redirect
               const { data: { session: freshSession } } = await supabase.auth.getSession();
               if (freshSession) {
-                const params = new URLSearchParams({
-                  access_token: freshSession.access_token,
-                  refresh_token: freshSession.refresh_token,
-                });
-                window.location.href = `https://crm.academyos.ru/auth/sso?${params.toString()}`;
+                // Encrypt tokens before redirect
+                try {
+                  const response = await fetch('https://api.academyos.ru/functions/v1/sso-encrypt', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${freshSession.access_token}`,
+                    },
+                    body: JSON.stringify({
+                      access_token: freshSession.access_token,
+                      refresh_token: freshSession.refresh_token,
+                    }),
+                  });
+                  
+                  if (response.ok) {
+                    const data = await response.json();
+                    const params = new URLSearchParams({ sso: data.encrypted });
+                    window.location.href = `https://crm.academyos.ru/auth/sso?${params.toString()}`;
+                  } else {
+                    // Fallback to unencrypted
+                    const params = new URLSearchParams({
+                      access_token: freshSession.access_token,
+                      refresh_token: freshSession.refresh_token,
+                    });
+                    window.location.href = `https://crm.academyos.ru/auth/sso?${params.toString()}`;
+                  }
+                } catch {
+                  // Fallback to unencrypted
+                  const params = new URLSearchParams({
+                    access_token: freshSession.access_token,
+                    refresh_token: freshSession.refresh_token,
+                  });
+                  window.location.href = `https://crm.academyos.ru/auth/sso?${params.toString()}`;
+                }
               } else {
                 window.location.href = 'https://crm.academyos.ru/';
               }

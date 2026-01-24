@@ -347,3 +347,9 @@ verify_jwt = false
 
 [functions.qr-login-confirm]
 verify_jwt = false
+
+[functions.sso-encrypt]
+verify_jwt = false
+
+[functions.sso-decrypt]
+verify_jwt = false

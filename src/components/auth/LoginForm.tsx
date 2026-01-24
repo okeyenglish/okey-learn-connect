@@ -10,6 +10,37 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Building2, AlertCircle, QrCode } from 'lucide-react';
 
+const CRM_URL = 'https://crm.academyos.ru';
+const SUPABASE_URL = 'https://api.academyos.ru';
+
+// Encrypt tokens via Edge Function before redirect
+const encryptTokensForSSO = async (session: { access_token: string; refresh_token: string }) => {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/sso-encrypt`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('SSO encrypt failed:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.encrypted;
+  } catch (error) {
+    console.error('SSO encrypt error:', error);
+    return null;
+  }
+};
+
 export const LoginForm = () => {
   const { signIn, signUp, loading } = useAuth();
   const navigate = useNavigate();
@@ -21,6 +52,23 @@ export const LoginForm = () => {
   const [isCorsError, setIsCorsError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('signin');
+
+  const redirectWithSSO = async (session: { access_token: string; refresh_token: string }) => {
+    const encrypted = await encryptTokensForSSO(session);
+    
+    if (encrypted) {
+      const params = new URLSearchParams({ sso: encrypted });
+      window.location.href = `${CRM_URL}/auth/sso?${params.toString()}`;
+    } else {
+      // Fallback: redirect without encryption
+      console.warn('Falling back to unencrypted SSO redirect');
+      const params = new URLSearchParams({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      });
+      window.location.href = `${CRM_URL}/auth/sso?${params.toString()}`;
+    }
+  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,16 +93,12 @@ export const LoginForm = () => {
       }
       setIsLoading(false);
     } else {
-      // Redirect to external CRM with SSO tokens
+      // Redirect to external CRM with encrypted SSO tokens
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        const params = new URLSearchParams({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-        });
-        window.location.href = `https://crm.academyos.ru/auth/sso?${params.toString()}`;
+        await redirectWithSSO(session);
       } else {
-        window.location.href = 'https://crm.academyos.ru/';
+        window.location.href = CRM_URL;
       }
     }
   };

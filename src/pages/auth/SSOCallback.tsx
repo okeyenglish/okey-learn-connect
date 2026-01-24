@@ -3,6 +3,32 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
+const SUPABASE_URL = 'https://api.academyos.ru';
+
+// Decrypt SSO payload via Edge Function
+const decryptSSOPayload = async (encrypted: string) => {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/sso-decrypt`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ encrypted }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      console.error('SSO decrypt failed:', response.status, error);
+      return { error: error.error || 'Decryption failed' };
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('SSO decrypt error:', error);
+    return { error: 'Network error' };
+  }
+};
+
 export default function SSOCallback() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -12,16 +38,36 @@ export default function SSOCallback() {
     const handleSSO = async () => {
       try {
         const params = new URLSearchParams(window.location.search);
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token');
+        
+        // Check for encrypted SSO payload first
+        const encryptedPayload = params.get('sso');
+        let accessToken = params.get('access_token');
+        let refreshToken = params.get('refresh_token');
+
+        if (encryptedPayload) {
+          // Decrypt the SSO payload
+          console.log('Decrypting SSO payload...');
+          const decrypted = await decryptSSOPayload(encryptedPayload);
+          
+          if (decrypted.error) {
+            setError(decrypted.error === 'Token expired' 
+              ? 'Ссылка авторизации истекла. Пожалуйста, войдите заново.' 
+              : `Ошибка расшифровки: ${decrypted.error}`);
+            setStatus('error');
+            return;
+          }
+          
+          accessToken = decrypted.access_token;
+          refreshToken = decrypted.refresh_token;
+        }
 
         if (!accessToken || !refreshToken) {
-          setError('Токены авторизации не найдены в URL');
+          setError('Токены авторизации не найдены');
           setStatus('error');
           return;
         }
 
-        // Set session using tokens from URL
+        // Set session using tokens
         const { error: sessionError } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
