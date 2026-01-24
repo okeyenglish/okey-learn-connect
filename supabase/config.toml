@@ -335,3 +335,6 @@ verify_jwt = true
 
 [functions.migrate-messenger-settings]
 verify_jwt = true
+
+[functions.refresh-chat-threads-mv]
+verify_jwt = false
