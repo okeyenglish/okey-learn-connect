@@ -12,7 +12,7 @@ import { Loader2, DollarSign, Clock, CheckCircle, Settings, Calendar, TrendingUp
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 export const TeacherSalaryManagement = () => {
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>('');

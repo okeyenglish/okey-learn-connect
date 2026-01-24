@@ -50,7 +50,9 @@ export const AddClientModal = ({ children, onClientCreated, open: externalOpen, 
       toast.success("Клиент успешно создан");
       setFormData({ name: '', phone: '', email: '', notes: '' });
       setOpen(false);
-      onClientCreated?.(client.id);
+      if (client) {
+        onClientCreated?.(client.id);
+      }
     } catch (error: any) {
       toast.error("Ошибка при создании клиента: " + (error.message || 'Неизвестная ошибка'));
     }
