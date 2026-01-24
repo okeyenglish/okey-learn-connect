@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Loader2, History, Calendar, User } from "lucide-react";

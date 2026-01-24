@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AssistantTab } from './AssistantTab';
 import { ChatsTab } from './ChatsTab';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 interface FloatingChatWidgetProps {
   teacherId: string;

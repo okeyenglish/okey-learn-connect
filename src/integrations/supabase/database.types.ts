@@ -379,9 +379,24 @@ export interface Payment {
 export interface LearningGroup {
   id: string;
   name: string;
+  subject?: string | null;
+  level?: string | null;
+  branch?: string | null;
+  category?: string | null;
+  group_type?: string | null;
+  status?: string | null;
   responsible_teacher: string | null;
   current_students: number | null;
   capacity: number | null;
+  academic_hours?: number | null;
+  period_start?: string | null;
+  period_end?: string | null;
+  schedule_days?: string[] | null;
+  schedule_time?: string | null;
+  schedule_room?: string | null;
+  course_id?: string | null;
+  course_name?: string | null;
+  debt_count?: number | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -389,14 +404,25 @@ export interface LearningGroup {
 
 export interface LessonSession {
   id: string;
+  group_id?: string | null;
   learning_group_id: string | null;
+  course_lesson_id?: string | null;
   teacher_name: string | null;
+  branch?: string | null;
   lesson_date: string;
+  day_of_week?: string | null;
   start_time: string | null;
   end_time: string | null;
   classroom: string | null;
   status: string | null;
+  notes?: string | null;
+  paid_minutes?: number | null;
+  payment_id?: string | null;
+  payment_date?: string | null;
+  payment_amount?: number | null;
+  lessons_count?: number | null;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface CronJobLog {
@@ -456,15 +482,31 @@ export interface GroupStudent {
 export interface IndividualLesson {
   id: string;
   student_id: string;
+  student_name?: string | null;
   teacher_id: string | null;
+  teacher_name?: string | null;
   subject: string | null;
-  schedule: Json | null;
+  level?: string | null;
+  branch?: string | null;
+  lesson_location?: string | null;
+  duration?: number | null;
+  price_per_lesson?: number | null;
+  academic_hours_per_day?: number | null;
+  schedule_time?: string | null;
+  schedule_days?: string[] | null;
+  period_start?: string | null;
+  period_end?: string | null;
+  schedule?: Json | null;
+  status?: string | null;
   is_active: boolean;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface Course {
   id: string;
+  slug?: string | null;
+  title?: string | null;
   name: string;
   description: string | null;
   price: number | null;
@@ -479,6 +521,116 @@ export interface Organization {
   logo_url?: string | null;
   created_at: string;
   updated_at?: string;
+}
+
+export interface IndividualLessonHistory {
+  id: string;
+  lesson_id: string;
+  changed_at: string;
+  changed_by: string | null;
+  change_type: string;
+  changes: Json;
+  applied_from_date?: string | null;
+  applied_to_date?: string | null;
+  notes?: string | null;
+}
+
+export interface Homework {
+  id: string;
+  lesson_session_id?: string | null;
+  group_id?: string | null;
+  assignment: string;
+  description?: string | null;
+  due_date: string;
+  show_in_student_portal: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface StudentHomework {
+  id: string;
+  homework_id: string;
+  student_id: string;
+  status: string;
+  submitted_at?: string | null;
+  grade?: number | null;
+  teacher_notes?: string | null;
+  created_at: string;
+}
+
+export interface AssistantThread {
+  id: string;
+  owner_id: string;
+  title?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface TeacherBranch {
+  id: string;
+  teacher_id: string;
+  branch_id: string;
+  organization_branches?: OrganizationBranch;
+  created_at: string;
+}
+
+export interface ChatThread {
+  id: string;
+  name: string;
+  organization_id?: string | null;
+  type?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface HomeworkTemplate {
+  id: string;
+  name: string;
+  content: string;
+  subject?: string | null;
+  level?: string | null;
+  created_at: string;
+}
+
+export interface AIProviderKeyPublic {
+  id: string;
+  provider: string;
+  masked_key: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface AIKeyProvisionJob {
+  id: string;
+  user_id: string;
+  provider: string;
+  status: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface App {
+  id: string;
+  title: string;
+  description?: string | null;
+  content?: string | null;
+  status: string;
+  published_at?: string | null;
+  organization_id?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface StudentAttendance {
+  id: string;
+  student_id: string;
+  lesson_session_id?: string | null;
+  individual_lesson_session_id?: string | null;
+  status: string;
+  notes?: string | null;
+  marked_by?: string | null;
+  marked_at: string;
+  created_at: string;
 }
 
 // ============ RPC функции ============
@@ -709,6 +861,61 @@ export interface CustomDatabase {
         Row: Organization;
         Insert: Partial<Organization>;
         Update: Partial<Organization>;
+      };
+      individual_lesson_history: {
+        Row: IndividualLessonHistory;
+        Insert: Partial<IndividualLessonHistory>;
+        Update: Partial<IndividualLessonHistory>;
+      };
+      homework: {
+        Row: Homework;
+        Insert: Partial<Homework>;
+        Update: Partial<Homework>;
+      };
+      student_homework: {
+        Row: StudentHomework;
+        Insert: Partial<StudentHomework>;
+        Update: Partial<StudentHomework>;
+      };
+      assistant_threads: {
+        Row: AssistantThread;
+        Insert: Partial<AssistantThread>;
+        Update: Partial<AssistantThread>;
+      };
+      teacher_branches: {
+        Row: TeacherBranch;
+        Insert: Partial<TeacherBranch>;
+        Update: Partial<TeacherBranch>;
+      };
+      chat_threads: {
+        Row: ChatThread;
+        Insert: Partial<ChatThread>;
+        Update: Partial<ChatThread>;
+      };
+      homework_templates: {
+        Row: HomeworkTemplate;
+        Insert: Partial<HomeworkTemplate>;
+        Update: Partial<HomeworkTemplate>;
+      };
+      v_ai_provider_keys_public: {
+        Row: AIProviderKeyPublic;
+        Insert: Partial<AIProviderKeyPublic>;
+        Update: Partial<AIProviderKeyPublic>;
+      };
+      ai_key_provision_jobs: {
+        Row: AIKeyProvisionJob;
+        Insert: Partial<AIKeyProvisionJob>;
+        Update: Partial<AIKeyProvisionJob>;
+      };
+      apps: {
+        Row: App;
+        Insert: Partial<App>;
+        Update: Partial<App>;
+      };
+      student_attendance: {
+        Row: StudentAttendance;
+        Insert: Partial<StudentAttendance>;
+        Update: Partial<StudentAttendance>;
       };
     };
     Views: {

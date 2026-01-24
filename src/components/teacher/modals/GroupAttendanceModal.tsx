@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Check, X, DollarSign, Gift, Clock, AlertCircle } from 'lucide-react';
 import { useGroupStudentsAttendance } from '@/hooks/useTeacherJournal';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 
 interface GroupAttendanceModalProps {
