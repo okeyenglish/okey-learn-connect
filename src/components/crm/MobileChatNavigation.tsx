@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Building2, GraduationCap, Plus, Users, MessageCircle, CreditCard, ListTodo, UserPlus, Briefcase } from "lucide-react";
+import { Building2, GraduationCap, Plus, Users, MessageCircle, CreditCard, ListTodo, UserPlus, Briefcase, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { QRScanner } from "@/components/mobile/QRScanner";
 
 interface MobileChatNavigationProps {
   onCorporateClick: () => void;
@@ -34,6 +35,7 @@ export const MobileChatNavigation = ({
   activeChatType
 }: MobileChatNavigationProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
   const NavButton = ({ 
     icon: Icon, 
     label, 
@@ -98,6 +100,7 @@ export const MobileChatNavigation = ({
   };
 
   const actionButtons = [
+    { icon: QrCode, label: 'Веб-вход', onClick: () => setShowQRScanner(true) },
     { icon: CreditCard, label: 'Оплата', onClick: onPaymentClick },
     { icon: ListTodo, label: 'Задача', onClick: onTaskClick },
     { icon: Briefcase, label: 'Сотрудник', onClick: onNewChatClick },
@@ -106,6 +109,10 @@ export const MobileChatNavigation = ({
 
   return (
     <>
+      {/* QR Scanner Modal */}
+      {showQRScanner && (
+        <QRScanner onClose={() => setShowQRScanner(false)} />
+      )}
       {/* Overlay */}
       {isMenuOpen && (
         <div 
