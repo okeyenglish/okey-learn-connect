@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
 
 interface MergeStudentsParams {
@@ -16,8 +16,8 @@ export const useMergeStudents = () => {
       
       // Переносим записи в группах
       const { error: groupError } = await supabase
-        .from('group_students')
-        .update({ student_id: primaryId } as any)
+        .from('group_students' as any)
+        .update({ student_id: primaryId })
         .in('student_id', duplicateIds);
 
       if (groupError) {
@@ -26,8 +26,8 @@ export const useMergeStudents = () => {
 
       // Переносим индивидуальные занятия
       const { error: lessonsError } = await supabase
-        .from('individual_lessons')
-        .update({ student_id: primaryId } as any)
+        .from('individual_lessons' as any)
+        .update({ student_id: primaryId })
         .in('student_id', duplicateIds);
 
       if (lessonsError) {
@@ -36,8 +36,8 @@ export const useMergeStudents = () => {
 
       // Переносим платежи
       const { error: paymentsError } = await supabase
-        .from('payments')
-        .update({ student_id: primaryId } as any)
+        .from('payments' as any)
+        .update({ student_id: primaryId })
         .in('student_id', duplicateIds);
 
       if (paymentsError) {
@@ -46,8 +46,8 @@ export const useMergeStudents = () => {
 
       // Переносим историю
       const { error: historyError } = await supabase
-        .from('student_history')
-        .update({ student_id: primaryId } as any)
+        .from('student_history' as any)
+        .update({ student_id: primaryId })
         .in('student_id', duplicateIds);
 
       if (historyError) {
@@ -56,42 +56,42 @@ export const useMergeStudents = () => {
 
       // Переносим баланс (объединяем)
       const { data: balances } = await supabase
-        .from('student_balances')
+        .from('student_balances' as any)
         .select('balance')
         .in('student_id', duplicateIds);
 
       if (balances && balances.length > 0) {
-        const totalBalance = balances.reduce((sum, b) => sum + (b.balance || 0), 0);
+        const totalBalance = (balances as any[]).reduce((sum, b) => sum + (b.balance || 0), 0);
         
         // Обновляем баланс основного студента
         await supabase
-          .from('student_balances')
+          .from('student_balances' as any)
           .upsert({
             student_id: primaryId,
             balance: totalBalance,
-          } as any);
+          });
 
         // Удаляем балансы дубликатов
         await supabase
-          .from('student_balances')
+          .from('student_balances' as any)
           .delete()
           .in('student_id', duplicateIds);
       }
 
       // 2. Помечаем дубликаты как архивные
       const { error: archiveError } = await supabase
-        .from('students')
+        .from('students' as any)
         .update({ 
           status: 'archived',
           notes: 'Объединен с основной записью'
-        } as any)
+        })
         .in('id', duplicateIds);
 
       if (archiveError) throw archiveError;
 
       // 3. Добавляем запись в историю основного студента
       await supabase
-        .from('student_history')
+        .from('student_history' as any)
         .insert({
           student_id: primaryId,
           event_type: 'merge',
@@ -100,7 +100,7 @@ export const useMergeStudents = () => {
           description: `Объединено ${duplicateIds.length} дубликатов записей`,
           new_value: { merged_ids: duplicateIds },
           changed_by: (await supabase.auth.getUser()).data.user?.id,
-        } as any);
+        });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['students'] });

@@ -1,11 +1,24 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
-import { CustomDatabase } from '@/integrations/supabase/database.types';
 
-type DbInvoice = Database['public']['Tables']['invoices']['Row'];
-type DbInvoiceInsert = Database['public']['Tables']['invoices']['Insert'];
-type DbInvoiceUpdate = Database['public']['Tables']['invoices']['Update'];
+// Local invoice interfaces since this table may not be in generated types
+interface DbInvoice {
+  id: string;
+  student_id?: string | null;
+  amount: number;
+  status: string;
+  due_date?: string | null;
+  paid_at?: string | null;
+  invoice_number?: string | null;
+  notes?: string | null;
+  description?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+type DbInvoiceInsert = Partial<DbInvoice>;
+type DbInvoiceUpdate = Partial<DbInvoice>;
 
 export interface Invoice extends Omit<DbInvoice, 'students'> {
   students?: {
@@ -45,7 +58,7 @@ export const useCreateInvoice = () => {
     mutationFn: async (invoiceData: DbInvoiceInsert) => {
       const { data, error } = await supabase
         .from('invoices')
-        .insert(invoiceData)
+        .insert(invoiceData as any)
         .select()
         .single();
 
@@ -77,7 +90,7 @@ export const useUpdateInvoice = () => {
     mutationFn: async ({ id, updates }: { id: string; updates: DbInvoiceUpdate }) => {
       const { data, error } = await supabase
         .from('invoices')
-        .update(updates)
+        .update(updates as any)
         .eq('id', id)
         .select()
         .single();

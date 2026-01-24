@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 
 export interface PaymentTerminal {
@@ -27,7 +27,7 @@ export const usePaymentTerminals = (organizationId?: string) => {
       if (!organizationId) throw new Error('Organization ID required');
 
       const { data, error } = await supabase
-        .from('payment_terminals')
+        .from('payment_terminals' as any)
         .select(`
           *,
           branch:organization_branches(id, name)
@@ -55,7 +55,7 @@ export const useCreatePaymentTerminal = () => {
       is_test_mode?: boolean;
     }) => {
       const { data, error } = await supabase
-        .from('payment_terminals')
+        .from('payment_terminals' as any)
         .insert({
           organization_id: terminal.organization_id,
           branch_id: terminal.branch_id || null,
@@ -95,17 +95,17 @@ export const useUpdatePaymentTerminal = () => {
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<PaymentTerminal> & { id: string }) => {
       const { data, error } = await supabase
-        .from('payment_terminals')
+        .from('payment_terminals' as any)
         .update(updates)
         .eq('id', id)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as any;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['payment-terminals', data.organization_id] });
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['payment-terminals', data?.organization_id] });
       toast({
         title: 'Терминал обновлен',
       });
@@ -127,7 +127,7 @@ export const useDeletePaymentTerminal = () => {
   return useMutation({
     mutationFn: async ({ id, organizationId }: { id: string; organizationId: string }) => {
       const { error } = await supabase
-        .from('payment_terminals')
+        .from('payment_terminals' as any)
         .delete()
         .eq('id', id);
 

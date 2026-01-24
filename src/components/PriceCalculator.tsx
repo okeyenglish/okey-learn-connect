@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Gift, Phone, User, MapPin, BookOpen, Calendar, Check, Sparkles, MessageCircle, Clock } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { getBranchesForSelect } from "@/lib/branches";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 
 interface PriceCalculatorProps {
   preSelectedBranch?: string;

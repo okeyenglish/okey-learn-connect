@@ -17,7 +17,7 @@ import { AdminModal } from "@/components/admin/AdminModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { toast } from "sonner";
 
 interface ManagerMenuProps {

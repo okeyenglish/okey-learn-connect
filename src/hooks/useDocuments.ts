@@ -1,23 +1,32 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
-import { CustomDatabase } from "@/integrations/supabase/database.types";
 
-// Document interface since this table may not exist in typed schema yet
-interface Document {
+// Document interface with all fields used in the application
+export interface Document {
   id: string;
   name: string;
-  file_url: string;
+  file_url?: string | null;
+  file_path?: string | null;
+  description?: string | null;
+  content?: string | null;
+  mime_type?: string | null;
+  file_size?: number | null;
+  document_type?: 'file' | 'online' | 'folder' | string | null;
+  folder_path?: string | null;
+  owner_id?: string | null;
   student_id?: string | null;
   organization_id?: string | null;
+  is_shared?: boolean | null;
+  shared_with?: string[] | null;
   created_at: string;
-  updated_at?: string;
+  updated_at?: string | null;
 }
 
 type DocumentInsert = Partial<Document>;
 type DocumentUpdate = Partial<Document>;
 
-export type { Document };
+export type { DocumentInsert, DocumentUpdate };
 
 export const useDocuments = (folderPath: string = '/') => {
   return useQuery({
@@ -49,7 +58,7 @@ export const useCreateDocument = () => {
         .insert({
           ...document,
           owner_id: user.id,
-        })
+        } as any)
         .select()
         .single();
 
@@ -81,7 +90,7 @@ export const useUpdateDocument = () => {
     mutationFn: async ({ id, updates }: { id: string; updates: DocumentUpdate }) => {
       const { data, error } = await supabase
         .from('documents')
-        .update(updates)
+        .update(updates as any)
         .eq('id', id)
         .select()
         .single();
@@ -115,15 +124,17 @@ export const useDeleteDocument = () => {
       // Get document info
       const { data: doc } = await supabase
         .from('documents')
-        .select('file_path')
+        .select('*')
         .eq('id', id)
         .single();
 
+      const docData = doc as Document | null;
+
       // Delete from storage if it's a file
-      if (doc?.file_path) {
+      if (docData?.file_path) {
         const { error: storageError } = await supabase.storage
           .from('documents')
-          .remove([doc.file_path]);
+          .remove([docData.file_path]);
         
         if (storageError) throw storageError;
       }
@@ -192,7 +203,7 @@ export const useUploadDocument = () => {
           document_type: 'file',
           owner_id: user.id,
           folder_path: folderPath,
-        })
+        } as any)
         .select()
         .single();
 
@@ -265,7 +276,7 @@ export const useShareDocument = () => {
         .update({ 
           is_shared: true, 
           shared_with: userIds 
-        })
+        } as any)
         .eq('id', documentId)
         .select()
         .single();

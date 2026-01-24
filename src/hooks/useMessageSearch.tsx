@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useOrganization } from '@/hooks/useOrganization';
 
 interface SearchResult {
@@ -72,7 +72,7 @@ export const useMessageSearch = (options: UseMessageSearchOptions = {}) => {
       console.log(`[useMessageSearch] Searching for "${debouncedQuery}"...`);
 
       let queryBuilder = supabase
-        .from('chat_messages')
+        .from('chat_messages' as any)
         .select(`
           id,
           client_id,
