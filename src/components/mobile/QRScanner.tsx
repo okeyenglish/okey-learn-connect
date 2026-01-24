@@ -1,177 +1,55 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { X, Camera, CheckCircle, Loader2, QrCode, AlertCircle, Smartphone } from 'lucide-react';
+import { X, Camera, CheckCircle, Loader2, QrCode, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { Capacitor } from '@capacitor/core';
+import { Html5Qrcode } from 'html5-qrcode';
 
 interface QRScannerProps {
   onClose: () => void;
 }
 
 export const QRScanner = ({ onClose }: QRScannerProps) => {
-  const navigate = useNavigate();
   const { session } = useAuth();
   const [status, setStatus] = useState<'idle' | 'scanning' | 'confirming' | 'success' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [isNative, setIsNative] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const scanIntervalRef = useRef<number | null>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const isProcessingRef = useRef(false);
 
-  // Check if running in native Capacitor app
-  useEffect(() => {
-    const checkNative = Capacitor.isNativePlatform();
-    setIsNative(checkNative);
-    console.log('QRScanner: isNative =', checkNative);
-  }, []);
-
-  // Start native Capacitor scanner (only available in native app)
-  const startNativeScanner = useCallback(async () => {
-    try {
-      setStatus('scanning');
-      setError(null);
-
-      // Access the barcode scanner from the global Capacitor plugins
-      // This only works when the plugin is installed in the native app
-      const Plugins = (window as any).Capacitor?.Plugins;
-      const BarcodeScanner = Plugins?.BarcodeScanner;
-      
-      if (!BarcodeScanner) {
-        console.log('Native BarcodeScanner not available, falling back to web');
-        await startWebScanner();
-        return;
-      }
-
-      // Check camera permission
-      const permissionStatus = await BarcodeScanner.checkPermission({ force: true });
-      
-      if (!permissionStatus.granted) {
-        setError('Разрешите доступ к камере в настройках приложения');
-        setStatus('error');
-        return;
-      }
-
-      // Make the webview transparent so we can see the camera
-      document.querySelector('body')?.classList.add('scanner-active');
-      await BarcodeScanner.hideBackground();
-
-      // Start scanning
-      const result = await BarcodeScanner.startScan();
-      
-      // Restore UI
-      document.querySelector('body')?.classList.remove('scanner-active');
-      await BarcodeScanner.showBackground();
-
-      if (result.hasContent) {
-        console.log('Native QR scanned:', result.content);
-        await handleQRCode(result.content);
-      } else {
-        setStatus('idle');
-      }
-    } catch (err: any) {
-      console.error('Native scanner error:', err);
-      document.querySelector('body')?.classList.remove('scanner-active');
-      
-      // Fall back to web scanner
-      console.log('Falling back to web scanner');
-      await startWebScanner();
-    }
-  }, []);
-
-  // Stop native scanner
-  const stopNativeScanner = useCallback(async () => {
-    try {
-      const Plugins = (window as any).Capacitor?.Plugins;
-      const BarcodeScanner = Plugins?.BarcodeScanner;
-      
-      if (BarcodeScanner) {
-        await BarcodeScanner.stopScan();
-        await BarcodeScanner.showBackground();
-      }
-      document.querySelector('body')?.classList.remove('scanner-active');
-    } catch (err) {
-      // Ignore if not available
-    }
-  }, []);
-
-  // Initialize web camera
-  const startWebScanner = useCallback(async () => {
-    try {
-      setStatus('scanning');
-      setError(null);
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
-      });
-      
-      streamRef.current = stream;
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
-
-      // Start scanning for QR codes
-      startWebQRDetection();
-    } catch (err: any) {
-      console.error('Camera error:', err);
-      setError('Не удалось получить доступ к камере. Разрешите доступ в настройках.');
-      setStatus('error');
-    }
-  }, []);
-
-  // Scan for QR codes using BarcodeDetector API
-  const startWebQRDetection = useCallback(() => {
-    if ('BarcodeDetector' in window) {
-      const barcodeDetector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
-      
-      scanIntervalRef.current = window.setInterval(async () => {
-        if (!videoRef.current || videoRef.current.readyState !== 4) return;
-        
-        try {
-          const barcodes = await barcodeDetector.detect(videoRef.current);
-          if (barcodes.length > 0) {
-            const qrValue = barcodes[0].rawValue;
-            handleQRCode(qrValue);
-          }
-        } catch (err) {
-          // Ignore detection errors
+  // Stop scanner
+  const stopScanner = useCallback(async () => {
+    if (scannerRef.current) {
+      try {
+        const state = scannerRef.current.getState();
+        if (state === 2) { // SCANNING state
+          await scannerRef.current.stop();
         }
-      }, 500);
-    } else {
-      setError('Автоматическое сканирование недоступно в этом браузере. Откройте приложение на телефоне или используйте Chrome/Edge.');
+        scannerRef.current.clear();
+      } catch (e) {
+        console.log('Scanner stop error (can ignore):', e);
+      }
+      scannerRef.current = null;
     }
   }, []);
-
-  // Start camera (native or web)
-  const startCamera = useCallback(async () => {
-    if (isNative) {
-      await startNativeScanner();
-    } else {
-      await startWebScanner();
-    }
-  }, [isNative, startNativeScanner, startWebScanner]);
 
   // Handle detected QR code
-  const handleQRCode = async (value: string) => {
-    // Stop scanning
-    if (scanIntervalRef.current) {
-      clearInterval(scanIntervalRef.current);
-      scanIntervalRef.current = null;
-    }
-    stopWebCamera();
-    
+  const handleQRCode = useCallback(async (value: string) => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
     console.log('QR code detected:', value);
-    
+
+    // Vibrate on scan (works on Android)
+    if ('vibrate' in navigator) {
+      navigator.vibrate(100);
+    }
+
     // Parse the QR code URL
-    // Expected format: academyos://qr-login?token=xxx
+    // Expected format: academyos://qr-login?token=xxx or https://...?token=xxx
     let token: string | null = null;
-    
+
     try {
       if (value.startsWith('academyos://qr-login')) {
         const url = new URL(value.replace('academyos://', 'https://'));
@@ -180,31 +58,36 @@ export const QRScanner = ({ onClose }: QRScannerProps) => {
         // Try to extract token from any URL format
         const url = new URL(value);
         token = url.searchParams.get('token');
+      } else if (value.length > 20 && !value.includes(' ')) {
+        // Raw token
+        token = value;
       }
     } catch (err) {
       console.error('Error parsing QR URL:', err);
     }
-    
+
     if (!token) {
       setError('Неверный QR-код. Используйте QR-код со страницы входа.');
       setStatus('error');
+      isProcessingRef.current = false;
       return;
     }
-    
+
     // Confirm the login
     await confirmLogin(token);
-  };
+  }, []);
 
   // Confirm login via edge function
   const confirmLogin = async (token: string) => {
     setStatus('confirming');
-    
+
     if (!session?.access_token) {
       setError('Вы не авторизованы в приложении');
       setStatus('error');
+      isProcessingRef.current = false;
       return;
     }
-    
+
     try {
       const { data, error: fnError } = await supabase.functions.invoke('qr-login-confirm', {
         body: { token },
@@ -212,72 +95,112 @@ export const QRScanner = ({ onClose }: QRScannerProps) => {
           Authorization: `Bearer ${session.access_token}`
         }
       });
-      
+
       if (fnError) throw fnError;
       if (!data.success) throw new Error(data.error || 'Ошибка подтверждения');
-      
+
       setStatus('success');
-      
+
       // Vibrate on success (works on Android and some other platforms)
       if ('vibrate' in navigator) {
         navigator.vibrate([100, 50, 100]); // Short-pause-short pattern
       }
-      
+
       toast.success('Вход в веб-версию подтверждён!');
-      
+
       // Close after showing success
       setTimeout(() => {
         onClose();
       }, 2000);
-      
+
     } catch (err: any) {
       console.error('Error confirming login:', err);
       setError(err.message || 'Не удалось подтвердить вход');
       setStatus('error');
+      isProcessingRef.current = false;
     }
   };
 
-  // Stop web camera
-  const stopWebCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
+  // Start camera with html5-qrcode
+  const startCamera = useCallback(async () => {
+    setStatus('scanning');
+    setError(null);
+    isProcessingRef.current = false;
+
+    try {
+      // Wait for DOM element to be ready
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      const qrReaderElement = document.getElementById('qr-reader');
+      if (!qrReaderElement) {
+        throw new Error('QR reader element not found');
+      }
+
+      const html5QrCode = new Html5Qrcode('qr-reader');
+      scannerRef.current = html5QrCode;
+
+      await html5QrCode.start(
+        { facingMode: 'environment' },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1.0,
+        },
+        async (decodedText) => {
+          // Stop scanner immediately after successful scan
+          await stopScanner();
+          await handleQRCode(decodedText);
+        },
+        () => {
+          // QR code not found - this is normal during scanning, don't log
+        }
+      );
+    } catch (err: any) {
+      console.error('Scanner error:', err);
+
+      let errorMessage = 'Не удалось запустить камеру';
+
+      if (err instanceof Error) {
+        if (err.message.includes('Permission') || err.message.includes('NotAllowedError')) {
+          errorMessage = 'Разрешите доступ к камере в настройках браузера';
+        } else if (err.message.includes('NotFoundError') || err.message.includes('DevicesNotFoundError')) {
+          errorMessage = 'Камера не найдена на устройстве';
+        } else if (err.message.includes('NotReadableError')) {
+          errorMessage = 'Камера занята другим приложением';
+        } else if (err.message.includes('OverconstrainedError')) {
+          errorMessage = 'Задняя камера недоступна, попробуйте ещё раз';
+        }
+      }
+
+      setError(errorMessage);
+      setStatus('error');
     }
-    if (scanIntervalRef.current) {
-      clearInterval(scanIntervalRef.current);
-      scanIntervalRef.current = null;
-    }
-  }, []);
+  }, [stopScanner, handleQRCode]);
 
   // Handle close
   const handleClose = useCallback(async () => {
-    stopWebCamera();
-    if (isNative) {
-      await stopNativeScanner();
-    }
+    await stopScanner();
     onClose();
-  }, [stopWebCamera, stopNativeScanner, isNative, onClose]);
+  }, [stopScanner, onClose]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopWebCamera();
-      if (isNative) {
-        stopNativeScanner();
-      }
+      stopScanner();
     };
-  }, [stopWebCamera, stopNativeScanner, isNative]);
+  }, [stopScanner]);
 
   // Handle retry
   const handleRetry = () => {
     setError(null);
     setStatus('idle');
+    isProcessingRef.current = false;
   };
 
   return (
-    <div className={`fixed inset-0 z-[100] bg-background flex flex-col ${status === 'scanning' && isNative ? 'bg-transparent' : ''}`}>
+    <div className="fixed inset-0 z-[100] bg-background flex flex-col">
       {/* Header */}
-      <div className={`flex items-center justify-between p-4 border-b ${status === 'scanning' && isNative ? 'bg-background/90' : ''}`}>
+      <div className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center gap-2">
           <QrCode className="h-5 w-5 text-primary" />
           <h1 className="font-semibold">Сканировать QR-код</h1>
@@ -286,18 +209,14 @@ export const QRScanner = ({ onClose }: QRScannerProps) => {
           <X className="h-5 w-5" />
         </Button>
       </div>
-      
+
       {/* Content */}
-      <div className={`flex-1 flex flex-col items-center justify-center p-4 ${status === 'scanning' && isNative ? 'bg-transparent' : ''}`}>
+      <div className="flex-1 flex flex-col items-center justify-center p-4">
         {status === 'idle' && (
           <Card className="w-full max-w-sm">
             <CardHeader className="text-center">
               <div className="mx-auto mb-4 p-4 rounded-full bg-primary/10">
-                {isNative ? (
-                  <Smartphone className="h-8 w-8 text-primary" />
-                ) : (
-                  <Camera className="h-8 w-8 text-primary" />
-                )}
+                <Camera className="h-8 w-8 text-primary" />
               </div>
               <CardTitle>Войти в веб-версию</CardTitle>
               <CardDescription>
@@ -307,46 +226,32 @@ export const QRScanner = ({ onClose }: QRScannerProps) => {
             <CardContent className="space-y-3">
               <Button onClick={startCamera} className="w-full" size="lg">
                 <Camera className="h-4 w-4 mr-2" />
-                {isNative ? 'Сканировать QR-код' : 'Включить камеру'}
+                Включить камеру
               </Button>
-              {isNative && (
-                <p className="text-xs text-center text-muted-foreground">
-                  Наведите камеру на QR-код на странице входа
-                </p>
-              )}
             </CardContent>
           </Card>
         )}
-        
+
         {status === 'scanning' && (
-          <div className="relative w-full max-w-sm aspect-square">
-            <video 
-              ref={videoRef}
-              className="w-full h-full object-cover rounded-2xl"
-              playsInline
-              muted
+          <div className="w-full max-w-sm">
+            <div 
+              id="qr-reader" 
+              className="w-full rounded-2xl overflow-hidden"
+              style={{ minHeight: '320px' }}
             />
-            <canvas ref={canvasRef} className="hidden" />
-            
-            {/* Scanning overlay */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-48 h-48 border-2 border-primary rounded-2xl relative">
-                <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-primary rounded-tl-xl" />
-                <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-primary rounded-tr-xl" />
-                <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-primary rounded-bl-xl" />
-                <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-primary rounded-br-xl" />
-                
-                {/* Scanning line animation */}
-                <div className="absolute inset-x-2 top-2 h-0.5 bg-primary/50 animate-pulse" />
-              </div>
-            </div>
-            
-            <p className="absolute bottom-4 left-0 right-0 text-center text-sm text-white bg-black/50 py-2 rounded-b-2xl">
+            <p className="text-center text-sm text-muted-foreground mt-4">
               Наведите камеру на QR-код
             </p>
+            <Button 
+              variant="outline" 
+              onClick={handleClose} 
+              className="w-full mt-4"
+            >
+              Отмена
+            </Button>
           </div>
         )}
-        
+
         {status === 'confirming' && (
           <Card className="w-full max-w-sm">
             <CardContent className="py-12 text-center">
@@ -355,7 +260,7 @@ export const QRScanner = ({ onClose }: QRScannerProps) => {
             </CardContent>
           </Card>
         )}
-        
+
         {status === 'success' && (
           <Card className="w-full max-w-sm">
             <CardContent className="py-12 text-center">
@@ -369,7 +274,7 @@ export const QRScanner = ({ onClose }: QRScannerProps) => {
             </CardContent>
           </Card>
         )}
-        
+
         {status === 'error' && (
           <Card className="w-full max-w-sm">
             <CardContent className="py-8 text-center">
