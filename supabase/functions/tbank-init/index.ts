@@ -2,9 +2,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
 import {
   corsHeaders,
   handleCors,
+  successResponse,
   errorResponse,
   getErrorMessage,
   type TBankInitRequest,
+  type TBankInitResponse,
 } from '../_shared/types.ts';
 
 interface InitPaymentRequest {
@@ -16,7 +18,7 @@ interface InitPaymentRequest {
   fail_url?: string;
 }
 
-interface TBankInitResponse {
+interface TBankApiResponse {
   Success: boolean;
   ErrorCode: string;
   TerminalKey?: string;
@@ -59,10 +61,7 @@ Deno.serve(async (req) => {
     const { student_id, amount, description, branch_id, success_url, fail_url }: InitPaymentRequest = await req.json();
 
     if (!student_id || !amount) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'student_id and amount are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('student_id and amount are required', 400);
     }
 
     // Получаем студента и его организацию
@@ -74,10 +73,7 @@ Deno.serve(async (req) => {
 
     if (studentError || !student) {
       console.error('Student not found:', studentError);
-      return new Response(
-        JSON.stringify({ success: false, error: 'Student not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Student not found', 404);
     }
 
     const organizationId = student.organization_id;
@@ -125,10 +121,7 @@ Deno.serve(async (req) => {
 
     if (!terminal) {
       console.error('No active payment terminal found for organization:', organizationId);
-      return new Response(
-        JSON.stringify({ success: false, error: 'Payment terminal not configured' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Payment terminal not configured', 400);
     }
 
     // Генерируем уникальный OrderId
@@ -165,7 +158,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify(requestData),
     });
 
-    const tbankResponse: TBankInitResponse = await response.json();
+    const tbankResponse: TBankApiResponse = await response.json();
 
     console.log('T-Bank response:', tbankResponse);
 
@@ -205,22 +198,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        payment_url: tbankResponse.PaymentURL,
-        order_id: orderId,
-        payment_id: tbankResponse.PaymentId,
-        online_payment_id: onlinePayment?.id,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    const result: TBankInitResponse = {
+      success: true,
+      paymentUrl: tbankResponse.PaymentURL,
+      orderId: orderId,
+      paymentId: tbankResponse.PaymentId,
+    };
 
-  } catch (error) {
+    return successResponse({ ...result, online_payment_id: onlinePayment?.id });
+
+  } catch (error: unknown) {
     console.error('Error in tbank-init:', error);
-    return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });

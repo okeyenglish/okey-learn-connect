@@ -1,27 +1,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-interface TBankNotification {
-  TerminalKey: string;
-  OrderId: string;
-  Success: boolean;
-  Status: string;
-  PaymentId: number;
-  ErrorCode: string;
-  Amount: number;
-  CardId?: number;
-  Pan?: string;
-  ExpDate?: string;
-  Token: string;
-  RebillId?: number;
-}
+import {
+  corsHeaders,
+  handleCors,
+  successResponse,
+  getErrorMessage,
+  type TBankWebhookPayload,
+} from '../_shared/types.ts';
 
 // Верификация токена от Т-Банка
-async function verifyToken(data: Record<string, any>, password: string, receivedToken: string): Promise<boolean> {
+async function verifyToken(data: Record<string, unknown>, password: string, receivedToken: string): Promise<boolean> {
   // Исключаем поля, которые не участвуют в подписи
   const excludeFields = ['Token', 'Receipt', 'DATA'];
   const pairs: Record<string, string> = { Password: password };
@@ -45,16 +32,15 @@ async function verifyToken(data: Record<string, any>, password: string, received
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const notification: TBankNotification = await req.json();
+    const notification = await req.json() as TBankWebhookPayload;
 
     console.log('Received T-Bank webhook:', notification);
 
@@ -73,7 +59,7 @@ Deno.serve(async (req) => {
 
     // Проверяем токен
     const isValidToken = await verifyToken(
-      notification as any,
+      notification as unknown as Record<string, unknown>,
       onlinePayment.terminal.terminal_password,
       notification.Token
     );
@@ -90,7 +76,7 @@ Deno.serve(async (req) => {
         status: notification.Status,
         tbank_payment_id: String(notification.PaymentId),
         notification_data: notification,
-        error_code: notification.ErrorCode !== '0' ? notification.ErrorCode : null,
+        error_code: null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', onlinePayment.id);
@@ -134,7 +120,7 @@ Deno.serve(async (req) => {
     // Т-Банк ожидает ответ "OK"
     return new Response('OK', { headers: corsHeaders });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in tbank-webhook:', error);
     // Т-Банк требует ответ OK даже при ошибке
     return new Response('OK', { headers: corsHeaders });
