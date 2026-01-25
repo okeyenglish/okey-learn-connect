@@ -28,6 +28,16 @@ interface Column {
   position: number;
 }
 
+// Type for dynamic sheet row data - can have any string keys with various value types
+type SheetRow = Record<string, unknown> & {
+  id?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+// Type for CSV import row (before id is added)
+type CsvRow = Record<string, unknown>;
+
 const defaultColumnsJson = `[
   {"name":"Название","data_type":"text","is_required":true},
   {"name":"Количество","data_type":"integer","is_required":false,"default_expr":"0"},
@@ -37,7 +47,7 @@ const defaultColumnsJson = `[
 export default function Sheets() {
   const [sheets, setSheets] = useState<Sheet[]>([]);
   const [currentSheet, setCurrentSheet] = useState<Sheet | null>(null);
-  const [rowData, setRowData] = useState<any[]>([]);
+  const [rowData, setRowData] = useState<SheetRow[]>([]);
   const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [newName, setNewName] = useState('');
   const [newSlug, setNewSlug] = useState('');
@@ -108,7 +118,7 @@ export default function Sheets() {
       return;
     }
 
-    setRowData((data as any[]) || []);
+    setRowData((data as SheetRow[]) || []);
   }, [currentSheet, getColumns, toColumnDefs]);
 
   // Handle cell value change
@@ -145,7 +155,7 @@ export default function Sheets() {
       return;
     }
 
-    const rows = data as any[];
+    const rows = data as SheetRow[];
     if (rows && rows.length > 0) {
       setRowData(prev => [rows[0], ...prev]);
       toast.success('Строка добавлена');
@@ -196,7 +206,7 @@ export default function Sheets() {
       header: true,
       skipEmptyLines: true,
       complete: async (results) => {
-        const rows = results.data as any[];
+        const rows = results.data as CsvRow[];
         rows.forEach(r => delete r.id);
 
         const { data, error } = await supabase.rpc('import_sheet_rows', {
@@ -209,7 +219,7 @@ export default function Sheets() {
           return;
         }
 
-        const importedRows = data as any[];
+        const importedRows = data as SheetRow[];
         if (importedRows) {
           setRowData(prev => [...importedRows, ...prev]);
           toast.success(`Импортировано ${importedRows.length} строк(и)`);
