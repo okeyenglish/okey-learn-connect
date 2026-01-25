@@ -141,8 +141,18 @@ export const ChatListItem = React.memo(({
               {chat.avatar_url ? (
                 <AvatarImage src={chat.avatar_url} alt={chat.name} />
               ) : null}
-              <AvatarFallback className={isPinned ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white' : 'bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))]'}>
-                {chat.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+              <AvatarFallback className={`text-sm font-medium ${
+                isPinned 
+                  ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white' 
+                  : 'bg-primary/15 text-primary'
+              }`}>
+                {chat.name
+                  ?.split(' ')
+                  .map(n => n[0])
+                  .filter(Boolean)
+                  .join('')
+                  .slice(0, 2)
+                  .toUpperCase() || '?'}
               </AvatarFallback>
             </Avatar>
             
