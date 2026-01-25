@@ -85,8 +85,19 @@ export const FamilyGroupsCleanup = () => {
         studentsByGroup.get(s.family_group_id)!.push({ id: s.id, name: s.name });
       });
 
-      const membersByGroup = new Map<string, Array<any>>();
-      (membersRes.data || []).forEach(m => {
+      interface ClientInfo {
+        name: string;
+      }
+      interface FamilyMemberRow {
+        id: string;
+        family_group_id: string;
+        client_id: string;
+        relationship_type: string;
+        clients: ClientInfo | ClientInfo[] | null;
+      }
+      const membersByGroup = new Map<string, FamilyMemberRow[]>();
+      const rawMembers = (membersRes.data || []) as unknown as FamilyMemberRow[];
+      rawMembers.forEach(m => {
         if (!membersByGroup.has(m.family_group_id)) membersByGroup.set(m.family_group_id, []);
         membersByGroup.get(m.family_group_id)!.push(m);
       });
@@ -113,7 +124,7 @@ export const FamilyGroupsCleanup = () => {
             members: members.map(m => ({
               id: m.id,
               clientId: m.client_id,
-              clientName: (m.clients as any)?.name || 'Неизвестно',
+              clientName: (Array.isArray(m.clients) ? m.clients[0]?.name : m.clients?.name) || 'Неизвестно',
               relationship: m.relationship_type,
             })),
           });

@@ -136,6 +136,15 @@ export const EditIndividualLessonModal = ({
       if (error) throw error;
 
       if (data) {
+        // Cast to include potential extra fields from DB
+        interface ExtendedLessonData {
+          break_minutes?: number;
+          color?: string;
+          academic_hours?: number;
+          audit_location?: string;
+        }
+        const extData = data as typeof data & ExtendedLessonData;
+        
         setFormData({
           student_name: data.student_name || "",
           branch: data.branch || "",
@@ -147,11 +156,11 @@ export const EditIndividualLessonModal = ({
           lesson_location: data.lesson_location || "office",
           period_start: data.period_start || "",
           period_end: data.period_end || "",
-          academic_hours: data.academic_hours?.toString() || "",
-          academic_hours_per_day: (data as any).academic_hours_per_day?.toString() || "1",
-          break_minutes: (data as any).break_minutes?.toString() || "0",
-          audit_location: data.audit_location || "",
-          color: (data as any).color || "#ffffff",
+          academic_hours: extData.academic_hours?.toString() || "",
+          academic_hours_per_day: data.academic_hours_per_day?.toString() || "1",
+          break_minutes: extData.break_minutes?.toString() || "0",
+          audit_location: extData.audit_location || "",
+          color: extData.color || "#ffffff",
         });
         
         // Проверяем наличие проведенных занятий

@@ -24,9 +24,22 @@ export default function StudentPortal() {
   const [showDashboardModal, setShowDashboardModal] = useState(false);
 
   // Получаем данные студента
+  interface StudentData {
+    id: string;
+    name?: string;
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+    phone?: string;
+    avatar_url?: string;
+    age?: number;
+    status?: string;
+    created_at?: string;
+  }
+  
   const { data: student, isLoading: studentLoading } = useQuery({
     queryKey: ['student-by-user', user?.id],
-    queryFn: async () => {
+    queryFn: async (): Promise<StudentData | null> => {
       if (!user?.id) return null;
       const { data, error } = await supabase.rpc('get_student_by_user_id', {
         _user_id: user.id
@@ -35,7 +48,7 @@ export default function StudentPortal() {
         console.error('Error fetching student:', error);
         return null;
       }
-      return data as any;
+      return data as StudentData | null;
     },
     enabled: !!user?.id,
   });
