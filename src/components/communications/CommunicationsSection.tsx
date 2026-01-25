@@ -85,7 +85,7 @@ export const CommunicationsSection = () => {
       notification_type: notificationType,
       status: 'sent',
       delivery_method: ['in_app'],
-    } as any);
+    });
 
     setShowCreateNotification(false);
     setNotificationTitle('');

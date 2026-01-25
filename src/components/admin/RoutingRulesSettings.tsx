@@ -162,8 +162,8 @@ export const RoutingRulesSettings = () => {
             description: formDescription || null,
             channel_type: formChannelType,
             priority: formPriority,
-            conditions: conditions as any,
-            actions: actions as any,
+            conditions: conditions as RoutingRule['conditions'],
+            actions: actions as RoutingRule['actions'],
             updated_at: new Date().toISOString()
           })
           .eq('id', editingRule.id);
@@ -191,8 +191,8 @@ export const RoutingRulesSettings = () => {
             description: formDescription || null,
             channel_type: formChannelType,
             priority: formPriority,
-            conditions: conditions as any,
-            actions: actions as any,
+            conditions: conditions as RoutingRule['conditions'],
+            actions: actions as RoutingRule['actions'],
             is_enabled: true
           });
 

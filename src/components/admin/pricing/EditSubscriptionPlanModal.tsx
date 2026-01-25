@@ -62,7 +62,7 @@ export function EditSubscriptionPlanModal({ plan, open, onOpenChange }: EditSubs
       price_per_lesson: formData.price_per_lesson ? Number(formData.price_per_lesson) : null,
       branch: formData.branch || null,
       subject: formData.subject || null,
-      age_category: formData.age_category as any,
+      age_category: formData.age_category as SubscriptionPlan['age_category'],
       freeze_days_allowed: Number(formData.freeze_days_allowed),
       is_active: formData.is_active,
     });

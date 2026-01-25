@@ -12,6 +12,20 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { Loader2, Save } from 'lucide-react';
 import { Teacher } from '@/hooks/useTeachers';
 
+// Расширенный тип Teacher с дополнительными персональными полями
+interface TeacherWithPersonalData extends Teacher {
+  birthdate?: string | null;
+  birth_place?: string | null;
+  passport_series?: string | null;
+  passport_number?: string | null;
+  passport_issued_by?: string | null;
+  passport_issued_date?: string | null;
+  inn?: string | null;
+  snils?: string | null;
+  registration_address?: string | null;
+  residential_address?: string | null;
+}
+
 // Схема валидации для персональных данных
 const personalDataSchema = z.object({
   email: z.string()
@@ -96,21 +110,24 @@ export const PersonalDataForm = ({ teacher }: PersonalDataFormProps) => {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
 
+  // Типизированный доступ к дополнительным полям
+  const teacherData = teacher as TeacherWithPersonalData;
+
   const { register, handleSubmit, formState: { errors }, reset } = useForm<PersonalDataFormData>({
     resolver: zodResolver(personalDataSchema),
     defaultValues: {
       email: teacher.email || '',
       phone: teacher.phone || '',
-      birthdate: (teacher as any).birthdate || '',
-      birth_place: (teacher as any).birth_place || '',
-      passport_series: (teacher as any).passport_series || '',
-      passport_number: (teacher as any).passport_number || '',
-      passport_issued_by: (teacher as any).passport_issued_by || '',
-      passport_issued_date: (teacher as any).passport_issued_date || '',
-      inn: (teacher as any).inn || '',
-      snils: (teacher as any).snils || '',
-      registration_address: (teacher as any).registration_address || '',
-      residential_address: (teacher as any).residential_address || '',
+      birthdate: teacherData.birthdate || '',
+      birth_place: teacherData.birth_place || '',
+      passport_series: teacherData.passport_series || '',
+      passport_number: teacherData.passport_number || '',
+      passport_issued_by: teacherData.passport_issued_by || '',
+      passport_issued_date: teacherData.passport_issued_date || '',
+      inn: teacherData.inn || '',
+      snils: teacherData.snils || '',
+      registration_address: teacherData.registration_address || '',
+      residential_address: teacherData.residential_address || '',
     },
   });
 
