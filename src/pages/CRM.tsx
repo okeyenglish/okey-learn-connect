@@ -306,7 +306,15 @@ const CRMContent = () => {
   // Message ID to highlight and scroll to when navigating from search
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | undefined>(undefined);
   // Счётчик непрочитанных при последнем открытии ассистента (для остановки пульсации)
-  const [lastSeenUnreadCount, setLastSeenUnreadCount] = useState(0);
+  const [lastSeenUnreadCount, setLastSeenUnreadCount] = useState(() => {
+    const saved = localStorage.getItem('assistant-last-seen-unread');
+    return saved ? parseInt(saved, 10) : 0;
+  });
+  
+  // Сохраняем в localStorage при изменении
+  useEffect(() => {
+    localStorage.setItem('assistant-last-seen-unread', String(lastSeenUnreadCount));
+  }, [lastSeenUnreadCount]);
   
   // Критичные данные - загружаем ТОЛЬКО threads с infinite scroll (50 за раз)
   // useClients убран из критического пути - 27К клиентов тормозили загрузку
