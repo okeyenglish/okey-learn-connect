@@ -1,5 +1,4 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
 import { 
   corsHeaders, 
@@ -7,22 +6,29 @@ import {
   errorResponse,
   getErrorMessage,
   handleCors,
+  type TranscriptionRequest,
   type TranscriptionResponse 
 } from '../_shared/types.ts';
 
-serve(async (req) => {
+// Extended request with organizationId
+interface TranscribeAudioRequest extends TranscriptionRequest {
+  organizationId: string;
+}
+
+Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
   try {
-    const { audioUrl, organizationId } = await req.json();
+    const body = await req.json() as TranscribeAudioRequest;
+    const { audioUrl, organizationId } = body;
     
     if (!audioUrl) {
-      throw new Error('No audio URL provided');
+      return errorResponse('No audio URL provided', 400);
     }
 
     if (!organizationId) {
-      throw new Error('organizationId is required');
+      return errorResponse('organizationId is required', 400);
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -40,7 +46,7 @@ serve(async (req) => {
     const openaiApiKey = aiSettings?.settings?.openaiApiKey || Deno.env.get('OPENAI_API_KEY');
     
     if (!openaiApiKey) {
-      throw new Error('OpenAI API key not configured for this organization');
+      return errorResponse('OpenAI API key not configured for this organization', 400);
     }
 
     console.log('Transcribing audio from URL:', audioUrl);
@@ -48,7 +54,7 @@ serve(async (req) => {
     // Download the audio file
     const audioResponse = await fetch(audioUrl);
     if (!audioResponse.ok) {
-      throw new Error(`Failed to download audio: ${audioResponse.status}`);
+      return errorResponse(`Failed to download audio: ${audioResponse.status}`, 500);
     }
 
     const audioBlob = await audioResponse.blob();
@@ -72,7 +78,7 @@ serve(async (req) => {
     if (!transcriptionResponse.ok) {
       const errorText = await transcriptionResponse.text();
       console.error('OpenAI API error:', errorText);
-      throw new Error(`OpenAI API error: ${transcriptionResponse.status} - ${errorText}`);
+      return errorResponse(`OpenAI API error: ${transcriptionResponse.status} - ${errorText}`, 500);
     }
 
     const transcriptionResult = await transcriptionResponse.json();
@@ -83,7 +89,7 @@ serve(async (req) => {
       text: transcriptionResult.text,
     };
     
-    return successResponse(response);
+    return successResponse(response as unknown as Record<string, unknown>);
 
   } catch (error: unknown) {
     console.error('Transcription error:', error);
