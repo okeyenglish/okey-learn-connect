@@ -3439,7 +3439,7 @@ const CRMContent = () => {
               ))}
             </div>
           ) : isMobile && activeTab === 'chats' && !activeChatId && activeChatType === 'client' ? (
-            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="flex flex-col flex-1 min-h-0">
               <div className="p-3 border-b space-y-3 shrink-0 bg-card">
                 <div className="flex gap-2">
                   <div className="flex-1">
@@ -3526,11 +3526,10 @@ const CRMContent = () => {
                   </DropdownMenu>
                 </div>
               </div>
-              <div className="flex-1 min-h-0 flex flex-col">
-                <div className="px-4 pt-4 pb-2 flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                   {/* Закрепленные чаты */}
                   {mobileClientChats.some(chat => getChatState(chat.id).isPinned) && (
-                    <div className="mb-1">
+                    <div className="px-4 pt-4 mb-1 shrink-0">
                       <button 
                         className="w-full flex items-center justify-between px-3 py-1.5 mb-2 hover:bg-accent/50 rounded-lg transition-all duration-200 group"
                         onClick={() => setIsPinnedSectionOpen(!isPinnedSectionOpen)}
@@ -3689,8 +3688,8 @@ const CRMContent = () => {
                   {!showArchived ? (
                     <>
                       {/* Активные чаты */}
-                      <div className="flex-1 min-h-0 flex flex-col">
-                        <div className="flex items-center justify-between px-3 py-1.5 mb-2 bg-gradient-to-r from-accent/30 to-transparent rounded-lg">
+                      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-1.5 mb-2 bg-gradient-to-r from-accent/30 to-transparent rounded-lg shrink-0">
                           <h3 className="text-sm font-semibold text-foreground/80">
                             Активные чаты
                           </h3>
@@ -3749,8 +3748,8 @@ const CRMContent = () => {
                     </>
                   ) : (
                     /* Архивные чаты - Mobile */
-                    <div className="flex-1 min-h-0 flex flex-col">
-                      <div className="flex items-center justify-between px-3 py-1.5 mb-2 bg-gradient-to-r from-orange-500/20 to-transparent rounded-lg">
+                    <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-1.5 mb-2 bg-gradient-to-r from-orange-500/20 to-transparent rounded-lg shrink-0">
                         <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
@@ -3787,7 +3786,6 @@ const CRMContent = () => {
                       />
                     </div>
                   )}
-                </div>
               </div>
             </div>
           ) : activeChatId && activeChatType === 'client' ? (
