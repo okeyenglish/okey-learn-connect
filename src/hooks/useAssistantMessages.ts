@@ -2,16 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { AssistantMessage, AssistantMessageRole } from '@/integrations/supabase/database.types';
 
-export interface AssistantMessage {
-  id: string;
-  user_id: string;
-  organization_id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  is_read: boolean;
-  created_at: string;
-}
+export type { AssistantMessage } from '@/integrations/supabase/database.types';
 
 export const useAssistantMessages = () => {
   const { user, profile } = useAuth();
@@ -68,7 +61,7 @@ export const useAssistantMessages = () => {
 
   // Добавляем сообщение
   const addMessageMutation = useMutation({
-    mutationFn: async ({ role, content }: { role: 'user' | 'assistant'; content: string }) => {
+    mutationFn: async ({ role, content }: { role: AssistantMessageRole; content: string }) => {
       if (!user?.id || !profile?.organization_id) {
         throw new Error('User not authenticated');
       }
@@ -178,7 +171,7 @@ export const useAssistantMessages = () => {
   }, [user?.id, queryClient]);
 
   const addMessage = useCallback(
-    (role: 'user' | 'assistant', content: string) => {
+    (role: AssistantMessageRole, content: string) => {
       return addMessageMutation.mutateAsync({ role, content });
     },
     [addMessageMutation]
