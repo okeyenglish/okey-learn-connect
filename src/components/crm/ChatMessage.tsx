@@ -469,6 +469,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                       <MessageDeliveryStatus 
                         status={messageStatus}
                         className="ml-1"
+                        messageId={messageId}
                         onRetry={onResendMessage && messageId ? () => onResendMessage(messageId) : undefined}
                         showRetryButton={!!onResendMessage && !!messageId}
                       />
