@@ -28,6 +28,8 @@ import { StudentTagsManager } from "@/components/students/StudentTagsManager";
 import { BulkActionsPanel } from "@/components/students/BulkActionsPanel";
 import { StudentHistoryTimeline } from "@/components/students/StudentHistoryTimeline";
 import { StudentSegmentsDialog } from "@/components/students/StudentSegmentsDialog";
+import { useUserAllowedBranches } from "@/hooks/useUserAllowedBranches";
+import { AVAILABLE_BRANCHES } from "@/hooks/useUserBranches";
 
 export const StudentsSection = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -38,6 +40,12 @@ export const StudentsSection = () => {
   const [showSegmentsDialog, setShowSegmentsDialog] = useState(false);
 
   const { students, isLoading } = useStudents();
+  const { allowedBranches, hasRestrictions } = useUserAllowedBranches();
+  
+  // Фильтруем список филиалов по доступным для пользователя
+  const availableBranchOptions = hasRestrictions 
+    ? AVAILABLE_BRANCHES.filter(b => allowedBranches.includes(b))
+    : AVAILABLE_BRANCHES;
 
   // Filter students based on current filters
   const filteredStudents = students.filter(student => {
@@ -149,10 +157,9 @@ export const StudentsSection = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Все филиалы</SelectItem>
-                      <SelectItem value="Окская">Окская</SelectItem>
-                      <SelectItem value="Мытищи">Мытищи</SelectItem>
-                      <SelectItem value="Люберцы">Люберцы</SelectItem>
-                      <SelectItem value="Котельники">Котельники</SelectItem>
+                      {availableBranchOptions.map((branch) => (
+                        <SelectItem key={branch} value={branch}>{branch}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

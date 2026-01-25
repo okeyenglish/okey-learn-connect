@@ -76,6 +76,7 @@ import { useOrganization } from "@/hooks/useOrganization";
 import { useOrganizationRealtimeMessages } from "@/hooks/useOrganizationRealtimeMessages";
 import { RealtimeStatusIndicator } from "@/components/crm/RealtimeStatusIndicator";
 import { useManagerBranches } from "@/hooks/useManagerBranches";
+import { useUserAllowedBranches } from "@/hooks/useUserAllowedBranches";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useAssistantMessages } from "@/hooks/useAssistantMessages";
 import {
@@ -401,6 +402,7 @@ const CRMContent = () => {
   const updateTask = useUpdateTask();
   const { organization, branches } = useOrganization();
   const { canAccessBranch, hasRestrictions: hasManagerBranchRestrictions } = useManagerBranches();
+  const { filterAllowedBranches, hasRestrictions: hasUserBranchRestrictions } = useUserAllowedBranches();
   const { unreadCount: assistantUnreadCount, markAllAsRead: markAssistantAsRead } = useAssistantMessages();
   const isMobile = useIsMobile();
   
@@ -2927,7 +2929,7 @@ const CRMContent = () => {
                           <span className={selectedBranch !== "all" ? "ml-5" : ""}>Все филиалы</span>
                         </div>
                       </DropdownMenuItem>
-                      {branches.map((branch) => {
+                      {filterAllowedBranches(branches).map((branch) => {
                         const branchKey = branch.name.toLowerCase()
                           .replace(/okey\s*english\s*/gi, '')
                           .replace(/o'key\s*english\s*/gi, '')
@@ -3471,7 +3473,7 @@ const CRMContent = () => {
                           <span className={selectedBranch !== "all" ? "ml-5" : ""}>Все филиалы</span>
                         </div>
                       </DropdownMenuItem>
-                      {branches.map((branch) => {
+                      {filterAllowedBranches(branches).map((branch) => {
                         const branchKey = branch.name.toLowerCase()
                           .replace(/okey\s*english\s*/gi, '')
                           .replace(/o'key\s*english\s*/gi, '')
