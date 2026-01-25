@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
-import { Student } from './useStudents';
+import type { Student } from '@/integrations/supabase/database.types';
 
 export interface StudentFilters {
   searchTerm?: string;
@@ -16,12 +16,23 @@ export interface StudentFilters {
   createdTo?: string;
 }
 
+interface StudentWithRelations extends Student {
+  student_balances?: { balance: number }[];
+  family_groups?: {
+    id: string;
+    family_members?: {
+      client_id: string;
+      clients?: { id: string; full_name: string };
+    }[];
+  };
+}
+
 export const useStudentsWithFilters = (filters?: StudentFilters) => {
   return useQuery({
     queryKey: ['students', 'filtered', filters],
     queryFn: async (): Promise<Student[]> => {
-      let query = (supabase
-        .from('students' as any) as any)
+      let query = supabase
+        .from('students')
         .select(`
           *,
           student_balances (balance),
@@ -40,26 +51,13 @@ export const useStudentsWithFilters = (filters?: StudentFilters) => {
       if (filters?.searchTerm && filters.searchTerm.trim()) {
         const term = filters.searchTerm.trim().toLowerCase();
         query = query.or(
-          `name.ilike.%${term}%,first_name.ilike.%${term}%,last_name.ilike.%${term}%,phone.ilike.%${term}%,email.ilike.%${term}%`
+          `name.ilike.%${term}%,phone.ilike.%${term}%,email.ilike.%${term}%`
         );
       }
 
       // Фильтр по филиалу
       if (filters?.branch && filters.branch !== 'all') {
         query = query.eq('branch', filters.branch);
-      }
-
-      // Фильтр по статусу
-      if (filters?.status && filters.status !== 'all') {
-        query = query.eq('status', filters.status);
-      }
-
-      // Фильтр по возрасту
-      if (filters?.ageMin !== undefined) {
-        query = query.gte('age', filters.ageMin);
-      }
-      if (filters?.ageMax !== undefined) {
-        query = query.lte('age', filters.ageMax);
       }
 
       // Фильтр по дате создания
@@ -73,7 +71,7 @@ export const useStudentsWithFilters = (filters?: StudentFilters) => {
       const { data, error } = await query;
       if (error) throw error;
 
-      let students = (data || []) as any[];
+      let students = (data || []) as StudentWithRelations[];
 
       // Постфильтрация (клиентская сторона)
       if (filters?.hasDebt !== undefined && filters.hasDebt) {
@@ -90,7 +88,7 @@ export const useStudentsWithFilters = (filters?: StudentFilters) => {
       if (filters?.parentId) {
         students = students.filter(s => {
           const familyMembers = s.family_groups?.family_members || [];
-          return familyMembers.some((m: any) => m.client_id === filters.parentId);
+          return familyMembers.some((m) => m.client_id === filters.parentId);
         });
       }
 

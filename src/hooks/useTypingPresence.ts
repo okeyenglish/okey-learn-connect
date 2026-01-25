@@ -1,21 +1,26 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
+import type { TypingStatus } from '@/integrations/supabase/database.types';
 
 export interface TypingPresence {
   count: number;
   names: string[];
 }
 
+interface TypingStatusWithName extends TypingStatus {
+  manager_name?: string;
+}
+
 // Tracks typing presence across all clients for chat lists
 export const useTypingPresence = () => {
   const [typingByClient, setTypingByClient] = useState<Record<string, TypingPresence>>({});
 
-  const rebuildFrom = useCallback((rows: any[] = []) => {
+  const rebuildFrom = useCallback((rows: TypingStatusWithName[] = []) => {
     const map: Record<string, TypingPresence> = {};
     rows.forEach((r) => {
       if (!r.is_typing) return;
-      const key = r.client_id as string;
-      const name = (r.manager_name as string) || 'Менеджер';
+      const key = r.client_id;
+      const name = r.manager_name || 'Менеджер';
       if (!map[key]) map[key] = { count: 0, names: [] };
       map[key].count += 1;
       if (!map[key].names.includes(name)) map[key].names.push(name);
@@ -24,8 +29,9 @@ export const useTypingPresence = () => {
   }, []);
 
   const refresh = useCallback(async () => {
-    const { data, error } = await (supabase.from('typing_status' as any) as any)
-      .select('client_id, is_typing, manager_name');
+    const { data, error } = await supabase
+      .from('typing_status')
+      .select('*');
     if (!error) rebuildFrom(data || []);
   }, [rebuildFrom]);
 

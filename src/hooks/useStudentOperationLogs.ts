@@ -1,26 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
+import type { StudentOperationLog as DBStudentOperationLog } from "@/integrations/supabase/database.types";
 
-export interface StudentOperationLog {
-  id: string;
-  student_id: string;
-  operation_type: 
-    | 'created' 
-    | 'updated' 
-    | 'status_changed' 
-    | 'enrolled_to_group' 
-    | 'expelled_from_group' 
-    | 'transferred' 
-    | 'archived' 
-    | 'restored'
-    | 'payment_added'
-    | 'lk_access_granted'
-    | 'lk_access_revoked';
-  old_value: Record<string, any> | null;
-  new_value: Record<string, any> | null;
-  notes: string | null;
-  performed_by: string | null;
-  performed_at: string;
+export interface StudentOperationLog extends DBStudentOperationLog {
   performer?: {
     first_name: string;
     last_name: string;
@@ -32,7 +14,7 @@ export const useStudentOperationLogs = (studentId: string) => {
   return useQuery({
     queryKey: ['student-operation-logs', studentId],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('student_operation_logs')
         .select(`
           *,
@@ -60,7 +42,7 @@ export const useLogStudentOperation = () => {
     mutationFn: async (log: Omit<StudentOperationLog, 'id' | 'performed_at' | 'performer'>) => {
       const { data: { user } } = await supabase.auth.getUser();
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('student_operation_logs')
         .insert([{
           ...log,

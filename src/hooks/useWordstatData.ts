@@ -13,3 +13,5 @@ export function useWordstatData(keyword: string | null | undefined, enabled = tr
     gcTime: 1000 * 60 * 60 * 24, // 24 часа
   });
 }
+
+export type { WordstatData };
