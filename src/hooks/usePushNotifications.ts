@@ -292,8 +292,8 @@ export function usePushNotifications() {
       // Clean up ALL old subscriptions for this user before creating new one
       // This ensures only the current device/browser endpoint is active
       console.log('[Push] Cleaning old subscriptions for user:', user.id);
-      await (supabase
-        .from('push_subscriptions' as any) as any)
+      await supabase
+        .from('push_subscriptions')
         .delete()
         .eq('user_id', user.id);
 
@@ -312,21 +312,15 @@ export function usePushNotifications() {
       }
 
       // Save subscription to database with VAPID key info for debugging
-      const { error } = await (supabase
-        .from('push_subscriptions' as any) as any)
+      const { error } = await supabase
+        .from('push_subscriptions')
         .upsert({
           user_id: user.id,
           endpoint: subscriptionJson.endpoint,
-          p256dh: subscriptionJson.keys.p256dh,
-          auth: subscriptionJson.keys.auth,
-          device_info: {
-            userAgent: navigator.userAgent,
-            platform: navigator.platform,
-            language: navigator.language,
-            vapidPublicKeyPrefix: VAPID_PUBLIC_KEY.substring(0, 12),
-            subscribedAt: new Date().toISOString(),
+          keys: {
+            p256dh: subscriptionJson.keys.p256dh,
+            auth: subscriptionJson.keys.auth,
           },
-          is_active: true,
         }, {
           onConflict: 'user_id,endpoint',
         });
@@ -356,7 +350,7 @@ export function usePushNotifications() {
       setState(prev => ({ ...prev, isLoading: false }));
       return false;
     }
-  }, [user, isSupported, getSWRegistration]);
+  }, [user, isSupported, getSWRegistration, isPreviewHost]);
 
   // Unsubscribe from push notifications
   const unsubscribe = useCallback(async (): Promise<boolean> => {
@@ -376,8 +370,8 @@ export function usePushNotifications() {
         await subscription.unsubscribe();
 
         // Remove from database
-        await (supabase
-          .from('push_subscriptions' as any) as any)
+        await supabase
+          .from('push_subscriptions')
           .delete()
           .eq('user_id', user.id)
           .eq('endpoint', subscription.endpoint);

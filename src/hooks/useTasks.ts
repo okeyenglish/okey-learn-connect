@@ -2,23 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from "sonner";
+import type { Task } from '@/integrations/supabase/database.types';
 
-export interface Task {
-  id: string;
-  client_id?: string;
-  title: string;
-  description?: string;
-  priority: 'low' | 'medium' | 'high';
-  status: 'active' | 'completed' | 'cancelled';
-  due_date?: string;
-  due_time?: string;
-  responsible?: string;
-  goal?: string;
-  method?: string;
-  direction?: string;
-  created_at: string;
-  updated_at: string;
-}
+export type { Task };
 
 export interface CreateTaskData {
   client_id?: string;
@@ -41,8 +27,8 @@ export const useTasks = (clientId?: string) => {
     queryFn: async () => {
       if (!clientId) return [];
       
-      const { data, error } = await (supabase
-        .from('tasks' as any) as any)
+      const { data, error } = await supabase
+        .from('tasks')
         .select('*')
         .eq('client_id', clientId)
         .eq('status', 'active')
@@ -91,8 +77,8 @@ export const useCreateTask = () => {
   
   return useMutation({
     mutationFn: async (taskData: CreateTaskData) => {
-      const { data, error } = await (supabase
-        .from('tasks' as any) as any)
+      const { data, error } = await supabase
+        .from('tasks')
         .insert([taskData])
         .select()
         .single();
@@ -120,8 +106,8 @@ export const useAllTasks = () => {
     queryKey: ['all-tasks'],
     queryFn: async () => {
       // Сначала получаем задачи
-      const { data: tasksData, error: tasksError } = await (supabase
-        .from('tasks' as any) as any)
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('tasks')
         .select('*')
         .eq('status', 'active')
         .order('created_at', { ascending: false });
@@ -130,13 +116,13 @@ export const useAllTasks = () => {
       if (!tasksData || tasksData.length === 0) return [];
 
       // Получаем уникальные client_id (исключаем null)
-      const clientIds = [...new Set((tasksData as any[]).map(task => task.client_id).filter(Boolean))];
+      const clientIds = [...new Set(tasksData.map(task => task.client_id).filter(Boolean))] as string[];
       
       let clientsData: any[] = [];
       if (clientIds.length > 0) {
         // Получаем информацию о клиентах
-        const { data: clients, error: clientsError } = await (supabase
-          .from('clients' as any) as any)
+        const { data: clients, error: clientsError } = await supabase
+          .from('clients')
           .select('id, name, phone')
           .in('id', clientIds);
         
@@ -145,7 +131,7 @@ export const useAllTasks = () => {
       }
       
       // Соединяем данные
-      const tasksWithClients = (tasksData as any[]).map(task => ({
+      const tasksWithClients = tasksData.map(task => ({
         ...task,
         clients: task.client_id ? clientsData?.find(client => client.id === task.client_id) || null : null
       }));
@@ -192,8 +178,8 @@ export const useTasksByDate = (date?: string) => {
     queryFn: async () => {
       if (!date) return [];
       
-      const { data: tasksData, error: tasksError } = await (supabase
-        .from('tasks' as any) as any)
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('tasks')
         .select('*')
         .eq('status', 'active')
         .eq('due_date', date)
@@ -203,12 +189,12 @@ export const useTasksByDate = (date?: string) => {
       if (!tasksData || tasksData.length === 0) return [];
 
       // Получаем информацию о клиентах для задач с client_id
-      const clientIds = [...new Set((tasksData as any[]).map(task => task.client_id).filter(Boolean))];
+      const clientIds = [...new Set(tasksData.map(task => task.client_id).filter(Boolean))] as string[];
       
       let clientsData: any[] = [];
       if (clientIds.length > 0) {
-        const { data: clients, error: clientsError } = await (supabase
-          .from('clients' as any) as any)
+        const { data: clients, error: clientsError } = await supabase
+          .from('clients')
           .select('id, name, phone')
           .in('id', clientIds);
         
@@ -217,7 +203,7 @@ export const useTasksByDate = (date?: string) => {
       }
       
       // Соединяем данные
-      const tasksWithClients = (tasksData as any[]).map(task => ({
+      const tasksWithClients = tasksData.map(task => ({
         ...task,
         clients: task.client_id ? clientsData?.find(client => client.id === task.client_id) || null : null
       }));
@@ -264,8 +250,8 @@ export const useUpdateTask = () => {
   
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Task> & { id: string }) => {
-      const { data, error } = await (supabase
-        .from('tasks' as any) as any)
+      const { data, error } = await supabase
+        .from('tasks')
         .update(updates)
         .eq('id', id)
         .select()
@@ -307,8 +293,8 @@ export const useCompleteTask = () => {
   
   return useMutation({
     mutationFn: async (taskId: string) => {
-      const { data, error } = await (supabase
-        .from('tasks' as any) as any)
+      const { data, error } = await supabase
+        .from('tasks')
         .update({ status: 'completed' })
         .eq('id', taskId)
         .select()
@@ -356,8 +342,8 @@ export const useCancelTask = () => {
   
   return useMutation({
     mutationFn: async (taskId: string) => {
-      const { data, error } = await (supabase
-        .from('tasks' as any) as any)
+      const { data, error } = await supabase
+        .from('tasks')
         .update({ status: 'cancelled' })
         .eq('id', taskId)
         .select()

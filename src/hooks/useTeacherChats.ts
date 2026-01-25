@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
-import { useEffect, useMemo, useCallback } from 'react';
+import { useEffect, useMemo } from 'react';
 import { normalizePhone } from '@/utils/phoneNormalization';
 
 /**
@@ -15,7 +15,7 @@ export const useTeacherChatMessages = (clientId: string) => {
       
       console.log('[useTeacherChatMessages] Fetching for client:', clientId);
       const startTime = performance.now();
-      const { data, error } = await (supabase.rpc as any)('get_teacher_chat_messages', {
+      const { data, error } = await supabase.rpc('get_teacher_chat_messages', {
         p_client_id: clientId
       });
       const elapsed = performance.now() - startTime;
@@ -80,8 +80,8 @@ export const useTeacherChats = (branch?: string | null) => {
   const { data: teachers, isLoading: teachersLoading, error: teachersError } = useQuery({
     queryKey: ['teacher-chats', 'teachers', branch],
     queryFn: async () => {
-      let query = (supabase
-        .from('teachers' as any) as any)
+      let query = supabase
+        .from('teachers')
         .select('id, first_name, last_name, phone, email, branch, subjects, categories, is_active')
         .eq('is_active', true)
         .order('last_name', { ascending: true });
@@ -93,7 +93,7 @@ export const useTeacherChats = (branch?: string | null) => {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as any[];
+      return (data || []);
     },
     staleTime: 30000, // 30 seconds
   });
@@ -102,7 +102,7 @@ export const useTeacherChats = (branch?: string | null) => {
   const { data: unreadCounts, isLoading: unreadLoading } = useQuery({
     queryKey: ['teacher-chats', 'unread-counts'],
     queryFn: async () => {
-      const { data, error } = await (supabase.rpc as any)('get_teacher_unread_counts');
+      const { data, error } = await supabase.rpc('get_teacher_unread_counts');
       if (error) {
         console.error('Error fetching teacher unread counts:', error);
         return [];
@@ -126,7 +126,7 @@ export const useTeacherChats = (branch?: string | null) => {
       });
     }
 
-    return teachers.map((teacher: any) => {
+    return teachers.map((teacher) => {
       const unreadData = unreadMap.get(teacher.id);
       const fullName = `${teacher.last_name || ''} ${teacher.first_name || ''}`.trim();
       
@@ -229,13 +229,13 @@ export const useEnsureTeacherClient = () => {
     if (!normalized) return null;
 
     // Try to find existing client by normalized phone
-    const { data: existingClients } = await (supabase
-      .from('clients' as any) as any)
+    const { data: existingClients } = await supabase
+      .from('clients')
       .select('id, phone')
       .not('phone', 'is', null);
 
     if (existingClients) {
-      for (const client of existingClients as any[]) {
+      for (const client of existingClients) {
         if (normalizePhone(client.phone) === normalized) {
           return client.id;
         }
@@ -244,12 +244,11 @@ export const useEnsureTeacherClient = () => {
 
     // Create new client for teacher
     const clientName = `Преподаватель: ${teacher.fullName}`;
-    const { data: newClient, error } = await (supabase
-      .from('clients' as any) as any)
+    const { data: newClient, error } = await supabase
+      .from('clients')
       .insert({
         name: clientName,
         phone: teacher.phone,
-        branch: teacher.branch || 'Окская',
       })
       .select('id')
       .single();
@@ -259,7 +258,7 @@ export const useEnsureTeacherClient = () => {
       return null;
     }
 
-    return (newClient as any)?.id || null;
+    return newClient?.id || null;
   };
 
   return { findOrCreateClient };

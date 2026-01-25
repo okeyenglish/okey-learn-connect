@@ -617,7 +617,9 @@ export interface StudentBalance {
   id: string;
   student_id: string;
   balance: number;
+  currency?: string;
   updated_at: string;
+  created_at?: string;
 }
 
 export interface GlobalEntityMapping {
@@ -836,6 +838,76 @@ export interface Segment {
   organization_id?: string | null;
   created_at: string;
   updated_at?: string;
+}
+
+export interface Textbook {
+  id: string;
+  title: string;
+  description?: string | null;
+  file_name: string;
+  file_url: string;
+  file_size?: number | null;
+  program_type?: string | null;
+  category?: string | null;
+  subcategory?: string | null;
+  uploaded_by?: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Task {
+  id: string;
+  client_id?: string | null;
+  title: string;
+  description?: string | null;
+  priority: string;
+  status: string;
+  due_date?: string | null;
+  due_time?: string | null;
+  responsible?: string | null;
+  goal?: string | null;
+  method?: string | null;
+  direction?: string | null;
+  branch?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TuitionCharge {
+  id: string;
+  student_id: string;
+  learning_unit_type: string;
+  learning_unit_id: string;
+  amount: number;
+  currency: string;
+  academic_hours: number;
+  charge_date: string;
+  description?: string | null;
+  status: string;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaymentTuitionLink {
+  id: string;
+  payment_id: string;
+  tuition_charge_id: string;
+  amount: number;
+  created_at: string;
+}
+
+export interface MessengerSettings {
+  id: string;
+  organization_id?: string | null;
+  messenger_type: string;
+  provider?: string | null;
+  is_enabled: boolean;
+  settings?: Json | null;
+  webhook_url?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // ============ RPC функции ============
@@ -1218,6 +1290,31 @@ export interface CustomDatabase {
         Insert: Partial<EventOutbox>;
         Update: Partial<EventOutbox>;
       };
+      textbooks: {
+        Row: Textbook;
+        Insert: Partial<Textbook>;
+        Update: Partial<Textbook>;
+      };
+      tasks: {
+        Row: Task;
+        Insert: Partial<Task>;
+        Update: Partial<Task>;
+      };
+      tuition_charges: {
+        Row: TuitionCharge;
+        Insert: Partial<TuitionCharge>;
+        Update: Partial<TuitionCharge>;
+      };
+      payment_tuition_link: {
+        Row: PaymentTuitionLink;
+        Insert: Partial<PaymentTuitionLink>;
+        Update: Partial<PaymentTuitionLink>;
+      };
+      messenger_settings: {
+        Row: MessengerSettings;
+        Insert: Partial<MessengerSettings>;
+        Update: Partial<MessengerSettings>;
+      };
     };
     Views: {
       [_ in never]: never;
@@ -1310,6 +1407,29 @@ export interface CustomDatabase {
       count_clients_without_imported_messages: {
         Args: { p_org_id: string };
         Returns: number;
+      };
+      // Teacher chat RPC functions
+      get_teacher_chat_messages: {
+        Args: { p_client_id: string };
+        Returns: Json[];
+      };
+      get_teacher_unread_counts: {
+        Args: Record<string, never>;
+        Returns: { teacher_id: string; client_id: string | null; unread_count: number; last_message_time: string | null; last_message_text: string | null; last_messenger_type: string | null }[];
+      };
+      // Balance RPC functions
+      add_balance_transaction: {
+        Args: { _student_id: string; _amount: number; _transaction_type: string; _description: string; _payment_id?: string | null; _lesson_session_id?: string | null };
+        Returns: void;
+      };
+      get_student_balance: {
+        Args: { _student_id: string };
+        Returns: number;
+      };
+      // Pin counts
+      get_chat_pin_counts: {
+        Args: { _chat_ids: string[] };
+        Returns: { chat_id: string; pin_count: number }[];
       };
     };
     Enums: {
