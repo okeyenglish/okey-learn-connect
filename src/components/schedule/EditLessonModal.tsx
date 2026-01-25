@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from '@/lib/errorUtils';
 import { useUpdateLessonSession, useCheckScheduleConflicts, LessonSession } from "@/hooks/useLessonSessions";
 import { useLearningGroups } from "@/hooks/useLearningGroups";
 import { useTeachers } from "@/hooks/useTeachers";
@@ -127,10 +128,10 @@ export const EditLessonModal = ({ session, open, onOpenChange, onSessionUpdated 
         
         setSelectedStudents([]);
         setShowStudentSelector(false);
-      } catch (error: any) {
+      } catch (error: unknown) {
         toast({
           title: "Ошибка", 
-          description: error.message || "Не удалось добавить учеников",
+          description: getErrorMessage(error),
           variant: "destructive"
         });
       }

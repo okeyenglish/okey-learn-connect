@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, GraduationCap } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 const TeacherRegistration = () => {
   const { token } = useParams<{ token: string }>();
@@ -139,11 +140,11 @@ const TeacherRegistration = () => {
       });
 
       navigate('/auth');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Registration error:', error);
       toast({
         title: 'Ошибка регистрации',
-        description: error.message || 'Не удалось зарегистрироваться',
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {

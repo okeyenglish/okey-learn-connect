@@ -8,6 +8,7 @@ import { supabaseTyped as supabase } from "@/integrations/supabase/typedClient";
 import { Loader2, Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useOrganization } from '@/hooks/useOrganization';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface AddTeacherModalProps {
   onTeacherAdded?: () => void;
@@ -119,11 +120,11 @@ export const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ onTeacherAdded
       resetForm();
       setOpen(false);
       onTeacherAdded?.();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating teacher:', error);
       toast({
         title: 'Ошибка',
-        description: error.message || 'Не удалось создать преподавателя',
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {

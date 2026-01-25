@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 export interface TelegramSettings {
   profileId: string;
@@ -43,7 +44,7 @@ export const useTelegramWappi = () => {
         settings: data.settings || null,
         instanceState: data.instanceState || null
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching Telegram settings:', error);
       toast({
         title: "Ошибка",
@@ -83,11 +84,11 @@ export const useTelegramWappi = () => {
       });
       
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving Telegram settings:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось сохранить настройки Telegram",
+        description: getErrorMessage(error),
         variant: "destructive"
       });
       return false;
@@ -114,7 +115,7 @@ export const useTelegramWappi = () => {
       });
       
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting Telegram settings:', error);
       toast({
         title: "Ошибка",
@@ -161,11 +162,11 @@ export const useTelegramWappi = () => {
       }
 
       return { success: true, messageId: data.messageId };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error sending Telegram message:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось отправить сообщение в Telegram",
+        description: getErrorMessage(error),
         variant: "destructive"
       });
       return { success: false };

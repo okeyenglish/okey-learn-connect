@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { getErrorMessage } from '@/lib/errorUtils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,11 +57,11 @@ export function AdditionalLessonsList({
       });
 
       onDelete?.();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting lesson:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось удалить занятие",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {

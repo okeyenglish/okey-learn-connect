@@ -6,6 +6,7 @@ import { Bot, Send, User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { Teacher } from '@/hooks/useTeachers';
 import { useToast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -76,7 +77,7 @@ export const TeacherAIChat = ({ teacher }: TeacherAIChatProps) => {
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('AI chat error:', error);
       toast({
         title: 'Ошибка',

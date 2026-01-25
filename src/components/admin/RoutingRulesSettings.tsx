@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import { supabaseTyped as supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface RoutingRule {
   id: string;
@@ -203,11 +204,11 @@ export const RoutingRulesSettings = () => {
       setShowAddDialog(false);
       resetForm();
       fetchRules();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving rule:', error);
       toast({
         title: 'Ошибка',
-        description: error.message || 'Не удалось сохранить правило',
+        description: getErrorMessage(error),
         variant: 'destructive'
       });
     }

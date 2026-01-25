@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface CronJobLog {
   id: string;
@@ -63,10 +64,10 @@ export const AutomationSettingsPanel = () => {
       });
 
       loadCronLogs();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
@@ -93,10 +94,10 @@ export const AutomationSettingsPanel = () => {
       });
 
       loadCronLogs();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
