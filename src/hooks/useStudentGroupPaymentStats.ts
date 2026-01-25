@@ -15,6 +15,45 @@ interface PaymentStats {
   debtAmount: number;
 }
 
+interface LearningGroupRow {
+  subject: string | null;
+  capacity: number | null;
+}
+
+interface PaymentRow {
+  amount: number;
+  lessons_count: number | null;
+}
+
+interface LessonSessionRow {
+  id: string;
+  lesson_date: string;
+  status: string | null;
+  start_time: string | null;
+  end_time: string | null;
+}
+
+interface StudentLessonSessionRow {
+  lesson_session_id: string;
+  attendance_status: string | null;
+  payment_status: string | null;
+  payment_amount: number | null;
+  is_cancelled_for_student: boolean | null;
+  payment_coefficient: number | null;
+}
+
+interface GroupStudentRow {
+  enrollment_date: string | null;
+  status: string | null;
+}
+
+interface GroupCoursePriceRow {
+  duration_minutes: number | null;
+  price_8_lessons: number | null;
+  price_24_lessons: number | null;
+  price_80_lessons: number | null;
+}
+
 const fetchPaymentStats = async (studentId: string, groupId: string): Promise<PaymentStats> => {
   // Single query to get all data at once
   const [groupResponse, paymentsResponse, pricingResponse, allSessionsResponse, studentSessionsResponse, groupStudentResponse] = await Promise.all([
@@ -57,11 +96,11 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
       .maybeSingle()
   ]);
 
-  const group = groupResponse.data as any;
-  const payments = paymentsResponse.data || [];
-  const allSessions = allSessionsResponse.data || [];
-  const studentSessions = studentSessionsResponse.data || [];
-  const groupStudent = groupStudentResponse.data as { enrollment_date?: string } | null;
+  const group = groupResponse.data as LearningGroupRow | null;
+  const payments = (paymentsResponse.data || []) as PaymentRow[];
+  const allSessions = (allSessionsResponse.data || []) as LessonSessionRow[];
+  const studentSessions = (studentSessionsResponse.data || []) as StudentLessonSessionRow[];
+  const groupStudent = groupStudentResponse.data as GroupStudentRow | null;
 
   // Enrollment date normalization
   const enrollmentDate = groupStudent?.enrollment_date ? new Date(groupStudent.enrollment_date) : null;
@@ -69,42 +108,45 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
 
   // Build a set of sessions cancelled for this student
   const cancelledForStudent = new Set(
-    (studentSessions as any[]).filter(s => s.is_cancelled_for_student).map(s => s.lesson_session_id)
+    studentSessions.filter(s => s.is_cancelled_for_student).map(s => s.lesson_session_id)
   );
 
   // Build a set of sessions marked free/bonus for this student
   const freeForStudent = new Set(
-    (studentSessions as any[])
+    studentSessions
       .filter(s => s.payment_status === 'free' || s.payment_status === 'bonus')
       .map(s => s.lesson_session_id)
   );
 
   // Build a map of session payment coefficients
   const sessionCoefficients = new Map<string, number>(
-    (studentSessions as any[])
+    studentSessions
       .filter(s => s.payment_coefficient != null)
       .map(s => [s.lesson_session_id, Number(s.payment_coefficient)])
   );
 
   // Consider only sessions after enrollment and not cancelled (global or for student) and not free
-  const effectiveSessions = (allSessions as any[]).filter((session: any) => {
+  const effectiveSessions = allSessions.filter((session) => {
     const d = new Date(session.lesson_date);
     d.setHours(0, 0, 0, 0);
     if (enrollmentDate && d < enrollmentDate) return false;
     if (session.status === 'cancelled' || cancelledForStudent.has(session.id)) return false;
-    if ((session as any).status === 'free' || freeForStudent.has(session.id)) return false;
+    if (session.status === 'free' || freeForStudent.has(session.id)) return false;
     return true;
   });
+
   // Now fetch pricing if we have a subject
-  const { data: pricing } = await (supabase
-    .from('group_course_prices' as any) as any)
+  const { data: pricing } = await supabase
+    .from('group_course_prices')
     .select('duration_minutes, price_8_lessons, price_24_lessons, price_80_lessons')
     .eq('course_name', group?.subject || '')
     .maybeSingle();
 
+  const pricingData = pricing as GroupCoursePriceRow | null;
+
   // Try to derive actual lesson duration from sessions (start/end time)
-  const sessionDurations = (effectiveSessions as any[])
-    .map((s: any) => {
+  const sessionDurations = effectiveSessions
+    .map((s) => {
       if (!s.start_time || !s.end_time) return null;
       try {
         const [sh, sm] = String(s.start_time).split(':').map(Number);
@@ -114,25 +156,24 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
         return null;
       }
     })
-    .filter((v: number | null): v is number => typeof v === 'number' && v > 0);
+    .filter((v): v is number => typeof v === 'number' && v > 0);
   const derivedDuration = sessionDurations.length
     ? Math.round(sessionDurations.reduce((a, b) => a + b, 0) / sessionDurations.length)
     : undefined;
 
   // Calculate price per minute
   let pricePerMinute = 0;
-  if (pricing) {
-    const pricingData = pricing as any;
-    const avgPrice = (pricingData.price_8_lessons / 8 + pricingData.price_24_lessons / 24 + pricingData.price_80_lessons / 80) / 3;
+  if (pricingData) {
+    const avgPrice = ((pricingData.price_8_lessons || 0) / 8 + (pricingData.price_24_lessons || 0) / 24 + (pricingData.price_80_lessons || 0) / 80) / 3;
     const durationForPrice = pricingData.duration_minutes || derivedDuration || 80;
     pricePerMinute = avgPrice / durationForPrice;
   }
 
   // Determine lesson duration priority: derived from sessions -> pricing -> fallback 80
-  const lessonDuration = derivedDuration || (pricing as any)?.duration_minutes || 80;
+  const lessonDuration = derivedDuration || pricingData?.duration_minutes || 80;
   
-  const totalPaidAmount = payments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
-  const totalPaidAcademicHours = payments.reduce((sum: number, p: any) => sum + (p.lessons_count || 0), 0);
+  const totalPaidAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+  const totalPaidAcademicHours = payments.reduce((sum, p) => sum + (p.lessons_count || 0), 0);
   const totalPaidMinutes = totalPaidAcademicHours * 40;
 
   // Calculate used sessions - only after enrollment, not cancelled for student, and actually conducted
@@ -144,7 +185,7 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
   let usedMinutesWeighted = 0;
   let totalCourseMinutesWeighted = 0;
   
-  (effectiveSessions as any[]).forEach((session: any) => {
+  effectiveSessions.forEach((session) => {
     const sessionDate = new Date(session.lesson_date);
     sessionDate.setHours(0, 0, 0, 0);
     
