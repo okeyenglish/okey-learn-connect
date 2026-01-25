@@ -3861,12 +3861,12 @@ const CRMContent = () => {
                       setVoiceAssistantOpen(true);
                     }}
                     className={cn(
-                      "fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-all",
+                      "fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-all group",
                       hasNewUnread && "animate-pulse ring-4 ring-primary/30"
                     )}
                     size="icon"
                   >
-                    <Sparkles className="h-6 w-6" />
+                    <Sparkles className="h-6 w-6 transition-transform duration-300 group-hover:rotate-12" />
                     {hasUnread && (
                       <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs font-medium flex items-center justify-center">
                         {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
