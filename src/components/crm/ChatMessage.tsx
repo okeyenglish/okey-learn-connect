@@ -12,14 +12,17 @@ import { MessageReactions } from "./MessageReactions";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { LazyImage } from "./LazyImage";
 
+import { highlightSearchText } from '@/utils/highlightText';
+
 // URL regex pattern
 const URL_REGEX = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g;
 
-// Helper to render text with clickable links
-function renderMessageWithLinks(text: string): React.ReactNode {
+// Helper to render text with clickable links and optional highlighting
+function renderMessageWithLinks(text: string, searchQuery?: string): React.ReactNode {
   const parts = text.split(URL_REGEX);
   if (parts.length === 1) {
-    return text;
+    // No URLs, just apply highlighting if needed
+    return searchQuery ? highlightSearchText(text, searchQuery) : text;
   }
   return parts.map((part, i) => {
     if (URL_REGEX.test(part)) {
@@ -34,11 +37,11 @@ function renderMessageWithLinks(text: string): React.ReactNode {
           className="text-blue-600 underline hover:text-blue-800 break-all"
           onClick={(e) => e.stopPropagation()}
         >
-          {part}
+          {searchQuery ? highlightSearchText(part, searchQuery) : part}
         </a>
       );
     }
-    return part;
+    return searchQuery ? highlightSearchText(part, searchQuery) : part;
   });
 }
 
@@ -76,9 +79,10 @@ interface ChatMessageProps {
   onEnterSelectionMode?: () => void;
   onQuoteMessage?: (text: string) => void;
   isHighlighted?: boolean;
+  searchQuery?: string;
 }
 
-const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, onResendMessage, onCancelRetry, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, whatsappChatId, externalMessageId, showAvatar = true, showName = true, isLastInGroup = true, onForwardMessage, onEnterSelectionMode, onQuoteMessage, isHighlighted = false }: ChatMessageProps) => {
+const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, onResendMessage, onCancelRetry, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, whatsappChatId, externalMessageId, showAvatar = true, showName = true, isLastInGroup = true, onForwardMessage, onEnterSelectionMode, onQuoteMessage, isHighlighted = false, searchQuery }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
 
@@ -432,7 +436,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                   <div>
                     {/* Hide placeholder text like [documentMessage] if file is attached */}
                     {!(fileUrl && /^\[(imageMessage|videoMessage|audioMessage|documentMessage)\]$/.test(message)) && (
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{renderMessageWithLinks(editedMessage)}</p>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{renderMessageWithLinks(editedMessage, searchQuery)}</p>
                     )}
                     {systemType === 'comment' && managerName && (
                       <div className="text-xs text-amber-700 mt-1 flex items-center gap-1">

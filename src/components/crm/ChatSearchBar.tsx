@@ -9,6 +9,7 @@ interface ChatSearchBarProps {
   isOpen: boolean;
   onClose: () => void;
   onNavigateToMessage: (messageId: string) => void;
+  onSearchQueryChange?: (query: string) => void;
   className?: string;
 }
 
@@ -21,6 +22,7 @@ export const ChatSearchBar: React.FC<ChatSearchBarProps> = ({
   isOpen,
   onClose,
   onNavigateToMessage,
+  onSearchQueryChange,
   className,
 }) => {
   const [query, setQuery] = useState('');
@@ -39,10 +41,11 @@ export const ChatSearchBar: React.FC<ChatSearchBarProps> = ({
   
   const totalResults = matchingMessages.length;
   
-  // Reset index when query changes
+  // Reset index when query changes and notify parent
   useEffect(() => {
     setCurrentIndex(0);
-  }, [query]);
+    onSearchQueryChange?.(query);
+  }, [query, onSearchQueryChange]);
   
   // Navigate to current result
   useEffect(() => {
@@ -83,8 +86,9 @@ export const ChatSearchBar: React.FC<ChatSearchBarProps> = ({
   const handleClose = useCallback(() => {
     setQuery('');
     setCurrentIndex(0);
+    onSearchQueryChange?.('');
     onClose();
-  }, [onClose]);
+  }, [onClose, onSearchQueryChange]);
   
   if (!isOpen) return null;
   
