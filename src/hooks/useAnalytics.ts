@@ -44,53 +44,115 @@ export interface GroupStats {
   revenue: number;
 }
 
+// DB row types
+interface PaymentRow {
+  amount: number | null;
+  payment_type: string | null;
+  created_at: string;
+}
+
+interface SalaryAccrualRow {
+  amount: number | null;
+  teacher_id?: string;
+  academic_hours?: number | null;
+  rate_per_hour?: number | null;
+}
+
+interface ProfileRow {
+  id: string;
+  balance?: number | null;
+  created_at: string;
+  first_name?: string | null;
+  last_name?: string | null;
+}
+
+interface UserRoleRow {
+  user_id: string;
+}
+
+interface GroupStudentRow {
+  student_id: string;
+}
+
+interface IndividualLessonRow {
+  id: string;
+  student_id?: string;
+  teacher_id?: string;
+}
+
+interface AttendanceRow {
+  status: string;
+}
+
+interface LessonSessionRow {
+  id: string;
+  group_id: string;
+  status: string;
+  lesson_date: string;
+}
+
+interface IndividualSessionRow {
+  individual_lesson_id: string;
+  status: string;
+  lesson_date: string;
+}
+
+interface LearningGroupRow {
+  id: string;
+  name: string;
+  subject: string;
+  branch: string;
+  teacher_id?: string;
+}
+
 // Финансовые отчёты
 export const useFinancialReport = (startDate?: Date, endDate?: Date) => {
   return useQuery({
     queryKey: ['financial-report', startDate, endDate],
-    queryFn: async () => {
+    queryFn: async (): Promise<FinancialReport> => {
       const start = startDate || startOfMonth(new Date());
       const end = endDate || endOfMonth(new Date());
 
       // Получаем все платежи за период
-      const { data: payments } = await supabase
-        .from('payments' as any)
+      const { data: paymentsRaw } = await supabase
+        .from('payments')
         .select('amount, payment_type, created_at')
         .gte('created_at', format(start, 'yyyy-MM-dd'))
         .lte('created_at', format(end, 'yyyy-MM-dd'));
 
       // Получаем расходы (зарплаты преподавателей)
-      const { data: salaries } = await supabase
-        .from('teacher_salary_accruals' as any)
+      const { data: salariesRaw } = await supabase
+        .from('teacher_salary_accruals')
         .select('amount')
         .gte('accrual_date', format(start, 'yyyy-MM-dd'))
         .lte('accrual_date', format(end, 'yyyy-MM-dd'))
         .eq('is_paid', true);
 
-      const totalRevenue = (payments || []).reduce(
-        (sum: number, p: any) => sum + (p.amount || 0),
+      const payments = (paymentsRaw || []) as unknown as PaymentRow[];
+      const salaries = (salariesRaw || []) as unknown as SalaryAccrualRow[];
+
+      const totalRevenue = payments.reduce(
+        (sum, p) => sum + (p.amount || 0),
         0
       );
 
-      const totalExpenses = (salaries || []).reduce(
-        (sum: number, s: any) => sum + (s.amount || 0),
+      const totalExpenses = salaries.reduce(
+        (sum, s) => sum + (s.amount || 0),
         0
       );
 
       const profit = totalRevenue - totalExpenses;
       const profitMargin = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
 
-      const report: FinancialReport = {
+      return {
         period: `${format(start, 'dd.MM.yyyy')} - ${format(end, 'dd.MM.yyyy')}`,
         total_revenue: totalRevenue,
         total_expenses: totalExpenses,
         profit,
         profit_margin: profitMargin,
-        payments_count: payments?.length || 0,
-        average_payment: payments?.length ? totalRevenue / payments.length : 0,
+        payments_count: payments.length,
+        average_payment: payments.length ? totalRevenue / payments.length : 0,
       };
-
-      return report;
     },
     enabled: !!startDate && !!endDate,
   });
@@ -100,17 +162,18 @@ export const useFinancialReport = (startDate?: Date, endDate?: Date) => {
 export const useStudentStats = (startDate?: Date, endDate?: Date) => {
   return useQuery({
     queryKey: ['student-stats', startDate, endDate],
-    queryFn: async () => {
+    queryFn: async (): Promise<StudentStats> => {
       const start = startDate || startOfMonth(new Date());
       const end = endDate || endOfMonth(new Date());
 
       // Получаем всех студентов
-      const { data: studentRoles } = await supabase
+      const { data: studentRolesRaw } = await supabase
         .from('user_roles')
         .select('user_id')
         .eq('role', 'student');
 
-      const studentIds = studentRoles?.map((r: any) => r.user_id) || [];
+      const studentRoles = (studentRolesRaw || []) as unknown as UserRoleRow[];
+      const studentIds = studentRoles.map((r) => r.user_id);
 
       if (studentIds.length === 0) {
         return {
@@ -125,69 +188,73 @@ export const useStudentStats = (startDate?: Date, endDate?: Date) => {
       }
 
       // Получаем профили студентов
-      const { data: students } = await supabase
-        .from('profiles' as any)
+      const { data: studentsRaw } = await supabase
+        .from('profiles')
         .select('id, balance, created_at')
         .in('id', studentIds);
 
+      const students = (studentsRaw || []) as unknown as ProfileRow[];
+
       // Активные студенты (есть занятия)
-      const { data: activeGroupStudents } = await supabase
+      const { data: activeGroupStudentsRaw } = await supabase
         .from('group_students')
         .select('student_id')
         .eq('status', 'active')
         .in('student_id', studentIds);
 
-      const { data: activeIndividualLessons } = await supabase
+      const { data: activeIndividualLessonsRaw } = await supabase
         .from('individual_lessons')
         .select('student_id')
         .eq('is_active', true)
         .in('student_id', studentIds);
 
+      const activeGroupStudents = (activeGroupStudentsRaw || []) as unknown as GroupStudentRow[];
+      const activeIndividualLessons = (activeIndividualLessonsRaw || []) as unknown as IndividualLessonRow[];
+
       const activeStudentIds = new Set([
-        ...(activeGroupStudents?.map((s: any) => s.student_id) || []),
-        ...(activeIndividualLessons?.map((l: any) => l.student_id) || []),
+        ...activeGroupStudents.map((s) => s.student_id),
+        ...activeIndividualLessons.map((l) => l.student_id).filter(Boolean),
       ]);
 
       // Новые студенты за период
-      const newStudents = (students || []).filter(
-        (s: any) => new Date(s.created_at) >= start && new Date(s.created_at) <= end
+      const newStudents = students.filter(
+        (s) => new Date(s.created_at) >= start && new Date(s.created_at) <= end
       );
 
       // Средний баланс
-      const totalBalance = (students || []).reduce(
-        (sum: number, s: any) => sum + (s.balance || 0),
+      const totalBalance = students.reduce(
+        (sum, s) => sum + (s.balance || 0),
         0
       );
-      const averageBalance = students?.length ? totalBalance / students.length : 0;
+      const averageBalance = students.length ? totalBalance / students.length : 0;
 
       // Студенты с низким балансом
-      const lowBalanceStudents = (students || []).filter((s: any) => (s.balance || 0) < 1000);
+      const lowBalanceStudents = students.filter((s) => (s.balance || 0) < 1000);
 
       // Посещаемость
-      const { data: attendance } = await supabase
-        .from('student_attendance' as any)
+      const { data: attendanceRaw } = await supabase
+        .from('student_attendance')
         .select('status')
         .in('student_id', studentIds)
         .gte('created_at', format(start, 'yyyy-MM-dd'))
         .lte('created_at', format(end, 'yyyy-MM-dd'));
 
-      const presentCount = (attendance || []).filter(
-        (a: any) => a.status === 'present'
+      const attendance = (attendanceRaw || []) as unknown as AttendanceRow[];
+      const presentCount = attendance.filter(
+        (a) => a.status === 'present'
       ).length;
       const attendanceRate =
-        attendance?.length ? (presentCount / attendance.length) * 100 : 0;
+        attendance.length ? (presentCount / attendance.length) * 100 : 0;
 
-      const stats: StudentStats = {
-        total_students: students?.length || 0,
+      return {
+        total_students: students.length,
         active_students: activeStudentIds.size,
         new_students: newStudents.length,
-        churned_students: (students?.length || 0) - activeStudentIds.size,
+        churned_students: students.length - activeStudentIds.size,
         average_balance: averageBalance,
         low_balance_count: lowBalanceStudents.length,
         attendance_rate: attendanceRate,
       };
-
-      return stats;
     },
     enabled: !!startDate && !!endDate,
   });
@@ -197,102 +264,115 @@ export const useStudentStats = (startDate?: Date, endDate?: Date) => {
 export const useTeacherStatsReport = (startDate?: Date, endDate?: Date) => {
   return useQuery({
     queryKey: ['teacher-stats-report', startDate, endDate],
-    queryFn: async () => {
+    queryFn: async (): Promise<TeacherStats[]> => {
       const start = startDate || startOfMonth(new Date());
       const end = endDate || endOfMonth(new Date());
 
       // Получаем всех преподавателей
-      const { data: teacherRoles } = await supabase
+      const { data: teacherRolesRaw } = await supabase
         .from('user_roles')
         .select('user_id')
         .eq('role', 'teacher');
 
-      const teacherIds = teacherRoles?.map((r: any) => r.user_id) || [];
+      const teacherRoles = (teacherRolesRaw || []) as unknown as UserRoleRow[];
+      const teacherIds = teacherRoles.map((r) => r.user_id);
 
       if (teacherIds.length === 0) return [];
 
-      const { data: teachers } = await supabase
+      const { data: teachersRaw } = await supabase
         .from('profiles')
         .select('id, first_name, last_name')
         .in('id', teacherIds);
 
+      const teachers = (teachersRaw || []) as unknown as ProfileRow[];
+
       // Получаем начисления за период
-      const { data: accruals } = await supabase
-        .from('teacher_salary_accruals' as any)
+      const { data: accrualsRaw } = await supabase
+        .from('teacher_salary_accruals')
         .select('teacher_id, amount, academic_hours, rate_per_hour')
         .in('teacher_id', teacherIds)
         .gte('accrual_date', format(start, 'yyyy-MM-dd'))
         .lte('accrual_date', format(end, 'yyyy-MM-dd'));
 
+      const accruals = (accrualsRaw || []) as unknown as SalaryAccrualRow[];
+
       // Получаем занятия за период
-      const { data: groupSessions } = await supabase
-        .from('lesson_sessions' as any)
+      const { data: groupSessionsRaw } = await supabase
+        .from('lesson_sessions')
         .select('group_id, status, lesson_date')
         .gte('lesson_date', format(start, 'yyyy-MM-dd'))
         .lte('lesson_date', format(end, 'yyyy-MM-dd'));
 
-      const { data: groups } = await supabase
-        .from('learning_groups' as any)
+      const groupSessions = (groupSessionsRaw || []) as unknown as LessonSessionRow[];
+
+      const { data: groupsRaw } = await supabase
+        .from('learning_groups')
         .select('id, teacher_id')
         .in('teacher_id', teacherIds);
 
-      const { data: individualSessions } = await supabase
-        .from('individual_lesson_sessions' as any)
+      const groups = (groupsRaw || []) as unknown as LearningGroupRow[];
+
+      const { data: individualSessionsRaw } = await supabase
+        .from('individual_lesson_sessions')
         .select('individual_lesson_id, status, lesson_date')
         .gte('lesson_date', format(start, 'yyyy-MM-dd'))
         .lte('lesson_date', format(end, 'yyyy-MM-dd'));
 
-      const { data: individualLessons } = await supabase
-        .from('individual_lessons' as any)
+      const individualSessions = (individualSessionsRaw || []) as unknown as IndividualSessionRow[];
+
+      const { data: individualLessonsRaw } = await supabase
+        .from('individual_lessons')
         .select('id, teacher_id')
         .in('teacher_id', teacherIds);
 
-      const stats: TeacherStats[] = (teachers || []).map((teacher: any) => {
-        const teacherAccruals = (accruals || []).filter(
-          (a: any) => a.teacher_id === teacher.id
+      const individualLessons = (individualLessonsRaw || []) as unknown as IndividualLessonRow[];
+
+      const stats: TeacherStats[] = teachers.map((teacher) => {
+        const teacherAccruals = accruals.filter(
+          (a) => a.teacher_id === teacher.id
         );
 
-        const teacherGroupIds = (groups || [])
-          .filter((g: any) => g.teacher_id === teacher.id)
-          .map((g: any) => g.id);
+        const teacherGroupIds = groups
+          .filter((g) => g.teacher_id === teacher.id)
+          .map((g) => g.id);
 
-        const teacherGroupSessions = (groupSessions || []).filter((s: any) =>
+        const teacherGroupSessions = groupSessions.filter((s) =>
           teacherGroupIds.includes(s.group_id)
         );
 
-        const teacherLessonIds = (individualLessons || [])
-          .filter((l: any) => l.teacher_id === teacher.id)
-          .map((l: any) => l.id);
+        const teacherLessonIds = individualLessons
+          .filter((l) => l.teacher_id === teacher.id)
+          .map((l) => l.id);
 
-        const teacherIndividualSessions = (individualSessions || []).filter((s: any) =>
+        const teacherIndividualSessions = individualSessions.filter((s) =>
           teacherLessonIds.includes(s.individual_lesson_id)
         );
 
         const totalLessons =
           teacherGroupSessions.length + teacherIndividualSessions.length;
         const completedLessons =
-          teacherGroupSessions.filter((s: any) => s.status === 'completed').length +
-          teacherIndividualSessions.filter((s: any) => s.status === 'completed').length;
+          teacherGroupSessions.filter((s) => s.status === 'completed').length +
+          teacherIndividualSessions.filter((s) => s.status === 'completed').length;
 
         const totalEarnings = teacherAccruals.reduce(
-          (sum: number, a: any) => sum + (a.amount || 0),
+          (sum, a) => sum + (a.amount || 0),
           0
         );
         const totalHours = teacherAccruals.reduce(
-          (sum: number, a: any) => sum + (a.academic_hours || 0),
+          (sum, a) => sum + (a.academic_hours || 0),
           0
         );
         const averageRate =
           teacherAccruals.length > 0
             ? teacherAccruals.reduce(
-                (sum: number, a: any) => sum + (a.rate_per_hour || 0),
+                (sum, a) => sum + (a.rate_per_hour || 0),
                 0
               ) / teacherAccruals.length
             : 0;
 
         return {
           teacher_id: teacher.id,
-          teacher_name: `${teacher.first_name} ${teacher.last_name}`.trim(),
+          teacher_name: `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim(),
           total_lessons: totalLessons,
           total_hours: totalHours,
           completed_lessons: completedLessons,
@@ -312,62 +392,70 @@ export const useTeacherStatsReport = (startDate?: Date, endDate?: Date) => {
 export const useGroupStatsReport = (startDate?: Date, endDate?: Date) => {
   return useQuery({
     queryKey: ['group-stats-report', startDate, endDate],
-    queryFn: async () => {
+    queryFn: async (): Promise<GroupStats[]> => {
       const start = startDate || startOfMonth(new Date());
       const end = endDate || endOfMonth(new Date());
 
       // Получаем все группы
-      const { data: groups } = await supabase
-        .from('learning_groups' as any)
+      const { data: groupsRaw } = await supabase
+        .from('learning_groups')
         .select('id, name, subject, branch');
 
-      if (!groups || groups.length === 0) return [];
+      const groups = (groupsRaw || []) as unknown as LearningGroupRow[];
+
+      if (groups.length === 0) return [];
 
       const stats: GroupStats[] = await Promise.all(
-        groups.map(async (group: any) => {
+        groups.map(async (group) => {
           // Количество студентов
-          const { data: students } = await supabase
+          const { data: studentsRaw } = await supabase
             .from('group_students')
             .select('id')
             .eq('group_id', group.id)
             .eq('status', 'active');
 
+          const students = studentsRaw || [];
+
           // Проведённые занятия
-          const { data: sessions } = await supabase
-            .from('lesson_sessions' as any)
+          const { data: sessionsRaw } = await supabase
+            .from('lesson_sessions')
             .select('id, status, lesson_date')
             .eq('group_id', group.id)
             .gte('lesson_date', format(start, 'yyyy-MM-dd'))
             .lte('lesson_date', format(end, 'yyyy-MM-dd'));
 
-          const lessonsHeld = (sessions || []).filter(
-            (s: any) => s.status === 'completed'
+          const sessions = (sessionsRaw || []) as unknown as LessonSessionRow[];
+
+          const lessonsHeld = sessions.filter(
+            (s) => s.status === 'completed'
           ).length;
 
           // Посещаемость
-          const { data: attendance } = await supabase
-            .from('student_attendance' as any)
-            .select('status')
-            .in(
-              'lesson_session_id',
-              (sessions || []).map((s: any) => s.id)
-            );
+          const sessionIds = sessions.map((s) => s.id);
+          const { data: attendanceRaw } = sessionIds.length > 0
+            ? await supabase
+                .from('student_attendance')
+                .select('status')
+                .in('lesson_session_id', sessionIds)
+            : { data: [] };
 
-          const presentCount = (attendance || []).filter(
-            (a: any) => a.status === 'present'
+          const attendance = (attendanceRaw || []) as unknown as AttendanceRow[];
+
+          const presentCount = attendance.filter(
+            (a) => a.status === 'present'
           ).length;
           const attendanceRate =
-            attendance?.length ? (presentCount / attendance.length) * 100 : 0;
+            attendance.length ? (presentCount / attendance.length) * 100 : 0;
 
           // Выручка (примерная, можно улучшить)
-          const revenue = lessonsHeld * (students?.length || 0) * 1000; // Примерная цена
+          const revenue = lessonsHeld * students.length * 1000; // Примерная цена
 
           return {
             group_id: group.id,
             group_name: group.name,
             subject: group.subject,
             branch: group.branch,
-            students_count: students?.length || 0,
+            students_count: students.length,
             lessons_held: lessonsHeld,
             attendance_rate: attendanceRate,
             revenue,

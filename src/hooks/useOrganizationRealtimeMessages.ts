@@ -3,6 +3,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from './useOrganization';
 
+/** Realtime payload for chat_messages changes */
+interface ChatMessagePayload {
+  client_id: string;
+  message_type?: string;
+  is_outgoing?: boolean;
+}
+
 /**
  * Optimized realtime hook that uses a SINGLE channel for all chat messages
  * filtered by organization_id instead of creating a channel per client.
@@ -50,7 +57,7 @@ export const useOrganizationRealtimeMessages = () => {
           filter: `organization_id=eq.${organizationId}`
         },
         (payload) => {
-          const newMsg = payload.new as any;
+          const newMsg = payload.new as ChatMessagePayload;
           const clientId = newMsg.client_id;
           
           console.log('[OrgRealtime] New message for client:', clientId);
@@ -78,7 +85,7 @@ export const useOrganizationRealtimeMessages = () => {
           filter: `organization_id=eq.${organizationId}`
         },
         (payload) => {
-          const updatedMsg = payload.new as any;
+          const updatedMsg = payload.new as ChatMessagePayload;
           const clientId = updatedMsg.client_id;
           
           console.log('[OrgRealtime] Message updated for client:', clientId);
@@ -104,7 +111,7 @@ export const useOrganizationRealtimeMessages = () => {
           filter: `organization_id=eq.${organizationId}`
         },
         (payload) => {
-          const deletedMsg = payload.old as any;
+          const deletedMsg = payload.old as ChatMessagePayload;
           const clientId = deletedMsg.client_id;
           
           console.log('[OrgRealtime] Message deleted for client:', clientId);

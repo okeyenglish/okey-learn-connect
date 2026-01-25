@@ -13,6 +13,21 @@ interface UserWithRoles {
   roles: AppRole[];
 }
 
+/** Edge function response for get-employees */
+interface EmployeeRow {
+  id: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  branch?: string | null;
+  roles?: string[];
+}
+
+interface GetEmployeesResponse {
+  employees?: EmployeeRow[];
+}
+
 export const useRoles = () => {
   const [loading, setLoading] = useState(false);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
@@ -68,14 +83,14 @@ export const useRoles = () => {
   // Получить пользователей с их ролями через edge-функцию (обходит RLS)
   const fetchUsersWithRoles = async (): Promise<UserWithRoles[]> => {
     try {
-      const { data, error } = await supabase.functions.invoke('get-employees', {
+      const { data, error } = await supabase.functions.invoke<GetEmployeesResponse>('get-employees', {
         body: {}
       });
 
-      if (error) throw error as any;
+      if (error) throw error;
 
-      const employees = (data as any)?.employees || [];
-      const usersWithRoles: UserWithRoles[] = employees.map((e: any) => ({
+      const employees = data?.employees || [];
+      const usersWithRoles: UserWithRoles[] = employees.map((e) => ({
         id: e.id,
         first_name: e.first_name ?? null,
         last_name: e.last_name ?? null,
@@ -97,6 +112,7 @@ export const useRoles = () => {
       return [];
     }
   };
+
   // Назначить роль пользователю
   const assignRole = async (userId: string, role: AppRole) => {
     try {
@@ -139,14 +155,15 @@ export const useRoles = () => {
       
       await fetchUserRoles();
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error assigning role:', error);
       let errorMessage = "Не удалось назначить роль";
       
-      if (error.code === '23505') {
+      const err = error as { code?: string; message?: string };
+      if (err.code === '23505') {
         errorMessage = "У пользователя уже есть эта роль";
-      } else if (error.message) {
-        errorMessage = error.message;
+      } else if (err.message) {
+        errorMessage = err.message;
       }
       
       toast({

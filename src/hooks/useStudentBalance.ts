@@ -9,7 +9,7 @@ export type { StudentBalance, BalanceTransaction };
 export const useStudentBalance = (studentId: string | undefined) => {
   return useQuery({
     queryKey: ['student-balance', studentId],
-    queryFn: async () => {
+    queryFn: async (): Promise<StudentBalance | null> => {
       if (!studentId) return null;
       
       const { data, error } = await supabase
@@ -29,7 +29,7 @@ export const useStudentBalance = (studentId: string | undefined) => {
 export const useBalanceTransactions = (studentId: string | undefined) => {
   return useQuery({
     queryKey: ['balance-transactions', studentId],
-    queryFn: async () => {
+    queryFn: async (): Promise<BalanceTransaction[]> => {
       if (!studentId) return [];
       
       const { data: balanceData } = await supabase
@@ -94,7 +94,7 @@ export const useAddBalanceTransaction = () => {
         description: "Транзакция успешно добавлена",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось добавить транзакцию",
@@ -108,7 +108,7 @@ export const useAddBalanceTransaction = () => {
 export const useGetStudentBalanceAmount = (studentId: string | undefined) => {
   return useQuery({
     queryKey: ['student-balance-amount', studentId],
-    queryFn: async () => {
+    queryFn: async (): Promise<number> => {
       if (!studentId) return 0;
       
       const { data, error } = await supabase.rpc('get_student_balance', {
@@ -116,7 +116,7 @@ export const useGetStudentBalanceAmount = (studentId: string | undefined) => {
       });
 
       if (error) throw error;
-      return data as number;
+      return (data as number) ?? 0;
     },
     enabled: !!studentId,
   });

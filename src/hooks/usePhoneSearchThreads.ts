@@ -3,6 +3,54 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { ChatThread, UnreadByMessenger } from './useChatMessages';
 import { isGroupChatName, isTelegramGroup } from './useCommunityChats';
 
+/** Row returned by RPC get_chat_threads_by_client_ids */
+interface RpcThreadRow {
+  clt_id?: string;
+  client_id?: string;
+  client_name?: string | null;
+  client_phone?: string | null;
+  client_branch?: string | null;
+  avatar_url?: string | null;
+  telegram_avatar_url?: string | null;
+  whatsapp_avatar_url?: string | null;
+  max_avatar_url?: string | null;
+  telegram_chat_id?: string | null;
+  last_message_text?: string | null;
+  last_message?: string | null;
+  last_message_time?: string | null;
+  unread_count?: number | null;
+  unread_whatsapp?: number | null;
+  unread_telegram?: number | null;
+  unread_max?: number | null;
+  unread_email?: number | null;
+  unread_calls?: number | null;
+  last_unread_messenger?: string | null;
+}
+
+/** Client row from direct fallback query */
+interface ClientRow {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  branch: string | null;
+  avatar_url: string | null;
+  telegram_avatar_url: string | null;
+  whatsapp_avatar_url: string | null;
+  max_avatar_url: string | null;
+  telegram_chat_id: string | null;
+  client_phone_numbers?: { phone: string; is_primary: boolean }[] | null;
+}
+
+/** Message row from fallback query */
+interface MessageRow {
+  client_id: string;
+  message_text: string | null;
+  created_at: string;
+  is_read: boolean;
+  messenger_type: string | null;
+  message_type: string | null;
+}
+
 /**
  * Hook to load full thread data for client IDs found via phone search
  * that are NOT already present in the loaded threads
@@ -34,15 +82,16 @@ export const usePhoneSearchThreads = (
       const results = await Promise.all(
         chunks.map(async (chunk) => {
           try {
-            const { data, error } = await (supabase
-              .rpc as any)('get_chat_threads_by_client_ids', { p_client_ids: chunk });
+            const { data, error } = await supabase
+              .rpc('get_chat_threads_by_client_ids', { p_client_ids: chunk });
 
             if (error) {
               console.error('[usePhoneSearchThreads] RPC failed for chunk, using fallback:', error);
               return await fetchThreadsDirectly(chunk);
             }
 
-            const threads = mapRpcToThreads(data || []);
+            const rpcData = (data || []) as unknown as RpcThreadRow[];
+            const threads = mapRpcToThreads(rpcData);
             if (threads.length === 0 && chunk.length > 0) {
               return await fetchThreadsDirectly(chunk);
             }
@@ -68,8 +117,8 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
   console.log('[usePhoneSearchThreads] fetchThreadsDirectly called for:', clientIds);
 
   // Fetch clients with their phone numbers
-  const { data: clients, error: clientsError } = await (supabase
-    .from('clients' as any) as any)
+  const { data: clientsRaw, error: clientsError } = await supabase
+    .from('clients')
     .select(`
       id,
       name,
@@ -90,11 +139,12 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
     return [];
   }
   
-  console.log('[usePhoneSearchThreads] Fetched clients:', clients?.length || 0);
+  const clients = (clientsRaw || []) as unknown as ClientRow[];
+  console.log('[usePhoneSearchThreads] Fetched clients:', clients.length);
 
   // Fetch last message for each client
-  const { data: messages, error: messagesError } = await (supabase
-    .from('chat_messages' as any) as any)
+  const { data: messagesRaw, error: messagesError } = await supabase
+    .from('chat_messages')
     .select('client_id, message_text, created_at, is_read, messenger_type, message_type')
     .in('client_id', clientIds)
     .order('created_at', { ascending: false })
@@ -104,9 +154,11 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
     console.error('[usePhoneSearchThreads] Failed to fetch messages:', messagesError);
   }
 
+  const messages = (messagesRaw || []) as unknown as MessageRow[];
+
   // Group messages by client
-  const messagesByClient = new Map<string, any[]>();
-  (messages || []).forEach((msg: any) => {
+  const messagesByClient = new Map<string, MessageRow[]>();
+  messages.forEach((msg) => {
     if (!messagesByClient.has(msg.client_id)) {
       messagesByClient.set(msg.client_id, []);
     }
@@ -114,8 +166,8 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
   });
 
   // Build threads
-  const threads: ChatThread[] = (clients || [])
-    .filter((client: any) => {
+  const threads: ChatThread[] = clients
+    .filter((client) => {
       // Filter out groups
       const telegramChatId = client.telegram_chat_id;
       if (telegramChatId && isTelegramGroup(String(telegramChatId))) {
@@ -126,10 +178,10 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
       }
       return true;
     })
-    .map((client: any) => {
+    .map((client) => {
       const clientMessages = messagesByClient.get(client.id) || [];
       const lastMessage = clientMessages[0];
-      const unreadMessages = clientMessages.filter((m: any) => !m.is_read && m.message_type === 'client');
+      const unreadMessages = clientMessages.filter((m) => !m.is_read && m.message_type === 'client');
 
       // Calculate unread by messenger
       const unreadByMessenger: UnreadByMessenger = {
@@ -139,7 +191,7 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
         email: 0,
         calls: 0,
       };
-      unreadMessages.forEach((m: any) => {
+      unreadMessages.forEach((m) => {
         const type = m.messenger_type as keyof UnreadByMessenger;
         if (type in unreadByMessenger) {
           unreadByMessenger[type]++;
@@ -148,7 +200,7 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
 
       // Get phone from client or from client_phone_numbers
       const phoneNumbers = client.client_phone_numbers || [];
-      const primaryPhone = phoneNumbers.find((p: any) => p.is_primary);
+      const primaryPhone = phoneNumbers.find((p) => p.is_primary);
       const clientPhone = client.phone || primaryPhone?.phone || phoneNumbers[0]?.phone || '';
 
       return {
@@ -174,8 +226,8 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
 }
 
 // Map RPC result to ChatThread format
-function mapRpcToThreads(data: any[]): ChatThread[] {
-  const filteredData = data.filter((row: any) => {
+function mapRpcToThreads(data: RpcThreadRow[]): ChatThread[] {
+  const filteredData = data.filter((row) => {
     const name = row.client_name || '';
     const telegramChatId = row.telegram_chat_id;
 
@@ -196,8 +248,8 @@ function mapRpcToThreads(data: any[]): ChatThread[] {
     return true;
   });
 
-  return filteredData.map((row: any) => ({
-    client_id: row.clt_id || row.client_id, // clt_id from new RPC, client_id fallback
+  return filteredData.map((row) => ({
+    client_id: row.clt_id || row.client_id || '', // clt_id from new RPC, client_id fallback
     client_name: row.client_name || '',
     client_phone: row.client_phone || '',
     client_branch: row.client_branch || null,
@@ -206,7 +258,7 @@ function mapRpcToThreads(data: any[]): ChatThread[] {
     whatsapp_avatar_url: row.whatsapp_avatar_url || null,
     max_avatar_url: row.max_avatar_url || null,
     last_message: row.last_message_text || row.last_message || '', // last_message_text from new RPC
-    last_message_time: row.last_message_time,
+    last_message_time: row.last_message_time || null,
     unread_count: Number(row.unread_count) || 0,
     unread_by_messenger: {
       whatsapp: Number(row.unread_whatsapp) || 0,
