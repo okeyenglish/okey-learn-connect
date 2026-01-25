@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Mic, MicOff, Volume2, VolumeX, Loader2, Send, Bot, User, X } from 'lucide-react';
+import { AnimatedLogo } from '@/components/AnimatedLogo';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -638,7 +639,9 @@ export default function VoiceAssistant({
           <div className="space-y-3 p-4 pb-24">
             {messages.length === 0 && (
               <div className="text-center text-muted-foreground py-8">
-                <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <div className="flex justify-center mb-4">
+                  <AnimatedLogo size={80} isActive={isRecording || isProcessing || isSpeaking} />
+                </div>
                 <p className="text-sm">Привет! Я ваш AI-ассистент.</p>
                 <p className="text-xs mt-1">Напишите сообщение или нажмите на микрофон</p>
               </div>
@@ -799,7 +802,9 @@ export default function VoiceAssistant({
         <div className="space-y-4">
           {messages.length === 0 && (
             <div className="text-center text-muted-foreground py-8">
-              <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <div className="flex justify-center mb-4">
+                <AnimatedLogo size={80} isActive={isRecording || isProcessing || isSpeaking} />
+              </div>
               <p className="text-sm">Привет! Я ваш AI-ассистент.</p>
               <p className="text-xs mt-1">Напишите сообщение или нажмите на микрофон</p>
             </div>
