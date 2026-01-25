@@ -3075,8 +3075,8 @@ const CRMContent = () => {
                 )}
                 </div>
               </div>
-              <div className="flex-1 min-h-0 overflow-auto">
-                <div className="p-3 flex flex-col h-full relative z-10 pointer-events-auto bg-background">
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                <div className="p-3 flex flex-col flex-1 min-h-0 relative z-10 pointer-events-auto bg-background">
                   {/* Закрепленные чаты */}
                    {filteredChats.some(chat => getChatState(chat.id).isPinned) && (
                     <div className="mb-1">
@@ -3439,7 +3439,7 @@ const CRMContent = () => {
               ))}
             </div>
           ) : isMobile && activeTab === 'chats' && !activeChatId && activeChatType === 'client' ? (
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
               <div className="p-3 border-b space-y-3 shrink-0 bg-card">
                 <div className="flex gap-2">
                   <div className="flex-1">
