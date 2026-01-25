@@ -1,15 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { 
+  corsHeaders, 
+  successResponse, 
+  errorResponse,
+  getErrorMessage,
+  handleCors 
+} from '../_shared/types.ts';
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   const startTime = performance.now();
   
@@ -52,32 +52,15 @@ Deno.serve(async (req) => {
 
     console.log(`[refresh-chat-threads-mv] ✅ Completed in ${duration}ms`);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        duration_ms: duration,
-        status: status || null,
-        message: `Materialized view refreshed in ${duration}ms`
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200
-      }
-    );
-  } catch (error) {
+    return successResponse({
+      success: true,
+      duration_ms: duration,
+      status: status || null,
+      message: `Materialized view refreshed in ${duration}ms`
+    });
+  } catch (error: unknown) {
     const duration = Math.round(performance.now() - startTime);
     console.error("[refresh-chat-threads-mv] ❌ Error:", error);
-
-    return new Response(
-      JSON.stringify({
-        success: false,
-        duration_ms: duration,
-        error: error.message || "Unknown error"
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500
-      }
-    );
+    return errorResponse(`${getErrorMessage(error)} (${duration}ms)`, 500);
   }
 });

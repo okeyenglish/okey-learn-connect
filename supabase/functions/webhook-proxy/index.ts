@@ -1,16 +1,16 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { 
+  corsHeaders, 
+  successResponse, 
+  errorResponse,
+  getErrorMessage,
+  handleCors 
+} from '../_shared/types.ts';
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   if (req.method === 'GET') {
     const n8nWebhookUrl = Deno.env.get('N8N_WEBHOOK_URL');
@@ -125,25 +125,10 @@ serve(async (req) => {
       response: responseText
     });
 
-    return new Response(
-      JSON.stringify({ ok: true, data: responseText }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return successResponse({ ok: true, data: responseText });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Webhook proxy error:', error);
-    return new Response(
-      JSON.stringify({ 
-        ok: false, 
-        error: (error as any)?.message || 'Proxy error' 
-      }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });

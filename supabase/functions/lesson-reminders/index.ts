@@ -1,9 +1,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { 
+  corsHeaders, 
+  successResponse, 
+  errorResponse,
+  getErrorMessage,
+  handleCors 
+} from '../_shared/types.ts';
 
 interface LessonSession {
   id: string;
@@ -19,9 +21,8 @@ interface LessonSession {
 console.log('[lesson-reminders] Function booted');
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -159,20 +160,14 @@ Deno.serve(async (req) => {
 
     const successCount = notificationResults.filter(r => r.success).length;
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: `Sent ${successCount} of ${upcomingLessons.length} reminders`,
-        results: notificationResults,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return successResponse({
+      success: true,
+      message: `Sent ${successCount} of ${upcomingLessons.length} reminders`,
+      results: notificationResults,
+    });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('[lesson-reminders] Error:', error);
-    return new Response(
-      JSON.stringify({ success: false, error: String(error) }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });

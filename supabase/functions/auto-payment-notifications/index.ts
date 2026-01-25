@@ -1,21 +1,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-interface NotificationResponse {
-  notifications_created: number;
-  students_notified: string[];
-  errors: string[];
-}
+import { 
+  corsHeaders, 
+  successResponse, 
+  errorResponse,
+  getErrorMessage,
+  handleCors,
+  type PaymentNotificationResponse 
+} from '../_shared/types.ts';
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     console.log('🔔 Starting automatic payment notifications generation...');
@@ -65,34 +60,15 @@ Deno.serve(async (req) => {
 
     console.log(`📊 Summary: ${notificationsCreated} notifications created for ${studentsNotified.length} students`);
 
-    const response: NotificationResponse = {
-      notifications_created: notificationsCreated,
-      students_notified: studentsNotified,
-      errors: [],
-    };
+    return successResponse({
+      success: true,
+      sent: notificationsCreated,
+      skipped: 0,
+      failed: 0,
+    });
 
-    return new Response(
-      JSON.stringify(response),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
-    );
-
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ Function error:', error);
-    
-    return new Response(
-      JSON.stringify({ 
-        error: error.message,
-        notifications_created: 0,
-        students_notified: [],
-        errors: [error.message]
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
-      }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });

@@ -1,11 +1,13 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { 
+  corsHeaders, 
+  successResponse, 
+  errorResponse,
+  getErrorMessage,
+  type AIChatResponse 
+} from '../_shared/types.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -117,29 +119,19 @@ serve(async (req) => {
     const data = await response.json();
     const aiResponse = data.choices?.[0]?.message?.content || 'Извините, не могу ответить на этот вопрос.';
 
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        response: aiResponse,
-        transcription: audio ? userMessage : undefined
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
-    );
+    const response: AIChatResponse = { 
+      success: true,
+      response: aiResponse,
+    };
+    
+    if (audio) {
+      (response as AIChatResponse & { transcription?: string }).transcription = userMessage;
+    }
+    
+    return successResponse(response);
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in ai-consultant function:', error);
-    return new Response(
-      JSON.stringify({ 
-        success: false,
-        error: error.message 
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
-      }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });

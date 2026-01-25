@@ -1,17 +1,18 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
 import { EdgeCache, CacheTTL, hashKey } from '../_shared/cache.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { 
+  corsHeaders, 
+  successResponse, 
+  errorResponse,
+  getErrorMessage,
+  handleCors 
+} from '../_shared/types.ts';
 
 console.log('[get-employees] Function booted');
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const { branch, skipCache } = await req.json().catch(() => ({ branch: null, skipCache: false }));
@@ -75,15 +76,9 @@ Deno.serve(async (req) => {
 
     console.log(`[get-employees] Fetched and cached ${enriched.length} employees`);
 
-    return new Response(JSON.stringify({ ...result, fromCache: false }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
+    return successResponse({ ...result, fromCache: false });
+  } catch (error: unknown) {
     console.error('[get-employees] Error:', error);
-    const message = (error as Error)?.message ?? 'Server error';
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(getErrorMessage(error), 500);
   }
 });

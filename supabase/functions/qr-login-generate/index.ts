@@ -1,16 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { 
+  corsHeaders, 
+  successResponse, 
+  errorResponse,
+  getErrorMessage,
+  handleCors 
+} from '../_shared/types.ts';
 
 serve(async (req) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -66,32 +66,17 @@ serve(async (req) => {
     // Also provide a web fallback URL
     const webConfirmUrl = `${supabaseUrl.replace('api.', '')}/auth/qr-confirm?token=${token}`;
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        token,
-        qr_url: qrUrl,
-        web_confirm_url: webConfirmUrl,
-        expires_at: data.expires_at,
-        ttl_seconds: 120
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
-    );
+    return successResponse({
+      success: true,
+      token,
+      qr_url: qrUrl,
+      web_confirm_url: webConfirmUrl,
+      expires_at: data.expires_at,
+      ttl_seconds: 120
+    });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in qr-login-generate:', error);
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message || 'Failed to generate QR token' 
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
-      }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });

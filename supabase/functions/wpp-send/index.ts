@@ -1,9 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { 
+  corsHeaders, 
+  successResponse, 
+  errorResponse,
+  getErrorMessage,
+  handleCors,
+  type SendMessageResponse 
+} from '../_shared/types.ts'
 
 // Generate WPP token for session
 async function generateWppToken(sessionName: string, wppHost: string, wppSecret: string): Promise<string> {
@@ -99,9 +102,8 @@ interface WPPResponse {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
-  }
+  const corsResponse = handleCors(req)
+  if (corsResponse) return corsResponse
 
   try {
     const supabase = createClient(
@@ -287,25 +289,21 @@ Deno.serve(async (req) => {
       })
       .eq('id', clientId)
 
-    return new Response(JSON.stringify({
+    const response: SendMessageResponse = {
       success: !wppResponse.error,
       messageId: wppResponse.id,
-      savedMessage,
-      error: wppResponse.error
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
-
-  } catch (error) {
-    console.error('Error sending WPP message:', error)
+      savedMessageId: savedMessage?.id,
+    }
     
-    return new Response(JSON.stringify({ 
-      success: false,
-      error: (error as any)?.message ?? 'Server error' 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    if (wppResponse.error) {
+      response.error = wppResponse.error
+    }
+    
+    return successResponse(response)
+
+  } catch (error: unknown) {
+    console.error('Error sending WPP message:', error)
+    return errorResponse(getErrorMessage(error), 500)
   }
 })
 

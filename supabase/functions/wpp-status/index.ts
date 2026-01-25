@@ -1,10 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
 import { WppClient } from '../_shared/wpp.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { 
+  corsHeaders, 
+  successResponse, 
+  errorResponse,
+  getErrorMessage,
+  handleCors,
+  type SessionResponse 
+} from '../_shared/types.ts';
 
 const BASE = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
 const SECRET = Deno.env.get('WPP_SECRET') || '';
@@ -16,9 +19,8 @@ console.log('[wpp-status] Configuration:', {
 
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabaseClient = createClient(
@@ -154,11 +156,8 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
     );
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[wpp-status] Error:', error);
-    return new Response(
-      JSON.stringify({ ok: false, error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });

@@ -1,14 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { 
+  corsHeaders, 
+  successResponse, 
+  errorResponse,
+  getErrorMessage,
+  handleCors,
+  type ImageGenerationResponse 
+} from '../_shared/types.ts';
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const { prompt, width = 1024, height = 1024 } = await req.json();
@@ -90,30 +92,15 @@ serve(async (req) => {
 
     console.log('Successfully generated image');
 
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        imageUrl,
-        prompt
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
-    );
-
-  } catch (error) {
-    console.error('Image generation error:', error);
+    const response: ImageGenerationResponse = { 
+      success: true,
+      imageUrl,
+    };
     
-    return new Response(
-      JSON.stringify({ 
-        error: 'Ошибка генерации изображения',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
-      }
-    );
+    return successResponse(response);
+
+  } catch (error: unknown) {
+    console.error('Image generation error:', error);
+    return errorResponse(`Ошибка генерации изображения: ${getErrorMessage(error)}`, 500);
   }
 });
