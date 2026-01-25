@@ -59,7 +59,7 @@ export default function Locations() {
 
   const fetchScheduleData = async () => {
     try {
-      const { data: allScheduleData, error: scheduleError } = await (supabase.rpc as any)(
+      const { data: allScheduleData, error: scheduleError } = await supabase.rpc(
         'get_public_schedule', { branch_name: null }
       );
 

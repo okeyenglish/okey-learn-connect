@@ -12,11 +12,26 @@ import { ru } from 'date-fns/locale';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { Copy, Video, Calendar, BookOpen, Users, ArrowLeft, ExternalLink } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import type { IndividualLesson, LearningGroup, StudentLessonSession, Student } from '@/integrations/supabase/database.types';
 
 declare global {
   interface Window {
     JitsiMeetExternalAPI: any;
   }
+}
+
+type CourseData = (IndividualLesson & { type: 'individual' }) | (LearningGroup & { type: 'group' });
+
+interface LessonSessionData {
+  id: string;
+  lesson_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  classroom: string | null;
+  teacher_name: string | null;
+  status: string | null;
+  branch: string | null;
+  notes: string | null;
 }
 
 export default function CourseDetails() {
@@ -31,27 +46,29 @@ export default function CourseDetails() {
   // Получаем данные курса
   const { data: course, isLoading } = useQuery({
     queryKey: ['course-details', courseId],
-    queryFn: async () => {
+    queryFn: async (): Promise<CourseData> => {
       if (!courseId) throw new Error('Course ID is required');
       
       // Сначала пробуем individual_lessons
-      const { data: individualLesson } = await (supabase.from('individual_lessons' as any) as any)
+      const { data: individualLesson } = await supabase
+        .from('individual_lessons')
         .select('*')
         .eq('id', courseId)
         .single();
 
       if (individualLesson) {
-        return { ...(individualLesson as any), type: 'individual' };
+        return { ...individualLesson, type: 'individual' as const };
       }
 
       // Потом пробуем learning_groups
-      const { data: learningGroup } = await (supabase.from('learning_groups' as any) as any)
+      const { data: learningGroup } = await supabase
+        .from('learning_groups')
         .select('*')
         .eq('id', courseId)
         .single();
 
       if (learningGroup) {
-        return { ...(learningGroup as any), type: 'group' };
+        return { ...learningGroup, type: 'group' as const };
       }
 
       throw new Error('Course not found');
@@ -65,12 +82,12 @@ export default function CourseDetails() {
     queryFn: async () => {
       if (!user?.id) return null;
       
-      const { data, error } = await (supabase.rpc as any)('get_student_by_user_id', {
+      const { data, error } = await supabase.rpc('get_student_by_user_id', {
         _user_id: user.id
       });
       
       if (error) return null;
-      return (data as any[])?.[0] || null;
+      return data as Student | null;
     },
     enabled: !!user?.id,
   });
@@ -78,10 +95,11 @@ export default function CourseDetails() {
   // Получаем расписание занятий для курса
   const { data: lessonSessions } = useQuery({
     queryKey: ['course-lesson-sessions', courseId, student?.id],
-    queryFn: async () => {
+    queryFn: async (): Promise<LessonSessionData[]> => {
       if (!courseId || !student?.id) return [];
       
-      const { data: studentSessions, error } = await (supabase.from('student_lesson_sessions' as any) as any)
+      const { data: studentSessions, error } = await supabase
+        .from('student_lesson_sessions')
         .select(`
           lesson_sessions (
             id,
@@ -99,7 +117,9 @@ export default function CourseDetails() {
       
       if (error) return [];
       
-      return ((studentSessions as any[]) || []).map((s: any) => s.lesson_sessions).filter(Boolean) || [];
+      return (studentSessions || [])
+        .map((s: any) => s.lesson_sessions)
+        .filter(Boolean) as LessonSessionData[];
     },
     enabled: !!courseId && !!student?.id,
   });
@@ -116,18 +136,20 @@ export default function CourseDetails() {
   };
 
   const getTeacherName = () => {
-    if (course?.type === 'individual') {
-      return (course as any).teacher_name || 'Преподаватель';
+    if (!course) return 'Преподаватель';
+    if (course.type === 'individual') {
+      return course.teacher_name || 'Преподаватель';
     } else {
-      return (course as any).responsible_teacher || 'Преподаватель';
+      return course.responsible_teacher || 'Преподаватель';
     }
   };
 
   const getCourseName = () => {
-    if (course?.type === 'individual') {
-      return (course as any).student_name;
+    if (!course) return '';
+    if (course.type === 'individual') {
+      return course.student_name || '';
     } else {
-      return (course as any).name;
+      return course.name;
     }
   };
 
@@ -240,6 +262,10 @@ export default function CourseDetails() {
     );
   }
 
+  const subject = course.type === 'individual' ? course.subject : course.subject;
+  const level = course.type === 'individual' ? course.level : course.level;
+  const branch = course.type === 'individual' ? course.branch : course.branch;
+
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-background">
@@ -256,7 +282,7 @@ export default function CourseDetails() {
                   {getCourseName()}
                 </h1>
                 <p className="text-muted-foreground">
-                  {course.subject} - {course.level}
+                  {subject} - {level}
                   {course.type === 'individual' ? ' (Индивидуальные занятия)' : ' (Групповые занятия)'}
                 </p>
               </div>
@@ -301,11 +327,11 @@ export default function CourseDetails() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Предмет</p>
-                      <p className="font-medium">{course.subject}</p>
+                      <p className="font-medium">{subject}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Уровень</p>
-                      <p className="font-medium">{course.level}</p>
+                      <p className="font-medium">{level}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Преподаватель</p>
@@ -315,31 +341,25 @@ export default function CourseDetails() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Филиал</p>
-                      <p className="font-medium">{course.branch}</p>
+                      <p className="font-medium">{branch}</p>
                     </div>
                     {course.type === 'group' && (
                       <>
                         <div>
                           <p className="text-sm text-muted-foreground">Участники</p>
-                          <p className="font-medium">{(course as any).current_students} из {(course as any).capacity}</p>
+                          <p className="font-medium">{course.current_students} из {course.capacity}</p>
                         </div>
                         <div>
                           <p className="text-sm text-muted-foreground">Статус группы</p>
-                          <Badge variant={(course as any).status === 'active' ? 'default' : 'secondary'}>
-                            {(course as any).status === 'active' ? 'Активная' :
-                             (course as any).status === 'forming' ? 'Формируется' :
-                             (course as any).status === 'finished' ? 'Завершена' : (course as any).status}
+                          <Badge variant={course.status === 'active' ? 'default' : 'secondary'}>
+                            {course.status === 'active' ? 'Активная' :
+                             course.status === 'forming' ? 'Формируется' :
+                             course.status === 'finished' ? 'Завершена' : course.status}
                           </Badge>
                         </div>
                       </>
                     )}
                   </div>
-                  {(course as any).description && (
-                    <div>
-                      <p className="text-sm text-muted-foreground">Описание</p>
-                      <p className="font-medium">{(course as any).description}</p>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -458,16 +478,13 @@ export default function CourseDetails() {
             <TabsContent value="materials" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Учебные материалы</CardTitle>
-                  <CardDescription>
-                    Домашние задания, дополнительные материалы и ресурсы
-                  </CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5" />
+                    Учебные материалы
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground">
-                    Раздел находится в разработке. Здесь будут размещены учебные материалы, 
-                    домашние задания и дополнительные ресурсы для изучения.
-                  </p>
+                  <p className="text-muted-foreground">Материалы курса будут доступны здесь</p>
                 </CardContent>
               </Card>
             </TabsContent>
