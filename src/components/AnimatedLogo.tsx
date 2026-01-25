@@ -6,10 +6,6 @@ interface AnimatedLogoProps {
 }
 
 export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
-  const center = size / 2;
-  const innerRadius = size * 0.32;
-  const outerRadius = size * 0.48;
-  
   return (
     <div 
       className={cn(
@@ -18,154 +14,149 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
       )}
       style={{ width: size, height: size }}
     >
-      {/* Outer glow */}
+      {/* Neural wave layer 1 - outer soft glow */}
       <div 
-        className="absolute inset-[-6px] rounded-full animate-core-glow"
+        className="absolute rounded-full animate-neural-wave-1"
         style={{
-          background: 'conic-gradient(from 0deg, hsl(217 85% 50% / 0.4), hsl(0 80% 55% / 0.3), hsl(217 85% 50% / 0.4))',
-          filter: 'blur(10px)',
+          width: size * 1.4,
+          height: size * 1.4,
+          background: 'conic-gradient(from 0deg, hsl(217 80% 55% / 0.4), hsl(260 70% 60% / 0.3), hsl(320 70% 55% / 0.25), hsl(217 80% 55% / 0.4))',
+          filter: 'blur(15px)',
+          transformOrigin: 'center',
         }}
       />
       
-      {/* SVG with ribbon shapes like the logo */}
-      <svg 
-        className="absolute inset-0 w-full h-full"
-        viewBox={`0 0 ${size} ${size}`}
-        style={{ overflow: 'visible' }}
-      >
-        <defs>
-          {/* Blue gradient */}
-          <linearGradient id="blueRibbonGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="hsl(217 90% 35%)" />
-            <stop offset="30%" stopColor="hsl(217 85% 50%)" />
-            <stop offset="60%" stopColor="hsl(210 80% 55%)" />
-            <stop offset="100%" stopColor="hsl(200 75% 60%)" />
-          </linearGradient>
-          
-          {/* Red gradient */}
-          <linearGradient id="redRibbonGrad" x1="100%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="hsl(0 90% 40%)" />
-            <stop offset="30%" stopColor="hsl(0 85% 50%)" />
-            <stop offset="60%" stopColor="hsl(10 80% 55%)" />
-            <stop offset="100%" stopColor="hsl(20 75% 60%)" />
-          </linearGradient>
-        </defs>
-        
-        {/* Blue ribbon - curved like logo, rotating */}
-        <g className="animate-ribbon-blue" style={{ transformOrigin: `${center}px ${center}px` }}>
-          <path
-            d={`
-              M ${center - outerRadius * 0.7} ${center + outerRadius * 0.85}
-              Q ${center - outerRadius * 1.1} ${center + outerRadius * 0.3},
-                ${center - outerRadius * 0.95} ${center - outerRadius * 0.2}
-              Q ${center - outerRadius * 0.75} ${center - outerRadius * 0.7},
-                ${center - outerRadius * 0.2} ${center - outerRadius * 0.9}
-              Q ${center + outerRadius * 0.1} ${center - outerRadius * 0.95},
-                ${center + outerRadius * 0.4} ${center - outerRadius * 0.75}
-              L ${center + outerRadius * 0.25} ${center - outerRadius * 0.55}
-              Q ${center} ${center - outerRadius * 0.65},
-                ${center - outerRadius * 0.25} ${center - outerRadius * 0.6}
-              Q ${center - outerRadius * 0.5} ${center - outerRadius * 0.45},
-                ${center - outerRadius * 0.65} ${center - outerRadius * 0.1}
-              Q ${center - outerRadius * 0.8} ${center + outerRadius * 0.35},
-                ${center - outerRadius * 0.45} ${center + outerRadius * 0.7}
-              Z
-            `}
-            fill="url(#blueRibbonGrad)"
-            style={{ filter: 'drop-shadow(2px 2px 4px rgba(59, 130, 246, 0.5))' }}
-          />
-        </g>
-        
-        {/* Red ribbon - curved like logo, rotating opposite */}
-        <g className="animate-ribbon-red" style={{ transformOrigin: `${center}px ${center}px` }}>
-          <path
-            d={`
-              M ${center + outerRadius * 0.7} ${center - outerRadius * 0.85}
-              Q ${center + outerRadius * 1.1} ${center - outerRadius * 0.3},
-                ${center + outerRadius * 0.95} ${center + outerRadius * 0.2}
-              Q ${center + outerRadius * 0.75} ${center + outerRadius * 0.7},
-                ${center + outerRadius * 0.2} ${center + outerRadius * 0.9}
-              Q ${center - outerRadius * 0.1} ${center + outerRadius * 0.95},
-                ${center - outerRadius * 0.4} ${center + outerRadius * 0.75}
-              L ${center - outerRadius * 0.25} ${center + outerRadius * 0.55}
-              Q ${center} ${center + outerRadius * 0.65},
-                ${center + outerRadius * 0.25} ${center + outerRadius * 0.6}
-              Q ${center + outerRadius * 0.5} ${center + outerRadius * 0.45},
-                ${center + outerRadius * 0.65} ${center + outerRadius * 0.1}
-              Q ${center + outerRadius * 0.8} ${center - outerRadius * 0.35},
-                ${center + outerRadius * 0.45} ${center - outerRadius * 0.7}
-              Z
-            `}
-            fill="url(#redRibbonGrad)"
-            style={{ filter: 'drop-shadow(-2px -2px 4px rgba(239, 68, 68, 0.5))' }}
-          />
-        </g>
-        
-        {/* White center circle */}
-        <circle
-          cx={center}
-          cy={center}
-          r={innerRadius}
-          fill="white"
-          style={{ filter: 'drop-shadow(0 2px 6px rgba(0, 0, 0, 0.15))' }}
-        />
-        
-        {/* OS text */}
-        <text
-          x={center}
-          y={center}
-          textAnchor="middle"
-          dominantBaseline="central"
-          fill="hsl(0 75% 45%)"
-          fontWeight="bold"
-          fontSize={innerRadius * 0.85}
-          fontFamily="system-ui, -apple-system, sans-serif"
-        >
-          OS
-        </text>
-      </svg>
+      {/* Neural wave layer 2 - medium glow */}
+      <div 
+        className="absolute rounded-full animate-neural-wave-2"
+        style={{
+          width: size * 1.25,
+          height: size * 1.25,
+          background: 'conic-gradient(from 120deg, hsl(200 75% 50% / 0.5), hsl(280 65% 55% / 0.4), hsl(340 65% 55% / 0.3), hsl(200 75% 50% / 0.5))',
+          filter: 'blur(10px)',
+          transformOrigin: 'center',
+        }}
+      />
+      
+      {/* Neural wave layer 3 - inner vibrant */}
+      <div 
+        className="absolute rounded-full animate-neural-wave-3"
+        style={{
+          width: size * 1.1,
+          height: size * 1.1,
+          background: 'conic-gradient(from 240deg, hsl(217 85% 50% / 0.6), hsl(0 75% 55% / 0.5), hsl(260 70% 55% / 0.4), hsl(217 85% 50% / 0.6))',
+          filter: 'blur(6px)',
+          transformOrigin: 'center',
+        }}
+      />
+      
+      {/* Pulsing aura */}
+      <div 
+        className="absolute rounded-full animate-neural-pulse"
+        style={{
+          width: size,
+          height: size,
+          background: 'radial-gradient(circle, hsl(217 80% 55% / 0.2) 30%, hsl(280 60% 55% / 0.15) 60%, transparent 70%)',
+          filter: 'blur(4px)',
+        }}
+      />
+      
+      {/* Logo image */}
+      <img 
+        src="/favicon.png" 
+        alt="Logo"
+        className="relative z-10 rounded-full object-contain transition-transform duration-300 group-hover:scale-105"
+        style={{
+          width: size * 0.85,
+          height: size * 0.85,
+          filter: 'drop-shadow(0 0 8px hsl(217 80% 55% / 0.3))',
+        }}
+      />
       
       {/* Custom keyframes */}
       <style>{`
-        @keyframes ribbonBlue {
+        @keyframes neuralWave1 {
           0% {
-            transform: rotate(0deg);
-          }
-          100% {
-            transform: rotate(360deg);
-          }
-        }
-        
-        @keyframes ribbonRed {
-          0% {
-            transform: rotate(0deg);
-          }
-          100% {
-            transform: rotate(-360deg);
-          }
-        }
-        
-        @keyframes coreGlow {
-          0%, 100% {
             transform: rotate(0deg) scale(1);
-            opacity: 0.5;
+            opacity: 0.6;
+          }
+          33% {
+            transform: rotate(120deg) scale(1.05);
+            opacity: 0.8;
+          }
+          66% {
+            transform: rotate(240deg) scale(0.98);
+            opacity: 0.7;
+          }
+          100% {
+            transform: rotate(360deg) scale(1);
+            opacity: 0.6;
+          }
+        }
+        
+        @keyframes neuralWave2 {
+          0% {
+            transform: rotate(360deg) scale(1);
+            opacity: 0.7;
           }
           50% {
-            transform: rotate(180deg) scale(1.1);
+            transform: rotate(180deg) scale(1.03);
+            opacity: 0.85;
+          }
+          100% {
+            transform: rotate(0deg) scale(1);
+            opacity: 0.7;
+          }
+        }
+        
+        @keyframes neuralWave3 {
+          0% {
+            transform: rotate(0deg) scale(1);
+            opacity: 0.8;
+          }
+          25% {
+            transform: rotate(90deg) scale(1.02);
+            opacity: 0.9;
+          }
+          50% {
+            transform: rotate(180deg) scale(0.98);
+            opacity: 0.75;
+          }
+          75% {
+            transform: rotate(270deg) scale(1.04);
+            opacity: 0.85;
+          }
+          100% {
+            transform: rotate(360deg) scale(1);
             opacity: 0.8;
           }
         }
         
-        .animate-ribbon-blue {
-          animation: ribbonBlue 10s linear infinite;
+        @keyframes neuralPulse {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 0.5;
+          }
+          50% {
+            transform: scale(1.08);
+            opacity: 0.75;
+          }
         }
         
-        .animate-ribbon-red {
-          animation: ribbonRed 12s linear infinite;
+        .animate-neural-wave-1 {
+          animation: neuralWave1 12s ease-in-out infinite;
         }
         
-        .animate-core-glow {
-          animation: coreGlow 8s ease-in-out infinite;
+        .animate-neural-wave-2 {
+          animation: neuralWave2 8s ease-in-out infinite;
+        }
+        
+        .animate-neural-wave-3 {
+          animation: neuralWave3 6s ease-in-out infinite;
+        }
+        
+        .animate-neural-pulse {
+          animation: neuralPulse 3s ease-in-out infinite;
         }
       `}</style>
     </div>
