@@ -17,6 +17,7 @@ import { Search, UserPlus, Link2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface LinkChatToClientModalProps {
   open: boolean;
@@ -486,9 +487,9 @@ export const LinkChatToClientModal = ({
       toast.success("Чат успешно привязан к клиенту");
       onSuccess?.();
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error linking chat:", error);
-      toast.error(`Ошибка при привязке чата: ${error.message || 'Неизвестная ошибка'}`);
+      toast.error(`Ошибка при привязке чата: ${getErrorMessage(error)}`);
     } finally {
       setIsLinking(false);
     }

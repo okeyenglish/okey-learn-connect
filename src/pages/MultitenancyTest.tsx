@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CheckCircle, XCircle, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { getCurrentOrganizationId } from "@/lib/organizationHelpers";
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface TestResult {
   name: string;
@@ -81,11 +82,11 @@ export default function MultitenancyTest() {
           status: orgId ? "success" : "error",
           message: orgId ? `Returns: ${orgId}` : "Function failed",
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         testResults.push({
           name: "get_user_organization_id() Function",
           status: "error",
-          message: error.message,
+          message: getErrorMessage(error),
         });
       }
 
@@ -208,8 +209,8 @@ export default function MultitenancyTest() {
 
       setResults(testResults);
       toast.success("Tests completed");
-    } catch (error: any) {
-      toast.error(`Test failed: ${error.message}`);
+    } catch (error: unknown) {
+      toast.error(`Test failed: ${getErrorMessage(error)}`);
     } finally {
       setTesting(false);
     }

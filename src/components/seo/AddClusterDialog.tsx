@@ -8,6 +8,7 @@ import { Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
 import { getCurrentOrganizationId } from "@/lib/organizationHelpers";
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface AddClusterDialogProps {
   onClusterAdded: () => void;
@@ -87,11 +88,11 @@ export const AddClusterDialog = ({ onClusterAdded }: AddClusterDialogProps) => {
       setFormData({ headTerm: "", keywords: "", intent: "informational" });
       setOpen(false);
       onClusterAdded();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating cluster:', error);
       toast({
         title: "Ошибка",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {

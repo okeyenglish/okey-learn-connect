@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Key, Eye, EyeOff, CheckCircle, XCircle, ExternalLink, RefreshCw, Trash2 } from 'lucide-react';
 import { supabaseTyped as supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface AISettings {
   openaiApiKey: string;
@@ -43,7 +44,7 @@ export const OpenAISettings: React.FC = () => {
         setSettings(data.settings);
         setIsEnabled(data.settings.isEnabled || false);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching AI settings:', error);
     } finally {
       setIsLoading(false);
@@ -83,11 +84,11 @@ export const OpenAISettings: React.FC = () => {
 
       setApiKey('');
       await fetchSettings();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving AI settings:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось сохранить настройки",
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     } finally {
@@ -120,11 +121,11 @@ export const OpenAISettings: React.FC = () => {
           variant: "destructive"
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       setTestResult('error');
       toast({
         title: "Ошибка",
-        description: error.message || "Ошибка тестирования",
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     } finally {
@@ -154,10 +155,10 @@ export const OpenAISettings: React.FC = () => {
       setApiKey('');
       setIsEnabled(true);
       setTestResult(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось удалить настройки",
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     } finally {

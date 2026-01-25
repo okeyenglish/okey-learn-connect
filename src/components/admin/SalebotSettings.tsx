@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabaseTyped as supabase } from '@/integrations/supabase/typedClient';
+import { getErrorMessage } from '@/lib/errorUtils';
 import { 
   Bot, 
   Copy, 
@@ -118,11 +119,11 @@ export const SalebotSettings: React.FC = () => {
           variant: 'destructive',
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       setTestResult('error');
       toast({
         title: 'Ошибка подключения',
-        description: error.message || 'Не удалось связаться с webhook',
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {

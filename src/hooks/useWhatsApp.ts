@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/lib/errorUtils';
 import type { MessengerSettings as MessengerSettingsDB } from '@/integrations/supabase/database.types';
 
 interface SendMessageParams {
@@ -67,7 +68,7 @@ export const useWhatsApp = () => {
         wappiApiToken: settings?.wappiApiToken || ''
       };
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching WhatsApp settings:', error);
       return null;
     }
@@ -97,16 +98,16 @@ export const useWhatsApp = () => {
 
       return { success: true, messageId: data.messageId };
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error sending WhatsApp message:', error);
       
       toast({
         title: "Ошибка отправки",
-        description: error.message || "Не удалось отправить сообщение в WhatsApp",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
 
-      return { success: false, error: error.message };
+      return { success: false, error: getErrorMessage(error) };
     } finally {
       setLoading(false);
     }
@@ -200,16 +201,16 @@ export const useWhatsApp = () => {
 
       return { success: true };
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating WhatsApp settings:', error);
 
       toast({
         title: "Ошибка сохранения",
-        description: error.message || "Не удалось сохранить настройки",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
 
-      return { success: false, error: error.message };
+      return { success: false, error: getErrorMessage(error) };
     } finally {
       setLoading(false);
     }
@@ -250,12 +251,12 @@ export const useWhatsApp = () => {
 
       return !!ok;
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error testing WhatsApp connection:', error);
       
       toast({
         title: "Ошибка проверки",
-        description: error.message || "Не удалось проверить подключение",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
 
@@ -279,7 +280,7 @@ export const useWhatsApp = () => {
 
       return data || [];
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching webhook logs:', error);
       return [];
     }
@@ -398,14 +399,14 @@ export const useWhatsApp = () => {
       }
 
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting message:', error);
       toast({
         title: "Ошибка удаления",
-        description: error.message || "Не удалось удалить сообщение",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
-      return { success: false, error: error.message };
+      return { success: false, error: getErrorMessage(error) };
     } finally {
       setLoading(false);
     }
@@ -430,14 +431,14 @@ export const useWhatsApp = () => {
       }
 
       return { success: true, data };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error editing message:', error);
       toast({
         title: "Ошибка редактирования",
-        description: error.message || "Не удалось отредактировать сообщение",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
-      return { success: false, error: error.message };
+      return { success: false, error: getErrorMessage(error) };
     } finally {
       setLoading(false);
     }
@@ -480,9 +481,9 @@ export const useWhatsApp = () => {
 
       if (error) throw error;
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error checking WhatsApp availability:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: getErrorMessage(error) };
     }
   }, []);
 
@@ -495,9 +496,9 @@ export const useWhatsApp = () => {
 
       if (error) throw error;
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error getting WhatsApp avatar:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: getErrorMessage(error) };
     }
   }, []);
 

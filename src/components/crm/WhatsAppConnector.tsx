@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 type WppStatus = 'connected' | 'disconnected' | 'qr_issued' | 'qr_pending' | 'pairing' | 'syncing';
 
@@ -135,11 +136,11 @@ export function WhatsAppConnector() {
           description: "WhatsApp уже подключен",
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error in startPairing:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Внутренняя ошибка",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -214,10 +215,10 @@ export function WhatsAppConnector() {
         title: "Отключено",
         description: "WhatsApp успешно отключен",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Ошибка",
-        description: error.message || "Внутренняя ошибка",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -255,10 +256,10 @@ export function WhatsAppConnector() {
         title: "Диагностика завершена",
         description: `Выполнено ${data.summary?.total || 0} тестов. Успешных: ${data.summary?.successful || 0}, пустых: ${data.summary?.okButEmpty || 0}`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Ошибка",
-        description: error.message || "Внутренняя ошибка диагностики",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {

@@ -10,6 +10,7 @@ import { Loader2, Eye, EyeOff, Phone, Lock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/use-toast';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
@@ -131,7 +132,7 @@ export default function Auth() {
           navigate('/newcrm');
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       setError('Произошла ошибка при входе в систему');
       console.error('Login error:', error);
     } finally {
@@ -197,7 +198,7 @@ export default function Auth() {
         });
         setActiveTab('login');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       setError('Произошла ошибка при регистрации');
       console.error('Signup error:', error);
     } finally {

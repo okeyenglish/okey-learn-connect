@@ -64,7 +64,7 @@ export const TeacherAssistant = ({ teacher }: TeacherAssistantProps) => {
         role: 'assistant',
         content: data.answer || 'Извините, не могу ответить на этот вопрос.'
       }]);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('AI chat error:', error);
       toast({
         title: 'Ошибка',

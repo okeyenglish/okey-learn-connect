@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { getErrorMessage } from '@/lib/errorUtils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -170,11 +171,11 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
       
       onSaveDetails(formData);
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating group:', error);
       toast({
         title: "Ошибка",
-        description: error?.message || "Не удалось обновить детали группы",
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     } finally {

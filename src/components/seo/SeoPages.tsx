@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ExternalLink, RefreshCw } from "lucide-react";
+import { getErrorMessage } from '@/lib/errorUtils';
 
 const MAIN_PAGES = [
   { url: '/', title: 'Главная страница' },
@@ -66,11 +67,11 @@ export function SeoPages() {
       });
 
       refetch();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error analyzing page:', error);
       toast({
         title: "Ошибка анализа",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {
