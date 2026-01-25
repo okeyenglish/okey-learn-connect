@@ -20,10 +20,11 @@ import {
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useUserAllowedBranches } from '@/hooks/useUserAllowedBranches';
+import { usePersistedBranch } from '@/hooks/usePersistedBranch';
 
 export default function ReportsSection() {
   const [dateRange, setDateRange] = useState<string>('month');
-  const [selectedBranch, setSelectedBranch] = useState<string>('all');
+  const { selectedBranch, setSelectedBranch } = usePersistedBranch('all');
   const [reportType, setReportType] = useState<string>('overview');
   
   const { allowedBranches } = useUserAllowedBranches();

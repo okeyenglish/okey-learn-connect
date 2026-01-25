@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Search, DollarSign, CreditCard, Wallet, Building2 } from 'lucide-react';
 import { useCurrencies, useInvoices, usePayments, useBonusAccounts } from '@/hooks/useFinances';
 import { useUserAllowedBranches } from '@/hooks/useUserAllowedBranches';
+import { usePersistedBranch } from '@/hooks/usePersistedBranch';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
@@ -58,7 +59,7 @@ interface BonusAccountWithJoins {
 export const NewFinancesSection = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('invoices');
-  const [selectedBranch, setSelectedBranch] = useState('all');
+  const { selectedBranch, setSelectedBranch } = usePersistedBranch('all');
   
   const { allowedBranches } = useUserAllowedBranches();
 
