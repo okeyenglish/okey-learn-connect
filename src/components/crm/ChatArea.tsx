@@ -30,6 +30,7 @@ import { InlinePendingGPTResponse } from "./InlinePendingGPTResponse";
 import { TextFormatToolbar } from "./TextFormatToolbar";
 import { CallHistory } from "./CallHistory";
 import { NewMessageIndicator } from "./NewMessageIndicator";
+import { ChatSearchBar } from "./ChatSearchBar";
 import { SendPaymentLinkModal } from "./SendPaymentLinkModal";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useMaxGreenApi } from "@/hooks/useMaxGreenApi";
@@ -1377,8 +1378,40 @@ export const ChatArea = ({
     setShowSearchInput(!showSearchInput);
     if (showSearchInput) {
       setSearchQuery(""); // Clear search when hiding
+      setCurrentHighlightedId(null);
     }
   };
+
+  // Navigate to a specific message (for search results)
+  const handleNavigateToMessage = useCallback((messageId: string) => {
+    // Find the message to determine which tab it's in
+    const allMessages = messagesData?.messages || [];
+    const targetMessage = allMessages.find(m => m.id === messageId);
+    
+    if (targetMessage) {
+      // Switch to correct messenger tab if needed
+      const messengerType = targetMessage.messenger_type || 'whatsapp';
+      if (messengerType !== activeMessengerTab) {
+        setActiveMessengerTab(messengerType);
+      }
+      
+      // Highlight the message
+      setCurrentHighlightedId(messageId);
+      
+      // Scroll to message
+      setTimeout(() => {
+        const messageElement = document.getElementById(`message-${messageId}`);
+        if (messageElement) {
+          messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      
+      // Clear highlight after animation
+      setTimeout(() => {
+        setCurrentHighlightedId(null);
+      }, 2500);
+    }
+  }, [messagesData?.messages, activeMessengerTab]);
 
   const handlePhoneCall = async () => {
     if (!clientPhone?.trim()) {
@@ -1675,22 +1708,19 @@ export const ChatArea = ({
     }
   ];
 
-  // Filter messages based on search query
-  const filteredMessages = messages.filter(msg => {
-    const matchesSearch = msg.message.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
-  });
+  // Note: We no longer filter messages by search query
+  // Instead, we use navigation to jump between results (ChatSearchBar component)
 
   // Filter messages by messenger type
-  const whatsappMessages = filteredMessages.filter(msg => 
+  const whatsappMessages = messages.filter(msg => 
     !msg.messengerType || msg.messengerType === 'whatsapp'
   );
 
-  const maxMessages = filteredMessages.filter(msg => 
+  const maxMessages = messages.filter(msg => 
     msg.messengerType === 'max'
   );
 
-  const telegramMessages = filteredMessages.filter(msg => 
+  const telegramMessages = messages.filter(msg => 
     msg.messengerType === 'telegram'
   );
 
@@ -1896,18 +1926,21 @@ export const ChatArea = ({
                 </Button>
               )}
               
-              {showSearchInput && (
-                <Input
-                  placeholder="Поиск в чате..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-64 h-8 ml-2"
-                  autoFocus
-                />
-              )}
             </div>
           </div>
         )}
+        
+        {/* Chat Search Bar */}
+        <ChatSearchBar
+          messages={messagesData?.messages || []}
+          isOpen={showSearchInput}
+          onClose={() => {
+            setShowSearchInput(false);
+            setSearchQuery('');
+            setCurrentHighlightedId(null);
+          }}
+          onNavigateToMessage={handleNavigateToMessage}
+        />
       </div>
 
       {/* Drag overlay */}
