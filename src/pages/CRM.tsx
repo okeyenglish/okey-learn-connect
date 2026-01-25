@@ -3874,7 +3874,7 @@ const CRMContent = () => {
                     )}
                     size="icon"
                   >
-                    <Sparkles className="h-6 w-6 transition-transform duration-300 group-hover:rotate-12" />
+                    <Sparkles className="h-6 w-6 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-125" />
                     {hasUnread && (
                       <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs font-medium flex items-center justify-center">
                         {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
