@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
-interface LessonSession {
+export interface SchedulePrintSession {
   id: string;
   lesson_date: string;
   start_time: string;
@@ -15,11 +15,11 @@ interface LessonSession {
     name: string;
     level: string;
     subject: string;
-  };
+  } | null;
 }
 
 export const printSchedule = (
-  sessions: LessonSession[],
+  sessions: SchedulePrintSession[],
   viewType: 'teachers' | 'classrooms' | 'all' = 'all',
   title: string = 'Расписание занятий'
 ) => {
@@ -190,7 +190,7 @@ export const printSchedule = (
   };
 };
 
-const generateScheduleTable = (sessions: LessonSession[], viewType: string): string => {
+const generateScheduleTable = (sessions: SchedulePrintSession[], viewType: string): string => {
   if (viewType === 'teachers') {
     return generateTeacherSchedule(sessions);
   } else if (viewType === 'classrooms') {
@@ -200,7 +200,7 @@ const generateScheduleTable = (sessions: LessonSession[], viewType: string): str
   }
 };
 
-const generateAllSchedule = (sessions: LessonSession[]): string => {
+const generateAllSchedule = (sessions: SchedulePrintSession[]): string => {
   const sortedSessions = [...sessions].sort((a, b) => {
     const dateCompare = a.lesson_date.localeCompare(b.lesson_date);
     if (dateCompare !== 0) return dateCompare;
@@ -239,8 +239,8 @@ const generateAllSchedule = (sessions: LessonSession[]): string => {
   `;
 };
 
-const generateTeacherSchedule = (sessions: LessonSession[]): string => {
-  const teacherGroups: { [key: string]: LessonSession[] } = {};
+const generateTeacherSchedule = (sessions: SchedulePrintSession[]): string => {
+  const teacherGroups: { [key: string]: SchedulePrintSession[] } = {};
   
   sessions.forEach(session => {
     if (!teacherGroups[session.teacher_name]) {
@@ -290,8 +290,8 @@ const generateTeacherSchedule = (sessions: LessonSession[]): string => {
     }).join('');
 };
 
-const generateClassroomSchedule = (sessions: LessonSession[]): string => {
-  const classroomGroups: { [key: string]: LessonSession[] } = {};
+const generateClassroomSchedule = (sessions: SchedulePrintSession[]): string => {
+  const classroomGroups: { [key: string]: SchedulePrintSession[] } = {};
   
   sessions.forEach(session => {
     const key = `${session.branch} - ${session.classroom}`;

@@ -10,9 +10,9 @@ import { ClassroomScheduleGrid } from "./ClassroomScheduleGrid";
 import { MonthlyScheduleView } from "./MonthlyScheduleView";
 import { StudentScheduleView } from "./StudentScheduleView";
 import { ScheduleStatusLegend } from "./ScheduleStatusLegend";
-import { SessionFilters, useLessonSessions } from "@/hooks/useLessonSessions";
-import { exportScheduleToExcel } from "@/utils/scheduleExport";
-import { printSchedule } from "@/utils/schedulePrint";
+import { SessionFilters, useLessonSessions, LessonSession } from "@/hooks/useLessonSessions";
+import { exportScheduleToExcel, ScheduleExportSession } from "@/utils/scheduleExport";
+import { printSchedule, SchedulePrintSession } from "@/utils/schedulePrint";
 import { useToast } from "@/hooks/use-toast";
 import { SearchLessonsModal } from "./SearchLessonsModal";
 
@@ -52,8 +52,23 @@ export const AdvancedScheduleModal = ({ open, onOpenChange, children }: Advanced
       return;
     }
 
+    // Map session data to export format
+    const exportSessions: ScheduleExportSession[] = sessions.data.map(session => ({
+      id: session.id,
+      group_id: session.group_id,
+      teacher_name: session.teacher_name,
+      branch: session.branch,
+      classroom: session.classroom,
+      lesson_date: session.lesson_date,
+      start_time: session.start_time,
+      end_time: session.end_time,
+      status: session.status,
+      notes: session.notes,
+      learning_groups: session.learning_groups,
+    }));
+
     exportScheduleToExcel(
-      sessions.data as any[],
+      exportSessions,
       activeTab as 'teachers' | 'classrooms' | 'all',
       `schedule_${activeTab}`
     );
@@ -78,8 +93,22 @@ export const AdvancedScheduleModal = ({ open, onOpenChange, children }: Advanced
       return;
     }
 
+    // Map session data to print format
+    const printSessions: SchedulePrintSession[] = sessions.data.map(session => ({
+      id: session.id,
+      lesson_date: session.lesson_date,
+      start_time: session.start_time,
+      end_time: session.end_time,
+      teacher_name: session.teacher_name,
+      branch: session.branch,
+      classroom: session.classroom,
+      status: session.status,
+      notes: session.notes,
+      learning_groups: session.learning_groups,
+    }));
+
     printSchedule(
-      sessions.data as any[],
+      printSessions,
       activeTab as 'teachers' | 'classrooms' | 'all',
       `Расписание - ${activeTab === 'teachers' ? 'Преподаватели' : activeTab === 'classrooms' ? 'Аудитории' : 'Все'}`
     );

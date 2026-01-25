@@ -52,9 +52,16 @@ export const TeacherScheduleGrid = ({ filters, viewFormat, gridSettings }: Teach
   // Drag & Drop functionality
   const { draggedSession, isDragging, handleDragStart, handleDragEnd, handleDrop } = useScheduleDragDrop();
 
+  // Time slot type for grid
+  interface TimeSlot {
+    start: string;
+    end: string;
+    label: string;
+  }
+
   // Generate time slots based on grid settings
-  const timeSlots = useMemo(() => {
-    const slots = [];
+  const timeSlots = useMemo((): TimeSlot[] => {
+    const slots: TimeSlot[] = [];
     let step = 1; // Default 1 hour
     
     switch (gridSettings.timeStep) {
@@ -322,7 +329,7 @@ export const TeacherScheduleGrid = ({ filters, viewFormat, gridSettings }: Teach
             {(gridSettings.rotated ? timeSlots : weekDays).map((item, index) => (
               <div key={index} className="p-3 border-r border-border/50 text-center text-sm font-medium text-text-secondary">
                 {gridSettings.rotated 
-                  ? (item as any).label 
+                  ? (item as TimeSlot).label 
                   : format(item as Date, "EEE d MMM", { locale: ru })
                 }
               </div>
@@ -358,7 +365,8 @@ export const TeacherScheduleGrid = ({ filters, viewFormat, gridSettings }: Teach
                         .flat()
                         .filter(session => {
                           const sessionStart = session.start_time || session.time.split('-')[0];
-                          return sessionStart >= (item as any).start && sessionStart < (item as any).end;
+                          const slot = item as TimeSlot;
+                          return sessionStart >= slot.start && sessionStart < slot.end;
                         })
                     : // For day-based view, get sessions for this day
                       gridData[teacher.name]?.[format(item as Date, 'yyyy-MM-dd')] || [];
@@ -385,7 +393,7 @@ export const TeacherScheduleGrid = ({ filters, viewFormat, gridSettings }: Teach
                         handleDrop({
                           teacher: teacher.name,
                           date: currentDate,
-                          time: gridSettings.rotated ? (item as any).start : undefined,
+                          time: gridSettings.rotated ? (item as TimeSlot).start : undefined,
                         });
                       }}
                     >

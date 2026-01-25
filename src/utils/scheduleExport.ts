@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
-interface LessonSession {
+export interface ScheduleExportSession {
   id: string;
   group_id: string;
   teacher_name: string;
@@ -17,11 +17,11 @@ interface LessonSession {
     name: string;
     level: string;
     subject: string;
-  };
+  } | null;
 }
 
 export const exportScheduleToExcel = (
-  sessions: LessonSession[],
+  sessions: ScheduleExportSession[],
   viewType: 'teachers' | 'classrooms' | 'all' = 'all',
   filename: string = 'schedule'
 ) => {
@@ -88,7 +88,7 @@ export const exportScheduleToExcel = (
   XLSX.writeFile(wb, `${filename}_${date}.xlsx`);
 };
 
-const getTeacherStats = (sessions: LessonSession[]) => {
+const getTeacherStats = (sessions: ScheduleExportSession[]) => {
   const teacherMap = new Map<string, { total: number; scheduled: number; completed: number }>();
 
   sessions.forEach(session => {
@@ -107,7 +107,7 @@ const getTeacherStats = (sessions: LessonSession[]) => {
   }));
 };
 
-const getClassroomStats = (sessions: LessonSession[]) => {
+const getClassroomStats = (sessions: ScheduleExportSession[]) => {
   const classroomMap = new Map<string, { total: number; branch: string; scheduled: number }>();
 
   sessions.forEach(session => {
