@@ -153,9 +153,9 @@ export const ForwardMessageModal = ({
 
   const handleSelectAllInTab = () => {
     const currentItems = getCurrentTabItems();
-    const currentType = activeTab === 'clients' ? 'client' : activeTab === 'teachers' ? 'teacher' : 'corporate';
+    const currentType: 'client' | 'teacher' | 'corporate' = activeTab === 'clients' ? 'client' : activeTab === 'teachers' ? 'teacher' : 'corporate';
     
-    const allSelected = currentItems.every(item => isRecipientSelected(item.id, currentType as any));
+    const allSelected = currentItems.every(item => isRecipientSelected(item.id, currentType));
     
     if (allSelected) {
       // Убираем все элементы текущей вкладки
@@ -260,11 +260,11 @@ export const ForwardMessageModal = ({
             {/* Кнопка выбрать всех в текущей вкладке */}
             {getCurrentTabItems().length > 0 && (
               <div className="flex items-center gap-2 mt-3">
-                <Checkbox
+              <Checkbox
                   id="select-all-tab"
                   checked={getCurrentTabItems().every(item => {
-                    const type = activeTab === 'clients' ? 'client' : activeTab === 'teachers' ? 'teacher' : 'corporate';
-                    return isRecipientSelected(item.id, type as any);
+                    const type: 'client' | 'teacher' | 'corporate' = activeTab === 'clients' ? 'client' : activeTab === 'teachers' ? 'teacher' : 'corporate';
+                    return isRecipientSelected(item.id, type);
                   })}
                   onCheckedChange={handleSelectAllInTab}
                 />

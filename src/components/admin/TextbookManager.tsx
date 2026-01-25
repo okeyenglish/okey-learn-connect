@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Upload, Edit2, Trash2, Eye, Plus, Loader2, Music, Folder, FolderOpen, ChevronDown, ChevronRight } from 'lucide-react';
-import { useTextbooks } from '@/hooks/useTextbooks';
+import { useTextbooks, type Textbook } from '@/hooks/useTextbooks';
 import { PDFViewer } from '@/components/PDFViewer';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
@@ -356,8 +356,11 @@ export const TextbookManager = () => {
     return [...predefinedSubcategories, ...customSubcategories];
   };
 
+  // Type for organized materials structure
+  type OrganizedMaterials = Record<string, Record<string, Record<string, Textbook[]>>>;
+
   // Организуем материалы по папкам
-  const organizedMaterials = textbooks.reduce((acc, textbook) => {
+  const organizedMaterials: OrganizedMaterials = textbooks.reduce<OrganizedMaterials>((acc, textbook) => {
     const programType = textbook.program_type || 'other';
     const category = textbook.category || 'educational';
     let subcategory = textbook.subcategory;
@@ -387,7 +390,7 @@ export const TextbookManager = () => {
     }
 
     return acc;
-  }, {} as any);
+  }, {});
 
   const toggleFolder = (folderId: string) => {
     const newExpanded = new Set(expandedFolders);
@@ -689,7 +692,7 @@ export const TextbookManager = () => {
                                       {isSubExpanded ? <FolderOpen className="h-3 w-3" /> : <Folder className="h-3 w-3" />}
                                       {getSubcategoryLabel(subcategory)}
                                       <Badge variant="outline" className="ml-2">
-                                        {(files as any[]).length} файлов
+                                        {files.length} файлов
                                       </Badge>
                                     </Button>
                                   </CollapsibleTrigger>
@@ -703,7 +706,7 @@ export const TextbookManager = () => {
                                       <AlertDialogHeader>
                                         <AlertDialogTitle>Удалить папку?</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                          Это действие удалит папку "{getSubcategoryLabel(subcategory)}" и все файлы в ней ({(files as any[]).length} файлов). Действие нельзя отменить.
+                                          Это действие удалит папку "{getSubcategoryLabel(subcategory)}" и все файлы в ней ({files.length} файлов). Действие нельзя отменить.
                                         </AlertDialogDescription>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter>
@@ -720,7 +723,7 @@ export const TextbookManager = () => {
                                 </div>
                                 
                                 <CollapsibleContent className="ml-4 mt-2 space-y-2">
-                                  {(files as any[]).map(textbook => (
+                                  {files.map(textbook => (
                                     <div key={textbook.id} className="flex items-center justify-between p-2 border rounded">
                                       <div className="flex items-center gap-2">
                                         {getFileIcon(textbook.file_name, textbook.category)}

@@ -65,6 +65,7 @@ import { AddToGroupModal } from './AddToGroupModal';
 import { AddIndividualLessonModal } from './AddIndividualLessonModal';
 import { GroupDetailModal } from '@/components/learning-groups/GroupDetailModal';
 import { LearningGroup } from '@/hooks/useLearningGroups';
+import { StudentGroup, StudentIndividualLesson } from '@/hooks/useStudentDetails';
 
 import { GroupLessonSchedule } from './GroupLessonSchedule';
 import { CreatePaymentModal } from './CreatePaymentModal';
@@ -207,8 +208,31 @@ export function EnhancedStudentCard({
     };
   }, [student.id, refetch]);
 
+  // Адаптер для преобразования StudentGroup в LearningGroup
+  const studentGroupToLearningGroup = (group: StudentGroup): LearningGroup => ({
+    id: group.id,
+    name: group.name,
+    branch: group.branch,
+    subject: group.subject,
+    level: group.level,
+    category: 'all' as const,
+    group_type: 'general' as const,
+    status: (group.status as 'reserve' | 'forming' | 'active' | 'suspended' | 'finished') || 'active',
+    capacity: 0,
+    current_students: 0,
+    responsible_teacher: group.teacher,
+    zoom_link: group.zoom_link,
+    course_id: group.course_id,
+    course_name: group.course_name,
+    total_lessons: group.total_lessons,
+    course_start_date: group.course_start_date,
+    is_active: group.status === 'active',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  });
+
   // Проверка наличия будущих запланированных занятий
-  const hasFutureSessions = (lesson: any) => {
+  const hasFutureSessions = (lesson: StudentIndividualLesson) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -1281,7 +1305,7 @@ export function EnhancedStudentCard({
                               <div className="flex items-start justify-between mb-2">
                                 <h4 
                                   className="font-medium text-base text-primary cursor-pointer hover:underline"
-                                  onClick={() => setSelectedGroupForModal(group as any)}
+                                  onClick={() => setSelectedGroupForModal(studentGroupToLearningGroup(group))}
                                 >
                                   {group.name}
                                   {group.groupNumber && (
@@ -1466,7 +1490,7 @@ export function EnhancedStudentCard({
                                 <div className="flex items-start justify-between mb-2">
                                   <h4 
                                     className="font-medium text-base text-primary cursor-pointer hover:underline"
-                                    onClick={() => setSelectedGroupForModal(group as any)}
+                                    onClick={() => setSelectedGroupForModal(studentGroupToLearningGroup(group))}
                                   >
                                     {group.name}
                                     {group.groupNumber && (
@@ -1576,7 +1600,7 @@ export function EnhancedStudentCard({
                                 <div className="flex items-start justify-between mb-2">
                                   <h4 
                                     className="font-medium text-base text-muted-foreground cursor-pointer hover:underline"
-                                    onClick={() => setSelectedGroupForModal(group as any)}
+                                    onClick={() => setSelectedGroupForModal(studentGroupToLearningGroup(group))}
                                   >
                                     {group.name}
                                     {group.groupNumber && (
@@ -2220,12 +2244,12 @@ export function EnhancedStudentCard({
                           </div>
                         </div>
                         <Switch
-                          checked={(studentDetails as any).lkEnabled || false}
+                          checked={studentDetails?.lkEnabled || false}
                           onCheckedChange={handleToggleLK}
                         />
                       </div>
 
-                      {(studentDetails as any).lkEnabled && (
+                      {studentDetails?.lkEnabled && (
                         <>
                           <Separator />
                           <div className="space-y-4">
@@ -2233,7 +2257,7 @@ export function EnhancedStudentCard({
                               <Label>Email для входа</Label>
                               <Input
                                 type="email"
-                                value={(studentDetails as any).lkEmail || ''}
+                                value={studentDetails?.lkEmail || ''}
                                 placeholder="student@example.com"
                                 disabled
                               />
@@ -2241,9 +2265,7 @@ export function EnhancedStudentCard({
                             <div>
                               <Label>Последний вход</Label>
                               <Input
-                                value={(studentDetails as any).lkLastLogin 
-                                  ? formatDate((studentDetails as any).lkLastLogin) 
-                                  : 'Не входил'}
+                                value={'Не входил'}
                                 disabled
                               />
                             </div>
@@ -2483,14 +2505,38 @@ export function EnhancedStudentCard({
       />
 
       {/* Диалог редактирования студента */}
-      <EditStudentDialog
-        open={editStudentDialogOpen}
-        onOpenChange={setEditStudentDialogOpen}
-        student={student as any}
-        onSuccess={() => {
-          refetch();
-        }}
-      />
+      {studentDetails && (
+        <EditStudentDialog
+          open={editStudentDialogOpen}
+          onOpenChange={setEditStudentDialogOpen}
+          student={{
+            id: studentDetails.id,
+            name: studentDetails.name,
+            first_name: studentDetails.firstName,
+            last_name: studentDetails.lastName,
+            middle_name: studentDetails.middleName || null,
+            phone: studentDetails.phone || null,
+            email: studentDetails.email || null,
+            branch: studentDetails.branch || null,
+            status: (studentDetails.status || 'active') as 'trial' | 'active' | 'not_started' | 'on_pause' | 'inactive' | 'archived' | 'expelled' | 'graduated',
+            notes: studentDetails.notes || null,
+            gender: studentDetails.gender || null,
+            date_of_birth: studentDetails.dateOfBirth || null,
+            avatar_url: studentDetails.avatar_url || null,
+            age: studentDetails.age || null,
+            family_group_id: studentDetails.familyGroupId || null,
+            created_at: studentDetails.createdAt,
+            updated_at: studentDetails.createdAt,
+            parent_name: null,
+            parent_phone: null,
+            organization_id: null,
+            external_id: studentDetails.externalId || null,
+          }}
+          onSuccess={() => {
+            refetch();
+          }}
+        />
+      )}
 
       {/* Модальное окно истории платежа */}
       {selectedPaymentForHistory && (
