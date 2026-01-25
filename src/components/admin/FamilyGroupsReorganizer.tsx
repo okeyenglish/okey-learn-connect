@@ -135,7 +135,8 @@ export const FamilyGroupsReorganizer = () => {
             .limit(1);
 
           if (!existingMembers || existingMembers.length === 0) {
-            const familyGroupName = (student.family_groups as any)?.name || '';
+            const familyGroups = student.family_groups as unknown as { id: string; name: string } | null;
+            const familyGroupName = familyGroups?.name || '';
             
             if (familyGroupName && familyGroupName.includes('Семья ')) {
               const parentName = familyGroupName.replace('Семья ', '');

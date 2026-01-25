@@ -1729,7 +1729,58 @@ export interface CustomDatabase {
       };
     };
     Views: {
-      [_ in never]: never;
+      mv_client_unread_stats: {
+        Row: {
+          client_id: string;
+          client_name: string;
+          branch: string | null;
+          unread_count: number;
+          last_message_at: string | null;
+        };
+      };
+      mv_client_tasks_stats: {
+        Row: {
+          client_id: string;
+          total_tasks: number;
+          pending_tasks: number;
+          completed_tasks: number;
+          overdue_tasks: number;
+        };
+      };
+      mv_group_stats: {
+        Row: {
+          id: string;
+          name: string;
+          branch: string | null;
+          status: string;
+          current_students: number;
+          capacity: number;
+          fill_percentage: number;
+        };
+      };
+      mv_schedule_overview: {
+        Row: {
+          id: string;
+          lesson_date: string;
+          start_time: string;
+          end_time: string;
+          group_name: string;
+          teacher_name: string;
+          branch: string | null;
+          status: string;
+        };
+      };
+      mv_student_overview: {
+        Row: {
+          id: string;
+          name: string;
+          branch: string | null;
+          status: string;
+          balance: number;
+          has_debt: boolean;
+          last_lesson_date: string | null;
+        };
+      };
     };
     Functions: {
       get_public_schedule: {
@@ -1920,6 +1971,42 @@ export interface CustomDatabase {
       check_student_balance: {
         Args: { p_student_id: string; p_required_hours: number };
         Returns: { has_sufficient_balance: boolean; current_balance_hours: number; current_balance_rub: number; message: string }[];
+      };
+      // Conflict check RPC functions
+      check_student_schedule_conflict: {
+        Args: { p_student_id: string; p_start_time: string; p_end_time: string; p_exclude_session_id?: string | null };
+        Returns: { has_conflict: boolean; conflict_details: Json }[];
+      };
+      check_teacher_double_booking: {
+        Args: { p_teacher_id: string; p_start_time: string; p_end_time: string; p_exclude_session_id?: string | null };
+        Returns: { has_conflict: boolean; conflict_details: Json }[];
+      };
+      check_room_conflict: {
+        Args: { p_classroom: string; p_branch: string; p_start_time: string; p_end_time: string; p_exclude_session_id?: string | null };
+        Returns: { has_conflict: boolean; conflict_details: Json }[];
+      };
+      // Teacher substitution RPC
+      find_available_teachers: {
+        Args: { p_date: string; p_time: string; p_subject: string; p_branch: string };
+        Returns: { teacher_id: string; first_name: string; last_name: string; has_conflict: boolean; conflict_count: number }[];
+      };
+      // Family ledger RPC functions
+      add_family_ledger_transaction: {
+        Args: { _family_group_id: string | null; _client_id: string | null; _amount: number; _transaction_type: string; _description: string; _payment_id?: string | null };
+        Returns: void;
+      };
+      transfer_to_student_balance: {
+        Args: { _family_ledger_id: string; _student_id: string; _amount: number; _description: string };
+        Returns: void;
+      };
+      // Discount RPC functions
+      apply_discount_to_student: {
+        Args: { _student_id: string; _discount_id: string; _start_date?: string | null; _end_date?: string | null; _notes?: string | null };
+        Returns: void;
+      };
+      calculate_price_with_discounts: {
+        Args: { _base_price: number; _student_id: string; _discount_ids?: string[] | null };
+        Returns: { final_price: number; applied_discounts: Json }[];
       };
     };
     Enums: {

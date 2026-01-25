@@ -347,8 +347,8 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
         setSessions(prev => {
           const exists = prev.some(s => s.session_name === data.session_name);
           const next = exists
-            ? prev.map(s => s.session_name === data.session_name ? { ...s, status: 'connected', last_qr_b64: undefined, last_qr_at: undefined } : s)
-            : [{ id: crypto.randomUUID(), session_name: data.session_name, status: 'connected', organization_id: prev[0]?.organization_id || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as any, ...prev];
+            ? prev.map(s => s.session_name === data.session_name ? { ...s, status: 'connected' as const, last_qr_b64: undefined, last_qr_at: undefined } : s)
+            : [{ id: crypto.randomUUID(), session_name: data.session_name, status: 'connected' as const, organization_id: prev[0]?.organization_id || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as WhatsAppSession, ...prev];
           return next;
         });
         toast({
@@ -664,7 +664,7 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
       });
 
       if (error) {
-        const anyErr: any = error as any;
+        const anyErr = error as { message?: string; context?: { status?: number; body?: string } };
         const status = anyErr?.context?.status ? ` (HTTP ${anyErr.context.status})` : '';
         const bodySnippet = anyErr?.context?.body ? `\n${String(anyErr.context.body).slice(0, 200)}` : '';
         toast({

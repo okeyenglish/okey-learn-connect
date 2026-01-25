@@ -1,6 +1,6 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
-import { toast } from 'sonner';
+import type { Json } from '@/integrations/supabase/database.types';
 
 export interface ConflictCheck {
   has_conflict: boolean;
@@ -26,7 +26,7 @@ export const useCheckStudentConflict = (
     queryFn: async () => {
       if (!studentId || !startTime || !endTime) return null;
 
-      const { data, error } = await supabase.rpc('check_student_schedule_conflict' as any, {
+      const { data, error } = await supabase.rpc('check_student_schedule_conflict', {
         p_student_id: studentId,
         p_start_time: startTime,
         p_end_time: endTime,
@@ -34,7 +34,12 @@ export const useCheckStudentConflict = (
       });
 
       if (error) throw error;
-      return data as unknown as ConflictCheck[];
+      
+      // Transform Json to ConflictCheck
+      return (data || []).map((row: { has_conflict: boolean; conflict_details: Json }) => ({
+        has_conflict: row.has_conflict,
+        conflict_details: row.conflict_details as ConflictCheck['conflict_details']
+      })) as ConflictCheck[];
     },
     enabled: Boolean(studentId && startTime && endTime),
   });
@@ -51,7 +56,7 @@ export const useCheckTeacherConflict = (
     queryFn: async () => {
       if (!teacherId || !startTime || !endTime) return null;
 
-      const { data, error } = await supabase.rpc('check_teacher_double_booking' as any, {
+      const { data, error } = await supabase.rpc('check_teacher_double_booking', {
         p_teacher_id: teacherId,
         p_start_time: startTime,
         p_end_time: endTime,
@@ -59,7 +64,11 @@ export const useCheckTeacherConflict = (
       });
 
       if (error) throw error;
-      return data as unknown as ConflictCheck[];
+      
+      return (data || []).map((row: { has_conflict: boolean; conflict_details: Json }) => ({
+        has_conflict: row.has_conflict,
+        conflict_details: row.conflict_details as ConflictCheck['conflict_details']
+      })) as ConflictCheck[];
     },
     enabled: Boolean(teacherId && startTime && endTime),
   });
@@ -77,7 +86,7 @@ export const useCheckRoomConflict = (
     queryFn: async () => {
       if (!classroom || !branch || !startTime || !endTime) return null;
 
-      const { data, error } = await supabase.rpc('check_room_conflict' as any, {
+      const { data, error } = await supabase.rpc('check_room_conflict', {
         p_classroom: classroom,
         p_branch: branch,
         p_start_time: startTime,
@@ -86,7 +95,11 @@ export const useCheckRoomConflict = (
       });
 
       if (error) throw error;
-      return data as unknown as ConflictCheck[];
+      
+      return (data || []).map((row: { has_conflict: boolean; conflict_details: Json }) => ({
+        has_conflict: row.has_conflict,
+        conflict_details: row.conflict_details as ConflictCheck['conflict_details']
+      })) as ConflictCheck[];
     },
     enabled: Boolean(classroom && branch && startTime && endTime),
   });
