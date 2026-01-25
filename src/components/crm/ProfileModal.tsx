@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Edit2, Mail, Phone, MapPin, Calendar, Building, Building2, Settings, User } from "lucide-react";
+import { Edit2, Mail, Phone, Building2, Settings, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { SipSettings } from "../SipSettings";
 import { useUserAllowedBranches } from "@/hooks/useUserAllowedBranches";
+import { ProfileBranchesEditor } from "./ProfileBranchesEditor";
 
 interface ProfileModalProps {
   open: boolean;
@@ -122,23 +123,11 @@ export const ProfileModal = ({ open, onOpenChange }: ProfileModalProps) => {
                 </div>
               )}
 
-              <div>
-                <Label>Доступные филиалы</Label>
-                <div className="flex flex-wrap items-center gap-2 mt-2">
-                  {branchesLoading ? (
-                    <span className="text-sm text-muted-foreground">Загрузка...</span>
-                  ) : allowedBranches.length > 0 ? (
-                    allowedBranches.map((branch) => (
-                      <Badge key={branch} variant="secondary" className="gap-1">
-                        <Building2 className="h-3 w-3" />
-                        {branch}
-                      </Badge>
-                    ))
-                  ) : (
-                    <span className="text-sm text-muted-foreground">Нет назначенных филиалов</span>
-                  )}
-                </div>
-              </div>
+              <ProfileBranchesEditor 
+                userId={user.id}
+                currentBranches={allowedBranches}
+                isLoading={branchesLoading}
+              />
             </CardContent>
           </Card>
 
