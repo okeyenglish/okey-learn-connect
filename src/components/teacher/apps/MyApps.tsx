@@ -1,14 +1,10 @@
 import { useState } from 'react';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
 import { useApps } from '@/hooks/useApps';
 import { AppCard } from './AppCard';
 import { AppViewer } from './AppViewer';
-interface Teacher {
-  id: string;
-  [key: string]: any;
-}
+import { Teacher } from '@/hooks/useTeachers';
 
 interface MyAppsProps {
   teacher: Teacher;
@@ -17,6 +13,9 @@ interface MyAppsProps {
 
 export const MyApps = ({ teacher, onCreateNew }: MyAppsProps) => {
   const [selectedApp, setSelectedApp] = useState<{ id: string; url: string } | null>(null);
+  
+  // Teacher может иметь profile_id который ссылается на user
+  const teacherId = teacher.profile_id || teacher.id;
   
   const { 
     myApps, 
@@ -28,7 +27,7 @@ export const MyApps = ({ teacher, onCreateNew }: MyAppsProps) => {
     unpublishApp,
     deleteApp,
     isPublishing
-  } = useApps((teacher as any).user_id || teacher.id);
+  } = useApps(teacherId);
 
   const handlePublish = (appId: string) => {
     if (confirm('Опубликовать приложение? Оно станет доступно всем преподавателям.')) {
@@ -117,7 +116,7 @@ export const MyApps = ({ teacher, onCreateNew }: MyAppsProps) => {
                     const url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/apps/${app.id}/${app.latest_version}/index.html`;
                     setSelectedApp({ id: app.id, url });
                   }}
-                  onUninstall={() => uninstallApp({ appId: app.id, teacherId: (teacher as any).user_id || teacher.id })}
+                  onUninstall={() => uninstallApp({ appId: app.id, teacherId })}
                   isInstalled
                 />
               ))}
@@ -132,7 +131,7 @@ export const MyApps = ({ teacher, onCreateNew }: MyAppsProps) => {
           previewUrl={selectedApp.url}
           open={!!selectedApp}
           onClose={() => setSelectedApp(null)}
-          teacherId={(teacher as any).user_id || teacher.id}
+          teacherId={teacherId}
         />
       )}
     </div>

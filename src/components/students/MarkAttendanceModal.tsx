@@ -105,9 +105,10 @@ export function MarkAttendanceModal({
         .single();
 
       if (lesson?.students) {
+        const studentData = lesson.students as unknown as { id: string; name: string };
         setStudents([{
-          id: (lesson.students as any).id,
-          name: (lesson.students as any).name,
+          id: studentData.id,
+          name: studentData.name,
         }]);
       }
     } else {
@@ -131,10 +132,13 @@ export function MarkAttendanceModal({
         .eq('status', 'active');
 
       if (groupStudents) {
-        setStudents(groupStudents.map(gs => ({
-          id: (gs.students as any).id,
-          name: (gs.students as any).name,
-        })));
+        setStudents(groupStudents.map(gs => {
+          const studentData = gs.students as unknown as { id: string; name: string };
+          return {
+            id: studentData.id,
+            name: studentData.name,
+          };
+        }));
       }
     }
   };

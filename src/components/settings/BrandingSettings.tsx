@@ -7,12 +7,20 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Loader2, Palette } from 'lucide-react';
 
+interface Branding {
+  primary_color?: string;
+  logo_url?: string;
+  [key: string]: unknown;
+}
+
 export const BrandingSettings = () => {
   const { organization, isLoading } = useOrganization();
+  const orgBranding = (organization?.branding || {}) as Branding;
+  
   const [isSaving, setIsSaving] = useState(false);
   const [branding, setBranding] = useState({
-    primary_color: organization?.branding?.primary_color || '#3b82f6',
-    logo_url: organization?.branding?.logo_url || '',
+    primary_color: orgBranding.primary_color || '#3b82f6',
+    logo_url: orgBranding.logo_url || '',
   });
 
   const handleSave = async () => {
@@ -109,10 +117,13 @@ export const BrandingSettings = () => {
 
       <div className="flex justify-end gap-2">
         <Button
-          onClick={() => setBranding({
-            primary_color: organization?.branding?.primary_color || '#3b82f6',
-            logo_url: organization?.branding?.logo_url || '',
-          })}
+          onClick={() => {
+            const currentBranding = (organization?.branding || {}) as Branding;
+            setBranding({
+              primary_color: currentBranding.primary_color || '#3b82f6',
+              logo_url: currentBranding.logo_url || '',
+            });
+          }}
           variant="outline"
         >
           Отменить

@@ -40,7 +40,7 @@ export const usePinnedChatThreads = (
         chunks.map(async (chunk) => {
           try {
             const { data, error } = await supabase
-              .rpc('get_chat_threads_by_client_ids' as any, { p_client_ids: chunk });
+              .rpc('get_chat_threads_by_client_ids', { p_client_ids: chunk });
 
             if (error) {
               console.error('[usePinnedChatThreads] RPC failed for chunk, using fallback:', error);

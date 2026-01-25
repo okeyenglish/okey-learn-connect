@@ -45,7 +45,7 @@ const studentSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email('Неверный формат email').optional().or(z.literal('')),
   branch: z.string().min(1, 'Выберите филиал'),
-  status: z.enum(['trial', 'active', 'not_started', 'on_pause', 'inactive', 'archived', 'expelled']),
+  status: z.enum(['trial', 'active', 'not_started', 'on_pause', 'inactive', 'archived', 'expelled', 'graduated']),
   notes: z.string().optional(),
 });
 
@@ -81,7 +81,7 @@ export function EditStudentDialog({
       phone: student.phone || '',
       email: student.email || '',
       branch: student.branch || 'Окская',
-      status: student.status as any,
+      status: student.status || 'active',
       notes: student.notes || '',
     },
   });
@@ -167,7 +167,7 @@ export function EditStudentDialog({
           gender: data.gender || null,
           avatar_url: avatarUrl || null,
           updated_at: new Date().toISOString(),
-        } as any)
+        })
         .eq('id', student.id);
 
       if (error) throw error;
