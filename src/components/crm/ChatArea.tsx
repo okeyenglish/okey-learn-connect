@@ -238,6 +238,7 @@ export const ChatArea = ({
       }
 
       if (success) {
+        // Update status - retry metadata will be cleared by clearRetryCountInDB
         await supabase
           .from('chat_messages')
           .update({ status: 'sent' })
@@ -280,13 +281,17 @@ export const ChatArea = ({
     handleMaxRetriesReached
   );
 
-  // Handler for failed delivery events - schedules auto-retry
+  // Handler for failed delivery events - schedules auto-retry with metadata check
   const handleDeliveryFailed = useCallback((messageId: string) => {
     console.log(`[ChatArea] Message failed, scheduling auto-retry: ${messageId.slice(0, 8)}`);
-    if (canAutoRetry(messageId)) {
-      scheduleRetry(messageId);
+    // Find message to get its metadata for retry count
+    const msg = messagesData?.messages?.find(m => m.id === messageId);
+    const metadata = msg?.metadata as Record<string, unknown> | null;
+    
+    if (canAutoRetry(messageId, metadata)) {
+      scheduleRetry(messageId, metadata);
     }
-  }, [canAutoRetry, scheduleRetry]);
+  }, [canAutoRetry, scheduleRetry, messagesData?.messages]);
 
   // Subscribe to realtime message status updates with failed delivery notification
   useMessageStatusRealtime(clientId, handleDeliveryFailed);
