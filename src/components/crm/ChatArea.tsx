@@ -29,6 +29,7 @@ import { AttachedFile } from "./AttachedFile";
 import { InlinePendingGPTResponse } from "./InlinePendingGPTResponse";
 import { TextFormatToolbar } from "./TextFormatToolbar";
 import { CallHistory } from "./CallHistory";
+import { NewMessageIndicator } from "./NewMessageIndicator";
 import { SendPaymentLinkModal } from "./SendPaymentLinkModal";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useMaxGreenApi } from "@/hooks/useMaxGreenApi";
@@ -165,6 +166,9 @@ export const ChatArea = ({
   const whatsappEndRef = useRef<HTMLDivElement>(null);
   const maxEndRef = useRef<HTMLDivElement>(null);
   const telegramEndRef = useRef<HTMLDivElement>(null);
+  const whatsappScrollRef = useRef<HTMLDivElement>(null);
+  const telegramScrollRef = useRef<HTMLDivElement>(null);
+  const maxScrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -1993,7 +1997,12 @@ export const ChatArea = ({
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="whatsapp" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-opacity duration-150 ${isTabTransitioning ? 'opacity-50' : 'opacity-100'}`}>
+          <TabsContent value="whatsapp" ref={whatsappScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-opacity duration-150 ${isTabTransitioning ? 'opacity-50' : 'opacity-100'}`}>
+            <NewMessageIndicator
+              scrollContainerRef={whatsappScrollRef}
+              bottomRef={whatsappEndRef}
+              newMessagesCount={whatsappMessages.length}
+            />
             <div className="space-y-1">
               {loadingMessages || isTabTransitioning ? (
                 <MessageSkeleton count={6} />
@@ -2153,7 +2162,12 @@ export const ChatArea = ({
               <div ref={whatsappEndRef} />
             </TabsContent>
           
-          <TabsContent value="telegram" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-opacity duration-150 ${isTabTransitioning ? 'opacity-50' : 'opacity-100'}`}>
+          <TabsContent value="telegram" ref={telegramScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-opacity duration-150 ${isTabTransitioning ? 'opacity-50' : 'opacity-100'}`}>
+            <NewMessageIndicator
+              scrollContainerRef={telegramScrollRef}
+              bottomRef={telegramEndRef}
+              newMessagesCount={telegramMessages.length}
+            />
             <div className="space-y-1">
               {loadingMessages || isTabTransitioning ? (
                 <MessageSkeleton count={6} />
@@ -2244,7 +2258,12 @@ export const ChatArea = ({
             <div ref={telegramEndRef} />
           </TabsContent>
           
-          <TabsContent value="max" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-opacity duration-150 ${isTabTransitioning ? 'opacity-50' : 'opacity-100'}`}>
+          <TabsContent value="max" ref={maxScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-opacity duration-150 ${isTabTransitioning ? 'opacity-50' : 'opacity-100'}`}>
+            <NewMessageIndicator
+              scrollContainerRef={maxScrollRef}
+              bottomRef={maxEndRef}
+              newMessagesCount={maxMessages.length}
+            />
             <div className="space-y-1">
               {loadingMessages || isTabTransitioning ? (
                 <MessageSkeleton count={6} />
