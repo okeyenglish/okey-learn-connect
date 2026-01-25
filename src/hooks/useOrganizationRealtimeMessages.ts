@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from './useOrganization';
 import { playNotificationSound } from './useNotificationSound';
+import { showBrowserNotification } from './useBrowserNotifications';
 
 /** Realtime payload for chat_messages changes */
 interface ChatMessagePayload {
@@ -10,6 +11,8 @@ interface ChatMessagePayload {
   message_type?: string;
   is_outgoing?: boolean;
   direction?: string;
+  content?: string;
+  sender_name?: string;
 }
 
 /**
@@ -74,6 +77,21 @@ export const useOrganizationRealtimeMessages = () => {
           
           if (isIncoming) {
             playNotificationSound(0.5);
+            
+            // Show browser notification when tab is inactive
+            const senderName = newMsg.sender_name || 'Клиент';
+            const messagePreview = newMsg.content 
+              ? (newMsg.content.length > 50 ? newMsg.content.substring(0, 50) + '...' : newMsg.content)
+              : 'Новое сообщение';
+            
+            showBrowserNotification({
+              title: `Сообщение от ${senderName}`,
+              body: messagePreview,
+              tag: `chat-${clientId}`, // Prevent duplicate notifications for same client
+              onClick: () => {
+                // Focus will happen automatically, but we could navigate to specific chat here
+              },
+            });
             
             queryClient.invalidateQueries({
               queryKey: ['client-unread-by-messenger', clientId],
