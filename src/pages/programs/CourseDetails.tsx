@@ -159,13 +159,13 @@ export default function CourseDetails() {
     queryFn: async () => {
       if (!courseSlug) throw new Error('Course slug is required');
       
-      const { data, error } = await (supabase.from('courses' as any) as any)
+      const { data, error } = await supabase.from('courses')
         .select('*')
         .eq('slug', courseSlug)
         .single();
         
       if (error) throw error;
-      return data as Course;
+      return data;
     },
     enabled: !!courseSlug
   });
@@ -175,20 +175,20 @@ export default function CourseDetails() {
     queryKey: ['course-units', course?.id],
     queryFn: async () => {
       if (!course?.id) return [];
-      const { data, error } = await (supabase.from('course_units' as any) as any)
+      const { data, error } = await supabase.from('course_units')
         .select('*')
         .eq('course_id', course.id)
         .order('sort_order');
       if (error) throw error;
-      return data as CourseUnit[];
+      return data;
     },
     enabled: !!course?.id
   });
 
   // Карты для быстрого доступа
   const unitById = useMemo(() => {
-    const m: Record<string, CourseUnit> = {};
-    (units ?? []).forEach(u => { m[u.id] = u as CourseUnit; });
+    const m: Record<string, typeof units[0]> = {};
+    (units ?? []).forEach(u => { m[u.id] = u; });
     return m;
   }, [units]);
 
@@ -197,13 +197,13 @@ export default function CourseDetails() {
   const { data: lessons, isLoading: lessonsLoading } = useQuery({
     queryKey: ['lessons', unitIds],
     queryFn: async () => {
-      if (!unitIds.length) return [] as UnitLesson[];
-      const { data, error } = await (supabase.from('lessons' as any) as any)
+      if (!unitIds.length) return [];
+      const { data, error } = await supabase.from('lessons')
         .select('*')
         .in('unit_id', unitIds)
         .order('lesson_number', { ascending: true });
       if (error) throw error;
-      return (data as unknown) as UnitLesson[];
+      return data;
     },
     enabled: unitIds.length > 0,
   });

@@ -3,7 +3,7 @@ import { AgGridReact } from 'ag-grid-react';
 import type { ColDef, CellValueChangedEvent } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -46,7 +46,7 @@ export default function Sheets() {
 
   // Load sheets list
   const loadSheets = useCallback(async () => {
-    const { data, error } = await (supabase.rpc as any)('get_sheets');
+    const { data, error } = await supabase.rpc('get_sheets');
 
     if (error) {
       toast.error('Ошибка загрузки листов: ' + error.message);
@@ -61,7 +61,7 @@ export default function Sheets() {
 
   // Get columns for a sheet
   const getColumns = useCallback(async (sheetId: string): Promise<Column[]> => {
-    const { data, error } = await (supabase.rpc as any)('get_sheet_columns', { p_sheet_id: sheetId });
+    const { data, error } = await supabase.rpc('get_sheet_columns', { p_sheet_id: sheetId });
 
     if (error) {
       toast.error('Ошибка загрузки колонок: ' + error.message);
@@ -99,7 +99,7 @@ export default function Sheets() {
     setColumnDefs(toColumnDefs(cols));
 
     // Use RPC to query dynamic table
-    const { data, error } = await (supabase.rpc as any)('get_sheet_data', {
+    const { data, error } = await supabase.rpc('get_sheet_data', {
       p_table_name: currentSheet.table_name
     });
 
@@ -108,7 +108,7 @@ export default function Sheets() {
       return;
     }
 
-    setRowData(data || []);
+    setRowData((data as any[]) || []);
   }, [currentSheet, getColumns, toColumnDefs]);
 
   // Handle cell value change
@@ -118,7 +118,7 @@ export default function Sheets() {
     const row = event.data;
     if (!row.id) return;
 
-    const { error } = await (supabase.rpc as any)('update_sheet_cell', {
+    const { error } = await supabase.rpc('update_sheet_cell', {
       p_table_name: currentSheet.table_name,
       p_row_id: row.id,
       p_column: event.colDef.field!,
@@ -136,7 +136,7 @@ export default function Sheets() {
   const addRow = useCallback(async () => {
     if (!currentSheet) return;
 
-    const { data, error } = await (supabase.rpc as any)('add_sheet_row', {
+    const { data, error } = await supabase.rpc('add_sheet_row', {
       p_table_name: currentSheet.table_name
     });
 
@@ -145,8 +145,9 @@ export default function Sheets() {
       return;
     }
 
-    if (data && data.length > 0) {
-      setRowData(prev => [data[0], ...prev]);
+    const rows = data as any[];
+    if (rows && rows.length > 0) {
+      setRowData(prev => [rows[0], ...prev]);
       toast.success('Строка добавлена');
     }
   }, [currentSheet]);
@@ -163,7 +164,7 @@ export default function Sheets() {
 
     const ids = selectedRows.map(r => r.id).filter(Boolean);
     
-    const { error } = await (supabase.rpc as any)('delete_sheet_rows', {
+    const { error } = await supabase.rpc('delete_sheet_rows', {
       p_table_name: currentSheet.table_name,
       p_row_ids: ids
     });
@@ -198,7 +199,7 @@ export default function Sheets() {
         const rows = results.data as any[];
         rows.forEach(r => delete r.id);
 
-        const { data, error } = await (supabase.rpc as any)('import_sheet_rows', {
+        const { data, error } = await supabase.rpc('import_sheet_rows', {
           p_table_name: currentSheet.table_name,
           p_rows: rows
         });
@@ -208,9 +209,10 @@ export default function Sheets() {
           return;
         }
 
-        if (data) {
-          setRowData(prev => [...data, ...prev]);
-          toast.success(`Импортировано ${data.length} строк(и)`);
+        const importedRows = data as any[];
+        if (importedRows) {
+          setRowData(prev => [...importedRows, ...prev]);
+          toast.success(`Импортировано ${importedRows.length} строк(и)`);
         }
       }
     });
@@ -231,7 +233,7 @@ export default function Sheets() {
       return;
     }
 
-    const { error } = await (supabase.rpc as any)('create_sheet', {
+    const { error } = await supabase.rpc('create_sheet', {
       p_name: newName,
       p_slug: newSlug,
       p_columns: cols

@@ -25,12 +25,12 @@ export default function MultitenancyTest() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
-      const { data: profile } = await (supabase.from("profiles" as any) as any)
+      const { data: profile } = await supabase.from("profiles")
         .select("organization_id, first_name, last_name")
         .eq("id", user.id)
         .single();
 
-      return { ...user, profile: profile as any };
+      return { ...user, profile };
     },
   });
 
@@ -39,12 +39,12 @@ export default function MultitenancyTest() {
     queryFn: async () => {
       if (!currentUser?.profile?.organization_id) return null;
 
-      const { data } = await (supabase.from("organizations" as any) as any)
+      const { data } = await supabase.from("organizations")
         .select("*")
         .eq("id", currentUser.profile.organization_id)
         .single();
 
-      return data as any;
+      return data;
     },
     enabled: !!currentUser?.profile?.organization_id,
   });
