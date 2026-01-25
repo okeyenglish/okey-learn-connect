@@ -275,11 +275,17 @@ export const ChatArea = ({
     });
   }, [toast]);
 
-  const { scheduleRetry, resetRetryState, getRetryCount, canAutoRetry } = useAutoRetryMessages(
+  const { scheduleRetry, resetRetryState, cancelRetry, getRetryCount, canAutoRetry } = useAutoRetryMessages(
     clientId,
     handleAutoRetry,
     handleMaxRetriesReached
   );
+
+  // Handler for cancelling auto-retry
+  const handleCancelRetry = useCallback((messageId: string) => {
+    console.log(`[ChatArea] Cancelling auto-retry for: ${messageId.slice(0, 8)}`);
+    cancelRetry(messageId);
+  }, [cancelRetry]);
 
   // Handler for failed delivery events - schedules auto-retry with metadata check
   const handleDeliveryFailed = useCallback((messageId: string) => {
@@ -2075,6 +2081,7 @@ export const ChatArea = ({
                             onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
                             onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
                             onResendMessage={msg.type === 'manager' && msg.messageStatus === 'failed' ? handleResendMessage : undefined}
+                            onCancelRetry={msg.type === 'manager' && msg.messageStatus === 'failed' ? handleCancelRetry : undefined}
                             messageStatus={msg.messageStatus}
                             clientAvatar={whatsappClientAvatar || msg.clientAvatar}
                             managerName={msg.managerName}
@@ -2207,6 +2214,7 @@ export const ChatArea = ({
                             onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
                             onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
                             onResendMessage={msg.type === 'manager' && msg.messageStatus === 'failed' ? handleResendMessage : undefined}
+                            onCancelRetry={msg.type === 'manager' && msg.messageStatus === 'failed' ? handleCancelRetry : undefined}
                             messageStatus={msg.messageStatus}
                             clientAvatar={telegramClientAvatar || msg.clientAvatar}
                             managerName={msg.managerName}
@@ -2297,6 +2305,7 @@ export const ChatArea = ({
                             onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
                             onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
                             onResendMessage={msg.type === 'manager' && msg.messageStatus === 'failed' ? handleResendMessage : undefined}
+                            onCancelRetry={msg.type === 'manager' && msg.messageStatus === 'failed' ? handleCancelRetry : undefined}
                             messageStatus={msg.messageStatus}
                             clientAvatar={maxClientAvatar || msg.clientAvatar}
                             managerName={msg.managerName}

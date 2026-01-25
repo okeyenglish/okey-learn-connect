@@ -1,4 +1,4 @@
-import { Check, CheckCheck, Clock, AlertCircle, RotateCcw, Timer } from "lucide-react";
+import { Check, CheckCheck, Clock, AlertCircle, RotateCcw, Timer, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useEffect, useState, useRef } from "react";
@@ -11,6 +11,7 @@ interface MessageDeliveryStatusProps {
   status?: DeliveryStatus;
   className?: string;
   onRetry?: () => void;
+  onCancelRetry?: () => void;
   showRetryButton?: boolean;
   messageId?: string;
   retryCount?: number;
@@ -68,6 +69,7 @@ export const MessageDeliveryStatus = ({
   status = 'sent',
   className = "",
   onRetry,
+  onCancelRetry,
   showRetryButton = true,
   messageId,
   retryCount: propRetryCount,
@@ -126,33 +128,65 @@ export const MessageDeliveryStatus = ({
         </TooltipContent>
       </Tooltip>
       
-      {/* Countdown timer for scheduled auto-retry */}
+      {/* Countdown timer for scheduled auto-retry with cancel button */}
       {isFailed && countdownSeconds !== null && countdownSeconds > 0 && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span 
-              className={cn(
-                "inline-flex items-center gap-0.5",
-                "text-[10px] font-medium tabular-nums",
-                "text-amber-600 dark:text-amber-400",
-                "bg-amber-100 dark:bg-amber-900/30",
-                "px-1 py-0.5 rounded",
-                "animate-pulse"
-              )}
-            >
-              <Timer className="h-2.5 w-2.5" />
-              {formatCountdown(countdownSeconds)}
-            </span>
-          </TooltipTrigger>
-          <TooltipContent side="left" className="text-xs">
-            <div className="flex flex-col gap-0.5">
-              <span>Автоповтор через {countdownSeconds} сек</span>
-              <span className="text-muted-foreground">
-                Попытка {retryCount + 1} из {MAX_RETRY_ATTEMPTS}
+        <div className="inline-flex items-center gap-0.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span 
+                className={cn(
+                  "inline-flex items-center gap-0.5",
+                  "text-[10px] font-medium tabular-nums",
+                  "text-amber-600 dark:text-amber-400",
+                  "bg-amber-100 dark:bg-amber-900/30",
+                  "px-1 py-0.5 rounded-l",
+                  "animate-pulse"
+                )}
+              >
+                <Timer className="h-2.5 w-2.5" />
+                {formatCountdown(countdownSeconds)}
               </span>
-            </div>
-          </TooltipContent>
-        </Tooltip>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="text-xs">
+              <div className="flex flex-col gap-0.5">
+                <span>Автоповтор через {countdownSeconds} сек</span>
+                <span className="text-muted-foreground">
+                  Попытка {retryCount + 1} из {MAX_RETRY_ATTEMPTS}
+                </span>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+          
+          {/* Cancel auto-retry button */}
+          {onCancelRetry && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCancelRetry();
+                  }}
+                  className={cn(
+                    "inline-flex items-center justify-center",
+                    "h-[18px] w-[16px]",
+                    "text-amber-700 dark:text-amber-300",
+                    "bg-amber-200 dark:bg-amber-800/50",
+                    "hover:bg-amber-300 dark:hover:bg-amber-700/50",
+                    "rounded-r",
+                    "transition-colors duration-150",
+                    "focus:outline-none"
+                  )}
+                  aria-label="Отменить автоповтор"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="text-xs">
+                Отменить автоповтор
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
       )}
       
       {/* Max retries reached indicator */}
