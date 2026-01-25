@@ -6,6 +6,9 @@ interface AnimatedLogoProps {
 }
 
 export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
+  // Scale the logo up so the outer white edge is clipped off
+  const logoScale = 1.15;
+  
   return (
     <div 
       className={cn(
@@ -61,17 +64,28 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
         }}
       />
       
-      {/* Original logo with red-blue ring */}
-      <img 
-        src="/favicon.png" 
-        alt="Logo"
-        className="relative z-10 rounded-full object-contain transition-transform duration-300 group-hover:scale-105"
+      {/* Logo container - clips the outer white edge */}
+      <div 
+        className="relative z-10 rounded-full overflow-hidden transition-transform duration-300 group-hover:scale-105"
         style={{
           width: size,
           height: size,
-          filter: 'drop-shadow(0 0 6px hsl(217 85% 50% / 0.3))',
         }}
-      />
+      >
+        {/* Scaled up logo so outer white is clipped */}
+        <img 
+          src="/favicon.png" 
+          alt="Logo"
+          className="rounded-full object-contain"
+          style={{
+            width: size * logoScale,
+            height: size * logoScale,
+            marginLeft: -(size * logoScale - size) / 2,
+            marginTop: -(size * logoScale - size) / 2,
+            filter: 'drop-shadow(0 0 6px hsl(217 85% 50% / 0.3))',
+          }}
+        />
+      </div>
       
       {/* Custom keyframes */}
       <style>{`
