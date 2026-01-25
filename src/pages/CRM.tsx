@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from "react";
+import { useState, useEffect, useMemo, useCallback, lazy, Suspense, useRef } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/typedClient";
@@ -834,8 +834,33 @@ const CRMContent = () => {
   const clientsUnread = (threads || []).reduce((sum, t) => sum + (t.unread_count || 0), 0);
   const allUnreadCount = clientsUnread + corporateUnread + teacherUnread + (communityUnread || 0);
   
-  // Update document title with unread count
-  useDocumentTitle(allUnreadCount);
+  // Track previous unread count to detect new messages
+  const prevUnreadCountRef = useRef(allUnreadCount);
+  const [hasNewMessage, setHasNewMessage] = useState(false);
+  
+  // Detect new incoming messages (unread count increased)
+  useEffect(() => {
+    if (allUnreadCount > prevUnreadCountRef.current) {
+      // New message arrived
+      setHasNewMessage(true);
+    }
+    prevUnreadCountRef.current = allUnreadCount;
+  }, [allUnreadCount]);
+  
+  // Reset new message flag when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setHasNewMessage(false);
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+  
+  // Update document title with unread count and flash on new messages
+  useDocumentTitle(allUnreadCount, undefined, hasNewMessage);
 
   // Системные чаты (корпоративные как одна запись)
   const systemChats = [
