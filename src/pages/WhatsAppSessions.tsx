@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from '@/lib/errorUtils';
 import { Progress } from "@/components/ui/progress";
 import {
   Table,
@@ -119,11 +120,11 @@ const WhatsAppSessions = () => {
 
       console.log('[fetchSessions] Loaded sessions:', formattedSessions.map(s => ({ name: s.session_name, status: s.status })));
       setSessions(formattedSessions);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching sessions:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось загрузить сессии",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -234,11 +235,11 @@ const WhatsAppSessions = () => {
         title: "Статус обновлен",
         description: `Сессия ${sessionName}: ${data?.status || 'неизвестно'}`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating status:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось обновить статус",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -435,12 +436,14 @@ const WhatsAppSessions = () => {
           description: "Обновите список для просмотра новой сессии",
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[createNewSession] Error:', error);
-      if (!error?.context) {
+      const errMsg = getErrorMessage(error);
+      // Only show toast if it's not a context error (which is already handled)
+      if (typeof error !== 'object' || error === null || !('context' in error)) {
         toast({
           title: "Ошибка",
-          description: error?.message || "Не удалось создать сессию",
+          description: errMsg,
           variant: "destructive",
         });
       }
@@ -468,11 +471,11 @@ const WhatsAppSessions = () => {
         title: "Отключено",
         description: `Сессия ${sessionName} успешно отключена`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error disconnecting:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось отключить сессию",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     }
@@ -496,11 +499,11 @@ const WhatsAppSessions = () => {
         title: "Удалено",
         description: "Сессия успешно удалена",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting session:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось удалить сессию",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     }
@@ -738,7 +741,7 @@ const WhatsAppSessions = () => {
             description: "WhatsApp успешно подключен",
           });
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Polling error:', error);
       }
     }, 2000);
@@ -828,12 +831,12 @@ const WhatsAppSessions = () => {
           description: "QR код генерируется, проверьте статус через несколько секунд",
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error reconnecting:', error);
-      if (!error?.context) {
+      if (typeof error !== 'object' || error === null || !('context' in error)) {
         toast({
           title: "Ошибка",
-          description: error?.message || "Не удалось переподключить сессию",
+          description: getErrorMessage(error),
           variant: "destructive",
         });
       }
@@ -881,11 +884,11 @@ const WhatsAppSessions = () => {
           variant: "destructive",
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error refreshing QR:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось обновить QR код",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {

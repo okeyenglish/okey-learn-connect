@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2, CreditCard, Link2, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface SendPaymentLinkModalProps {
   open: boolean;
@@ -67,11 +68,11 @@ export const SendPaymentLinkModal = ({
       setAmount('');
       setDescription('');
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error generating payment link:', error);
       toast({
         title: 'Ошибка',
-        description: error.message || 'Не удалось создать ссылку на оплату',
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {

@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Eye, EyeOff, Lock, AlertCircle, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface ChangePasswordModalProps {
   open: boolean;
@@ -98,10 +99,10 @@ export const ChangePasswordModal = ({ open, onOpenChange }: ChangePasswordModalP
       setNewPassword("");
       setConfirmPassword("");
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось изменить пароль",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {

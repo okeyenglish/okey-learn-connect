@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { Copy, Users, Calendar } from "lucide-react";
 import { LearningGroup } from "@/hooks/useLearningGroups";
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface CopyGroupModalProps {
   sourceGroup: LearningGroup;
@@ -122,11 +123,11 @@ export const CopyGroupModal = ({
 
       onSuccess?.(newGroup.id);
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error copying group:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось скопировать группу",
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     } finally {

@@ -38,6 +38,7 @@ import { supabase } from "@/integrations/supabase/typedClient";
 import { usePendingGPTResponses } from "@/hooks/usePendingGPTResponses";
 import { useMarkChatMessagesAsReadByMessenger, useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
 import { useQueryClient } from "@tanstack/react-query";
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface ChatAreaProps {
   clientId: string;
@@ -864,10 +865,10 @@ export const ChatArea = ({
       
       // Smooth scroll to bottom after sending message
       setTimeout(() => scrollToBottom(true), 300);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Ошибка отправки",
-        description: error.message || "Не удалось отправить сообщение",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     }
@@ -915,10 +916,10 @@ export const ChatArea = ({
       } catch (e) {
         console.warn('Failed to clear pending GPT responses after comment:', e);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Ошибка сохранения",
-        description: error.message || "Не удалось сохранить комментарий",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     }

@@ -24,6 +24,7 @@ import { AutoGroupSettingsModal } from './AutoGroupSettingsModal';
 import { CopyGroupModal } from './CopyGroupModal';
 import { useToast } from '@/hooks/use-toast';
 import { syncAutoGroup } from '@/utils/groupHelpers';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface GroupActionsMenuProps {
   group: LearningGroup;
@@ -53,10 +54,10 @@ export const GroupActionsMenu = ({
         description: "Состав авто-группы синхронизирован"
       });
       onRefresh?.();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось синхронизировать группу",
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     } finally {

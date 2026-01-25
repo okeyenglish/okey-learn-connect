@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabaseTyped as supabase } from '@/integrations/supabase/typedClient';
+import { getErrorMessage } from '@/lib/errorUtils';
 import { 
   RefreshCw, 
   CheckCircle, 
@@ -123,11 +124,11 @@ export const WebhookUrlReset: React.FC = () => {
         });
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error resetting webhook URLs:', error);
       toast({
         title: 'Ошибка',
-        description: error.message || 'Не удалось обновить URLs',
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {

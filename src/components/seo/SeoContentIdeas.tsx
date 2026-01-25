@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { FileEdit, FileText, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getCurrentOrganizationId } from "@/lib/organizationHelpers";
+import { getErrorMessage } from '@/lib/errorUtils';
 import { useWordstatData } from "@/hooks/useWordstatData";
 import { WordstatStats } from "./WordstatStats";
 
@@ -46,10 +47,10 @@ const SeoContentIdeas = () => {
       });
 
       refetch();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Ошибка",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -74,10 +75,10 @@ const SeoContentIdeas = () => {
       });
 
       refetch();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Ошибка",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {

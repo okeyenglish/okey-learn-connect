@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useWhatsApp } from '@/hooks/useWhatsApp';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { Loader2, CheckCircle, XCircle, Send, Edit, Trash2, Download } from 'lucide-react';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 export const WppTestPanel = () => {
   const { toast } = useToast();
@@ -112,11 +113,11 @@ export const WppTestPanel = () => {
       } else {
         throw new Error(result.error || 'Ошибка отправки');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       setTestResults(prev => ({ ...prev, send: false }));
       toast({
         title: "❌ Ошибка отправки",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     }
@@ -155,11 +156,11 @@ export const WppTestPanel = () => {
       } else {
         throw new Error(result.error || 'Ошибка редактирования');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       setTestResults(prev => ({ ...prev, edit: false }));
       toast({
         title: "❌ Ошибка редактирования",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     }
@@ -198,11 +199,11 @@ export const WppTestPanel = () => {
       } else {
         throw new Error(result.error || 'Ошибка удаления');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       setTestResults(prev => ({ ...prev, delete: false }));
       toast({
         title: "❌ Ошибка удаления",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     }
@@ -230,11 +231,11 @@ export const WppTestPanel = () => {
         title: "ℹ️ Функция скачивания",
         description: "Функция доступна (требуется реальное сообщение с файлом для теста)",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       setTestResults(prev => ({ ...prev, download: false }));
       toast({
         title: "❌ Ошибка скачивания",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     }

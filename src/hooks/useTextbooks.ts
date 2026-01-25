@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 import type { Textbook } from '@/integrations/supabase/database.types';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 export type { Textbook };
 
@@ -27,10 +28,10 @@ export const useTextbooks = () => {
       if (error) throw error;
       
       setTextbooks((data || []) as Textbook[]);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Ошибка загрузки',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive'
       });
     } finally {
@@ -96,10 +97,10 @@ export const useTextbooks = () => {
       fetchTextbooks();
       
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Ошибка загрузки',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive'
       });
       throw error;
@@ -133,10 +134,10 @@ export const useTextbooks = () => {
       });
 
       fetchTextbooks();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Ошибка удаления',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive'
       });
     }
@@ -160,10 +161,10 @@ export const useTextbooks = () => {
       });
 
       fetchTextbooks();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Ошибка обновления',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive'
       });
     }

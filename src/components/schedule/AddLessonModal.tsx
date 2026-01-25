@@ -12,6 +12,7 @@ import { useCreateLessonSession, useCheckScheduleConflicts } from "@/hooks/useLe
 import { useLearningGroups } from "@/hooks/useLearningGroups";
 import { useTeachers } from "@/hooks/useTeachers";
 import { getClassroomsForBranch } from "@/lib/branches";
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface ScheduleConflict {
   conflict_type: 'teacher' | 'classroom';
@@ -232,11 +233,11 @@ export const AddLessonModal = ({ open, onOpenChange, defaultGroupId }: AddLesson
       
       onOpenChange(false);
       resetForm();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating lessons:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось создать занятия",
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     }

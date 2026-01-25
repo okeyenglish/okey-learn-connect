@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Sparkles, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getCurrentOrganizationId } from "@/lib/organizationHelpers";
+import { getErrorMessage } from '@/lib/errorUtils';
 import { AddClusterDialog } from "./AddClusterDialog";
 import { useWordstatData } from "@/hooks/useWordstatData";
 import { WordstatStats } from "./WordstatStats";
@@ -48,10 +49,10 @@ const SeoKeywordClusters = () => {
       });
 
       refetch();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Ошибка",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {
