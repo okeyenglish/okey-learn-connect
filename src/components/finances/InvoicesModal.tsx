@@ -28,10 +28,12 @@ export const InvoicesModal: React.FC<InvoicesModalProps> = ({
   const { data: invoices, isLoading } = useInvoices({ status: statusFilter === 'all' ? undefined : statusFilter });
   const updateInvoice = useUpdateInvoice();
 
-  const handleStatusChange = async (invoiceId: string, newStatus: string) => {
+  type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
+  
+  const handleStatusChange = async (invoiceId: string, newStatus: InvoiceStatus) => {
     await updateInvoice.mutateAsync({
       id: invoiceId,
-      updates: { status: newStatus as any },
+      updates: { status: newStatus },
     });
   };
 
@@ -147,7 +149,7 @@ export const InvoicesModal: React.FC<InvoicesModalProps> = ({
                         <p className="text-sm text-muted-foreground mb-1">Статус</p>
                         <Select
                           value={invoice.status}
-                          onValueChange={(value) => handleStatusChange(invoice.id, value)}
+                          onValueChange={(value: string) => handleStatusChange(invoice.id, value as InvoiceStatus)}
                         >
                           <SelectTrigger className="w-full">
                             <SelectValue />
