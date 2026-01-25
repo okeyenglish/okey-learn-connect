@@ -13,6 +13,7 @@ import { SubscriptionsSection } from "@/components/subscriptions/SubscriptionsSe
 import { GroupsTable } from "./GroupsTable";
 import { ExportGroupButton } from "./ExportGroupButton";
 import { RecruitmentSection } from "./RecruitmentSection";
+import { useUserAllowedBranches } from "@/hooks/useUserAllowedBranches";
 
 export const LearningGroupsSection = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -21,6 +22,8 @@ export const LearningGroupsSection = () => {
   const [subjectFilter, setSubjectFilter] = useState("all");
   const [groupsModalOpen, setGroupsModalOpen] = useState(false);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  
+  const { allowedBranches } = useUserAllowedBranches();
 
   const filters = {
     search: searchQuery || undefined,
@@ -205,12 +208,11 @@ export const LearningGroupsSection = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Все филиалы</SelectItem>
-                    <SelectItem value="Окская">Окская</SelectItem>
-                    <SelectItem value="Мытищи">Мытищи</SelectItem>
-                    <SelectItem value="Котельники">Котельники</SelectItem>
-                    <SelectItem value="Новокосино">Новокосино</SelectItem>
-                    <SelectItem value="Люберцы">Люберцы</SelectItem>
-                    <SelectItem value="Солнцево">Солнцево</SelectItem>
+                    {allowedBranches.map((branch) => (
+                      <SelectItem key={branch} value={branch}>
+                        {branch}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <div className="flex gap-2">

@@ -11,6 +11,7 @@ import { SessionFilters } from "@/hooks/useLessonSessions";
 import { useTeachers } from "@/hooks/useTeachers";
 import { getBranchesForSelect } from "@/lib/branches";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useUserAllowedBranches } from "@/hooks/useUserAllowedBranches";
 
 interface ScheduleFiltersProps {
   filters: SessionFilters;
@@ -22,6 +23,11 @@ export const ScheduleFilters = ({ filters, onFiltersChange, onReset }: ScheduleF
   const [isExpanded, setIsExpanded] = React.useState(false);
   const { teachers } = useTeachers({});
   const branches = getBranchesForSelect();
+  const { filterAllowedBranches } = useUserAllowedBranches();
+  
+  // Filter branches by user's allowed branches
+  const filteredBranches = filterAllowedBranches(branches.map(b => ({ name: b.label })))
+    .map(b => ({ value: b.name.toLowerCase().replace(/\s+/g, '-'), label: b.name }));
   
   const statusLegend = [
     { color: "bg-cyan-100 text-cyan-800 border-cyan-200", label: "Текущие занятия" },
@@ -79,7 +85,7 @@ export const ScheduleFilters = ({ filters, onFiltersChange, onReset }: ScheduleF
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">Все филиалы</SelectItem>
-                    {branches.map((branch) => (
+                    {filteredBranches.map((branch) => (
                       <SelectItem key={branch.value} value={branch.label}>
                         {branch.label}
                       </SelectItem>
