@@ -3,11 +3,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import type { LessonSession, Profile } from '@/integrations/supabase/database.types';
 
 declare global {
   interface Window {
@@ -29,12 +29,13 @@ export default function OnlineLesson() {
   const { data: lesson, isLoading } = useQuery({
     queryKey: ['lesson-session', lessonId],
     queryFn: async () => {
-      const { data, error } = await (supabase.from('lesson_sessions' as any) as any)
+      const { data, error } = await supabase
+        .from('lesson_sessions')
         .select('*')
-        .eq('id', lessonId)
+        .eq('id', lessonId!)
         .single();
       if (error) throw error;
-      return data;
+      return data as LessonSession;
     },
     enabled: !!lessonId,
   });
@@ -42,17 +43,18 @@ export default function OnlineLesson() {
   const { data: profile } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
-      const { data, error } = await (supabase.from('profiles' as any) as any)
+      const { data, error } = await supabase
+        .from('profiles')
         .select('*')
-        .eq('id', user?.id)
+        .eq('id', user?.id!)
         .single();
       if (error) throw error;
-      return data;
+      return data as Profile;
     },
     enabled: !!user?.id,
   });
 
-  const isTeacher = profile?.department === 'teacher';
+  const isTeacher = profile?.branch === 'teacher';
 
   useEffect(() => {
     if (!lesson || !jitsiContainerRef.current || jitsiApi) return;

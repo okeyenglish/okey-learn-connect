@@ -1045,6 +1045,22 @@ export interface OrganizationAISettings {
   key_status: string | null;
 }
 
+export interface Schedule {
+  id: string;
+  name: string;
+  office_name: string;
+  level: string;
+  compact_days: string;
+  compact_time: string;
+  compact_classroom: string;
+  compact_teacher: string;
+  vacancies: number;
+  group_URL?: string | null;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // ============ RPC функции ============
 
 export interface GetPublicScheduleResult {
@@ -1490,6 +1506,11 @@ export interface CustomDatabase {
         Insert: never;
         Update: never;
       };
+      schedule: {
+        Row: Schedule;
+        Insert: Partial<Schedule>;
+        Update: Partial<Schedule>;
+      };
     };
     Views: {
       [_ in never]: never;
@@ -1619,6 +1640,11 @@ export interface CustomDatabase {
       refresh_advanced_materialized_views: {
         Args: Record<string, never>;
         Returns: void;
+      };
+      // Student by user id
+      get_student_by_user_id: {
+        Args: { _user_id: string };
+        Returns: Student | null;
       };
     };
     Enums: {

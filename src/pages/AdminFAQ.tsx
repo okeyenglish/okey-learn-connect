@@ -8,14 +8,9 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, Pencil, Trash2, Save, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/components/ui/use-toast";
+import type { FAQ } from "@/integrations/supabase/database.types";
 
-interface FAQItem {
-  id: string;
-  question: string;
-  answer: string;
-  sort_order: number;
-  is_published: boolean;
-}
+type FAQItem = FAQ;
 
 export default function AdminFAQ() {
   const [faqItems, setFaqItems] = useState<FAQItem[]>([]);
@@ -38,7 +33,8 @@ export default function AdminFAQ() {
 
   const loadFAQItems = async () => {
     try {
-      const { data, error } = await (supabase.from('faq' as any) as any)
+      const { data, error } = await supabase
+        .from('faq')
         .select('*')
         .order('sort_order', { ascending: true });
 
@@ -68,7 +64,8 @@ export default function AdminFAQ() {
     try {
       if (id) {
         // Update existing item
-        const { error } = await (supabase.from('faq' as any) as any)
+        const { error } = await supabase
+          .from('faq')
           .update({
             question: formData.question,
             answer: formData.answer,
@@ -85,7 +82,8 @@ export default function AdminFAQ() {
         });
       } else {
         // Create new item
-        const { error } = await (supabase.from('faq' as any) as any)
+        const { error } = await supabase
+          .from('faq')
           .insert({
             question: formData.question,
             answer: formData.answer,
@@ -119,7 +117,8 @@ export default function AdminFAQ() {
     if (!confirm('Вы уверены, что хотите удалить этот вопрос?')) return;
 
     try {
-      const { error } = await (supabase.from('faq' as any) as any)
+      const { error } = await supabase
+        .from('faq')
         .delete()
         .eq('id', id);
 

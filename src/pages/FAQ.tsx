@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { MessageCircle, Send, Phone } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/typedClient";
+import type { FAQ as FAQType } from "@/integrations/supabase/database.types";
 
 interface FAQItem {
   id: string;
@@ -19,7 +20,8 @@ export default function FAQ() {
   useEffect(() => {
     const loadFAQ = async () => {
       try {
-        const { data, error } = await (supabase.from('faq' as any) as any)
+        const { data, error } = await supabase
+          .from('faq')
           .select('id, question, answer, sort_order')
           .eq('is_published', true)
           .order('sort_order', { ascending: true });
