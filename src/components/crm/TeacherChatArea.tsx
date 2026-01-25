@@ -282,7 +282,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     fileName?: string | null;
     fileType?: string | null;
     messengerType: string;
-    messageStatus?: 'sent' | 'delivered' | 'read' | 'queued' | null;
+    messageStatus?: 'sent' | 'delivered' | 'read' | 'queued' | 'failed' | null;
     externalMessageId?: string | null;
   }
 
@@ -312,7 +312,8 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     file_name?: string | null;
     file_type?: string | null;
     messenger_type?: string | null;
-    message_status?: 'sent' | 'delivered' | 'read' | 'queued' | null;
+    status?: 'sent' | 'delivered' | 'read' | 'queued' | 'failed' | null;
+    message_status?: 'sent' | 'delivered' | 'read' | 'queued' | 'failed' | null;
     external_message_id?: string | null;
   }
 
@@ -340,7 +341,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       fileName: msg.file_name,
       fileType: msg.file_type,
       messengerType: msg.messenger_type || 'whatsapp',
-      messageStatus: msg.message_status,
+      messageStatus: msg.status || msg.message_status || 'sent',
       externalMessageId: msg.external_message_id,
     };
   }, []);

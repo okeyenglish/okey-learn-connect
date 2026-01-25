@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { OptimizedAttachedFile } from "./OptimizedAttachedFile";
 import { MessageReadIndicator } from "./MessageReadIndicator";
+import { MessageDeliveryStatus, DeliveryStatus } from "./MessageDeliveryStatus";
 import { MessageReactions } from "./MessageReactions";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { LazyImage } from "./LazyImage";
@@ -58,7 +59,7 @@ interface ChatMessageProps {
   forwardedFromType?: 'client' | 'teacher' | 'corporate';
   onMessageEdit?: (messageId: string, newMessage: string) => Promise<void>;
   onMessageDelete?: (messageId: string) => Promise<void>;
-  messageStatus?: 'sent' | 'delivered' | 'read' | 'queued';
+  messageStatus?: DeliveryStatus;
   clientAvatar?: string;
   managerName?: string;
   fileUrl?: string;
@@ -462,6 +463,14 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                         <span className="ml-1 text-[9px]">ред.</span>
                       )}
                     </span>
+                    {/* Delivery status for outgoing messages */}
+                    {type === 'manager' && message !== '[Сообщение удалено]' && (
+                      <MessageDeliveryStatus 
+                        status={messageStatus}
+                        className="ml-0.5"
+                      />
+                    )}
+                    {/* Internal read status (by other managers) */}
                     {type === 'manager' && messageId && message !== '[Сообщение удалено]' && (
                       <MessageReadIndicator 
                         messageId={messageId} 
