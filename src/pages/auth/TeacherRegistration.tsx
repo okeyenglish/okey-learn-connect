@@ -35,7 +35,7 @@ const TeacherRegistration = () => {
 
   const validateToken = async () => {
     try {
-      const { data, error } = await (supabase.from('organizations' as any) as any)
+      const { data, error } = await supabase.from('organizations')
         .select('*, organization_branches(*)')
         .eq('teacher_registration_token', token)
         .eq('teacher_registration_enabled', true)
@@ -52,7 +52,7 @@ const TeacherRegistration = () => {
       }
 
       setOrganizationInfo(data);
-      setBranches((data as any).organization_branches || []);
+      setBranches(data.organization_branches || []);
     } catch (error) {
       console.error('Token validation error:', error);
       navigate('/');
@@ -98,7 +98,7 @@ const TeacherRegistration = () => {
       const userId = authData.user.id;
 
       // 2. Обновляем профиль
-      const { error: profileError } = await (supabase.from('profiles' as any) as any)
+      const { error: profileError } = await supabase.from('profiles')
         .update({
           first_name: formData.firstName,
           last_name: formData.lastName,
@@ -111,7 +111,7 @@ const TeacherRegistration = () => {
       if (profileError) throw profileError;
 
       // 3. Назначаем роль teacher
-      const { error: roleError } = await (supabase.from('user_roles' as any) as any)
+      const { error: roleError } = await supabase.from('user_roles')
         .insert({
           user_id: userId,
           role: 'teacher',
@@ -120,7 +120,7 @@ const TeacherRegistration = () => {
       if (roleError) throw roleError;
 
       // 4. Создаем запись в teachers
-      const { error: teacherError } = await (supabase.from('teachers' as any) as any)
+      const { error: teacherError } = await supabase.from('teachers')
         .insert({
           profile_id: userId,
           first_name: formData.firstName,

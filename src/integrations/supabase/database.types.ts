@@ -521,8 +521,12 @@ export interface ClientBranch {
 export interface CourseUnit {
   id: string;
   course_id: string;
+  unit_number: number;
   title: string;
   description?: string | null;
+  vocabulary?: string | null;
+  grammar?: string | null;
+  lessons_count: number;
   sort_order: number;
   created_at: string;
 }
@@ -530,12 +534,17 @@ export interface CourseUnit {
 export interface Lesson {
   id: string;
   unit_id: string;
+  lesson_number: number;
   title: string;
   description?: string | null;
+  objectives?: string | null;
+  lesson_structure?: string | null;
+  homework?: string | null;
   duration_minutes?: number | null;
   sort_order: number;
-  materials?: Json | null;
+  materials?: Json | string | null;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface PushSubscription {
@@ -1645,6 +1654,39 @@ export interface CustomDatabase {
       get_student_by_user_id: {
         Args: { _user_id: string };
         Returns: Student | null;
+      };
+      // Sheets RPC functions
+      get_sheets: {
+        Args: Record<string, never>;
+        Returns: { id: string; name: string; slug: string; table_name: string; created_at: string }[];
+      };
+      get_sheet_columns: {
+        Args: { p_sheet_id: string };
+        Returns: { name: string; data_type: string; is_required: boolean; position: number }[];
+      };
+      get_sheet_data: {
+        Args: { p_table_name: string };
+        Returns: Json[];
+      };
+      update_sheet_cell: {
+        Args: { p_table_name: string; p_row_id: string; p_column: string; p_value: string };
+        Returns: void;
+      };
+      add_sheet_row: {
+        Args: { p_table_name: string };
+        Returns: Json[];
+      };
+      delete_sheet_rows: {
+        Args: { p_table_name: string; p_row_ids: string[] };
+        Returns: void;
+      };
+      import_sheet_rows: {
+        Args: { p_table_name: string; p_rows: Json[] };
+        Returns: Json[];
+      };
+      create_sheet: {
+        Args: { p_name: string; p_slug: string; p_columns: Json[] };
+        Returns: void;
       };
     };
     Enums: {
