@@ -2,12 +2,14 @@ import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from './useOrganization';
+import { playNotificationSound } from './useNotificationSound';
 
 /** Realtime payload for chat_messages changes */
 interface ChatMessagePayload {
   client_id: string;
   message_type?: string;
   is_outgoing?: boolean;
+  direction?: string;
 }
 
 /**
@@ -65,8 +67,14 @@ export const useOrganizationRealtimeMessages = () => {
           // Invalidate messages caches for this specific client (all implementations)
           invalidateClientMessageQueries(clientId);
 
-          // If it's a client message, update unread counts
-          if (newMsg.message_type === 'client' || !newMsg.is_outgoing) {
+          // If it's an incoming client message, play notification sound
+          const isIncoming = newMsg.direction === 'incoming' || 
+                            newMsg.message_type === 'client' || 
+                            newMsg.is_outgoing === false;
+          
+          if (isIncoming) {
+            playNotificationSound(0.5);
+            
             queryClient.invalidateQueries({
               queryKey: ['client-unread-by-messenger', clientId],
             });
