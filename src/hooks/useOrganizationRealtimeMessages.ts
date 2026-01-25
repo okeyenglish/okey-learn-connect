@@ -26,11 +26,16 @@ interface ChatMessagePayload {
 export const useOrganizationRealtimeMessages = () => {
   const queryClient = useQueryClient();
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const isSubscribedRef = useRef(false);
 
   useEffect(() => {
-    // We don't need organizationId since chat_messages doesn't have this column
-    // RLS handles the filtering on the server side
-    console.log('[useOrganizationRealtimeMessages] Setting up global chat messages channel');
+    // Prevent duplicate subscriptions
+    if (isSubscribedRef.current || channelRef.current) {
+      console.log('[OrgRealtime] Already subscribed, skipping');
+      return;
+    }
+
+    console.log('[OrgRealtime] 🔌 Setting up global chat messages channel...');
 
     const invalidateClientMessageQueries = (clientId: string) => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
@@ -151,13 +156,24 @@ export const useOrganizationRealtimeMessages = () => {
         }
       )
       .subscribe((status) => {
-        console.log('[OrgRealtime] Channel status:', status);
+        console.log('[OrgRealtime] 📡 Channel status:', status);
+        if (status === 'SUBSCRIBED') {
+          isSubscribedRef.current = true;
+          console.log('[OrgRealtime] ✅ Successfully subscribed to chat_messages realtime');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[OrgRealtime] ❌ Channel error - realtime may not work');
+          isSubscribedRef.current = false;
+        } else if (status === 'TIMED_OUT') {
+          console.error('[OrgRealtime] ⏱️ Channel timed out');
+          isSubscribedRef.current = false;
+        }
       });
 
     channelRef.current = channel;
 
     return () => {
-      console.log('[useOrganizationRealtimeMessages] Cleaning up channel');
+      console.log('[OrgRealtime] 🔌 Cleaning up channel');
+      isSubscribedRef.current = false;
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
