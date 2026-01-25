@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from './useAuth';
+import type { GlobalChatReadStatus } from '@/integrations/supabase/database.types';
 
 interface GlobalReadStatus {
   chatId: string;
@@ -66,7 +67,7 @@ export const useGlobalChatReadStatus = () => {
           (payload) => {
             console.log('Global read status change:', payload);
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-              const newStatus = payload.new as any;
+              const newStatus = payload.new as GlobalChatReadStatus;
               setGlobalReadStatuses(prev => ({
                 ...prev,
                 [newStatus.chat_id]: {
@@ -76,7 +77,7 @@ export const useGlobalChatReadStatus = () => {
                 }
               }));
             } else if (payload.eventType === 'DELETE') {
-              const oldStatus = payload.old as any;
+              const oldStatus = payload.old as GlobalChatReadStatus;
               setGlobalReadStatuses(prev => {
                 const newStatuses = { ...prev };
                 delete newStatuses[oldStatus.chat_id];

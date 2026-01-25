@@ -910,6 +910,40 @@ export interface MessengerSettings {
   updated_at: string;
 }
 
+export interface GlobalChatReadStatus {
+  id?: string;
+  chat_id: string;
+  last_read_at: string;
+  last_read_by: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface StudentHistory {
+  id: string;
+  student_id: string;
+  event_type: string;
+  event_category: string;
+  title: string;
+  description?: string | null;
+  old_value?: Json | null;
+  new_value?: Json | null;
+  changed_by?: string | null;
+  created_at: string;
+}
+
+export interface PinnedModalDB {
+  id?: string;
+  user_id: string;
+  modal_id: string;
+  modal_type: string;
+  title: string;
+  props?: Json | null;
+  is_open?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // ============ RPC функции ============
 
 export interface GetPublicScheduleResult {
@@ -1314,6 +1348,21 @@ export interface CustomDatabase {
         Row: MessengerSettings;
         Insert: Partial<MessengerSettings>;
         Update: Partial<MessengerSettings>;
+      };
+      global_chat_read_status: {
+        Row: GlobalChatReadStatus;
+        Insert: Partial<GlobalChatReadStatus>;
+        Update: Partial<GlobalChatReadStatus>;
+      };
+      student_history: {
+        Row: StudentHistory;
+        Insert: Partial<StudentHistory>;
+        Update: Partial<StudentHistory>;
+      };
+      pinned_modals: {
+        Row: PinnedModalDB;
+        Insert: Partial<PinnedModalDB>;
+        Update: Partial<PinnedModalDB>;
       };
     };
     Views: {
