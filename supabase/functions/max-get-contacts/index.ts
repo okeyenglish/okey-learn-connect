@@ -1,10 +1,12 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  corsHeaders,
+  handleCors,
+  getErrorMessage,
+  type MaxSettings,
+  type MaxGetContactsResponse,
+  type MaxContact,
+} from "../_shared/types.ts";
 
 const DEFAULT_GREEN_API_URL = 'https://api.green-api.com';
 const GREEN_API_URL =
@@ -12,15 +14,9 @@ const GREEN_API_URL =
   Deno.env.get('GREEN_API_URL') ||
   DEFAULT_GREEN_API_URL;
 
-interface MaxSettings {
-  instanceId: string;
-  apiToken: string;
-}
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -97,28 +93,30 @@ serve(async (req) => {
     const responseText = await response.text();
     console.log('Green API getContacts response length:', responseText.length);
 
-    let result;
+    let result: MaxContact[];
     try {
       result = JSON.parse(responseText);
-    } catch (e) {
+    } catch {
       return new Response(
         JSON.stringify({ error: 'Invalid API response' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    const successResponse: MaxGetContactsResponse = {
+      success: true,
+      contacts: result
+    };
+
     return new Response(
-      JSON.stringify({ 
-        success: true,
-        contacts: result
-      }),
+      JSON.stringify(successResponse),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in max-get-contacts:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: getErrorMessage(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

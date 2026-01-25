@@ -1,10 +1,12 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  corsHeaders,
+  handleCors,
+  getErrorMessage,
+  type MaxSettings,
+  type MaxDeleteMessageRequest,
+  type MaxDeleteMessageResponse,
+} from "../_shared/types.ts";
 
 const DEFAULT_GREEN_API_URL = 'https://api.green-api.com';
 const GREEN_API_URL =
@@ -12,20 +14,9 @@ const GREEN_API_URL =
   Deno.env.get('GREEN_API_URL') ||
   DEFAULT_GREEN_API_URL;
 
-interface DeleteMessageRequest {
-  messageId: string;
-  clientId: string;
-}
-
-interface MaxSettings {
-  instanceId: string;
-  apiToken: string;
-}
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -91,7 +82,7 @@ serve(async (req) => {
 
     const { instanceId, apiToken } = maxSettings;
 
-    const body: DeleteMessageRequest = await req.json();
+    const body: MaxDeleteMessageRequest = await req.json();
     const { messageId, clientId } = body;
 
     if (!messageId) {
@@ -129,12 +120,12 @@ serve(async (req) => {
       );
     }
 
-    let chatId = client.max_chat_id;
+    let chatId = client.max_chat_id as string | null;
     if (!chatId && client.max_user_id) {
       chatId = String(client.max_user_id);
     }
     if (!chatId && client.phone) {
-      const cleanPhone = client.phone.replace(/[^\d]/g, '');
+      const cleanPhone = (client.phone as string).replace(/[^\d]/g, '');
       chatId = `${cleanPhone}@c.us`;
     }
 
@@ -149,8 +140,12 @@ serve(async (req) => {
         console.error('Error updating message:', updateError);
       }
 
+      const localOnlyResponse: MaxDeleteMessageResponse = {
+        success: true,
+        localOnly: true
+      };
       return new Response(
-        JSON.stringify({ success: true, localOnly: true }),
+        JSON.stringify(localOnlyResponse),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -182,15 +177,19 @@ serve(async (req) => {
       console.error('Error updating message:', updateError);
     }
 
+    const successResponse: MaxDeleteMessageResponse = {
+      success: true
+    };
+
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify(successResponse),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in max-delete:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: getErrorMessage(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

@@ -2,12 +2,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
 import {
   corsHeaders,
   handleCors,
-  successResponse,
-  errorResponse,
   getErrorMessage,
-  type SendMessageRequest,
-  type SendMessageResponse,
-  type MessengerSettings,
+  type MaxSettings,
+  type MaxSendMessageRequest,
+  type MaxSendMessageResponse,
 } from "../_shared/types.ts";
 
 // Green API base URL for MAX (v3)
@@ -91,7 +89,7 @@ Deno.serve(async (req) => {
     const { instanceId, apiToken } = maxSettings;
 
     // Parse request body
-    const body: SendMessageRequest & { phoneId?: string } = await req.json();
+    const body: MaxSendMessageRequest = await req.json();
     const { clientId, text, fileUrl, fileName, fileType, phoneId } = body;
 
     if (!clientId || (!text && !fileUrl)) {
@@ -285,19 +283,21 @@ Deno.serve(async (req) => {
       .update({ last_message_at: new Date().toISOString() })
       .eq('id', clientId);
 
+    const response: MaxSendMessageResponse = {
+      success: true,
+      messageId,
+      savedMessageId: savedMessage?.id
+    };
+
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        messageId,
-        savedMessageId: savedMessage?.id 
-      }),
+      JSON.stringify(response),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in max-send:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: getErrorMessage(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

@@ -911,53 +911,247 @@ export type SalebotClientType = 0 | 1 | 2 | 3 | 5 | 6 | 7 | 8 | 10 | 12 | 13 | 1
 export type MessengerTypeValue = 'whatsapp' | 'telegram' | 'viber' | 'vk' | 'max' | 'instagram' | 'facebook';
 
 // ============================================================================
-// MAX (Green API v3) Webhook Types
+// MAX (Green API v3) Types - Webhooks and API Requests/Responses
 // ============================================================================
 
 /**
- * MAX message in webhook
+ * MAX settings stored in messenger_settings
  */
-export interface MaxMessage {
-  id: string;
-  chatId: string;
-  from: string;
-  to?: string;
-  body?: string;
-  type: string;
-  timestamp: number;
-  senderName?: string;
-  caption?: string;
-  mimetype?: string;
-  fileName?: string;
-  downloadUrl?: string;
+export interface MaxSettings {
+  instanceId: string;
+  apiToken: string;
+  apiUrl?: string;
+  webhookUrl?: string;
 }
 
 /**
- * MAX webhook payload
+ * MAX webhook type
+ */
+export type MaxWebhookType = 
+  | 'incomingMessageReceived' 
+  | 'outgoingMessageReceived' 
+  | 'outgoingAPIMessageReceived' 
+  | 'outgoingMessageStatus' 
+  | 'stateInstanceChanged';
+
+/**
+ * MAX webhook instance data
+ */
+export interface MaxWebhookInstanceData {
+  idInstance: number | string;
+  wid: string;
+  typeInstance?: string;
+}
+
+/**
+ * MAX webhook sender data
+ */
+export interface MaxWebhookSenderData {
+  chatId: string;
+  sender: string;
+  chatName?: string;
+  senderName?: string;
+  senderPhoneNumber?: number;
+}
+
+/**
+ * MAX webhook text message data
+ */
+export interface MaxWebhookTextMessageData {
+  textMessage: string;
+}
+
+/**
+ * MAX webhook extended text message data
+ */
+export interface MaxWebhookExtendedTextMessageData {
+  text: string;
+  description?: string;
+  title?: string;
+  jpegThumbnail?: string;
+}
+
+/**
+ * MAX webhook file message data
+ */
+export interface MaxWebhookFileMessageData {
+  downloadUrl: string;
+  caption?: string;
+  fileName?: string;
+  mimeType?: string;
+}
+
+/**
+ * MAX webhook location message data
+ */
+export interface MaxWebhookLocationMessageData {
+  latitude: number;
+  longitude: number;
+  nameLocation?: string;
+  address?: string;
+}
+
+/**
+ * MAX webhook contact message data
+ */
+export interface MaxWebhookContactMessageData {
+  displayName: string;
+  vcard: string;
+}
+
+/**
+ * MAX webhook message data
+ */
+export interface MaxWebhookMessageData {
+  typeMessage: 'textMessage' | 'extendedTextMessage' | 'imageMessage' | 'videoMessage' | 'documentMessage' | 'audioMessage' | 'locationMessage' | 'contactMessage' | 'pollMessage' | string;
+  textMessageData?: MaxWebhookTextMessageData;
+  extendedTextMessageData?: MaxWebhookExtendedTextMessageData;
+  fileMessageData?: MaxWebhookFileMessageData;
+  locationMessageData?: MaxWebhookLocationMessageData;
+  contactMessageData?: MaxWebhookContactMessageData;
+}
+
+/**
+ * MAX webhook payload (Green API v3)
  */
 export interface MaxWebhookPayload {
-  typeWebhook: string;
-  instanceData: {
-    idInstance: string;
-    wid: string;
-  };
-  timestamp: number;
+  typeWebhook: MaxWebhookType | string;
+  instanceData: MaxWebhookInstanceData;
+  timestamp?: number;
   idMessage?: string;
-  senderData?: {
-    chatId: string;
-    sender: string;
-    senderName?: string;
-  };
-  messageData?: {
-    typeMessage: string;
-    textMessageData?: { textMessage: string };
-    fileMessageData?: {
-      downloadUrl: string;
-      caption?: string;
-      fileName?: string;
-      mimeType?: string;
-    };
-  };
+  senderData?: MaxWebhookSenderData;
+  messageData?: MaxWebhookMessageData;
+  status?: string;
+  stateInstance?: string;
+}
+
+/**
+ * MAX contact from getContacts API
+ */
+export interface MaxContact {
+  id: string;
+  name?: string;
+  chatId?: string;
+  phone?: string;
+  avatar?: string;
+  type?: string;
+}
+
+// ============================================================================
+// MAX API Request/Response Types
+// ============================================================================
+
+/**
+ * MAX check availability request
+ */
+export interface MaxCheckAvailabilityRequest {
+  phoneNumber: string;
+}
+
+/**
+ * MAX check availability response
+ */
+export interface MaxCheckAvailabilityResponse extends BaseResponse {
+  existsWhatsapp: boolean;
+  chatId: string | null;
+  unavailable?: boolean;
+  reason?: string;
+}
+
+/**
+ * MAX get contacts response
+ */
+export interface MaxGetContactsResponse extends BaseResponse {
+  contacts: MaxContact[];
+}
+
+/**
+ * MAX get avatar request
+ */
+export interface MaxGetAvatarRequest {
+  clientId?: string;
+  chatId?: string;
+}
+
+/**
+ * MAX get avatar response
+ */
+export interface MaxGetAvatarResponse extends BaseResponse {
+  urlAvatar: string | null;
+  available: boolean;
+  reason?: string;
+}
+
+/**
+ * MAX get contact info request
+ */
+export interface MaxGetContactInfoRequest {
+  clientId?: string;
+  chatId?: string;
+}
+
+/**
+ * MAX get contact info response
+ */
+export interface MaxGetContactInfoResponse extends BaseResponse {
+  name?: string;
+  phone?: string;
+  email?: string;
+  about?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * MAX send message request
+ */
+export interface MaxSendMessageRequest {
+  clientId: string;
+  text?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  phoneId?: string;
+}
+
+/**
+ * MAX send message response
+ */
+export interface MaxSendMessageResponse extends BaseResponse {
+  messageId?: string;
+  idMessage?: string;
+  savedMessageId?: string;
+}
+
+/**
+ * MAX edit message request
+ */
+export interface MaxEditMessageRequest {
+  messageId: string;
+  newMessage: string;
+  clientId: string;
+}
+
+/**
+ * MAX edit message response
+ */
+export interface MaxEditMessageResponse extends BaseResponse {
+  messageId?: string;
+  localOnly?: boolean;
+}
+
+/**
+ * MAX delete message request
+ */
+export interface MaxDeleteMessageRequest {
+  messageId: string;
+  clientId: string;
+}
+
+/**
+ * MAX delete message response
+ */
+export interface MaxDeleteMessageResponse extends BaseResponse {
+  localOnly?: boolean;
 }
 
 // ============================================================================

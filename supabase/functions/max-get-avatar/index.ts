@@ -1,10 +1,12 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  corsHeaders,
+  handleCors,
+  getErrorMessage,
+  type MaxSettings,
+  type MaxGetAvatarRequest,
+  type MaxGetAvatarResponse,
+} from "../_shared/types.ts";
 
 const DEFAULT_GREEN_API_URL = 'https://api.green-api.com';
 const GREEN_API_URL =
@@ -12,20 +14,9 @@ const GREEN_API_URL =
   Deno.env.get('GREEN_API_URL') ||
   DEFAULT_GREEN_API_URL;
 
-interface GetAvatarRequest {
-  clientId?: string;
-  chatId?: string;
-}
-
-interface MaxSettings {
-  instanceId: string;
-  apiToken: string;
-}
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -89,7 +80,7 @@ serve(async (req) => {
 
     const { instanceId, apiToken } = maxSettings;
 
-    const body: GetAvatarRequest = await req.json();
+    const body: MaxGetAvatarRequest = await req.json();
     let { clientId, chatId } = body;
 
     if (!clientId && !chatId) {
@@ -108,12 +99,12 @@ serve(async (req) => {
         .single();
 
       if (client) {
-        chatId = client.max_chat_id;
+        chatId = client.max_chat_id as string | undefined;
         if (!chatId && client.max_user_id) {
           chatId = String(client.max_user_id);
         }
         if (!chatId && client.phone) {
-          const cleanPhone = client.phone.replace(/[^\d]/g, '');
+          const cleanPhone = (client.phone as string).replace(/[^\d]/g, '');
           chatId = `${cleanPhone}@c.us`;
         }
       }
@@ -121,13 +112,14 @@ serve(async (req) => {
 
     if (!chatId) {
       // Return graceful response instead of error
+      const noChatIdResponse: MaxGetAvatarResponse = {
+        success: true,
+        urlAvatar: null,
+        available: false,
+        reason: 'No chatId available'
+      };
       return new Response(
-        JSON.stringify({ 
-          success: true,
-          urlAvatar: null,
-          available: false,
-          reason: 'No chatId available'
-        }),
+        JSON.stringify(noChatIdResponse),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -149,27 +141,29 @@ serve(async (req) => {
     // Check for non-200 response or HTML error response
     if (!response.ok || responseText.includes('<html')) {
       console.log('Green API returned error or HTML, treating as unavailable');
+      const unavailableResponse: MaxGetAvatarResponse = {
+        success: true,
+        urlAvatar: null,
+        available: false,
+        reason: 'API temporarily unavailable'
+      };
       return new Response(
-        JSON.stringify({ 
-          success: true,
-          urlAvatar: null,
-          available: false,
-          reason: 'API temporarily unavailable'
-        }),
+        JSON.stringify(unavailableResponse),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    let result;
+    let result: { urlAvatar?: string; available?: boolean };
     try {
       result = JSON.parse(responseText);
-    } catch (e) {
+    } catch {
+      const parseErrorResponse: MaxGetAvatarResponse = {
+        success: true,
+        urlAvatar: null,
+        available: false
+      };
       return new Response(
-        JSON.stringify({ 
-          success: true,
-          urlAvatar: null,
-          available: false
-        }),
+        JSON.stringify(parseErrorResponse),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -193,19 +187,21 @@ serve(async (req) => {
         .eq('id', clientId);
     }
 
+    const successResponse: MaxGetAvatarResponse = {
+      success: true,
+      urlAvatar: result.urlAvatar ?? null,
+      available: result.available ?? false
+    };
+
     return new Response(
-      JSON.stringify({ 
-        success: true,
-        urlAvatar: result.urlAvatar,
-        available: result.available
-      }),
+      JSON.stringify(successResponse),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in max-get-avatar:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: getErrorMessage(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
