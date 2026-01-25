@@ -318,7 +318,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
       onQuote={onQuoteMessage}
       isDeleted={message === '[Сообщение удалено]'}
     >
-      <div className={`flex ${type === 'manager' ? 'justify-end' : 'justify-start'} ${isLastInGroup ? 'mb-4' : 'mb-1'} ${isSelectionMode ? 'hover:bg-muted/20 p-2 rounded-lg' : ''}`}>
+      <div className={`flex ${type === 'manager' ? 'justify-end' : 'justify-start'} ${isLastInGroup ? 'mb-4' : 'mb-1'} ${isSelectionMode ? 'hover:bg-muted/20 p-2 rounded-lg' : ''} animate-fade-in`}>
         <div className="flex items-start gap-3 max-w-xs lg:max-w-md xl:max-w-lg">
         {/* Чекбокс для выделения сообщений */}
         {isSelectionMode && (
