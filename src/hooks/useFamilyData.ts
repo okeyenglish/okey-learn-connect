@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/typedClient";
 
 export interface PhoneNumber {
@@ -61,7 +61,7 @@ export interface FamilyGroup {
   students: Student[];
 }
 
-// Интерфейсы для RPC-ответа
+// RPC response types
 interface RpcPhoneNumber {
   id: string;
   phone: string;
@@ -99,22 +99,23 @@ interface RpcNextLesson {
 interface RpcGroupCourse {
   group_id: string;
   group_name: string;
-  subject?: string;
+  subject: string;
   is_active: boolean;
-  next_lesson?: RpcNextLesson;
+  next_lesson?: RpcNextLesson | null;
 }
 
 interface RpcIndividualCourse {
-  id: string;
-  subject?: string;
-  price_per_lesson?: number;
+  course_id: string;
+  course_name: string;
+  subject: string;
   is_active: boolean;
-  teacher_name?: string;
+  next_lesson?: RpcNextLesson | null;
 }
 
 interface RpcStudent {
   id: string;
-  first_name?: string;
+  student_number?: string;
+  first_name: string;
   last_name?: string;
   middle_name?: string;
   date_of_birth?: string;
@@ -137,21 +138,21 @@ interface RpcResponse {
   students: RpcStudent[];
 }
 
-// Функция расчета возраста
-const calculateAge = (birthDate?: string): number => {
-  if (!birthDate) return 0;
+// Calculate age from date of birth
+const calculateAge = (dateOfBirth?: string): number => {
+  if (!dateOfBirth) return 0;
   const today = new Date();
-  const birth = new Date(birthDate);
-  let age = today.getFullYear() - birth.getFullYear();
-  const monthDiff = today.getMonth() - birth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+  const birthDate = new Date(dateOfBirth);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
     age--;
   }
   return age;
 };
 
-// Форматирование даты урока
-const formatNextLesson = (nextLesson?: RpcNextLesson): string | undefined => {
+// Format next lesson date
+const formatNextLesson = (nextLesson?: RpcNextLesson | null): string | undefined => {
   if (!nextLesson) return undefined;
   const date = new Date(nextLesson.lesson_date);
   const formattedDate = date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
@@ -159,173 +160,117 @@ const formatNextLesson = (nextLesson?: RpcNextLesson): string | undefined => {
   return `${formattedDate} в ${time}`;
 };
 
-export const useFamilyData = (familyGroupId?: string) => {
-  const [familyData, setFamilyData] = useState<FamilyGroup | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+// Transform RPC response to FamilyGroup
+const transformRpcResponse = (data: RpcResponse): FamilyGroup => {
+  const members: FamilyMember[] = (data.members || []).map((member: RpcMember) => ({
+    id: member.client_id,
+    clientNumber: member.client_number || undefined,
+    name: member.name,
+    phone: member.phone || '',
+    email: member.email || undefined,
+    branch: member.branch || undefined,
+    relationship: member.relationship_type as FamilyMember['relationship'],
+    isPrimaryContact: member.is_primary_contact,
+    unreadMessages: 0,
+    isOnline: false,
+    lastContact: undefined,
+    avatar_url: member.avatar_url || undefined,
+    phoneNumbers: (member.phone_numbers || []).map((p: RpcPhoneNumber) => ({
+      id: p.id,
+      phone: p.phone,
+      type: p.phone_type || 'mobile',
+      isWhatsappEnabled: p.is_whatsapp_enabled || false,
+      isTelegramEnabled: p.is_telegram_enabled || false,
+      isPrimary: p.is_primary || false,
+      whatsappAvatarUrl: p.whatsapp_avatar_url || undefined,
+      telegramAvatarUrl: p.telegram_avatar_url || undefined,
+      whatsappChatId: p.whatsapp_chat_id || null,
+      telegramChatId: p.telegram_chat_id || null,
+      maxChatId: p.max_chat_id || null,
+      maxAvatarUrl: p.max_avatar_url || null,
+    })),
+  }));
 
-  const fetchFamilyData = async () => {
-    if (!familyGroupId) {
-      setLoading(false);
-      return;
-    }
+  const students: Student[] = (data.students || []).map((student: RpcStudent) => {
+    const courses = [
+      ...(student.group_courses || []).map((c: RpcGroupCourse) => ({
+        id: c.group_id,
+        name: c.group_name,
+        nextLesson: formatNextLesson(c.next_lesson),
+        isActive: c.is_active,
+      })),
+      ...(student.individual_courses || []).map((c: RpcIndividualCourse) => ({
+        id: c.course_id,
+        name: c.course_name,
+        nextLesson: formatNextLesson(c.next_lesson),
+        isActive: c.is_active,
+      })),
+    ];
 
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const startTime = performance.now();
-
-      // Один RPC-запрос вместо 10+ отдельных запросов
-      const { data, error: rpcError } = await supabase
-        .rpc('get_family_data_optimized', { p_family_group_id: familyGroupId });
-
-      const endTime = performance.now();
-      console.log(`[useFamilyData] RPC completed in ${(endTime - startTime).toFixed(0)}ms`);
-
-      if (rpcError) {
-        console.error('[useFamilyData] RPC error:', rpcError);
-        throw rpcError;
-      }
-
-      if (!data) {
-        throw new Error('No data returned from RPC');
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rpcData = data as unknown as RpcResponse;
-      
-      if (!rpcData.family_group) {
-        throw new Error('Family group not found');
-      }
-
-      // Трансформация членов семьи
-      const members: FamilyMember[] = (rpcData.members || []).map((member: RpcMember) => ({
-        id: member.client_id,
-        clientNumber: member.client_number || undefined,
-        name: member.name,
-        phone: member.phone || '',
-        email: member.email || undefined,
-        branch: member.branch || undefined,
-        relationship: member.relationship_type as FamilyMember['relationship'],
-        isPrimaryContact: member.is_primary_contact,
-        unreadMessages: 0,
-        isOnline: false,
-        lastContact: undefined,
-        avatar_url: member.avatar_url || undefined,
-        phoneNumbers: (member.phone_numbers || []).map((p: RpcPhoneNumber) => ({
-          id: p.id,
-          phone: p.phone,
-          type: p.phone_type || 'mobile',
-          isWhatsappEnabled: p.is_whatsapp_enabled || false,
-          isTelegramEnabled: p.is_telegram_enabled || false,
-          isPrimary: p.is_primary || false,
-          whatsappAvatarUrl: p.whatsapp_avatar_url,
-          telegramAvatarUrl: p.telegram_avatar_url,
-          whatsappChatId: p.whatsapp_chat_id,
-          telegramChatId: p.telegram_chat_id,
-          maxChatId: p.max_chat_id,
-          maxAvatarUrl: p.max_avatar_url,
-        })),
-      }));
-
-      // Трансформация студентов
-      const students: Student[] = (rpcData.students || []).map((student: RpcStudent) => {
-        const courses: Student['courses'] = [];
-
-        // Групповые курсы
-        (student.group_courses || []).forEach((gc: RpcGroupCourse) => {
-          courses.push({
-            id: gc.group_id,
-            name: gc.group_name || gc.subject || 'Группа',
-            nextLesson: formatNextLesson(gc.next_lesson),
-            nextPayment: undefined,
-            paymentAmount: undefined,
-            isActive: gc.is_active,
-          });
-        });
-
-        // Индивидуальные курсы
-        (student.individual_courses || []).forEach((ic: RpcIndividualCourse) => {
-          courses.push({
-            id: ic.id,
-            name: `${ic.subject || 'Предмет'} (инд.)`,
-            nextLesson: undefined,
-            nextPayment: undefined,
-            paymentAmount: ic.price_per_lesson || undefined,
-            isActive: ic.is_active,
-          });
-        });
-
-        const firstName = student.first_name || '';
-        const lastName = student.last_name || '';
-        const fullName = [lastName, firstName, student.middle_name].filter(Boolean).join(' ');
-
-        return {
-          id: student.id,
-          studentNumber: undefined,
-          name: fullName || 'Без имени',
-          firstName,
-          lastName,
-          middleName: student.middle_name || '',
-          age: calculateAge(student.date_of_birth),
-          dateOfBirth: student.date_of_birth || undefined,
-          status: student.is_active ? 'active' : 'inactive',
-          notes: undefined,
-          courses,
-        };
-      });
-
-      setFamilyData({
-        id: rpcData.family_group.id,
-        name: rpcData.family_group.name,
-        members,
-        students
-      });
-
-    } catch (err) {
-      console.error('[useFamilyData] Error fetching family data:', err);
-      setError('Не удалось загрузить данные семьи');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchFamilyData();
-    
-    // Set up real-time subscription for live updates
-    if (!familyGroupId) return;
-    
-    const channel = supabase
-      .channel(`family-data-${familyGroupId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'clients'
-        },
-        () => {
-          console.log('[useFamilyData] Client data updated, refetching...');
-          fetchFamilyData();
-        }
-      )
-      .subscribe();
-    
-    return () => {
-      supabase.removeChannel(channel);
+    return {
+      id: student.id,
+      studentNumber: student.student_number || undefined,
+      name: [student.first_name, student.last_name].filter(Boolean).join(' '),
+      firstName: student.first_name,
+      lastName: student.last_name || '',
+      middleName: student.middle_name || '',
+      age: calculateAge(student.date_of_birth),
+      dateOfBirth: student.date_of_birth || undefined,
+      status: student.is_active ? 'active' : 'inactive',
+      courses,
     };
-  }, [familyGroupId]);
-
-  const refetch = () => {
-    fetchFamilyData();
-  };
+  });
 
   return {
-    familyData,
-    loading,
-    error,
-    refetch
+    id: data.family_group.id,
+    name: data.family_group.name,
+    members,
+    students,
+  };
+};
+
+// Fetch family data
+const fetchFamilyData = async (familyGroupId: string): Promise<FamilyGroup> => {
+  const startTime = performance.now();
+  
+  const { data, error } = await supabase
+    .rpc('get_family_data_optimized', { p_family_group_id: familyGroupId });
+
+  console.log(`[useFamilyData] RPC completed in ${(performance.now() - startTime).toFixed(0)}ms`);
+
+  if (error) {
+    console.error('[useFamilyData] RPC error:', error);
+    throw error;
+  }
+
+  if (!data) {
+    throw new Error('No data returned from RPC');
+  }
+
+  const rpcData = data as unknown as RpcResponse;
+  
+  if (!rpcData.family_group) {
+    throw new Error('Family group not found');
+  }
+
+  return transformRpcResponse(rpcData);
+};
+
+export const useFamilyData = (familyGroupId?: string) => {
+  const query = useQuery({
+    queryKey: ['family-data', familyGroupId],
+    queryFn: () => fetchFamilyData(familyGroupId!),
+    enabled: !!familyGroupId,
+    staleTime: 30000, // 30 seconds - data considered fresh
+    gcTime: 5 * 60 * 1000, // 5 minutes cache
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
+
+  return {
+    familyData: query.data ?? null,
+    loading: query.isLoading,
+    error: query.error?.message ?? null,
+    refetch: query.refetch,
   };
 };

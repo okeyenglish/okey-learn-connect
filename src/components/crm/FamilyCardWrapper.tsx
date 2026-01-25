@@ -4,214 +4,129 @@ import { FamilyCard } from "./FamilyCard";
 import { FamilyCardSkeleton } from "./FamilyCardSkeleton";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { normalizePhone } from "@/utils/phoneNormalization";
+import { useQuery } from "@tanstack/react-query";
 
 interface FamilyCardWrapperProps {
   clientId: string;
   onOpenChat?: (clientId: string, messengerType?: 'whatsapp' | 'telegram' | 'max') => void;
 }
 
-// Cache for family group lookups to avoid repeated queries
-const familyGroupCache = new Map<string, { groupId: string; timestamp: number }>();
-const CACHE_TTL = 60000; // 1 minute cache
+// Fetch or create family group ID for a client
+const fetchFamilyGroupId = async (clientId: string): Promise<string | null> => {
+  const startTime = performance.now();
+  
+  // Step 1: Check if client already has a family group
+  const { data: existingMember, error: memberError } = await supabase
+    .from('family_members')
+    .select('family_group_id')
+    .eq('client_id', clientId)
+    .limit(1)
+    .single();
+
+  if (!memberError && existingMember?.family_group_id) {
+    console.log(`[FamilyCardWrapper] Found existing group in ${(performance.now() - startTime).toFixed(0)}ms`);
+    return existingMember.family_group_id;
+  }
+
+  // Step 2: Get client phone to find or create group
+  const { data: client } = await supabase
+    .from('clients')
+    .select('name, first_name, last_name, phone')
+    .eq('id', clientId)
+    .single();
+
+  // Step 3: Try to find existing group by phone
+  if (client?.phone) {
+    const phoneNorm = normalizePhone(client.phone);
+    if (phoneNorm) {
+      const { data: existingGroups } = await supabase
+        .from('family_members')
+        .select(`
+          family_group_id,
+          clients!inner (phone)
+        `)
+        .eq('clients.phone', phoneNorm)
+        .limit(1);
+
+      if (existingGroups?.length && existingGroups[0].family_group_id) {
+        const groupId = existingGroups[0].family_group_id;
+        
+        // Link client to existing group
+        await supabase.from('family_members').insert({
+          family_group_id: groupId,
+          client_id: clientId,
+          relationship_type: 'parent',
+          is_primary_contact: false,
+        });
+
+        console.log(`[FamilyCardWrapper] Linked to existing group in ${(performance.now() - startTime).toFixed(0)}ms`);
+        return groupId;
+      }
+    }
+  }
+
+  // Step 4: Create new family group
+  let groupName = 'Семья клиента';
+  if (client?.last_name) {
+    groupName = `Семья ${client.last_name}`;
+  } else if (client?.name) {
+    const parts = client.name.split(' ');
+    groupName = `Семья ${parts[0] || 'клиента'}`;
+  }
+
+  const { data: group, error: groupError } = await supabase
+    .from('family_groups')
+    .insert({ name: groupName })
+    .select('id')
+    .single();
+
+  if (groupError) {
+    console.error('[FamilyCardWrapper] Error creating group:', groupError);
+    return null;
+  }
+
+  // Link client to new group
+  await supabase.from('family_members').insert({
+    family_group_id: group.id,
+    client_id: clientId,
+    relationship_type: 'main',
+    is_primary_contact: true,
+  });
+
+  // Ensure phone number exists
+  if (client?.phone) {
+    const { data: existingPhones } = await supabase
+      .from('client_phone_numbers')
+      .select('id')
+      .eq('client_id', clientId)
+      .limit(1);
+
+    if (!existingPhones?.length) {
+      await supabase.from('client_phone_numbers').insert({
+        client_id: clientId,
+        phone: client.phone,
+        is_primary: true,
+      });
+    }
+  }
+
+  console.log(`[FamilyCardWrapper] Created new group in ${(performance.now() - startTime).toFixed(0)}ms`);
+  return group.id;
+};
 
 export const FamilyCardWrapper = ({ clientId, onOpenChat }: FamilyCardWrapperProps) => {
-  const [familyGroupId, setFamilyGroupId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
-  const createAttemptedRef = useRef<string | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  // Use React Query for caching and deduplication
+  const { data: familyGroupId, isLoading, error } = useQuery({
+    queryKey: ['family-group-id', clientId],
+    queryFn: () => fetchFamilyGroupId(clientId),
+    enabled: !!clientId,
+    staleTime: 60000, // 1 minute - data considered fresh
+    gcTime: 5 * 60 * 1000, // 5 minutes cache
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
 
-  // Check cache first
-  const getCachedFamilyGroup = useCallback((cId: string): string | null => {
-    const cached = familyGroupCache.get(cId);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      return cached.groupId;
-    }
-    return null;
-  }, []);
-
-  // Set cache
-  const setCachedFamilyGroup = useCallback((cId: string, groupId: string) => {
-    familyGroupCache.set(cId, { groupId, timestamp: Date.now() });
-  }, []);
-
-  const createFamilyGroupForClient = useCallback(async (cId: string) => {
-    if (createAttemptedRef.current === cId) return null;
-    createAttemptedRef.current = cId;
-
-    try {
-      setCreating(true);
-
-      // Get client info in single query
-      const { data: client, error: clientError } = await supabase
-        .from('clients')
-        .select('name, first_name, last_name, phone')
-        .eq('id', cId)
-        .single();
-
-      if (clientError) throw clientError;
-
-      // Build group name
-      let groupName = 'Семья клиента';
-      if (client?.last_name) {
-        groupName = `Семья ${client.last_name}`;
-      } else if (client?.name) {
-        const parts = client.name.split(' ');
-        groupName = `Семья ${parts[0] || 'клиента'}`;
-      }
-
-      // Create family group and link client in parallel using transaction-like approach
-      const { data: group, error: groupError } = await supabase
-        .from('family_groups')
-        .insert({ name: groupName })
-        .select('id')
-        .single();
-
-      if (groupError) throw groupError;
-
-      // Link client to family group
-      await supabase.from('family_members').insert({
-        family_group_id: group.id,
-        client_id: cId,
-        relationship_type: 'main',
-        is_primary_contact: true,
-      });
-
-      // Ensure phone number exists (non-blocking)
-      if (client?.phone) {
-        const { data: existingPhones } = await supabase
-          .from('client_phone_numbers')
-          .select('id')
-          .eq('client_id', cId)
-          .limit(1);
-
-        if (!existingPhones?.length) {
-          await supabase.from('client_phone_numbers').insert({
-            client_id: cId,
-            phone: client.phone,
-            is_primary: true,
-          });
-        }
-      }
-      console.log('[FamilyCardWrapper] Created family group:', group.id);
-      return group.id;
-    } catch (err: unknown) {
-      console.error('[FamilyCardWrapper] Error creating family group:', err);
-      return null;
-    } finally {
-      setCreating(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    // Cancel previous request if client changes
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
-
-    const fetchOrCreateFamilyGroup = async () => {
-      if (!clientId) {
-        setLoading(false);
-        return;
-      }
-
-      // Check cache first - instant response
-      const cached = getCachedFamilyGroup(clientId);
-      if (cached) {
-        setFamilyGroupId(cached);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Single optimized query to get family group
-        const { data, error } = await supabase
-          .from('family_members')
-          .select('family_group_id, is_primary_contact')
-          .eq('client_id', clientId)
-          .order('is_primary_contact', { ascending: false })
-          .limit(1);
-
-        if (error) throw error;
-
-        if (data?.length && data[0].family_group_id) {
-          const groupId = data[0].family_group_id;
-          setCachedFamilyGroup(clientId, groupId);
-          setFamilyGroupId(groupId);
-          createAttemptedRef.current = null;
-          return;
-        }
-
-        // No family group - try to find by phone (single query)
-        const { data: client } = await supabase
-          .from('clients')
-          .select('phone')
-          .eq('id', clientId)
-          .single();
-
-        if (client?.phone) {
-          const phoneNorm = normalizePhone(client.phone);
-          if (phoneNorm) {
-            // Find existing family group by phone in one query
-            const { data: existingGroups } = await supabase
-              .from('family_members')
-              .select(`
-                family_group_id,
-                clients!inner (phone)
-              `)
-              .eq('clients.phone', phoneNorm)
-              .limit(1);
-
-            if (existingGroups?.length && existingGroups[0].family_group_id) {
-              const groupId = existingGroups[0].family_group_id;
-              
-              // Link client to existing group
-              await supabase.from('family_members').insert({
-                family_group_id: groupId,
-                client_id: clientId,
-                relationship_type: 'parent',
-                is_primary_contact: false,
-              });
-
-              setCachedFamilyGroup(clientId, groupId);
-              setFamilyGroupId(groupId);
-              createAttemptedRef.current = null;
-              return;
-            }
-          }
-        }
-
-        // No existing group found - create new
-        const newGroupId = await createFamilyGroupForClient(clientId);
-        if (newGroupId) {
-          setCachedFamilyGroup(clientId, newGroupId);
-          setFamilyGroupId(newGroupId);
-        } else {
-          setError('Не удалось создать карточку клиента');
-        }
-      } catch (err) {
-        console.error('[FamilyCardWrapper] Error:', err);
-        setError('Ошибка загрузки данных');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    setFamilyGroupId(null);
-    createAttemptedRef.current = null;
-    fetchOrCreateFamilyGroup();
-
-    return () => {
-      abortControllerRef.current?.abort();
-    };
-  }, [clientId, getCachedFamilyGroup, setCachedFamilyGroup, createFamilyGroupForClient]);
-
-  if (loading || creating) {
+  if (isLoading) {
     return <FamilyCardSkeleton />;
   }
 
@@ -219,7 +134,9 @@ export const FamilyCardWrapper = ({ clientId, onOpenChat }: FamilyCardWrapperPro
     return (
       <Card>
         <CardContent className="p-6">
-          <p className="text-center text-muted-foreground">{error || 'Ошибка загрузки'}</p>
+          <p className="text-center text-muted-foreground">
+            {error ? 'Ошибка загрузки' : 'Не удалось загрузить данные клиента'}
+          </p>
         </CardContent>
       </Card>
     );
