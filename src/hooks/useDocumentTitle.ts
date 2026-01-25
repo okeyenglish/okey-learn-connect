@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useFaviconBadge } from './useFaviconBadge';
 
 const DEFAULT_TITLE = 'AcademyOS CRM';
 
@@ -8,6 +9,9 @@ const DEFAULT_TITLE = 'AcademyOS CRM';
  */
 export const useDocumentTitle = (unreadCount: number, customTitle?: string) => {
   const previousTitle = useRef(document.title);
+  
+  // Update favicon badge with unread count
+  useFaviconBadge(unreadCount);
   
   useEffect(() => {
     const baseTitle = customTitle || DEFAULT_TITLE;
