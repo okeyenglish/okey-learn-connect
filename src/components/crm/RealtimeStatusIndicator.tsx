@@ -6,8 +6,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-
-type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'polling';
+import type { ConnectionStatus } from '@/hooks/useOrganizationRealtimeMessages';
 
 interface RealtimeStatusIndicatorProps {
   status: ConnectionStatus;
@@ -42,6 +41,12 @@ const statusConfig: Record<ConnectionStatus, {
     label: 'Режим polling (обновление каждые 10с)',
     animate: true,
   },
+  reconnecting: {
+    icon: RefreshCw,
+    color: 'text-orange-500',
+    label: 'Переподключение...',
+    animate: true,
+  },
 };
 
 export function RealtimeStatusIndicator({ status, className }: RealtimeStatusIndicatorProps) {
@@ -57,7 +62,7 @@ export function RealtimeStatusIndicator({ status, className }: RealtimeStatusInd
               className={cn(
                 'h-4 w-4',
                 config.color,
-                config.animate && status === 'polling' && 'animate-spin',
+                config.animate && (status === 'polling' || status === 'reconnecting') && 'animate-spin',
                 config.animate && status === 'connecting' && 'animate-pulse'
               )} 
             />

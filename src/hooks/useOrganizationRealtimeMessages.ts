@@ -13,12 +13,16 @@ interface ChatMessagePayload {
   message_type?: string | null;
 }
 
-type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'polling';
+export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'polling' | 'reconnecting';
 
 // Polling interval when WebSocket is unavailable (10 seconds)
 const POLLING_INTERVAL = 10000;
 // Time to wait before activating fallback polling after connection failure
 const FALLBACK_DELAY = 5000;
+// Interval for reconnection attempts (30 seconds)
+const RECONNECT_INTERVAL = 30000;
+// Max reconnection attempts before giving up temporarily
+const MAX_RECONNECT_ATTEMPTS = 10;
 
 /**
  * Optimized realtime hook that uses a SINGLE channel for all chat messages.
@@ -26,6 +30,7 @@ const FALLBACK_DELAY = 5000;
  * Features:
  * - Uses WebSocket realtime when available
  * - Falls back to polling when WebSocket fails
+ * - Automatically reconnects when connection is restored
  * - Exposes connection status for UI indicators
  * 
  * Use at CRM page level, not in individual ChatArea components.
@@ -36,7 +41,10 @@ export const useOrganizationRealtimeMessages = () => {
   const isSubscribedRef = useRef(false);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fallbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastPollTimeRef = useRef<string | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const isReconnectingRef = useRef(false);
   
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
 
@@ -148,18 +156,28 @@ export const useOrganizationRealtimeMessages = () => {
     }
   }, []);
 
-  useEffect(() => {
-    // Prevent duplicate subscriptions
-    if (isSubscribedRef.current || channelRef.current) {
-      console.log('[OrgRealtime] Already subscribed, skipping');
-      return;
+  // Stop reconnection attempts
+  const stopReconnecting = useCallback(() => {
+    if (reconnectIntervalRef.current) {
+      console.log('[OrgRealtime] ⏹️ Stopping reconnection attempts');
+      clearInterval(reconnectIntervalRef.current);
+      reconnectIntervalRef.current = null;
+    }
+    isReconnectingRef.current = false;
+  }, []);
+
+  // Create and subscribe to channel
+  const createChannel = useCallback(() => {
+    // Clean up existing channel
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
     }
 
-    console.log('[OrgRealtime] 🔌 Setting up global chat messages channel...');
+    console.log('[OrgRealtime] 🔌 Creating channel...');
 
-    // Create a single channel for all chat messages (RLS filters by user's org)
     const channel = supabase
-      .channel('global_chat_messages')
+      .channel('global_chat_messages_' + Date.now()) // Unique name to avoid conflicts
       .on(
         'postgres_changes',
         {
@@ -173,18 +191,15 @@ export const useOrganizationRealtimeMessages = () => {
           
           console.log('[OrgRealtime] New message for client:', clientId);
 
-          // Invalidate messages caches for this specific client (all implementations)
           if (clientId) {
             invalidateClientMessageQueries(clientId);
           }
 
-          // If it's an incoming client message, play notification sound
           const isIncoming = newMsg.direction === 'incoming';
           
           if (isIncoming) {
             playNotificationSound(0.5);
             
-            // Show browser notification when tab is inactive
             const messagePreview = newMsg.content 
               ? (newMsg.content.length > 50 ? newMsg.content.substring(0, 50) + '...' : newMsg.content)
               : 'Новое сообщение';
@@ -193,9 +208,6 @@ export const useOrganizationRealtimeMessages = () => {
               title: 'Новое сообщение',
               body: messagePreview,
               tag: `chat-${clientId || 'unknown'}`,
-              onClick: () => {
-                // Focus will happen automatically
-              },
             });
             
             if (clientId) {
@@ -205,7 +217,6 @@ export const useOrganizationRealtimeMessages = () => {
             }
           }
 
-          // Always update chat threads lists for new messages
           invalidateThreadsQueries();
         }
       )
@@ -222,17 +233,13 @@ export const useOrganizationRealtimeMessages = () => {
           
           console.log('[OrgRealtime] Message updated for client:', clientId);
           
-          // Invalidate messages caches for this specific client
           if (clientId) {
             invalidateClientMessageQueries(clientId);
-
-            // Update unread counts (message might have been marked as read)
             queryClient.invalidateQueries({
               queryKey: ['client-unread-by-messenger', clientId],
             });
           }
 
-          // Message update can also affect last message preview / ordering
           invalidateThreadsQueries();
         }
       )
@@ -249,12 +256,10 @@ export const useOrganizationRealtimeMessages = () => {
           
           console.log('[OrgRealtime] Message deleted for client:', clientId);
           
-          // Invalidate messages caches for this specific client
           if (clientId) {
             invalidateClientMessageQueries(clientId);
           }
 
-          // Update chat threads lists (delete can change last message)
           invalidateThreadsQueries();
         }
       )
@@ -263,42 +268,132 @@ export const useOrganizationRealtimeMessages = () => {
         
         if (status === 'SUBSCRIBED') {
           isSubscribedRef.current = true;
+          reconnectAttemptsRef.current = 0;
           setConnectionStatus('connected');
-          stopPolling(); // Stop polling if websocket connects
+          stopPolling();
+          stopReconnecting();
           console.log('[OrgRealtime] ✅ Successfully subscribed to chat_messages realtime');
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('[OrgRealtime] ❌ Channel error - activating fallback polling');
+          console.error('[OrgRealtime] ❌ Channel error');
           isSubscribedRef.current = false;
-          setConnectionStatus('disconnected');
-          
-          // Activate polling fallback after delay
-          fallbackTimeoutRef.current = setTimeout(startPolling, FALLBACK_DELAY);
+          handleConnectionFailure();
         } else if (status === 'TIMED_OUT') {
-          console.error('[OrgRealtime] ⏱️ Channel timed out - activating fallback polling');
+          console.error('[OrgRealtime] ⏱️ Channel timed out');
           isSubscribedRef.current = false;
-          setConnectionStatus('disconnected');
-          
-          // Activate polling fallback after delay
-          fallbackTimeoutRef.current = setTimeout(startPolling, FALLBACK_DELAY);
+          handleConnectionFailure();
         } else if (status === 'CLOSED') {
           console.warn('[OrgRealtime] 🔒 Channel closed');
           isSubscribedRef.current = false;
-          setConnectionStatus('disconnected');
+          // Don't trigger reconnect for intentional close
         }
       });
 
     channelRef.current = channel;
+    return channel;
+  }, [queryClient, invalidateClientMessageQueries, invalidateThreadsQueries, stopPolling, stopReconnecting]);
 
+  // Handle connection failure - start polling and schedule reconnection
+  const handleConnectionFailure = useCallback(() => {
+    setConnectionStatus('disconnected');
+    
+    // Start polling fallback after delay
+    if (!pollingIntervalRef.current) {
+      fallbackTimeoutRef.current = setTimeout(startPolling, FALLBACK_DELAY);
+    }
+    
+    // Start reconnection attempts if not already running
+    if (!reconnectIntervalRef.current && !isReconnectingRef.current) {
+      console.log('[OrgRealtime] 🔄 Scheduling reconnection attempts every', RECONNECT_INTERVAL / 1000, 's');
+      
+      reconnectIntervalRef.current = setInterval(() => {
+        if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+          console.log('[OrgRealtime] ⚠️ Max reconnect attempts reached, will keep polling');
+          stopReconnecting();
+          return;
+        }
+
+        reconnectAttemptsRef.current++;
+        console.log('[OrgRealtime] 🔄 Reconnection attempt', reconnectAttemptsRef.current, '/', MAX_RECONNECT_ATTEMPTS);
+        setConnectionStatus('reconnecting');
+        isReconnectingRef.current = true;
+        
+        // Try to create new channel
+        createChannel();
+      }, RECONNECT_INTERVAL);
+    }
+  }, [startPolling, stopReconnecting, createChannel]);
+
+  // Initial setup
+  useEffect(() => {
+    // Prevent duplicate subscriptions
+    if (isSubscribedRef.current || channelRef.current) {
+      console.log('[OrgRealtime] Already subscribed, skipping');
+      return;
+    }
+
+    console.log('[OrgRealtime] 🔌 Setting up global chat messages channel...');
+    createChannel();
+
+    // Cleanup on unmount
     return () => {
       console.log('[OrgRealtime] 🔌 Cleaning up channel');
       isSubscribedRef.current = false;
       stopPolling();
+      stopReconnecting();
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
-  }, [queryClient, invalidateClientMessageQueries, invalidateThreadsQueries, startPolling, stopPolling]);
+  }, [createChannel, stopPolling, stopReconnecting]);
+
+  // Listen for online/offline events to trigger reconnection
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('[OrgRealtime] 🌐 Browser is online, attempting reconnection...');
+      if (!isSubscribedRef.current) {
+        reconnectAttemptsRef.current = 0; // Reset attempts on network restore
+        setConnectionStatus('reconnecting');
+        createChannel();
+      }
+    };
+
+    const handleOffline = () => {
+      console.log('[OrgRealtime] 📴 Browser is offline');
+      setConnectionStatus('disconnected');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [createChannel]);
+
+  // Listen for visibility change to reconnect when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && !isSubscribedRef.current) {
+        console.log('[OrgRealtime] 👁️ Tab visible, checking connection...');
+        // Give a small delay before attempting reconnection
+        setTimeout(() => {
+          if (!isSubscribedRef.current) {
+            reconnectAttemptsRef.current = 0;
+            setConnectionStatus('reconnecting');
+            createChannel();
+          }
+        }, 1000);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [createChannel]);
 
   return { connectionStatus };
 };
