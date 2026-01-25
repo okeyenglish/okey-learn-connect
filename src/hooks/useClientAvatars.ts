@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface AvatarCache {
   whatsapp?: string | null;
@@ -22,6 +23,7 @@ export interface ClientAvatars {
 }
 
 export const useClientAvatars = (clientId: string | null) => {
+  const queryClient = useQueryClient();
   const [avatars, setAvatars] = useState<ClientAvatars>({
     whatsapp: null,
     telegram: null,
@@ -134,7 +136,16 @@ export const useClientAvatars = (clientId: string | null) => {
           .from('clients')
           .update({ [updateField]: avatarUrl })
           .eq('id', clientId)
-          .then(() => {});
+          .then(() => {
+            // Force UI refresh: chat list (threads RPC) + client card queries
+            queryClient.invalidateQueries({ queryKey: ['clients'] });
+            queryClient.invalidateQueries({ queryKey: ['client', clientId] });
+            queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
+            queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
+            // legacy keys (safe no-op if unused)
+            queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+          })
+          .catch(() => {});
 
         return avatarUrl;
       }
@@ -142,7 +153,7 @@ export const useClientAvatars = (clientId: string | null) => {
       console.error(`Error fetching ${messenger} avatar:`, error);
     }
     return null;
-  }, [clientId]);
+  }, [clientId, queryClient]);
 
   // Clear cache for client (e.g., on client change)
   const clearCache = useCallback(() => {
