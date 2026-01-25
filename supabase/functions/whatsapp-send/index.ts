@@ -3,15 +3,23 @@ import {
   corsHeaders,
   handleCors,
   getErrorMessage,
-  type SendMessageRequest,
+  type WhatsAppSendRequest,
+  type WhatsAppSendResponse,
   type MessengerSettings,
-  type InstanceState,
 } from '../_shared/types.ts';
 
 interface GreenAPIResponse {
   idMessage?: string;
   error?: string;
   message?: string;
+}
+
+interface InstanceStateResponse {
+  stateInstance?: string;
+  state?: string;
+  status?: string;
+  error?: string;
+  raw?: string;
 }
 
 Deno.serve(async (req) => {
@@ -24,7 +32,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const payload = await req.json().catch(() => ({} as any));
+    const payload = await req.json().catch(() => ({} as Record<string, unknown>));
 
     // Get user from auth header for authenticated requests
     const authHeader = req.headers.get('Authorization');
@@ -42,7 +50,7 @@ Deno.serve(async (req) => {
           .eq('id', user.id)
           .single();
         
-        organizationId = profile?.organization_id;
+        organizationId = profile?.organization_id as string | null;
       }
     }
 
@@ -75,7 +83,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      const settings = messengerSettings.settings as any;
+      const settings = messengerSettings.settings as MessengerSettings;
       const greenApiUrl = settings.apiUrl || 'https://api.green-api.com';
       const greenApiIdInstance = settings.instanceId;
       const greenApiToken = settings.apiToken;
@@ -112,14 +120,14 @@ Deno.serve(async (req) => {
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
-      } catch (e: any) {
-        return new Response(JSON.stringify({ success: false, error: e?.message }), {
+      } catch (e: unknown) {
+        return new Response(JSON.stringify({ success: false, error: getErrorMessage(e) }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
     }
 
-    const { clientId, message, phoneNumber, fileUrl, fileName, phoneId } = payload as SendMessageRequest;
+    const { clientId, message, phoneNumber, fileUrl, fileName, phoneId } = payload as WhatsAppSendRequest;
     
     // Validate clientId before proceeding
     if (!clientId) {
@@ -146,7 +154,7 @@ Deno.serve(async (req) => {
     }
 
     // Use client's organization_id
-    organizationId = client.organization_id;
+    organizationId = client.organization_id as string;
 
     // Get WhatsApp settings from messenger_settings (per-organization)
     const { data: messengerSettings, error: settingsError } = await supabase
@@ -165,7 +173,7 @@ Deno.serve(async (req) => {
       throw new Error('WhatsApp integration not configured or disabled for this organization');
     }
 
-    const settings = messengerSettings.settings as any;
+    const settings = messengerSettings.settings as MessengerSettings;
     const greenApiUrl = settings.apiUrl || 'https://api.green-api.com';
     const greenApiIdInstance = settings.instanceId;
     const greenApiToken = settings.apiToken;
@@ -184,12 +192,12 @@ Deno.serve(async (req) => {
         .select('whatsapp_chat_id, phone')
         .eq('id', phoneId)
         .eq('client_id', clientId)
-        .single();
+        .maybeSingle();
       
       if (phoneRecord) {
-        chatId = phoneRecord.whatsapp_chat_id;
+        chatId = phoneRecord.whatsapp_chat_id as string | null;
         if (!chatId && phoneRecord.phone) {
-          const cleanPhone = phoneRecord.phone.replace(/[^\d]/g, '');
+          const cleanPhone = (phoneRecord.phone as string).replace(/[^\d]/g, '');
           chatId = `${cleanPhone}@c.us`;
         }
         console.log('Using specified phone:', phoneId, 'chatId:', chatId);
@@ -203,12 +211,12 @@ Deno.serve(async (req) => {
         .select('whatsapp_chat_id, phone')
         .eq('client_id', clientId)
         .eq('is_primary', true)
-        .single();
+        .maybeSingle();
       
       if (primaryPhone) {
-        chatId = primaryPhone.whatsapp_chat_id;
+        chatId = primaryPhone.whatsapp_chat_id as string | null;
         if (!chatId && primaryPhone.phone) {
-          const cleanPhone = primaryPhone.phone.replace(/[^\d]/g, '');
+          const cleanPhone = (primaryPhone.phone as string).replace(/[^\d]/g, '');
           chatId = `${cleanPhone}@c.us`;
         }
         console.log('Using primary phone chatId:', chatId);
@@ -217,12 +225,12 @@ Deno.serve(async (req) => {
     
     // Priority 3: Fall back to client's whatsapp_chat_id (backward compatibility)
     if (!chatId) {
-      chatId = client.whatsapp_chat_id;
+      chatId = client.whatsapp_chat_id as string | null;
     }
     
     // Priority 4: Use provided phone number or client phone
     if (!chatId) {
-      let phone = phoneNumber || client.phone;
+      let phone = phoneNumber || (client.phone as string | undefined);
       
       // Если номера нет, ищем в client_phone_numbers
       if (!phone) {
@@ -232,7 +240,7 @@ Deno.serve(async (req) => {
           .eq('client_id', clientId)
           .eq('is_whatsapp_enabled', true)
           .limit(1)
-          .single();
+          .maybeSingle();
         
         if (!phoneNumbers?.phone) {
           // Пробуем получить любой номер
@@ -241,11 +249,11 @@ Deno.serve(async (req) => {
             .select('phone')
             .eq('client_id', clientId)
             .limit(1)
-            .single();
+            .maybeSingle();
           
-          phone = anyPhone?.phone;
+          phone = anyPhone?.phone as string | undefined;
         } else {
-          phone = phoneNumbers.phone;
+          phone = phoneNumbers.phone as string;
         }
       }
       
@@ -310,21 +318,27 @@ Deno.serve(async (req) => {
       })
       .eq('id', clientId);
 
-    return new Response(JSON.stringify({
+    const response: WhatsAppSendResponse = {
       success: !greenApiResponse.error,
       messageId: greenApiResponse.idMessage,
-      savedMessage,
-      error: greenApiResponse.error
-    }), {
+      idMessage: greenApiResponse.idMessage,
+      savedMessageId: savedMessage?.id
+    };
+
+    if (greenApiResponse.error) {
+      response.error = greenApiResponse.error;
+    }
+
+    return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error sending message:', error);
     
     return new Response(JSON.stringify({ 
       success: false,
-      error: (error as any)?.message ?? 'Server error' 
+      error: getErrorMessage(error)
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -337,7 +351,7 @@ async function sendTextMessage(
   instanceId: string,
   apiToken: string,
   chatId: string,
-  message: string
+  message?: string
 ): Promise<GreenAPIResponse> {
   const url = `${apiUrl}/waInstance${instanceId}/sendMessage/${apiToken}`;
   
@@ -355,11 +369,11 @@ async function sendTextMessage(
   });
 
   const text = await response.text();
-  let result: any;
+  let result: GreenAPIResponse;
   
   try {
     result = JSON.parse(text);
-  } catch (e) {
+  } catch {
     console.error('Green-API returned non-JSON response:', text.substring(0, 200));
     return { error: `Invalid API response: ${text.substring(0, 100)}` };
   }
@@ -399,11 +413,11 @@ async function sendFileMessage(
   });
 
   const text = await response.text();
-  let result: any;
+  let result: GreenAPIResponse;
   
   try {
     result = JSON.parse(text);
-  } catch (e) {
+  } catch {
     console.error('Green-API returned non-JSON response:', text.substring(0, 200));
     return { error: `Invalid API response: ${text.substring(0, 100)}` };
   }
@@ -440,13 +454,17 @@ function getFileTypeFromUrl(url: string): string | null {
   }
 }
 
-async function getInstanceState(apiUrl: string, instanceId: string, apiToken: string): Promise<any> {
+async function getInstanceState(
+  apiUrl: string, 
+  instanceId: string, 
+  apiToken: string
+): Promise<InstanceStateResponse> {
   const url = `${apiUrl}/waInstance${instanceId}/getStateInstance/${apiToken}`;
   
   const response = await fetch(url);
   const text = await response.text();
   try {
-    return JSON.parse(text);
+    return JSON.parse(text) as InstanceStateResponse;
   } catch {
     // Возвращаем "сырое" тело, чтобы увидеть, что именно прислал Green-API
     return { raw: text, error: 'NON_JSON_RESPONSE' };
