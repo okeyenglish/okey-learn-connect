@@ -105,7 +105,7 @@ export default function Auth() {
 
       if (data.user) {
         // Получаем роль пользователя с приоритетом
-        const { data: roleData, error: roleError } = await (supabase.rpc as any)(
+        const { data: roleData, error: roleError } = await supabase.rpc(
           'get_user_role', { _user_id: data.user.id });
 
         console.log('User role:', roleData, 'Error:', roleError);

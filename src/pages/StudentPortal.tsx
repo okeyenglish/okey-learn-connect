@@ -28,14 +28,14 @@ export default function StudentPortal() {
     queryKey: ['student-by-user', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-      const { data, error } = await (supabase.rpc as any)('get_student_by_user_id', {
+      const { data, error } = await supabase.rpc('get_student_by_user_id', {
         _user_id: user.id
       });
       if (error) {
         console.error('Error fetching student:', error);
         return null;
       }
-      return (data as any[])?.[0] || null;
+      return data as any;
     },
     enabled: !!user?.id,
   });
@@ -46,7 +46,8 @@ export default function StudentPortal() {
     queryFn: async () => {
       if (!student?.id) return [];
       
-      const { data: studentSessions, error } = await (supabase.from('student_lesson_sessions' as any) as any)
+      const { data: studentSessions, error } = await supabase
+        .from('student_lesson_sessions')
         .select(`
           lesson_session_id,
           attendance_status,
@@ -60,7 +61,7 @@ export default function StudentPortal() {
             status,
             branch,
             notes,
-            group_id,
+            learning_group_id,
             learning_groups (
               id,
               name,
@@ -68,13 +69,11 @@ export default function StudentPortal() {
             )
           )
         `)
-        .eq('student_id', student.id)
-        .gte('lesson_sessions.lesson_date', new Date().toISOString().split('T')[0])
-        .order('lesson_sessions(lesson_date)', { ascending: true });
+        .eq('student_id', student.id);
       
       if (error) throw error;
       
-      return studentSessions?.map(s => ({
+      return studentSessions?.map((s: any) => ({
         ...s.lesson_sessions,
         attendance_status: s.attendance_status,
         group: s.lesson_sessions?.learning_groups
