@@ -39,8 +39,8 @@ export const usePinnedChatThreads = (
       const results = await Promise.all(
         chunks.map(async (chunk) => {
           try {
-            const { data, error } = await (supabase
-              .rpc as any)('get_chat_threads_by_client_ids', { p_client_ids: chunk });
+            const { data, error } = await supabase
+              .rpc('get_chat_threads_by_client_ids' as any, { p_client_ids: chunk });
 
             if (error) {
               console.error('[usePinnedChatThreads] RPC failed for chunk, using fallback:', error);
@@ -73,8 +73,8 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
   console.log('[usePinnedChatThreads] fetchThreadsDirectly called for:', clientIds);
 
   // Fetch clients with their phone numbers
-  const { data: clients, error: clientsError } = await (supabase
-    .from('clients' as any) as any)
+  const { data: clients, error: clientsError } = await supabase
+    .from('clients')
     .select(`
       id,
       name,
@@ -101,8 +101,8 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
   console.log('[usePinnedChatThreads] Fetched clients:', clients?.length || 0);
 
   // Fetch last message for each client
-  const { data: messages, error: messagesError } = await (supabase
-    .from('chat_messages' as any) as any)
+  const { data: messages, error: messagesError } = await supabase
+    .from('chat_messages')
     .select('client_id, message_text, created_at, is_read, messenger_type, message_type')
     .in('client_id', clientIds)
     .order('created_at', { ascending: false })

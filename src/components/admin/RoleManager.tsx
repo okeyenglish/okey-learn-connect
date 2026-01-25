@@ -48,7 +48,7 @@ import { AddUserModal } from './AddUserModal';
 import { useRoles } from '@/hooks/useRoles';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
-type AppRole = 'admin' | 'branch_manager' | 'methodist' | 'head_teacher' | 'sales_manager' | 'marketing_manager' | 'manager' | 'accountant' | 'receptionist' | 'support' | 'teacher' | 'student' | 'parent';
+import type { AppRole } from '@/integrations/supabase/database.types';
 
 interface UserWithRoles {
   id: string;

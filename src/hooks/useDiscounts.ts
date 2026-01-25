@@ -1,35 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
+import type { DiscountSurcharge, StudentDiscountSurcharge } from "@/integrations/supabase/database.types";
 
-export interface DiscountSurcharge {
-  id: string;
-  name: string;
-  type: 'discount' | 'surcharge';
-  value_type: 'fixed' | 'percent';
-  value: number;
-  description?: string;
-  is_permanent: boolean;
-  is_active: boolean;
-  auto_apply: boolean;
-  apply_priority: number;
-  created_at: string;
-  updated_at: string;
-}
+export type { DiscountSurcharge };
 
-export interface StudentDiscount {
-  id: string;
-  student_id: string;
-  discount_surcharge_id: string;
-  is_permanent: boolean;
-  times_used: number;
-  max_uses?: number;
-  valid_from?: string;
-  valid_until?: string;
-  notes?: string;
-  created_by?: string;
-  created_at: string;
-  updated_at: string;
+export interface StudentDiscount extends StudentDiscountSurcharge {
   discount?: DiscountSurcharge;
 }
 
@@ -53,7 +29,7 @@ export const useDiscountsSurcharges = (type?: 'discount' | 'surcharge') => {
     queryKey: ['discounts-surcharges', type],
     queryFn: async () => {
       let query = supabase
-        .from('discounts_surcharges' as any)
+        .from('discounts_surcharges')
         .select('*')
         .eq('is_active', true);
 
@@ -64,7 +40,7 @@ export const useDiscountsSurcharges = (type?: 'discount' | 'surcharge') => {
       const { data, error } = await query.order('apply_priority', { ascending: true });
 
       if (error) throw error;
-      return (data || []) as any as DiscountSurcharge[];
+      return (data || []) as DiscountSurcharge[];
     },
   });
 };
@@ -77,7 +53,7 @@ export const useStudentDiscounts = (studentId?: string) => {
       if (!studentId) return [];
       
       const { data, error } = await supabase
-        .from('student_discounts_surcharges' as any)
+        .from('student_discounts_surcharges')
         .select(`
           *,
           discount:discounts_surcharges(*)
@@ -85,7 +61,7 @@ export const useStudentDiscounts = (studentId?: string) => {
         .eq('student_id', studentId);
 
       if (error) throw error;
-      return (data || []) as any as StudentDiscount[];
+      return (data || []) as StudentDiscount[];
     },
     enabled: !!studentId,
   });
@@ -99,7 +75,7 @@ export const useCreateDiscount = () => {
   return useMutation({
     mutationFn: async (discount: Partial<DiscountSurcharge>) => {
       const { data, error } = await supabase
-        .from('discounts_surcharges' as any)
+        .from('discounts_surcharges')
         .insert(discount)
         .select()
         .single();
@@ -114,7 +90,7 @@ export const useCreateDiscount = () => {
         description: "Скидка/доплата создана",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось создать скидку/доплату",
@@ -132,7 +108,7 @@ export const useUpdateDiscount = () => {
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<DiscountSurcharge> }) => {
       const { data, error } = await supabase
-        .from('discounts_surcharges' as any)
+        .from('discounts_surcharges')
         .update(updates)
         .eq('id', id)
         .select()
@@ -148,7 +124,7 @@ export const useUpdateDiscount = () => {
         description: "Скидка/доплата обновлена",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось обновить скидку/доплату",
@@ -201,7 +177,7 @@ export const useApplyDiscountToStudent = () => {
         description: "Скидка применена к студенту",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось применить скидку",
@@ -219,7 +195,7 @@ export const useRemoveStudentDiscount = () => {
   return useMutation({
     mutationFn: async ({ id, studentId }: { id: string; studentId: string }) => {
       const { error } = await supabase
-        .from('student_discounts_surcharges' as any)
+        .from('student_discounts_surcharges')
         .delete()
         .eq('id', id);
 
@@ -233,7 +209,7 @@ export const useRemoveStudentDiscount = () => {
         description: "Скидка удалена",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось удалить скидку",

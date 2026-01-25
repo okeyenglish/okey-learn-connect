@@ -47,7 +47,7 @@ export const TeacherLayout = ({ children }: TeacherLayoutProps) => {
       
       console.log('[TeacherLayout] Fetching teacher for profile:', profile.id);
       
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('teachers')
         .select('*')
         .eq('profile_id', profile.id)

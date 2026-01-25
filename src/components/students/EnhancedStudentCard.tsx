@@ -537,7 +537,7 @@ export function EnhancedStudentCard({
     }
     
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('students')
         .update({ status: newStatus })
         .eq('id', student.id);
@@ -559,7 +559,7 @@ export function EnhancedStudentCard({
     }
 
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('students')
         .update({ 
           status: 'archived' as const,
@@ -582,7 +582,7 @@ export function EnhancedStudentCard({
 
   const handleToggleLK = async (enabled: boolean) => {
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('students')
         .update({ lk_enabled: enabled })
         .eq('id', student.id);

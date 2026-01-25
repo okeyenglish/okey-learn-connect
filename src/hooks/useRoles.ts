@@ -1,14 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
-
-type AppRole = 'admin' | 'branch_manager' | 'methodist' | 'head_teacher' | 'sales_manager' | 'marketing_manager' | 'manager' | 'accountant' | 'receptionist' | 'support' | 'teacher' | 'student' | 'parent';
-
-interface UserRole {
-  id: string;
-  user_id: string;
-  role: AppRole;
-}
+import type { AppRole, RolePermission, UserRole } from '@/integrations/supabase/database.types';
 
 interface UserWithRoles {
   id: string;
@@ -18,17 +11,6 @@ interface UserWithRoles {
   phone: string | null;
   branch: string | null;
   roles: AppRole[];
-}
-
-interface RolePermission {
-  id: string;
-  role: AppRole;
-  permission: string;
-  resource: string;
-  can_create: boolean;
-  can_read: boolean;
-  can_update: boolean;
-  can_delete: boolean;
 }
 
 export const useRoles = () => {
@@ -41,8 +23,8 @@ export const useRoles = () => {
   const fetchUserRoles = async () => {
     try {
       setLoading(true);
-      const { data, error } = await (supabase
-        .from('user_roles' as any) as any)
+      const { data, error } = await supabase
+        .from('user_roles')
         .select('*');
       
       if (error) throw error;
@@ -63,8 +45,8 @@ export const useRoles = () => {
   const fetchRolePermissions = async () => {
     try {
       setLoading(true);
-      const { data, error } = await (supabase
-        .from('role_permissions' as any) as any)
+      const { data, error } = await supabase
+        .from('role_permissions')
         .select('*')
         .order('role', { ascending: true })
         .order('resource', { ascending: true });
@@ -121,14 +103,14 @@ export const useRoles = () => {
       console.log('Assigning role:', { userId, role });
       
       // Проверяем, есть ли уже такая роль у пользователя
-      const { data: existingRole, error: checkError } = await (supabase
-        .from('user_roles' as any) as any)
+      const { data: existingRole, error: checkError } = await supabase
+        .from('user_roles')
         .select('id')
         .eq('user_id', userId)
         .eq('role', role)
-        .single();
+        .maybeSingle();
       
-      if (checkError && checkError.code !== 'PGRST116') {
+      if (checkError) {
         throw checkError;
       }
       
@@ -141,8 +123,8 @@ export const useRoles = () => {
         return false;
       }
       
-      const { error } = await (supabase
-        .from('user_roles' as any) as any)
+      const { error } = await supabase
+        .from('user_roles')
         .insert({ user_id: userId, role });
       
       if (error) {
@@ -179,8 +161,8 @@ export const useRoles = () => {
   // Отозвать роль у пользователя
   const revokeRole = async (userId: string, role: AppRole) => {
     try {
-      const { error } = await (supabase
-        .from('user_roles' as any) as any)
+      const { error } = await supabase
+        .from('user_roles')
         .delete()
         .eq('user_id', userId)
         .eq('role', role);
@@ -207,7 +189,7 @@ export const useRoles = () => {
 
   // Получить отображаемое имя роли
   const getRoleDisplayName = (role: AppRole): string => {
-    const roleNames: Record<AppRole, string> = {
+    const roleNames: Record<string, string> = {
       'admin': 'Администратор',
       'branch_manager': 'Управляющий филиалом',
       'methodist': 'Методист',
@@ -228,7 +210,7 @@ export const useRoles = () => {
 
   // Получить описание роли
   const getRoleDescription = (role: AppRole): string => {
-    const descriptions: Record<AppRole, string> = {
+    const descriptions: Record<string, string> = {
       'admin': 'Полный доступ ко всем функциям системы',
       'branch_manager': 'Управление филиалом, расписанием и сотрудниками',
       'methodist': 'Управление учебным процессом и методическими материалами',
@@ -250,7 +232,7 @@ export const useRoles = () => {
   const availableRoles: AppRole[] = [
     'admin', 'branch_manager', 'methodist', 'head_teacher', 
     'sales_manager', 'marketing_manager', 'manager', 'accountant', 
-    'receptionist', 'support', 'teacher', 'student', 'parent'
+    'receptionist', 'support', 'teacher', 'student'
   ];
 
   useEffect(() => {

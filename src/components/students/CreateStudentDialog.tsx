@@ -212,7 +212,7 @@ export function CreateStudentDialog({ open, onOpenChange }: CreateStudentDialogP
 
       // Создаем ученика
       const fullName = `${data.lastName} ${data.firstName} ${data.middleName || ''}`.trim();
-      const { data: student, error: studentErr } = await (supabase as any)
+      const { data: student, error: studentErr } = await supabase
         .from('students')
         .insert([{
           name: fullName,
@@ -238,7 +238,7 @@ export function CreateStudentDialog({ open, onOpenChange }: CreateStudentDialogP
       if (avatarFile && student?.id) {
         const avatarUrl = await uploadAvatar(student.id);
         if (avatarUrl) {
-          await (supabase as any)
+          await supabase
             .from('students')
             .update({ avatar_url: avatarUrl })
             .eq('id', student.id);

@@ -24,7 +24,7 @@ export const useMax = () => {
   const getMaxSettings = useCallback(async (): Promise<MaxSettings | null> => {
     try {
       const { data, error } = await supabase
-        .from('messenger_settings' as any)
+        .from('messenger_settings')
         .select('*')
         .eq('messenger_type', 'max')
         .maybeSingle();

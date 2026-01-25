@@ -11,8 +11,8 @@ export const useTeacherWorkload = (teacherName: string) => {
       const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
 
       // Получаем группы преподавателя
-      const { data: groups, error: groupsError } = await (supabase
-        .from('learning_groups' as any) as any)
+      const { data: groups, error: groupsError } = await supabase
+        .from('learning_groups')
         .select('id')
         .eq('responsible_teacher', teacherName)
         .eq('is_active', true);
@@ -20,8 +20,8 @@ export const useTeacherWorkload = (teacherName: string) => {
       if (groupsError) throw groupsError;
 
       // Получаем индивидуальные занятия
-      const { data: individualLessons, error: individualError } = await (supabase
-        .from('individual_lessons' as any) as any)
+      const { data: individualLessons, error: individualError } = await supabase
+        .from('individual_lessons')
         .select('id')
         .eq('teacher_name', teacherName)
         .eq('is_active', true);
@@ -29,8 +29,8 @@ export const useTeacherWorkload = (teacherName: string) => {
       if (individualError) throw individualError;
 
       // Получаем занятия на эту неделю
-      const { data: weekSessions, error: sessionsError } = await (supabase
-        .from('lesson_sessions' as any) as any)
+      const { data: weekSessions, error: sessionsError } = await supabase
+        .from('lesson_sessions')
         .select('id, start_time, end_time')
         .eq('teacher_name', teacherName)
         .gte('lesson_date', format(weekStart, 'yyyy-MM-dd'))
@@ -65,8 +65,8 @@ export const useTeacherLessonsHistory = (teacherName: string, months: number = 6
       const now = new Date();
       const startDate = new Date(now.getFullYear(), now.getMonth() - months, 1);
 
-      const { data, error } = await (supabase
-        .from('lesson_sessions' as any) as any)
+      const { data, error } = await supabase
+        .from('lesson_sessions')
         .select('lesson_date, status, start_time, end_time')
         .eq('teacher_name', teacherName)
         .gte('lesson_date', format(startDate, 'yyyy-MM-dd'))
