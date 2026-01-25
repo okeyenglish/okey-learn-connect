@@ -36,8 +36,11 @@ export async function getInvokeErrorMessage(err: unknown): Promise<string> {
   if (err instanceof FunctionsRelayError) return err.message;
   if (err instanceof FunctionsFetchError) return err.message;
 
-  const anyErr = err as any;
-  if (typeof anyErr?.message === "string") return anyErr.message;
+  // Type guard for objects with message property
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    const errWithMessage = err as { message: unknown };
+    if (typeof errWithMessage.message === "string") return errWithMessage.message;
+  }
 
   try {
     return JSON.stringify(err);
