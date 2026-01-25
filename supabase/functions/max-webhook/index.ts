@@ -1,5 +1,13 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
+import { 
+  handleCors, 
+  getErrorMessage,
+  type MaxWebhookPayload,
+  type MaxWebhookInstanceData,
+  type MaxWebhookSenderData,
+  type MaxWebhookMessageData,
+  type MaxWebhookType
+} from '../_shared/types.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,67 +20,17 @@ const GREEN_API_URL =
   Deno.env.get('GREEN_API_URL') ||
   DEFAULT_GREEN_API_URL;
 
-// Green API webhook payload types for MAX (v3)
-interface GreenApiWebhook {
-  typeWebhook: 'incomingMessageReceived' | 'outgoingMessageReceived' | 'outgoingAPIMessageReceived' | 'outgoingMessageStatus' | 'stateInstanceChanged';
-  instanceData: {
-    idInstance: number;
-    wid: string;
-    typeInstance: string;
-  };
-  timestamp: number;
-  idMessage?: string;
-  senderData?: {
-    chatId: string;
-    sender: string;
-    chatName: string;
-    senderName: string;
-    senderPhoneNumber?: number;
-  };
-  messageData?: {
-    typeMessage: 'textMessage' | 'extendedTextMessage' | 'imageMessage' | 'videoMessage' | 'documentMessage' | 'audioMessage' | 'locationMessage' | 'contactMessage' | 'pollMessage';
-    textMessageData?: {
-      textMessage: string;
-    };
-    extendedTextMessageData?: {
-      text: string;
-      description?: string;
-      title?: string;
-      jpegThumbnail?: string;
-    };
-    fileMessageData?: {
-      downloadUrl: string;
-      caption: string;
-      fileName: string;
-      mimeType: string;
-    };
-    locationMessageData?: {
-      latitude: number;
-      longitude: number;
-      nameLocation?: string;
-      address?: string;
-    };
-    contactMessageData?: {
-      displayName: string;
-      vcard: string;
-    };
-  };
-  status?: string;
-  stateInstance?: string;
-}
-
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    const body: GreenApiWebhook = await req.json();
+    const body: MaxWebhookPayload = await req.json();
     
     console.log('MAX webhook received:', JSON.stringify(body, null, 2));
 
@@ -97,7 +55,7 @@ serve(async (req) => {
 
     // Find matching organization by instanceId
     const matchingSettings = messengerSettings?.find(s => {
-      const settings = s.settings as any;
+      const settings = s.settings as Record<string, unknown>;
       return settings?.instanceId === instanceId;
     });
 
@@ -141,16 +99,16 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error processing MAX webhook:', error);
-    return new Response(JSON.stringify({ error: error.message }), { 
+    return new Response(JSON.stringify({ error: getErrorMessage(error) }), { 
       status: 500, 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     });
   }
 });
 
-async function handleIncomingMessage(supabase: any, organizationId: string, webhook: GreenApiWebhook) {
+async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, organizationId: string, webhook: MaxWebhookPayload) {
   const { senderData, messageData, idMessage, timestamp } = webhook;
   
   if (!senderData || !messageData) {
@@ -163,7 +121,7 @@ async function handleIncomingMessage(supabase: any, organizationId: string, webh
   console.log(`Processing incoming MAX message from chatId: ${chatId}, sender: ${senderName}`);
 
   // Find or create client
-  let client = await findOrCreateClient(supabase, organizationId, chatId, senderName, senderPhoneNumber);
+  const client = await findOrCreateClient(supabase, organizationId, chatId, senderName, senderPhoneNumber);
   
   if (!client) {
     console.error('Failed to find or create client');
@@ -183,10 +141,62 @@ async function handleIncomingMessage(supabase: any, organizationId: string, webh
   }
 
   // Extract message content
+  const { messageText, fileUrl, fileName, fileType, messageType } = extractMessageContent(messageData);
+
+  // Save message to database
+  const { error: insertError } = await supabase
+    .from('chat_messages')
+    .insert({
+      client_id: client.id,
+      organization_id: organizationId,
+      message_text: messageText,
+      message_type: 'client',
+      messenger_type: 'max',
+      is_outgoing: false,
+      is_read: false,
+      external_message_id: idMessage,
+      file_url: fileUrl,
+      file_name: fileName,
+      file_type: fileType,
+      message_status: 'delivered',
+      created_at: new Date((timestamp || Date.now() / 1000) * 1000).toISOString()
+    });
+
+  if (insertError) {
+    console.error('Error saving message:', insertError);
+    return;
+  }
+
+  // Update client's last_message_at
+  await supabase
+    .from('clients')
+    .update({ 
+      last_message_at: new Date().toISOString(),
+      max_chat_id: chatId
+    })
+    .eq('id', client.id);
+
+  // Also update max_chat_id in client_phone_numbers if phone matches
+  await updatePhoneNumberMessengerData(supabase, client.id, {
+    phone: senderPhoneNumber ? String(senderPhoneNumber) : null,
+    maxChatId: chatId
+  });
+
+  console.log(`Saved incoming MAX message for client ${client.id}`);
+}
+
+// Helper to extract message content from webhook data
+function extractMessageContent(messageData: MaxWebhookMessageData): {
+  messageText: string;
+  fileUrl: string | null;
+  fileName: string | null;
+  fileType: string | null;
+  messageType: string;
+} {
   let messageText = '';
-  let fileUrl = null;
-  let fileName = null;
-  let fileType = null;
+  let fileUrl: string | null = null;
+  let fileName: string | null = null;
+  let fileType: string | null = null;
   let messageType = 'text';
 
   switch (messageData.typeMessage) {
@@ -202,9 +212,9 @@ async function handleIncomingMessage(supabase: any, organizationId: string, webh
     case 'videoMessage':
     case 'audioMessage':
     case 'documentMessage':
-      fileUrl = messageData.fileMessageData?.downloadUrl;
-      fileName = messageData.fileMessageData?.fileName;
-      fileType = messageData.fileMessageData?.mimeType;
+      fileUrl = messageData.fileMessageData?.downloadUrl || null;
+      fileName = messageData.fileMessageData?.fileName || null;
+      fileType = messageData.fileMessageData?.mimeType || null;
       // Use caption if available, otherwise create readable message based on type
       if (messageData.fileMessageData?.caption) {
         messageText = messageData.fileMessageData.caption;
@@ -234,57 +244,29 @@ async function handleIncomingMessage(supabase: any, organizationId: string, webh
       messageText = `[${messageData.typeMessage}]`;
   }
 
-  // Save message to database
-  const { error: insertError } = await supabase
-    .from('chat_messages')
-    .insert({
-      client_id: client.id,
-      organization_id: organizationId,
-      message_text: messageText,
-      message_type: 'client',
-      messenger_type: 'max',
-      is_outgoing: false,
-      is_read: false,
-      external_message_id: idMessage,
-      file_url: fileUrl,
-      file_name: fileName,
-      file_type: fileType,
-      message_status: 'delivered',
-      created_at: new Date(timestamp * 1000).toISOString()
-    });
+  return { messageText, fileUrl, fileName, fileType, messageType };
+}
 
-  if (insertError) {
-    console.error('Error saving message:', insertError);
-    return;
-  }
-
-  // Update client's last_message_at
-  await supabase
-    .from('clients')
-    .update({ 
-      last_message_at: new Date().toISOString(),
-      max_chat_id: chatId
-    })
-    .eq('id', client.id);
-
-  // Also update max_chat_id in client_phone_numbers if phone matches
-  await updatePhoneNumberMessengerData(supabase, client.id, {
-    phone: senderPhoneNumber ? String(senderPhoneNumber) : null,
-    maxChatId: chatId
-  });
-
-  console.log(`Saved incoming MAX message for client ${client.id}`);
+interface ClientRecord {
+  id: string;
+  name?: string;
+  phone?: string;
+  avatar_url?: string;
+  holihope_metadata?: Record<string, unknown>;
+  max_chat_id?: string;
+  max_user_id?: number;
+  [key: string]: unknown;
 }
 
 async function findOrCreateClient(
-  supabase: any, 
+  supabase: ReturnType<typeof createClient>, 
   organizationId: string, 
   chatId: string, 
-  senderName: string,
+  senderName?: string,
   senderPhoneNumber?: number
-): Promise<any> {
+): Promise<ClientRecord | null> {
   // Try to find by max_chat_id first
-  let { data: client } = await supabase
+  const { data: client } = await supabase
     .from('clients')
     .select('*')
     .eq('organization_id', organizationId)
@@ -294,7 +276,7 @@ async function findOrCreateClient(
   if (client) {
     // Enrich existing client data if needed
     await enrichClientFromMax(supabase, organizationId, client.id, chatId);
-    return client;
+    return client as ClientRecord;
   }
 
   // Try to find by max_user_id (numeric format)
@@ -316,7 +298,7 @@ async function findOrCreateClient(
       
       // Enrich client data
       await enrichClientFromMax(supabase, organizationId, clientByUserId.id, chatId);
-      return clientByUserId;
+      return clientByUserId as ClientRecord;
     }
   }
 
@@ -340,7 +322,7 @@ async function findOrCreateClient(
       
       // Enrich client data
       await enrichClientFromMax(supabase, organizationId, clientByPhone.id, chatId);
-      return clientByPhone;
+      return clientByPhone as ClientRecord;
     }
   }
 
@@ -368,11 +350,16 @@ async function findOrCreateClient(
   // Enrich new client data from MAX
   await enrichClientFromMax(supabase, organizationId, newClient.id, chatId);
   
-  return newClient;
+  return newClient as ClientRecord;
 }
 
 // Enrich client data from MAX contact info
-async function enrichClientFromMax(supabase: any, organizationId: string, clientId: string, chatId: string) {
+async function enrichClientFromMax(
+  supabase: ReturnType<typeof createClient>, 
+  organizationId: string, 
+  clientId: string, 
+  chatId: string
+): Promise<void> {
   try {
     // Get MAX settings for this organization
     const { data: messengerSettings } = await supabase
@@ -388,16 +375,14 @@ async function enrichClientFromMax(supabase: any, organizationId: string, client
       return;
     }
 
-    const settings = messengerSettings.settings as any;
-    const instanceId = settings?.instanceId;
-    const apiToken = settings?.apiToken;
+    const settings = messengerSettings.settings as Record<string, unknown>;
+    const instanceId = settings?.instanceId as string | undefined;
+    const apiToken = settings?.apiToken as string | undefined;
 
     if (!instanceId || !apiToken) {
       console.log('MAX credentials not configured for enrichment');
       return;
     }
-
-    // GREEN_API_URL is defined at module scope
 
     // Get contact info from MAX API
     const contactInfoUrl = `${GREEN_API_URL}/v3/waInstance${instanceId}/getContactInfo/${apiToken}`;
@@ -415,12 +400,12 @@ async function enrichClientFromMax(supabase: any, organizationId: string, client
       return;
     }
 
-    const contactData = await contactResponse.json();
+    const contactData = await contactResponse.json() as Record<string, unknown>;
     console.log('MAX contact info response:', JSON.stringify(contactData));
 
     // Also try to get avatar
     const avatarUrl = `${GREEN_API_URL}/v3/waInstance${instanceId}/getAvatar/${apiToken}`;
-    let avatarData: any = null;
+    let avatarData: Record<string, unknown> | null = null;
     
     try {
       const avatarResponse = await fetch(avatarUrl, {
@@ -449,15 +434,15 @@ async function enrichClientFromMax(supabase: any, organizationId: string, client
       return;
     }
 
-    const updateData: Record<string, any> = {};
+    const updateData: Record<string, unknown> = {};
     
     // Extract contact info
-    const contactName = contactData.name || contactData.chatName || contactData.pushname || contactData.displayName;
-    const contactPhone = contactData.numberPhone || contactData.phone;
-    const contactAbout = contactData.about || contactData.description;
+    const contactName = (contactData.name || contactData.chatName || contactData.pushname || contactData.displayName) as string | undefined;
+    const contactPhone = (contactData.numberPhone || contactData.phone) as string | undefined;
+    const contactAbout = (contactData.about || contactData.description) as string | undefined;
 
     // Update name if current is auto-generated
-    const currentName = currentClient.name || '';
+    const currentName = (currentClient.name as string) || '';
     const isAutoName = currentName === 'Без имени' ||
                        currentName.startsWith('Клиент ') || 
                        currentName.startsWith('+') || 
@@ -478,22 +463,23 @@ async function enrichClientFromMax(supabase: any, organizationId: string, client
     }
 
     // Update avatar if we got one - save to both main avatar_url and max_avatar_url
-    if (avatarData?.urlAvatar) {
+    const avatarUrlValue = avatarData?.urlAvatar as string | undefined;
+    if (avatarUrlValue) {
       // Always save to max_avatar_url for messenger-specific display
-      updateData.max_avatar_url = avatarData.urlAvatar;
+      updateData.max_avatar_url = avatarUrlValue;
       console.log(`Setting MAX avatar for client ${clientId}`);
       
       // Also update main avatar_url if client doesn't have one
       if (!currentClient.avatar_url) {
-        updateData.avatar_url = avatarData.urlAvatar;
+        updateData.avatar_url = avatarUrlValue;
       }
     }
 
     // Save additional info to metadata
-    const existingMetadata = (currentClient.holihope_metadata as Record<string, any>) || {};
-    const maxInfo = existingMetadata.max_info || {};
+    const existingMetadata = (currentClient.holihope_metadata as Record<string, unknown>) || {};
+    const maxInfo = (existingMetadata.max_info as Record<string, unknown>) || {};
 
-    const newMaxInfo: Record<string, any> = {
+    const newMaxInfo: Record<string, unknown> = {
       ...maxInfo,
       last_updated: new Date().toISOString()
     };
@@ -501,7 +487,7 @@ async function enrichClientFromMax(supabase: any, organizationId: string, client
     if (contactName) newMaxInfo.name = contactName;
     if (contactPhone) newMaxInfo.phone = contactPhone;
     if (contactAbout) newMaxInfo.about = contactAbout;
-    if (avatarData?.urlAvatar) newMaxInfo.avatar_url = avatarData.urlAvatar;
+    if (avatarUrlValue) newMaxInfo.avatar_url = avatarUrlValue;
     if (contactData.email) newMaxInfo.email = contactData.email;
     if (contactData.lastSeen) newMaxInfo.last_seen = contactData.lastSeen;
 
@@ -523,13 +509,17 @@ async function enrichClientFromMax(supabase: any, organizationId: string, client
         console.log(`Client ${clientId} enriched with MAX data:`, Object.keys(updateData));
       }
     }
-  } catch (error) {
-    console.error('Error in enrichClientFromMax:', error);
+  } catch (error: unknown) {
+    console.error('Error in enrichClientFromMax:', getErrorMessage(error));
   }
 }
 
 // Handle outgoing messages (sent from phone or API)
-async function handleOutgoingMessage(supabase: any, organizationId: string, webhook: GreenApiWebhook) {
+async function handleOutgoingMessage(
+  supabase: ReturnType<typeof createClient>, 
+  organizationId: string, 
+  webhook: MaxWebhookPayload
+): Promise<void> {
   const { senderData, messageData, idMessage, timestamp } = webhook;
   
   // For outgoing messages, senderData contains the recipient info
@@ -555,14 +545,18 @@ async function handleOutgoingMessage(supabase: any, organizationId: string, webh
   }
 
   // Find client by max_chat_id
-  let { data: client } = await supabase
+  let client: { id: string } | null = null;
+  
+  const { data: clientData } = await supabase
     .from('clients')
     .select('id')
     .eq('organization_id', organizationId)
     .eq('max_chat_id', chatId)
     .maybeSingle();
 
-  if (!client) {
+  if (clientData) {
+    client = clientData;
+  } else {
     // Try to find in client_phone_numbers
     const { data: phoneRecord } = await supabase
       .from('client_phone_numbers')
@@ -581,53 +575,8 @@ async function handleOutgoingMessage(supabase: any, organizationId: string, webh
     return;
   }
 
-  // Extract message content (same logic as incoming)
-  let messageText = '';
-  let fileUrl = null;
-  let fileName = null;
-  let fileType = null;
-
-  switch (messageData.typeMessage) {
-    case 'textMessage':
-      messageText = messageData.textMessageData?.textMessage || '';
-      break;
-    
-    case 'extendedTextMessage':
-      messageText = messageData.extendedTextMessageData?.text || '';
-      break;
-    
-    case 'imageMessage':
-    case 'videoMessage':
-    case 'audioMessage':
-    case 'documentMessage':
-      fileUrl = messageData.fileMessageData?.downloadUrl;
-      fileName = messageData.fileMessageData?.fileName;
-      fileType = messageData.fileMessageData?.mimeType;
-      // Use caption if available, otherwise create readable message based on type
-      if (messageData.fileMessageData?.caption) {
-        messageText = messageData.fileMessageData.caption;
-      } else {
-        const typeName = messageData.typeMessage;
-        if (typeName === 'imageMessage') messageText = '🖼️ Изображение';
-        else if (typeName === 'videoMessage') messageText = '🎬 Видео';
-        else if (typeName === 'audioMessage') messageText = '🎵 Аудио';
-        else if (typeName === 'documentMessage') messageText = `📄 ${fileName || 'Документ'}`;
-        else messageText = '📎 Файл';
-      }
-      break;
-    
-    case 'locationMessage':
-      const loc = messageData.locationMessageData;
-      messageText = `📍 ${loc?.nameLocation || 'Location'}: ${loc?.latitude}, ${loc?.longitude}`;
-      break;
-    
-    case 'contactMessage':
-      messageText = `👤 Contact: ${messageData.contactMessageData?.displayName || 'Unknown'}`;
-      break;
-    
-    default:
-      messageText = `[${messageData.typeMessage}]`;
-  }
+  // Extract message content
+  const { messageText, fileUrl, fileName, fileType } = extractMessageContent(messageData);
 
   // Save message as outgoing (from manager/phone)
   const { error: insertError } = await supabase
@@ -645,7 +594,7 @@ async function handleOutgoingMessage(supabase: any, organizationId: string, webh
       file_name: fileName,
       file_type: fileType,
       message_status: 'sent',
-      created_at: new Date(timestamp * 1000).toISOString()
+      created_at: new Date((timestamp || Date.now() / 1000) * 1000).toISOString()
     });
 
   if (insertError) {
@@ -662,7 +611,10 @@ async function handleOutgoingMessage(supabase: any, organizationId: string, webh
   console.log(`Saved outgoing MAX message for client ${client.id}`);
 }
 
-async function handleMessageStatus(supabase: any, webhook: GreenApiWebhook) {
+async function handleMessageStatus(
+  supabase: ReturnType<typeof createClient>, 
+  webhook: MaxWebhookPayload
+): Promise<void> {
   const { idMessage, status } = webhook;
   
   if (!idMessage || !status) {
@@ -694,25 +646,25 @@ async function handleMessageStatus(supabase: any, webhook: GreenApiWebhook) {
 
 // Helper function to update messenger data in client_phone_numbers  
 async function updatePhoneNumberMessengerData(
-  supabase: any,
+  supabase: ReturnType<typeof createClient>,
   clientId: string,
   data: { phone?: string | null; maxChatId?: string | null }
 ): Promise<void> {
-  if (!data.maxChatId) return
+  if (!data.maxChatId) return;
 
   try {
-    let phoneRecord = null
+    let phoneRecord: { id: string } | null = null;
     
     if (data.phone) {
-      const cleanPhone = data.phone.replace(/\D/g, '')
+      const cleanPhone = data.phone.replace(/\D/g, '');
       if (cleanPhone.length >= 10) {
         const { data: records } = await supabase
           .from('client_phone_numbers')
           .select('id')
           .eq('client_id', clientId)
           .or(`phone.ilike.%${cleanPhone}%,phone.ilike.%${cleanPhone.slice(-10)}%`)
-          .limit(1)
-        phoneRecord = records?.[0]
+          .limit(1);
+        phoneRecord = records?.[0] || null;
       }
     }
     
@@ -722,18 +674,18 @@ async function updatePhoneNumberMessengerData(
         .select('id')
         .eq('client_id', clientId)
         .eq('is_primary', true)
-        .single()
-      phoneRecord = primaryRecord
+        .single();
+      phoneRecord = primaryRecord;
     }
     
     if (phoneRecord) {
       await supabase
         .from('client_phone_numbers')
         .update({ max_chat_id: data.maxChatId })
-        .eq('id', phoneRecord.id)
-      console.log(`Updated max_chat_id for phone record ${phoneRecord.id}`)
+        .eq('id', phoneRecord.id);
+      console.log(`Updated max_chat_id for phone record ${phoneRecord.id}`);
     }
-  } catch (error) {
-    console.error('Error updating phone number messenger data:', error)
+  } catch (error: unknown) {
+    console.error('Error updating phone number messenger data:', getErrorMessage(error));
   }
 }
