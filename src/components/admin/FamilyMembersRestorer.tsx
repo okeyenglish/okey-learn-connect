@@ -46,7 +46,14 @@ export const FamilyMembersRestorer = () => {
 
         if (!members || members.length === 0) {
           // У студента нет родителей в family_members
-          const familyGroupName = (student.family_groups as any)?.name || '';
+          interface FamilyGroupJoin {
+            id: string;
+            name: string;
+          }
+          const familyGroup = (Array.isArray(student.family_groups) 
+            ? student.family_groups[0] 
+            : student.family_groups) as FamilyGroupJoin | null;
+          const familyGroupName = familyGroup?.name || '';
           
           // Пытаемся найти подходящего клиента по имени группы
           let suggestedParent = undefined;
@@ -67,7 +74,8 @@ export const FamilyMembersRestorer = () => {
 
             if (clients && clients.length > 0) {
               const client = clients[0];
-              const phones = (client.client_phone_numbers as any) || [];
+              interface PhoneRow { phone: string }
+              const phones = (client.client_phone_numbers || []) as PhoneRow[];
               const phone = client.phone || (phones[0]?.phone) || '';
               
               suggestedParent = {

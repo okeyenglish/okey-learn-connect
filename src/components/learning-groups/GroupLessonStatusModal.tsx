@@ -81,7 +81,7 @@ export function GroupLessonStatusModal({
       // Обновляем статус самого занятия
       const { error: sessionError } = await supabase
         .from('lesson_sessions')
-        .update({ status: newStatus as any })
+        .update({ status: newStatus as 'scheduled' | 'completed' | 'cancelled' | 'in_progress' | 'rescheduled' })
         .eq('id', sessionId);
 
       if (sessionError) throw sessionError;

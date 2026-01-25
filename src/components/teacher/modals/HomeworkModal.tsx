@@ -218,7 +218,7 @@ export const HomeworkModal = ({
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'create' | 'templates' | 'ai')}>
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="create">Создать</TabsTrigger>
             <TabsTrigger value="templates">

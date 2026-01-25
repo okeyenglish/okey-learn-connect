@@ -78,8 +78,9 @@ export function ManagePayerDialog({
   const onSubmit = async (data: PayerFormData) => {
     await upsertPayer.mutateAsync({
       student_id: studentId,
+      id: existingPayer?.id || crypto.randomUUID(),
       ...data,
-    } as any);
+    });
     onSuccess?.();
     onOpenChange(false);
     form.reset();

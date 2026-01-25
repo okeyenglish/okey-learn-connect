@@ -113,7 +113,10 @@ const SeoSettings = () => {
       toast.success(`Собрано ${data.collected} запросов, создано ${data.clusters_created} кластеров`);
     } catch (error) {
       console.error("Wordstat collection error:", error);
-      const msg = (error as any)?.message || (error as any)?.error?.message || "Ошибка при сборе данных из Яндекс.Вордстат";
+      const errorObj = error as Error | { message?: string; error?: { message?: string } };
+      const msg = ('message' in errorObj ? errorObj.message : undefined) || 
+                  (typeof errorObj === 'object' && 'error' in errorObj && errorObj.error?.message) || 
+                  "Ошибка при сборе данных из Яндекс.Вордстат";
       toast.error(msg);
     } finally {
       setIsCollecting(false);

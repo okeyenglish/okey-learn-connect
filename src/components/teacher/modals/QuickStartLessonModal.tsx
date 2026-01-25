@@ -34,19 +34,22 @@ export const QuickStartLessonModal = ({
       const table = session.type === 'group' ? 'lesson_sessions' : 'individual_lesson_sessions';
       console.log('Using table:', table);
       
-      const { data, error } = await supabase
-        .from(table as any)
-        .update({ 
-          status: 'in_progress',
-        })
-        .eq('id', session.id)
-        .select();
-
-      console.log('Update result:', { data, error });
-
-      if (error) {
-        console.error('Update error:', error);
-        throw new Error(`Failed to start lesson: ${error.message}`);
+      if (session.type === 'group') {
+        const { data, error } = await supabase
+          .from('lesson_sessions')
+          .update({ status: 'in_progress' })
+          .eq('id', session.id)
+          .select();
+        console.log('Update result:', { data, error });
+        if (error) throw new Error(`Failed to start lesson: ${error.message}`);
+      } else {
+        const { data, error } = await supabase
+          .from('individual_lesson_sessions')
+          .update({ status: 'in_progress' })
+          .eq('id', session.id)
+          .select();
+        console.log('Update result:', { data, error });
+        if (error) throw new Error(`Failed to start lesson: ${error.message}`);
       }
 
       if (action === 'start_online' && session.online_link) {
