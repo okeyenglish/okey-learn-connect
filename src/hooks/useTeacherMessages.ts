@@ -1,18 +1,45 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 
+/** DB row for profile */
+interface ProfileRow {
+  id: string;
+  first_name?: string | null;
+  last_name?: string | null;
+}
+
+/** DB row for teacher message */
+interface TeacherMessageRow {
+  id: string;
+  teacher_id: string;
+  teacher_name: string;
+  message_text: string;
+  message_type: string;
+  target_group_id: string | null;
+  target_student_id: string | null;
+  target_student_name: string | null;
+  branch: string;
+  status: string;
+  moderated_by: string | null;
+  moderated_at: string | null;
+  moderation_notes: string | null;
+  sent_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Helper function to send push notifications without blocking
 const sendPushToManagers = async (teacherName: string, messageText: string, messageId: string) => {
   try {
-    const response = await (supabase
-      .from('profiles' as any) as any)
+    const { data: managersRaw } = await supabase
+      .from('profiles')
       .select('id')
       .eq('role', 'manager');
 
-    const managers = response.data as { id: string }[] | null;
-    if (managers && managers.length > 0) {
+    const managers = (managersRaw || []) as unknown as ProfileRow[];
+    if (managers.length > 0) {
       const managerIds = managers.map((m) => m.id);
       await supabase.functions.invoke('send-push-notification', {
         body: {
@@ -67,14 +94,33 @@ export const useTeacherMessages = () => {
   // Получение сообщений (для преподавателей - свои, для менеджеров - все в филиале)
   const { data: messages, isLoading } = useQuery({
     queryKey: ['teacher_messages'],
-    queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('teacher_messages' as any) as any)
+    queryFn: async (): Promise<TeacherMessage[]> => {
+      const { data, error } = await supabase
+        .from('teacher_messages')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as TeacherMessage[];
+
+      const rows = (data || []) as unknown as TeacherMessageRow[];
+      return rows.map((row) => ({
+        id: row.id,
+        teacher_id: row.teacher_id,
+        teacher_name: row.teacher_name,
+        message_text: row.message_text,
+        message_type: row.message_type as TeacherMessage['message_type'],
+        target_group_id: row.target_group_id ?? undefined,
+        target_student_id: row.target_student_id ?? undefined,
+        target_student_name: row.target_student_name ?? undefined,
+        branch: row.branch,
+        status: row.status as TeacherMessage['status'],
+        moderated_by: row.moderated_by ?? undefined,
+        moderated_at: row.moderated_at ?? undefined,
+        moderation_notes: row.moderation_notes ?? undefined,
+        sent_at: row.sent_at ?? undefined,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      }));
     },
   });
 
@@ -84,19 +130,19 @@ export const useTeacherMessages = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Пользователь не авторизован');
 
-      const { data: profile } = await (supabase
-        .from('profiles' as any) as any)
+      const { data: profileRaw } = await supabase
+        .from('profiles')
         .select('first_name, last_name')
         .eq('id', user.id)
         .single();
 
-      const profileData = profile as { first_name?: string; last_name?: string } | null;
-      const teacherName = profileData 
-        ? `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim()
+      const profile = profileRaw as unknown as ProfileRow | null;
+      const teacherName = profile 
+        ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
         : 'Преподаватель';
 
-      const { data, error } = await (supabase
-        .from('teacher_messages' as any) as any)
+      const { data, error } = await supabase
+        .from('teacher_messages')
         .insert({
           teacher_id: user.id,
           teacher_name: teacherName,
@@ -107,7 +153,7 @@ export const useTeacherMessages = () => {
 
       if (error) throw error;
 
-      const insertedData = data as { id: string };
+      const insertedData = data as unknown as TeacherMessageRow;
       // Send push notification to managers about new message for moderation (fire-and-forget)
       sendPushToManagers(teacherName, messageData.message_text, insertedData.id);
 
@@ -144,8 +190,8 @@ export const useTeacherMessages = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Пользователь не авторизован');
 
-      const { data, error } = await (supabase
-        .from('teacher_messages' as any) as any)
+      const { data, error } = await supabase
+        .from('teacher_messages')
         .update({
           status,
           moderated_by: user.id,
@@ -158,7 +204,7 @@ export const useTeacherMessages = () => {
 
       if (error) throw error;
 
-      const updatedData = data as { teacher_id: string; status: string };
+      const updatedData = data as unknown as TeacherMessageRow;
       // Notify teacher about moderation result
       try {
         const statusText = status === 'approved' ? '✅ одобрено' : '❌ отклонено';
@@ -185,7 +231,7 @@ export const useTeacherMessages = () => {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['teacher_messages'] });
       
-      const resultData = data as { status: string };
+      const resultData = data as unknown as TeacherMessageRow;
       if (resultData.status === 'approved') {
         toast({
           title: "Сообщение одобрено",

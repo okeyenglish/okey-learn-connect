@@ -113,7 +113,7 @@ export interface HolihopeMetadata {
   Id?: number;
   ClientId?: number;
   // Other fields from HoliHope API are stored but not typed
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface StudentFullDetails {
@@ -156,9 +156,150 @@ export interface StudentFullDetails {
   };
 }
 
+/** DB row for student */
+interface StudentRow {
+  id: string;
+  student_number?: string | null;
+  name: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  middle_name?: string | null;
+  age?: number | null;
+  date_of_birth?: string | null;
+  gender?: string | null;
+  avatar_url?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  lk_enabled?: boolean | null;
+  lk_email?: string | null;
+  status: string;
+  notes?: string | null;
+  branch?: string | null;
+  created_at: string;
+  family_group_id?: string | null;
+  external_id?: string | null;
+  holihope_metadata?: HolihopeMetadata | null;
+}
+
+/** DB row for family member with client join */
+interface FamilyMemberRow {
+  client_id: string;
+  relationship_type: string;
+  is_primary_contact: boolean;
+  clients?: {
+    id: string;
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+  } | null;
+}
+
+/** DB row for phone number */
+interface PhoneNumberRow {
+  id: string;
+  phone: string;
+  phone_type: string;
+  is_whatsapp_enabled: boolean | null;
+  is_telegram_enabled: boolean | null;
+}
+
+/** DB row for group student with learning_groups join */
+interface GroupStudentRow {
+  student_id: string;
+  enrollment_date: string;
+  status: string;
+  learning_groups?: {
+    id: string;
+    name: string | null;
+    subject: string | null;
+    level: string | null;
+    branch: string | null;
+    status: string | null;
+    category: string | null;
+    group_number: string | null;
+    responsible_teacher: string | null;
+    course_id: string | null;
+    total_lessons: number | null;
+    course_start_date: string | null;
+    zoom_link: string | null;
+    courses?: { title: string | null } | null;
+  } | null;
+}
+
+/** DB row for lesson session */
+interface LessonSessionRow {
+  id: string;
+  lesson_date: string;
+  status: string | null;
+  lesson_number: number | null;
+  duration?: number | null;
+  paid_minutes: number | null;
+  payment_id: string | null;
+  payment_date: string | null;
+  payment_amount: number | null;
+  lessons_count: number | null;
+  start_time: string | null;
+  end_time: string | null;
+}
+
+/** DB row for payment */
+interface PaymentRow {
+  id: string;
+  amount: number;
+  payment_date: string;
+  description: string | null;
+  status: string;
+  method: string | null;
+  group_id: string | null;
+  lessons_count: number | null;
+  individual_lesson_id: string | null;
+}
+
+/** DB row for individual lesson */
+interface IndividualLessonRow {
+  id: string;
+  lesson_number?: string | null;
+  subject: string | null;
+  level: string | null;
+  teacher_name?: string | null;
+  branch: string | null;
+  duration: number | null;
+  price_per_lesson: number | null;
+  schedule_time: string | null;
+  schedule_days: string[] | null;
+  period_start: string | null;
+  period_end: string | null;
+  status: string | null;
+  is_flexible_schedule: boolean | null;
+  audit_location: string | null;
+  payment_method: string | null;
+  teacher_rate: number | null;
+  break_minutes: number | null;
+  responsible_manager: string | null;
+}
+
+/** DB row for individual lesson session */
+interface IndividualLessonSessionRow {
+  id: string;
+  lesson_date: string;
+  status: string | null;
+  notes: string | null;
+}
+
+/** DB row for student payer */
+interface StudentPayerRow {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  relationship: string | null;
+  phone: string | null;
+  email: string | null;
+  payment_method: string | null;
+}
+
 export const useStudentDetails = (studentId: string) => {
   // Helper function to calculate duration from time strings
-  const calculateDuration = (startTime?: string, endTime?: string): number => {
+  const calculateDuration = (startTime?: string | null, endTime?: string | null): number => {
     if (!startTime || !endTime) return 60;
     
     try {
@@ -176,22 +317,22 @@ export const useStudentDetails = (studentId: string) => {
       if (!studentId) return null;
 
       // Fetch student basic info
-      const { data: student, error: studentError } = await (supabase
-        .from('students' as any) as any)
+      const { data: studentRaw, error: studentError } = await supabase
+        .from('students')
         .select('*')
         .eq('id', studentId)
         .single();
 
       if (studentError) throw studentError;
-      if (!student) return null;
+      if (!studentRaw) return null;
 
-      const studentData = student as any;
+      const studentData = studentRaw as unknown as StudentRow;
 
       // Fetch family members (parents/guardians)
       let parents: StudentParent[] = [];
       if (studentData.family_group_id) {
-        const { data: familyMembers, error: familyError } = await (supabase
-          .from('family_members' as any) as any)
+        const { data: familyMembersRaw, error: familyError } = await supabase
+          .from('family_members')
           .select(`
             *,
             clients:client_id (
@@ -203,32 +344,36 @@ export const useStudentDetails = (studentId: string) => {
           `)
           .eq('family_group_id', studentData.family_group_id);
 
-        if (!familyError && familyMembers) {
+        if (!familyError && familyMembersRaw) {
+          const familyMembers = familyMembersRaw as unknown as FamilyMemberRow[];
+
           // Дедупликация по client_id - убираем дубликаты родителей
           const uniqueFamilyMembers = Array.from(
             new Map(
               familyMembers
-                .filter((member: any) => member.clients) // Только записи с валидными клиентами
-                .map((member: any) => [member.client_id, member])
+                .filter((member) => member.clients) // Только записи с валидными клиентами
+                .map((member) => [member.client_id, member])
             ).values()
           );
 
           // Fetch phone numbers for each parent
           const parentsWithPhones = await Promise.all(
-            uniqueFamilyMembers.map(async (member: any) => {
-              const { data: phones } = await (supabase
-                .from('client_phone_numbers' as any) as any)
+            uniqueFamilyMembers.map(async (member) => {
+              const { data: phonesRaw } = await supabase
+                .from('client_phone_numbers')
                 .select('*')
                 .eq('client_id', member.client_id);
+
+              const phones = (phonesRaw || []) as unknown as PhoneNumberRow[];
 
               return {
                 id: member.client_id,
                 name: member.clients?.name || 'Не указано',
                 phone: member.clients?.phone || '',
-                email: member.clients?.email,
+                email: member.clients?.email ?? undefined,
                 relationship: member.relationship_type,
                 isPrimary: member.is_primary_contact,
-                phoneNumbers: (phones || []).map(p => ({
+                phoneNumbers: phones.map(p => ({
                   id: p.id,
                   phone: p.phone,
                   type: p.phone_type,
@@ -243,8 +388,8 @@ export const useStudentDetails = (studentId: string) => {
       }
 
       // Fetch student groups
-      const { data: groupStudents } = await (supabase
-        .from('group_students' as any) as any)
+      const { data: groupStudentsRaw } = await supabase
+        .from('group_students')
         .select(`
           *,
           learning_groups (
@@ -268,14 +413,18 @@ export const useStudentDetails = (studentId: string) => {
         `)
         .eq('student_id', studentId);
 
+      const groupStudents = (groupStudentsRaw || []) as unknown as GroupStudentRow[];
+
       // Собираем оплаты по группам для расчета оплаченных занятий
-      const { data: paymentsByGroup } = await (supabase
-        .from('payments' as any) as any)
+      const { data: paymentsByGroupRaw } = await supabase
+        .from('payments')
         .select('group_id, lessons_count')
         .eq('student_id', studentId)
         .not('group_id', 'is', null);
+
+      const paymentsByGroup = (paymentsByGroupRaw || []) as unknown as PaymentRow[];
       const paidAcademicHoursMap = new Map<string, number>();
-      (paymentsByGroup || []).forEach((p: any) => {
+      paymentsByGroup.forEach((p) => {
         if (!p.group_id) return;
         const current = paidAcademicHoursMap.get(p.group_id) || 0;
         paidAcademicHoursMap.set(p.group_id, current + (p.lessons_count || 0));
@@ -283,12 +432,12 @@ export const useStudentDetails = (studentId: string) => {
 
       // Fetch lesson sessions for each group
       const groups: StudentGroup[] = await Promise.all(
-        (groupStudents || []).map(async (gs: any) => {
+        groupStudents.map(async (gs) => {
           const groupId = gs.learning_groups?.id;
           let sessions: LessonSession[] = [];
 
           if (groupId) {
-            const { data: sessionsData } = await supabase
+            const { data: sessionsDataRaw } = await supabase
               .from('lesson_sessions')
               .select(`
                 id, 
@@ -306,6 +455,8 @@ export const useStudentDetails = (studentId: string) => {
               .eq('group_id', groupId)
               .order('lesson_date', { ascending: true });
 
+            const sessionsData = (sessionsDataRaw || []) as unknown as LessonSessionRow[];
+
             const enrollDate = gs.enrollment_date ? new Date(gs.enrollment_date) : null;
             if (enrollDate) enrollDate.setHours(0, 0, 0, 0);
 
@@ -322,11 +473,11 @@ export const useStudentDetails = (studentId: string) => {
             });
 
             // Сортируем занятия и распределяем оплаченные минуты после зачисления
-            const sortedSessions = (sessionsData || []).sort((a: any, b: any) =>
+            const sortedSessions = sessionsData.sort((a, b) =>
               new Date(a.lesson_date).getTime() - new Date(b.lesson_date).getTime()
             );
 
-            sessions = sortedSessions.map((s: any) => {
+            sessions = sortedSessions.map((s) => {
               const sessionDate = new Date(s.lesson_date);
               sessionDate.setHours(0, 0, 0, 0);
               const beforeEnrollment = enrollDate && sessionDate < enrollDate;
@@ -344,13 +495,13 @@ export const useStudentDetails = (studentId: string) => {
                 id: s.id,
                 lessonDate: s.lesson_date,
                 status: computedStatus,
-                lessonNumber: s.lesson_number,
+                lessonNumber: s.lesson_number ?? undefined,
                 duration,
                 paid_minutes,
-                payment_id: s.payment_id,
-                payment_date: s.payment_date,
-                payment_amount: s.payment_amount,
-                lessons_count: s.lessons_count,
+                payment_id: s.payment_id ?? undefined,
+                payment_date: s.payment_date ?? undefined,
+                payment_amount: s.payment_amount ?? undefined,
+                lessons_count: s.lessons_count ?? undefined,
                 lesson_time: s.start_time && s.end_time ? `${s.start_time}-${s.end_time}` : undefined,
               };
             });
@@ -363,7 +514,7 @@ export const useStudentDetails = (studentId: string) => {
 
           return {
             id: groupId || '',
-            groupNumber: gs.learning_groups?.group_number,
+            groupNumber: gs.learning_groups?.group_number ?? undefined,
             name: gs.learning_groups?.name || '',
             subject: gs.learning_groups?.subject || '',
             level: gs.learning_groups?.level || '',
@@ -375,36 +526,40 @@ export const useStudentDetails = (studentId: string) => {
             enrollmentDate: gs.enrollment_date,
             format,
             sessions,
-            course_id: gs.learning_groups?.course_id,
-            course_name: gs.learning_groups?.courses?.title || null,
-            total_lessons: gs.learning_groups?.total_lessons,
-            course_start_date: gs.learning_groups?.course_start_date,
-            zoom_link: gs.learning_groups?.zoom_link,
+            course_id: gs.learning_groups?.course_id ?? undefined,
+            course_name: gs.learning_groups?.courses?.title ?? undefined,
+            total_lessons: gs.learning_groups?.total_lessons ?? undefined,
+            course_start_date: gs.learning_groups?.course_start_date ?? undefined,
+            zoom_link: gs.learning_groups?.zoom_link ?? undefined,
           };
         })
       );
 
       // Fetch individual lessons
-      const { data: individualLessonsData } = await supabase
+      const { data: individualLessonsDataRaw } = await supabase
         .from('individual_lessons')
         .select('*')
         .eq('student_id', studentId)
         .eq('is_active', true);
 
+      const individualLessonsData = (individualLessonsDataRaw || []) as unknown as IndividualLessonRow[];
+
       // For individual lessons, we need to fetch sessions from individual_lesson_sessions
       const individualLessons: StudentIndividualLesson[] = await Promise.all(
-        (individualLessonsData || []).map(async (il: any) => {
+        individualLessonsData.map(async (il) => {
           // Fetch sessions for this individual lesson
-          const { data: lessonSessions } = await supabase
+          const { data: lessonSessionsRaw } = await supabase
             .from('individual_lesson_sessions')
             .select('id, lesson_date, status, notes')
             .eq('individual_lesson_id', il.id)
             .order('lesson_date', { ascending: true });
 
-          const sessions: LessonSession[] = (lessonSessions || []).map((ls: any) => ({
+          const lessonSessions = (lessonSessionsRaw || []) as unknown as IndividualLessonSessionRow[];
+
+          const sessions: LessonSession[] = lessonSessions.map((ls) => ({
             id: ls.id,
             lessonDate: ls.lesson_date,
-            status: ls.status,
+            status: ls.status || 'scheduled',
           }));
 
           // Определяем статус: приоритет у статуса из БД (ручная архивация/разархивация)
@@ -445,58 +600,62 @@ export const useStudentDetails = (studentId: string) => {
 
           return {
             id: il.id,
-            lessonNumber: il.lesson_number,
+            lessonNumber: il.lesson_number ?? undefined,
             subject: il.subject || 'Не указан',
             level: il.level || 'Не указан',
-            teacherName: il.teacher_name,
+            teacherName: il.teacher_name ?? undefined,
             branch: il.branch || 'Не указан',
             duration: il.duration || 60,
-            pricePerLesson: il.price_per_lesson,
-            scheduleTime: il.schedule_time,
-            scheduleDays: il.schedule_days,
-            periodStart: il.period_start,
-            periodEnd: il.period_end,
+            pricePerLesson: il.price_per_lesson ?? undefined,
+            scheduleTime: il.schedule_time ?? undefined,
+            scheduleDays: il.schedule_days ?? undefined,
+            periodStart: il.period_start ?? undefined,
+            periodEnd: il.period_end ?? undefined,
             status: lessonStatus,
             nextLesson: undefined,
             format: 'Индивидуальное',
             sessions,
-            isFlexibleSchedule: il.is_flexible_schedule,
-            auditLocation: il.audit_location,
-            paymentMethod: il.payment_method,
-            teacherRate: il.teacher_rate,
-            breakMinutes: il.break_minutes,
-            responsibleManager: il.responsible_manager,
+            isFlexibleSchedule: il.is_flexible_schedule ?? undefined,
+            auditLocation: il.audit_location ?? undefined,
+            paymentMethod: il.payment_method ?? undefined,
+            teacherRate: il.teacher_rate ?? undefined,
+            breakMinutes: il.break_minutes ?? undefined,
+            responsibleManager: il.responsible_manager ?? undefined,
           };
         })
       );
 
       // Fetch payments
-      const { data: paymentsData } = await supabase
+      const { data: paymentsDataRaw } = await supabase
         .from('payments')
         .select('*')
         .eq('student_id', studentId)
         .order('payment_date', { ascending: false })
         .limit(20);
 
-      const payments: StudentPayment[] = (paymentsData || []).map(p => ({
+      const paymentsData = (paymentsDataRaw || []) as unknown as PaymentRow[];
+
+      const payments: StudentPayment[] = paymentsData.map(p => ({
         id: p.id,
         amount: p.amount,
         date: p.payment_date,
         description: p.description || 'Оплата обучения',
         status: p.status,
-        paymentMethod: p.method,
-        individualLessonId: (p as any).individual_lesson_id,
-        lessonsCount: (p as any).lessons_count,
+        paymentMethod: p.method ?? undefined,
+        individualLessonId: p.individual_lesson_id ?? undefined,
+        lessonsCount: p.lessons_count ?? undefined,
       }));
 
       // Fetch payer information
-      const { data: payerData } = await supabase
+      const { data: payerDataRaw } = await supabase
         .from('student_payers')
         .select('*')
         .eq('student_id', studentId)
         .maybeSingle();
 
-      // Attendance - использем mock данные, так как таблица может не существовать
+      const payerData = payerDataRaw as unknown as StudentPayerRow | null;
+
+      // Attendance - используем mock данные, так как таблица может не существовать
       const attendance: StudentAttendance[] = [];
 
       // Subscriptions - используем mock данные, так как структура может отличаться
@@ -504,28 +663,28 @@ export const useStudentDetails = (studentId: string) => {
 
       return {
         id: studentData.id,
-        studentNumber: studentData.student_number,
+        studentNumber: studentData.student_number ?? undefined,
         name: studentData.name,
         firstName: studentData.first_name || studentData.name.split(' ')[1] || '',
         lastName: studentData.last_name || studentData.name.split(' ')[0] || '',
         middleName: studentData.middle_name || studentData.name.split(' ')[2] || '',
-        age: studentData.age,
-        dateOfBirth: studentData.date_of_birth,
+        age: studentData.age ?? undefined,
+        dateOfBirth: studentData.date_of_birth ?? undefined,
         gender: studentData.gender as 'male' | 'female' | undefined,
-        avatar_url: studentData.avatar_url,
-        phone: studentData.phone,
-        email: (studentData as any).email,
-        lkEnabled: (studentData as any).lk_enabled,
-        lkEmail: studentData.lk_email,
+        avatar_url: studentData.avatar_url ?? undefined,
+        phone: studentData.phone ?? undefined,
+        email: studentData.email ?? undefined,
+        lkEnabled: studentData.lk_enabled ?? undefined,
+        lkEmail: studentData.lk_email ?? undefined,
         status: studentData.status,
-        notes: studentData.notes,
-        branch: (studentData as any).branch,
+        notes: studentData.notes ?? undefined,
+        branch: studentData.branch ?? undefined,
         category: undefined,
         level: undefined,
         createdAt: studentData.created_at,
-        familyGroupId: studentData.family_group_id,
-        externalId: studentData.external_id,
-        holihopeMetadata: studentData.holihope_metadata as HolihopeMetadata | undefined,
+        familyGroupId: studentData.family_group_id ?? undefined,
+        externalId: studentData.external_id ?? undefined,
+        holihopeMetadata: studentData.holihope_metadata ?? undefined,
         parents,
         groups,
         individualLessons: individualLessons || [],
@@ -533,12 +692,12 @@ export const useStudentDetails = (studentId: string) => {
         attendance,
         subscriptions,
         payer: payerData ? {
-          id: (payerData as any).id,
-          name: `${(payerData as any).last_name} ${(payerData as any).first_name}`,
-          relationship: (payerData as any).relationship,
-          phone: (payerData as any).phone,
-          email: (payerData as any).email,
-          paymentMethod: (payerData as any).payment_method,
+          id: payerData.id,
+          name: `${payerData.last_name || ''} ${payerData.first_name || ''}`.trim(),
+          relationship: (payerData.relationship as 'parent' | 'guardian' | 'self' | 'other') ?? 'other',
+          phone: payerData.phone ?? undefined,
+          email: payerData.email ?? undefined,
+          paymentMethod: (payerData.payment_method as 'cash' | 'card' | 'transfer' | 'online') ?? undefined,
         } : undefined,
       };
     },

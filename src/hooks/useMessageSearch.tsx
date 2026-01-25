@@ -16,6 +16,20 @@ interface SearchResult {
   client_name?: string;
 }
 
+/** DB row for message with client join */
+interface MessageRow {
+  id: string;
+  client_id: string;
+  message_text: string;
+  created_at: string;
+  messenger_type: string | null;
+  is_outgoing: boolean | null;
+  file_url: string | null;
+  file_name: string | null;
+  file_type: string | null;
+  clients?: { name: string | null } | null;
+}
+
 interface UseMessageSearchOptions {
   clientId?: string;
   debounceMs?: number;
@@ -72,7 +86,7 @@ export const useMessageSearch = (options: UseMessageSearchOptions = {}) => {
       console.log(`[useMessageSearch] Searching for "${debouncedQuery}"...`);
 
       let queryBuilder = supabase
-        .from('chat_messages' as any)
+        .from('chat_messages')
         .select(`
           id,
           client_id,
@@ -104,7 +118,9 @@ export const useMessageSearch = (options: UseMessageSearchOptions = {}) => {
         throw error;
       }
 
-      const results: SearchResult[] = (data || []).map((msg: any) => ({
+      const rows = (data || []) as unknown as MessageRow[];
+
+      const results: SearchResult[] = rows.map((msg) => ({
         id: msg.id,
         client_id: msg.client_id,
         message_text: msg.message_text,
@@ -114,7 +130,7 @@ export const useMessageSearch = (options: UseMessageSearchOptions = {}) => {
         file_url: msg.file_url,
         file_name: msg.file_name,
         file_type: msg.file_type,
-        client_name: msg.clients?.name,
+        client_name: msg.clients?.name ?? undefined,
       }));
 
       console.log(`[useMessageSearch] Found ${results.length} results in ${(performance.now() - startTime).toFixed(2)}ms`);

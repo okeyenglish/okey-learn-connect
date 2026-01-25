@@ -23,15 +23,13 @@ export interface Document {
   updated_at?: string | null;
 }
 
-type DocumentInsert = Partial<Document>;
-type DocumentUpdate = Partial<Document>;
-
-export type { DocumentInsert, DocumentUpdate };
+export type DocumentInsert = Partial<Document>;
+export type DocumentUpdate = Partial<Document>;
 
 export const useDocuments = (folderPath: string = '/') => {
   return useQuery({
     queryKey: ['documents', folderPath],
-    queryFn: async () => {
+    queryFn: async (): Promise<Document[]> => {
       const { data, error } = await supabase
         .from('documents')
         .select('*')
@@ -39,7 +37,7 @@ export const useDocuments = (folderPath: string = '/') => {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as Document[];
+      return (data || []) as unknown as Document[];
     },
   });
 };
@@ -53,12 +51,14 @@ export const useCreateDocument = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
+      const insertData = {
+        ...document,
+        owner_id: user.id,
+      };
+
       const { data, error } = await supabase
         .from('documents')
-        .insert({
-          ...document,
-          owner_id: user.id,
-        } as any)
+        .insert(insertData)
         .select()
         .single();
 
@@ -72,7 +72,7 @@ export const useCreateDocument = () => {
         description: "Документ создан",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Ошибка",
         description: error.message,
@@ -90,7 +90,7 @@ export const useUpdateDocument = () => {
     mutationFn: async ({ id, updates }: { id: string; updates: DocumentUpdate }) => {
       const { data, error } = await supabase
         .from('documents')
-        .update(updates as any)
+        .update(updates)
         .eq('id', id)
         .select()
         .single();
@@ -105,7 +105,7 @@ export const useUpdateDocument = () => {
         description: "Документ обновлен",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Ошибка",
         description: error.message,
@@ -128,7 +128,7 @@ export const useDeleteDocument = () => {
         .eq('id', id)
         .single();
 
-      const docData = doc as Document | null;
+      const docData = doc as unknown as Document | null;
 
       // Delete from storage if it's a file
       if (docData?.file_path) {
@@ -154,7 +154,7 @@ export const useDeleteDocument = () => {
         description: "Документ удален",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Ошибка",
         description: error.message,
@@ -192,18 +192,20 @@ export const useUploadDocument = () => {
       if (uploadError) throw uploadError;
 
       // Create database entry
+      const insertData: DocumentInsert = {
+        name: name || file.name,
+        description,
+        file_path: filePath,
+        file_size: file.size,
+        mime_type: file.type,
+        document_type: 'file',
+        owner_id: user.id,
+        folder_path: folderPath,
+      };
+
       const { data, error } = await supabase
         .from('documents')
-        .insert({
-          name: name || file.name,
-          description,
-          file_path: filePath,
-          file_size: file.size,
-          mime_type: file.type,
-          document_type: 'file',
-          owner_id: user.id,
-          folder_path: folderPath,
-        } as any)
+        .insert(insertData)
         .select()
         .single();
 
@@ -217,7 +219,7 @@ export const useUploadDocument = () => {
         description: "Файл загружен",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Ошибка",
         description: error.message,
@@ -249,7 +251,7 @@ export const useDownloadDocument = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Ошибка",
         description: error.message,
@@ -271,12 +273,14 @@ export const useShareDocument = () => {
       documentId: string; 
       userIds: string[];
     }) => {
+      const updateData: DocumentUpdate = { 
+        is_shared: true, 
+        shared_with: userIds 
+      };
+
       const { data, error } = await supabase
         .from('documents')
-        .update({ 
-          is_shared: true, 
-          shared_with: userIds 
-        } as any)
+        .update(updateData)
         .eq('id', documentId)
         .select()
         .single();
@@ -291,7 +295,7 @@ export const useShareDocument = () => {
         description: "Документ успешно расшарен",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Ошибка",
         description: error.message,
