@@ -32,13 +32,12 @@ export const useMax = () => {
       if (error) throw error;
       if (!data) return null;
 
-      const row = data as any;
-      const settings = row.settings as any;
+      const settings = data.settings as Record<string, unknown> | null;
       return {
-        instanceId: settings?.instanceId || '',
-        apiToken: settings?.apiToken || '',
-        webhookUrl: row.webhook_url || '',
-        isEnabled: row.is_enabled || false,
+        instanceId: (settings?.instanceId as string) || '',
+        apiToken: (settings?.apiToken as string) || '',
+        webhookUrl: data.webhook_url || '',
+        isEnabled: data.is_enabled || false,
       };
     } catch (error: any) {
       console.error('Error fetching MAX settings:', error);

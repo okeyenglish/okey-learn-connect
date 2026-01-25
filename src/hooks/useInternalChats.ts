@@ -151,9 +151,9 @@ export const useCreateInternalChat = () => {
       branch?: string;
       participant_user_ids?: string[];
     }) => {
-      // Создаем чат напрямую в таблице
+      // Создаем чат напрямую в таблице clients
       const { data: chatResult, error: chatError } = await supabase
-        .from('clients' as any)
+        .from('clients')
         .insert({
           name: `Внутренний чат: ${chatData.name}`,
           phone: '-',

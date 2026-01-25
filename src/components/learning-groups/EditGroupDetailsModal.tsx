@@ -50,7 +50,7 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
     zoom_link: group?.zoom_link || "",
     course_id: group?.course_id || "",
     total_lessons: group?.total_lessons || 0,
-    course_start_date: group?.course_start_date ? new Date(group.course_start_date as any).toISOString().slice(0,10) : ""
+    course_start_date: group?.course_start_date ? new Date(group.course_start_date).toISOString().slice(0,10) : ""
   });
 
   // Загружаем список курсов
@@ -101,7 +101,7 @@ export const EditGroupDetailsModal = ({ open, onOpenChange, group, onSaveDetails
         zoom_link: g.zoom_link || "",
         course_id: g.course_id || "",
         total_lessons: typeof g.total_lessons === 'number' ? g.total_lessons : parseInt(g.total_lessons) || 0,
-        course_start_date: g.course_start_date ? new Date(g.course_start_date as any).toISOString().slice(0,10) : "",
+        course_start_date: g.course_start_date ? new Date(String(g.course_start_date)).toISOString().slice(0,10) : "",
       });
     }
   }, [latestGroup, group, open]);

@@ -1,19 +1,35 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
+import type { Json } from '@/integrations/supabase/database.types';
 
 export interface Event {
   id: string;
   event_type: string;
   aggregate_type: string;
   aggregate_id: string;
-  payload: Record<string, any>;
-  metadata: Record<string, any>;
+  payload: Record<string, unknown>;
+  metadata: Record<string, unknown>;
   organization_id: string | null;
   created_at: string;
   processed_at: string | null;
   retry_count: number;
   status: 'pending' | 'processing' | 'processed' | 'failed';
+  error_message: string | null;
+}
+
+interface EventBusRow {
+  id: string;
+  event_type: string;
+  aggregate_type: string;
+  aggregate_id: string;
+  payload: Json;
+  metadata: Json;
+  organization_id: string | null;
+  created_at: string;
+  processed_at: string | null;
+  retry_count: number;
+  status: string;
   error_message: string | null;
 }
 
@@ -26,7 +42,7 @@ export const useEvents = (filters?: {
     queryKey: ['events', filters],
     queryFn: async () => {
       let query = supabase
-        .from('event_bus' as any)
+        .from('event_bus')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(100);
@@ -43,7 +59,13 @@ export const useEvents = (filters?: {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data as unknown as Event[];
+      
+      return (data || []).map((row: EventBusRow) => ({
+        ...row,
+        payload: row.payload as Record<string, unknown>,
+        metadata: row.metadata as Record<string, unknown>,
+        status: row.status as Event['status']
+      })) as Event[];
     },
   });
 };
@@ -56,16 +78,14 @@ export const usePublishEvent = () => {
       event_type: string;
       aggregate_type: string;
       aggregate_id: string;
-      payload?: Record<string, any>;
-      metadata?: Record<string, any>;
+      payload?: Record<string, unknown>;
       organization_id?: string;
     }) => {
-      const { data, error } = await supabase.rpc('publish_event' as any, {
+      const { data, error } = await supabase.rpc('publish_event', {
         p_event_type: params.event_type,
         p_aggregate_type: params.aggregate_type,
         p_aggregate_id: params.aggregate_id,
-        p_payload: params.payload || {},
-        p_metadata: params.metadata || {},
+        p_payload: (params.payload || {}) as Json,
         p_organization_id: params.organization_id || null,
       });
 
@@ -83,7 +103,7 @@ export const useProcessPendingEvents = () => {
 
   return useMutation({
     mutationFn: async (limit: number = 100) => {
-      const { data, error } = await supabase.rpc('process_pending_events' as any, {
+      const { data, error } = await supabase.rpc('process_pending_events', {
         p_limit: limit,
       });
 
@@ -105,18 +125,19 @@ export const useEventStats = () => {
     queryKey: ['event-stats'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('event_bus' as any)
+        .from('event_bus')
         .select('status')
         .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
 
       if (error) throw error;
 
+      const typedData = data as { status: string }[];
       const stats = {
-        pending: data.filter((e: any) => e.status === 'pending').length,
-        processing: data.filter((e: any) => e.status === 'processing').length,
-        processed: data.filter((e: any) => e.status === 'processed').length,
-        failed: data.filter((e: any) => e.status === 'failed').length,
-        total: data.length,
+        pending: typedData.filter((e) => e.status === 'pending').length,
+        processing: typedData.filter((e) => e.status === 'processing').length,
+        processed: typedData.filter((e) => e.status === 'processed').length,
+        failed: typedData.filter((e) => e.status === 'failed').length,
+        total: typedData.length,
       };
 
       return stats;

@@ -259,9 +259,9 @@ export const StudentsSection = () => {
                         <TableCell className="font-medium">{student.name}</TableCell>
                         <TableCell>{student.age || '—'}</TableCell>
                         <TableCell>
-                          {(student as any).branch ? (
+                          {student.branch ? (
                             <Badge variant="outline" className="text-xs">
-                              {(student as any).branch}
+                              {student.branch}
                             </Badge>
                           ) : (
                             <span className="text-xs text-muted-foreground">—</span>

@@ -1,19 +1,26 @@
 import { useQuery, useMutation, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useEffect } from 'react';
+import type { CustomDatabase } from '@/integrations/supabase/database.types';
 
 /**
  * Хуки для работы с материализованными представлениями
  */
 
+type ClientUnreadStats = CustomDatabase['public']['Views']['mv_client_unread_stats']['Row'];
+type ClientTasksStats = CustomDatabase['public']['Views']['mv_client_tasks_stats']['Row'];
+type GroupStats = CustomDatabase['public']['Views']['mv_group_stats']['Row'];
+type ScheduleOverview = CustomDatabase['public']['Views']['mv_schedule_overview']['Row'];
+type StudentOverview = CustomDatabase['public']['Views']['mv_student_overview']['Row'];
+
 // Статистика непрочитанных сообщений по клиентам
-export function useClientUnreadStats(branch?: string): UseQueryResult<any[], Error> {
+export function useClientUnreadStats(branch?: string): UseQueryResult<ClientUnreadStats[], Error> {
   return useQuery({
     queryKey: ['mv_client_unread_stats', branch],
     staleTime: 5 * 60 * 1000, // 5 минут
     queryFn: async () => {
       let query = supabase
-        .from('mv_client_unread_stats' as any)
+        .from('mv_client_unread_stats')
         .select('*')
         .order('unread_count', { ascending: false });
       
@@ -24,19 +31,19 @@ export function useClientUnreadStats(branch?: string): UseQueryResult<any[], Err
       const { data, error } = await query;
       
       if (error) throw error;
-      return data || [];
+      return (data || []) as ClientUnreadStats[];
     },
   });
 }
 
 // Статистика задач по клиентам
-export function useClientTasksStats(clientId?: string): UseQueryResult<any[], Error> {
+export function useClientTasksStats(clientId?: string): UseQueryResult<ClientTasksStats[], Error> {
   return useQuery({
     queryKey: ['mv_client_tasks_stats', clientId],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       let query = supabase
-        .from('mv_client_tasks_stats' as any)
+        .from('mv_client_tasks_stats')
         .select('*');
       
       if (clientId) {
@@ -46,19 +53,19 @@ export function useClientTasksStats(clientId?: string): UseQueryResult<any[], Er
       const { data, error } = await query;
       
       if (error) throw error;
-      return data || [];
+      return (data || []) as ClientTasksStats[];
     },
   });
 }
 
 // Статистика по группам
-export function useGroupStats(branch?: string, status?: string): UseQueryResult<any[], Error> {
+export function useGroupStats(branch?: string, status?: string): UseQueryResult<GroupStats[], Error> {
   return useQuery({
     queryKey: ['mv_group_stats', branch, status],
     staleTime: 10 * 60 * 1000, // 10 минут
     queryFn: async () => {
       let query = supabase
-        .from('mv_group_stats' as any)
+        .from('mv_group_stats')
         .select('*');
       
       if (branch && branch !== 'all') {
@@ -72,7 +79,7 @@ export function useGroupStats(branch?: string, status?: string): UseQueryResult<
       const { data, error } = await query;
       
       if (error) throw error;
-      return data || [];
+      return (data || []) as GroupStats[];
     },
   });
 }
@@ -83,13 +90,13 @@ export function useScheduleOverview(filters?: {
   teacherName?: string;
   startDate?: string;
   endDate?: string;
-}): UseQueryResult<any[], Error> {
+}): UseQueryResult<ScheduleOverview[], Error> {
   return useQuery({
     queryKey: ['mv_schedule_overview', filters],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       let query = supabase
-        .from('mv_schedule_overview' as any)
+        .from('mv_schedule_overview')
         .select('*')
         .order('lesson_date', { ascending: true })
         .order('start_time', { ascending: true });
@@ -113,7 +120,7 @@ export function useScheduleOverview(filters?: {
       const { data, error } = await query;
       
       if (error) throw error;
-      return data || [];
+      return (data || []) as ScheduleOverview[];
     },
   });
 }
@@ -123,13 +130,13 @@ export function useStudentOverview(filters?: {
   branch?: string;
   status?: string;
   hasDebt?: boolean;
-}): UseQueryResult<any[], Error> {
+}): UseQueryResult<StudentOverview[], Error> {
   return useQuery({
     queryKey: ['mv_student_overview', filters],
     staleTime: 10 * 60 * 1000,
     queryFn: async () => {
       let query = supabase
-        .from('mv_student_overview' as any)
+        .from('mv_student_overview')
         .select('*')
         .order('name', { ascending: true });
       
@@ -148,7 +155,7 @@ export function useStudentOverview(filters?: {
       const { data, error } = await query;
       
       if (error) throw error;
-      return data || [];
+      return (data || []) as StudentOverview[];
     },
   });
 }
@@ -162,8 +169,8 @@ export function useRefreshMaterializedViews() {
   
   return useMutation({
     mutationFn: async () => {
-      // Вызываем функцию обновления через raw SQL
-      const { error } = await supabase.rpc('refresh_all_materialized_views' as any);
+      // Вызываем функцию обновления через RPC
+      const { error } = await supabase.rpc('refresh_all_materialized_views');
       
       if (error) {
         console.warn('[MV] Refresh function not available, views will be refreshed automatically');

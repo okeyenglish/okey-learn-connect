@@ -35,7 +35,7 @@ export const useTeacherSubstitutions = (filters?: {
     queryKey: ['teacher-substitutions', filters],
     queryFn: async () => {
       let query = supabase
-        .from('teacher_substitutions' as any)
+        .from('teacher_substitutions')
         .select('*')
         .order('substitution_date', { ascending: false });
 
@@ -55,7 +55,7 @@ export const useTeacherSubstitutions = (filters?: {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as unknown as TeacherSubstitution[];
+      return (data || []) as TeacherSubstitution[];
     },
   });
 };
@@ -72,7 +72,7 @@ export const useFindAvailableTeachers = (
     queryFn: async () => {
       if (!date || !time || !subject || !branch) return [];
 
-      const { data, error } = await supabase.rpc('find_available_teachers' as any, {
+      const { data, error } = await supabase.rpc('find_available_teachers', {
         p_date: date,
         p_time: time,
         p_subject: subject,
@@ -80,7 +80,7 @@ export const useFindAvailableTeachers = (
       });
 
       if (error) throw error;
-      return (data || []) as unknown as AvailableTeacher[];
+      return (data || []) as AvailableTeacher[];
     },
     enabled: !!date && !!time && !!subject && !!branch,
   });
@@ -94,7 +94,7 @@ export const useCreateSubstitution = () => {
   return useMutation({
     mutationFn: async (substitution: Partial<TeacherSubstitution>) => {
       const { data, error } = await supabase
-        .from('teacher_substitutions' as any)
+        .from('teacher_substitutions')
         .insert({
           ...substitution,
           created_by: (await supabase.auth.getUser()).data.user?.id,
@@ -130,7 +130,7 @@ export const useUpdateSubstitutionStatus = () => {
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const { error } = await supabase
-        .from('teacher_substitutions' as any)
+        .from('teacher_substitutions')
         .update({ status })
         .eq('id', id);
 
@@ -161,7 +161,7 @@ export const useDeleteSubstitution = () => {
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from('teacher_substitutions' as any)
+        .from('teacher_substitutions')
         .delete()
         .eq('id', id);
 

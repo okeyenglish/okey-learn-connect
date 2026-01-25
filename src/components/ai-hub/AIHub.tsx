@@ -450,7 +450,7 @@ export const AIHub = ({
 
         <Tabs 
           value={activeTab} 
-          onValueChange={(v) => setActiveTab(v as any)}
+          onValueChange={(v) => setActiveTab(v as 'assistant' | 'consultants' | 'community')}
           className="flex-1 flex flex-col overflow-hidden"
         >
           <TabsList className="w-full h-12 bg-transparent border-b rounded-none p-0 grid grid-cols-3 shrink-0">

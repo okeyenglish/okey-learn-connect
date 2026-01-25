@@ -14,7 +14,7 @@ export const useMessageReadStatus = (messageId: string) => {
   return useQuery({
     queryKey: ['message-read-status', messageId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_message_read_status' as any, {
+      const { data, error } = await supabase.rpc('get_message_read_status', {
         p_message_id: messageId
       });
       
@@ -37,7 +37,7 @@ export const useMarkMessageAsRead = () => {
     mutationFn: async (messageId: string) => {
       if (!user) throw new Error('User not authenticated');
       
-      const { error } = await supabase.rpc('mark_message_as_read' as any, {
+      const { error } = await supabase.rpc('mark_message_as_read', {
         p_message_id: messageId
       });
       
@@ -64,7 +64,7 @@ export const useMarkChatMessagesAsRead = () => {
     mutationFn: async (clientId: string) => {
       if (!user) throw new Error('User not authenticated');
       
-      const { error } = await supabase.rpc('mark_chat_messages_as_read' as any, {
+      const { error } = await supabase.rpc('mark_chat_messages_as_read', {
         p_client_id: clientId
       });
       
@@ -101,7 +101,7 @@ export const useMarkChatMessagesAsReadByMessenger = () => {
     mutationFn: async ({ clientId, messengerType }: { clientId: string; messengerType: string }) => {
       if (!user) throw new Error('User not authenticated');
       
-      const { error } = await supabase.rpc('mark_chat_messages_as_read_by_messenger' as any, {
+      const { error } = await supabase.rpc('mark_chat_messages_as_read_by_messenger', {
         p_client_id: clientId,
         p_messenger_type: messengerType
       });
