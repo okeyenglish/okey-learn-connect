@@ -1,16 +1,14 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
+import { 
+  successResponse, 
+  errorResponse, 
+  getErrorMessage,
+  handleCors 
+} from '../_shared/types.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabaseClient = createClient(
@@ -68,22 +66,13 @@ serve(async (req) => {
 
     console.log(`Synchronization complete. Synced: ${syncedCount}, Errors: ${errors.length}`);
     
-    return new Response(
-      JSON.stringify({ 
-        synced: syncedCount,
-        total: autoGroups?.length || 0,
-        errors: errors.length > 0 ? errors : undefined
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  } catch (error) {
+    return successResponse({ 
+      synced: syncedCount,
+      total: autoGroups?.length || 0,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (error: unknown) {
     console.error('Error in sync-auto-groups function:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });

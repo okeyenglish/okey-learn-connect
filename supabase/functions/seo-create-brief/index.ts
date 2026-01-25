@@ -1,14 +1,15 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
+import { 
+  corsHeaders, 
+  successResponse, 
+  errorResponse, 
+  getErrorMessage,
+  handleCors 
+} from '../_shared/types.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 const SCHOOL_BRIEF_PROMPT = `Ты - SEO-редактор языковой школы "O'KEY ENGLISH".
 
@@ -65,10 +66,9 @@ async function getOpenAIKey(supabase: any, organizationId: string): Promise<stri
   return apiKey;
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const { ideaId, organizationId } = await req.json();
@@ -188,22 +188,13 @@ serve(async (req) => {
       output_data: { brief },
     });
 
-    return new Response(JSON.stringify({
-      success: true,
+    return successResponse({
       idea: updatedIdea,
       brief,
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('[seo-create-brief] Error:', error);
-
-    return new Response(JSON.stringify({
-      error: error.message
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(getErrorMessage(error), 500);
   }
 });

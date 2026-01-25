@@ -1,11 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-api-version, prefer, x-supabase-version, x-profile-claims, x-action',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Max-Age': '86400'
-};
+import { 
+  corsHeaders, 
+  handleCors 
+} from '../_shared/types.ts';
 
 const HOLIHOPE_DOMAIN = 'https://okeyenglish.t8s.ru/Api/V2';
 // API key is now loaded from Supabase secrets
@@ -70,9 +67,17 @@ async function updateHolihopeProgress(supabase: any, updates: Record<string, any
   }
 }
 
+// Extended corsHeaders with additional headers for this function
+const extendedCorsHeaders = {
+  ...corsHeaders,
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-api-version, prefer, x-supabase-version, x-profile-claims, x-action',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Max-Age': '86400'
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: extendedCorsHeaders });
   }
 
   try {

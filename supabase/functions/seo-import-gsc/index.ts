@@ -1,11 +1,11 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { 
+  corsHeaders, 
+  errorResponse, 
+  getErrorMessage,
+  handleCors 
+} from '../_shared/types.ts';
 
 // Helper function to create JWT for Google OAuth
 async function createJWT(serviceAccount: any): Promise<string> {
@@ -105,10 +105,9 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
   return data.access_token;
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     console.log("Starting GSC import...");
@@ -316,7 +315,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in seo-import-gsc:', error);
     
     // Log error to database
@@ -329,21 +328,12 @@ serve(async (req) => {
         organization_id: null,
         job_type: 'import_gsc',
         status: 'failed',
-        result: { error: error.message },
+        result: { error: getErrorMessage(error) },
       });
     } catch (logError) {
       console.error('Failed to log error:', logError);
     }
 
-    return new Response(
-      JSON.stringify({ 
-        error: error.message,
-        details: error.toString() 
-      }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });
