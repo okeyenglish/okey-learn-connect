@@ -40,6 +40,7 @@ import { useMarkChatMessagesAsReadByMessenger, useMarkChatMessagesAsRead } from 
 import { useQueryClient } from "@tanstack/react-query";
 import { getErrorMessage } from '@/lib/errorUtils';
 import { useClientAvatars } from '@/hooks/useClientAvatars';
+import { useMessengerIntegrationStatus, MessengerType } from '@/hooks/useMessengerIntegrationStatus';
 
 interface ChatAreaProps {
   clientId: string;
@@ -179,7 +180,7 @@ export const ChatArea = ({
   const { sendMessage: sendMaxMessage, loading: maxLoading } = useMaxGreenApi();
   const { editMessage: editMaxMessage, deleteMessage: deleteMaxMessage, sendTyping: sendMaxTyping, checkAvailability: checkMaxAvailability, getAvatar: getMaxAvatar } = useMax();
   const { sendMessage: sendTelegramMessage } = useTelegramWappi();
-  
+  const { checkIntegrationStatus } = useMessengerIntegrationStatus();
   // State for availability check (MAX and WhatsApp)
   const [maxAvailability, setMaxAvailability] = useState<{ checked: boolean; available: boolean | null }>({ checked: false, available: null });
   const [whatsappAvailability, setWhatsappAvailability] = useState<{ checked: boolean; available: boolean | null }>({ checked: false, available: null });
@@ -740,6 +741,35 @@ export const ChatArea = ({
 
   const sendMessageNow = async (messageText: string, filesToSend: Array<{url: string, name: string, type: string, size: number}> = []) => {
     try {
+      // Determine which messenger to use
+      const messengerType: MessengerType = activeMessengerTab === 'max' ? 'max' 
+        : activeMessengerTab === 'telegram' ? 'telegram' 
+        : 'whatsapp';
+      
+      // Check integration status before sending
+      const integrationStatus = await checkIntegrationStatus(messengerType);
+      
+      if (!integrationStatus.isEnabled || !integrationStatus.isConfigured) {
+        toast({
+          title: "Интеграция недоступна",
+          description: integrationStatus.errorMessage || "Мессенджер не настроен",
+          variant: "destructive",
+        });
+        
+        // Save message to database with failed status so user can retry later
+        await supabase.from('chat_messages').insert({
+          client_id: clientId,
+          message_text: messageText,
+          message_type: 'manager',
+          is_outgoing: true,
+          messenger_type: messengerType,
+          status: 'failed'
+        });
+        
+        queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
+        return;
+      }
+      
       // Check which messenger tab is active and send via appropriate service
       if (activeMessengerTab === 'max') {
         // Send via MAX
