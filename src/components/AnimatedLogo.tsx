@@ -6,7 +6,7 @@ interface AnimatedLogoProps {
 }
 
 export const AnimatedLogo = ({ size = 144, className }: AnimatedLogoProps) => {
-  const ringSize = size * 1.3;
+  const ringSize = size * 1.15; // Tighter ring around logo
   
   return (
     <div 
@@ -20,7 +20,7 @@ export const AnimatedLogo = ({ size = 144, className }: AnimatedLogoProps) => {
         background: 'transparent',
       }}
     >
-      {/* Main rotating ring - blue to red gradient, tight around logo */}
+      {/* Main rotating ring - blue to red gradient, tight around logo edge */}
       <div 
         className="absolute rounded-full animate-ring-rotate"
         style={{
@@ -28,60 +28,60 @@ export const AnimatedLogo = ({ size = 144, className }: AnimatedLogoProps) => {
           height: ringSize,
           background: `conic-gradient(
             from 0deg,
-            hsl(217 72% 50% / 0.7),
-            hsl(217 72% 55% / 0.5),
-            hsl(260 50% 50% / 0.4),
-            hsl(320 55% 50% / 0.5),
-            hsl(0 65% 50% / 0.6),
-            hsl(320 55% 50% / 0.5),
-            hsl(260 50% 50% / 0.4),
-            hsl(217 72% 55% / 0.5),
-            hsl(217 72% 50% / 0.7)
+            hsl(217 72% 50% / 0.8),
+            hsl(217 72% 55% / 0.6),
+            hsl(260 50% 50% / 0.5),
+            hsl(320 55% 50% / 0.6),
+            hsl(0 65% 50% / 0.7),
+            hsl(320 55% 50% / 0.6),
+            hsl(260 50% 50% / 0.5),
+            hsl(217 72% 55% / 0.6),
+            hsl(217 72% 50% / 0.8)
           )`,
-          filter: 'blur(6px)',
-          maskImage: `radial-gradient(circle, transparent ${size / 2 - 2}px, black ${size / 2}px, black ${ringSize / 2 - 4}px, transparent ${ringSize / 2}px)`,
-          WebkitMaskImage: `radial-gradient(circle, transparent ${size / 2 - 2}px, black ${size / 2}px, black ${ringSize / 2 - 4}px, transparent ${ringSize / 2}px)`,
+          filter: 'blur(5px)',
+          maskImage: `radial-gradient(circle, transparent ${size / 2 - 6}px, black ${size / 2 - 4}px, black ${ringSize / 2 - 2}px, transparent ${ringSize / 2}px)`,
+          WebkitMaskImage: `radial-gradient(circle, transparent ${size / 2 - 6}px, black ${size / 2 - 4}px, black ${ringSize / 2 - 2}px, transparent ${ringSize / 2}px)`,
         }}
       />
       
-      {/* Inner glow ring - softer, counter-rotate */}
+      {/* Inner glow ring - softer, counter-rotate, hugging logo */}
       <div 
         className="absolute rounded-full animate-ring-counter-rotate"
         style={{
-          width: ringSize * 0.95,
-          height: ringSize * 0.95,
+          width: size * 1.08,
+          height: size * 1.08,
           background: `conic-gradient(
             from 180deg,
-            hsl(0 60% 50% / 0.4),
-            hsl(217 70% 50% / 0.3),
-            hsl(0 60% 50% / 0.4),
-            hsl(217 70% 50% / 0.3),
-            hsl(0 60% 50% / 0.4)
+            hsl(0 60% 50% / 0.5),
+            hsl(217 70% 50% / 0.4),
+            hsl(0 60% 50% / 0.5),
+            hsl(217 70% 50% / 0.4),
+            hsl(0 60% 50% / 0.5)
           )`,
-          filter: 'blur(4px)',
-          maskImage: `radial-gradient(circle, transparent ${size / 2 - 4}px, black ${size / 2 - 2}px, black ${size / 2 + 8}px, transparent ${size / 2 + 12}px)`,
-          WebkitMaskImage: `radial-gradient(circle, transparent ${size / 2 - 4}px, black ${size / 2 - 2}px, black ${size / 2 + 8}px, transparent ${size / 2 + 12}px)`,
+          filter: 'blur(3px)',
+          maskImage: `radial-gradient(circle, transparent ${size / 2 - 8}px, black ${size / 2 - 6}px, black ${size / 2 + 2}px, transparent ${size / 2 + 6}px)`,
+          WebkitMaskImage: `radial-gradient(circle, transparent ${size / 2 - 8}px, black ${size / 2 - 6}px, black ${size / 2 + 2}px, transparent ${size / 2 + 6}px)`,
         }}
       />
       
-      {/* Orbiting light particles */}
+      {/* Orbiting light particles - at logo edge */}
       <div 
         className="absolute rounded-full animate-particles-orbit pointer-events-none" 
-        style={{ width: ringSize, height: ringSize }}
+        style={{ width: size, height: size }}
       >
-        {[0, 90, 180, 270].map((angle, i) => (
+        {[0, 120, 240].map((angle, i) => (
           <div
             key={i}
             className="absolute"
             style={{
               width: 3,
               height: 3,
-              background: i % 2 === 0 ? 'hsl(217 80% 65%)' : 'hsl(0 70% 60%)',
+              background: i === 0 ? 'hsl(217 80% 65%)' : i === 1 ? 'hsl(0 70% 60%)' : 'hsl(260 60% 60%)',
               borderRadius: '50%',
-              boxShadow: `0 0 6px 2px ${i % 2 === 0 ? 'hsl(217 80% 60% / 0.7)' : 'hsl(0 70% 55% / 0.7)'}`,
+              boxShadow: `0 0 5px 2px ${i === 0 ? 'hsl(217 80% 60% / 0.7)' : i === 1 ? 'hsl(0 70% 55% / 0.7)' : 'hsl(260 60% 55% / 0.6)'}`,
               top: '50%',
               left: '50%',
-              transform: `rotate(${angle}deg) translateX(${size / 2 + 4}px) translateY(-50%)`,
+              transform: `rotate(${angle}deg) translateX(${size / 2 - 2}px) translateY(-50%)`,
             }}
           />
         ))}
