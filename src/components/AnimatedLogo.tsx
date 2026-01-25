@@ -5,61 +5,85 @@ interface AnimatedLogoProps {
   className?: string;
 }
 
-export const AnimatedLogo = ({ size = 32, className }: AnimatedLogoProps) => {
+export const AnimatedLogo = ({ size = 56, className }: AnimatedLogoProps) => {
   return (
     <div 
       className={cn(
-        "relative flex items-center justify-center",
+        "relative flex items-center justify-center cursor-pointer group",
         className
       )}
       style={{ width: size, height: size }}
     >
-      {/* Outer glow ring */}
+      {/* Outer pulsing glow */}
       <div 
-        className="absolute inset-0 rounded-full animate-ping opacity-20 bg-white"
-        style={{ animationDuration: '2s' }}
-      />
-      
-      {/* Rotating outer ring */}
-      <div 
-        className="absolute inset-0 rounded-full border-2 border-white/30"
+        className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500/30 to-red-500/30 blur-md"
         style={{
-          animation: 'spin 8s linear infinite',
+          animation: 'glowPulse 2s ease-in-out infinite',
         }}
       />
       
-      {/* Pulsing middle ring */}
+      {/* Shadow for depth */}
       <div 
-        className="absolute rounded-full border border-white/40"
+        className="absolute rounded-full bg-black/20 blur-lg"
         style={{
-          width: size * 0.85,
-          height: size * 0.85,
-          animation: 'pulse 2s ease-in-out infinite',
+          width: size * 0.9,
+          height: size * 0.3,
+          bottom: -size * 0.1,
+          animation: 'shadowPulse 2s ease-in-out infinite',
         }}
       />
       
-      {/* Logo image with subtle scale animation */}
+      {/* Logo image with rotation and breathing animation */}
       <img 
         src="/favicon.png" 
         alt="Logo"
-        className="relative z-10 rounded-full object-contain"
+        className="relative z-10 rounded-full object-contain drop-shadow-lg transition-transform duration-300 group-hover:scale-110"
         style={{
-          width: size * 0.75,
-          height: size * 0.75,
-          animation: 'logoBreath 3s ease-in-out infinite',
+          width: size,
+          height: size,
+          animation: 'logoSpin 12s linear infinite, logoBreath 2s ease-in-out infinite',
         }}
       />
       
-      {/* Add custom keyframes via style tag */}
+      {/* Custom keyframes */}
       <style>{`
+        @keyframes logoSpin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        
         @keyframes logoBreath {
           0%, 100% {
-            transform: scale(1);
-            filter: brightness(1);
+            filter: brightness(1) drop-shadow(0 0 8px rgba(59, 130, 246, 0.5));
           }
           50% {
-            transform: scale(1.05);
-            filter: brightness(1.1);
+            filter: brightness(1.15) drop-shadow(0 0 16px rgba(239, 68, 68, 0.6));
+          }
+        }
+        
+        @keyframes glowPulse {
+          0%, 100% {
+            opacity: 0.5;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.8;
+            transform: scale(1.1);
+          }
+        }
+        
+        @keyframes shadowPulse {
+          0%, 100% {
+            opacity: 0.3;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.5;
+            transform: scale(1.1);
           }
         }
       `}</style>
