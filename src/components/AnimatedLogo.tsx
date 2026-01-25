@@ -9,6 +9,8 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
   const strokeWidth = 4;
   const radius = (size / 2) - (strokeWidth / 2);
   const circumference = 2 * Math.PI * radius;
+  // Fill the inner area right up to the ring to avoid any visible “white gap”
+  const innerLogoSize = size - (strokeWidth * 2);
   
   return (
     <div 
@@ -35,22 +37,22 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
         <defs>
           {/* Animated gradient */}
           <linearGradient id="siriRingGradient" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#3b82f6">
-              <animate attributeName="stop-color" values="#3b82f6;#ef4444;#3b82f6" dur="4s" repeatCount="indefinite" />
+            <stop offset="0%" stopColor="hsl(217 72% 50%)">
+              <animate attributeName="stop-color" values="hsl(217 72% 50%);hsl(0 80% 55%);hsl(217 72% 50%)" dur="4s" repeatCount="indefinite" />
             </stop>
-            <stop offset="50%" stopColor="#ef4444">
-              <animate attributeName="stop-color" values="#ef4444;#3b82f6;#ef4444" dur="4s" repeatCount="indefinite" />
+            <stop offset="50%" stopColor="hsl(0 80% 55%)">
+              <animate attributeName="stop-color" values="hsl(0 80% 55%);hsl(217 72% 50%);hsl(0 80% 55%)" dur="4s" repeatCount="indefinite" />
             </stop>
-            <stop offset="100%" stopColor="#3b82f6">
-              <animate attributeName="stop-color" values="#3b82f6;#ef4444;#3b82f6" dur="4s" repeatCount="indefinite" />
+            <stop offset="100%" stopColor="hsl(217 72% 50%)">
+              <animate attributeName="stop-color" values="hsl(217 72% 50%);hsl(0 80% 55%);hsl(217 72% 50%)" dur="4s" repeatCount="indefinite" />
             </stop>
           </linearGradient>
           
           {/* Second gradient for layered effect */}
           <linearGradient id="siriRingGradient2" gradientUnits="userSpaceOnUse" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#ef4444" stopOpacity="0.8" />
-            <stop offset="50%" stopColor="#3b82f6" stopOpacity="0.9" />
-            <stop offset="100%" stopColor="#ef4444" stopOpacity="0.8" />
+            <stop offset="0%" stopColor="hsl(0 80% 55%)" stopOpacity="0.8" />
+            <stop offset="50%" stopColor="hsl(217 72% 50%)" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="hsl(0 80% 55%)" stopOpacity="0.8" />
           </linearGradient>
         </defs>
         
@@ -89,8 +91,8 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
         alt="Logo"
         className="relative z-10 rounded-full object-contain transition-transform duration-300 group-hover:scale-105"
         style={{
-          width: size * 0.75,
-          height: size * 0.75,
+          width: innerLogoSize,
+          height: innerLogoSize,
         }}
       />
       
