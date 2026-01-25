@@ -1,4 +1,5 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 
 export type MessengerType = 'whatsapp' | 'telegram' | 'max';
@@ -8,6 +9,12 @@ export interface IntegrationStatus {
   isConfigured: boolean;
   provider?: string;
   errorMessage?: string;
+}
+
+export interface AllIntegrationsStatus {
+  whatsapp: IntegrationStatus;
+  telegram: IntegrationStatus;
+  max: IntegrationStatus;
 }
 
 /**
@@ -78,6 +85,67 @@ export const useMessengerIntegrationStatus = () => {
   }, []);
 
   return { checkIntegrationStatus };
+};
+
+/**
+ * Hook to get all messenger integration statuses at once (for tab indicators)
+ */
+export const useAllIntegrationsStatus = () => {
+  return useQuery({
+    queryKey: ['all-integrations-status'],
+    queryFn: async (): Promise<AllIntegrationsStatus> => {
+      const defaultStatus: IntegrationStatus = {
+        isEnabled: false,
+        isConfigured: false
+      };
+
+      try {
+        const { data, error } = await supabase
+          .from('messenger_settings')
+          .select('messenger_type, is_enabled, provider, settings')
+          .in('messenger_type', ['whatsapp', 'telegram', 'max']);
+
+        if (error) {
+          console.error('Error fetching integration statuses:', error);
+          return {
+            whatsapp: defaultStatus,
+            telegram: defaultStatus,
+            max: defaultStatus
+          };
+        }
+
+        const result: AllIntegrationsStatus = {
+          whatsapp: defaultStatus,
+          telegram: defaultStatus,
+          max: defaultStatus
+        };
+
+        for (const row of data || []) {
+          const messengerType = row.messenger_type as MessengerType;
+          const settings = row.settings as Record<string, any> | null;
+          const isConfigured = checkIfConfigured(messengerType, row.provider, settings);
+
+          result[messengerType] = {
+            isEnabled: row.is_enabled || false,
+            isConfigured,
+            provider: row.provider || undefined
+          };
+        }
+
+        return result;
+      } catch (error) {
+        console.error('Error fetching integration statuses:', error);
+        return {
+          whatsapp: defaultStatus,
+          telegram: defaultStatus,
+          max: defaultStatus
+        };
+      }
+    },
+    staleTime: 30 * 1000, // 30 seconds
+    gcTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false
+  });
 };
 
 function checkIfConfigured(messengerType: MessengerType, provider: string | null, settings: Record<string, any> | null): boolean {
