@@ -1,13 +1,58 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
+import { 
+  corsHeaders, 
+  successResponse, 
+  errorResponse,
+  getErrorMessage,
+  handleCors,
+  type VoiceAssistantRequest,
+  type VoiceAssistantResponse 
+} from '../_shared/types.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// Voice assistant extended request
+interface VoiceAssistantExtendedRequest extends VoiceAssistantRequest {
+  text?: string;
+  userId?: string;
+  context?: VoiceAssistantContext;
+}
+
+interface VoiceAssistantContext {
+  currentPage?: string;
+  activeClientName?: string;
+  activeChatType?: string;
+  activeClientId?: string;
+}
+
+interface VoiceAssistantExtendedResponse extends VoiceAssistantResponse {
+  transcription?: string;
+  response?: string;
+  audioResponse?: string | null;
+  actionResult?: VoiceActionResult | null;
+}
+
+interface VoiceActionResult {
+  type: string;
+  text?: string;
+  data?: unknown;
+  clientName?: string;
+  clientId?: string;
+  title?: string;
+  dueDate?: string;
+  taskId?: string;
+  status?: string;
+  deletedCount?: number;
+  deletedTasks?: unknown[];
+  count?: number;
+  tasks?: unknown[];
+  actions?: VoiceActionResult[];
+  modalType?: string;
+  action?: string;
+  filter?: string;
+}
+
 // Timezone helpers
-function formatMoscowDate(offsetDays: number = 0) {
+function formatMoscowDate(offsetDays: number = 0): string {
   const now = new Date();
   const utc = now.getTime() + now.getTimezoneOffset() * 60000;
   const msk = new Date(utc + 3 * 60 * 60000 + offsetDays * 86400000);
@@ -17,17 +62,17 @@ function formatMoscowDate(offsetDays: number = 0) {
   return `${y}-${m}-${d}`;
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const { audio, text, command, userId, context } = await req.json();
+    const body = await req.json() as VoiceAssistantExtendedRequest;
+    const { audio, text, command, userId, context } = body;
     
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
-      throw new Error('OPENAI_API_KEY is not set');
+      return errorResponse('OPENAI_API_KEY is not set', 500);
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -1114,24 +1159,19 @@ serve(async (req) => {
       console.error('TTS generation error:', ttsError);
     }
 
-    return new Response(JSON.stringify({
+    const response: VoiceAssistantExtendedResponse = {
       success: true,
       transcription: userCommand,
       response: responseText,
+      text: responseText,
       audioResponse: base64Audio,
       actionResult: actionResult
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    };
+    
+    return successResponse(response as unknown as Record<string, unknown>);
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Voice assistant error:', error);
-    return new Response(JSON.stringify({ 
-      success: false,
-      error: (error as any)?.message ?? 'Server error'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(getErrorMessage(error), 500);
   }
 });
