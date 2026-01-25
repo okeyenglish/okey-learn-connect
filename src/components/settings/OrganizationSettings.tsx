@@ -7,10 +7,13 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { AutoRetrySettings } from './AutoRetrySettings';
+import { EmployeeInvitationsList } from '@/components/employees/EmployeeInvitationsList';
+import { AddEmployeeModal } from '@/components/employees/AddEmployeeModal';
 
 export const OrganizationSettings = () => {
   const { organization, isLoading } = useOrganization();
   const [isSaving, setIsSaving] = useState(false);
+  const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
   const [formData, setFormData] = useState({
     name: organization?.name || '',
     slug: organization?.slug || '',
@@ -130,6 +133,15 @@ export const OrganizationSettings = () => {
 
       {/* Auto-Retry Settings */}
       <AutoRetrySettings />
+
+      {/* Employee Invitations */}
+      <EmployeeInvitationsList onAddNew={() => setShowAddEmployeeModal(true)} />
+
+      {/* Add Employee Modal */}
+      <AddEmployeeModal 
+        open={showAddEmployeeModal} 
+        onOpenChange={setShowAddEmployeeModal}
+      />
     </div>
   );
 };
