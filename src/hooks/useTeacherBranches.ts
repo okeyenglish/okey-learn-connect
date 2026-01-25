@@ -13,6 +13,21 @@ export interface Branch {
   lessonsCount?: number;
 }
 
+interface TeacherBranchRow {
+  branch_id: string;
+  organization_branches: {
+    id: string;
+    name: string;
+    address: string | null;
+    phone: string | null;
+    organization_id: string | null;
+    organizations: {
+      id: string;
+      name: string;
+    } | null;
+  } | null;
+}
+
 export const useTeacherBranches = (teacherId?: string) => {
   const [selectedBranchId, setSelectedBranchId] = useState<string | 'all'>('all');
 
@@ -22,8 +37,8 @@ export const useTeacherBranches = (teacherId?: string) => {
     queryFn: async () => {
       if (!teacherId) return [];
 
-      const { data, error } = await (supabase
-        .from('teacher_branches' as any) as any)
+      const { data, error } = await supabase
+        .from('teacher_branches')
         .select(`
           branch_id,
           organization_branches (
@@ -45,18 +60,23 @@ export const useTeacherBranches = (teacherId?: string) => {
         return [];
       }
 
-      return (data || [])
-        .map((item: any) => {
+      const rows = (data || []) as unknown as TeacherBranchRow[];
+
+      return rows
+        .map((item) => {
           const branch = item.organization_branches;
           if (!branch) return null;
           
           return {
-            ...branch,
+            id: branch.id,
+            name: branch.name,
+            address: branch.address || '',
+            phone: branch.phone || '',
             organization_id: branch.organizations?.id,
             organization_name: branch.organizations?.name,
-          };
+          } as Branch;
         })
-        .filter(Boolean) as Branch[];
+        .filter((b): b is Branch => b !== null);
     },
     enabled: !!teacherId,
   });
@@ -92,8 +112,8 @@ export const useTeacherBranches = (teacherId?: string) => {
 
       const stats = await Promise.all(
         branches.map(async (branch) => {
-          const { count } = await (supabase
-            .from('lesson_sessions' as any) as any)
+          const { count } = await supabase
+            .from('lesson_sessions')
             .select('*, learning_groups!inner(teacher_id, branch)', { count: 'exact', head: true })
             .eq('learning_groups.teacher_id', teacherId)
             .eq('learning_groups.branch', branch.name)

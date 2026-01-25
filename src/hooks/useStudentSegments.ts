@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
+import type { StudentSegment as DBStudentSegment, Json } from '@/integrations/supabase/database.types';
 
 export interface StudentSegment {
   id: string;
   name: string;
-  description?: string;
-  filters: Record<string, any>;
+  description?: string | null;
+  filters: Record<string, Json>;
   created_by: string;
   is_global: boolean;
   created_at: string;
@@ -20,8 +21,8 @@ export const useStudentSegments = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { data, error } = await (supabase
-        .from('student_segments' as any) as any)
+      const { data, error } = await supabase
+        .from('student_segments')
         .select('*')
         .or(`created_by.eq.${user.id},is_global.eq.true`)
         .order('created_at', { ascending: false });
@@ -40,14 +41,14 @@ export const useCreateStudentSegment = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { data, error } = await (supabase
-        .from('student_segments' as any) as any)
+      const { data, error } = await supabase
+        .from('student_segments')
         .insert([{ ...segment, created_by: user.id }])
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as StudentSegment;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['student-segments'] });
@@ -65,15 +66,15 @@ export const useUpdateStudentSegment = () => {
 
   return useMutation({
     mutationFn: async ({ id, ...segment }: Partial<StudentSegment> & { id: string }) => {
-      const { data, error } = await (supabase
-        .from('student_segments' as any) as any)
+      const { data, error } = await supabase
+        .from('student_segments')
         .update(segment)
         .eq('id', id)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as StudentSegment;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['student-segments'] });
@@ -91,8 +92,8 @@ export const useDeleteStudentSegment = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase
-        .from('student_segments' as any) as any)
+      const { error } = await supabase
+        .from('student_segments')
         .delete()
         .eq('id', id);
 

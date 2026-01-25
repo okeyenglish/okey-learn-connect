@@ -7,6 +7,34 @@ import { useMemo, useCallback } from 'react';
 
 const PAGE_SIZE = 50;
 
+interface RpcThreadRow {
+  clt_id?: string;
+  client_id?: string;
+  client_name: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  middle_name?: string | null;
+  client_phone?: string;
+  client_branch?: string | null;
+  avatar_url?: string | null;
+  telegram_avatar_url?: string | null;
+  whatsapp_avatar_url?: string | null;
+  max_avatar_url?: string | null;
+  telegram_chat_id?: string | null;
+  whatsapp_chat_id?: string | null;
+  max_chat_id?: string | null;
+  last_message_text?: string;
+  last_message?: string;
+  last_message_time?: string;
+  unread_count?: number;
+  unread_whatsapp?: number;
+  unread_telegram?: number;
+  unread_max?: number;
+  unread_email?: number;
+  unread_calls?: number;
+  last_unread_messenger?: string | null;
+}
+
 /**
  * Infinite scroll hook for chat threads
  * Loads 50 threads at a time for fast initial render
@@ -26,7 +54,7 @@ export const useChatThreadsInfinite = () => {
         .rpc('get_chat_threads_paginated', { 
           p_limit: PAGE_SIZE + 1, // +1 to check if there are more
           p_offset: pageParam * PAGE_SIZE 
-        } as any);
+        });
 
       if (error) {
         console.error('[useChatThreadsInfinite] RPC error:', error);
@@ -35,7 +63,7 @@ export const useChatThreadsInfinite = () => {
           .rpc('get_chat_threads_fast', { p_limit: PAGE_SIZE + 1 });
         
         if (fallbackError) throw fallbackError;
-        const fallbackArray = fallbackData as any[] || [];
+        const fallbackArray = (fallbackData || []) as RpcThreadRow[];
         return {
           threads: mapRpcToThreads(fallbackArray.slice(0, PAGE_SIZE)),
           hasMore: fallbackArray.length > PAGE_SIZE,
@@ -44,7 +72,7 @@ export const useChatThreadsInfinite = () => {
         };
       }
 
-      const dataArray = data as any[] || [];
+      const dataArray = (data || []) as RpcThreadRow[];
       const hasMore = dataArray.length > PAGE_SIZE;
       const threads = mapRpcToThreads(dataArray.slice(0, PAGE_SIZE));
       
@@ -73,14 +101,14 @@ export const useChatThreadsInfinite = () => {
       console.log('[useChatThreadsInfinite] Loading priority unread threads...');
 
       const { data, error } = await supabase
-        .rpc('get_unread_chat_threads', { p_limit: 50 } as any);
+        .rpc('get_unread_chat_threads', { p_limit: 50 });
 
       if (error) {
         console.warn('[useChatThreadsInfinite] Unread RPC failed:', error.message);
         return [];
       }
 
-      const threads = mapRpcToThreads(data as any[] || []);
+      const threads = mapRpcToThreads((data || []) as RpcThreadRow[]);
       console.log(`[useChatThreadsInfinite] ✅ Unread: ${threads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
       return threads;
     },
@@ -154,9 +182,9 @@ export const useChatThreadsInfinite = () => {
 };
 
 // Helper function to map RPC result to ChatThread format
-function mapRpcToThreads(data: any[]): ChatThread[] {
+function mapRpcToThreads(data: RpcThreadRow[]): ChatThread[] {
   // Filter out group chats and system chats
-  const filteredData = data.filter((row: any) => {
+  const filteredData = data.filter((row) => {
     const name = row.client_name || '';
     const telegramChatId = row.telegram_chat_id;
     
@@ -184,8 +212,8 @@ function mapRpcToThreads(data: any[]): ChatThread[] {
     return true;
   });
 
-  return filteredData.map((row: any) => ({
-    client_id: row.clt_id || row.client_id,
+  return filteredData.map((row) => ({
+    client_id: row.clt_id || row.client_id || '',
     client_name: row.client_name || '',
     first_name: row.first_name || null,
     last_name: row.last_name || null,

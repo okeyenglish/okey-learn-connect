@@ -1,8 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
-
-type StudentStatus = 'active' | 'inactive' | 'trial' | 'graduated';
+import type { StudentStatus } from '@/integrations/supabase/database.types';
 
 export const useBulkUpdateStatus = () => {
   const queryClient = useQueryClient();
@@ -11,7 +10,7 @@ export const useBulkUpdateStatus = () => {
     mutationFn: async ({ studentIds, status }: { studentIds: string[]; status: StudentStatus }) => {
       const { error } = await supabase
         .from('students')
-        .update({ status } as any)
+        .update({ status })
         .in('id', studentIds);
 
       if (error) throw error;
@@ -38,8 +37,8 @@ export const useBulkAddToSegment = () => {
       }));
 
       const { error } = await supabase
-        .from('student_segments')
-        .insert(records as any);
+        .from('student_segment_assignments')
+        .insert(records);
 
       if (error) throw error;
     },

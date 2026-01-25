@@ -776,6 +776,25 @@ export interface TeacherBranch {
   created_at: string;
 }
 
+export interface StudentParent {
+  id: string;
+  student_id: string;
+  first_name: string;
+  last_name: string;
+  middle_name?: string | null;
+  relationship: 'parent' | 'mother' | 'father' | 'guardian' | 'other';
+  phone?: string | null;
+  email?: string | null;
+  is_primary_contact: boolean;
+  notification_preferences: {
+    email: boolean;
+    sms: boolean;
+    whatsapp: boolean;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ChatThread {
   id: string;
   name: string;
@@ -1726,6 +1745,11 @@ export interface CustomDatabase {
         Row: StudentDiscountSurcharge;
         Insert: Partial<StudentDiscountSurcharge>;
         Update: Partial<StudentDiscountSurcharge>;
+      };
+      student_parents: {
+        Row: StudentParent;
+        Insert: Partial<StudentParent>;
+        Update: Partial<StudentParent>;
       };
     };
     Views: {

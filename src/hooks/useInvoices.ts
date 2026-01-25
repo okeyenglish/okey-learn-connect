@@ -2,8 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 
-// Local invoice interfaces since this table may not be in generated types
-interface DbInvoice {
+export interface Invoice {
   id: string;
   student_id?: string | null;
   amount: number;
@@ -15,17 +14,14 @@ interface DbInvoice {
   description?: string | null;
   created_at: string;
   updated_at?: string | null;
-}
-
-type DbInvoiceInsert = Partial<DbInvoice>;
-type DbInvoiceUpdate = Partial<DbInvoice>;
-
-export interface Invoice extends Omit<DbInvoice, 'students'> {
   students?: {
     first_name: string;
     last_name: string;
-  };
+  } | null;
 }
+
+type DbInvoiceInsert = Partial<Omit<Invoice, 'id' | 'created_at' | 'students'>>;
+type DbInvoiceUpdate = Partial<Omit<Invoice, 'id' | 'created_at' | 'students'>>;
 
 export const useInvoices = (filters?: { student_id?: string; status?: string }) => {
   return useQuery({
@@ -40,7 +36,7 @@ export const useInvoices = (filters?: { student_id?: string; status?: string }) 
         query = query.eq('student_id', filters.student_id);
       }
       if (filters?.status) {
-        query = query.eq('status', filters.status as any);
+        query = query.eq('status', filters.status);
       }
 
       const { data, error } = await query;
@@ -58,12 +54,12 @@ export const useCreateInvoice = () => {
     mutationFn: async (invoiceData: DbInvoiceInsert) => {
       const { data, error } = await supabase
         .from('invoices')
-        .insert(invoiceData as any)
+        .insert(invoiceData)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Invoice;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
@@ -72,7 +68,7 @@ export const useCreateInvoice = () => {
         description: 'Счет успешно создан',
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: 'Ошибка создания счета',
         description: error.message,
@@ -90,13 +86,13 @@ export const useUpdateInvoice = () => {
     mutationFn: async ({ id, updates }: { id: string; updates: DbInvoiceUpdate }) => {
       const { data, error } = await supabase
         .from('invoices')
-        .update(updates as any)
+        .update(updates)
         .eq('id', id)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Invoice;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
@@ -105,7 +101,7 @@ export const useUpdateInvoice = () => {
         description: 'Счет успешно обновлен',
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       // FSM validation errors
       const message = error.message;
       if (message?.includes('transition') || message?.includes('status')) {
