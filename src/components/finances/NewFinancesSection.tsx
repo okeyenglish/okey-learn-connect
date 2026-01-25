@@ -10,14 +10,62 @@ import { useCurrencies, useInvoices, usePayments, useBonusAccounts } from '@/hoo
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
+// Typed interfaces for joined data from hooks
+interface StudentProfile {
+  first_name: string;
+  last_name: string;
+  email?: string;
+}
+
+interface CurrencyInfo {
+  code: string;
+  symbol: string;
+}
+
+interface InvoiceWithJoins {
+  id: string;
+  student_id: string;
+  amount: number;
+  due_date: string;
+  status: string;
+  created_at: string;
+  student: StudentProfile | null;
+  currency: CurrencyInfo | null;
+}
+
+interface PaymentWithJoins {
+  id: string;
+  student_id: string;
+  amount: number;
+  payment_method: string;
+  payment_date: string;
+  notes: string | null;
+  student: StudentProfile | null;
+  currency: CurrencyInfo | null;
+}
+
+interface BonusAccountWithJoins {
+  id: string;
+  student_id: string;
+  balance: number;
+  total_earned: number;
+  total_spent: number;
+  student: StudentProfile | null;
+}
+
 export const NewFinancesSection = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('invoices');
 
   const { data: currencies, isLoading: currenciesLoading } = useCurrencies();
-  const { data: invoices, isLoading: invoicesLoading } = useInvoices();
-  const { data: payments, isLoading: paymentsLoading } = usePayments();
-  const { data: bonusAccounts, isLoading: bonusLoading } = useBonusAccounts();
+  const { data: invoicesRaw, isLoading: invoicesLoading } = useInvoices();
+  const { data: paymentsRaw, isLoading: paymentsLoading } = usePayments();
+  const { data: bonusAccountsRaw, isLoading: bonusLoading } = useBonusAccounts();
+
+  // Cast to typed versions
+  const invoices = invoicesRaw as InvoiceWithJoins[] | undefined;
+  const payments = paymentsRaw as PaymentWithJoins[] | undefined;
+  const bonusAccounts = bonusAccountsRaw as BonusAccountWithJoins[] | undefined;
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -144,10 +192,10 @@ export const NewFinancesSection = () => {
                       invoices
                         .filter(invoice => 
                           !searchQuery || 
-                          (invoice as any).student?.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (invoice as any).student?.last_name?.toLowerCase().includes(searchQuery.toLowerCase())
+                          invoice.student?.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          invoice.student?.last_name?.toLowerCase().includes(searchQuery.toLowerCase())
                         )
-                        .map((invoice: any) => (
+                        .map((invoice) => (
                           <TableRow key={invoice.id}>
                             <TableCell>
                               {invoice.student?.first_name} {invoice.student?.last_name}
@@ -218,10 +266,10 @@ export const NewFinancesSection = () => {
                       payments
                         .filter(payment => 
                           !searchQuery || 
-                          (payment as any).student?.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (payment as any).student?.last_name?.toLowerCase().includes(searchQuery.toLowerCase())
+                          payment.student?.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          payment.student?.last_name?.toLowerCase().includes(searchQuery.toLowerCase())
                         )
-                        .map((payment: any) => (
+                        .map((payment) => (
                           <TableRow key={payment.id}>
                             <TableCell>
                               {payment.student?.first_name} {payment.student?.last_name}
@@ -292,11 +340,11 @@ export const NewFinancesSection = () => {
                       bonusAccounts
                         .filter(account => 
                           !searchQuery || 
-                          (account as any).student?.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (account as any).student?.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (account as any).student?.email?.toLowerCase().includes(searchQuery.toLowerCase())
+                          account.student?.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          account.student?.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          account.student?.email?.toLowerCase().includes(searchQuery.toLowerCase())
                         )
-                        .map((account: any) => (
+                        .map((account) => (
                           <TableRow key={account.id}>
                             <TableCell>
                               {account.student?.first_name} {account.student?.last_name}

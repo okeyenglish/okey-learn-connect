@@ -46,7 +46,7 @@ export const TeacherRatesModal = ({
       rate_type,
       rate_per_academic_hour,
       valid_from,
-    } as any);
+    });
 
     setEditingRate(null);
     setShowForm(false);
