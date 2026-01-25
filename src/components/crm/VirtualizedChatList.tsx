@@ -2,7 +2,9 @@ import React, { useRef, useCallback, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChatListItem } from './ChatListItem';
 import { ChatListSkeleton } from './MessageSkeleton';
+import { PullToRefresh } from './PullToRefresh';
 import { usePrefetchMessages } from '@/hooks/useChatMessagesOptimized';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Loader2 } from 'lucide-react';
 
 interface VirtualizedChatListProps {
@@ -25,6 +27,8 @@ interface VirtualizedChatListProps {
   onLinkChat?: (chatId: string, chatName: string) => void;
   // Loading state
   isLoading?: boolean;
+  // Refresh
+  onRefresh?: () => Promise<void>;
   // Infinite scroll props
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
@@ -52,11 +56,13 @@ export const VirtualizedChatList = React.memo(({
   onDeleteChat,
   onLinkChat,
   isLoading = false,
+  onRefresh,
   hasNextPage,
   isFetchingNextPage,
   onLoadMore,
   bottomPadding,
 }: VirtualizedChatListProps) => {
+  const isMobile = useIsMobile();
   const parentRef = useRef<HTMLDivElement>(null);
   const hoverTimerRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const { prefetch, cancelPrefetch } = usePrefetchMessages();
@@ -132,10 +138,11 @@ export const VirtualizedChatList = React.memo(({
     return <ChatListSkeleton count={10} />;
   }
 
-  return (
+  const listContent = (
     <div 
       ref={parentRef} 
       className="flex-1 min-h-0 overflow-auto"
+      data-scroll-container
       style={{
         contain: 'strict',
         paddingBottom: bottomPadding,
@@ -232,6 +239,17 @@ export const VirtualizedChatList = React.memo(({
       </div>
     </div>
   );
+
+  // Wrap with pull-to-refresh on mobile only
+  if (isMobile && onRefresh) {
+    return (
+      <PullToRefresh onRefresh={onRefresh} className="flex-1 min-h-0">
+        {listContent}
+      </PullToRefresh>
+    );
+  }
+
+  return listContent;
 });
 
 VirtualizedChatList.displayName = 'VirtualizedChatList';
