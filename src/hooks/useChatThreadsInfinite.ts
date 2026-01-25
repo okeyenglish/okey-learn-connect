@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { ChatThread, UnreadByMessenger } from './useChatMessages';
 import { chatListQueryConfig } from '@/lib/queryConfig';
 import { isGroupChatName, isTelegramGroup } from './useCommunityChats';
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useEffect } from 'react';
+import { useBulkAvatarFetch } from './useBulkAvatarFetch';
 
 const PAGE_SIZE = 50;
 
@@ -42,6 +43,7 @@ interface RpcThreadRow {
  */
 export const useChatThreadsInfinite = () => {
   const queryClient = useQueryClient();
+  const { checkAndFetchMissingAvatars } = useBulkAvatarFetch();
 
   // Infinite query for paginated threads
   const infiniteQuery = useInfiniteQuery({
@@ -153,6 +155,21 @@ export const useChatThreadsInfinite = () => {
 
     return merged;
   }, [unreadQuery.data, infiniteQuery.data?.pages]);
+
+  // Trigger background avatar fetch for clients without avatars
+  useEffect(() => {
+    if (allThreads.length > 0) {
+      // Convert to format expected by checkAndFetchMissingAvatars
+      const threadsForCheck = allThreads.map(t => ({
+        client_id: t.client_id,
+        whatsapp_avatar_url: t.whatsapp_avatar_url,
+        telegram_avatar_url: t.telegram_avatar_url,
+        max_avatar_url: t.max_avatar_url,
+        avatar_url: t.avatar_url,
+      }));
+      checkAndFetchMissingAvatars(threadsForCheck);
+    }
+  }, [allThreads, checkAndFetchMissingAvatars]);
 
   // Load more function for infinite scroll
   const loadMore = useCallback(() => {
