@@ -6,8 +6,6 @@ interface AnimatedLogoProps {
 }
 
 export const AnimatedLogo = ({ size = 144, className }: AnimatedLogoProps) => {
-  const ringSize = size * 1.08; // Very tight ring
-  
   return (
     <div 
       className={cn(
@@ -15,119 +13,74 @@ export const AnimatedLogo = ({ size = 144, className }: AnimatedLogoProps) => {
         className
       )}
       style={{ 
-        width: ringSize, 
-        height: ringSize,
+        width: size * 1.1, 
+        height: size * 1.1,
         background: 'transparent',
       }}
     >
-      {/* Main rotating ring - blue to red gradient, tight around logo edge */}
+      {/* Siri-style morphing blobs */}
+      
+      {/* Blue blob - primary */}
       <div 
-        className="absolute rounded-full animate-ring-rotate"
+        className="absolute animate-siri-blob-1"
         style={{
-          width: ringSize,
-          height: ringSize,
-          background: `conic-gradient(
-            from 0deg,
-            hsl(217 72% 50% / 0.8),
-            hsl(217 72% 55% / 0.6),
-            hsl(260 50% 50% / 0.5),
-            hsl(320 55% 50% / 0.6),
-            hsl(0 65% 50% / 0.7),
-            hsl(320 55% 50% / 0.6),
-            hsl(260 50% 50% / 0.5),
-            hsl(217 72% 55% / 0.6),
-            hsl(217 72% 50% / 0.8)
-          )`,
-          filter: 'blur(4px)',
-          maskImage: `radial-gradient(circle, transparent ${size / 2 - 10}px, black ${size / 2 - 8}px, black ${ringSize / 2 - 1}px, transparent ${ringSize / 2}px)`,
-          WebkitMaskImage: `radial-gradient(circle, transparent ${size / 2 - 10}px, black ${size / 2 - 8}px, black ${ringSize / 2 - 1}px, transparent ${ringSize / 2}px)`,
+          width: size * 0.9,
+          height: size * 0.9,
+          background: 'radial-gradient(ellipse at 30% 40%, hsl(217 80% 55% / 0.6) 0%, hsl(217 80% 55% / 0.2) 50%, transparent 70%)',
+          filter: 'blur(8px)',
+          borderRadius: '60% 40% 50% 50% / 50% 60% 40% 50%',
         }}
       />
       
-      {/* Inner glow ring - softer, counter-rotate, hugging logo */}
+      {/* Cyan/Teal blob */}
       <div 
-        className="absolute rounded-full animate-ring-counter-rotate"
+        className="absolute animate-siri-blob-2"
         style={{
-          width: size * 1.02,
-          height: size * 1.02,
-          background: `conic-gradient(
-            from 180deg,
-            hsl(0 60% 50% / 0.5),
-            hsl(217 70% 50% / 0.4),
-            hsl(0 60% 50% / 0.5),
-            hsl(217 70% 50% / 0.4),
-            hsl(0 60% 50% / 0.5)
-          )`,
-          filter: 'blur(2px)',
-          maskImage: `radial-gradient(circle, transparent ${size / 2 - 12}px, black ${size / 2 - 10}px, black ${size / 2 - 2}px, transparent ${size / 2}px)`,
-          WebkitMaskImage: `radial-gradient(circle, transparent ${size / 2 - 12}px, black ${size / 2 - 10}px, black ${size / 2 - 2}px, transparent ${size / 2}px)`,
+          width: size * 0.85,
+          height: size * 0.85,
+          background: 'radial-gradient(ellipse at 60% 30%, hsl(190 70% 50% / 0.5) 0%, hsl(190 70% 50% / 0.15) 50%, transparent 70%)',
+          filter: 'blur(10px)',
+          borderRadius: '50% 60% 40% 50% / 40% 50% 60% 50%',
         }}
       />
       
-      {/* Orbiting light particles - at logo edge */}
+      {/* Purple/Magenta blob */}
       <div 
-        className="absolute rounded-full animate-particles-orbit pointer-events-none" 
-        style={{ width: size, height: size }}
-      >
-        {[0, 120, 240].map((angle, i) => (
-          <div
-            key={i}
-            className="absolute"
-            style={{
-              width: 3,
-              height: 3,
-              background: i === 0 ? 'hsl(217 80% 65%)' : i === 1 ? 'hsl(0 70% 60%)' : 'hsl(260 60% 60%)',
-              borderRadius: '50%',
-              boxShadow: `0 0 5px 2px ${i === 0 ? 'hsl(217 80% 60% / 0.7)' : i === 1 ? 'hsl(0 70% 55% / 0.7)' : 'hsl(260 60% 55% / 0.6)'}`,
-              top: '50%',
-              left: '50%',
-              transform: `rotate(${angle}deg) translateX(${size / 2 - 6}px) translateY(-50%)`,
-            }}
-          />
-        ))}
-      </div>
+        className="absolute animate-siri-blob-3"
+        style={{
+          width: size * 0.8,
+          height: size * 0.8,
+          background: 'radial-gradient(ellipse at 70% 60%, hsl(280 60% 55% / 0.5) 0%, hsl(280 60% 55% / 0.15) 50%, transparent 70%)',
+          filter: 'blur(10px)',
+          borderRadius: '40% 60% 50% 50% / 60% 40% 50% 50%',
+        }}
+      />
       
-      {/* Subtle sparks */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div 
-          className="absolute animate-spark-1"
-          style={{
-            width: 2,
-            height: 2,
-            background: 'hsl(217 80% 70%)',
-            borderRadius: '50%',
-            boxShadow: '0 0 4px 1px hsl(217 80% 65% / 0.6)',
-            top: '5%',
-            left: '50%',
-          }}
-        />
-        <div 
-          className="absolute animate-spark-2"
-          style={{
-            width: 2,
-            height: 2,
-            background: 'hsl(0 70% 60%)',
-            borderRadius: '50%',
-            boxShadow: '0 0 4px 1px hsl(0 70% 55% / 0.6)',
-            top: '50%',
-            right: '3%',
-          }}
-        />
-        <div 
-          className="absolute animate-spark-3"
-          style={{
-            width: 2,
-            height: 2,
-            background: 'hsl(260 60% 65%)',
-            borderRadius: '50%',
-            boxShadow: '0 0 4px 1px hsl(260 60% 60% / 0.5)',
-            bottom: '8%',
-            left: '30%',
-          }}
-        />
-      </div>
+      {/* Pink/Red blob */}
+      <div 
+        className="absolute animate-siri-blob-4"
+        style={{
+          width: size * 0.75,
+          height: size * 0.75,
+          background: 'radial-gradient(ellipse at 40% 70%, hsl(340 65% 55% / 0.5) 0%, hsl(0 65% 50% / 0.2) 50%, transparent 70%)',
+          filter: 'blur(8px)',
+          borderRadius: '50% 40% 60% 50% / 50% 50% 40% 60%',
+        }}
+      />
       
-      {/* Logo image - centered, clean, no background manipulation */}
+      {/* Center glow */}
+      <div 
+        className="absolute animate-siri-center-pulse"
+        style={{
+          width: size * 0.4,
+          height: size * 0.4,
+          background: 'radial-gradient(circle, hsl(0 0% 100% / 0.4) 0%, hsl(200 80% 70% / 0.2) 40%, transparent 70%)',
+          filter: 'blur(6px)',
+          borderRadius: '50%',
+        }}
+      />
+      
+      {/* Logo image */}
       <img 
         src="/animated-logo.png" 
         alt="AcademyOS Logo"
@@ -138,60 +91,113 @@ export const AnimatedLogo = ({ size = 144, className }: AnimatedLogoProps) => {
         }}
       />
       
-      {/* Keyframes */}
+      {/* Siri-style keyframes */}
       <style>{`
-        @keyframes ringRotate {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+        @keyframes siriBlob1 {
+          0%, 100% {
+            transform: translate(0, 0) scale(1) rotate(0deg);
+            border-radius: 60% 40% 50% 50% / 50% 60% 40% 50%;
+          }
+          25% {
+            transform: translate(5%, -8%) scale(1.05) rotate(5deg);
+            border-radius: 50% 60% 40% 60% / 60% 40% 60% 40%;
+          }
+          50% {
+            transform: translate(-3%, 5%) scale(0.95) rotate(-3deg);
+            border-radius: 40% 50% 60% 50% / 50% 60% 50% 40%;
+          }
+          75% {
+            transform: translate(4%, 3%) scale(1.02) rotate(2deg);
+            border-radius: 55% 45% 55% 45% / 45% 55% 45% 55%;
+          }
         }
         
-        @keyframes ringCounterRotate {
-          from { transform: rotate(360deg); }
-          to { transform: rotate(0deg); }
+        @keyframes siriBlob2 {
+          0%, 100% {
+            transform: translate(0, 0) scale(1) rotate(0deg);
+            border-radius: 50% 60% 40% 50% / 40% 50% 60% 50%;
+          }
+          20% {
+            transform: translate(-6%, 4%) scale(1.03) rotate(-4deg);
+            border-radius: 60% 40% 50% 50% / 50% 60% 40% 50%;
+          }
+          45% {
+            transform: translate(4%, -5%) scale(0.97) rotate(5deg);
+            border-radius: 45% 55% 55% 45% / 55% 45% 55% 45%;
+          }
+          70% {
+            transform: translate(-2%, -2%) scale(1.04) rotate(-2deg);
+            border-radius: 55% 45% 45% 55% / 45% 55% 55% 45%;
+          }
         }
         
-        @keyframes particlesOrbit {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+        @keyframes siriBlob3 {
+          0%, 100% {
+            transform: translate(0, 0) scale(1) rotate(0deg);
+            border-radius: 40% 60% 50% 50% / 60% 40% 50% 50%;
+          }
+          30% {
+            transform: translate(5%, 6%) scale(0.96) rotate(6deg);
+            border-radius: 55% 45% 50% 50% / 50% 55% 45% 50%;
+          }
+          60% {
+            transform: translate(-4%, -4%) scale(1.05) rotate(-4deg);
+            border-radius: 50% 50% 45% 55% / 55% 50% 50% 45%;
+          }
+          85% {
+            transform: translate(2%, -3%) scale(0.98) rotate(2deg);
+            border-radius: 45% 55% 55% 45% / 50% 45% 55% 50%;
+          }
         }
         
-        @keyframes spark1 {
-          0%, 100% { opacity: 0; transform: scale(0.5); }
-          50% { opacity: 0.8; transform: scale(1); }
+        @keyframes siriBlob4 {
+          0%, 100% {
+            transform: translate(0, 0) scale(1) rotate(0deg);
+            border-radius: 50% 40% 60% 50% / 50% 50% 40% 60%;
+          }
+          35% {
+            transform: translate(-5%, -5%) scale(1.04) rotate(-5deg);
+            border-radius: 45% 55% 45% 55% / 55% 45% 55% 45%;
+          }
+          55% {
+            transform: translate(6%, 3%) scale(0.95) rotate(4deg);
+            border-radius: 55% 45% 55% 45% / 45% 55% 45% 55%;
+          }
+          80% {
+            transform: translate(-3%, 4%) scale(1.02) rotate(-2deg);
+            border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%;
+          }
         }
         
-        @keyframes spark2 {
-          0%, 100% { opacity: 0; transform: scale(0.5); }
-          45% { opacity: 0.7; transform: scale(1.1); }
+        @keyframes siriCenterPulse {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 0.7;
+          }
+          50% {
+            transform: scale(1.15);
+            opacity: 0.9;
+          }
         }
         
-        @keyframes spark3 {
-          0%, 100% { opacity: 0; transform: scale(0.5); }
-          55% { opacity: 0.6; transform: scale(1); }
+        .animate-siri-blob-1 {
+          animation: siriBlob1 8s ease-in-out infinite;
         }
         
-        .animate-ring-rotate {
-          animation: ringRotate 18s linear infinite;
+        .animate-siri-blob-2 {
+          animation: siriBlob2 10s ease-in-out infinite;
         }
         
-        .animate-ring-counter-rotate {
-          animation: ringCounterRotate 22s linear infinite;
+        .animate-siri-blob-3 {
+          animation: siriBlob3 9s ease-in-out infinite;
         }
         
-        .animate-particles-orbit {
-          animation: particlesOrbit 12s linear infinite;
+        .animate-siri-blob-4 {
+          animation: siriBlob4 11s ease-in-out infinite;
         }
         
-        .animate-spark-1 {
-          animation: spark1 3s ease-in-out infinite;
-        }
-        
-        .animate-spark-2 {
-          animation: spark2 3.5s ease-in-out infinite 0.5s;
-        }
-        
-        .animate-spark-3 {
-          animation: spark3 4s ease-in-out infinite 1s;
+        .animate-siri-center-pulse {
+          animation: siriCenterPulse 3s ease-in-out infinite;
         }
       `}</style>
     </div>
