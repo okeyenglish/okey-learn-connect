@@ -1,15 +1,16 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
+import {
+  corsHeaders,
+  handleCors,
+  getErrorMessage,
+  type GetContactsResponse,
+  type Contact,
+  type MessengerSettings,
+} from "../_shared/types.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -55,7 +56,7 @@ serve(async (req) => {
       .eq('organization_id', profile.organization_id)
       .eq('messenger_type', 'whatsapp')
       .eq('is_enabled', true)
-      .single();
+      .maybeSingle();
 
     if (!messengerSettings) {
       return new Response(
@@ -64,11 +65,11 @@ serve(async (req) => {
       );
     }
 
-    const settings = messengerSettings.settings as any;
-    const provider = messengerSettings.provider;
+    const settings = messengerSettings.settings as MessengerSettings;
+    const provider = messengerSettings.provider as string | undefined;
 
-    let instanceId: string;
-    let apiToken: string;
+    let instanceId: string | undefined;
+    let apiToken: string | undefined;
     let apiUrl: string;
 
     if (provider === 'greenapi') {
@@ -101,28 +102,30 @@ serve(async (req) => {
     const responseText = await response.text();
     console.log('Green API getContacts response length:', responseText.length);
 
-    let result;
+    let result: Contact[];
     try {
       result = JSON.parse(responseText);
-    } catch (e) {
+    } catch {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid API response' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    const successResponse: GetContactsResponse = {
+      success: true,
+      contacts: Array.isArray(result) ? result : []
+    };
+
     return new Response(
-      JSON.stringify({ 
-        success: true,
-        contacts: Array.isArray(result) ? result : []
-      }),
+      JSON.stringify(successResponse),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in whatsapp-get-contacts:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: getErrorMessage(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

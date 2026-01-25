@@ -1,15 +1,16 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
+import {
+  corsHeaders,
+  handleCors,
+  getErrorMessage,
+  type GetAvatarRequest,
+  type GetAvatarResponse,
+  type MessengerSettings,
+} from "../_shared/types.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -37,7 +38,7 @@ serve(async (req) => {
       );
     }
 
-    const userId = claimsData.claims.sub;
+    const userId = claimsData.claims.sub as string;
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -59,7 +60,7 @@ serve(async (req) => {
       .eq('organization_id', profile.organization_id)
       .eq('messenger_type', 'whatsapp')
       .eq('is_enabled', true)
-      .single();
+      .maybeSingle();
 
     if (!messengerSettings) {
       return new Response(
@@ -68,11 +69,11 @@ serve(async (req) => {
       );
     }
 
-    const settings = messengerSettings.settings as any;
-    const provider = messengerSettings.provider;
+    const settings = messengerSettings.settings as MessengerSettings;
+    const provider = messengerSettings.provider as string | undefined;
 
-    let instanceId: string;
-    let apiToken: string;
+    let instanceId: string | undefined;
+    let apiToken: string | undefined;
     let apiUrl: string;
 
     if (provider === 'greenapi') {
@@ -92,14 +93,14 @@ serve(async (req) => {
       );
     }
 
-    let body: any = {};
+    let body: GetAvatarRequest = { clientId: '' };
     try {
       body = await req.json();
-    } catch (_e) {
-      body = {};
+    } catch {
+      body = { clientId: '' };
     }
 
-    const { chatId, clientId } = body;
+    const { chatId, clientId } = body as GetAvatarRequest & { chatId?: string };
 
     // Get chatId from clientId if not provided
     let targetChatId = chatId;
@@ -108,20 +109,25 @@ serve(async (req) => {
         .from('clients')
         .select('whatsapp_chat_id, phone')
         .eq('id', clientId)
-        .single();
+        .maybeSingle();
 
       if (client?.whatsapp_chat_id) {
-        targetChatId = client.whatsapp_chat_id;
+        targetChatId = client.whatsapp_chat_id as string;
       } else if (client?.phone) {
-        const cleanPhone = client.phone.replace(/[^\d]/g, '');
+        const cleanPhone = (client.phone as string).replace(/[^\d]/g, '');
         targetChatId = `${cleanPhone}@c.us`;
       }
     }
 
     if (!targetChatId) {
       // Return empty result instead of error - client may not have WhatsApp
+      const emptyResponse: GetAvatarResponse = {
+        success: true,
+        urlAvatar: undefined,
+        available: false
+      };
       return new Response(
-        JSON.stringify({ success: true, urlAvatar: null, available: false }),
+        JSON.stringify(emptyResponse),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -140,29 +146,31 @@ serve(async (req) => {
     const responseText = await response.text();
     console.log('Green API getAvatar response:', responseText);
 
-    let result;
+    let result: { urlAvatar?: string; available?: boolean };
     try {
       result = JSON.parse(responseText);
-    } catch (e) {
+    } catch {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid API response' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    const successResponse: GetAvatarResponse = {
+      success: true,
+      urlAvatar: result.urlAvatar,
+      available: result.available !== false
+    };
+
     return new Response(
-      JSON.stringify({ 
-        success: true,
-        urlAvatar: result.urlAvatar,
-        available: result.available !== false
-      }),
+      JSON.stringify(successResponse),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in whatsapp-get-avatar:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: getErrorMessage(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
