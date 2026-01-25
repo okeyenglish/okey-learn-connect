@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { AutoRetrySettings } from './AutoRetrySettings';
+import { EmploymentTermsSettings } from './EmploymentTermsSettings';
 import { EmployeeInvitationsList } from '@/components/employees/EmployeeInvitationsList';
 import { AddEmployeeModal } from '@/components/employees/AddEmployeeModal';
 
@@ -133,6 +134,9 @@ export const OrganizationSettings = () => {
 
       {/* Auto-Retry Settings */}
       <AutoRetrySettings />
+
+      {/* Employment Terms Settings */}
+      <EmploymentTermsSettings />
 
       {/* Employee Invitations */}
       <EmployeeInvitationsList onAddNew={() => setShowAddEmployeeModal(true)} />
