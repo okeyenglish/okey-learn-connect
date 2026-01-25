@@ -5,7 +5,6 @@ import {
   errorResponse,
   getErrorMessage,
   handleCors,
-  type AIChatRequest,
   type AIChatResponse,
 } from '../_shared/types.ts';
 
@@ -29,11 +28,85 @@ interface GenerateGptRequest {
   currentMessage: string;
 }
 
+// Verify user has access to the client via organization
+async function verifyClientAccess(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  clientId: string
+): Promise<{ hasAccess: boolean; error?: string }> {
+  try {
+    // Get user's organization
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (profileError || !profile?.organization_id) {
+      console.error('Profile fetch error:', profileError);
+      return { hasAccess: false, error: 'User profile not found' };
+    }
+
+    // Check if client belongs to user's organization
+    const { data: client, error: clientError } = await supabase
+      .from('clients')
+      .select('id, organization_id')
+      .eq('id', clientId)
+      .maybeSingle();
+
+    if (clientError) {
+      console.error('Client fetch error:', clientError);
+      return { hasAccess: false, error: 'Failed to verify client access' };
+    }
+
+    if (!client) {
+      return { hasAccess: false, error: 'Client not found' };
+    }
+
+    if (client.organization_id !== profile.organization_id) {
+      console.warn(`Access denied: client org ${client.organization_id} != user org ${profile.organization_id}`);
+      return { hasAccess: false, error: 'Client not in your organization' };
+    }
+
+    return { hasAccess: true };
+  } catch (error) {
+    console.error('Access verification error:', error);
+    return { hasAccess: false, error: 'Access verification failed' };
+  }
+}
+
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
   try {
+    // Verify JWT token
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return errorResponse('Unauthorized: Missing authorization header', 401);
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    // Create client with user's token for authentication
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Verify the JWT and get user
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
+
+    if (claimsError || !claimsData?.claims?.sub) {
+      console.error('JWT verification failed:', claimsError);
+      return errorResponse('Unauthorized: Invalid token', 401);
+    }
+
+    const userId = claimsData.claims.sub;
+    console.log(`Authenticated user: ${userId}`);
+
     const body = await req.json() as GenerateGptRequest;
     const { clientId, currentMessage } = body;
     
@@ -61,10 +134,15 @@ Deno.serve(async (req) => {
       return errorResponse('Service configuration error', 500);
     }
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    // Initialize Supabase client with service role
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Verify user has access to this client
+    const accessCheck = await verifyClientAccess(supabase, userId, clientId);
+    if (!accessCheck.hasAccess) {
+      console.warn(`Access denied for user ${userId} to client ${clientId}: ${accessCheck.error}`);
+      return errorResponse(accessCheck.error || 'Access denied', 403);
+    }
 
     // Get recent chat messages for context
     const { data: messages, error: messagesError } = await supabase
@@ -83,7 +161,7 @@ Deno.serve(async (req) => {
       .from('clients')
       .select('name, notes')
       .eq('id', clientId)
-      .single();
+      .maybeSingle();
 
     if (clientError) {
       console.error('Error fetching client:', clientError);
@@ -153,7 +231,7 @@ ${conversationContext}
         return errorResponse('Недостаточно средств на балансе Lovable AI.', 402);
       }
       
-      return errorResponse(`AI Gateway error: ${errorText}`, 500);
+      return errorResponse('AI service error', 500);
     }
 
     const data = await aiResponse.json();
@@ -168,6 +246,6 @@ ${conversationContext}
 
   } catch (error: unknown) {
     console.error('Error in generate-gpt-response function:', error);
-    return errorResponse(getErrorMessage(error), 500);
+    return errorResponse('Server error', 500);
   }
 });
