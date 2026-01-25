@@ -49,17 +49,24 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
         }}
       />
       
-      {/* Logo image - ON TOP with blend mode to remove white */}
-      <img 
-        src="/animated-logo.png" 
-        alt="Logo"
-        className="relative z-10 object-contain transition-transform duration-300 group-hover:scale-105"
+      {/* Logo container with isolation to prevent blend affecting glow */}
+      <div 
+        className="relative z-10 transition-transform duration-300 group-hover:scale-105"
         style={{
           width: size * 1.15,
           height: size * 1.15,
-          mixBlendMode: 'multiply',
+          isolation: 'isolate',
         }}
-      />
+      >
+        <img 
+          src="/animated-logo.png" 
+          alt="Logo"
+          className="w-full h-full object-contain"
+          style={{
+            mixBlendMode: 'multiply',
+          }}
+        />
+      </div>
       
       {/* Sparkle effects - ON TOP */}
       <div className="absolute inset-0 z-20 pointer-events-none">
