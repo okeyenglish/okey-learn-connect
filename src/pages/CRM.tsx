@@ -299,6 +299,8 @@ const CRMContent = () => {
   const [selectedMessengerTab, setSelectedMessengerTab] = useState<{ tab: 'whatsapp' | 'telegram' | 'max'; ts: number } | undefined>(undefined);
   // Search query to pass to ChatArea when chat was found via message search
   const [chatInitialSearchQuery, setChatInitialSearchQuery] = useState<string | undefined>(undefined);
+  // Message ID to highlight and scroll to when navigating from search
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | undefined>(undefined);
   
   // Критичные данные - загружаем ТОЛЬКО threads с infinite scroll (50 за раз)
   // useClients убран из критического пути - 27К клиентов тормозили загрузку
@@ -3765,6 +3767,7 @@ const CRMContent = () => {
                 initialMessengerTab={selectedMessengerTab?.tab}
                 messengerTabTimestamp={selectedMessengerTab?.ts}
                 initialSearchQuery={chatInitialSearchQuery}
+                highlightedMessageId={highlightedMessageId}
               />
             </div>
           ) : activeChatType === 'corporate' ? (
