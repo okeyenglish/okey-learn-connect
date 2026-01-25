@@ -1269,487 +1269,744 @@ export interface CustomDatabase {
         Row: Profile;
         Insert: Partial<Profile> & { id: string };
         Update: Partial<Profile>;
+        Relationships: [
+          { foreignKeyName: "profiles_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
       user_roles: {
         Row: UserRole;
         Insert: Omit<UserRole, 'id' | 'created_at'>;
         Update: Partial<UserRole>;
+        Relationships: [];
       };
       teachers: {
         Row: Teacher;
         Insert: Partial<Teacher>;
         Update: Partial<Teacher>;
+        Relationships: [
+          { foreignKeyName: "teachers_profile_id_fkey"; columns: ["profile_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }
+        ];
       };
       students: {
         Row: Student;
         Insert: Partial<Student>;
         Update: Partial<Student>;
+        Relationships: [
+          { foreignKeyName: "students_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
+          { foreignKeyName: "students_family_group_id_fkey"; columns: ["family_group_id"]; isOneToOne: false; referencedRelation: "family_groups"; referencedColumns: ["id"] }
+        ];
       };
       clients: {
         Row: Client;
         Insert: Partial<Client>;
         Update: Partial<Client>;
+        Relationships: [
+          { foreignKeyName: "clients_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
       chat_messages: {
         Row: ChatMessage;
         Insert: Partial<ChatMessage>;
         Update: Partial<ChatMessage>;
+        Relationships: [
+          { foreignKeyName: "chat_messages_client_id_fkey"; columns: ["client_id"]; isOneToOne: false; referencedRelation: "clients"; referencedColumns: ["id"] }
+        ];
       };
       faq: {
         Row: FAQ;
         Insert: Partial<FAQ>;
         Update: Partial<FAQ>;
+        Relationships: [];
       };
       teacher_bbb_rooms: {
         Row: TeacherBBBRoom;
         Insert: Partial<TeacherBBBRoom>;
         Update: Partial<TeacherBBBRoom>;
+        Relationships: [
+          { foreignKeyName: "teacher_bbb_rooms_teacher_id_fkey"; columns: ["teacher_id"]; isOneToOne: false; referencedRelation: "teachers"; referencedColumns: ["id"] }
+        ];
       };
       organization_branches: {
         Row: OrganizationBranch;
         Insert: Partial<OrganizationBranch>;
         Update: Partial<OrganizationBranch>;
+        Relationships: [
+          { foreignKeyName: "organization_branches_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
       branch_photos: {
         Row: BranchPhoto;
         Insert: Partial<BranchPhoto>;
         Update: Partial<BranchPhoto>;
+        Relationships: [
+          { foreignKeyName: "branch_photos_branch_id_fkey"; columns: ["branch_id"]; isOneToOne: false; referencedRelation: "organization_branches"; referencedColumns: ["id"] },
+          { foreignKeyName: "branch_photos_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
       family_groups: {
         Row: FamilyGroup;
         Insert: Partial<FamilyGroup>;
         Update: Partial<FamilyGroup>;
+        Relationships: [
+          { foreignKeyName: "family_groups_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
       family_members: {
         Row: FamilyMember;
         Insert: Partial<FamilyMember>;
         Update: Partial<FamilyMember>;
+        Relationships: [
+          { foreignKeyName: "family_members_family_group_id_fkey"; columns: ["family_group_id"]; isOneToOne: false; referencedRelation: "family_groups"; referencedColumns: ["id"] },
+          { foreignKeyName: "family_members_client_id_fkey"; columns: ["client_id"]; isOneToOne: false; referencedRelation: "clients"; referencedColumns: ["id"] },
+          { foreignKeyName: "family_members_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] }
+        ];
       };
       leads: {
         Row: Lead;
         Insert: Partial<Lead>;
         Update: Partial<Lead>;
+        Relationships: [
+          { foreignKeyName: "leads_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
       messages: {
         Row: Message;
         Insert: Partial<Message>;
         Update: Partial<Message>;
+        Relationships: [];
       };
       individual_lesson_sessions: {
         Row: IndividualLessonSession;
         Insert: Partial<IndividualLessonSession>;
         Update: Partial<IndividualLessonSession>;
+        Relationships: [
+          { foreignKeyName: "individual_lesson_sessions_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] },
+          { foreignKeyName: "individual_lesson_sessions_teacher_id_fkey"; columns: ["teacher_id"]; isOneToOne: false; referencedRelation: "teachers"; referencedColumns: ["id"] }
+        ];
       };
       student_lesson_sessions: {
         Row: StudentLessonSession;
         Insert: Partial<StudentLessonSession>;
         Update: Partial<StudentLessonSession>;
+        Relationships: [
+          { foreignKeyName: "student_lesson_sessions_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] },
+          { foreignKeyName: "student_lesson_sessions_group_session_id_fkey"; columns: ["group_session_id"]; isOneToOne: false; referencedRelation: "lesson_sessions"; referencedColumns: ["id"] }
+        ];
       };
       kw_clusters: {
         Row: KwCluster;
         Insert: Partial<KwCluster>;
         Update: Partial<KwCluster>;
+        Relationships: [
+          { foreignKeyName: "kw_clusters_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
       content_ideas: {
         Row: ContentIdea;
         Insert: Partial<ContentIdea>;
         Update: Partial<ContentIdea>;
+        Relationships: [
+          { foreignKeyName: "content_ideas_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
       content_docs: {
         Row: ContentDoc;
         Insert: Partial<ContentDoc>;
         Update: Partial<ContentDoc>;
+        Relationships: [
+          { foreignKeyName: "content_docs_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
+          { foreignKeyName: "content_docs_content_idea_id_fkey"; columns: ["content_idea_id"]; isOneToOne: false; referencedRelation: "content_ideas"; referencedColumns: ["id"] }
+        ];
       };
       kw_norm: {
         Row: KwNorm;
         Insert: Partial<KwNorm>;
         Update: Partial<KwNorm>;
+        Relationships: [
+          { foreignKeyName: "kw_norm_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
       seo_pages: {
         Row: SeoPage;
         Insert: Partial<SeoPage>;
         Update: Partial<SeoPage>;
+        Relationships: [
+          { foreignKeyName: "seo_pages_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
       classrooms: {
         Row: Classroom;
         Insert: Partial<Classroom>;
         Update: Partial<Classroom>;
+        Relationships: [
+          { foreignKeyName: "classrooms_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
       teacher_substitutions: {
         Row: TeacherSubstitution;
         Insert: Partial<TeacherSubstitution>;
         Update: Partial<TeacherSubstitution>;
+        Relationships: [
+          { foreignKeyName: "teacher_substitutions_original_teacher_id_fkey"; columns: ["original_teacher_id"]; isOneToOne: false; referencedRelation: "teachers"; referencedColumns: ["id"] },
+          { foreignKeyName: "teacher_substitutions_substitute_teacher_id_fkey"; columns: ["substitute_teacher_id"]; isOneToOne: false; referencedRelation: "teachers"; referencedColumns: ["id"] },
+          { foreignKeyName: "teacher_substitutions_lesson_session_id_fkey"; columns: ["lesson_session_id"]; isOneToOne: false; referencedRelation: "lesson_sessions"; referencedColumns: ["id"] }
+        ];
       };
       client_phone_numbers: {
         Row: ClientPhoneNumber;
         Insert: Partial<ClientPhoneNumber>;
         Update: Partial<ClientPhoneNumber>;
+        Relationships: [
+          { foreignKeyName: "client_phone_numbers_client_id_fkey"; columns: ["client_id"]; isOneToOne: false; referencedRelation: "clients"; referencedColumns: ["id"] }
+        ];
       };
       global_entity_mappings: {
         Row: GlobalEntityMapping;
         Insert: Partial<GlobalEntityMapping>;
         Update: Partial<GlobalEntityMapping>;
+        Relationships: [];
       };
       audit_log: {
         Row: AuditLog;
         Insert: Partial<AuditLog>;
         Update: Partial<AuditLog>;
+        Relationships: [];
       };
       webhook_logs: {
         Row: WebhookLog;
         Insert: Partial<WebhookLog>;
         Update: Partial<WebhookLog>;
+        Relationships: [];
       };
       call_logs: {
         Row: CallLog;
         Insert: Partial<CallLog>;
         Update: Partial<CallLog>;
+        Relationships: [
+          { foreignKeyName: "call_logs_client_id_fkey"; columns: ["client_id"]; isOneToOne: false; referencedRelation: "clients"; referencedColumns: ["id"] }
+        ];
       };
       pending_gpt_responses: {
         Row: PendingGPTResponse;
         Insert: Partial<PendingGPTResponse>;
         Update: Partial<PendingGPTResponse>;
+        Relationships: [
+          { foreignKeyName: "pending_gpt_responses_client_id_fkey"; columns: ["client_id"]; isOneToOne: false; referencedRelation: "clients"; referencedColumns: ["id"] }
+        ];
       };
       student_courses: {
         Row: StudentCourse;
         Insert: Partial<StudentCourse>;
         Update: Partial<StudentCourse>;
+        Relationships: [
+          { foreignKeyName: "student_courses_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] }
+        ];
       };
       payments: {
         Row: Payment;
         Insert: Partial<Payment>;
         Update: Partial<Payment>;
+        Relationships: [
+          { foreignKeyName: "payments_client_id_fkey"; columns: ["client_id"]; isOneToOne: false; referencedRelation: "clients"; referencedColumns: ["id"] },
+          { foreignKeyName: "payments_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] },
+          { foreignKeyName: "payments_group_id_fkey"; columns: ["group_id"]; isOneToOne: false; referencedRelation: "learning_groups"; referencedColumns: ["id"] }
+        ];
       };
       learning_groups: {
         Row: LearningGroup;
         Insert: Partial<LearningGroup>;
         Update: Partial<LearningGroup>;
+        Relationships: [
+          { foreignKeyName: "learning_groups_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
+          { foreignKeyName: "learning_groups_teacher_id_fkey"; columns: ["teacher_id"]; isOneToOne: false; referencedRelation: "teachers"; referencedColumns: ["id"] }
+        ];
       };
       lesson_sessions: {
         Row: LessonSession;
         Insert: Partial<LessonSession>;
         Update: Partial<LessonSession>;
+        Relationships: [
+          { foreignKeyName: "lesson_sessions_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
+          { foreignKeyName: "lesson_sessions_group_id_fkey"; columns: ["group_id"]; isOneToOne: false; referencedRelation: "learning_groups"; referencedColumns: ["id"] },
+          { foreignKeyName: "lesson_sessions_teacher_id_fkey"; columns: ["teacher_id"]; isOneToOne: false; referencedRelation: "teachers"; referencedColumns: ["id"] }
+        ];
       };
       cron_job_logs: {
         Row: CronJobLog;
         Insert: Partial<CronJobLog>;
         Update: Partial<CronJobLog>;
+        Relationships: [];
       };
       student_balances: {
         Row: StudentBalance;
         Insert: Partial<StudentBalance>;
         Update: Partial<StudentBalance>;
+        Relationships: [
+          { foreignKeyName: "student_balances_student_id_fkey"; columns: ["student_id"]; isOneToOne: true; referencedRelation: "students"; referencedColumns: ["id"] }
+        ];
       };
       lead_sources: {
         Row: LeadSource;
         Insert: Partial<LeadSource>;
         Update: Partial<LeadSource>;
+        Relationships: [];
       };
       lead_statuses: {
         Row: LeadStatus;
         Insert: Partial<LeadStatus>;
         Update: Partial<LeadStatus>;
+        Relationships: [];
       };
       group_students: {
         Row: GroupStudent;
         Insert: Partial<GroupStudent>;
         Update: Partial<GroupStudent>;
+        Relationships: [
+          { foreignKeyName: "group_students_group_id_fkey"; columns: ["group_id"]; isOneToOne: false; referencedRelation: "learning_groups"; referencedColumns: ["id"] },
+          { foreignKeyName: "group_students_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] }
+        ];
       };
       individual_lessons: {
         Row: IndividualLesson;
         Insert: Partial<IndividualLesson>;
         Update: Partial<IndividualLesson>;
+        Relationships: [
+          { foreignKeyName: "individual_lessons_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] },
+          { foreignKeyName: "individual_lessons_teacher_id_fkey"; columns: ["teacher_id"]; isOneToOne: false; referencedRelation: "teachers"; referencedColumns: ["id"] }
+        ];
       };
       courses: {
         Row: Course;
         Insert: Partial<Course>;
         Update: Partial<Course>;
+        Relationships: [];
       };
       organizations: {
         Row: Organization;
         Insert: Partial<Organization>;
         Update: Partial<Organization>;
+        Relationships: [];
       };
       individual_lesson_history: {
         Row: IndividualLessonHistory;
         Insert: Partial<IndividualLessonHistory>;
         Update: Partial<IndividualLessonHistory>;
+        Relationships: [
+          { foreignKeyName: "individual_lesson_history_lesson_id_fkey"; columns: ["lesson_id"]; isOneToOne: false; referencedRelation: "individual_lessons"; referencedColumns: ["id"] }
+        ];
       };
       homework: {
         Row: Homework;
         Insert: Partial<Homework>;
         Update: Partial<Homework>;
+        Relationships: [
+          { foreignKeyName: "homework_lesson_session_id_fkey"; columns: ["lesson_session_id"]; isOneToOne: false; referencedRelation: "lesson_sessions"; referencedColumns: ["id"] },
+          { foreignKeyName: "homework_group_id_fkey"; columns: ["group_id"]; isOneToOne: false; referencedRelation: "learning_groups"; referencedColumns: ["id"] }
+        ];
       };
       student_homework: {
         Row: StudentHomework;
         Insert: Partial<StudentHomework>;
         Update: Partial<StudentHomework>;
+        Relationships: [
+          { foreignKeyName: "student_homework_homework_id_fkey"; columns: ["homework_id"]; isOneToOne: false; referencedRelation: "homework"; referencedColumns: ["id"] },
+          { foreignKeyName: "student_homework_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] }
+        ];
       };
       assistant_threads: {
         Row: AssistantThread;
         Insert: Partial<AssistantThread>;
         Update: Partial<AssistantThread>;
+        Relationships: [];
       };
       teacher_branches: {
         Row: TeacherBranch;
         Insert: Partial<TeacherBranch>;
         Update: Partial<TeacherBranch>;
+        Relationships: [
+          { foreignKeyName: "teacher_branches_teacher_id_fkey"; columns: ["teacher_id"]; isOneToOne: false; referencedRelation: "teachers"; referencedColumns: ["id"] },
+          { foreignKeyName: "teacher_branches_branch_id_fkey"; columns: ["branch_id"]; isOneToOne: false; referencedRelation: "organization_branches"; referencedColumns: ["id"] }
+        ];
       };
       chat_threads: {
         Row: ChatThread;
         Insert: Partial<ChatThread>;
         Update: Partial<ChatThread>;
+        Relationships: [
+          { foreignKeyName: "chat_threads_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
       homework_templates: {
         Row: HomeworkTemplate;
         Insert: Partial<HomeworkTemplate>;
         Update: Partial<HomeworkTemplate>;
+        Relationships: [];
       };
       v_ai_provider_keys_public: {
         Row: AIProviderKeyPublic;
         Insert: Partial<AIProviderKeyPublic>;
         Update: Partial<AIProviderKeyPublic>;
+        Relationships: [];
       };
       ai_key_provision_jobs: {
         Row: AIKeyProvisionJob;
         Insert: Partial<AIKeyProvisionJob>;
         Update: Partial<AIKeyProvisionJob>;
+        Relationships: [
+          { foreignKeyName: "ai_key_provision_jobs_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
       apps: {
         Row: App;
         Insert: Partial<App>;
         Update: Partial<App>;
+        Relationships: [
+          { foreignKeyName: "apps_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
       student_attendance: {
         Row: StudentAttendance;
         Insert: Partial<StudentAttendance>;
         Update: Partial<StudentAttendance>;
+        Relationships: [
+          { foreignKeyName: "student_attendance_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] },
+          { foreignKeyName: "student_attendance_lesson_session_id_fkey"; columns: ["lesson_session_id"]; isOneToOne: false; referencedRelation: "lesson_sessions"; referencedColumns: ["id"] },
+          { foreignKeyName: "student_attendance_individual_lesson_session_id_fkey"; columns: ["individual_lesson_session_id"]; isOneToOne: false; referencedRelation: "individual_lesson_sessions"; referencedColumns: ["id"] }
+        ];
       };
       chat_states: {
         Row: ChatState;
         Insert: Partial<ChatState>;
         Update: Partial<ChatState>;
+        Relationships: [];
       };
       student_segments: {
         Row: StudentSegment;
         Insert: Partial<StudentSegment>;
         Update: Partial<StudentSegment>;
+        Relationships: [
+          { foreignKeyName: "student_segments_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] },
+          { foreignKeyName: "student_segments_segment_id_fkey"; columns: ["segment_id"]; isOneToOne: false; referencedRelation: "segments"; referencedColumns: ["id"] }
+        ];
       };
       segments: {
         Row: Segment;
         Insert: Partial<Segment>;
         Update: Partial<Segment>;
+        Relationships: [
+          { foreignKeyName: "segments_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
-      // Новые таблицы
       whatsapp_sessions: {
         Row: WhatsAppSession;
         Insert: Partial<WhatsAppSession>;
         Update: Partial<WhatsAppSession>;
+        Relationships: [
+          { foreignKeyName: "whatsapp_sessions_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
       search_console_queries: {
         Row: SearchConsoleQuery;
         Insert: Partial<SearchConsoleQuery>;
         Update: Partial<SearchConsoleQuery>;
+        Relationships: [
+          { foreignKeyName: "search_console_queries_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
       teacher_earnings: {
         Row: TeacherEarning;
         Insert: Partial<TeacherEarning>;
         Update: Partial<TeacherEarning>;
+        Relationships: [
+          { foreignKeyName: "teacher_earnings_teacher_id_fkey"; columns: ["teacher_id"]; isOneToOne: false; referencedRelation: "teachers"; referencedColumns: ["id"] },
+          { foreignKeyName: "teacher_earnings_session_id_fkey"; columns: ["session_id"]; isOneToOne: false; referencedRelation: "lesson_sessions"; referencedColumns: ["id"] },
+          { foreignKeyName: "teacher_earnings_individual_session_id_fkey"; columns: ["individual_session_id"]; isOneToOne: false; referencedRelation: "individual_lesson_sessions"; referencedColumns: ["id"] }
+        ];
       };
       teacher_rates: {
         Row: TeacherRate;
         Insert: Partial<TeacherRate>;
         Update: Partial<TeacherRate>;
+        Relationships: [
+          { foreignKeyName: "teacher_rates_teacher_id_fkey"; columns: ["teacher_id"]; isOneToOne: false; referencedRelation: "teachers"; referencedColumns: ["id"] }
+        ];
       };
       balance_transactions: {
         Row: BalanceTransaction;
         Insert: Partial<BalanceTransaction>;
         Update: Partial<BalanceTransaction>;
+        Relationships: [
+          { foreignKeyName: "balance_transactions_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] },
+          { foreignKeyName: "balance_transactions_family_group_id_fkey"; columns: ["family_group_id"]; isOneToOne: false; referencedRelation: "family_groups"; referencedColumns: ["id"] }
+        ];
       };
       family_ledger: {
         Row: FamilyLedger;
         Insert: Partial<FamilyLedger>;
         Update: Partial<FamilyLedger>;
+        Relationships: [
+          { foreignKeyName: "family_ledger_family_group_id_fkey"; columns: ["family_group_id"]; isOneToOne: true; referencedRelation: "family_groups"; referencedColumns: ["id"] }
+        ];
       };
       family_ledger_transactions: {
         Row: FamilyLedgerTransaction;
         Insert: Partial<FamilyLedgerTransaction>;
         Update: Partial<FamilyLedgerTransaction>;
+        Relationships: [
+          { foreignKeyName: "family_ledger_transactions_family_group_id_fkey"; columns: ["family_group_id"]; isOneToOne: false; referencedRelation: "family_groups"; referencedColumns: ["id"] }
+        ];
       };
       typing_status: {
         Row: TypingStatus;
         Insert: Partial<TypingStatus>;
         Update: Partial<TypingStatus>;
+        Relationships: [
+          { foreignKeyName: "typing_status_client_id_fkey"; columns: ["client_id"]; isOneToOne: false; referencedRelation: "clients"; referencedColumns: ["id"] }
+        ];
       };
       message_read_status: {
         Row: MessageReadStatus;
         Insert: Partial<MessageReadStatus>;
         Update: Partial<MessageReadStatus>;
+        Relationships: [];
       };
       message_reactions: {
         Row: MessageReaction;
         Insert: Partial<MessageReaction>;
         Update: Partial<MessageReaction>;
+        Relationships: [];
       };
       client_branches: {
         Row: ClientBranch;
         Insert: Partial<ClientBranch>;
         Update: Partial<ClientBranch>;
+        Relationships: [
+          { foreignKeyName: "client_branches_client_id_fkey"; columns: ["client_id"]; isOneToOne: false; referencedRelation: "clients"; referencedColumns: ["id"] },
+          { foreignKeyName: "client_branches_branch_id_fkey"; columns: ["branch_id"]; isOneToOne: false; referencedRelation: "organization_branches"; referencedColumns: ["id"] }
+        ];
       };
       course_units: {
         Row: CourseUnit;
         Insert: Partial<CourseUnit>;
         Update: Partial<CourseUnit>;
+        Relationships: [
+          { foreignKeyName: "course_units_course_id_fkey"; columns: ["course_id"]; isOneToOne: false; referencedRelation: "courses"; referencedColumns: ["id"] }
+        ];
       };
       lessons: {
         Row: Lesson;
         Insert: Partial<Lesson>;
         Update: Partial<Lesson>;
+        Relationships: [
+          { foreignKeyName: "lessons_unit_id_fkey"; columns: ["unit_id"]; isOneToOne: false; referencedRelation: "course_units"; referencedColumns: ["id"] }
+        ];
       };
       push_subscriptions: {
         Row: PushSubscription;
         Insert: Partial<PushSubscription>;
         Update: Partial<PushSubscription>;
+        Relationships: [];
       };
       user_permissions: {
         Row: UserPermission;
         Insert: Partial<UserPermission>;
         Update: Partial<UserPermission>;
+        Relationships: [];
       };
       event_outbox: {
         Row: EventOutbox;
         Insert: Partial<EventOutbox>;
         Update: Partial<EventOutbox>;
+        Relationships: [];
       };
       textbooks: {
         Row: Textbook;
         Insert: Partial<Textbook>;
         Update: Partial<Textbook>;
+        Relationships: [];
       };
       tasks: {
         Row: Task;
         Insert: Partial<Task>;
         Update: Partial<Task>;
+        Relationships: [
+          { foreignKeyName: "tasks_client_id_fkey"; columns: ["client_id"]; isOneToOne: false; referencedRelation: "clients"; referencedColumns: ["id"] }
+        ];
       };
       tuition_charges: {
         Row: TuitionCharge;
         Insert: Partial<TuitionCharge>;
         Update: Partial<TuitionCharge>;
+        Relationships: [
+          { foreignKeyName: "tuition_charges_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] }
+        ];
       };
       payment_tuition_link: {
         Row: PaymentTuitionLink;
         Insert: Partial<PaymentTuitionLink>;
         Update: Partial<PaymentTuitionLink>;
+        Relationships: [
+          { foreignKeyName: "payment_tuition_link_payment_id_fkey"; columns: ["payment_id"]; isOneToOne: false; referencedRelation: "payments"; referencedColumns: ["id"] },
+          { foreignKeyName: "payment_tuition_link_tuition_charge_id_fkey"; columns: ["tuition_charge_id"]; isOneToOne: false; referencedRelation: "tuition_charges"; referencedColumns: ["id"] }
+        ];
       };
       messenger_settings: {
         Row: MessengerSettings;
         Insert: Partial<MessengerSettings>;
         Update: Partial<MessengerSettings>;
+        Relationships: [
+          { foreignKeyName: "messenger_settings_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
       global_chat_read_status: {
         Row: GlobalChatReadStatus;
         Insert: Partial<GlobalChatReadStatus>;
         Update: Partial<GlobalChatReadStatus>;
+        Relationships: [];
       };
       student_history: {
         Row: StudentHistory;
         Insert: Partial<StudentHistory>;
         Update: Partial<StudentHistory>;
+        Relationships: [
+          { foreignKeyName: "student_history_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] }
+        ];
       };
       pinned_modals: {
         Row: PinnedModalDB;
         Insert: Partial<PinnedModalDB>;
         Update: Partial<PinnedModalDB>;
+        Relationships: [];
       };
       sla_metrics: {
         Row: SLAMetric;
         Insert: Partial<SLAMetric>;
         Update: Partial<SLAMetric>;
+        Relationships: [
+          { foreignKeyName: "sla_metrics_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
       mv_sla_dashboard: {
         Row: SLADashboard;
         Insert: never;
         Update: never;
+        Relationships: [];
       };
       student_operation_logs: {
         Row: StudentOperationLog;
         Insert: Partial<StudentOperationLog>;
         Update: Partial<StudentOperationLog>;
+        Relationships: [
+          { foreignKeyName: "student_operation_logs_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] }
+        ];
       };
       subscription_plans: {
         Row: SubscriptionPlan;
         Insert: Partial<SubscriptionPlan>;
         Update: Partial<SubscriptionPlan>;
+        Relationships: [];
       };
       v_organization_ai_settings: {
         Row: OrganizationAISettings;
         Insert: never;
         Update: never;
+        Relationships: [];
       };
       schedule: {
         Row: Schedule;
         Insert: Partial<Schedule>;
         Update: Partial<Schedule>;
+        Relationships: [];
       };
       internal_link_graph: {
         Row: InternalLinkGraph;
         Insert: Partial<InternalLinkGraph>;
         Update: Partial<InternalLinkGraph>;
+        Relationships: [];
       };
       ai_provider_keys: {
         Row: AIProviderKey;
         Insert: Partial<AIProviderKey>;
         Update: Partial<AIProviderKey>;
+        Relationships: [
+          { foreignKeyName: "ai_provider_keys_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
       };
       payment_notifications: {
         Row: PaymentNotification;
         Insert: Partial<PaymentNotification>;
         Update: Partial<PaymentNotification>;
+        Relationships: [
+          { foreignKeyName: "payment_notifications_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] }
+        ];
       };
       teacher_floating_rates: {
         Row: TeacherFloatingRate;
         Insert: Partial<TeacherFloatingRate>;
         Update: Partial<TeacherFloatingRate>;
+        Relationships: [
+          { foreignKeyName: "teacher_floating_rates_rate_id_fkey"; columns: ["rate_id"]; isOneToOne: false; referencedRelation: "teacher_rates"; referencedColumns: ["id"] }
+        ];
       };
       student_tags: {
         Row: StudentTag;
         Insert: Partial<StudentTag>;
         Update: Partial<StudentTag>;
+        Relationships: [];
       };
       student_tag_assignments: {
         Row: StudentTagAssignment;
         Insert: Partial<StudentTagAssignment>;
         Update: Partial<StudentTagAssignment>;
+        Relationships: [
+          { foreignKeyName: "student_tag_assignments_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] },
+          { foreignKeyName: "student_tag_assignments_tag_id_fkey"; columns: ["tag_id"]; isOneToOne: false; referencedRelation: "student_tags"; referencedColumns: ["id"] }
+        ];
       };
       teacher_salary_accruals: {
         Row: TeacherSalaryAccrual;
         Insert: Partial<TeacherSalaryAccrual>;
         Update: Partial<TeacherSalaryAccrual>;
+        Relationships: [
+          { foreignKeyName: "teacher_salary_accruals_teacher_id_fkey"; columns: ["teacher_id"]; isOneToOne: false; referencedRelation: "teachers"; referencedColumns: ["id"] },
+          { foreignKeyName: "teacher_salary_accruals_lesson_session_id_fkey"; columns: ["lesson_session_id"]; isOneToOne: false; referencedRelation: "lesson_sessions"; referencedColumns: ["id"] },
+          { foreignKeyName: "teacher_salary_accruals_individual_lesson_session_id_fkey"; columns: ["individual_lesson_session_id"]; isOneToOne: false; referencedRelation: "individual_lesson_sessions"; referencedColumns: ["id"] }
+        ];
       };
       ai_model_mappings: {
         Row: AIModelMapping;
         Insert: Partial<AIModelMapping>;
         Update: Partial<AIModelMapping>;
+        Relationships: [];
       };
       role_permissions: {
         Row: RolePermission;
         Insert: Partial<RolePermission>;
         Update: Partial<RolePermission>;
+        Relationships: [];
       };
       discounts_surcharges: {
         Row: DiscountSurcharge;
         Insert: Partial<DiscountSurcharge>;
         Update: Partial<DiscountSurcharge>;
+        Relationships: [];
       };
       student_discounts_surcharges: {
         Row: StudentDiscountSurcharge;
         Insert: Partial<StudentDiscountSurcharge>;
         Update: Partial<StudentDiscountSurcharge>;
+        Relationships: [
+          { foreignKeyName: "student_discounts_surcharges_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] },
+          { foreignKeyName: "student_discounts_surcharges_discount_surcharge_id_fkey"; columns: ["discount_surcharge_id"]; isOneToOne: false; referencedRelation: "discounts_surcharges"; referencedColumns: ["id"] }
+        ];
       };
       student_parents: {
         Row: StudentParent;
         Insert: Partial<StudentParent>;
         Update: Partial<StudentParent>;
+        Relationships: [
+          { foreignKeyName: "student_parents_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] }
+        ];
       };
     };
     Views: {
