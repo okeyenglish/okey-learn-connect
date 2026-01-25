@@ -59,6 +59,7 @@ interface ChatMessageProps {
   forwardedFromType?: 'client' | 'teacher' | 'corporate';
   onMessageEdit?: (messageId: string, newMessage: string) => Promise<void>;
   onMessageDelete?: (messageId: string) => Promise<void>;
+  onResendMessage?: (messageId: string) => Promise<void>;
   messageStatus?: DeliveryStatus;
   clientAvatar?: string;
   managerName?: string;
@@ -75,7 +76,7 @@ interface ChatMessageProps {
   onQuoteMessage?: (text: string) => void;
 }
 
-const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, whatsappChatId, externalMessageId, showAvatar = true, showName = true, isLastInGroup = true, onForwardMessage, onEnterSelectionMode, onQuoteMessage }: ChatMessageProps) => {
+const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, onResendMessage, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, whatsappChatId, externalMessageId, showAvatar = true, showName = true, isLastInGroup = true, onForwardMessage, onEnterSelectionMode, onQuoteMessage }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
 
@@ -468,6 +469,8 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                       <MessageDeliveryStatus 
                         status={messageStatus}
                         className="ml-1"
+                        onRetry={onResendMessage && messageId ? () => onResendMessage(messageId) : undefined}
+                        showRetryButton={!!onResendMessage && !!messageId}
                       />
                     )}
                     {/* Read indicator for incoming messages */}

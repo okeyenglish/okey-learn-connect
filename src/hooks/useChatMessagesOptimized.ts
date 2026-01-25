@@ -105,12 +105,18 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
 /**
  * Hook for realtime message status updates
  * Subscribes to UPDATE events on chat_messages to track delivery status changes
+ * Shows toast notification when a message delivery fails
  */
-export const useMessageStatusRealtime = (clientId: string) => {
+export const useMessageStatusRealtime = (clientId: string, onDeliveryFailed?: (messageId: string) => void) => {
   const queryClient = useQueryClient();
+  // Ref to track which failed messages we've already shown a toast for
+  const notifiedFailedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!clientId) return;
+    
+    // Reset notified set when client changes
+    notifiedFailedRef.current = new Set();
 
     const channel = supabase
       .channel(`message-status-${clientId}`)
@@ -122,12 +128,32 @@ export const useMessageStatusRealtime = (clientId: string) => {
           table: 'chat_messages',
           filter: `client_id=eq.${clientId}`,
         },
-        (payload: RealtimePostgresChangesPayload<{ status?: string; id?: string }>) => {
-          const newRecord = payload.new as { status?: string; id?: string };
+        (payload: RealtimePostgresChangesPayload<{ status?: string; id?: string; message_text?: string }>) => {
+          const newRecord = payload.new as { status?: string; id?: string; message_text?: string };
+          const oldRecord = payload.old as { status?: string };
           
           // Only process if status field was updated
           if (newRecord?.status) {
             console.log('[Realtime] Message status updated:', newRecord.id, '->', newRecord.status);
+            
+            // Show toast notification for failed delivery (only once per message)
+            if (newRecord.status === 'failed' && oldRecord?.status !== 'failed') {
+              if (!notifiedFailedRef.current.has(newRecord.id!)) {
+                notifiedFailedRef.current.add(newRecord.id!);
+                
+                // Dispatch custom event for toast notification
+                const event = new CustomEvent('message-delivery-failed', {
+                  detail: {
+                    messageId: newRecord.id,
+                    messagePreview: newRecord.message_text?.substring(0, 50) || 'Сообщение'
+                  }
+                });
+                window.dispatchEvent(event);
+                
+                // Call optional callback
+                onDeliveryFailed?.(newRecord.id!);
+              }
+            }
             
             // Update the cached messages data
             queryClient.setQueriesData(
@@ -153,7 +179,7 @@ export const useMessageStatusRealtime = (clientId: string) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [clientId, queryClient]);
+  }, [clientId, queryClient, onDeliveryFailed]);
 };
 
 /**

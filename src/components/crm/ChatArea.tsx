@@ -102,9 +102,9 @@ export const ChatArea = ({
     isFetching: fetchingMessages 
   } = useChatMessagesOptimized(clientId, messageLimit);
   
-  // Subscribe to realtime message status updates
+  // Subscribe to realtime message status updates with failed delivery notification
   useMessageStatusRealtime(clientId);
-  
+
   const hasMoreMessages = messagesData?.hasMore ?? false;
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   
@@ -215,6 +215,24 @@ export const ChatArea = ({
     console.log('ChatArea - pendingGPTLoading:', pendingGPTLoading);
     console.log('ChatArea - pendingGPTError:', pendingGPTError);
   }, [clientId, pendingGPTResponses, pendingGPTLoading, pendingGPTError]);
+  
+  // Listen for failed delivery events and show toast
+  useEffect(() => {
+    const handleDeliveryFailed = (event: Event) => {
+      const customEvent = event as CustomEvent<{ messageId: string; messagePreview: string }>;
+      toast({
+        title: "Ошибка доставки",
+        description: `Сообщение не доставлено: "${customEvent.detail.messagePreview}..."`,
+        variant: "destructive",
+      });
+    };
+    
+    window.addEventListener('message-delivery-failed', handleDeliveryFailed);
+    return () => {
+      window.removeEventListener('message-delivery-failed', handleDeliveryFailed);
+    };
+  }, [toast]);
+  
   // Наблюдение за шириной composer для адаптивной кнопки
   useEffect(() => {
     const el = composerRef.current;
@@ -1347,6 +1365,89 @@ export const ChatArea = ({
     }
   };
 
+  // Функция для повторной отправки сообщения с ошибкой
+  const handleResendMessage = async (messageId: string) => {
+    // Find the failed message
+    const msg = messages.find(m => m.id === messageId);
+    if (!msg) {
+      toast({
+        title: "Ошибка",
+        description: "Сообщение не найдено",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const messengerType = msg.messengerType || 'whatsapp';
+    
+    // Update status to 'queued' optimistically
+    await supabase
+      .from('chat_messages')
+      .update({ status: 'queued' })
+      .eq('id', messageId);
+    
+    // Invalidate cache to show queued status
+    queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
+
+    toast({
+      title: "Повторная отправка",
+      description: "Отправляем сообщение повторно...",
+    });
+
+    try {
+      let result;
+      
+      if (messengerType === 'max') {
+        result = await sendMaxMessage(clientId, msg.message, msg.fileUrl, msg.fileName, msg.fileType);
+        if (!result) {
+          throw new Error('Не удалось отправить сообщение в MAX');
+        }
+      } else if (messengerType === 'telegram') {
+        result = await sendTelegramMessage(clientId, msg.message, msg.fileUrl, msg.fileName, msg.fileType);
+        if (!result.success) {
+          throw new Error(result.error || 'Не удалось отправить сообщение в Telegram');
+        }
+      } else {
+        // WhatsApp
+        if (msg.fileUrl) {
+          result = await sendFileMessage(clientId, msg.fileUrl, msg.fileName || 'file', msg.message);
+        } else {
+          result = await sendTextMessage(clientId, msg.message);
+        }
+        if (!result.success) {
+          throw new Error(result.error || 'Не удалось отправить сообщение в WhatsApp');
+        }
+      }
+
+      // Update original message status to 'sent' and remove the old failed record
+      await supabase
+        .from('chat_messages')
+        .update({ status: 'sent' })
+        .eq('id', messageId);
+
+      queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
+
+      toast({
+        title: "Успешно",
+        description: "Сообщение отправлено повторно",
+      });
+    } catch (error: unknown) {
+      // Update status back to 'failed'
+      await supabase
+        .from('chat_messages')
+        .update({ status: 'failed' })
+        .eq('id', messageId);
+
+      queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
+
+      toast({
+        title: "Ошибка повторной отправки",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    }
+  };
+
   // Mock tasks data - in real app this would come from props or API
   const clientTasks = [
     {
@@ -1796,6 +1897,7 @@ export const ChatArea = ({
                             forwardedFromType={msg.forwardedFromType}
                             onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
                             onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
+                            onResendMessage={msg.type === 'manager' && msg.messageStatus === 'failed' ? handleResendMessage : undefined}
                             messageStatus={msg.messageStatus}
                             clientAvatar={whatsappClientAvatar || msg.clientAvatar}
                             managerName={msg.managerName}
@@ -1927,6 +2029,7 @@ export const ChatArea = ({
                             forwardedFromType={msg.forwardedFromType}
                             onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
                             onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
+                            onResendMessage={msg.type === 'manager' && msg.messageStatus === 'failed' ? handleResendMessage : undefined}
                             messageStatus={msg.messageStatus}
                             clientAvatar={telegramClientAvatar || msg.clientAvatar}
                             managerName={msg.managerName}
@@ -2016,6 +2119,7 @@ export const ChatArea = ({
                             forwardedFromType={msg.forwardedFromType}
                             onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
                             onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
+                            onResendMessage={msg.type === 'manager' && msg.messageStatus === 'failed' ? handleResendMessage : undefined}
                             messageStatus={msg.messageStatus}
                             clientAvatar={maxClientAvatar || msg.clientAvatar}
                             managerName={msg.managerName}
