@@ -150,42 +150,63 @@ Deno.serve(async (req) => {
 
     // 4. Обновить профиль (он создаётся автоматически через триггер handle_new_user)
     // Даём триггеру время на создание профиля
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    console.log("[complete-employee-onboarding] Updating profile...");
-    const { error: profileError } = await supabaseAdmin
+    // Сначала проверяем, существует ли профиль
+    const { data: existingProfile } = await supabaseAdmin
       .from("profiles")
-      .update({
-        first_name: invitation.first_name,
-        last_name: body.last_name,
-        email: body.email,
-        phone: invitation.phone,
-        branch: invitation.branch || null,
-        organization_id: invitation.organization_id,
-        is_active: true,
-      })
-      .eq("id", userId);
+      .select("id, organization_id")
+      .eq("id", userId)
+      .single();
+    
+    console.log("[complete-employee-onboarding] Existing profile check:", existingProfile);
+    
+    const profileData = {
+      id: userId,
+      first_name: invitation.first_name,
+      last_name: body.last_name,
+      email: body.email,
+      phone: invitation.phone,
+      branch: invitation.branch || null,
+      organization_id: invitation.organization_id,
+      is_active: true,
+    };
 
-    if (profileError) {
-      console.error("[complete-employee-onboarding] Profile update error:", profileError);
-      // Продолжаем, так как профиль мог не успеть создаться, попробуем insert
+    if (existingProfile) {
+      // Профиль существует - делаем update
+      console.log("[complete-employee-onboarding] Updating existing profile with organization_id:", invitation.organization_id);
+      const { error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .update(profileData)
+        .eq("id", userId);
+
+      if (profileError) {
+        console.error("[complete-employee-onboarding] Profile update error:", profileError);
+      } else {
+        console.log("[complete-employee-onboarding] Profile updated successfully");
+      }
+    } else {
+      // Профиль не существует - делаем insert
+      console.log("[complete-employee-onboarding] Inserting new profile with organization_id:", invitation.organization_id);
       const { error: insertError } = await supabaseAdmin
         .from("profiles")
-        .insert({
-          id: userId,
-          first_name: invitation.first_name,
-          last_name: body.last_name,
-          email: body.email,
-          phone: invitation.phone,
-          branch: invitation.branch || null,
-          organization_id: invitation.organization_id,
-          is_active: true,
-        });
+        .insert(profileData);
       
       if (insertError) {
         console.error("[complete-employee-onboarding] Profile insert error:", insertError);
+      } else {
+        console.log("[complete-employee-onboarding] Profile inserted successfully");
       }
     }
+
+    // Верификация: проверяем что organization_id установлен
+    const { data: verifyProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("id, organization_id, first_name, last_name, email")
+      .eq("id", userId)
+      .single();
+    
+    console.log("[complete-employee-onboarding] Profile verification:", verifyProfile);
 
     // 5. Добавить роль в user_roles
     const role = POSITION_TO_ROLE[invitation.position] || 'manager';
