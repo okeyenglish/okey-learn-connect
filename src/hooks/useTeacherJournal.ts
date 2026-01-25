@@ -164,8 +164,8 @@ export const useGroupStudentsAttendance = (groupId: string, sessionId?: string) 
         return (students || []).map((gs: any) => ({
           ...gs.students,
           group_student_id: gs.id,
-          attendance_status: attendanceMap.get(gs.students.id)?.attendance_status || 'not_marked',
-          attendance_notes: attendanceMap.get(gs.students.id)?.notes,
+          attendance_status: (attendanceMap.get(gs.students?.id) as any)?.attendance_status || 'not_marked',
+          attendance_notes: (attendanceMap.get(gs.students?.id) as any)?.notes,
         }));
       }
 

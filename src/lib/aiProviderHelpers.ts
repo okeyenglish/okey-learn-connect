@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 /**
  * Get AI provider key for the current user's organization or teacher
@@ -18,8 +18,7 @@ export const getAIProviderKey = async (): Promise<{
     }
 
     // Get user's profile to find organization
-    const { data: profile } = await supabase
-      .from('profiles')
+    const { data: profile } = await (supabase.from('profiles' as any) as any)
       .select('organization_id')
       .eq('id', user.id)
       .single();
@@ -29,8 +28,7 @@ export const getAIProviderKey = async (): Promise<{
     }
 
     // Try to get organization key first (higher priority)
-    const { data: orgKey } = await supabase
-      .from('v_ai_provider_keys_public')
+    const { data: orgKey } = await (supabase.from('v_ai_provider_keys_public' as any) as any)
       .select('*')
       .eq('organization_id', profile.organization_id)
       .eq('provider', 'openrouter')
@@ -40,23 +38,21 @@ export const getAIProviderKey = async (): Promise<{
     if (orgKey) {
       return {
         provider: 'openrouter',
-        keyPreview: orgKey.key_preview,
-        limitRemaining: orgKey.limit_remaining,
+        keyPreview: (orgKey as any).key_preview,
+        limitRemaining: (orgKey as any).limit_remaining,
       };
     }
 
     // If no org key, try teacher key
-    const { data: teacher } = await supabase
-      .from('teachers')
+    const { data: teacher } = await (supabase.from('teachers' as any) as any)
       .select('id')
       .eq('profile_id', user.id)
       .single();
 
     if (teacher) {
-      const { data: teacherKey } = await supabase
-        .from('v_ai_provider_keys_public')
+      const { data: teacherKey } = await (supabase.from('v_ai_provider_keys_public' as any) as any)
         .select('*')
-        .eq('teacher_id', teacher.id)
+        .eq('teacher_id', (teacher as any).id)
         .eq('provider', 'openrouter')
         .eq('status', 'active')
         .single();
@@ -64,8 +60,8 @@ export const getAIProviderKey = async (): Promise<{
       if (teacherKey) {
         return {
           provider: 'openrouter',
-          keyPreview: teacherKey.key_preview,
-          limitRemaining: teacherKey.limit_remaining,
+          keyPreview: (teacherKey as any).key_preview,
+          limitRemaining: (teacherKey as any).limit_remaining,
         };
       }
     }
@@ -95,27 +91,25 @@ export const getAIProviderKeyValue = async (
   // Client-side code cannot access key_value due to RLS
   
   if (organizationId) {
-    const { data } = await supabase
-      .from('ai_provider_keys')
+    const { data } = await (supabase.from('ai_provider_keys' as any) as any)
       .select('key_value')
       .eq('organization_id', organizationId)
       .eq('provider', 'openrouter')
       .eq('status', 'active')
       .single();
 
-    return data?.key_value || null;
+    return (data as any)?.key_value || null;
   }
 
   if (teacherId) {
-    const { data } = await supabase
-      .from('ai_provider_keys')
+    const { data } = await (supabase.from('ai_provider_keys' as any) as any)
       .select('key_value')
       .eq('teacher_id', teacherId)
       .eq('provider', 'openrouter')
       .eq('status', 'active')
       .single();
 
-    return data?.key_value || null;
+    return (data as any)?.key_value || null;
   }
 
   return null;
@@ -129,8 +123,7 @@ export const hasActiveOpenRouterKey = async (
   teacherId?: string
 ): Promise<boolean> => {
   if (organizationId) {
-    const { data } = await supabase
-      .from('v_ai_provider_keys_public')
+    const { data } = await (supabase.from('v_ai_provider_keys_public' as any) as any)
       .select('id')
       .eq('organization_id', organizationId)
       .eq('provider', 'openrouter')
@@ -141,8 +134,7 @@ export const hasActiveOpenRouterKey = async (
   }
 
   if (teacherId) {
-    const { data } = await supabase
-      .from('v_ai_provider_keys_public')
+    const { data } = await (supabase.from('v_ai_provider_keys_public' as any) as any)
       .select('id')
       .eq('teacher_id', teacherId)
       .eq('provider', 'openrouter')
@@ -180,8 +172,7 @@ export const triggerKeyProvisioning = async (
         reset_policy: 'daily',
       };
 
-  const { error } = await supabase
-    .from('ai_key_provision_jobs')
+  const { error } = await (supabase.from('ai_key_provision_jobs' as any) as any)
     .insert(jobData);
 
   if (error) {

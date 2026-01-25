@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 /**
  * Создает SEO-friendly slug из текста
@@ -26,14 +26,13 @@ export async function ensureUniqueSlug(
   let counter = 1;
   
   while (true) {
-    const query = supabase
-      .from('kw_clusters')
+    let query = (supabase.from('kw_clusters' as any) as any)
       .select('id')
       .eq('slug', slug)
       .limit(1);
     
     if (excludeId) {
-      query.neq('id', excludeId);
+      query = query.neq('id', excludeId);
     }
     
     const { data, error } = await query;
@@ -54,7 +53,7 @@ export async function checkSimilarRoutes(
   route: string, 
   threshold = 0.3
 ): Promise<Array<{ route: string; similarity: number }>> {
-  const { data, error } = await supabase.rpc('find_similar_routes', {
+  const { data, error } = await (supabase.rpc as any)('find_similar_routes', {
     p_route: route,
     p_threshold: threshold
   });
@@ -64,7 +63,7 @@ export async function checkSimilarRoutes(
     return [];
   }
   
-  return data || [];
+  return (data || []) as Array<{ route: string; similarity: number }>;
 }
 
 /**
@@ -90,8 +89,7 @@ export async function generateUniqueRoute(
   let uniqueRoute = fullRoute;
   
   while (true) {
-    const { data } = await supabase
-      .from('content_ideas')
+    const { data } = await (supabase.from('content_ideas' as any) as any)
       .select('id')
       .eq('route', uniqueRoute)
       .limit(1);
