@@ -1,46 +1,15 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-interface WappiMessage {
-  id: string;
-  profile_id: string;
-  wh_type: 'incoming_message' | 'outgoing_message' | 'outgoing_message_phone' | 'delivery_status' | 'authorization_status';
-  timestamp: string;
-  time: number;
-  body?: string;
-  type: 'text' | 'image' | 'video' | 'document' | 'audio' | 'ptt' | 'location' | 'vcard' | 'sticker';
-  from?: string;
-  to?: string;
-  senderName?: string;
-  chatId: string;
-  username?: string;
-  contact_username?: string;
-  contact_name?: string;
-  contact_phone?: string;
-  caption?: string;
-  file_link?: string;
-  mimetype?: string;
-  isForwarded?: boolean;
-  quotedMsgId?: string;
-  thumbnail?: string;
-  picture?: string;
-  from_where?: string;
-  is_me?: boolean;
-}
-
-interface WappiWebhook {
-  messages: WappiMessage[];
-}
+import {
+  corsHeaders,
+  handleCors,
+  getErrorMessage,
+  type TelegramWappiWebhook,
+  type TelegramWappiMessage,
+} from '../_shared/types.ts';
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   if (req.method !== 'POST') {
     return new Response(
@@ -54,7 +23,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const webhookData: WappiWebhook = await req.json();
+    const webhookData: TelegramWappiWebhook = await req.json();
     console.log('Received Telegram webhook:', JSON.stringify(webhookData, null, 2));
 
     if (!webhookData.messages || !Array.isArray(webhookData.messages)) {
@@ -73,16 +42,16 @@ Deno.serve(async (req) => {
       JSON.stringify({ success: true }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Telegram webhook error:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: getErrorMessage(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
 
-async function processMessage(supabase: any, message: WappiMessage): Promise<void> {
+async function processMessage(supabase: any, message: TelegramWappiMessage): Promise<void> {
   const { wh_type, profile_id } = message;
 
   console.log(`Processing message type: ${wh_type} from profile: ${profile_id}`);
@@ -129,7 +98,7 @@ async function processMessage(supabase: any, message: WappiMessage): Promise<voi
 
 async function handleIncomingMessage(
   supabase: any, 
-  message: WappiMessage, 
+  message: TelegramWappiMessage, 
   organizationId: string
 ): Promise<void> {
   const telegramUserId = message.from ? parseInt(message.from) : null;
@@ -228,7 +197,7 @@ async function handleIncomingMessage(
 
 async function handleOutgoingMessage(
   supabase: any,
-  message: WappiMessage,
+  message: TelegramWappiMessage,
   organizationId: string
 ): Promise<void> {
   const chatId = message.chatId;
@@ -415,7 +384,7 @@ async function handleOutgoingMessage(
   console.log('Outgoing message saved for client:', client.id);
 }
 
-async function handleDeliveryStatus(supabase: any, message: WappiMessage): Promise<void> {
+async function handleDeliveryStatus(supabase: any, message: TelegramWappiMessage): Promise<void> {
   // Update message status based on delivery report
   // Wappi.pro sends delivery status with message id reference
   console.log('Delivery status:', message);
@@ -637,7 +606,7 @@ async function findOrCreateClientLegacy(
   return newClient;
 }
 
-function extractMessageContent(message: WappiMessage): {
+function extractMessageContent(message: TelegramWappiMessage): {
   messageText: string;
   contentType: string;
   fileUrl: string | null;

@@ -1,40 +1,17 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1'
+import {
+  corsHeaders,
+  handleCors,
+  getErrorMessage,
+  type WappiWebhook,
+  type WappiMessage,
+} from '../_shared/types.ts'
 
 console.log('wappi-whatsapp-webhook function booted')
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-interface WappiMessage {
-  wh_type: string;
-  profile_id: string;
-  id: string;
-  body: string;
-  type: string; // chat, image, video, document, ptt, vcard, location, reaction
-  from: string;
-  to: string;
-  senderName?: string;
-  chatId: string;
-  timestamp: string;
-  time: number;
-  caption?: string;
-  mimetype?: string;
-  file_name?: string;
-  contact_name?: string;
-  is_forwarded?: boolean;
-  isReply?: boolean;
-  stanza_id?: string;
-}
-
-interface WappiWebhook {
-  messages: WappiMessage[];
-}
 
 function extractPhoneFromChatId(chatId: string): string {
   // chatId format: 79999999999@c.us or group format
@@ -205,9 +182,8 @@ function getFileType(messageType: string, mimeType?: string): string | null {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const webhook: WappiWebhook = await req.json()
@@ -265,22 +241,22 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error processing Wappi webhook:', error)
 
     try {
       await supabase.from('webhook_logs').insert({
         messenger_type: 'whatsapp',
         event_type: 'error',
-        webhook_data: { error: (error as any)?.message },
+        webhook_data: { error: getErrorMessage(error) },
         processed: false,
-        error_message: (error as any)?.message
+        error_message: getErrorMessage(error)
       })
     } catch (logError) {
       console.error('Error saving error log:', logError)
     }
 
-    return new Response(JSON.stringify({ error: (error as any)?.message }), {
+    return new Response(JSON.stringify({ error: getErrorMessage(error) }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

@@ -1,11 +1,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1'
+import {
+  corsHeaders,
+  handleCors,
+  successResponse,
+  errorResponse,
+  getErrorMessage,
+  type SalebotWebhookPayload,
+  type SalebotClientData,
+  type MessengerTypeValue,
+} from '../_shared/types.ts'
 
 console.log('salebot-webhook function booted')
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -30,7 +35,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey)
 // 20 = Max
 // 21 = Telegram account
 // 22 = TikTok
-function getMessengerType(clientType: number): 'whatsapp' | 'telegram' | 'viber' | 'vk' | 'max' {
+function getMessengerType(clientType: number): MessengerTypeValue {
   switch (clientType) {
     case 0: 
       return 'vk'
@@ -50,39 +55,13 @@ function getMessengerType(clientType: number): 'whatsapp' | 'telegram' | 'viber'
   }
 }
 
-// Salebot webhook payload interface
-interface SalebotWebhookPayload {
-  id: number                    // Salebot message ID
-  client: {
-    id: number                  // salebot_client_id
-    recepient: string           // ID in messenger
-    client_type: number         // messenger type
-    name: string
-    avatar: string
-    created_at: string
-    tag: string
-    group: string               // bot name
-  }
-  message: string               // message text
-  attachments: any[]            // files
-  message_id: number            // block ID
-  project_id: number            // project ID
-  is_input: 0 | 1               // 1 = from client, 0 = from bot
-  delivered: 0 | 1
-  error_message: string | null
-}
-
 Deno.serve(async (req) => {
-  // Handle CORS
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   // Support GET/HEAD for health checks
   if (req.method === 'GET' || req.method === 'HEAD') {
-    return new Response(JSON.stringify({ ok: true, service: 'salebot-webhook' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    return successResponse({ ok: true, service: 'salebot-webhook' })
   }
 
   try {
@@ -93,10 +72,7 @@ Deno.serve(async (req) => {
       payload = JSON.parse(rawBody)
     } catch (e) {
       console.error('Failed to parse JSON:', rawBody.slice(0, 500))
-      return new Response(JSON.stringify({ ok: false, error: 'Invalid JSON' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
+      return errorResponse('Invalid JSON', 400)
     }
 
     console.log('Salebot webhook received:', {
@@ -119,10 +95,7 @@ Deno.serve(async (req) => {
     // Validate payload
     if (!payload.client?.id) {
       console.error('No client.id in payload')
-      return new Response(JSON.stringify({ ok: false, error: 'Missing client.id' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
+      return errorResponse('Missing client.id', 400)
     }
 
     // Determine messenger type early for proper client lookup
@@ -199,15 +172,10 @@ Deno.serve(async (req) => {
 
       if (!defaultOrg) {
         console.error('No active organization found')
-        return new Response(JSON.stringify({ ok: false, error: 'No organization' }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        })
+        return errorResponse('No organization', 500)
       }
 
       organizationId = defaultOrg.id
-
-      // Use messengerType already determined above (line 121)
       
       // Create new client with correct messenger identifiers
       const clientName = payload.client.name || `Salebot ${payload.client.id}`
@@ -236,10 +204,7 @@ Deno.serve(async (req) => {
 
       if (createError || !newClient) {
         console.error('Error creating client:', createError)
-        return new Response(JSON.stringify({ ok: false, error: 'Failed to create client' }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        })
+        return errorResponse('Failed to create client', 500)
       }
 
       clientId = newClient.id
@@ -256,12 +221,10 @@ Deno.serve(async (req) => {
 
     if (existingMessage) {
       console.log('Duplicate message, skipping:', salebotMessageId)
-      return new Response(JSON.stringify({ ok: true, duplicate: true }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
+      return successResponse({ ok: true, duplicate: true })
     }
 
-    // Determine message properties (messengerType already defined at line 121)
+    // Determine message properties
     const isFromClient = payload.is_input === 1
     
     // Extract file URL from attachments
@@ -301,10 +264,7 @@ Deno.serve(async (req) => {
 
     if (insertError) {
       console.error('Error inserting message:', insertError)
-      return new Response(JSON.stringify({ ok: false, error: 'Failed to save message' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
+      return errorResponse('Failed to save message', 500)
     }
 
     console.log('Message saved for client:', clientId, 'type:', isFromClient ? 'client' : 'manager')
@@ -333,20 +293,11 @@ Deno.serve(async (req) => {
       .update({ processed: true })
       .eq('webhook_data->id', payload.id)
 
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    return successResponse({ ok: true })
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Salebot webhook error:', error)
-    
-    return new Response(JSON.stringify({ 
-      ok: false, 
-      error: (error as any)?.message 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    return errorResponse(getErrorMessage(error), 500)
   }
 })
 
