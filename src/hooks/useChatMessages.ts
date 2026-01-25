@@ -17,6 +17,8 @@ export interface ChatMessage {
   file_type?: string;
   external_message_id?: string;
   whatsapp_chat_id?: string;
+  messenger_type?: 'whatsapp' | 'telegram' | 'max' | null;
+  message_status?: 'sent' | 'delivered' | 'read' | 'queued' | null;
 }
 
 export interface UnreadByMessenger {

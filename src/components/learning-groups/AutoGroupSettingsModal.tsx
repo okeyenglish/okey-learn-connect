@@ -71,7 +71,7 @@ export const AutoGroupSettingsModal = ({
         .from('learning_groups')
         .update({
           is_auto_group: isAutoGroup,
-          auto_filter_conditions: isAutoGroup ? (conditions as any) : null
+          auto_filter_conditions: isAutoGroup ? (conditions as FilterConditions) : null
         })
         .eq('id', group.id);
 

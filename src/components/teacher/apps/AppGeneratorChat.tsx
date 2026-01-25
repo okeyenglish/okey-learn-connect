@@ -12,18 +12,40 @@ import { useAppGenerator } from '@/hooks/useAppGenerator';
 import { AppViewer } from './AppViewer';
 import { ImprovementButtons } from './ImprovementButtons';
 import { AppCard } from './AppCard';
-interface Teacher {
+interface TeacherWithIds {
   id: string;
-  [key: string]: any;
+  profile_id?: string | null;
+  user_id?: string | null;
 }
 
 interface AppGeneratorChatProps {
-  teacher: Teacher;
+  teacher: TeacherWithIds;
+}
+
+// Типы для стадий генератора с расширенными полями
+interface ExtendedStage {
+  stage: string;
+  prompt?: {
+    title?: string;
+    brief?: string;
+    description?: string;
+  };
+  suggestions?: Array<{
+    id: string;
+    title?: string;
+    description?: string;
+  }>;
+  result?: {
+    app_id: string;
+    version: number;
+    preview_url: string;
+    meta: Record<string, unknown>;
+  };
 }
 
 export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
   const [brief, setBrief] = useState('');
-  const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [format, setFormat] = useState<
     'quiz' | 'game' | 'flashcards' | 'matching' | 'test' | 'crossword' | 
     'wordSearch' | 'fillInBlanks' | 'dragAndDrop' | 'memory' | 'typing'
@@ -32,8 +54,11 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [publishTitle, setPublishTitle] = useState('');
   const [publishDescription, setPublishDescription] = useState('');
-  const [lastPrompt, setLastPrompt] = useState<any>(null);
+  const [lastPrompt, setLastPrompt] = useState<Record<string, unknown> | null>(null);
   
+  // Получаем ID для работы с генератором
+  const teacherIdForGenerator = teacher.profile_id || teacher.user_id || teacher.id;
+
   const { 
     stage, 
     suggestOrGenerate, 
@@ -44,7 +69,7 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
     isSuggesting,
     isPublishing,
     reset 
-  } = useAppGenerator((teacher as any).profile_id || (teacher as any).user_id || teacher.id);
+  } = useAppGenerator(teacherIdForGenerator);
 
   const handleSubmit = () => {
     if (!brief.trim()) return;
@@ -81,8 +106,8 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
   const handleOpenPublishDialog = () => {
     // Автоматически генерируем название и описание из lastPrompt
     if (lastPrompt) {
-      const title = lastPrompt.title || 'Новое приложение';
-      const description = lastPrompt.description || lastPrompt.brief || 'Образовательное приложение';
+      const title = (lastPrompt.title as string) || 'Новое приложение';
+      const description = (lastPrompt.description as string) || (lastPrompt.brief as string) || 'Образовательное приложение';
       setPublishTitle(title);
       setPublishDescription(description);
     }

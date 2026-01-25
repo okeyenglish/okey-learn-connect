@@ -355,7 +355,7 @@ export function ManageParentsDialog({
                   <Label htmlFor="relationship">Кем приходится *</Label>
                   <Select
                     value={watch('relationship')}
-                    onValueChange={(value) => setValue('relationship', value as any)}
+                    onValueChange={(value) => setValue('relationship', value as ParentFormData['relationship'])}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Выберите" />

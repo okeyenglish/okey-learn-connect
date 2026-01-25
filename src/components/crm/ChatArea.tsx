@@ -281,7 +281,7 @@ export const ChatArea = ({
     const rawMessages = messagesData?.messages || [];
     if (!tab && rawMessages.length > 0) {
       const lastMessage = rawMessages[rawMessages.length - 1];
-      tab = (lastMessage as any)?.messenger_type || 'whatsapp';
+      tab = lastMessage?.messenger_type || 'whatsapp';
       console.log('[ChatArea] Setting initial tab from last message:', tab, 'message:', lastMessage?.id);
     }
     

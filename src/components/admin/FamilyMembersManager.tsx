@@ -29,6 +29,22 @@ interface FamilyMemberRecord {
   students: Array<{ id: string; name: string }>;
 }
 
+// Типы для данных из Supabase
+interface FamilyMemberRow {
+  id: string;
+  family_group_id: string;
+  client_id: string;
+  relationship_type: string;
+  family_groups: { id: string; name: string } | null;
+  clients: { id: string; name: string } | null;
+}
+
+interface StudentRow {
+  id: string;
+  name: string;
+  family_group_id: string;
+}
+
 export const FamilyMembersManager = () => {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
@@ -62,7 +78,7 @@ export const FamilyMembersManager = () => {
         .range(offset, offset + pageSize - 1);
 
       if (membersRes.error) throw membersRes.error;
-      const members = membersRes.data || [];
+      const members = (membersRes.data || []) as unknown as FamilyMemberRow[];
 
       // 2) Загружаем студентов только по нужным группам
       const groupIds = Array.from(new Set(members.map(m => m.family_group_id)));
@@ -76,7 +92,7 @@ export const FamilyMembersManager = () => {
         if (studentsRes.error) throw studentsRes.error;
 
         studentsByGroup = new Map();
-        (studentsRes.data || []).forEach((s) => {
+        ((studentsRes.data || []) as StudentRow[]).forEach((s) => {
           if (!studentsByGroup.has(s.family_group_id)) {
             studentsByGroup.set(s.family_group_id, []);
           }
@@ -88,9 +104,9 @@ export const FamilyMembersManager = () => {
       const groupedData: FamilyMemberRecord[] = members.map(member => ({
         id: member.id,
         familyGroupId: member.family_group_id,
-        familyGroupName: (member.family_groups as any)?.name || 'Без названия',
+        familyGroupName: member.family_groups?.name || 'Без названия',
         clientId: member.client_id,
-        clientName: (member.clients as any)?.name || 'Неизвестно',
+        clientName: member.clients?.name || 'Неизвестно',
         relationship: member.relationship_type,
         students: studentsByGroup.get(member.family_group_id) || [],
       }));

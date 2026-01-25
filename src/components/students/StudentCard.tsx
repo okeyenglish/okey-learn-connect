@@ -11,8 +11,17 @@ import {
   Archive
 } from "lucide-react";
 
+interface StudentData {
+  id: string;
+  name: string;
+  status: string;
+  phone?: string | null;
+  age?: number | null;
+  avatar_url?: string | null;
+}
+
 interface StudentCardProps {
-  student: any;
+  student: StudentData;
   onEdit?: () => void;
   onDelete?: () => void;
   onArchive?: () => void;
@@ -56,7 +65,7 @@ export const StudentCard = ({ student, onEdit, onDelete, onArchive }: StudentCar
       <CardContent className="p-4">
         <div className="flex items-start gap-4">
           <Avatar className="h-12 w-12">
-            <AvatarImage src={(student as any).avatar_url} />
+            <AvatarImage src={student.avatar_url || undefined} />
             <AvatarFallback>{getInitials(student.name)}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">

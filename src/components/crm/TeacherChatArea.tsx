@@ -302,38 +302,78 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   }, [messages.length, messagesLoading, activeMessengerTab]);
 
   // Filter messages by messenger type
+  interface FormattedMessage {
+    id: string;
+    type: 'client' | 'manager' | 'system' | 'comment';
+    message: string;
+    time: string;
+    createdAt: string;
+    fileUrl?: string | null;
+    fileName?: string | null;
+    fileType?: string | null;
+    messengerType: string;
+    messageStatus?: 'sent' | 'delivered' | 'read' | 'queued' | null;
+    externalMessageId?: string | null;
+  }
+
   const whatsappMessages = useMemo(() => 
-    messages.filter(m => (m as any).messenger_type === 'whatsapp' || !(m as any).messenger_type),
+    messages.filter((m: FormattedMessage) => m.messengerType === 'whatsapp' || !m.messengerType),
     [messages]
   );
 
   const telegramMessages = useMemo(() => 
-    messages.filter(m => (m as any).messenger_type === 'telegram'),
+    messages.filter((m: FormattedMessage) => m.messengerType === 'telegram'),
     [messages]
   );
 
   const maxMessages = useMemo(() => 
-    messages.filter(m => (m as any).messenger_type === 'max'),
+    messages.filter((m: FormattedMessage) => m.messengerType === 'max'),
     [messages]
   );
 
   // Format message helper
-  const formatMessage = useCallback((msg: any) => ({
-    id: msg.id,
-    type: msg.message_type || (msg.is_outgoing ? 'manager' : 'client'),
-    message: msg.message_text || '',
-    time: new Date(msg.created_at).toLocaleTimeString('ru-RU', {
-      hour: '2-digit',
-      minute: '2-digit'
-    }),
-    createdAt: msg.created_at,
-    fileUrl: msg.file_url,
-    fileName: msg.file_name,
-    fileType: msg.file_type,
-    messengerType: msg.messenger_type || 'whatsapp',
-    messageStatus: msg.message_status,
-    externalMessageId: msg.external_message_id,
-  }), []);
+  interface RawMessage {
+    id: string;
+    message_type?: string | null;
+    is_outgoing?: boolean;
+    message_text?: string | null;
+    created_at: string;
+    file_url?: string | null;
+    file_name?: string | null;
+    file_type?: string | null;
+    messenger_type?: string | null;
+    message_status?: 'sent' | 'delivered' | 'read' | 'queued' | null;
+    external_message_id?: string | null;
+  }
+
+  const formatMessage = useCallback((msg: RawMessage): FormattedMessage => {
+    // Safely cast message_type to allowed values
+    let msgType: 'client' | 'manager' | 'system' | 'comment' = 'client';
+    if (msg.message_type === 'manager' || msg.message_type === 'system' || msg.message_type === 'comment') {
+      msgType = msg.message_type;
+    } else if (msg.message_type === 'client') {
+      msgType = 'client';
+    } else if (msg.is_outgoing) {
+      msgType = 'manager';
+    }
+
+    return {
+      id: msg.id,
+      type: msgType,
+      message: msg.message_text || '',
+      time: new Date(msg.created_at).toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      createdAt: msg.created_at,
+      fileUrl: msg.file_url,
+      fileName: msg.file_name,
+      fileType: msg.file_type,
+      messengerType: msg.messenger_type || 'whatsapp',
+      messageStatus: msg.message_status,
+      externalMessageId: msg.external_message_id,
+    };
+  }, []);
 
   // Scroll to bottom
   const scrollToBottom = (smooth = true, tab?: string) => {
@@ -351,10 +391,10 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
            ((teacher.branch || '').toLowerCase().includes(q));
   });
 
-  const selectedTeacher = selectedTeacherId ? teachers.find((t: any) => t.id === selectedTeacherId) : null;
+  const selectedTeacher = selectedTeacherId ? teachers.find((t) => t.id === selectedTeacherId) : null;
 
   const handleBackToList = () => {
-    onSelectTeacher(null as any);
+    onSelectTeacher(null);
   };
 
   const handleMessengerTabChange = (newTab: string) => {
