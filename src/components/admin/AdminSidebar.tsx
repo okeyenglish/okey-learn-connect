@@ -63,6 +63,7 @@ const adminItems = [
   { title: "AI Settings", id: "ai-settings", icon: Zap },
   { title: "Sync", id: "sync", icon: RefreshCw },
   { title: "Users", id: "users", icon: Users },
+  { title: "Филиалы", id: "user-branches", icon: Database },
   { title: "Settings", id: "settings", icon: Settings },
 ];
 
