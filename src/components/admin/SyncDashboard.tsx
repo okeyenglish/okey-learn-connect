@@ -71,6 +71,73 @@ interface HolihopeProgress {
   lastError: string | null;
 }
 
+// Типы для edge function responses
+interface SalebotStopResponse {
+  success?: boolean;
+  message?: string;
+}
+
+interface SalebotImportBatchResponse {
+  skipped?: boolean;
+  apiLimitReached?: boolean;
+  message?: string;
+  totalClients?: number;
+  messagesImported?: number;
+  processedClients?: number;
+  newMessages?: number;
+  totalNewMessages?: number;
+  completed?: boolean;
+}
+
+interface SalebotFillIdsResponse {
+  success?: boolean;
+  message?: string;
+  totalProcessed?: number;
+  totalMatched?: number;
+  processedThisBatch?: number;
+  matchedThisBatch?: number;
+}
+
+interface CsvImportResponse {
+  success?: boolean;
+  error?: string;
+  updated?: number;
+  created?: number;
+  errors?: number;
+}
+
+// Расширенный тип для salebot_import_progress с fill_ids полями
+interface SalebotProgressRow {
+  id: string;
+  total_clients_processed: number;
+  total_imported: number;
+  total_messages_imported: number;
+  current_offset: number;
+  start_time: string | null;
+  last_run_at: string | null;
+  updated_at: string | null;
+  is_running: boolean;
+  is_paused: boolean;
+  requires_manual_restart: boolean;
+  resync_mode: boolean;
+  resync_offset: number;
+  resync_total_clients: number;
+  resync_new_messages: number;
+  fill_ids_mode?: boolean;
+  fill_ids_offset?: number;
+  fill_ids_total_processed?: number;
+  fill_ids_total_matched?: number;
+}
+
+// Тип для ошибок с контекстом
+interface InvokeErrorWithContext {
+  message: string;
+  context?: {
+    status?: number;
+    body?: string | Record<string, unknown>;
+  };
+}
+
 export function SyncDashboard() {
   const { toast } = useToast();
   const { branches, organizationId } = useOrganization();
@@ -118,14 +185,15 @@ export function SyncDashboard() {
   const fetchProgressOnly = async () => {
     try {
       // Get Salebot progress (lightweight)
-      const { data: progressData } = await supabase
+      const { data: progressDataRaw } = await supabase
         .from('salebot_import_progress')
         .select('*')
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (progressData) {
+      if (progressDataRaw) {
+        const progressData = progressDataRaw as unknown as SalebotProgressRow;
         const isCompleted = !progressData.is_running && 
           !progressData.is_paused && 
           progressData.total_clients_processed > 0 &&
@@ -147,10 +215,10 @@ export function SyncDashboard() {
           resyncOffset: progressData.resync_offset || 0,
           resyncTotalClients: progressData.resync_total_clients || 0,
           resyncNewMessages: progressData.resync_new_messages || 0,
-          fillIdsMode: (progressData as any).fill_ids_mode || false,
-          fillIdsOffset: (progressData as any).fill_ids_offset || 0,
-          fillIdsTotalProcessed: (progressData as any).fill_ids_total_processed || 0,
-          fillIdsTotalMatched: (progressData as any).fill_ids_total_matched || 0
+          fillIdsMode: progressData.fill_ids_mode || false,
+          fillIdsOffset: progressData.fill_ids_offset || 0,
+          fillIdsTotalProcessed: progressData.fill_ids_total_processed || 0,
+          fillIdsTotalMatched: progressData.fill_ids_total_matched || 0
         });
 
         // If import is running, poll faster (5s), otherwise slow down (30s)
@@ -338,7 +406,7 @@ export function SyncDashboard() {
         throw new Error(await getInvokeErrorMessage(error));
       }
 
-      const result = data as any;
+      const result = data as SalebotStopResponse;
       
       // Reset local state
       setIsSyncingWithIds(false);
@@ -615,7 +683,7 @@ export function SyncDashboard() {
       const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto');
       if (error) throw new Error(await getInvokeErrorMessage(error));
       
-      const result = data as any;
+      const result = data as SalebotImportBatchResponse;
       
       if (result?.skipped) {
         toast({
@@ -711,7 +779,7 @@ export function SyncDashboard() {
       });
       if (error) throw new Error(await getInvokeErrorMessage(error));
       
-      const result = data as any;
+      const result = data as SalebotImportBatchResponse;
       toast({
         title: 'Синхронизация диалогов запущена',
         description: `Обработано: ${result?.processedClients || 0} клиентов, новых сообщений: ${result?.newMessages || 0}`,
@@ -836,7 +904,7 @@ export function SyncDashboard() {
       });
       if (error) throw new Error(await getInvokeErrorMessage(error));
       
-      const result = data as any;
+      const result = data as SalebotImportBatchResponse;
       
       // Check if stopped during this batch
       const { data: checkPaused } = await supabase
@@ -908,7 +976,7 @@ export function SyncDashboard() {
             fill_ids_total_matched: 0,
             fill_ids_mode: true,
             is_paused: false 
-          } as any)
+          } as Partial<SalebotProgressRow>)
           .eq('id', progress.id);
       }
       
@@ -917,7 +985,7 @@ export function SyncDashboard() {
       });
       if (error) throw new Error(await getInvokeErrorMessage(error));
       
-      const result = data as any;
+      const result = data as SalebotFillIdsResponse;
       toast({
         title: 'Заполнение Salebot IDs запущено',
         description: `Обработано: ${result?.processedThisBatch || 0}, связано: ${result?.matchedThisBatch || 0}`,
@@ -990,7 +1058,7 @@ export function SyncDashboard() {
       });
       if (error) throw new Error(await getInvokeErrorMessage(error));
       
-      const result = data as any;
+      const result = data as SalebotImportBatchResponse;
       
       // Check if stopped during this batch
       const { data: checkPaused } = await supabase
@@ -1053,7 +1121,7 @@ export function SyncDashboard() {
       });
       if (error) throw new Error(await getInvokeErrorMessage(error));
       
-      const result = data as any;
+      const result = data as SalebotImportBatchResponse;
       toast({
         title: 'Полный реимпорт запущен',
         description: `Прогресс сброшен, импорт начнётся с начала списка. Клиентов: ${result?.totalClients || 0}, сообщений: ${result?.messagesImported || 0}`,
@@ -1259,7 +1327,7 @@ export function SyncDashboard() {
       let totalErrors = 0;
 
       // Helper function for invoking with retry
-      const invokeWithRetry = async (body: any, maxRetries = 3) => {
+      const invokeWithRetry = async (body: Record<string, unknown>, maxRetries = 3) => {
         for (let attempt = 0; attempt < maxRetries; attempt++) {
           // Refresh session before each attempt to prevent token expiration
           await supabase.auth.refreshSession();
@@ -1272,7 +1340,8 @@ export function SyncDashboard() {
             return { data, error: null };
           }
           
-          const context = (error as any).context;
+          const errorWithContext = error as InvokeErrorWithContext;
+          const context = errorWithContext.context;
           const status = context?.status;
           
           // Don't retry on auth errors - these are real authorization issues
@@ -1309,7 +1378,8 @@ export function SyncDashboard() {
         });
 
         if (error) {
-          const context = (error as any).context;
+          const errorWithContext = error as InvokeErrorWithContext;
+          const context = errorWithContext.context;
           const status = context?.status;
           
           console.error(`❌ Ошибка на chunk ${offset}-${offset + chunkSize}:`, {
@@ -1328,7 +1398,9 @@ export function SyncDashboard() {
               const bodyText = context?.body;
               if (bodyText) {
                 const bodyJson = typeof bodyText === 'string' ? JSON.parse(bodyText) : bodyText;
-                if (bodyJson?.error) detailedError = bodyJson.error;
+                if (typeof bodyJson === 'object' && bodyJson !== null && 'error' in bodyJson) {
+                  detailedError = String(bodyJson.error);
+                }
               }
             } catch { /* ignore */ }
             throw new Error(`Ошибка сервера на chunk ${offset}: ${detailedError}`);
@@ -1336,7 +1408,7 @@ export function SyncDashboard() {
           throw new Error(`Ошибка на chunk ${offset}/${updates.length}: ${error.message}`);
         }
 
-        const result = data as any;
+        const result = data as CsvImportResponse;
         if (!result.success && result.updated === undefined) {
           throw new Error(result.error || 'Неизвестная ошибка');
         }
@@ -1381,7 +1453,7 @@ export function SyncDashboard() {
             continue; // Continue with next chunk instead of failing completely
           }
 
-          const result = data as any;
+          const result = data as CsvImportResponse;
           totalCreated += result.created || 0;
           totalErrors += result.errors || 0;
 
