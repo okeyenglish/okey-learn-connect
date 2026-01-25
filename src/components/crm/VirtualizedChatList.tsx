@@ -1,6 +1,7 @@
 import React, { useRef, useCallback, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChatListItem } from './ChatListItem';
+import { ChatListSkeleton } from './MessageSkeleton';
 import { usePrefetchMessages } from '@/hooks/useChatMessagesOptimized';
 import { Loader2 } from 'lucide-react';
 
@@ -22,6 +23,8 @@ interface VirtualizedChatListProps {
   onBulkSelect: (chatId: string) => void;
   onDeleteChat?: (chatId: string, chatName: string) => void;
   onLinkChat?: (chatId: string, chatName: string) => void;
+  // Loading state
+  isLoading?: boolean;
   // Infinite scroll props
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
@@ -48,6 +51,7 @@ export const VirtualizedChatList = React.memo(({
   onBulkSelect,
   onDeleteChat,
   onLinkChat,
+  isLoading = false,
   hasNextPage,
   isFetchingNextPage,
   onLoadMore,
@@ -122,6 +126,11 @@ export const VirtualizedChatList = React.memo(({
     // Cancel in-flight prefetch request
     cancelPrefetch(chatId);
   }, [cancelPrefetch]);
+
+  // Show skeleton on initial load
+  if (isLoading && chats.length === 0) {
+    return <ChatListSkeleton count={10} />;
+  }
 
   return (
     <div 
