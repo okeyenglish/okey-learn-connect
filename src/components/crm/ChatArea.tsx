@@ -14,6 +14,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useTypingStatus } from "@/hooks/useTypingStatus";
 import { useClientUnreadByMessenger } from "@/hooks/useChatMessages";
 import { useChatMessagesOptimized, useMessageStatusRealtime } from "@/hooks/useChatMessagesOptimized";
+import { useAutoRetryMessages } from "@/hooks/useAutoRetryMessages";
 import { ChatMessage } from "./ChatMessage";
 import { DateSeparator, shouldShowDateSeparator } from "./DateSeparator";
 import { SalebotCallbackMessage, isSalebotCallback, isHiddenSalebotMessage, isSuccessPayment } from "./SalebotCallbackMessage";
@@ -103,9 +104,6 @@ export const ChatArea = ({
     isFetching: fetchingMessages 
   } = useChatMessagesOptimized(clientId, messageLimit);
   
-  // Subscribe to realtime message status updates with failed delivery notification
-  useMessageStatusRealtime(clientId);
-
   const hasMoreMessages = messagesData?.hasMore ?? false;
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   
@@ -197,7 +195,102 @@ export const ChatArea = ({
   const markChatMessagesAsReadByMessengerMutation = useMarkChatMessagesAsReadByMessenger();
   const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
   const queryClient = useQueryClient();
-  
+
+  // Auto-retry logic for failed messages (30 sec delay, max 3 attempts)
+  const handleAutoRetry = useCallback(async (messageId: string, retryCount: number): Promise<boolean> => {
+    console.log(`[AutoRetry] Attempting retry #${retryCount} for message ${messageId.slice(0, 8)}`);
+    
+    // Find the message in current cache
+    const msg = messagesData?.messages?.find(m => m.id === messageId);
+    if (!msg) {
+      console.log(`[AutoRetry] Message not found in cache`);
+      return false;
+    }
+
+    const messengerType = msg.messenger_type || 'whatsapp';
+    
+    try {
+      // Update status to 'queued'
+      await supabase
+        .from('chat_messages')
+        .update({ status: 'queued' })
+        .eq('id', messageId);
+      
+      queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
+
+      let success = false;
+      
+      if (messengerType === 'max') {
+        const result = await sendMaxMessage(clientId, msg.message_text || '', msg.file_url, msg.file_name, msg.file_type);
+        success = !!result;
+      } else if (messengerType === 'telegram') {
+        const result = await sendTelegramMessage(clientId, msg.message_text || '', msg.file_url, msg.file_name, msg.file_type);
+        success = result.success;
+      } else {
+        // WhatsApp
+        if (msg.file_url) {
+          const result = await sendFileMessage(clientId, msg.file_url, msg.file_name || 'file', msg.message_text || '');
+          success = result.success;
+        } else {
+          const result = await sendTextMessage(clientId, msg.message_text || '');
+          success = result.success;
+        }
+      }
+
+      if (success) {
+        await supabase
+          .from('chat_messages')
+          .update({ status: 'sent' })
+          .eq('id', messageId);
+        
+        queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
+        
+        toast({
+          title: "Автоповтор успешен",
+          description: `Сообщение доставлено (попытка ${retryCount})`,
+        });
+        return true;
+      } else {
+        throw new Error('Send failed');
+      }
+    } catch (error) {
+      console.error(`[AutoRetry] Retry #${retryCount} failed:`, error);
+      
+      await supabase
+        .from('chat_messages')
+        .update({ status: 'failed' })
+        .eq('id', messageId);
+      
+      queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
+      return false;
+    }
+  }, [clientId, messagesData?.messages, queryClient, sendMaxMessage, sendTelegramMessage, sendFileMessage, sendTextMessage, toast]);
+
+  const handleMaxRetriesReached = useCallback((messageId: string) => {
+    toast({
+      title: "Автоповтор исчерпан",
+      description: "Не удалось доставить сообщение после 3 попыток. Проверьте настройки интеграции.",
+      variant: "destructive",
+    });
+  }, [toast]);
+
+  const { scheduleRetry, resetRetryState, getRetryCount, canAutoRetry } = useAutoRetryMessages(
+    clientId,
+    handleAutoRetry,
+    handleMaxRetriesReached
+  );
+
+  // Handler for failed delivery events - schedules auto-retry
+  const handleDeliveryFailed = useCallback((messageId: string) => {
+    console.log(`[ChatArea] Message failed, scheduling auto-retry: ${messageId.slice(0, 8)}`);
+    if (canAutoRetry(messageId)) {
+      scheduleRetry(messageId);
+    }
+  }, [canAutoRetry, scheduleRetry]);
+
+  // Subscribe to realtime message status updates with failed delivery notification
+  useMessageStatusRealtime(clientId, handleDeliveryFailed);
+
   // Get unread counts by messenger for badge display
   const {
     unreadCounts: unreadByMessenger,
@@ -1412,6 +1505,9 @@ export const ChatArea = ({
     }
 
     const messengerType = msg.messengerType || 'whatsapp';
+    
+    // Cancel any scheduled auto-retry for this message
+    resetRetryState(messageId);
     
     // Update status to 'queued' optimistically
     await supabase
