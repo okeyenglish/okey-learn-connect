@@ -14,6 +14,104 @@ export type Database = {
   }
   public: {
     Tables: {
+      chat_messages: {
+        Row: {
+          client_id: string | null
+          content: string | null
+          created_at: string
+          direction: string
+          external_id: string | null
+          file_name: string | null
+          id: string
+          is_read: boolean | null
+          media_type: string | null
+          media_url: string | null
+          message_type: string | null
+          messenger: string | null
+          metadata: Json | null
+          organization_id: string
+          read_at: string | null
+          reply_to_id: string | null
+          sender_id: string | null
+          sender_name: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          content?: string | null
+          created_at?: string
+          direction?: string
+          external_id?: string | null
+          file_name?: string | null
+          id?: string
+          is_read?: boolean | null
+          media_type?: string | null
+          media_url?: string | null
+          message_type?: string | null
+          messenger?: string | null
+          metadata?: Json | null
+          organization_id: string
+          read_at?: string | null
+          reply_to_id?: string | null
+          sender_id?: string | null
+          sender_name?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          content?: string | null
+          created_at?: string
+          direction?: string
+          external_id?: string | null
+          file_name?: string | null
+          id?: string
+          is_read?: boolean | null
+          media_type?: string | null
+          media_url?: string | null
+          message_type?: string | null
+          messenger?: string | null
+          metadata?: Json | null
+          organization_id?: string
+          read_at?: string | null
+          reply_to_id?: string | null
+          sender_id?: string | null
+          sender_name?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           branch: string | null
