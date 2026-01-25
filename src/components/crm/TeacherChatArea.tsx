@@ -29,6 +29,7 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { AddTeacherModal } from '@/components/admin/AddTeacherModal';
 import { useTeacherChats, useEnsureTeacherClient, TeacherChatItem, useTeacherChatMessages } from '@/hooks/useTeacherChats';
 import { TeacherListItem } from './TeacherListItem';
+import { useClientAvatars } from '@/hooks/useClientAvatars';
 
 interface TeacherGroup {
   id: string;
@@ -96,11 +97,6 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     size: number;
   }>>([]);
   const [fileUploadResetKey, setFileUploadResetKey] = useState(0);
-  
-  // Avatar states
-  const [whatsappClientAvatar, setWhatsappClientAvatar] = useState<string | null>(null);
-  const [telegramClientAvatar, setTelegramClientAvatar] = useState<string | null>(null);
-  const [maxClientAvatar, setMaxClientAvatar] = useState<string | null>(null);
   
   const isMobile = useIsMobile();
   const whatsappEndRef = useRef<HTMLDivElement>(null);
@@ -188,6 +184,13 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   }, [selectedTeacherId, userBranch, dbTeachers, findOrCreateClient]);
 
   const clientId = resolvedClientId || '';
+  
+  // Use cached avatars hook - must be after clientId declaration
+  const { avatars: cachedAvatars, fetchExternalAvatar } = useClientAvatars(clientId || null);
+  const whatsappClientAvatar = cachedAvatars.whatsapp;
+  const telegramClientAvatar = cachedAvatars.telegram;
+  const maxClientAvatar = cachedAvatars.max;
+  
   // Use special RPC for teacher messages that bypasses RLS org filter
   const { messages, isLoading: messagesLoading, error: messagesError, refetch: refetchMessages, isFetching: messagesFetching } = useTeacherChatMessages(clientId);
   const sendMessage = useSendMessage();
@@ -223,78 +226,34 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     }
   }, [selectedTeacherId, dbTeachers]);
 
-  // Reset avatars when client changes
+  // Fetch WhatsApp avatar using cached hook
   useEffect(() => {
-    setWhatsappClientAvatar(null);
-    setTelegramClientAvatar(null);
-    setMaxClientAvatar(null);
-  }, [clientId]);
+    if (activeMessengerTab === 'whatsapp' && clientId && !cachedAvatars.whatsapp) {
+      fetchExternalAvatar('whatsapp', () => getWhatsAppAvatar(clientId));
+    }
+  }, [activeMessengerTab, clientId, cachedAvatars.whatsapp, fetchExternalAvatar, getWhatsAppAvatar]);
 
-  // Fetch WhatsApp avatar
+  // Fetch MAX avatar using cached hook
   useEffect(() => {
-    const fetchWhatsAppAvatar = async () => {
-      if (activeMessengerTab === 'whatsapp' && clientId && !whatsappClientAvatar) {
-        try {
-          const result = await getWhatsAppAvatar(clientId);
-          if (result.success && result.urlAvatar) {
-            setWhatsappClientAvatar(result.urlAvatar);
-          }
-        } catch (error) {
-          console.error('Error fetching WhatsApp avatar:', error);
-        }
-      }
-    };
-    fetchWhatsAppAvatar();
-  }, [activeMessengerTab, clientId, whatsappClientAvatar, getWhatsAppAvatar]);
+    if (activeMessengerTab === 'max' && clientId && !cachedAvatars.max) {
+      fetchExternalAvatar('max', () => getMaxAvatar(clientId));
+    }
+  }, [activeMessengerTab, clientId, cachedAvatars.max, fetchExternalAvatar, getMaxAvatar]);
 
-  // Fetch MAX avatar
+  // Fetch Telegram avatar using cached hook
   useEffect(() => {
-    const fetchMaxAvatar = async () => {
-      if (activeMessengerTab === 'max' && clientId && !maxClientAvatar) {
-        try {
-          const result = await getMaxAvatar(clientId);
-          if (result.success && result.urlAvatar) {
-            setMaxClientAvatar(result.urlAvatar);
-          }
-        } catch (error) {
-          console.error('Error fetching MAX avatar:', error);
-        }
-      }
-    };
-    fetchMaxAvatar();
-  }, [activeMessengerTab, clientId, maxClientAvatar, getMaxAvatar]);
-
-  // Fetch Telegram avatar - first check DB, then call edge function if not found
-  useEffect(() => {
-    const fetchTelegramAvatar = async () => {
-      if (activeMessengerTab === 'telegram' && clientId && !telegramClientAvatar) {
-        try {
-          // First check if avatar already in DB
-          const { data } = await supabase
-            .from('clients')
-            .select('telegram_avatar_url')
-            .eq('id', clientId)
-            .maybeSingle();
-          
-          if (data?.telegram_avatar_url) {
-            setTelegramClientAvatar(data.telegram_avatar_url);
-          } else {
-            // If not in DB, call edge function to fetch from Telegram API
-            const { data: avatarData, error } = await supabase.functions.invoke('telegram-get-avatar', {
-              body: { clientId }
-            });
-            
-            if (!error && avatarData?.success && avatarData?.avatarUrl) {
-              setTelegramClientAvatar(avatarData.avatarUrl);
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching Telegram avatar:', error);
-        }
-      }
-    };
-    fetchTelegramAvatar();
-  }, [activeMessengerTab, clientId, telegramClientAvatar]);
+    if (activeMessengerTab === 'telegram' && clientId && !cachedAvatars.telegram) {
+      fetchExternalAvatar('telegram', async () => {
+        const { data: avatarData, error } = await supabase.functions.invoke('telegram-get-avatar', {
+          body: { clientId }
+        });
+        return {
+          success: !error && avatarData?.success,
+          avatarUrl: avatarData?.avatarUrl
+        };
+      });
+    }
+  }, [activeMessengerTab, clientId, cachedAvatars.telegram, fetchExternalAvatar]);
 
   // Mark as read when opening/receiving
   useEffect(() => {

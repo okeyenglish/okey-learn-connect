@@ -39,6 +39,7 @@ import { usePendingGPTResponses } from "@/hooks/usePendingGPTResponses";
 import { useMarkChatMessagesAsReadByMessenger, useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
 import { useQueryClient } from "@tanstack/react-query";
 import { getErrorMessage } from '@/lib/errorUtils';
+import { useClientAvatars } from '@/hooks/useClientAvatars';
 
 interface ChatAreaProps {
   clientId: string;
@@ -179,9 +180,11 @@ export const ChatArea = ({
   // State for availability check (MAX and WhatsApp)
   const [maxAvailability, setMaxAvailability] = useState<{ checked: boolean; available: boolean | null }>({ checked: false, available: null });
   const [whatsappAvailability, setWhatsappAvailability] = useState<{ checked: boolean; available: boolean | null }>({ checked: false, available: null });
-  const [maxClientAvatar, setMaxClientAvatar] = useState<string | null>(null);
-  const [whatsappClientAvatar, setWhatsappClientAvatar] = useState<string | null>(null);
-  const [telegramClientAvatar, setTelegramClientAvatar] = useState<string | null>(null);
+  // Use cached avatars hook instead of separate state
+  const { avatars: cachedAvatars, fetchExternalAvatar } = useClientAvatars(clientId);
+  const maxClientAvatar = cachedAvatars.max;
+  const whatsappClientAvatar = cachedAvatars.whatsapp;
+  const telegramClientAvatar = cachedAvatars.telegram;
   const [checkingMaxAvailability, setCheckingMaxAvailability] = useState(false);
   const [checkingWhatsAppAvailability, setCheckingWhatsAppAvailability] = useState(false);
   const { toast } = useToast();
@@ -470,96 +473,39 @@ export const ChatArea = ({
     checkWhatsAppForClient();
   }, [activeMessengerTab, loadingMessages, messages, whatsappAvailability.checked, clientPhone, checkWhatsAppAvailability]);
 
-  // Fetch MAX avatar for client when on MAX tab
-  // Fetch MAX avatar for client and save to DB if found
+  // Fetch MAX avatar using cached hook when on MAX tab
   useEffect(() => {
-    const fetchMaxAvatar = async () => {
-      if (activeMessengerTab === 'max' && clientId && !maxClientAvatar) {
-        try {
-          const result = await getMaxAvatar(clientId);
-          if (result.success && result.urlAvatar) {
-            setMaxClientAvatar(result.urlAvatar);
-            // Save avatar to clients table for preview list
-            await supabase
-              .from('clients')
-              .update({ max_avatar_url: result.urlAvatar })
-              .eq('id', clientId);
-          }
-        } catch (error) {
-          console.error('Error fetching MAX avatar:', error);
-        }
-      }
-    };
-    
-    fetchMaxAvatar();
-  }, [activeMessengerTab, clientId, maxClientAvatar, getMaxAvatar]);
+    if (activeMessengerTab === 'max' && clientId && !cachedAvatars.max) {
+      fetchExternalAvatar('max', () => getMaxAvatar(clientId));
+    }
+  }, [activeMessengerTab, clientId, cachedAvatars.max, fetchExternalAvatar, getMaxAvatar]);
 
-  // Fetch WhatsApp avatar for client and save to DB if found
+  // Fetch WhatsApp avatar using cached hook
   useEffect(() => {
-    const fetchWhatsAppAvatar = async () => {
-      // Fetch if we're on whatsapp tab or if activeMessengerTab is default (whatsapp)
-      if ((activeMessengerTab === 'whatsapp' || !activeMessengerTab) && clientId && !whatsappClientAvatar) {
-        console.log('Fetching WhatsApp avatar for client:', clientId);
-        try {
-          const result = await getWhatsAppAvatar(clientId);
-          console.log('WhatsApp avatar result:', result);
-          if (result.success && result.urlAvatar) {
-            setWhatsappClientAvatar(result.urlAvatar);
-            // Save avatar to clients table for preview list
-            await supabase
-              .from('clients')
-              .update({ whatsapp_avatar_url: result.urlAvatar })
-              .eq('id', clientId);
-          }
-        } catch (error) {
-          console.error('Error fetching WhatsApp avatar:', error);
-        }
-      }
-    };
-    
-    fetchWhatsAppAvatar();
-  }, [activeMessengerTab, clientId, whatsappClientAvatar, getWhatsAppAvatar]);
+    if ((activeMessengerTab === 'whatsapp' || !activeMessengerTab) && clientId && !cachedAvatars.whatsapp) {
+      fetchExternalAvatar('whatsapp', () => getWhatsAppAvatar(clientId));
+    }
+  }, [activeMessengerTab, clientId, cachedAvatars.whatsapp, fetchExternalAvatar, getWhatsAppAvatar]);
 
-  // Fetch Telegram avatar for client - first check DB, then call edge function if not found
+  // Fetch Telegram avatar using cached hook
   useEffect(() => {
-    const fetchTelegramAvatar = async () => {
-      if (activeMessengerTab === 'telegram' && clientId && !telegramClientAvatar) {
-        try {
-          // First check if avatar already in DB
-          const { data } = await supabase
-            .from('clients')
-            .select('telegram_avatar_url')
-            .eq('id', clientId)
-            .maybeSingle();
-          
-          if (data?.telegram_avatar_url) {
-            setTelegramClientAvatar(data.telegram_avatar_url);
-          } else {
-            // If not in DB, call edge function to fetch from Telegram API
-            const { data: avatarData, error } = await supabase.functions.invoke('telegram-get-avatar', {
-              body: { clientId }
-            });
-            
-            if (!error && avatarData?.success && avatarData?.avatarUrl) {
-              setTelegramClientAvatar(avatarData.avatarUrl);
-              // Edge function already saves to DB, no need to update here
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching Telegram avatar:', error);
-        }
-      }
-    };
-    
-    fetchTelegramAvatar();
-  }, [activeMessengerTab, clientId, telegramClientAvatar]);
+    if (activeMessengerTab === 'telegram' && clientId && !cachedAvatars.telegram) {
+      fetchExternalAvatar('telegram', async () => {
+        const { data: avatarData, error } = await supabase.functions.invoke('telegram-get-avatar', {
+          body: { clientId }
+        });
+        return {
+          success: !error && avatarData?.success,
+          avatarUrl: avatarData?.avatarUrl
+        };
+      });
+    }
+  }, [activeMessengerTab, clientId, cachedAvatars.telegram, fetchExternalAvatar]);
 
+  // Reset availability checks when client changes (avatars are cached, no need to reset)
   useEffect(() => {
     setMaxAvailability({ checked: false, available: null });
     setWhatsappAvailability({ checked: false, available: null });
-    setMaxClientAvatar(null);
-    setWhatsappClientAvatar(null);
-    setTelegramClientAvatar(null);
   }, [clientId]);
 
   // Cleanup pending message interval and scheduled messages on unmount
