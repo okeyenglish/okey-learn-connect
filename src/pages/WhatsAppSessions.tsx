@@ -360,9 +360,17 @@ const WhatsAppSessions = () => {
         // Optimistically add/update the session as connected
         setSessions(prev => {
           const exists = prev.some(s => s.session_name === data.session_name);
+          const newSession: WhatsAppSession = {
+            id: crypto.randomUUID(),
+            session_name: data.session_name,
+            status: 'connected',
+            organization_id: prev[0]?.organization_id || '',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
           const next = exists
-            ? prev.map(s => s.session_name === data.session_name ? { ...s, status: 'connected', last_qr_b64: undefined, last_qr_at: undefined } : s)
-            : [{ id: crypto.randomUUID(), session_name: data.session_name, status: 'connected', organization_id: prev[0]?.organization_id || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as any, ...prev];
+            ? prev.map(s => s.session_name === data.session_name ? { ...s, status: 'connected' as const, last_qr_b64: undefined, last_qr_at: undefined } : s)
+            : [newSession, ...prev];
           return next;
         });
         toast({
@@ -760,12 +768,20 @@ const WhatsAppSessions = () => {
       });
 
       if (error) {
-        const anyErr: any = error as any;
-        const status = anyErr?.context?.status ? ` (HTTP ${anyErr.context.status})` : '';
-        const bodySnippet = anyErr?.context?.body ? `\n${String(anyErr.context.body).slice(0, 200)}` : '';
+        // Type-safe error handling for Supabase function errors
+        interface FunctionError {
+          message?: string;
+          context?: {
+            status?: number;
+            body?: unknown;
+          };
+        }
+        const funcError = error as FunctionError;
+        const status = funcError?.context?.status ? ` (HTTP ${funcError.context.status})` : '';
+        const bodySnippet = funcError?.context?.body ? `\n${String(funcError.context.body).slice(0, 200)}` : '';
         toast({
           title: "Ошибка",
-          description: `${anyErr?.message || 'Не удалось запустить сессию'}${status}${bodySnippet}`,
+          description: `${funcError?.message || 'Не удалось запустить сессию'}${status}${bodySnippet}`,
           variant: "destructive",
         });
         throw error;
