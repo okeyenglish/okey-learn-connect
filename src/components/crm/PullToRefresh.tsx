@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Loader2, ArrowDown } from 'lucide-react';
+import { getNotificationSettings } from '@/hooks/useNotificationSettings';
 
 interface PullToRefreshProps {
   onRefresh: () => Promise<void>;
@@ -51,8 +52,9 @@ export const PullToRefresh = ({
       
       if (distance >= threshold && pullState !== 'ready') {
         setPullState('ready');
-        // Haptic feedback when reaching threshold
-        if (navigator.vibrate) {
+        // Haptic feedback when reaching threshold (if enabled)
+        const settings = getNotificationSettings();
+        if (settings.vibrationEnabled && navigator.vibrate) {
           navigator.vibrate(10);
         }
       } else if (distance < threshold) {
@@ -73,8 +75,9 @@ export const PullToRefresh = ({
       setPullState('refreshing');
       setPullDistance(threshold * 0.6); // Keep indicator visible during refresh
       
-      // Haptic feedback on refresh start
-      if (navigator.vibrate) {
+      // Haptic feedback on refresh start (if enabled)
+      const settings = getNotificationSettings();
+      if (settings.vibrationEnabled && navigator.vibrate) {
         navigator.vibrate([15, 50, 15]);
       }
       
