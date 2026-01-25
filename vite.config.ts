@@ -21,9 +21,9 @@ export default defineConfig(({ mode }) => ({
       injectRegister: false, // We register manually in index.html
       includeAssets: ['favicon.png', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
-        name: "O'KEY ENGLISH SCHOOL",
-        short_name: "O'KEY",
-        description: "CRM и обучающая платформа O'KEY ENGLISH SCHOOL",
+        name: "AcademyOS",
+        short_name: "AcademyOS",
+        description: "AcademyOS - управляйте Вашим образовательным бизнесом",
         theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'standalone',
