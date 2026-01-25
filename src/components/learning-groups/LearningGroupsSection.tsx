@@ -14,11 +14,12 @@ import { GroupsTable } from "./GroupsTable";
 import { ExportGroupButton } from "./ExportGroupButton";
 import { RecruitmentSection } from "./RecruitmentSection";
 import { useUserAllowedBranches } from "@/hooks/useUserAllowedBranches";
+import { usePersistedBranch } from "@/hooks/usePersistedBranch";
 
 export const LearningGroupsSection = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [branchFilter, setBranchFilter] = useState("all");
+  const { selectedBranch: branchFilter, setSelectedBranch: setBranchFilter } = usePersistedBranch("all");
   const [subjectFilter, setSubjectFilter] = useState("all");
   const [groupsModalOpen, setGroupsModalOpen] = useState(false);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);

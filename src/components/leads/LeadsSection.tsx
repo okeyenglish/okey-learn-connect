@@ -10,11 +10,12 @@ import { AddLeadModal } from './AddLeadModal';
 import { LeadsStats } from './LeadsStats';
 import { useLeads, useLeadsStats } from '@/hooks/useLeads';
 import { useUserAllowedBranches } from '@/hooks/useUserAllowedBranches';
+import { usePersistedBranch } from '@/hooks/usePersistedBranch';
 
 export default function LeadsSection() {
   const [activeTab, setActiveTab] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [selectedBranch, setSelectedBranch] = useState('all');
+  const { selectedBranch, setSelectedBranch } = usePersistedBranch('all');
   const [filters, setFilters] = useState<{
     status_id?: string;
     branch?: string;
