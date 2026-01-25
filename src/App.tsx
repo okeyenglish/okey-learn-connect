@@ -106,6 +106,7 @@ const PaymentFail = lazy(() => import('./pages/PaymentFail'));
 const Install = lazy(() => import('./pages/Install'));
 const SystemMonitor = lazy(() => import('./pages/SystemMonitor'));
 const EmployeeOnboarding = lazy(() => import('./pages/employee/EmployeeOnboarding'));
+const DebugAccess = lazy(() => import('./pages/DebugAccess'));
 
 // Loading component for better UX
 const LoadingComponent = () => (
@@ -488,6 +489,11 @@ const AppContent = () => {
           <Route path="/employee/onboarding/:token" element={
             <Suspense fallback={<LoadingComponent />}>
               <EmployeeOnboarding />
+            </Suspense>
+          } />
+          <Route path="/debug-access" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <DebugAccess />
             </Suspense>
           } />
           <Route path="/5000" element={
