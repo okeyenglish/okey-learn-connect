@@ -61,7 +61,7 @@ export const FamilyGroupSplitter = () => {
               id,
               client_id,
               relationship_type,
-              clients:client_id (name)
+              clients (name)
             `)
             .eq('family_group_id', group.id)
         ]);
@@ -75,12 +75,19 @@ export const FamilyGroupSplitter = () => {
             id: group.id,
             name: group.name,
             students: students.map(s => ({ id: s.id, name: s.name })),
-            members: members.map(m => ({
-              id: m.id,
-              clientId: m.client_id,
-              clientName: (m.clients as any)?.name || 'Неизвестно',
-              relationship: m.relationship_type,
-            })),
+            members: members.map(m => {
+              // Extract client name from joined clients relation (can be array or single object)
+              const clientsData = m.clients;
+              const clientName = Array.isArray(clientsData) 
+                ? (clientsData[0] as { name: string } | undefined)?.name 
+                : (clientsData as { name: string } | null)?.name;
+              return {
+                id: m.id,
+                clientId: m.client_id,
+                clientName: clientName || 'Неизвестно',
+                relationship: m.relationship_type,
+              };
+            }),
           });
         }
       }

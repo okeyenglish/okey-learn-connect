@@ -15,10 +15,26 @@ import { ru } from "date-fns/locale";
 interface WebhookLog {
   id: string;
   event_type: string;
-  webhook_data: any;
+  webhook_data: Record<string, unknown>;
   created_at: string;
   processed: boolean;
   messenger_type: string;
+}
+
+interface ClientInfo {
+  name: string;
+  phone: string;
+}
+
+interface MessageWithClient {
+  id: string;
+  client_id: string;
+  message_text: string;
+  message_type: string;
+  is_outgoing: boolean;
+  messenger_type: string;
+  created_at: string;
+  clients: ClientInfo[] | null;
 }
 
 interface RecentMessage {
@@ -29,10 +45,7 @@ interface RecentMessage {
   is_outgoing: boolean;
   messenger_type: string;
   created_at: string;
-  client?: {
-    name: string;
-    phone: string;
-  };
+  client?: ClientInfo;
 }
 
 export const WhatsAppDebugPanel = () => {
@@ -80,7 +93,17 @@ export const WhatsAppDebugPanel = () => {
         .limit(20);
 
       if (messages) {
-        setRecentMessages(messages as any);
+        const typedMessages = messages as unknown as MessageWithClient[];
+        setRecentMessages(typedMessages.map(msg => ({
+          id: msg.id,
+          client_id: msg.client_id,
+          message_text: msg.message_text,
+          message_type: msg.message_type,
+          is_outgoing: msg.is_outgoing,
+          messenger_type: msg.messenger_type,
+          created_at: msg.created_at,
+          client: msg.clients?.[0] ?? undefined,
+        })));
       }
     } catch (error) {
       console.error('Error fetching debug data:', error);
