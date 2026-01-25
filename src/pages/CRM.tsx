@@ -3846,13 +3846,12 @@ const CRMContent = () => {
           
           {/* Плавающая кнопка AI Центра для десктопа - внутри центрального контейнера */}
           {!isMobile && !voiceAssistantOpen && activeChatType === 'client' && (
-            <Button
+            <div
               onClick={() => setVoiceAssistantOpen(true)}
-              className="absolute bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-40 bg-primary hover:bg-primary/90 p-0 overflow-hidden"
-              size="icon"
+              className="absolute bottom-6 right-6 z-40 cursor-pointer"
             >
-              <AnimatedLogo size={40} />
-            </Button>
+              <AnimatedLogo size={56} />
+            </div>
           )}
         </div>
 
