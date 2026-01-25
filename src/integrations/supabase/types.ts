@@ -14,16 +14,272 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      clients: {
+        Row: {
+          branch: string | null
+          created_at: string
+          email: string | null
+          first_name: string | null
+          id: string
+          last_message_at: string | null
+          last_name: string | null
+          middle_name: string | null
+          name: string | null
+          notes: string | null
+          organization_id: string
+          phone: string | null
+          salebot_client_id: string | null
+          source: string | null
+          status: string | null
+          telegram_user_id: string | null
+          updated_at: string
+          whatsapp_id: string | null
+        }
+        Insert: {
+          branch?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_message_at?: string | null
+          last_name?: string | null
+          middle_name?: string | null
+          name?: string | null
+          notes?: string | null
+          organization_id: string
+          phone?: string | null
+          salebot_client_id?: string | null
+          source?: string | null
+          status?: string | null
+          telegram_user_id?: string | null
+          updated_at?: string
+          whatsapp_id?: string | null
+        }
+        Update: {
+          branch?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_message_at?: string | null
+          last_name?: string | null
+          middle_name?: string | null
+          name?: string | null
+          notes?: string | null
+          organization_id?: string
+          phone?: string | null
+          salebot_client_id?: string | null
+          source?: string | null
+          status?: string | null
+          telegram_user_id?: string | null
+          updated_at?: string
+          whatsapp_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          settings: Json | null
+          slug: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          settings?: Json | null
+          slug?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          settings?: Json | null
+          slug?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          branch: string | null
+          created_at: string
+          email: string | null
+          first_name: string | null
+          id: string
+          is_active: boolean | null
+          last_name: string | null
+          organization_id: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          branch?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id: string
+          is_active?: boolean | null
+          last_name?: string | null
+          organization_id?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          branch?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_name?: string | null
+          organization_id?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      students: {
+        Row: {
+          age: number | null
+          balance: number | null
+          birth_date: string | null
+          branch: string | null
+          client_id: string | null
+          created_at: string
+          email: string | null
+          first_name: string
+          id: string
+          last_name: string | null
+          level: string | null
+          middle_name: string | null
+          notes: string | null
+          organization_id: string
+          phone: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          age?: number | null
+          balance?: number | null
+          birth_date?: string | null
+          branch?: string | null
+          client_id?: string | null
+          created_at?: string
+          email?: string | null
+          first_name: string
+          id?: string
+          last_name?: string | null
+          level?: string | null
+          middle_name?: string | null
+          notes?: string | null
+          organization_id: string
+          phone?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          age?: number | null
+          balance?: number | null
+          birth_date?: string | null
+          branch?: string | null
+          client_id?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string
+          id?: string
+          last_name?: string | null
+          level?: string | null
+          middle_name?: string | null
+          notes?: string | null
+          organization_id?: string
+          phone?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_organization_id: { Args: never; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role:
+        | "admin"
+        | "manager"
+        | "teacher"
+        | "branch_manager"
+        | "accountant"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +406,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "manager", "teacher", "branch_manager", "accountant"],
+    },
   },
 } as const
