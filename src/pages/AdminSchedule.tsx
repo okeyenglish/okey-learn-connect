@@ -11,20 +11,9 @@ import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ContentIndexer } from "@/components/ContentIndexer";
+import type { Schedule } from "@/integrations/supabase/database.types";
 
-interface ScheduleItem {
-  id: string;
-  name: string;
-  office_name: string;
-  level: string;
-  compact_days: string;
-  compact_time: string;
-  compact_classroom: string;
-  compact_teacher: string;
-  vacancies: number;
-  group_URL?: string;
-  is_active: boolean;
-}
+type ScheduleItem = Schedule;
 
 const BRANCHES = ["Новокосино", "Стахановская", "Окская", "Онлайн"];
 const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
@@ -56,7 +45,8 @@ export default function AdminSchedule() {
   const fetchSchedule = async () => {
     try {
       setLoading(true);
-      const { data, error } = await (supabase.from('schedule' as any) as any)
+      const { data, error } = await supabase
+        .from('schedule')
         .select('*')
         .order('office_name', { ascending: true })
         .order('created_at', { ascending: true });
@@ -90,7 +80,8 @@ export default function AdminSchedule() {
     try {
       if (editingItem) {
         // Update existing item
-        const { error } = await (supabase.from('schedule' as any) as any)
+        const { error } = await supabase
+          .from('schedule')
           .update({
             name: formData.name,
             office_name: formData.office_name,
@@ -112,7 +103,8 @@ export default function AdminSchedule() {
         });
       } else {
         // Create new item
-        const { error } = await (supabase.from('schedule' as any) as any)
+        const { error } = await supabase
+          .from('schedule')
           .insert([{
             id: crypto.randomUUID(),
             name: formData.name,
@@ -123,7 +115,8 @@ export default function AdminSchedule() {
             compact_classroom: formData.compact_classroom,
             compact_teacher: formData.compact_teacher,
             vacancies: formData.vacancies,
-            group_URL: formData.group_URL
+            group_URL: formData.group_URL,
+            is_active: true
           }]);
 
         if (error) throw error;
@@ -168,7 +161,8 @@ export default function AdminSchedule() {
     if (!confirm("Вы уверены, что хотите удалить это занятие?")) return;
 
     try {
-      const { error } = await (supabase.from('schedule' as any) as any)
+      const { error } = await supabase
+        .from('schedule')
         .update({ is_active: false })
         .eq('id', id);
 
