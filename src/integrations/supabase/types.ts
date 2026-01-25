@@ -85,6 +85,157 @@ export type Database = {
           },
         ]
       }
+      learning_groups: {
+        Row: {
+          branch: string | null
+          category: string | null
+          created_at: string
+          current_students: number | null
+          group_type: string | null
+          id: string
+          is_active: boolean | null
+          level: string | null
+          max_students: number | null
+          name: string
+          organization_id: string
+          responsible_teacher: string | null
+          schedule_days: string[] | null
+          schedule_time: string | null
+          status: string | null
+          subject: string | null
+          teacher_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          branch?: string | null
+          category?: string | null
+          created_at?: string
+          current_students?: number | null
+          group_type?: string | null
+          id?: string
+          is_active?: boolean | null
+          level?: string | null
+          max_students?: number | null
+          name: string
+          organization_id: string
+          responsible_teacher?: string | null
+          schedule_days?: string[] | null
+          schedule_time?: string | null
+          status?: string | null
+          subject?: string | null
+          teacher_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          branch?: string | null
+          category?: string | null
+          created_at?: string
+          current_students?: number | null
+          group_type?: string | null
+          id?: string
+          is_active?: boolean | null
+          level?: string | null
+          max_students?: number | null
+          name?: string
+          organization_id?: string
+          responsible_teacher?: string | null
+          schedule_days?: string[] | null
+          schedule_time?: string | null
+          status?: string | null
+          subject?: string | null
+          teacher_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_groups_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_groups_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_sessions: {
+        Row: {
+          branch: string | null
+          classroom: string | null
+          created_at: string
+          end_time: string | null
+          group_id: string | null
+          id: string
+          lesson_date: string
+          notes: string | null
+          organization_id: string
+          start_time: string
+          status: string | null
+          teacher_id: string | null
+          teacher_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          branch?: string | null
+          classroom?: string | null
+          created_at?: string
+          end_time?: string | null
+          group_id?: string | null
+          id?: string
+          lesson_date: string
+          notes?: string | null
+          organization_id: string
+          start_time: string
+          status?: string | null
+          teacher_id?: string | null
+          teacher_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          branch?: string | null
+          classroom?: string | null
+          created_at?: string
+          end_time?: string | null
+          group_id?: string | null
+          id?: string
+          lesson_date?: string
+          notes?: string | null
+          organization_id?: string
+          start_time?: string
+          status?: string | null
+          teacher_id?: string | null
+          teacher_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_sessions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "learning_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_sessions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_sessions_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           created_at: string
@@ -233,6 +384,69 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teachers: {
+        Row: {
+          branch: string | null
+          categories: string[] | null
+          created_at: string
+          email: string | null
+          first_name: string
+          id: string
+          is_active: boolean | null
+          last_name: string | null
+          organization_id: string
+          phone: string | null
+          profile_id: string | null
+          subjects: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          branch?: string | null
+          categories?: string[] | null
+          created_at?: string
+          email?: string | null
+          first_name: string
+          id?: string
+          is_active?: boolean | null
+          last_name?: string | null
+          organization_id: string
+          phone?: string | null
+          profile_id?: string | null
+          subjects?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          branch?: string | null
+          categories?: string[] | null
+          created_at?: string
+          email?: string | null
+          first_name?: string
+          id?: string
+          is_active?: boolean | null
+          last_name?: string | null
+          organization_id?: string
+          phone?: string | null
+          profile_id?: string | null
+          subjects?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teachers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teachers_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
