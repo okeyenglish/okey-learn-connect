@@ -226,14 +226,16 @@ export const FamilyCardWrapper = ({ clientId, onOpenChat }: FamilyCardWrapperPro
   }
 
   return (
-    <FamilyCard
-      familyGroupId={familyGroupId}
-      activeMemberId={clientId}
-      onSwitchMember={(memberId) => console.log('Switch member:', memberId)}
-      onOpenChat={onOpenChat}
-      onCall={(memberId) => console.log('Call member:', memberId)}
-      onPhoneSwitch={(phoneId) => console.log('Switch phone:', phoneId)}
-      activePhoneId="1"
-    />
+    <div className="animate-scale-in">
+      <FamilyCard
+        familyGroupId={familyGroupId}
+        activeMemberId={clientId}
+        onSwitchMember={(memberId) => console.log('Switch member:', memberId)}
+        onOpenChat={onOpenChat}
+        onCall={(memberId) => console.log('Call member:', memberId)}
+        onPhoneSwitch={(phoneId) => console.log('Switch phone:', phoneId)}
+        activePhoneId="1"
+      />
+    </div>
   );
 };
