@@ -199,10 +199,7 @@ export const EmployeeOnboarding = () => {
         throw new Error(data?.error || 'Ошибка регистрации');
       }
 
-      setSuccess(true);
-      toast.success('Регистрация завершена!');
-
-      // Автоматический вход
+      // Автоматический вход (без редиректа - пользователь сам перейдёт после установки PWA)
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: formData.email.trim(),
         password: formData.password,
@@ -210,16 +207,10 @@ export const EmployeeOnboarding = () => {
 
       if (signInError) {
         console.warn('Auto sign-in failed:', signInError);
-        // Даже если автологин не удался, редирект на страницу входа
-        setTimeout(() => {
-          navigate('/auth');
-        }, 2000);
-      } else {
-        // Редирект в CRM после успешного входа
-        setTimeout(() => {
-          navigate('/');
-        }, 2000);
       }
+
+      setSuccess(true);
+      toast.success('Регистрация завершена!');
 
     } catch (err) {
       console.error('Onboarding error:', err);
