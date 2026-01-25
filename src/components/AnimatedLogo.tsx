@@ -5,7 +5,7 @@ interface AnimatedLogoProps {
   className?: string;
 }
 
-export const AnimatedLogo = ({ size = 56, className }: AnimatedLogoProps) => {
+export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
   return (
     <div 
       className={cn(
@@ -14,41 +14,35 @@ export const AnimatedLogo = ({ size = 56, className }: AnimatedLogoProps) => {
       )}
       style={{ width: size, height: size }}
     >
-      {/* Siri-like outer glow - slowest rotation */}
+      {/* Siri-like glow directly on the ring */}
       <div 
-        className="absolute animate-siri-glow-outer"
+        className="absolute inset-0 animate-siri-glow-outer"
         style={{
-          width: size * 1.3,
-          height: size * 1.3,
-          background: 'conic-gradient(from 0deg, hsl(217 72% 48% / 0.4), hsl(180 60% 50% / 0.3), hsl(260 60% 55% / 0.3), hsl(330 70% 60% / 0.2), hsl(217 72% 48% / 0.4))',
-          borderRadius: '50%',
-          filter: 'blur(12px)',
-          transformOrigin: 'center',
-        }}
-      />
-      
-      {/* Inner glow - medium rotation */}
-      <div 
-        className="absolute animate-siri-glow-inner"
-        style={{
-          width: size * 1.15,
-          height: size * 1.15,
-          background: 'conic-gradient(from 180deg, hsl(190 70% 50% / 0.5), transparent 25%, hsl(280 60% 55% / 0.4), transparent 50%, hsl(217 72% 48% / 0.5), transparent 75%, hsl(330 70% 60% / 0.3))',
-          borderRadius: '50%',
-          filter: 'blur(8px)',
-          transformOrigin: 'center',
-        }}
-      />
-      
-      {/* Breathing pulse glow */}
-      <div 
-        className="absolute animate-siri-breathe"
-        style={{
-          width: size * 1.1,
-          height: size * 1.1,
-          background: 'radial-gradient(circle, hsl(217 72% 48% / 0.3) 40%, hsl(260 60% 55% / 0.2) 60%, transparent 70%)',
+          background: 'conic-gradient(from 0deg, hsl(217 72% 48% / 0.6), hsl(180 60% 50% / 0.5), hsl(260 60% 55% / 0.5), hsl(330 70% 60% / 0.4), hsl(217 72% 48% / 0.6))',
           borderRadius: '50%',
           filter: 'blur(6px)',
+          transformOrigin: 'center',
+        }}
+      />
+      
+      {/* Inner glow layer */}
+      <div 
+        className="absolute inset-0 animate-siri-glow-inner"
+        style={{
+          background: 'conic-gradient(from 180deg, hsl(190 70% 50% / 0.7), transparent 20%, hsl(280 60% 55% / 0.6), transparent 45%, hsl(217 72% 48% / 0.7), transparent 70%, hsl(330 70% 60% / 0.5))',
+          borderRadius: '50%',
+          filter: 'blur(4px)',
+          transformOrigin: 'center',
+        }}
+      />
+      
+      {/* Breathing pulse on ring */}
+      <div 
+        className="absolute inset-0 animate-siri-breathe"
+        style={{
+          background: 'radial-gradient(circle, transparent 40%, hsl(217 72% 48% / 0.4) 50%, hsl(260 60% 55% / 0.3) 60%, transparent 70%)',
+          borderRadius: '50%',
+          filter: 'blur(3px)',
         }}
       />
       
@@ -99,37 +93,37 @@ export const AnimatedLogo = ({ size = 56, className }: AnimatedLogoProps) => {
         @keyframes siriGlowOuter {
           0% {
             transform: rotate(0deg) scale(1);
-            opacity: 0.6;
+            opacity: 0.7;
           }
           50% {
-            transform: rotate(180deg) scale(1.05);
-            opacity: 0.8;
+            transform: rotate(180deg) scale(1.02);
+            opacity: 0.9;
           }
           100% {
             transform: rotate(360deg) scale(1);
-            opacity: 0.6;
+            opacity: 0.7;
           }
         }
         
         @keyframes siriGlowInner {
           0% {
             transform: rotate(360deg);
-            opacity: 0.7;
+            opacity: 0.8;
           }
           100% {
             transform: rotate(0deg);
-            opacity: 0.7;
+            opacity: 0.8;
           }
         }
         
         @keyframes siriBreathe {
           0%, 100% {
             transform: scale(1);
-            opacity: 0.4;
+            opacity: 0.5;
           }
           50% {
-            transform: scale(1.1);
-            opacity: 0.7;
+            transform: scale(1.03);
+            opacity: 0.8;
           }
         }
         
