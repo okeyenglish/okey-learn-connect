@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
-import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface AvatarCache {
   whatsapp?: string | null;
@@ -10,84 +9,9 @@ interface AvatarCache {
   fetchedAt: number;
 }
 
-interface ClientAvatarPayload {
-  id: string;
-  whatsapp_avatar_url?: string | null;
-  telegram_avatar_url?: string | null;
-  max_avatar_url?: string | null;
-}
-
 // In-memory cache shared across all hook instances
 const avatarCache = new Map<string, AvatarCache>();
 const pendingFetches = new Map<string, Promise<void>>();
-
-// Global realtime channel for avatar updates
-let realtimeChannel: RealtimeChannel | null = null;
-let realtimeSubscribers = new Set<(clientId: string, avatars: Partial<AvatarCache>) => void>();
-
-// Initialize global realtime subscription
-const initRealtimeSubscription = () => {
-  if (realtimeChannel) return;
-
-  realtimeChannel = supabase
-    .channel('clients-avatar-changes')
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'clients',
-      },
-      (payload) => {
-        const newData = payload.new as ClientAvatarPayload;
-        const oldData = payload.old as ClientAvatarPayload;
-        
-        // Check if any avatar field changed
-        const avatarChanged = 
-          newData.whatsapp_avatar_url !== oldData.whatsapp_avatar_url ||
-          newData.telegram_avatar_url !== oldData.telegram_avatar_url ||
-          newData.max_avatar_url !== oldData.max_avatar_url;
-        
-        if (avatarChanged && newData.id) {
-          console.log('[AvatarRealtime] Avatar updated for client:', newData.id);
-          
-          // Update in-memory cache
-          const existing = avatarCache.get(newData.id) || { fetchedAt: Date.now() };
-          if (newData.whatsapp_avatar_url !== undefined) {
-            existing.whatsapp = newData.whatsapp_avatar_url;
-          }
-          if (newData.telegram_avatar_url !== undefined) {
-            existing.telegram = newData.telegram_avatar_url;
-          }
-          if (newData.max_avatar_url !== undefined) {
-            existing.max = newData.max_avatar_url;
-          }
-          existing.fetchedAt = Date.now();
-          avatarCache.set(newData.id, existing);
-          
-          // Notify all subscribers
-          const updates: Partial<AvatarCache> = {
-            whatsapp: newData.whatsapp_avatar_url,
-            telegram: newData.telegram_avatar_url,
-            max: newData.max_avatar_url,
-          };
-          realtimeSubscribers.forEach(callback => callback(newData.id, updates));
-        }
-      }
-    )
-    .subscribe((status) => {
-      console.log('[AvatarRealtime] Channel status:', status);
-    });
-};
-
-// Cleanup when no more subscribers
-const cleanupRealtimeSubscription = () => {
-  if (realtimeSubscribers.size === 0 && realtimeChannel) {
-    supabase.removeChannel(realtimeChannel);
-    realtimeChannel = null;
-    console.log('[AvatarRealtime] Channel removed');
-  }
-};
 
 // Cache TTL: 30 minutes
 const CACHE_TTL = 30 * 60 * 1000;
@@ -251,39 +175,6 @@ export const useClientAvatars = (clientId: string | null) => {
     
     setAvatars(prev => ({ ...prev, [messenger]: url }));
   }, [clientId]);
-
-  // Realtime subscription for avatar updates
-  useEffect(() => {
-    if (!clientId) return;
-
-    // Initialize global realtime channel
-    initRealtimeSubscription();
-
-    // Subscribe to updates for this client
-    const handleAvatarUpdate = (updatedClientId: string, updates: Partial<AvatarCache>) => {
-      if (updatedClientId === clientId && mountedRef.current) {
-        setAvatars(prev => ({
-          whatsapp: updates.whatsapp !== undefined ? updates.whatsapp || null : prev.whatsapp,
-          telegram: updates.telegram !== undefined ? updates.telegram || null : prev.telegram,
-          max: updates.max !== undefined ? updates.max || null : prev.max,
-        }));
-        
-        // Invalidate React Query cache for immediate UI refresh
-        queryClient.invalidateQueries({ queryKey: ['clients'] });
-        queryClient.invalidateQueries({ queryKey: ['client', clientId] });
-        queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
-        queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
-        queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-      }
-    };
-
-    realtimeSubscribers.add(handleAvatarUpdate);
-
-    return () => {
-      realtimeSubscribers.delete(handleAvatarUpdate);
-      cleanupRealtimeSubscription();
-    };
-  }, [clientId, queryClient]);
 
   useEffect(() => {
     mountedRef.current = true;
