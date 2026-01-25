@@ -50,6 +50,55 @@ export interface ChatThread {
   messages: ChatMessage[];
 }
 
+interface MessageWithClient {
+  client_id: string;
+  message_text: string;
+  message_type: string;
+  messenger_type?: string | null;
+  created_at: string;
+  is_read: boolean;
+  salebot_message_id?: string | null;
+  clients?: {
+    id: string;
+    name: string | null;
+    phone: string | null;
+  } | null;
+}
+
+interface CallLogRow {
+  client_id: string;
+  status: string;
+  direction: string;
+  started_at: string;
+  duration_seconds: number | null;
+  clients?: {
+    id: string;
+    name: string | null;
+    phone: string | null;
+  } | null;
+}
+
+interface ClientRow {
+  id: string;
+  name: string | null;
+  phone: string | null;
+}
+
+interface PhoneRow {
+  client_id: string;
+  phone: string;
+}
+
+interface UnreadMessageRow {
+  messenger_type?: string | null;
+  created_at: string;
+}
+
+interface CallLogIdRow {
+  id: string;
+  started_at: string;
+}
+
 export const useChatMessages = (clientId: string) => {
   const { data: messages, isLoading, error } = useQuery({
     queryKey: ['chat-messages', clientId],
@@ -107,7 +156,7 @@ export const useChatThreads = () => {
           )
         `;
 
-      let messagesData: any[] | null = null;
+      let messagesData: MessageWithClient[] = [];
       {
         // Limit to last 500 messages to prevent huge fetches
         const { data, error } = await supabase
@@ -128,19 +177,19 @@ export const useChatThreads = () => {
             console.error('[useChatThreads] Error fetching messages (no join):', noJoinError);
             throw noJoinError;
           }
-          messagesData = noJoinData as any[];
+          messagesData = (noJoinData || []) as MessageWithClient[];
         } else {
-          messagesData = data as any[];
+          messagesData = (data || []) as unknown as MessageWithClient[];
         }
       }
       
       console.log('[useChatThreads] Raw messages fetched:', {
-        total: messagesData?.length || 0,
-        withClients: messagesData?.filter((m: any) => m.clients).length || 0,
-        withoutClients: messagesData?.filter((m: any) => !m.clients).length || 0,
-        salebotMessages: messagesData?.filter((m: any) => m.salebot_message_id).length || 0,
-        uniqueClientIds: new Set(messagesData?.map((m: any) => m.client_id)).size,
-        sample: messagesData?.slice(0, 5).map((m: any) => ({
+        total: messagesData.length,
+        withClients: messagesData.filter((m) => m.clients).length,
+        withoutClients: messagesData.filter((m) => !m.clients).length,
+        salebotMessages: messagesData.filter((m) => m.salebot_message_id).length,
+        uniqueClientIds: new Set(messagesData.map((m) => m.client_id)).size,
+        sample: messagesData.slice(0, 5).map((m) => ({
           client_id: m.client_id,
           has_client: !!m.clients,
           client_name: m.clients?.name,
@@ -149,7 +198,7 @@ export const useChatThreads = () => {
       });
 
       // Fetch call logs with safe fallback when clients join is blocked by RLS
-      let callsData: any[] | null = null;
+      let callsData: CallLogRow[] = [];
       {
         const selectCallsWithJoin = `
           client_id,
@@ -179,9 +228,9 @@ export const useChatThreads = () => {
             .limit(200);
 
           if (noJoinCallsError) throw noJoinCallsError;
-          callsData = noJoinCalls as any[];
+          callsData = (noJoinCalls || []) as CallLogRow[];
         } else {
-          callsData = data as any[];
+          callsData = (data || []) as unknown as CallLogRow[];
         }
       }
 
@@ -198,9 +247,8 @@ export const useChatThreads = () => {
       });
       
       // Process chat messages
-      messagesData?.forEach((message: any) => {
+      messagesData.forEach((message) => {
         const clientId = message.client_id;
-        const client = message.clients;
         
         // Обрабатываем даже если клиент не подтянулся из join (RLS/доступ)
         const safeClient = message.clients || { id: message.client_id, name: '', phone: '' };
@@ -208,8 +256,8 @@ export const useChatThreads = () => {
         if (!threadsMap.has(clientId)) {
           threadsMap.set(clientId, {
             client_id: clientId,
-            client_name: safeClient.name,
-            client_phone: safeClient.phone,
+            client_name: safeClient.name || '',
+            client_phone: safeClient.phone || '',
             last_message: message.message_text,
             last_message_time: message.created_at,
             unread_count: 0,
@@ -251,7 +299,7 @@ export const useChatThreads = () => {
       });
 
       // Process call logs
-      callsData?.forEach((call: any) => {
+      callsData.forEach((call) => {
         const clientId = call.client_id;
         const client = call.clients || { id: call.client_id, name: '', phone: '' };
         
@@ -260,8 +308,8 @@ export const useChatThreads = () => {
         if (!threadsMap.has(clientId)) {
           threadsMap.set(clientId, {
             client_id: clientId,
-            client_name: client.name,
-            client_phone: client.phone,
+            client_name: client.name || '',
+            client_phone: client.phone || '',
             last_message: callMessage,
             last_message_time: call.started_at,
             unread_count: call.status === 'missed' ? 1 : 0,
@@ -302,8 +350,11 @@ export const useChatThreads = () => {
         ]);
         
         if (!freshClientsError && freshClients) {
-          const freshMap = new Map(freshClients.map((c: any) => [c.id, c]));
-          const phonesMap = new Map((primaryPhones || []).map((p: any) => [p.client_id, p.phone]));
+          const freshClientsData = freshClients as ClientRow[];
+          const phonesData = (primaryPhones || []) as PhoneRow[];
+          
+          const freshMap = new Map(freshClientsData.map((c) => [c.id, c]));
+          const phonesMap = new Map(phonesData.map((p) => [p.client_id, p.phone]));
           
           threadsMap.forEach((thread, id) => {
             const fresh = freshMap.get(id);
@@ -382,7 +433,9 @@ export const useClientUnreadByMessenger = (clientId: string) => {
       let lastUnreadMessenger: string | null = null;
       let latestUnreadTime: Date | null = null;
 
-      messages?.forEach((msg: any) => {
+      const messageRows = (messages || []) as UnreadMessageRow[];
+
+      messageRows.forEach((msg) => {
         const messengerType = msg.messenger_type || 'whatsapp';
         const msgTime = new Date(msg.created_at);
 
@@ -411,10 +464,11 @@ export const useClientUnreadByMessenger = (clientId: string) => {
         .order('started_at', { ascending: false });
 
       if (!callsError && calls) {
-        counts.calls = calls.length;
+        const callRows = calls as CallLogIdRow[];
+        counts.calls = callRows.length;
         // Check if latest missed call is newer than latest unread message
-        if (calls.length > 0) {
-          const latestCallTime = new Date(calls[0].started_at);
+        if (callRows.length > 0) {
+          const latestCallTime = new Date(callRows[0].started_at);
           if (!latestUnreadTime || latestCallTime > latestUnreadTime) {
             lastUnreadMessenger = 'calls';
           }
@@ -465,7 +519,7 @@ export const useSendMessage = () => {
         .single();
       
       if (error) throw error;
-      return data;
+      return data as ChatMessage;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', data.client_id] });
@@ -549,8 +603,7 @@ export const useMarkAsUnread = () => {
         .eq('client_id', clientId);
       if (error) throw error;
     },
-    onSuccess: (_,_clientId) => {
-      const clientId = _clientId as unknown as string;
+    onSuccess: (_, clientId) => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
       queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
     }
