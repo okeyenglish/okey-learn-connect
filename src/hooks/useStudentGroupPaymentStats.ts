@@ -19,15 +19,15 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
   // Single query to get all data at once
   const [groupResponse, paymentsResponse, pricingResponse, allSessionsResponse, studentSessionsResponse, groupStudentResponse] = await Promise.all([
     // Get group info
-    (supabase
-      .from('learning_groups' as any) as any)
+    supabase
+      .from('learning_groups')
       .select('subject, capacity')
       .eq('id', groupId)
       .single(),
     
     // Get all payments for this student in this group
-    (supabase
-      .from('payments' as any) as any)
+    supabase
+      .from('payments')
       .select('amount, lessons_count')
       .eq('student_id', studentId)
       .eq('group_id', groupId)
@@ -37,20 +37,20 @@ const fetchPaymentStats = async (studentId: string, groupId: string): Promise<Pa
     Promise.resolve({ data: null }),
     
     // Get all lesson sessions for this group (including cancelled)
-    (supabase
-      .from('lesson_sessions' as any) as any)
+    supabase
+      .from('lesson_sessions')
       .select('id, lesson_date, status, start_time, end_time')
       .eq('group_id', groupId),
     
     // Get student's session records
-    (supabase
-      .from('student_lesson_sessions' as any) as any)
+    supabase
+      .from('student_lesson_sessions')
       .select('lesson_session_id, attendance_status, payment_status, payment_amount, is_cancelled_for_student, payment_coefficient')
       .eq('student_id', studentId),
 
     // Get student's enrollment date in the group
-    (supabase
-      .from('group_students' as any) as any)
+    supabase
+      .from('group_students')
       .select('enrollment_date, status')
       .eq('student_id', studentId)
       .eq('group_id', groupId)

@@ -12,25 +12,29 @@ export default function BalanceSystemTest() {
     queryKey: ['balance-system-stats'],
     queryFn: async () => {
       // Проверяем балансы студентов
-      const { data: balances } = await (supabase.from('student_balances' as any) as any)
+      const { data: balances } = await supabase
+        .from('student_balances')
         .select('*')
         .order('updated_at', { ascending: false })
         .limit(10);
 
       // Проверяем транзакции балансов
-      const { data: transactions } = await (supabase.from('balance_transactions' as any) as any)
+      const { data: transactions } = await supabase
+        .from('balance_transactions')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(10);
 
       // Проверяем семейные счета
-      const { data: familyLedgers } = await (supabase.from('family_ledger' as any) as any)
+      const { data: familyLedgers } = await supabase
+        .from('family_ledger')
         .select('*')
         .order('updated_at', { ascending: false })
         .limit(10);
 
       // Проверяем транзакции семейных счетов
-      const { data: familyTransactions } = await (supabase.from('family_ledger_transactions' as any) as any)
+      const { data: familyTransactions } = await supabase
+        .from('family_ledger_transactions')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(10);

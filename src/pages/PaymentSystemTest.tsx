@@ -12,13 +12,15 @@ export default function PaymentSystemTest() {
     queryKey: ['payment-system-stats'],
     queryFn: async () => {
       // Проверяем платежи
-      const { data: payments } = await (supabase.from('payments' as any) as any)
+      const { data: payments } = await supabase
+        .from('payments')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(10);
 
       // Проверяем начисления преподавателям
-      const { data: earnings } = await (supabase.from('teacher_earnings' as any) as any)
+      const { data: earnings } = await supabase
+        .from('teacher_earnings')
         .select(`
           *,
           teacher:profiles!teacher_id(first_name, last_name)
@@ -27,7 +29,8 @@ export default function PaymentSystemTest() {
         .limit(10);
 
       // Проверяем транзакции баланса
-      const { data: transactions } = await (supabase.from('balance_transactions' as any) as any)
+      const { data: transactions } = await supabase
+        .from('balance_transactions')
         .select(`
           *,
           student:students!student_id(first_name, last_name)
@@ -36,14 +39,16 @@ export default function PaymentSystemTest() {
         .limit(10);
 
       // Проверяем завершенные занятия
-      const { data: completedSessions } = await (supabase.from('individual_lesson_sessions' as any) as any)
+      const { data: completedSessions } = await supabase
+        .from('individual_lesson_sessions')
         .select('*')
         .eq('status', 'completed')
         .order('lesson_date', { ascending: false })
         .limit(10);
 
       // Проверяем ставки преподавателей
-      const { data: rates } = await (supabase.from('teacher_rates' as any) as any)
+      const { data: rates } = await supabase
+        .from('teacher_rates')
         .select(`
           *,
           teacher:profiles!teacher_id(first_name, last_name)

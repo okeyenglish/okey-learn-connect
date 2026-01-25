@@ -5,8 +5,8 @@ export const useStudentsCount = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: ['students', 'count'],
     queryFn: async () => {
-      const { count, error } = await (supabase
-        .from('students' as any) as any)
+      const { count, error } = await supabase
+        .from('students')
         .select('*', { count: 'exact', head: true });
       if (error) throw error;
       return count ?? 0;
