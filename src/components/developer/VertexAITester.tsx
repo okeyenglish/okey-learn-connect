@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 type TestType = 'text' | 'image' | 'embedding';
 type Provider = 'gateway' | 'vertex';
@@ -47,18 +48,18 @@ export const VertexAITester = () => {
         title: 'Тест выполнен',
         description: `Провайдер: ${data.provider}, Тип: ${data.test_type}`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Test error:', error);
       
       toast({
         title: 'Ошибка теста',
-        description: error.message || 'Не удалось выполнить тест',
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
       
       setResult({ 
         success: false, 
-        error: error.message || 'Неизвестная ошибка' 
+        error: getErrorMessage(error) 
       });
     } finally {
       setIsLoading(false);

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CheckCircle2, XCircle, AlertCircle, Eye, MessageSquare } from 'lucide-react';
+import { getErrorMessage } from '@/lib/errorUtils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
@@ -464,9 +465,10 @@ export default function HolihopeImport() {
       }
 
       return { success: true, progress, nextBatch, stats };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { message?: string };
       const transient = isTransientInvokeError(error);
-      const isTimeout = error.message === 'REQUEST_TIMEOUT';
+      const isTimeout = err.message === 'REQUEST_TIMEOUT';
       console.error(`Error in step ${step.id}:`, error);
 
       if (isTimeout) {
@@ -504,13 +506,13 @@ export default function HolihopeImport() {
 
       setSteps((prev) =>
         prev.map((s) =>
-          s.id === step.id ? { ...s, status: 'error', error: error.message } : s
+          s.id === step.id ? { ...s, status: 'error', error: getErrorMessage(error) } : s
         )
       );
 
       toast({
         title: 'Ошибка',
-        description: error.message || `Ошибка на шаге "${step.name}"`,
+        description: getErrorMessage(error) || `Ошибка на шаге "${step.name}"`,
         variant: 'destructive',
       });
 
@@ -695,10 +697,10 @@ export default function HolihopeImport() {
           description: 'Все данные успешно импортированы из Holihope',
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Ошибка импорта',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
@@ -1031,11 +1033,11 @@ export default function HolihopeImport() {
         title: 'Удаление завершено!',
         description: `Удалено: ${data.stats?.learningGroups || 0} групп, ${data.stats?.individualLessons || 0} индивидуальных уроков, ${data.stats?.lessonSessions || 0} занятий, ${data.stats?.studentLessonSessions || 0} студенческих сессий`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Delete error:', error);
       toast({
         title: 'Ошибка удаления',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
@@ -1066,11 +1068,11 @@ export default function HolihopeImport() {
         title: 'Очистка завершена!',
         description: `Удалено: ${data.stats?.students || 0} учеников, ${data.stats?.clients || 0} клиентов, ${data.stats?.familyGroups || 0} семейных групп, ${data.stats?.leads || 0} лидов`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Clear error:', error);
       toast({
         title: 'Ошибка очистки',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
@@ -1095,11 +1097,11 @@ export default function HolihopeImport() {
         description: `Будет импортировано ${data.total || 0} записей. См. консоль для деталей.`,
       });
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Preview error:', error);
       toast({
         title: 'Ошибка предпросмотра',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     }
@@ -1704,10 +1706,10 @@ export default function HolihopeImport() {
                             isPaused: data.is_paused || false
                           });
                         }
-                      } catch (error: any) {
+                      } catch (error: unknown) {
                         toast({
                           title: 'Ошибка',
-                          description: error.message,
+                          description: getErrorMessage(error),
                           variant: 'destructive',
                         });
                       }
@@ -1746,10 +1748,10 @@ export default function HolihopeImport() {
                           title: 'Импорт возобновлён',
                           description: 'Автоматический импорт Salebot успешно возобновлён',
                         });
-                      } catch (error: any) {
+                      } catch (error: unknown) {
                         toast({
                           title: 'Ошибка',
-                          description: error.message,
+                          description: getErrorMessage(error),
                           variant: 'destructive',
                         });
                       }
@@ -1799,10 +1801,10 @@ export default function HolihopeImport() {
                             isPaused: false
                           });
                         }
-                      } catch (error: any) {
+                      } catch (error: unknown) {
                         toast({
                           title: 'Ошибка',
-                          description: error.message,
+                          description: getErrorMessage(error),
                           variant: 'destructive',
                         });
                       }
@@ -1989,14 +1991,14 @@ export default function HolihopeImport() {
                         
                         await new Promise(resolve => setTimeout(resolve, 1000));
                       }
-                    } catch (error: any) {
+                    } catch (error: unknown) {
                       console.error('Ошибка импорта чатов:', error);
                       toast({
                         title: 'Ошибка импорта чатов',
-                        description: error.message,
+                        description: getErrorMessage(error),
                         variant: 'destructive',
                       });
-                      setChatImportStatus(`Ошибка: ${error.message}`);
+                      setChatImportStatus(`Ошибка: ${getErrorMessage(error)}`);
                     } finally {
                       setIsImportingChats(false);
                     }

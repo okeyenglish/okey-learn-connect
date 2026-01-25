@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/lib/errorUtils';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { Copy, Link, RefreshCw } from 'lucide-react';
 import { useOrganization } from '@/hooks/useOrganization';
@@ -56,10 +57,10 @@ export const TeacherRegistrationLink = () => {
         title: 'Ссылка обновлена',
         description: 'Новая ссылка для регистрации создана',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
@@ -83,10 +84,10 @@ export const TeacherRegistrationLink = () => {
           ? 'Преподаватели могут регистрироваться по ссылке'
           : 'Регистрация по ссылке временно недоступна',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     }

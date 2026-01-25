@@ -9,6 +9,7 @@ import { ru } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface AddAdditionalLessonModalProps {
   open: boolean;
@@ -125,11 +126,11 @@ export function AddAdditionalLessonModal({
       setSelectedDate(undefined);
       setTime("");
       setNotes("");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error adding additional lesson:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось добавить занятие",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {

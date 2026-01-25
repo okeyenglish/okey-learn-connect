@@ -24,6 +24,7 @@ import { syncAutoGroup } from "@/utils/groupHelpers";
 import { AlertCircle, RefreshCw, Settings2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LearningGroup } from "@/hooks/useLearningGroups";
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface AutoGroupSettingsModalProps {
   group: LearningGroup;
@@ -92,11 +93,11 @@ export const AutoGroupSettingsModal = ({
 
       onSuccess?.();
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving auto-group settings:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось сохранить настройки",
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     } finally {
@@ -114,11 +115,11 @@ export const AutoGroupSettingsModal = ({
         description: "Состав авто-группы синхронизирован"
       });
       onSuccess?.();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error syncing auto-group:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось синхронизировать группу",
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     } finally {

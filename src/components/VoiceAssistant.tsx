@@ -265,24 +265,25 @@ export default function VoiceAssistant({
         }, 15000);
       }
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error starting recording:', error);
       setIsRecording(false);
       setIsProcessing(false);
       
       let errorMessage = 'Ошибка доступа к микрофону';
-      if (error.name === 'NotAllowedError') {
+      const err = error as { name?: string; message?: string };
+      if (err.name === 'NotAllowedError') {
         errorMessage = isMobile 
           ? 'Доступ к микрофону запрещен. Нажмите на иконку замка в адресной строке и разрешите доступ к микрофону, затем обновите страницу.'
           : 'Доступ к микрофону запрещен. Разрешите доступ в настройках браузера и обновите страницу.';
-      } else if (error.name === 'NotFoundError') {
+      } else if (err.name === 'NotFoundError') {
         errorMessage = 'Микрофон не найден. Проверьте подключение микрофона.';
-      } else if (error.name === 'NotSupportedError') {
+      } else if (err.name === 'NotSupportedError') {
         errorMessage = 'Ваш браузер не поддерживает запись аудио.';
-      } else if (error.name === 'SecurityError') {
+      } else if (err.name === 'SecurityError') {
         errorMessage = 'Ошибка безопасности. Попробуйте использовать HTTPS соединение.';
-      } else if (error.message) {
-        errorMessage = error.message;
+      } else if (err.message) {
+        errorMessage = err.message;
       }
       
       toast.error(errorMessage);

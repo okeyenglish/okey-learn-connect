@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { X, Paperclip, File, Image, Video, Music, FileText, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface FileUploadProps {
   onFileUpload: (fileInfo: {
@@ -138,9 +139,9 @@ export const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(({
       });
 
       return uploadingFile;
-    } catch (error: any) {
+    } catch (error: unknown) {
       uploadingFile.status = 'error';
-      uploadingFile.error = error.message;
+      uploadingFile.error = getErrorMessage(error);
       return uploadingFile;
     }
   };
@@ -205,10 +206,10 @@ export const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(({
             uploadingFile.file === file ? result : uploadingFile
           )
         );
-      } catch (error: any) {
+      } catch (error: unknown) {
         toast({
           title: 'Ошибка загрузки',
-          description: `Не удалось загрузить файл "${file.name}": ${error.message}`,
+          description: `Не удалось загрузить файл "${file.name}": ${getErrorMessage(error)}`,
           variant: 'destructive'
         });
       }

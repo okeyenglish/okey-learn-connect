@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface CreateLeadDialogProps {
   open: boolean;
@@ -113,10 +114,10 @@ export const CreateLeadDialog = ({
         status_id: "",
         notes: "",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Ошибка",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {

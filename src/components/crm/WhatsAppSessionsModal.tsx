@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader2, RefreshCw, QrCode, Trash2, PowerOff, Plus, Pause, Play } from "lucide-react";
 import { WhatsAppDebugPanel } from "./WhatsAppDebugPanel";
+import { getErrorMessage } from '@/lib/errorUtils';
 
 type WhatsAppSession = {
   id: string;
@@ -120,11 +121,11 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
       })) || [];
 
       setSessions(formattedSessions);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching sessions:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось загрузить сессии",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -231,12 +232,12 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
           description: `Сессия ${sessionName}: ${data?.status || 'неизвестно'}`,
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating status:', error);
       if (!silent) {
         toast({
           title: "Ошибка",
-          description: error.message || "Не удалось обновить статус",
+          description: getErrorMessage(error),
           variant: "destructive",
         });
       }
@@ -356,12 +357,13 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
           description: "Новая сессия успешно создана и подключена",
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[createNewSession] Error:', error);
-      if (!error?.context) {
+      const err = error as { context?: unknown; message?: string };
+      if (!err?.context) {
         toast({
           title: "Ошибка",
-          description: error?.message || "Не удалось создать сессию",
+          description: getErrorMessage(error),
           variant: "destructive",
         });
       }
@@ -389,11 +391,11 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
         title: "Отключено",
         description: `Сессия ${sessionName} успешно отключена`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error disconnecting:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось отключить сессию",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     }
@@ -417,11 +419,11 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
         title: "Удалено",
         description: "Сессия успешно удалена",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting session:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось удалить сессию",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     }
@@ -637,7 +639,7 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
             description: "WhatsApp успешно подключен",
           });
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Polling error:', error);
       }
     }, 2000);
@@ -709,12 +711,13 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
           description: "Сессия уже активна",
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error reconnecting:', error);
-      if (!error?.context) {
+      const err = error as { context?: unknown };
+      if (!err?.context) {
         toast({
           title: "Ошибка",
-          description: error?.message || "Не удалось переподключить сессию",
+          description: getErrorMessage(error),
           variant: "destructive",
         });
       }
@@ -761,11 +764,11 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
           variant: "destructive",
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error refreshing QR:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось обновить QR код",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {

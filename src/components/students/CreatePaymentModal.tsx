@@ -21,6 +21,7 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { calculateLessonPrice } from '@/utils/lessonPricing';
 import { extractCourseName } from '@/utils/courseNameExtractor';
 import { CreditCard, Loader2 } from 'lucide-react';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface CreatePaymentModalProps {
   open: boolean;
@@ -589,11 +590,11 @@ export function CreatePaymentModal({
         
         onOpenChange(false);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Online payment error:', error);
       toast({
         title: "Ошибка онлайн-оплаты",
-        description: error.message || "Не удалось создать платеж",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {

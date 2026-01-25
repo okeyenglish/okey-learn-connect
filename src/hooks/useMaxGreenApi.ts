@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 export interface MaxSettings {
   instanceId: string;
@@ -47,7 +48,7 @@ export const useMaxGreenApi = () => {
       setInstanceState(data?.instanceState || null);
       
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching MAX settings:', error);
       toast({
         title: 'Ошибка',
@@ -82,11 +83,11 @@ export const useMaxGreenApi = () => {
       });
 
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving MAX settings:', error);
       toast({
         title: 'Ошибка',
-        description: error.message || 'Не удалось сохранить настройки MAX',
+        description: getErrorMessage(error),
         variant: 'destructive'
       });
       return null;
@@ -113,7 +114,7 @@ export const useMaxGreenApi = () => {
       });
 
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting MAX settings:', error);
       toast({
         title: 'Ошибка',
@@ -145,11 +146,11 @@ export const useMaxGreenApi = () => {
       }
 
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error sending MAX message:', error);
       toast({
         title: 'Ошибка отправки',
-        description: error.message || 'Не удалось отправить сообщение в MAX',
+        description: getErrorMessage(error),
         variant: 'destructive'
       });
       return null;

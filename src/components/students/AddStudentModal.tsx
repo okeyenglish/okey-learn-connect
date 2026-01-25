@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { getCurrentOrganizationId } from '@/lib/organizationHelpers';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface AddStudentModalProps {
   open?: boolean;
@@ -193,11 +194,11 @@ export function AddStudentModal({ open, onOpenChange, children }: AddStudentModa
       if (onOpenChange) {
         onOpenChange(false);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Add student error', error);
       toast({
         title: "Ошибка",
-        description: error?.message || "Не удалось добавить ученика",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     }
