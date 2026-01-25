@@ -2,6 +2,11 @@ import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 
+interface RealtimeClientPayload {
+  new?: { id: string } | null;
+  old?: { id: string } | null;
+}
+
 export const useRealtimeClients = () => {
   const queryClient = useQueryClient();
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -42,7 +47,8 @@ export const useRealtimeClients = () => {
           table: 'clients'
         },
         (payload) => {
-          const affectedId = (payload.new && (payload.new as any).id) || (payload.old && (payload.old as any).id);
+          const typedPayload = payload as unknown as RealtimeClientPayload;
+          const affectedId = typedPayload.new?.id || typedPayload.old?.id;
           
           // Use debounced refetch for bulk operations
           debouncedRefetch();

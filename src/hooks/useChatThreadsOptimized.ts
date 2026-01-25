@@ -5,6 +5,39 @@ import { chatListQueryConfig } from '@/lib/queryConfig';
 import { isGroupChatName, isTelegramGroup } from './useCommunityChats';
 import { useMemo, useEffect, useState, useCallback } from 'react';
 
+interface RpcThreadRow {
+  client_id: string;
+  client_name?: string | null;
+  client_phone?: string | null;
+  client_branch?: string | null;
+  avatar_url?: string | null;
+  telegram_avatar_url?: string | null;
+  whatsapp_avatar_url?: string | null;
+  max_avatar_url?: string | null;
+  telegram_chat_id?: string | null;
+  last_message_text?: string | null;
+  last_message?: string | null;
+  last_message_time?: string | null;
+  unread_count?: number | null;
+  unread_whatsapp?: number | null;
+  unread_telegram?: number | null;
+  unread_max?: number | null;
+  unread_email?: number | null;
+  missed_calls_count?: number | null;
+  last_unread_messenger?: string | null;
+  last_messenger_type?: string | null;
+}
+
+interface UnreadMessageRow {
+  client_id: string;
+}
+
+interface UnreadCountRow {
+  client_id: string;
+  messenger_type?: string | null;
+  created_at: string;
+}
+
 /**
  * Optimized hook for loading chat threads using RPC function
  * Step 1: Fast load recent threads (200)
@@ -25,7 +58,7 @@ export const useChatThreadsOptimized = () => {
 
       // Try materialized view first (fastest: ~9ms)
       const { data, error } = await supabase
-        .rpc('get_chat_threads_from_mv' as any, { p_limit: 200 });
+        .rpc('get_chat_threads_from_mv', { p_limit: 200 });
 
       if (error) {
         console.warn('[useChatThreadsOptimized] MV error, falling back to optimized RPC:', error.message);
@@ -39,13 +72,13 @@ export const useChatThreadsOptimized = () => {
           const { data: fastData, error: fastError } = await supabase
             .rpc('get_chat_threads_fast', { p_limit: 200 });
           if (fastError) throw fastError;
-          return mapRpcToThreads(fastData || [], startTime);
+          return mapRpcToThreads((fastData || []) as RpcThreadRow[], startTime);
         }
         
-        return mapRpcToThreads(fallbackData || [], startTime);
+        return mapRpcToThreads((fallbackData || []) as RpcThreadRow[], startTime);
       }
 
-      return mapRpcToThreads(data || [], startTime);
+      return mapRpcToThreads((data || []) as RpcThreadRow[], startTime);
     },
     ...chatListQueryConfig,
     placeholderData: (previousData) => previousData,
@@ -69,8 +102,9 @@ export const useChatThreadsOptimized = () => {
 
       if (error) throw error;
 
+      const rows = (data || []) as UnreadMessageRow[];
       // Get unique client IDs (deduped from limited set)
-      const clientIds = [...new Set((data || []).map(m => m.client_id))];
+      const clientIds = [...new Set(rows.map(m => m.client_id))];
       console.log(`[useChatThreadsOptimized] Step 2: Found ${clientIds.length} clients with unread in ${(performance.now() - startTime).toFixed(2)}ms`);
       return clientIds;
     },
@@ -111,7 +145,7 @@ export const useChatThreadsOptimized = () => {
           console.error('[useChatThreadsOptimized] Failed to load missing unread:', error);
           setMissingUnreadThreads([]);
         } else {
-          const threads = mapRpcToThreads(data || [], startTime);
+          const threads = mapRpcToThreads((data || []) as RpcThreadRow[], startTime);
           console.log(`[useChatThreadsOptimized] Step 3: Loaded ${threads.length} missing unread threads in ${(performance.now() - startTime).toFixed(2)}ms`);
           setMissingUnreadThreads(threads);
         }
@@ -168,9 +202,9 @@ export const useChatThreadsOptimized = () => {
 };
 
 // Helper function to map RPC result to ChatThread format
-function mapRpcToThreads(data: any[], startTime: number): ChatThread[] {
+function mapRpcToThreads(data: RpcThreadRow[], startTime: number): ChatThread[] {
   // Filter out group chats and system chats
-  const filteredData = data.filter((row: any) => {
+  const filteredData = data.filter((row) => {
     const name = row.client_name || '';
     const telegramChatId = row.telegram_chat_id;
     
@@ -200,7 +234,7 @@ function mapRpcToThreads(data: any[], startTime: number): ChatThread[] {
     return true;
   });
 
-  const threads: ChatThread[] = filteredData.map((row: any) => ({
+  const threads: ChatThread[] = filteredData.map((row) => ({
     client_id: row.client_id, // get_chat_threads_optimized returns client_id directly
     client_name: row.client_name || '',
     client_phone: row.client_phone || '',
@@ -210,7 +244,7 @@ function mapRpcToThreads(data: any[], startTime: number): ChatThread[] {
     whatsapp_avatar_url: row.whatsapp_avatar_url || null,
     max_avatar_url: row.max_avatar_url || null,
     last_message: row.last_message_text || row.last_message || '',
-    last_message_time: row.last_message_time,
+    last_message_time: row.last_message_time || '',
     unread_count: Number(row.unread_count) || 0,
     unread_by_messenger: {
       whatsapp: Number(row.unread_whatsapp) || 0,
@@ -247,10 +281,12 @@ export const useUnreadThreads = () => {
 
       if (error) throw error;
 
+      const rows = (data || []) as UnreadCountRow[];
+
       // Group by client
       const unreadByClient = new Map<string, { count: number; lastMessenger: string; lastTime: string }>();
 
-      (data || []).forEach((msg: any) => {
+      rows.forEach((msg) => {
         const clientId = msg.client_id;
         if (!unreadByClient.has(clientId)) {
           unreadByClient.set(clientId, {

@@ -11,13 +11,17 @@ interface GeneratorStage {
     q: string;
     options: string[];
   }>;
-  suggestions?: any[];
+  suggestions?: unknown[];
   result?: {
     app_id: string;
     version: number;
     preview_url: string;
-    meta: any;
+    meta: Record<string, unknown>;
   };
+}
+
+interface TeacherRow {
+  id: string;
 }
 
 export const useAppGenerator = (teacherId: string) => {
@@ -28,7 +32,7 @@ export const useAppGenerator = (teacherId: string) => {
   const ensureTeacherId = async (): Promise<string> => {
     if (resolvedTeacherId) return resolvedTeacherId;
     const { data, error } = await supabase
-      .from('teachers' as any)
+      .from('teachers')
       .select('id')
       .or(`id.eq.${teacherId},profile_id.eq.${teacherId}`)
       .maybeSingle();
@@ -36,20 +40,20 @@ export const useAppGenerator = (teacherId: string) => {
     if (!data) {
       throw new Error('teacher_not_found');
     }
-    const id = (data as any).id as string;
-    setResolvedTeacherId(id);
-    return id;
+    const teacherRow = data as TeacherRow;
+    setResolvedTeacherId(teacherRow.id);
+    return teacherRow.id;
   };
 
   // Suggest or generate
   const suggestOrGenerate = useMutation({
-    mutationFn: async ({ brief, answers }: { brief: string; answers?: any }) => {
+    mutationFn: async ({ brief, answers }: { brief: string; answers?: Record<string, unknown> }) => {
       const tid = await ensureTeacherId();
       const { data, error } = await supabase.functions.invoke('suggest-or-generate', {
         body: { teacher_id: tid, brief, answers }
       });
       if (error) throw error;
-      return data;
+      return data as GeneratorStage;
     },
     onSuccess: (data) => {
       setStage(data);
@@ -62,20 +66,20 @@ export const useAppGenerator = (teacherId: string) => {
 
   // Generate app
   const generateApp = useMutation({
-    mutationFn: async ({ prompt, appId }: { prompt: any; appId?: string }) => {
+    mutationFn: async ({ prompt, appId }: { prompt: Record<string, unknown>; appId?: string }) => {
       const tid = await ensureTeacherId();
       const { data, error } = await supabase.functions.invoke('generate-app', {
         body: { teacher_id: tid, prompt, app_id: appId }
       });
       if (error) throw error;
-      return data;
+      return data as GeneratorStage['result'];
     },
     onSuccess: (data) => {
       setStage({ stage: 'done', result: data });
       queryClient.invalidateQueries({ queryKey: ['apps'] });
       toast({ title: 'Приложение создано!' });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       let errorMessage = error.message;
       
       if (error.message?.includes('OPENAI_API_KEY')) {
@@ -99,14 +103,14 @@ export const useAppGenerator = (teacherId: string) => {
         body: { app_id: appId, improvement_request: request, teacher_id: tid }
       });
       if (error) throw error;
-      return data;
+      return data as GeneratorStage['result'];
     },
     onSuccess: (data) => {
       setStage({ stage: 'done', result: data });
       queryClient.invalidateQueries({ queryKey: ['apps'] });
       toast({ title: 'Приложение улучшено!' });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       let errorMessage = error.message;
       
       if (error.message?.includes('OPENAI_API_KEY')) {
@@ -138,7 +142,7 @@ export const useAppGenerator = (teacherId: string) => {
       queryClient.invalidateQueries({ queryKey: ['apps'] });
       toast({ title: 'Приложение опубликовано!', description: 'Теперь оно доступно в каталоге' });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: 'Ошибка публикации', description: error.message, variant: 'destructive' });
     }
   });

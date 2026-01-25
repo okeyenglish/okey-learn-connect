@@ -4,6 +4,13 @@ import { ChatMessage } from './useChatMessages';
 
 const PAGE_SIZE = 50;
 
+interface MessageWithClient extends ChatMessage {
+  clients?: {
+    avatar_url?: string | null;
+    whatsapp_chat_id?: string | null;
+  } | null;
+}
+
 export const useInfiniteChatMessages = (clientId: string) => {
   return useInfiniteQuery({
     queryKey: ['chat-messages-infinite', clientId],
@@ -19,7 +26,7 @@ export const useInfiniteChatMessages = (clientId: string) => {
         .order('created_at', { ascending: false })
         .range(pageParam, pageParam + PAGE_SIZE - 1);
       
-      let data: any[] = primary.data as any[] || [];
+      let data: MessageWithClient[] = (primary.data as MessageWithClient[] | null) || [];
       let count = primary.count;
       
       // Fallback if join fails due to RLS
@@ -33,7 +40,7 @@ export const useInfiniteChatMessages = (clientId: string) => {
           .range(pageParam, pageParam + PAGE_SIZE - 1);
         
         if (fallback.error) throw fallback.error;
-        data = fallback.data as any[] || [];
+        data = (fallback.data as ChatMessage[] | null) || [];
         count = fallback.count;
       }
       

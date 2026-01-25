@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
+import type { Json } from '@/integrations/supabase/database.types';
 
 export interface LearningGroup {
   id: string;
@@ -37,7 +38,7 @@ export interface LearningGroup {
   updated_at: string;
   // Новые поля из Этапа 1
   is_auto_group?: boolean;
-  auto_filter_conditions?: Record<string, any>;
+  auto_filter_conditions?: Record<string, Json>;
   responsible_manager_id?: string;
   custom_name_locked?: boolean;
   enrollment_url?: string;
@@ -54,6 +55,52 @@ export interface GroupFilters {
   status?: string[];
   responsible_teacher?: string;
   only_with_debt?: boolean;
+}
+
+type GroupCategory = 'preschool' | 'school' | 'adult' | 'all';
+type GroupType = 'general' | 'mini';
+type GroupStatus = 'reserve' | 'forming' | 'active' | 'suspended' | 'finished';
+
+interface LearningGroupRow {
+  id: string;
+  name: string;
+  custom_name?: string | null;
+  branch: string;
+  subject: string;
+  level: string;
+  category: string;
+  group_type: string;
+  status: string;
+  capacity: number;
+  current_students: number;
+  academic_hours?: number | null;
+  schedule_days?: string[] | null;
+  schedule_time?: string | null;
+  schedule_room?: string | null;
+  period_start?: string | null;
+  period_end?: string | null;
+  lesson_start_time?: string | null;
+  lesson_end_time?: string | null;
+  lesson_start_month?: string | null;
+  lesson_end_month?: string | null;
+  debt_count?: number | null;
+  zoom_link?: string | null;
+  description?: string | null;
+  responsible_teacher?: string | null;
+  course_id?: string | null;
+  total_lessons?: number | null;
+  course_start_date?: string | null;
+  lessons_generated?: boolean | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  is_auto_group?: boolean | null;
+  auto_filter_conditions?: Json | null;
+  responsible_manager_id?: string | null;
+  custom_name_locked?: boolean | null;
+  enrollment_url?: string | null;
+  color_code?: string | null;
+  courses?: { title: string } | null;
 }
 
 export const useLearningGroups = (filters?: GroupFilters) => {
@@ -89,15 +136,15 @@ export const useLearningGroups = (filters?: GroupFilters) => {
       }
       
       if (filters?.category) {
-        query = query.eq('category', filters.category as any);
+        query = query.eq('category', filters.category as GroupCategory);
       }
       
       if (filters?.group_type) {
-        query = query.eq('group_type', filters.group_type as any);
+        query = query.eq('group_type', filters.group_type as GroupType);
       }
       
       if (filters?.status && filters.status.length > 0) {
-        query = query.in('status', filters.status as any);
+        query = query.in('status', filters.status as GroupStatus[]);
       }
       
       if (filters?.responsible_teacher) {
@@ -112,24 +159,47 @@ export const useLearningGroups = (filters?: GroupFilters) => {
       
       if (error) throw error;
       
+      const rows = (data || []) as unknown as LearningGroupRow[];
+      
       // Преобразуем данные, добавляя course_name из связанной таблицы
-      const groupsWithCourseNames = (data || []).map((group: any) => {
-        const result: any = { ...group };
-        
-        // Добавляем course_name из вложенного объекта courses
-        if (group.courses && typeof group.courses === 'object' && !Array.isArray(group.courses)) {
-          result.course_name = group.courses.title || null;
-        } else {
-          result.course_name = null;
-        }
-        
-        // Удаляем вложенный объект courses
-        delete result.courses;
+      const groupsWithCourseNames = rows.map((group) => {
+        const result: LearningGroup = {
+          ...group,
+          category: group.category as GroupCategory,
+          group_type: group.group_type as GroupType,
+          status: group.status as GroupStatus,
+          course_name: group.courses?.title ?? undefined,
+          custom_name: group.custom_name ?? undefined,
+          academic_hours: group.academic_hours ?? undefined,
+          schedule_days: group.schedule_days ?? undefined,
+          schedule_time: group.schedule_time ?? undefined,
+          schedule_room: group.schedule_room ?? undefined,
+          period_start: group.period_start ?? undefined,
+          period_end: group.period_end ?? undefined,
+          lesson_start_time: group.lesson_start_time ?? undefined,
+          lesson_end_time: group.lesson_end_time ?? undefined,
+          lesson_start_month: group.lesson_start_month ?? undefined,
+          lesson_end_month: group.lesson_end_month ?? undefined,
+          debt_count: group.debt_count ?? undefined,
+          zoom_link: group.zoom_link ?? undefined,
+          description: group.description ?? undefined,
+          responsible_teacher: group.responsible_teacher ?? undefined,
+          course_id: group.course_id ?? undefined,
+          total_lessons: group.total_lessons ?? undefined,
+          course_start_date: group.course_start_date ?? undefined,
+          lessons_generated: group.lessons_generated ?? undefined,
+          is_auto_group: group.is_auto_group ?? undefined,
+          auto_filter_conditions: (group.auto_filter_conditions as Record<string, Json>) ?? undefined,
+          responsible_manager_id: group.responsible_manager_id ?? undefined,
+          custom_name_locked: group.custom_name_locked ?? undefined,
+          enrollment_url: group.enrollment_url ?? undefined,
+          color_code: group.color_code ?? undefined,
+        };
         
         return result;
       });
       
-      return groupsWithCourseNames as LearningGroup[];
+      return groupsWithCourseNames;
     },
   });
 

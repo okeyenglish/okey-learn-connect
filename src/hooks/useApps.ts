@@ -24,6 +24,17 @@ export interface CatalogApp extends App {
   preview_url: string;
 }
 
+interface TeacherRow {
+  id: string;
+  profile_id?: string;
+}
+
+interface AppInstallRow {
+  app_id: string;
+  installed_at: string;
+  apps: App | null;
+}
+
 export const useApps = (teacherId?: string) => {
   const queryClient = useQueryClient();
 
@@ -32,7 +43,7 @@ export const useApps = (teacherId?: string) => {
     queryKey: ['apps', 'catalog'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('catalog' as any)
+        .from('catalog')
         .select('*')
         .order('updated_at', { ascending: false });
       
@@ -48,17 +59,19 @@ export const useApps = (teacherId?: string) => {
       if (!teacherId) return [];
       
       const { data: teacher } = await supabase
-        .from('teachers' as any)
+        .from('teachers')
         .select('id')
         .or(`user_id.eq.${teacherId},id.eq.${teacherId},profile_id.eq.${teacherId}`)
         .maybeSingle();
       
       if (!teacher) return [];
 
+      const teacherRow = teacher as TeacherRow;
+
       const { data, error } = await supabase
-        .from('apps' as any)
+        .from('apps')
         .select('*')
-        .eq('author_id', (teacher as any).id)
+        .eq('author_id', teacherRow.id)
         .order('updated_at', { ascending: false });
       
       if (error) throw error;
@@ -74,21 +87,24 @@ export const useApps = (teacherId?: string) => {
       if (!teacherId) return [];
       
       const { data: teacher } = await supabase
-        .from('teachers' as any)
-        .select('id')
+        .from('teachers')
+        .select('id, profile_id')
         .or(`user_id.eq.${teacherId},id.eq.${teacherId},profile_id.eq.${teacherId}`)
         .maybeSingle();
       
       if (!teacher) return [];
 
+      const teacherRow = teacher as TeacherRow;
+
       const { data, error } = await supabase
-        .from('app_installs' as any)
+        .from('app_installs')
         .select('app_id, installed_at, apps(*)')
-        .or(`teacher_id.eq.${(teacher as any).id},teacher_id.eq.${(teacher as any).profile_id}`);
+        .or(`teacher_id.eq.${teacherRow.id},teacher_id.eq.${teacherRow.profile_id || teacherRow.id}`);
       
       
       if (error) throw error;
-      return ((data || []) as any[]).map((i: any) => i.apps).filter(Boolean) as unknown as App[];
+      const rows = (data || []) as unknown as AppInstallRow[];
+      return rows.map((i) => i.apps).filter(Boolean) as App[];
     },
     enabled: !!teacherId
   });
@@ -187,7 +203,7 @@ export const useApps = (teacherId?: string) => {
   const unpublishApp = useMutation({
     mutationFn: async (appId: string) => {
       const { error } = await supabase
-        .from('apps' as any)
+        .from('apps')
         .update({ status: 'draft', published_at: null })
         .eq('id', appId);
       if (error) throw error;
@@ -205,7 +221,7 @@ export const useApps = (teacherId?: string) => {
   const deleteApp = useMutation({
     mutationFn: async (appId: string) => {
       const { error } = await supabase
-        .from('apps' as any)
+        .from('apps')
         .delete()
         .eq('id', appId);
       if (error) throw error;

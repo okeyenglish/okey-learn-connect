@@ -13,6 +13,21 @@ export interface AttendanceRecord {
   markedAt?: string;
 }
 
+interface AttendanceRow {
+  id: string;
+  lesson_session_id?: string | null;
+  individual_lesson_session_id?: string | null;
+  student_id: string;
+  status: string;
+  notes?: string | null;
+  marked_by?: string | null;
+  marked_at?: string | null;
+}
+
+interface SessionRow {
+  id: string;
+}
+
 export const useAttendance = (sessionId: string, sessionType: 'group' | 'individual') => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -29,16 +44,17 @@ export const useAttendance = (sessionId: string, sessionType: 'group' | 'individ
 
       if (error) throw error;
       
-      return (data || []).map(record => ({
+      const rows = (data || []) as AttendanceRow[];
+      return rows.map(record => ({
         id: record.id,
-        lessonSessionId: record.lesson_session_id,
-        individualLessonSessionId: record.individual_lesson_session_id,
+        lessonSessionId: record.lesson_session_id ?? undefined,
+        individualLessonSessionId: record.individual_lesson_session_id ?? undefined,
         studentId: record.student_id,
         status: record.status as 'present' | 'absent' | 'late' | 'excused' | 'completed',
-        notes: record.notes,
-        markedBy: record.marked_by,
-        markedAt: record.marked_at,
-      }));
+        notes: record.notes ?? undefined,
+        markedBy: record.marked_by ?? undefined,
+        markedAt: record.marked_at ?? undefined,
+      })) as AttendanceRecord[];
     },
     enabled: !!sessionId,
   });
@@ -79,7 +95,7 @@ export const useAttendance = (sessionId: string, sessionType: 'group' | 'individ
         description: 'Посещаемость отмечена',
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: 'Ошибка',
         description: error.message || 'Не удалось отметить посещаемость',
@@ -110,12 +126,14 @@ export const useAttendanceStatus = (lessonDate: string, lessonId: string, sessio
           .eq('lesson_date', lessonDate)
           .maybeSingle();
 
-        if (!session) return { isMarked: false, count: 0 };
+        const sessionRow = session as SessionRow | null;
 
-        const { data, error } = await supabase
+        if (!sessionRow) return { isMarked: false, count: 0 };
+
+        const { data } = await supabase
           .from('student_attendance')
           .select('id')
-          .eq('individual_lesson_session_id', session.id);
+          .eq('individual_lesson_session_id', sessionRow.id);
 
         return { isMarked: (data || []).length > 0, count: (data || []).length };
       } else {
@@ -126,12 +144,14 @@ export const useAttendanceStatus = (lessonDate: string, lessonId: string, sessio
           .eq('lesson_date', lessonDate)
           .maybeSingle();
 
-        if (!session) return { isMarked: false, count: 0 };
+        const sessionRow = session as SessionRow | null;
 
-        const { data, error } = await supabase
+        if (!sessionRow) return { isMarked: false, count: 0 };
+
+        const { data } = await supabase
           .from('student_attendance')
           .select('id')
-          .eq('lesson_session_id', session.id);
+          .eq('lesson_session_id', sessionRow.id);
 
         return { isMarked: (data || []).length > 0, count: (data || []).length };
       }
