@@ -73,6 +73,7 @@ import { useRealtimeClients } from "@/hooks/useRealtimeClients";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useOrganizationRealtimeMessages } from "@/hooks/useOrganizationRealtimeMessages";
+import { RealtimeStatusIndicator } from "@/components/crm/RealtimeStatusIndicator";
 import { useManagerBranches } from "@/hooks/useManagerBranches";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import {
@@ -166,7 +167,8 @@ const CRMContent = () => {
   
   // Single organization-wide realtime subscription for all chat messages
   // This replaces per-chat subscriptions, reducing WebSocket connections from N to 1
-  useOrganizationRealtimeMessages();
+  // Falls back to polling if WebSocket is unavailable
+  const { connectionStatus } = useOrganizationRealtimeMessages();
   
   // Custom hooks for state management
   const modals = useCRMModals();
@@ -1880,6 +1882,7 @@ const CRMContent = () => {
               )}
             </div>
             <div className="flex items-center gap-2 h-14">
+              <RealtimeStatusIndicator status={connectionStatus} />
               {(threadsLoading || pinnedLoading || chatStatesLoading || systemChatsLoading) && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
