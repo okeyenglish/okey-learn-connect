@@ -1,26 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
+import type { Student as DBStudent } from '@/integrations/supabase/database.types';
 
-export interface Student {
-  id: string;
-  name: string;
-  first_name?: string;
-  last_name?: string;
-  middle_name?: string;
-  age?: number;
-  date_of_birth?: string;
-  gender?: 'male' | 'female';
-  phone?: string;
-  email?: string;
-  branch?: string;
-  avatar_url?: string;
-  lk_email?: string;
-  lk_enabled?: boolean;
-  family_group_id?: string | null;
-  status: 'active' | 'inactive' | 'trial' | 'graduated' | 'not_started' | 'on_pause' | 'archived' | 'expelled';
-  notes?: string;
-  created_at: string;
-  updated_at: string;
+export interface Student extends Omit<DBStudent, 'is_active'> {
+  is_active?: boolean;
 }
 
 export interface StudentCourse {
@@ -52,6 +35,9 @@ export interface FamilyMember {
   is_primary_contact: boolean;
   created_at: string;
 }
+
+type StudentInsert = Partial<Omit<Student, 'id' | 'created_at' | 'updated_at'>>;
+type StudentUpdate = Partial<Omit<Student, 'id' | 'created_at'>>;
 
 export const useStudents = () => {
   const { data: students, isLoading, error } = useQuery({
@@ -156,19 +142,21 @@ export const useCreateStudent = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (studentData: any) => {
+    mutationFn: async (studentData: StudentInsert) => {
       const { data, error } = await supabase
         .from('students')
-        .insert([studentData as any])
+        .insert([studentData])
         .select()
         .single();
       
       if (error) throw error;
-      return data;
+      return data as Student;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
-      queryClient.invalidateQueries({ queryKey: ['students', 'family', data.family_group_id] });
+      if (data.family_group_id) {
+        queryClient.invalidateQueries({ queryKey: ['students', 'family', data.family_group_id] });
+      }
     },
   });
 };
@@ -177,20 +165,22 @@ export const useUpdateStudent = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Student> & { id: string }) => {
+    mutationFn: async ({ id, ...updates }: StudentUpdate & { id: string }) => {
       const { data, error } = await supabase
         .from('students')
-        .update(updates as any)
+        .update(updates)
         .eq('id', id)
         .select()
         .single();
       
       if (error) throw error;
-      return data;
+      return data as Student;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
-      queryClient.invalidateQueries({ queryKey: ['students', 'family', data.family_group_id] });
+      if (data.family_group_id) {
+        queryClient.invalidateQueries({ queryKey: ['students', 'family', data.family_group_id] });
+      }
     },
   });
 };
@@ -207,7 +197,7 @@ export const useAddStudentCourse = () => {
         .single();
       
       if (error) throw error;
-      return data;
+      return data as StudentCourse;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['student-courses', data.student_id] });

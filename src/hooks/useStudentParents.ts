@@ -1,32 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
+import type { StudentParent } from '@/integrations/supabase/database.types';
 
-export interface StudentParent {
-  id: string;
-  student_id: string;
-  first_name: string;
-  last_name: string;
-  middle_name?: string;
-  relationship: 'parent' | 'mother' | 'father' | 'guardian' | 'other';
-  phone?: string;
-  email?: string;
-  is_primary_contact: boolean;
-  notification_preferences: {
-    email: boolean;
-    sms: boolean;
-    whatsapp: boolean;
-  };
-  created_at: string;
-  updated_at: string;
-}
+export type { StudentParent };
 
 export const useStudentParents = (studentId: string) => {
   return useQuery({
     queryKey: ['student-parents', studentId],
     queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('student_parents' as any) as any)
+      const { data, error } = await supabase
+        .from('student_parents')
         .select('*')
         .eq('student_id', studentId)
         .order('is_primary_contact', { ascending: false })
@@ -44,14 +28,14 @@ export const useCreateStudentParent = () => {
 
   return useMutation({
     mutationFn: async (parent: Omit<StudentParent, 'id' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await (supabase
-        .from('student_parents' as any) as any)
+      const { data, error } = await supabase
+        .from('student_parents')
         .insert([parent])
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as StudentParent;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['student-parents', variables.student_id] });
@@ -70,19 +54,19 @@ export const useUpdateStudentParent = () => {
 
   return useMutation({
     mutationFn: async ({ id, ...parent }: Partial<StudentParent> & { id: string }) => {
-      const { data, error } = await (supabase
-        .from('student_parents' as any) as any)
+      const { data, error } = await supabase
+        .from('student_parents')
         .update(parent)
         .eq('id', id)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as StudentParent;
     },
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ['student-parents', data?.student_id] });
-      queryClient.invalidateQueries({ queryKey: ['student-details', data?.student_id] });
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['student-parents', data.student_id] });
+      queryClient.invalidateQueries({ queryKey: ['student-details', data.student_id] });
       toast.success('Информация о родителе обновлена');
     },
     onError: (error) => {
@@ -97,8 +81,8 @@ export const useDeleteStudentParent = () => {
 
   return useMutation({
     mutationFn: async ({ id, studentId }: { id: string; studentId: string }) => {
-      const { error } = await (supabase
-        .from('student_parents' as any) as any)
+      const { error } = await supabase
+        .from('student_parents')
         .delete()
         .eq('id', id);
 

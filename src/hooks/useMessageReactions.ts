@@ -1,14 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
+import type { MessageReaction as DBMessageReaction } from '@/integrations/supabase/database.types';
 
-export interface MessageReaction {
-  id: string;
-  message_id: string;
+export interface MessageReactionWithDetails extends Omit<DBMessageReaction, 'user_id' | 'user_type'> {
   user_id?: string;
   client_id?: string;
-  emoji: string;
-  created_at: string;
   profiles?: {
     first_name?: string;
     last_name?: string;
@@ -20,18 +17,36 @@ export interface MessageReaction {
   } | null;
 }
 
+interface ReactionRow {
+  id: string;
+  message_id: string;
+  user_id: string | null;
+  emoji: string;
+  created_at: string;
+}
+
+interface ProfileRow {
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+}
+
+interface ClientRow {
+  name: string;
+  avatar_url: string | null;
+}
+
 // Хук для получения реакций на сообщение
 export const useMessageReactions = (messageId: string) => {
   return useQuery({
     queryKey: ['message_reactions', messageId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('message_reactions' as any)
+        .from('message_reactions')
         .select(`
           id,
           message_id,
           user_id,
-          client_id,
           emoji,
           created_at
         `)
@@ -43,28 +58,21 @@ export const useMessageReactions = (messageId: string) => {
         throw error;
       }
 
+      const rows = (data || []) as ReactionRow[];
+
       // Получаем дополнительную информацию о пользователях и клиентах
       const reactionsWithDetails = await Promise.all(
-        ((data || []) as any[]).map(async (reaction) => {
-          let profiles = null;
-          let clients = null;
+        rows.map(async (reaction) => {
+          let profiles: ProfileRow | null = null;
+          let clients: ClientRow | null = null;
 
           if (reaction.user_id) {
             const { data: profile } = await supabase
-              .from('profiles' as any)
+              .from('profiles')
               .select('first_name, last_name, email')
               .eq('id', reaction.user_id)
               .single();
-            profiles = profile;
-          }
-
-          if (reaction.client_id) {
-            const { data: client } = await supabase
-              .from('clients' as any)
-              .select('name, avatar_url')
-              .eq('id', reaction.client_id)
-              .single();
-            clients = client;
+            profiles = profile as ProfileRow | null;
           }
 
           return {
@@ -75,7 +83,7 @@ export const useMessageReactions = (messageId: string) => {
         })
       );
 
-      return reactionsWithDetails as MessageReaction[];
+      return reactionsWithDetails as MessageReactionWithDetails[];
     },
     enabled: !!messageId,
   });
@@ -88,11 +96,14 @@ export const useAddReaction = () => {
 
   return useMutation({
     mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
+      const { data: userData } = await supabase.auth.getUser();
+      
       const { data, error } = await supabase
-        .from('message_reactions' as any)
+        .from('message_reactions')
         .upsert({
           message_id: messageId,
-          user_id: (await supabase.auth.getUser()).data.user?.id,
+          user_id: userData.user?.id || '',
+          user_type: 'manager',
           emoji: emoji,
         }, {
           onConflict: 'message_id,user_id'
@@ -132,11 +143,13 @@ export const useRemoveReaction = () => {
 
   return useMutation({
     mutationFn: async (messageId: string) => {
+      const { data: userData } = await supabase.auth.getUser();
+      
       const { error } = await supabase
-        .from('message_reactions' as any)
+        .from('message_reactions')
         .delete()
         .eq('message_id', messageId)
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+        .eq('user_id', userData.user?.id || '');
 
       if (error) {
         console.error('Error removing reaction:', error);
@@ -202,7 +215,7 @@ export const useGroupedReactions = (messageId: string) => {
             type: 'client' as const,
             name: reaction.clients?.name || 'Клиент',
             id: reaction.client_id,
-            avatar: reaction.clients?.avatar_url,
+            avatar: reaction.clients?.avatar_url || undefined,
           });
         }
         
