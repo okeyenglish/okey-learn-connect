@@ -233,6 +233,99 @@ export interface WappiContactResponse {
   status?: string;
 }
 
+// ============================================================================
+// WPP Connect Types
+// ============================================================================
+
+/**
+ * WPP session configuration
+ */
+export interface WppSessionConfig {
+  baseUrl: string;
+  session: string;
+  secret: string;
+  pollSeconds?: number;
+}
+
+/**
+ * WPP send message request
+ */
+export interface WppSendRequest {
+  clientId: string;
+  message: string;
+  phoneNumber?: string;
+  fileUrl?: string;
+  fileName?: string;
+  action?: 'test_connection';
+}
+
+/**
+ * WPP send message response
+ */
+export interface WppSendResponse extends BaseResponse {
+  success: boolean;
+  messageId?: string;
+  savedMessageId?: string;
+  status?: number;
+  message?: string;
+  session?: string;
+  error?: string;
+}
+
+/**
+ * WPP API response from server
+ */
+export interface WppApiResponse {
+  id?: string;
+  status?: string;
+  error?: string;
+  message?: string;
+}
+
+/**
+ * WPP status request
+ */
+export interface WppStatusRequest {
+  force?: boolean;
+}
+
+/**
+ * WPP status response
+ */
+export interface WppStatusResponse extends BaseResponse {
+  status: 'connected' | 'qr_issued' | 'qr_pending' | 'disconnected' | 'error';
+  qrcode?: string;
+  last_qr_at?: string;
+  message?: string;
+}
+
+/**
+ * WPP start request
+ */
+export interface WppStartRequest {
+  session_suffix?: string;
+}
+
+/**
+ * WPP start response
+ */
+export interface WppStartResponse extends BaseResponse {
+  ok: boolean;
+  status: 'connected' | 'qr_issued' | 'timeout' | 'error';
+  qrcode?: string;
+  session_name?: string;
+  error?: string;
+}
+
+/**
+ * WPP session result from client
+ */
+export interface WppSessionResult {
+  state: 'qr' | 'connected' | 'timeout' | 'error';
+  base64?: string;
+  message?: string;
+}
+
 /**
  * Instance state for messenger connections
  */

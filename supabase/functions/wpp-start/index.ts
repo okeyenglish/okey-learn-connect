@@ -1,10 +1,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
 import { WppClient } from '../_shared/wpp.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { 
+  corsHeaders, 
+  errorResponse,
+  getErrorMessage,
+  handleCors,
+  type WppStartRequest,
+  type WppStartResponse,
+  type WppSessionResult,
+} from '../_shared/types.ts';
 
 const BASE = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
 const SECRET = Deno.env.get('WPP_SECRET') || '';
@@ -15,9 +19,8 @@ console.log('[wpp-start] Configuration:', {
 });
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabaseClient = createClient(
@@ -26,25 +29,19 @@ Deno.serve(async (req) => {
     );
 
     // Read request body for custom session suffix
-    const body = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({})) as WppStartRequest;
     const sessionSuffix = body?.session_suffix || '';
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Missing authorization', 401);
     }
 
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
     
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Unauthorized', 401);
     }
 
     const { data: profile } = await supabaseClient
@@ -54,10 +51,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (!profile?.organization_id) {
-      return new Response(JSON.stringify({ error: 'Organization not found' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Organization not found', 404);
     }
 
     const orgId = profile.organization_id;
@@ -81,7 +75,7 @@ Deno.serve(async (req) => {
       pollSeconds: 30,
     });
 
-    const result = await wpp.ensureSessionWithQr(webhookUrl);
+    const result = await wpp.ensureSessionWithQr(webhookUrl) as WppSessionResult;
 
     if (result.state === 'qr') {
       await supabaseClient
@@ -95,8 +89,15 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         }, { onConflict: 'session_name' });
 
+      const qrResponse: WppStartResponse = { 
+        success: true,
+        ok: true, 
+        status: 'qr_issued', 
+        qrcode: result.base64, 
+        session_name: sessionName 
+      };
       return new Response(
-        JSON.stringify({ ok: true, status: 'qr_issued', qrcode: result.base64, session_name: sessionName }),
+        JSON.stringify(qrResponse),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -113,29 +114,44 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         }, { onConflict: 'session_name' });
 
+      const connectedResponse: WppStartResponse = { 
+        success: true,
+        ok: true, 
+        status: 'connected', 
+        session_name: sessionName 
+      };
       return new Response(
-        JSON.stringify({ ok: true, status: 'connected', session_name: sessionName }),
+        JSON.stringify(connectedResponse),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (result.state === 'timeout') {
+      const timeoutResponse: WppStartResponse = { 
+        success: false,
+        ok: false, 
+        status: 'timeout',
+        error: 'Timeout waiting for QR code' 
+      };
       return new Response(
-        JSON.stringify({ ok: false, error: 'Timeout waiting for QR code' }),
+        JSON.stringify(timeoutResponse),
         { status: 408, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // error state
+    const errorResponseData: WppStartResponse = { 
+      success: false,
+      ok: false, 
+      status: 'error',
+      error: result.state === 'error' ? result.message : 'Unknown error' 
+    };
     return new Response(
-      JSON.stringify({ ok: false, error: result.state === 'error' ? result.message : 'Unknown error' }),
+      JSON.stringify(errorResponseData),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('[wpp-start] Error:', error);
-    return new Response(
-      JSON.stringify({ ok: false, error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });

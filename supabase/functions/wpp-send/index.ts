@@ -5,7 +5,9 @@ import {
   errorResponse,
   getErrorMessage,
   handleCors,
-  type SendMessageResponse 
+  type WppSendRequest,
+  type WppSendResponse,
+  type WppApiResponse,
 } from '../_shared/types.ts'
 
 // Generate WPP token for session
@@ -72,7 +74,7 @@ async function generateWppToken(sessionName: string, wppHost: string, wppSecret:
 }
 
 // Get organization's session name from user
-async function getOrgSessionName(userId: string, supabaseClient: any): Promise<string> {
+async function getOrgSessionName(userId: string, supabaseClient: ReturnType<typeof createClient>): Promise<string> {
   const { data: profile, error } = await supabaseClient
     .from('profiles')
     .select('organization_id')
@@ -84,21 +86,6 @@ async function getOrgSessionName(userId: string, supabaseClient: any): Promise<s
   }
 
   return `org_${profile.organization_id}`
-}
-
-interface SendMessageRequest {
-  clientId: string
-  message: string
-  phoneNumber?: string
-  fileUrl?: string
-  fileName?: string
-}
-
-interface WPPResponse {
-  id?: string
-  status?: string
-  error?: string
-  message?: string
 }
 
 Deno.serve(async (req) => {
@@ -120,23 +107,17 @@ Deno.serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      return errorResponse('Missing authorization header', 401)
     }
 
     const token = authHeader.replace('Bearer ', '')
     const { data: { user }, error: userError } = await supabase.auth.getUser(token)
     
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      return errorResponse('Unauthorized', 401)
     }
 
-    const payload = await req.json().catch(() => ({} as any))
+    const payload = await req.json().catch(() => ({} as WppSendRequest))
 
     // Handle test connection
     if (payload?.action === 'test_connection') {
@@ -146,10 +127,10 @@ Deno.serve(async (req) => {
         const sessionName = await getOrgSessionName(user.id, supabase)
         let wppToken: string
         try {
-          wppToken = await generateWppToken(sessionName, WPP_BASE_URL, WPP_AGG_TOKEN as string)
-        } catch (e) {
+          wppToken = await generateWppToken(sessionName, WPP_BASE_URL, WPP_AGG_TOKEN)
+        } catch {
           console.warn('Falling back to aggregator token for health check')
-          wppToken = WPP_AGG_TOKEN as string
+          wppToken = WPP_AGG_TOKEN
         }
         
         const healthUrl = `${WPP_BASE_URL}/health`
@@ -165,34 +146,21 @@ Deno.serve(async (req) => {
         const isHealthy = response.ok
         console.log('Health check result:', isHealthy, response.status)
 
-        return new Response(
-          JSON.stringify({ 
-            success: isHealthy,
-            status: response.status,
-            message: isHealthy ? 'WPP connection successful' : 'WPP connection failed',
-            session: sessionName
-          }),
-          { 
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
-      } catch (error: any) {
+        const testResponse: WppSendResponse = { 
+          success: isHealthy,
+          status: response.status,
+          message: isHealthy ? 'WPP connection successful' : 'WPP connection failed',
+          session: sessionName
+        }
+
+        return successResponse(testResponse)
+      } catch (error: unknown) {
         console.error('WPP connection test error:', error)
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: error.message 
-          }),
-          { 
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
+        return errorResponse(getErrorMessage(error), 500)
       }
     }
 
-    const { clientId, message, phoneNumber, fileUrl, fileName } = payload as SendMessageRequest
+    const { clientId, message, phoneNumber, fileUrl, fileName } = payload
     
     console.log('Sending WPP message:', { clientId, message, phoneNumber, fileUrl, fileName })
 
@@ -200,10 +168,10 @@ Deno.serve(async (req) => {
     const sessionName = await getOrgSessionName(user.id, supabase)
     let wppToken: string
     try {
-      wppToken = await generateWppToken(sessionName, WPP_BASE_URL, WPP_AGG_TOKEN as string)
-    } catch (e) {
+      wppToken = await generateWppToken(sessionName, WPP_BASE_URL, WPP_AGG_TOKEN)
+    } catch {
       console.warn('Falling back to aggregator token for send')
-      wppToken = WPP_AGG_TOKEN as string
+      wppToken = WPP_AGG_TOKEN
     }
 
     // Get client data
@@ -227,7 +195,7 @@ Deno.serve(async (req) => {
     const cleanPhone = phone.replace(/[^\d]/g, '')
     const to = `${cleanPhone}@c.us`
 
-    let wppResponse: WPPResponse
+    let wppResponse: WppApiResponse
 
     // Send message through WPP
     if (fileUrl) {
@@ -289,7 +257,7 @@ Deno.serve(async (req) => {
       })
       .eq('id', clientId)
 
-    const response: SendMessageResponse = {
+    const response: WppSendResponse = {
       success: !wppResponse.error,
       messageId: wppResponse.id,
       savedMessageId: savedMessage?.id,
@@ -314,7 +282,7 @@ async function sendTextMessage(
   to: string,
   text: string,
   wppHost: string
-): Promise<WPPResponse> {
+): Promise<WppApiResponse> {
   const url = `${wppHost}/api/${encodeURIComponent(sessionName)}/send-message`
   
   console.log('Sending text message to WPP:', url)
@@ -349,7 +317,7 @@ async function sendMediaMessage(
   wppHost: string,
   fileName?: string,
   caption?: string
-): Promise<WPPResponse> {
+): Promise<WppApiResponse> {
   const url = `${wppHost}/api/${encodeURIComponent(sessionName)}/send-file-base64`
   
   console.log('Sending media message to WPP:', url)
