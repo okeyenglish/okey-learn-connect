@@ -123,7 +123,8 @@ import {
   Palette,
   CreditCard,
   MapPin,
-  HardDrive
+  HardDrive,
+  Sparkles
 } from "lucide-react";
 import { AnimatedLogo } from "@/components/AnimatedLogo";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
@@ -3853,7 +3854,7 @@ const CRMContent = () => {
                   className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground"
                   size="icon"
                 >
-                  <MessageSquare className="h-6 w-6" />
+                  <Sparkles className="h-6 w-6" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="left">
