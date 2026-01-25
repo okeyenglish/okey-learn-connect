@@ -19,11 +19,14 @@ import {
 } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { useUserAllowedBranches } from '@/hooks/useUserAllowedBranches';
 
 export default function ReportsSection() {
   const [dateRange, setDateRange] = useState<string>('month');
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
   const [reportType, setReportType] = useState<string>('overview');
+  
+  const { allowedBranches } = useUserAllowedBranches();
 
   // Моковые данные для демонстрации
   const mockData = {
@@ -99,12 +102,11 @@ export default function ReportsSection() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Все филиалы</SelectItem>
-              <SelectItem value="okskaya">Окская</SelectItem>
-              <SelectItem value="kotelniki">Котельники</SelectItem>
-              <SelectItem value="mytishchi">Мытищи</SelectItem>
-              <SelectItem value="solntsevo">Солнцево</SelectItem>
-              <SelectItem value="novokosino">Новокосино</SelectItem>
-              <SelectItem value="online">Онлайн</SelectItem>
+              {allowedBranches.map((branch) => (
+                <SelectItem key={branch} value={branch.toLowerCase().replace(/\s+/g, '-')}>
+                  {branch}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           
