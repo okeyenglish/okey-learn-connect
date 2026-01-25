@@ -74,6 +74,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useOrganizationRealtimeMessages } from "@/hooks/useOrganizationRealtimeMessages";
 import { useManagerBranches } from "@/hooks/useManagerBranches";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import {
   Search, 
   CheckSquare, 
@@ -828,6 +829,13 @@ const CRMContent = () => {
     if (!latest) return c;
     return new Date(c.lastMessageTime) > new Date(latest.lastMessageTime) ? c : latest;
   }, null);
+
+  // Total unread for document title (all sources)
+  const clientsUnread = (threads || []).reduce((sum, t) => sum + (t.unread_count || 0), 0);
+  const allUnreadCount = clientsUnread + corporateUnread + teacherUnread + (communityUnread || 0);
+  
+  // Update document title with unread count
+  useDocumentTitle(allUnreadCount);
 
   // Системные чаты (корпоративные как одна запись)
   const systemChats = [
