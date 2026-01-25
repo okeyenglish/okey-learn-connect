@@ -203,9 +203,9 @@ export const UnifiedCRMHeader = () => {
             onClick={() => navigate('/')}
             className="flex items-center space-x-2"
           >
-            <span className="text-primary font-bold text-xl">🎓</span>
+            <img src="/favicon.png" alt="Logo" className="h-6 w-6" />
             <span className="hidden font-bold sm:inline-block">
-              ACADEMYOS
+              O'KEY ENGLISH CRM
             </span>
           </Button>
         </div>
