@@ -1,4 +1,4 @@
-import { Check, CheckCheck, Clock, AlertCircle } from "lucide-react";
+import { Check, CheckCheck, Clock, AlertCircle, RotateCcw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useEffect, useState, useRef } from "react";
@@ -8,6 +8,8 @@ export type DeliveryStatus = 'queued' | 'sent' | 'delivered' | 'read' | 'failed'
 interface MessageDeliveryStatusProps {
   status?: DeliveryStatus;
   className?: string;
+  onRetry?: () => void;
+  showRetryButton?: boolean;
 }
 
 const statusConfig: Record<DeliveryStatus, { 
@@ -59,7 +61,9 @@ const StatusIcon = ({ status, isAnimating }: { status: DeliveryStatus; isAnimati
 
 export const MessageDeliveryStatus = ({ 
   status = 'sent',
-  className = "" 
+  className = "",
+  onRetry,
+  showRetryButton = true
 }: MessageDeliveryStatusProps) => {
   const config = statusConfig[status] || statusConfig.sent;
   const [isAnimating, setIsAnimating] = useState(false);
@@ -75,22 +79,54 @@ export const MessageDeliveryStatus = ({
     }
   }, [status]);
 
+  const isFailed = status === 'failed';
+
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span 
-          className={cn(
-            "inline-flex items-center transition-colors duration-300 ease-out",
-            config.colorClass, 
-            className
-          )}
-        >
-          <StatusIcon status={status} isAnimating={isAnimating} />
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side="left" className="text-xs">
-        {config.label}
-      </TooltipContent>
-    </Tooltip>
+    <div className={cn("inline-flex items-center gap-1", className)}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span 
+            className={cn(
+              "inline-flex items-center transition-colors duration-300 ease-out",
+              config.colorClass
+            )}
+          >
+            <StatusIcon status={status} isAnimating={isAnimating} />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="left" className="text-xs">
+          {config.label}
+        </TooltipContent>
+      </Tooltip>
+      
+      {/* Retry button for failed messages */}
+      {isFailed && showRetryButton && onRetry && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRetry();
+              }}
+              className={cn(
+                "inline-flex items-center justify-center",
+                "h-4 w-4 rounded-full",
+                "bg-destructive/10 hover:bg-destructive/20",
+                "text-destructive hover:text-destructive",
+                "transition-all duration-200",
+                "hover:scale-110 active:scale-95",
+                "focus:outline-none focus:ring-2 focus:ring-destructive/30"
+              )}
+              aria-label="Отправить повторно"
+            >
+              <RotateCcw className="h-2.5 w-2.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="text-xs">
+            Отправить повторно
+          </TooltipContent>
+        </Tooltip>
+      )}
+    </div>
   );
 };
