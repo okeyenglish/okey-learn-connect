@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { getErrorMessage } from '@/lib/errorUtils';
+import { PWAInstallInstructions } from '@/components/pwa/PWAInstallInstructions';
 
 interface Invitation {
   id: string;
@@ -277,23 +278,35 @@ export const EmployeeOnboarding = () => {
   if (success) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md text-center">
-          <CardHeader>
-            <div className="mx-auto w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center mb-4">
-              <CheckCircle2 className="h-6 w-6 text-green-600" />
-            </div>
-            <CardTitle>Добро пожаловать!</CardTitle>
-            <CardDescription>
-              Вы успешно присоединились к команде {organization?.name}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
-              Перенаправление в рабочее пространство...
-            </p>
-            <Loader2 className="h-5 w-5 animate-spin mx-auto text-primary" />
-          </CardContent>
-        </Card>
+        <div className="w-full max-w-md space-y-4">
+          {/* Success message */}
+          <Card className="text-center">
+            <CardHeader>
+              <div className="mx-auto w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center mb-4">
+                <CheckCircle2 className="h-6 w-6 text-green-600" />
+              </div>
+              <CardTitle>Добро пожаловать!</CardTitle>
+              <CardDescription>
+                Вы успешно присоединились к команде {organization?.name}
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          {/* PWA Install Instructions */}
+          <PWAInstallInstructions 
+            title="Установите приложение"
+            description="Для удобной работы добавьте приложение на главный экран телефона"
+            showSkip={true}
+            onSkip={() => navigate('/')}
+          />
+
+          {/* Continue button */}
+          <div className="text-center">
+            <Button onClick={() => navigate('/')} className="gap-2">
+              Продолжить в браузере
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
