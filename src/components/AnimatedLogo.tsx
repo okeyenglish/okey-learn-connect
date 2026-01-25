@@ -49,7 +49,7 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
         }}
       />
       
-      {/* Logo image - ON TOP */}
+      {/* Logo image - ON TOP with blend mode to remove white */}
       <img 
         src="/animated-logo.png" 
         alt="Logo"
@@ -57,6 +57,7 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
         style={{
           width: size * 1.15,
           height: size * 1.15,
+          mixBlendMode: 'multiply',
         }}
       />
       
