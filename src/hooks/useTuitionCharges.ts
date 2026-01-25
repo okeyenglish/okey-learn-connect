@@ -1,22 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
+import type { TuitionCharge } from '@/integrations/supabase/database.types';
 
-export interface TuitionCharge {
-  id: string;
-  student_id: string;
-  learning_unit_type: 'group' | 'individual';
-  learning_unit_id: string;
-  amount: number;
-  currency: string;
-  academic_hours: number;
-  charge_date: string;
-  description?: string;
-  status: 'active' | 'cancelled' | 'refunded';
-  created_by?: string;
-  created_at: string;
-  updated_at: string;
-}
+export type { TuitionCharge };
 
 export interface PaymentTuitionLink {
   id: string;
@@ -33,7 +20,8 @@ export const useTuitionCharges = (studentId?: string) => {
     queryFn: async () => {
       if (!studentId) return [];
       
-      const { data, error } = await (supabase.from('tuition_charges' as any) as any)
+      const { data, error } = await supabase
+        .from('tuition_charges')
         .select('*')
         .eq('student_id', studentId)
         .order('charge_date', { ascending: false });
@@ -55,7 +43,8 @@ export const useTuitionChargesByLearningUnit = (
     queryFn: async () => {
       if (!learningUnitType || !learningUnitId) return [];
       
-      const { data, error } = await (supabase.from('tuition_charges' as any) as any)
+      const { data, error } = await supabase
+        .from('tuition_charges')
         .select('*')
         .eq('learning_unit_type', learningUnitType)
         .eq('learning_unit_id', learningUnitId)
@@ -96,8 +85,8 @@ export const useCreateTuitionCharge = () => {
       paymentId?: string;
     }) => {
       // Создаём списание
-      const { data: charge, error: chargeError } = await (supabase
-        .from('tuition_charges' as any) as any)
+      const { data: charge, error: chargeError } = await supabase
+        .from('tuition_charges')
         .insert({
           student_id: studentId,
           learning_unit_type: learningUnitType,
@@ -116,11 +105,11 @@ export const useCreateTuitionCharge = () => {
 
       // Если указан платёж - создаём связь
       if (paymentId && charge) {
-        const { error: linkError } = await (supabase
-          .from('payment_tuition_link' as any) as any)
+        const { error: linkError } = await supabase
+          .from('payment_tuition_link')
           .insert({
             payment_id: paymentId,
-            tuition_charge_id: (charge as any).id,
+            tuition_charge_id: charge.id,
             amount,
           });
 
@@ -128,7 +117,7 @@ export const useCreateTuitionCharge = () => {
       }
 
       // Списываем с баланса студента
-      await (supabase.rpc as any)('add_balance_transaction', {
+      await supabase.rpc('add_balance_transaction', {
         _student_id: studentId,
         _amount: -amount,
         _transaction_type: 'debit',
@@ -169,8 +158,8 @@ export const useCancelTuitionCharge = () => {
   return useMutation({
     mutationFn: async ({ chargeId }: { chargeId: string }) => {
       // Получаем данные списания
-      const { data: charge, error: fetchError } = await (supabase
-        .from('tuition_charges' as any) as any)
+      const { data: charge, error: fetchError } = await supabase
+        .from('tuition_charges')
         .select('*')
         .eq('id', chargeId)
         .single();
@@ -178,26 +167,26 @@ export const useCancelTuitionCharge = () => {
       if (fetchError) throw fetchError;
 
       // Обновляем статус
-      const { error: updateError } = await (supabase
-        .from('tuition_charges' as any) as any)
+      const { error: updateError } = await supabase
+        .from('tuition_charges')
         .update({ status: 'cancelled' })
         .eq('id', chargeId);
 
       if (updateError) throw updateError;
 
       // Возвращаем деньги на баланс студента
-      await (supabase.rpc as any)('add_balance_transaction', {
-        _student_id: (charge as any).student_id,
-        _amount: (charge as any).amount,
+      await supabase.rpc('add_balance_transaction', {
+        _student_id: charge.student_id,
+        _amount: charge.amount,
         _transaction_type: 'refund',
-        _description: 'Отмена списания: ' + ((charge as any).description || ''),
+        _description: 'Отмена списания: ' + (charge.description || ''),
         _payment_id: null,
         _lesson_session_id: null,
       });
 
       return charge;
     },
-    onSuccess: (charge: any) => {
+    onSuccess: (charge) => {
       queryClient.invalidateQueries({ queryKey: ['tuition-charges'] });
       queryClient.invalidateQueries({ queryKey: ['student-balance', charge?.student_id] });
       queryClient.invalidateQueries({ queryKey: ['balance-transactions', charge?.student_id] });

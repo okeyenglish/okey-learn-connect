@@ -1,22 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import type { Textbook } from '@/integrations/supabase/database.types';
 
-export interface Textbook {
-  id: string;
-  title: string;
-  description?: string;
-  file_name: string;
-  file_url: string;
-  file_size?: number;
-  program_type?: string;
-  category?: string;
-  subcategory?: string;
-  uploaded_by?: string;
-  created_at: string;
-  updated_at: string;
-  sort_order: number;
-}
+export type { Textbook };
 
 export const useTextbooks = () => {
   const [textbooks, setTextbooks] = useState<Textbook[]>([]);
@@ -26,7 +13,8 @@ export const useTextbooks = () => {
   const fetchTextbooks = useCallback(async (programType?: string) => {
     try {
       setLoading(true);
-      let query = (supabase.from('textbooks' as any) as any)
+      let query = supabase
+        .from('textbooks')
         .select('*')
         .order('sort_order', { ascending: true });
       
@@ -81,7 +69,8 @@ export const useTextbooks = () => {
         .getPublicUrl(fileName);
 
       // Save metadata to database
-      const { data, error } = await (supabase.from('textbooks' as any) as any)
+      const { data, error } = await supabase
+        .from('textbooks')
         .insert({
           title,
           description,
@@ -131,7 +120,8 @@ export const useTextbooks = () => {
       }
 
       // Delete from database
-      const { error } = await (supabase.from('textbooks' as any) as any)
+      const { error } = await supabase
+        .from('textbooks')
         .delete()
         .eq('id', id);
 
@@ -157,7 +147,8 @@ export const useTextbooks = () => {
     updates: Partial<Pick<Textbook, 'title' | 'description' | 'program_type' | 'category' | 'subcategory' | 'sort_order'>>
   ) => {
     try {
-      const { error } = await (supabase.from('textbooks' as any) as any)
+      const { error } = await supabase
+        .from('textbooks')
         .update(updates)
         .eq('id', id);
 
