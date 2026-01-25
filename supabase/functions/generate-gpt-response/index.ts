@@ -1,11 +1,12 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
 import { 
   corsHeaders, 
   successResponse, 
   errorResponse,
   getErrorMessage,
-  handleCors 
+  handleCors,
+  type AIChatRequest,
+  type AIChatResponse,
 } from '../_shared/types.ts';
 
 // Input validation constants
@@ -23,51 +24,41 @@ const sanitizeMessage = (msg: string): string => {
     .trim();
 };
 
-serve(async (req) => {
+interface GenerateGptRequest {
+  clientId: string;
+  currentMessage: string;
+}
+
+Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
   try {
-    const body = await req.json();
+    const body = await req.json() as GenerateGptRequest;
     const { clientId, currentMessage } = body;
     
     // Validate clientId
     if (!clientId || typeof clientId !== 'string') {
-      return new Response(
-        JSON.stringify({ error: 'Client ID is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Client ID is required', 400);
     }
     
     if (!isValidUUID(clientId)) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid client ID format' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Invalid client ID format', 400);
     }
     
     // Validate currentMessage
     if (!currentMessage || typeof currentMessage !== 'string') {
-      return new Response(
-        JSON.stringify({ error: 'Message is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Message is required', 400);
     }
     
     const sanitizedMessage = sanitizeMessage(currentMessage);
     if (sanitizedMessage.length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'Message cannot be empty' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Message cannot be empty', 400);
     }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: 'Service configuration error' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Service configuration error', 500);
     }
 
     // Initialize Supabase client
@@ -136,7 +127,7 @@ ${conversationContext}
 
 Отвечайте только текстом ответа, без дополнительных пояснений.`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
@@ -152,23 +143,28 @@ ${conversationContext}
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
       console.error('AI Gateway error:', errorText);
       
-      if (response.status === 429) {
-        throw new Error('Превышен лимит запросов к AI. Попробуйте позже.');
-      } else if (response.status === 402) {
-        throw new Error('Недостаточно средств на балансе Lovable AI.');
+      if (aiResponse.status === 429) {
+        return errorResponse('Превышен лимит запросов к AI. Попробуйте позже.', 429);
+      } else if (aiResponse.status === 402) {
+        return errorResponse('Недостаточно средств на балансе Lovable AI.', 402);
       }
       
-      throw new Error(`AI Gateway error: ${errorText}`);
+      return errorResponse(`AI Gateway error: ${errorText}`, 500);
     }
 
-    const data = await response.json();
+    const data = await aiResponse.json();
     const generatedText = data.choices[0].message.content;
 
-    return successResponse({ success: true, generatedText });
+    const result: AIChatResponse = { 
+      success: true, 
+      response: generatedText 
+    };
+
+    return successResponse({ ...result, generatedText });
 
   } catch (error: unknown) {
     console.error('Error in generate-gpt-response function:', error);

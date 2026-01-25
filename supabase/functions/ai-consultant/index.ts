@@ -1,33 +1,39 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
 import { 
   corsHeaders, 
+  handleCors,
   successResponse, 
   errorResponse,
   getErrorMessage,
-  type AIChatResponse 
+  type AIChatRequest,
+  type AIChatResponse,
 } from '../_shared/types.ts';
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+interface ConsultantRequest extends AIChatRequest {
+  consultantType: string;
+  organizationId: string;
+  audio?: string;
+}
+
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const { message, audio, consultantType, systemPrompt, organizationId } = await req.json();
+    const body = await req.json() as ConsultantRequest;
+    const { message, audio, consultantType, systemPrompt, organizationId } = body;
     
     if (!consultantType) {
-      throw new Error('consultantType is required');
+      return errorResponse('consultantType is required', 400);
     }
 
     if (!organizationId) {
-      throw new Error('organizationId is required');
+      return errorResponse('organizationId is required', 400);
     }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+      return errorResponse('LOVABLE_API_KEY is not configured', 500);
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -47,10 +53,10 @@ serve(async (req) => {
           .eq('messenger_type', 'openai')
           .maybeSingle();
 
-        const openaiApiKey = aiSettings?.settings?.openaiApiKey || Deno.env.get('OPENAI_API_KEY');
+        const openaiApiKey = (aiSettings?.settings as Record<string, unknown>)?.openaiApiKey || Deno.env.get('OPENAI_API_KEY');
         
         if (!openaiApiKey) {
-          throw new Error('OpenAI API key not configured for transcription');
+          return errorResponse('OpenAI API key not configured for transcription', 400);
         }
 
         const binaryAudio = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
@@ -70,7 +76,7 @@ serve(async (req) => {
         if (!transcriptionResponse.ok) {
           const errorText = await transcriptionResponse.text();
           console.error('Transcription error:', transcriptionResponse.status, errorText);
-          throw new Error(`Transcription error: ${transcriptionResponse.status}`);
+          return errorResponse(`Transcription error: ${transcriptionResponse.status}`, 500);
         }
 
         const transcription = await transcriptionResponse.json();
@@ -78,16 +84,16 @@ serve(async (req) => {
         console.log('Transcribed text:', userMessage);
       } catch (transcriptionError) {
         console.error('Transcription error:', transcriptionError);
-        throw new Error('Ошибка распознавания речи');
+        return errorResponse('Ошибка распознавания речи', 500);
       }
     }
 
     if (!userMessage) {
-      throw new Error('No message or audio provided');
+      return errorResponse('No message or audio provided', 400);
     }
 
     // Вызов Lovable AI Gateway
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
@@ -110,25 +116,33 @@ serve(async (req) => {
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error('AI Gateway error:', aiResponse.status, errorText);
+      
+      if (aiResponse.status === 429) {
+        return errorResponse('Rate limits exceeded, please try again later.', 429);
+      }
+      if (aiResponse.status === 402) {
+        return errorResponse('Payment required, please add funds to your Lovable AI workspace.', 402);
+      }
+      
+      return errorResponse(`AI Gateway error: ${aiResponse.status}`, 500);
     }
 
-    const data = await response.json();
-    const aiResponse = data.choices?.[0]?.message?.content || 'Извините, не могу ответить на этот вопрос.';
+    const data = await aiResponse.json();
+    const responseText = data.choices?.[0]?.message?.content || 'Извините, не могу ответить на этот вопрос.';
 
-    const response: AIChatResponse = { 
+    const result: AIChatResponse = { 
       success: true,
-      response: aiResponse,
+      response: responseText,
     };
     
     if (audio) {
-      (response as AIChatResponse & { transcription?: string }).transcription = userMessage;
+      (result as AIChatResponse & { transcription?: string }).transcription = userMessage;
     }
     
-    return successResponse(response);
+    return successResponse(result);
 
   } catch (error: unknown) {
     console.error('Error in ai-consultant function:', error);
