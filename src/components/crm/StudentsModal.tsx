@@ -31,6 +31,8 @@ import { AddStudentModal } from "@/components/students/AddStudentModal";
 import { ImportStudentsModal } from "@/components/students/ImportStudentsModal";
 import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
 import { usePinnedModalsDB } from "@/hooks/usePinnedModalsDB";
+import { useUserAllowedBranches } from "@/hooks/useUserAllowedBranches";
+import { AVAILABLE_BRANCHES } from "@/hooks/useUserBranches";
 
 interface StudentsModalProps {
   open?: boolean;
@@ -238,6 +240,13 @@ const StudentsContent = ({
   pinnedModals
 }: StudentsContentProps) => {
   const { count: totalStudentsCount } = useStudentsCount();
+  const { allowedBranches, hasRestrictions } = useUserAllowedBranches();
+  
+  // Фильтруем список филиалов по доступным для пользователя
+  const availableBranchOptions = hasRestrictions 
+    ? AVAILABLE_BRANCHES.filter(b => allowedBranches.includes(b))
+    : AVAILABLE_BRANCHES;
+    
   // Filter students based on current filters with proper null checks
   const filteredStudents = students.filter(student => {
     // Search filter - check name, phone, and email
@@ -348,10 +357,9 @@ const StudentsContent = ({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Все филиалы</SelectItem>
-                      <SelectItem value="Окская">Окская</SelectItem>
-                      <SelectItem value="Мытищи">Мытищи</SelectItem>
-                      <SelectItem value="Люберцы">Люберцы</SelectItem>
-                      <SelectItem value="Котельники">Котельники</SelectItem>
+                      {availableBranchOptions.map((branch) => (
+                        <SelectItem key={branch} value={branch}>{branch}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
