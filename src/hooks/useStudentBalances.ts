@@ -42,18 +42,18 @@ export interface BalanceTransaction {
   created_at: string;
 }
 
-// Получить все балансы студентов (используем прямой запрос пока типы не обновятся)
+// Получить все балансы студентов
 export const useStudentBalances = () => {
   return useQuery({
     queryKey: ['student-balances'],
     queryFn: async () => {
-      const { data, error } = await (supabase.rpc as any)('get_user_organization_id');
+      const { data: orgId, error: orgError } = await supabase.rpc('get_user_organization_id');
       
-      if (error) throw error;
+      if (orgError) throw orgError;
       
       // Временно: используем студентов напрямую
-      const { data: students, error: studentsError } = await (supabase
-        .from('students' as any) as any)
+      const { data: students, error: studentsError } = await supabase
+        .from('students')
         .select('*')
         .eq('status', 'active');
 
@@ -63,13 +63,13 @@ export const useStudentBalances = () => {
   });
 };
 
-// Получить студентов с низким балансом (временно упрощенная версия)
+// Получить студентов с низким балансом
 export const useLowBalanceStudents = (daysThreshold = 7, hoursThreshold = 4) => {
   return useQuery({
     queryKey: ['low-balance-students', daysThreshold, hoursThreshold],
     queryFn: async () => {
       try {
-        const { data, error } = await (supabase.rpc as any)('get_students_with_low_balance', {
+        const { data, error } = await supabase.rpc('get_students_with_low_balance', {
           days_threshold: daysThreshold,
           hours_threshold: hoursThreshold,
         });
@@ -89,8 +89,8 @@ export const useBalanceTransactions = (studentId: string) => {
   return useQuery({
     queryKey: ['balance-transactions', studentId],
     queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('balance_transactions' as any) as any)
+      const { data, error } = await supabase
+        .from('balance_transactions')
         .select('*')
         .eq('student_id', studentId)
         .order('created_at', { ascending: false });
@@ -112,7 +112,7 @@ export const useAddBalanceTransaction = () => {
       student_id: string;
       amount: number;
       academic_hours?: number;
-      transaction_type: any; // расширен enum, типы обновятся после регенерации
+      transaction_type: string;
       description: string;
       price_per_hour?: number;
       payment_id?: string;
@@ -122,8 +122,8 @@ export const useAddBalanceTransaction = () => {
       source_student_id?: string;
       target_student_id?: string;
     }) => {
-      const { data, error } = await (supabase
-        .from('balance_transactions' as any) as any)
+      const { data, error } = await supabase
+        .from('balance_transactions')
         .insert([transaction])
         .select()
         .single();
@@ -169,7 +169,7 @@ export const useTransferBetweenStudents = () => {
       description: string;
       viaFamilyLedger?: boolean;
     }) => {
-      const { data, error } = await (supabase.rpc as any)('transfer_between_students', {
+      const { data, error } = await supabase.rpc('transfer_between_students', {
         _from_student_id: fromStudentId,
         _to_student_id: toStudentId,
         _amount: amount,
@@ -207,7 +207,7 @@ export const useCreatePaymentNotifications = () => {
   return useMutation({
     mutationFn: async () => {
       try {
-        const { error } = await (supabase.rpc as any)('auto_create_payment_notifications');
+        const { error } = await supabase.rpc('auto_create_payment_notifications');
         if (error) throw error;
       } catch (error) {
         console.error('Error creating notifications:', error);
@@ -231,14 +231,14 @@ export const useCreatePaymentNotifications = () => {
   });
 };
 
-// Получить уведомления о платежах (пока типы не обновились, используем упрощенную версию)
+// Получить уведомления о платежах
 export const usePaymentNotifications = () => {
   return useQuery({
     queryKey: ['payment-notifications'],
     queryFn: async () => {
       try {
-        const { data, error } = await (supabase
-          .from('payment_notifications' as any) as any)
+        const { data, error } = await supabase
+          .from('payment_notifications')
           .select('*')
           .order('notification_date', { ascending: false })
           .limit(100);
@@ -260,8 +260,8 @@ export const useMarkNotificationSent = () => {
 
   return useMutation({
     mutationFn: async (notificationId: string) => {
-      const { error } = await (supabase
-        .from('payment_notifications' as any) as any)
+      const { error } = await supabase
+        .from('payment_notifications')
         .update({
           is_sent: true,
           sent_at: new Date().toISOString(),
@@ -299,13 +299,13 @@ export interface BalanceCheckResult {
 export const useCheckStudentBalance = () => {
   return useMutation({
     mutationFn: async ({ studentId, requiredHours = 4 }: { studentId: string; requiredHours?: number }) => {
-      const { data, error } = await (supabase.rpc as any)('check_student_balance', {
+      const { data, error } = await supabase.rpc('check_student_balance', {
         p_student_id: studentId,
         p_required_hours: requiredHours,
       });
 
       if (error) throw error;
-      return (data as any)?.[0] as BalanceCheckResult;
+      return (data as BalanceCheckResult[])?.[0] as BalanceCheckResult;
     },
   });
 };

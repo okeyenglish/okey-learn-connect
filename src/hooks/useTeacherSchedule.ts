@@ -43,76 +43,96 @@ export const useTeacherSchedule = (
       const end = endDate || endOfWeek(new Date(), { weekStartsOn: 1 });
 
       // Получаем групповые занятия преподавателя
-      let groupQuery = (supabase.from('learning_groups' as any) as any)
-        .select('id, name, subject, level, branch, schedule_time, duration')
-        .eq('teacher_id', teacherId);
+      let groupQuery = supabase.from('learning_groups')
+        .select('id, name, subject, level, branch, schedule_time')
+        .eq('responsible_teacher', teacherId);
 
       // Фильтруем по филиалу, если выбран конкретный
       if (branchId && branchId !== 'all') {
-        const { data: branchData } = await (supabase.from('organization_branches' as any) as any)
+        const { data: branchData } = await supabase.from('organization_branches')
           .select('name')
           .eq('id', branchId)
           .single();
         
         if (branchData) {
-          groupQuery = groupQuery.eq('branch', (branchData as any).name);
+          groupQuery = groupQuery.eq('branch', branchData.name);
         }
       }
 
       const { data: groupLessonsData } = await groupQuery;
 
-      const groupIds = groupLessonsData?.map((g: any) => g.id) || [];
+      const groupIds = groupLessonsData?.map((g) => g.id) || [];
 
-      let groupLessons: any[] = [];
+      let groupLessons: Array<{
+        id: string;
+        lesson_date: string;
+        status: string | null;
+        classroom: string | null;
+        group_id: string | null;
+        group_data?: typeof groupLessonsData[0];
+      }> = [];
+      
       if (groupIds.length > 0) {
-        const { data, error: groupError } = await (supabase.from('lesson_sessions' as any) as any)
+        const { data, error: groupError } = await supabase.from('lesson_sessions')
           .select(`
             id,
             lesson_date,
             status,
             classroom,
-            group_id
+            learning_group_id
           `)
           .gte('lesson_date', format(start, 'yyyy-MM-dd'))
           .lte('lesson_date', format(end, 'yyyy-MM-dd'))
-          .in('group_id', groupIds);
+          .in('learning_group_id', groupIds);
 
         if (groupError) throw groupError;
 
         // Объединяем с данными группы
-        groupLessons = (data || []).map((lesson: any) => {
-          const group = groupLessonsData?.find((g: any) => g.id === lesson.group_id);
+        groupLessons = (data || []).map((lesson) => {
+          const group = groupLessonsData?.find((g) => g.id === lesson.learning_group_id);
           return {
-            ...lesson,
+            id: lesson.id,
+            lesson_date: lesson.lesson_date,
+            status: lesson.status,
+            classroom: lesson.classroom,
+            group_id: lesson.learning_group_id,
             group_data: group,
           };
         });
       }
 
       // Получаем индивидуальные уроки преподавателя
-      let individualQuery = (supabase.from('individual_lessons' as any) as any)
+      let individualQuery = supabase.from('individual_lessons')
         .select('id, subject, level, branch, schedule_time, duration, student_name, student_id')
         .eq('teacher_id', teacherId);
 
       // Фильтруем по филиалу, если выбран конкретный
       if (branchId && branchId !== 'all') {
-        const { data: branchData } = await (supabase.from('organization_branches' as any) as any)
+        const { data: branchData } = await supabase.from('organization_branches')
           .select('name')
           .eq('id', branchId)
           .single();
         
         if (branchData) {
-          individualQuery = individualQuery.eq('branch', (branchData as any).name);
+          individualQuery = individualQuery.eq('branch', branchData.name);
         }
       }
 
       const { data: individualLessonsData } = await individualQuery;
 
-      const lessonIds = individualLessonsData?.map((l: any) => l.id) || [];
+      const lessonIds = individualLessonsData?.map((l) => l.id) || [];
 
-      let individualLessons: any[] = [];
+      let individualLessons: Array<{
+        id: string;
+        lesson_date: string;
+        status: string | null;
+        duration: number | null;
+        individual_lesson_id: string | null;
+        lesson_data?: typeof individualLessonsData[0];
+      }> = [];
+      
       if (lessonIds.length > 0) {
-        const { data, error: individualError } = await (supabase.from('individual_lesson_sessions' as any) as any)
+        const { data, error: individualError } = await supabase.from('individual_lesson_sessions')
           .select(`
             id,
             lesson_date,
@@ -127,41 +147,45 @@ export const useTeacherSchedule = (
         if (individualError) throw individualError;
 
         // Объединяем с данными урока
-        individualLessons = (data || []).map((session: any) => {
-          const lesson = individualLessonsData?.find((l: any) => l.id === session.individual_lesson_id);
+        individualLessons = (data || []).map((session) => {
+          const lesson = individualLessonsData?.find((l) => l.id === session.individual_lesson_id);
           return {
-            ...session,
+            id: session.id,
+            lesson_date: session.lesson_date,
+            status: session.status,
+            duration: session.duration,
+            individual_lesson_id: session.individual_lesson_id,
             lesson_data: lesson,
           };
         });
       }
 
       // Форматируем данные
-      const formattedGroupLessons: TeacherLesson[] = groupLessons.map((lesson: any) => ({
+      const formattedGroupLessons: TeacherLesson[] = groupLessons.map((lesson) => ({
         id: lesson.id,
         lesson_date: lesson.lesson_date,
-        lesson_time: lesson.group_data?.schedule_time,
+        lesson_time: lesson.group_data?.schedule_time ?? undefined,
         lesson_type: 'group' as const,
         subject: lesson.group_data?.subject || '',
-        level: lesson.group_data?.level,
+        level: lesson.group_data?.level ?? undefined,
         branch: lesson.group_data?.branch || '',
         group_name: lesson.group_data?.name,
-        status: lesson.status,
-        duration: lesson.group_data?.duration,
-        classroom: lesson.classroom,
+        status: lesson.status || '',
+        duration: undefined,
+        classroom: lesson.classroom ?? undefined,
       }));
 
-      const formattedIndividualLessons: TeacherLesson[] = individualLessons.map((session: any) => ({
+      const formattedIndividualLessons: TeacherLesson[] = individualLessons.map((session) => ({
         id: session.id,
         lesson_date: session.lesson_date,
-        lesson_time: session.lesson_data?.schedule_time,
+        lesson_time: session.lesson_data?.schedule_time ?? undefined,
         lesson_type: 'individual' as const,
         subject: session.lesson_data?.subject || '',
-        level: session.lesson_data?.level,
+        level: session.lesson_data?.level ?? undefined,
         branch: session.lesson_data?.branch || '',
-        student_name: session.lesson_data?.student_name,
-        status: session.status,
-        duration: session.duration || session.lesson_data?.duration,
+        student_name: session.lesson_data?.student_name ?? undefined,
+        status: session.status || '',
+        duration: session.duration ?? session.lesson_data?.duration ?? undefined,
       }));
 
       // Объединяем и сортируем

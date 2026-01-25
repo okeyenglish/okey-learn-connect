@@ -48,7 +48,7 @@ export const createTestStudent = async (): Promise<TestUser> => {
       console.log('Пользователь создан успешно:', data.user.email);
       
       // Создаем запись в профилях
-      const { error: profileError } = await (supabase.from('profiles' as any) as any)
+      const { error: profileError } = await supabase.from('profiles')
         .insert({
           id: data.user.id,
           first_name: testUser.firstName,
@@ -61,7 +61,7 @@ export const createTestStudent = async (): Promise<TestUser> => {
       }
 
       // Назначаем роль студента
-      const { error: roleError } = await (supabase.from('user_roles' as any) as any)
+      const { error: roleError } = await supabase.from('user_roles')
         .insert({
           user_id: data.user.id,
           role: 'student'

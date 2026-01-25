@@ -49,9 +49,9 @@ export const checkGroupPermission = async (
   permission: string
 ): Promise<boolean> => {
   try {
-    const { data, error } = await (supabase.rpc as any)('check_group_permission', {
+    const { data, error } = await supabase.rpc('check_group_permission', {
       p_user_id: userId,
-      p_group_id: groupId,
+      p_group_id: groupId || '',
       p_permission: permission
     });
 
