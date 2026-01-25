@@ -3,6 +3,60 @@ import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
 
+/** DB row for student with family_groups join */
+interface StudentRow {
+  id: string;
+  student_number: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  middle_name: string | null;
+  date_of_birth: string | null;
+  age: number | null;
+  gender: string | null;
+  phone: string | null;
+  lk_email: string | null;
+  status: string | null;
+  branch: string | null;
+  notes: string | null;
+  created_at: string;
+  family_group_id: string | null;
+  family_groups?: { id: string; name: string | null } | null;
+}
+
+/** DB row for family member with clients join */
+interface FamilyMemberRow {
+  clients?: { name: string | null; phone: string | null; email: string | null } | null;
+}
+
+/** DB row for group student with learning_groups join */
+interface GroupStudentRow {
+  learning_groups?: { name: string | null; subject: string | null } | null;
+}
+
+/** DB row for payment */
+interface PaymentRow {
+  amount: number | null;
+}
+
+interface ExportRow {
+  'Номер студента': string;
+  'Фамилия': string;
+  'Имя': string;
+  'Отчество': string;
+  'Дата рождения': string;
+  'Возраст': string | number;
+  'Пол': string;
+  'Телефон': string;
+  'Email': string;
+  'Статус': string;
+  'Филиал': string;
+  'Дата создания'?: string;
+  'Родители'?: string;
+  'Группы'?: string;
+  'Всего оплат'?: number;
+  'Примечания'?: string;
+}
+
 export const useStudentExport = () => {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -10,8 +64,8 @@ export const useStudentExport = () => {
     setIsExporting(true);
     try {
       // Fetch all students with details
-      const { data: students, error } = await (supabase
-        .from('students' as any) as any)
+      const { data: studentsRaw, error } = await supabase
+        .from('students')
         .select(`
           *,
           family_groups:family_group_id (
@@ -23,15 +77,16 @@ export const useStudentExport = () => {
 
       if (error) throw error;
 
-      let exportData: any[] = [];
+      const students = (studentsRaw || []) as unknown as StudentRow[];
+      let exportData: ExportRow[] = [];
 
       if (includeDetails) {
         // Fetch additional details for each student
         const studentsWithDetails = await Promise.all(
-          (students || []).map(async (student: any) => {
+          students.map(async (student) => {
             // Fetch parents
-            const { data: familyMembers } = await (supabase
-              .from('family_members' as any) as any)
+            const { data: familyMembersRaw } = await supabase
+              .from('family_members')
               .select(`
                 *,
                 clients:client_id (
@@ -42,14 +97,15 @@ export const useStudentExport = () => {
               `)
               .eq('family_group_id', student.family_group_id || '');
 
-            const parents = (familyMembers || [])
-              .map((m: any) => m.clients?.name)
+            const familyMembers = (familyMembersRaw || []) as unknown as FamilyMemberRow[];
+            const parents = familyMembers
+              .map((m) => m.clients?.name)
               .filter(Boolean)
               .join(', ');
 
             // Fetch groups
-            const { data: groupStudents } = await (supabase
-              .from('group_students' as any) as any)
+            const { data: groupStudentsRaw } = await supabase
+              .from('group_students')
               .select(`
                 learning_groups (
                   name,
@@ -59,19 +115,21 @@ export const useStudentExport = () => {
               .eq('student_id', student.id)
               .eq('status', 'active');
 
-            const groups = (groupStudents || [])
-              .map((gs: any) => gs.learning_groups?.name)
+            const groupStudents = (groupStudentsRaw || []) as unknown as GroupStudentRow[];
+            const groups = groupStudents
+              .map((gs) => gs.learning_groups?.name)
               .filter(Boolean)
               .join(', ');
 
             // Fetch payments total
-            const { data: payments } = await (supabase
-              .from('payments' as any) as any)
+            const { data: paymentsRaw } = await supabase
+              .from('payments')
               .select('amount')
               .eq('student_id', student.id);
 
-            const totalPayments = (payments || [])
-              .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+            const payments = (paymentsRaw || []) as unknown as PaymentRow[];
+            const totalPayments = payments
+              .reduce((sum, p) => sum + (p.amount || 0), 0);
 
             return {
               'Номер студента': student.student_number || '',
@@ -97,7 +155,7 @@ export const useStudentExport = () => {
         exportData = studentsWithDetails;
       } else {
         // Simple export
-        exportData = (students || []).map((student: any) => ({
+        exportData = students.map((student) => ({
           'Номер студента': student.student_number || '',
           'Фамилия': student.last_name || '',
           'Имя': student.first_name || '',

@@ -88,7 +88,7 @@ export const useIndividualLessons = (filters?: IndividualLessonFilters) => {
       }
       
       if (filters?.category && filters.category !== "all") {
-        query = query.eq('category', filters.category as any);
+        query = query.eq('category', filters.category);
       }
       
       if (filters?.teacher_name) {

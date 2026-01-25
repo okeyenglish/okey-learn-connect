@@ -18,6 +18,13 @@ export interface StudentConflictResult {
   conflict_details: StudentConflict[];
 }
 
+/** RPC result row for multiple students conflicts */
+interface MultipleConflictsRpcRow {
+  student_id: string;
+  has_conflict: boolean;
+  conflict_details: StudentConflict[];
+}
+
 // Hook to check conflicts for a single student
 export const useCheckStudentConflict = () => {
   return useMutation({
@@ -73,7 +80,7 @@ export const useGetStudentConflicts = () => {
       });
 
       if (error) throw error;
-      return data as StudentConflict[];
+      return (data || []) as unknown as StudentConflict[];
     }
   });
 };
@@ -93,7 +100,7 @@ export const useCheckMultipleStudentsConflicts = () => {
       startTime: string;
       endTime: string;
       excludeSessionId?: string;
-    }) => {
+    }): Promise<StudentConflictResult[]> => {
       const { data, error } = await supabase.rpc('check_multiple_students_conflicts', {
         p_student_ids: studentIds,
         p_lesson_date: lessonDate,
@@ -103,11 +110,13 @@ export const useCheckMultipleStudentsConflicts = () => {
       });
 
       if (error) throw error;
-      return data.map(item => ({
+
+      const rows = (data || []) as unknown as MultipleConflictsRpcRow[];
+      return rows.map(item => ({
         student_id: item.student_id,
         has_conflict: item.has_conflict,
-        conflict_details: (item.conflict_details as any[]) || []
-      })) as StudentConflictResult[];
+        conflict_details: item.conflict_details || []
+      }));
     }
   });
 };
@@ -223,7 +232,7 @@ export const useRemoveStudentsFromSession = () => {
 export const useSessionStudents = (lessonSessionId?: string) => {
   return useQuery({
     queryKey: ['session-students', lessonSessionId],
-    queryFn: async () => {
+    queryFn: async (): Promise<Student[]> => {
       if (!lessonSessionId) return [];
 
       // First get student IDs from the junction table
