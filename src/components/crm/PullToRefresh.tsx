@@ -135,7 +135,7 @@ export const PullToRefresh = ({
   };
 
   return (
-    <div ref={containerRef} className={`relative flex flex-col h-full ${className}`}>
+    <div ref={containerRef} className={`relative flex flex-col min-h-0 ${className}`}>
       {/* Pull indicator */}
       <div 
         className="absolute left-0 right-0 flex flex-col items-center justify-end overflow-hidden transition-all duration-200 ease-out z-10"
@@ -154,7 +154,7 @@ export const PullToRefresh = ({
       
       {/* Content with transform */}
       <div 
-        className="flex-1 min-h-0 transition-transform duration-200 ease-out"
+        className="flex flex-col flex-1 min-h-0 transition-transform duration-200 ease-out"
         style={{ 
           transform: `translateY(${pullDistance}px)`,
         }}
