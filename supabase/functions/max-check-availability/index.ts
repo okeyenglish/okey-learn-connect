@@ -1,10 +1,12 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  corsHeaders,
+  handleCors,
+  getErrorMessage,
+  type MaxSettings,
+  type MaxCheckAvailabilityRequest,
+  type MaxCheckAvailabilityResponse,
+} from "../_shared/types.ts";
 
 const DEFAULT_GREEN_API_URL = 'https://api.green-api.com';
 const GREEN_API_URL =
@@ -12,19 +14,9 @@ const GREEN_API_URL =
   Deno.env.get('GREEN_API_URL') ||
   DEFAULT_GREEN_API_URL;
 
-interface CheckAvailabilityRequest {
-  phoneNumber: string;
-}
-
-interface MaxSettings {
-  instanceId: string;
-  apiToken: string;
-}
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -88,7 +80,7 @@ serve(async (req) => {
 
     const { instanceId, apiToken } = maxSettings;
 
-    const body: CheckAvailabilityRequest = await req.json();
+    const body: MaxCheckAvailabilityRequest = await req.json();
     const { phoneNumber } = body;
 
     if (!phoneNumber) {
@@ -118,47 +110,51 @@ serve(async (req) => {
     // Check for non-200 response or HTML error response
     if (!response.ok || responseText.includes('<html')) {
       console.log('Green API returned error or HTML, treating as unavailable');
+      const unavailableResponse: MaxCheckAvailabilityResponse = {
+        success: true,
+        existsWhatsapp: false,
+        chatId: null,
+        unavailable: true,
+        reason: 'API temporarily unavailable'
+      };
       return new Response(
-        JSON.stringify({ 
-          success: true,
-          existsWhatsapp: false,
-          chatId: null,
-          unavailable: true,
-          reason: 'API temporarily unavailable'
-        }),
+        JSON.stringify(unavailableResponse),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    let result;
+    let result: { existsWhatsapp?: boolean; chatId?: string };
     try {
       result = JSON.parse(responseText);
-    } catch (e) {
+    } catch {
       // Return graceful response instead of 500
+      const parseErrorResponse: MaxCheckAvailabilityResponse = {
+        success: true,
+        existsWhatsapp: false,
+        chatId: null,
+        unavailable: true
+      };
       return new Response(
-        JSON.stringify({ 
-          success: true,
-          existsWhatsapp: false,
-          chatId: null,
-          unavailable: true
-        }),
+        JSON.stringify(parseErrorResponse),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    const successResponse: MaxCheckAvailabilityResponse = {
+      success: true,
+      existsWhatsapp: result.existsWhatsapp ?? false,
+      chatId: result.chatId ?? null
+    };
+
     return new Response(
-      JSON.stringify({ 
-        success: true,
-        existsWhatsapp: result.existsWhatsapp,
-        chatId: result.chatId
-      }),
+      JSON.stringify(successResponse),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in max-check-availability:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: getErrorMessage(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

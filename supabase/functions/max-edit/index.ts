@@ -1,10 +1,12 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  corsHeaders,
+  handleCors,
+  getErrorMessage,
+  type MaxSettings,
+  type MaxEditMessageRequest,
+  type MaxEditMessageResponse,
+} from "../_shared/types.ts";
 
 // Green API base URL for MAX (v3)
 const DEFAULT_GREEN_API_URL = 'https://api.green-api.com';
@@ -13,21 +15,9 @@ const GREEN_API_URL =
   Deno.env.get('GREEN_API_URL') ||
   DEFAULT_GREEN_API_URL;
 
-interface EditMessageRequest {
-  messageId: string;
-  newMessage: string;
-  clientId: string;
-}
-
-interface MaxSettings {
-  instanceId: string;
-  apiToken: string;
-}
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -98,7 +88,7 @@ serve(async (req) => {
     const { instanceId, apiToken } = maxSettings;
 
     // Parse request body
-    const body: EditMessageRequest = await req.json();
+    const body: MaxEditMessageRequest = await req.json();
     const { messageId, newMessage, clientId } = body;
 
     if (!messageId || !newMessage) {
@@ -147,12 +137,12 @@ serve(async (req) => {
     }
 
     // Determine chatId for MAX
-    let chatId = client.max_chat_id;
+    let chatId = client.max_chat_id as string | null;
     if (!chatId && client.max_user_id) {
       chatId = String(client.max_user_id);
     }
     if (!chatId && client.phone) {
-      const cleanPhone = client.phone.replace(/[^\d]/g, '');
+      const cleanPhone = (client.phone as string).replace(/[^\d]/g, '');
       chatId = `${cleanPhone}@c.us`;
     }
 
@@ -179,8 +169,13 @@ serve(async (req) => {
         );
       }
 
+      const localOnlyResponse: MaxEditMessageResponse = {
+        success: true,
+        messageId: messageId,
+        localOnly: true
+      };
       return new Response(
-        JSON.stringify({ success: true, messageId: messageId, localOnly: true }),
+        JSON.stringify(localOnlyResponse),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -203,10 +198,10 @@ serve(async (req) => {
     const responseText = await response.text();
     console.log('Green API edit response:', responseText);
 
-    let result;
+    let result: { idMessage?: string };
     try {
       result = JSON.parse(responseText);
-    } catch (e) {
+    } catch {
       // If edit fails via API, update only locally
       console.log('Edit API failed, updating only in database');
       const { error: updateError } = await supabase
@@ -218,8 +213,13 @@ serve(async (req) => {
         console.error('Error updating message in database:', updateError);
       }
 
+      const localOnlyResponse: MaxEditMessageResponse = {
+        success: true,
+        messageId: messageId,
+        localOnly: true
+      };
       return new Response(
-        JSON.stringify({ success: true, messageId: messageId, localOnly: true }),
+        JSON.stringify(localOnlyResponse),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -238,8 +238,12 @@ serve(async (req) => {
         console.error('Error updating message in database:', updateError);
       }
 
+      const successResponse: MaxEditMessageResponse = {
+        success: true,
+        messageId: result.idMessage
+      };
       return new Response(
-        JSON.stringify({ success: true, messageId: result.idMessage }),
+        JSON.stringify(successResponse),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else {
@@ -254,16 +258,21 @@ serve(async (req) => {
         console.error('Error updating message in database:', updateError);
       }
 
+      const localOnlyResponse: MaxEditMessageResponse = {
+        success: true,
+        messageId: messageId,
+        localOnly: true
+      };
       return new Response(
-        JSON.stringify({ success: true, messageId: messageId, localOnly: true }),
+        JSON.stringify(localOnlyResponse),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in max-edit:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: getErrorMessage(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
