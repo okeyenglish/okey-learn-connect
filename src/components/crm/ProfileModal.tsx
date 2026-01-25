@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Edit2, Mail, Phone, MapPin, Calendar, Building, Settings, User } from "lucide-react";
+import { Edit2, Mail, Phone, MapPin, Calendar, Building, Building2, Settings, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { SipSettings } from "../SipSettings";
+import { useUserAllowedBranches } from "@/hooks/useUserAllowedBranches";
 
 interface ProfileModalProps {
   open: boolean;
@@ -17,6 +18,7 @@ interface ProfileModalProps {
 
 export const ProfileModal = ({ open, onOpenChange }: ProfileModalProps) => {
   const { user, profile, role } = useAuth();
+  const { allowedBranches, isLoading: branchesLoading } = useUserAllowedBranches();
   const [isEditing, setIsEditing] = useState(false);
 
   if (!user || !profile) return null;
@@ -121,10 +123,20 @@ export const ProfileModal = ({ open, onOpenChange }: ProfileModalProps) => {
               )}
 
               <div>
-                <Label>Основной филиал</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <Building className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">OKEY ENGLISH Окская</span>
+                <Label>Доступные филиалы</Label>
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  {branchesLoading ? (
+                    <span className="text-sm text-muted-foreground">Загрузка...</span>
+                  ) : allowedBranches.length > 0 ? (
+                    allowedBranches.map((branch) => (
+                      <Badge key={branch} variant="secondary" className="gap-1">
+                        <Building2 className="h-3 w-3" />
+                        {branch}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Нет назначенных филиалов</span>
+                  )}
                 </div>
               </div>
             </CardContent>
