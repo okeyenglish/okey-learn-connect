@@ -4071,6 +4071,8 @@ const CRMContent = () => {
           onClientsClick={handleMobileClientsClick}
           onCommunitiesClick={handleMobileCommunitiesClick}
           onNewChatClick={handleMobileNewChatClick}
+          onPaymentClick={() => setShowInvoiceModal(true)}
+          onTaskClick={() => setShowAddTaskModal(true)}
           onEmployeeClick={handleMobileEmployeeClick}
           corporateUnreadCount={corporateChats?.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0) || 0}
           teachersUnreadCount={teacherChats?.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0) || 0}
