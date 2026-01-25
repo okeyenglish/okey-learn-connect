@@ -20,6 +20,27 @@ img[alt*="avatar"],
 @tailwind components;
 @tailwind utilities;
 
+/* Message highlight animation for search results */
+@keyframes message-highlight-pulse {
+  0% {
+    background-color: hsl(48 96% 70% / 0.7);
+    box-shadow: 0 0 0 4px hsl(48 96% 70% / 0.3);
+  }
+  50% {
+    background-color: hsl(48 96% 80% / 0.5);
+    box-shadow: 0 0 0 2px hsl(48 96% 70% / 0.2);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+.message-highlight {
+  animation: message-highlight-pulse 2s ease-out forwards;
+  border-radius: 0.75rem;
+}
+
 /* Scanner active state for native Capacitor barcode scanner */
 body.scanner-active {
   background: transparent !important;

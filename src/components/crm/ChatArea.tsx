@@ -62,6 +62,7 @@ interface ChatAreaProps {
   initialMessengerTab?: 'whatsapp' | 'telegram' | 'max'; // Initial messenger tab to show
   messengerTabTimestamp?: number; // Timestamp to force tab switch
   initialSearchQuery?: string; // Search query to auto-open search and scroll to match
+  highlightedMessageId?: string; // Message ID to highlight and scroll to
 }
 
 interface ScheduledMessage {
@@ -89,7 +90,8 @@ export const ChatArea = ({
   onOpenClientInfo,
   initialMessengerTab,
   messengerTabTimestamp,
-  initialSearchQuery
+  initialSearchQuery,
+  highlightedMessageId
 }: ChatAreaProps) => {
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -139,6 +141,8 @@ export const ChatArea = ({
   const [quotedText, setQuotedText] = useState<string | null>(null);
   const [activeMessengerTab, setActiveMessengerTab] = useState("whatsapp");
   const [isTabTransitioning, setIsTabTransitioning] = useState(false);
+  // State for highlighted message (from search navigation)
+  const [currentHighlightedId, setCurrentHighlightedId] = useState<string | null>(null);
   
   
   // Функция для форматирования отображаемого имени (Фамилия Имя, без отчества)
@@ -396,7 +400,69 @@ export const ChatArea = ({
   // Reset initial search when clientId changes
   useEffect(() => {
     setInitialSearchApplied(null);
+    setCurrentHighlightedId(null);
   }, [clientId]);
+
+  // Handle highlighted message - scroll to it and highlight
+  // Also auto-find first matching message when initialSearchQuery is provided
+  useEffect(() => {
+    if (loadingMessages) return;
+    
+    const allMessages = messagesData?.messages || [];
+    
+    // If we have a direct messageId, use it
+    if (highlightedMessageId) {
+      const targetMessage = allMessages.find(m => m.id === highlightedMessageId);
+      if (targetMessage) {
+        console.log('[ChatArea] Scrolling to highlighted message:', highlightedMessageId);
+        
+        const messengerType = targetMessage.messenger_type || 'whatsapp';
+        if (messengerType !== activeMessengerTab) {
+          setActiveMessengerTab(messengerType);
+        }
+        
+        setCurrentHighlightedId(highlightedMessageId);
+        
+        setTimeout(() => {
+          const messageElement = document.getElementById(`message-${highlightedMessageId}`);
+          if (messageElement) {
+            messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
+        
+        setTimeout(() => setCurrentHighlightedId(null), 3000);
+      }
+      return;
+    }
+    
+    // Auto-find first matching message from search query
+    if (initialSearchQuery && initialSearchQuery.length >= 2 && allMessages.length > 0 && !currentHighlightedId) {
+      const lowerQuery = initialSearchQuery.toLowerCase();
+      const matchingMessage = allMessages.find(m => 
+        m.message_text?.toLowerCase().includes(lowerQuery)
+      );
+      
+      if (matchingMessage) {
+        console.log('[ChatArea] Found matching message for search:', matchingMessage.id);
+        
+        const messengerType = matchingMessage.messenger_type || 'whatsapp';
+        if (messengerType !== activeMessengerTab) {
+          setActiveMessengerTab(messengerType);
+        }
+        
+        setCurrentHighlightedId(matchingMessage.id);
+        
+        setTimeout(() => {
+          const messageElement = document.getElementById(`message-${matchingMessage.id}`);
+          if (messageElement) {
+            messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 150);
+        
+        setTimeout(() => setCurrentHighlightedId(null), 3000);
+      }
+    }
+  }, [highlightedMessageId, initialSearchQuery, messagesData?.messages, loadingMessages]);
   
   // Set initial tab to the one with the last message when client changes
   useEffect(() => {
@@ -2067,7 +2133,7 @@ export const ChatArea = ({
                     const isCallback = isSalebotCallback(msg.message) || isSuccessPayment(msg.message);
                     
                     return (
-                      <div key={msg.id || index}>
+                      <div key={msg.id || index} id={`message-${msg.id}`}>
                         {showDateSeparator && msg.createdAt && (
                           <DateSeparator date={msg.createdAt} />
                         )}
@@ -2105,6 +2171,7 @@ export const ChatArea = ({
                             onForwardMessage={handleForwardSingleMessage}
                             onEnterSelectionMode={handleEnterSelectionMode}
                             onQuoteMessage={handleQuoteMessage}
+                            isHighlighted={msg.id === currentHighlightedId}
                           />
                         )}
                       </div>
@@ -2205,7 +2272,7 @@ export const ChatArea = ({
                     const isCallback = isSalebotCallback(msg.message) || isSuccessPayment(msg.message);
                     
                     return (
-                      <div key={msg.id || index}>
+                      <div key={msg.id || index} id={`message-${msg.id}`}>
                         {showDateSeparator && msg.createdAt && (
                           <DateSeparator date={msg.createdAt} />
                         )}
@@ -2242,6 +2309,7 @@ export const ChatArea = ({
                             onForwardMessage={handleForwardSingleMessage}
                             onEnterSelectionMode={handleEnterSelectionMode}
                             onQuoteMessage={handleQuoteMessage}
+                            isHighlighted={msg.id === currentHighlightedId}
                           />
                         )}
                       </div>
@@ -2301,7 +2369,7 @@ export const ChatArea = ({
                     const isCallback = isSalebotCallback(msg.message) || isSuccessPayment(msg.message);
                     
                     return (
-                      <div key={msg.id || index}>
+                      <div key={msg.id || index} id={`message-${msg.id}`}>
                         {showDateSeparator && msg.createdAt && (
                           <DateSeparator date={msg.createdAt} />
                         )}
@@ -2339,6 +2407,7 @@ export const ChatArea = ({
                             onForwardMessage={handleForwardSingleMessage}
                             onEnterSelectionMode={handleEnterSelectionMode}
                             onQuoteMessage={handleQuoteMessage}
+                            isHighlighted={msg.id === currentHighlightedId}
                           />
                         )}
                       </div>
