@@ -200,13 +200,13 @@ Deno.serve(async (req) => {
         message_text: text || (fileUrl ? '[Файл]' : ''),
         message_type: 'manager', // outgoing message from manager
         messenger_type: 'telegram',
+        status: 'sent', // Use 'status' field for delivery tracking
         is_outgoing: true,
         is_read: true,
         external_message_id: sendResult.messageId,
         file_url: fileUrl,
         file_name: fileName,
-        file_type: fileType || contentType, // store content type
-        message_status: 'sent'
+        file_type: fileType || contentType // store content type
       })
       .select('id')
       .single();
