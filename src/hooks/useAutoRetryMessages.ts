@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
+import { registerScheduledRetry, unregisterScheduledRetry } from './useRetryCountdown';
 
 interface RetryState {
   retryCount: number;
@@ -156,10 +157,17 @@ export const useAutoRetryMessages = (
 
     console.log(`[AutoRetry] Scheduling retry #${state.retryCount + 1} for ${messageId.slice(0, 8)} in ${RETRY_DELAY_MS / 1000}s`);
 
+    // Register for countdown display
+    const scheduledAt = Date.now() + RETRY_DELAY_MS;
+    registerScheduledRetry(messageId, scheduledAt);
+
     // Schedule retry
     const timeoutId = setTimeout(async () => {
       const currentState = retryStateMap.get(messageId);
       if (!currentState) return;
+
+      // Unregister countdown
+      unregisterScheduledRetry(messageId);
 
       currentState.isRetrying = true;
       currentState.retryCount++;
@@ -208,6 +216,7 @@ export const useAutoRetryMessages = (
       clearTimeout(state.timeoutId);
       state.timeoutId = null;
       activeRetriesRef.current.delete(messageId);
+      unregisterScheduledRetry(messageId);
       console.log(`[AutoRetry] Cancelled retry for ${messageId.slice(0, 8)}`);
     }
   }, []);

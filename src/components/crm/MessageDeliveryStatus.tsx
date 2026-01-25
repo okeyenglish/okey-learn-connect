@@ -1,7 +1,9 @@
-import { Check, CheckCheck, Clock, AlertCircle, RotateCcw } from "lucide-react";
+import { Check, CheckCheck, Clock, AlertCircle, RotateCcw, Timer } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useEffect, useState, useRef } from "react";
+import { useRetryCountdown } from "@/hooks/useRetryCountdown";
+import { MAX_RETRY_ATTEMPTS, getRetryCountFromMetadata } from "@/hooks/useAutoRetryMessages";
 
 export type DeliveryStatus = 'queued' | 'sent' | 'delivered' | 'read' | 'failed';
 
@@ -10,6 +12,9 @@ interface MessageDeliveryStatusProps {
   className?: string;
   onRetry?: () => void;
   showRetryButton?: boolean;
+  messageId?: string;
+  retryCount?: number;
+  metadata?: Record<string, unknown> | null;
 }
 
 const statusConfig: Record<DeliveryStatus, { 
@@ -63,11 +68,21 @@ export const MessageDeliveryStatus = ({
   status = 'sent',
   className = "",
   onRetry,
-  showRetryButton = true
+  showRetryButton = true,
+  messageId,
+  retryCount: propRetryCount,
+  metadata
 }: MessageDeliveryStatusProps) => {
   const config = statusConfig[status] || statusConfig.sent;
   const [isAnimating, setIsAnimating] = useState(false);
   const prevStatusRef = useRef(status);
+  
+  // Get countdown from hook
+  const countdownSeconds = useRetryCountdown(messageId);
+  
+  // Get retry count from props or metadata
+  const retryCount = propRetryCount ?? getRetryCountFromMetadata(metadata || null);
+  const maxRetriesReached = retryCount >= MAX_RETRY_ATTEMPTS;
 
   // Trigger animation when status changes
   useEffect(() => {
@@ -80,6 +95,11 @@ export const MessageDeliveryStatus = ({
   }, [status]);
 
   const isFailed = status === 'failed';
+
+  // Format countdown display
+  const formatCountdown = (seconds: number) => {
+    return `${seconds}с`;
+  };
 
   return (
     <div className={cn("inline-flex items-center gap-1", className)}>
@@ -95,9 +115,67 @@ export const MessageDeliveryStatus = ({
           </span>
         </TooltipTrigger>
         <TooltipContent side="left" className="text-xs">
-          {config.label}
+          <div className="flex flex-col gap-0.5">
+            <span>{config.label}</span>
+            {isFailed && retryCount > 0 && (
+              <span className="text-muted-foreground">
+                Попытка {retryCount}/{MAX_RETRY_ATTEMPTS}
+              </span>
+            )}
+          </div>
         </TooltipContent>
       </Tooltip>
+      
+      {/* Countdown timer for scheduled auto-retry */}
+      {isFailed && countdownSeconds !== null && countdownSeconds > 0 && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span 
+              className={cn(
+                "inline-flex items-center gap-0.5",
+                "text-[10px] font-medium tabular-nums",
+                "text-amber-600 dark:text-amber-400",
+                "bg-amber-100 dark:bg-amber-900/30",
+                "px-1 py-0.5 rounded",
+                "animate-pulse"
+              )}
+            >
+              <Timer className="h-2.5 w-2.5" />
+              {formatCountdown(countdownSeconds)}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="text-xs">
+            <div className="flex flex-col gap-0.5">
+              <span>Автоповтор через {countdownSeconds} сек</span>
+              <span className="text-muted-foreground">
+                Попытка {retryCount + 1} из {MAX_RETRY_ATTEMPTS}
+              </span>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      )}
+      
+      {/* Max retries reached indicator */}
+      {isFailed && maxRetriesReached && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span 
+              className={cn(
+                "inline-flex items-center gap-0.5",
+                "text-[10px] font-medium",
+                "text-destructive/70",
+                "bg-destructive/10",
+                "px-1 py-0.5 rounded"
+              )}
+            >
+              {retryCount}/{MAX_RETRY_ATTEMPTS}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="text-xs">
+            Все попытки исчерпаны. Отправьте вручную.
+          </TooltipContent>
+        </Tooltip>
+      )}
       
       {/* Retry button for failed messages */}
       {isFailed && showRetryButton && onRetry && (
