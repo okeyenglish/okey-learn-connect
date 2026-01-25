@@ -1,6 +1,16 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/lib/errorUtils';
+import type {
+  MaxSendResponse,
+  MaxEditResponse,
+  MaxDeleteResponse,
+  MaxCheckAvailabilityResponse,
+  MaxAvatarResponse,
+  MaxContactsResponse,
+  MaxContactInfoResponse,
+} from '@/types/edgeFunctions';
 
 interface MaxSettings {
   instanceId: string;
@@ -17,63 +27,15 @@ interface SendMessageParams {
   fileType?: string;
 }
 
-interface MaxSendResponse {
-  success: boolean;
-  messageId?: string;
-  error?: string;
-}
-
-interface MaxEditResponse {
-  success: boolean;
-  error?: string;
-}
-
-interface MaxDeleteResponse {
-  success: boolean;
-  error?: string;
-}
-
-interface MaxCheckAvailabilityResponse {
-  success: boolean;
-  existsWhatsapp?: boolean;
-  chatId?: string;
-  error?: string;
-}
-
-interface MaxAvatarResponse {
-  success: boolean;
-  urlAvatar?: string;
-  available?: boolean;
-  error?: string;
-}
-
-interface MaxContact {
-  id: string;
-  name?: string;
-  phone?: string;
-}
-
-interface MaxContactsResponse {
-  success: boolean;
-  contacts?: MaxContact[];
-  error?: string;
-}
-
-interface MaxContactInfoResponse {
-  success: boolean;
-  name?: string;
-  phone?: string;
-  error?: string;
-  [key: string]: unknown;
-}
-
-// Helper to extract error message from unknown error
-const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'object' && error !== null && 'message' in error) {
-    return String((error as { message: unknown }).message);
-  }
-  return 'Unknown error';
+// Re-export types for external use
+export type {
+  MaxSendResponse,
+  MaxEditResponse,
+  MaxDeleteResponse,
+  MaxCheckAvailabilityResponse,
+  MaxAvatarResponse,
+  MaxContactsResponse,
+  MaxContactInfoResponse,
 };
 
 export const useMax = () => {
