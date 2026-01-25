@@ -393,6 +393,244 @@ export function useTypedPaginatedQuery<TResult>(
   };
 }
 
+// ============ Advanced Query Hooks (with operators) ============
+
+interface UseTypedQueryAdvancedOptions {
+  filters: HelperFilterCondition[];
+  select?: string;
+  order?: { column: string; ascending?: boolean };
+  limit?: number;
+  enabled?: boolean;
+  staleTime?: number;
+  gcTime?: number;
+  refetchOnWindowFocus?: boolean;
+}
+
+/**
+ * React Query хук с расширенными фильтрами (like, ilike, in, contains и т.д.)
+ * 
+ * @example
+ * // Поиск студентов по имени с фильтрацией по статусу и балансу
+ * const { data, isLoading } = useTypedQueryAdvanced<StudentFull>(
+ *   'students',
+ *   JoinSelects.studentFull,
+ *   {
+ *     filters: [
+ *       { column: 'first_name', operator: 'ilike', value: '%Иван%' },
+ *       { column: 'status', operator: 'eq', value: 'active' },
+ *       { column: 'balance', operator: 'gte', value: 0 },
+ *       { column: 'branch', operator: 'in', value: ['main', 'secondary'] }
+ *     ],
+ *     order: { column: 'created_at', ascending: false },
+ *     limit: 100
+ *   }
+ * );
+ * 
+ * @example
+ * // С использованием filterBuilder
+ * const filters = filterBuilder()
+ *   .search('name', 'test')
+ *   .eq('status', 'active')
+ *   .gte('balance', 0)
+ *   .build();
+ * 
+ * const { data } = useTypedQueryAdvanced<Student>('students', '*', { filters });
+ */
+export function useTypedQueryAdvanced<TResult>(
+  table: TableName,
+  selectStr: string,
+  options: UseTypedQueryAdvancedOptions
+) {
+  const { 
+    filters, 
+    order, 
+    limit, 
+    enabled = true, 
+    staleTime,
+    gcTime,
+    refetchOnWindowFocus 
+  } = options;
+
+  // Сериализуем фильтры для queryKey
+  const filtersKey = JSON.stringify(filters);
+
+  return useQuery({
+    queryKey: ['query-advanced', table, selectStr, filtersKey, order, limit],
+    queryFn: async () => {
+      const result = await typedSelectAdvanced<TResult>(
+        table,
+        selectStr,
+        filters,
+        { order, limit }
+      );
+
+      if (result.error) throw result.error;
+      return {
+        data: result.data || [],
+        count: result.count,
+      };
+    },
+    enabled,
+    staleTime,
+    gcTime,
+    refetchOnWindowFocus,
+  });
+}
+
+/**
+ * Хук для одной записи с расширенными фильтрами
+ * 
+ * @example
+ * const { data: student } = useTypedQueryAdvancedOne<StudentFull>(
+ *   'students',
+ *   JoinSelects.studentFull,
+ *   {
+ *     filters: [
+ *       { column: 'email', operator: 'eq', value: 'test@example.com' },
+ *       { column: 'status', operator: 'neq', value: 'deleted' }
+ *     ]
+ *   }
+ * );
+ */
+export function useTypedQueryAdvancedOne<TResult>(
+  table: TableName,
+  selectStr: string,
+  options: Omit<UseTypedQueryAdvancedOptions, 'limit'>
+) {
+  const query = useTypedQueryAdvanced<TResult>(table, selectStr, {
+    ...options,
+    limit: 1,
+  });
+
+  return {
+    ...query,
+    data: query.data?.data?.[0] ?? null,
+    count: query.data?.count,
+  };
+}
+
+/**
+ * Хук с динамическими фильтрами (с возможностью добавления/удаления)
+ * 
+ * @example
+ * const { 
+ *   data, 
+ *   filters,
+ *   addFilter, 
+ *   removeFilter, 
+ *   clearFilters,
+ *   setFilters 
+ * } = useTypedQueryWithFilters<Student>('students', '*', {
+ *   initialFilters: [{ column: 'status', operator: 'eq', value: 'active' }],
+ *   order: { column: 'created_at', ascending: false }
+ * });
+ * 
+ * // Добавить фильтр поиска
+ * addFilter('first_name', 'ilike', '%Иван%');
+ * 
+ * // Удалить фильтр
+ * removeFilter('first_name');
+ * 
+ * // Очистить все фильтры
+ * clearFilters();
+ */
+export function useTypedQueryWithFilters<TResult>(
+  table: TableName,
+  selectStr: string,
+  options: Omit<UseTypedQueryAdvancedOptions, 'filters'> & { 
+    initialFilters?: HelperFilterCondition[] 
+  } = {}
+) {
+  const { initialFilters = [], ...queryOptions } = options;
+  const [filters, setFiltersState] = useState<HelperFilterCondition[]>(initialFilters);
+
+  const query = useTypedQueryAdvanced<TResult>(table, selectStr, {
+    ...queryOptions,
+    filters,
+  });
+
+  const addFilter = useCallback((column: string, operator: HelperFilterOperator, value: unknown) => {
+    setFiltersState(prev => {
+      // Заменяем существующий фильтр для этой колонки
+      const filtered = prev.filter(f => f.column !== column);
+      return [...filtered, { column, operator, value }];
+    });
+  }, []);
+
+  const updateFilter = useCallback((column: string, value: unknown) => {
+    setFiltersState(prev => 
+      prev.map(f => f.column === column ? { ...f, value } : f)
+    );
+  }, []);
+
+  const removeFilter = useCallback((column: string) => {
+    setFiltersState(prev => prev.filter(f => f.column !== column));
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setFiltersState([]);
+  }, []);
+
+  const setFilters = useCallback((newFilters: HelperFilterCondition[]) => {
+    setFiltersState(newFilters);
+  }, []);
+
+  const hasFilter = useCallback((column: string) => {
+    return filters.some(f => f.column === column);
+  }, [filters]);
+
+  const getFilterValue = useCallback((column: string) => {
+    return filters.find(f => f.column === column)?.value;
+  }, [filters]);
+
+  return {
+    ...query,
+    data: query.data?.data || [],
+    count: query.data?.count,
+    filters,
+    addFilter,
+    updateFilter,
+    removeFilter,
+    clearFilters,
+    setFilters,
+    hasFilter,
+    getFilterValue,
+  };
+}
+
+/**
+ * Хук для подсчёта с расширенными фильтрами
+ * 
+ * @example
+ * const { data: count } = useTypedCountAdvanced('students', [
+ *   { column: 'status', operator: 'eq', value: 'active' },
+ *   { column: 'balance', operator: 'lt', value: 0 }
+ * ]);
+ */
+export function useTypedCountAdvanced(
+  table: TableName,
+  filters: HelperFilterCondition[],
+  options: { enabled?: boolean } = {}
+) {
+  const filtersKey = JSON.stringify(filters);
+
+  return useQuery({
+    queryKey: ['count-advanced', table, filtersKey],
+    queryFn: async () => {
+      const result = await typedSelectAdvanced<unknown>(
+        table,
+        'id', // Минимальный select для count
+        filters,
+        { limit: 1 }
+      );
+
+      if (result.error) throw result.error;
+      return result.count || 0;
+    },
+    enabled: options.enabled !== false,
+  });
+}
+
 // ============ Infinite Query Hooks ============
 
 interface UseInfiniteTypedQueryOptions<T> {
