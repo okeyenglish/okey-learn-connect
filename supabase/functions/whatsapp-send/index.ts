@@ -1,18 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-interface SendMessageRequest {
-  clientId: string;
-  message: string;
-  phoneNumber?: string;
-  fileUrl?: string;
-  fileName?: string;
-  phoneId?: string;
-}
+import {
+  corsHeaders,
+  handleCors,
+  getErrorMessage,
+  type SendMessageRequest,
+  type MessengerSettings,
+  type InstanceState,
+} from '../_shared/types.ts';
 
 interface GreenAPIResponse {
   idMessage?: string;
@@ -22,9 +16,8 @@ interface GreenAPIResponse {
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;

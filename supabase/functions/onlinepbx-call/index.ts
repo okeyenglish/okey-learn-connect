@@ -1,10 +1,12 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  corsHeaders,
+  handleCors,
+  errorResponse,
+  getErrorMessage,
+  type OnlinePBXCallRequest,
+  type OnlinePBXCallResponse,
+} from '../_shared/types.ts';
 
 // Generate HMAC-SHA256 signature for OnlinePBX API
 async function generateSignature(key: string, message: string): Promise<string> {
@@ -60,11 +62,10 @@ async function getOnlinePBXConfig(supabase: any, organizationId: string) {
   return null;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabaseClient = createClient(
