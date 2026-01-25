@@ -412,15 +412,42 @@ export const EmployeeOnboarding = () => {
                   )}
                 </div>
 
-                {/* PDF Preview */}
+                {/* PDF Preview - with mobile fallback */}
                 {organization?.settings?.employment_terms_pdf_url && (
-                  <div className="border rounded-lg overflow-hidden bg-muted">
-                    <iframe
-                      src={`${organization.settings.employment_terms_pdf_url}#toolbar=0&navpanes=0`}
-                      className="w-full h-64 sm:h-80"
-                      title="Условия работы PDF"
-                    />
-                  </div>
+                  <>
+                    {/* Desktop: iframe preview */}
+                    <div className="hidden sm:block border rounded-lg overflow-hidden bg-muted">
+                      <iframe
+                        src={`${organization.settings.employment_terms_pdf_url}#toolbar=0&navpanes=0`}
+                        className="w-full h-80"
+                        title="Условия работы PDF"
+                      />
+                    </div>
+                    
+                    {/* Mobile: fallback card */}
+                    <div className="sm:hidden p-4 bg-muted rounded-lg border border-dashed">
+                      <div className="flex flex-col items-center gap-3 text-center">
+                        <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
+                          <FileText className="h-6 w-6 text-red-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Документ с условиями работы</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Нажмите кнопку ниже, чтобы открыть PDF
+                          </p>
+                        </div>
+                        <a 
+                          href={organization.settings.employment_terms_pdf_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                        >
+                          <Download className="h-4 w-4" />
+                          Открыть PDF
+                        </a>
+                      </div>
+                    </div>
+                  </>
                 )}
                 
                 {/* Text Terms */}
