@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import type { MessengerSettings as MessengerSettingsDB } from '@/integrations/supabase/database.types';
 
 interface SendMessageParams {
   clientId: string;
@@ -34,7 +35,8 @@ export const useWhatsApp = () => {
   const getMessengerSettings = useCallback(async (): Promise<WhatsAppSettings | null> => {
     try {
       // RLS will automatically filter by organization_id
-      const { data, error } = await (supabase.from('messenger_settings' as any) as any)
+      const { data, error } = await supabase
+        .from('messenger_settings')
         .select('*')
         .eq('messenger_type', 'whatsapp')
         .maybeSingle();
@@ -47,16 +49,16 @@ export const useWhatsApp = () => {
         return null;
       }
 
-      const settings = (data as any).settings as any;
-      const provider = ((data as any).provider === 'wpp' ? 'wpp' : (data as any).provider === 'wappi' ? 'wappi' : 'greenapi') as 'greenapi' | 'wpp' | 'wappi';
+      const settings = data.settings as Record<string, any> | null;
+      const provider = (data.provider === 'wpp' ? 'wpp' : data.provider === 'wappi' ? 'wappi' : 'greenapi') as 'greenapi' | 'wpp' | 'wappi';
       
       return {
         provider,
         instanceId: settings?.instanceId || '',
         apiToken: settings?.apiToken || '',
         apiUrl: settings?.apiUrl || 'https://api.green-api.com',
-        webhookUrl: (data as any).webhook_url || '',
-        isEnabled: (data as any).is_enabled || false,
+        webhookUrl: data.webhook_url || '',
+        isEnabled: data.is_enabled || false,
         wppSession: settings?.wppSession || 'default',
         wppBaseUrl: settings?.wppBaseUrl || '',
         wppApiKey: settings?.wppApiKey || '',
@@ -137,7 +139,8 @@ export const useWhatsApp = () => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user) throw new Error('Пользователь не авторизован');
 
-      const { data: profile } = await (supabase.from('profiles' as any) as any)
+      const { data: profile } = await supabase
+        .from('profiles')
         .select('organization_id')
         .eq('id', userData.user.id)
         .single();
@@ -145,13 +148,14 @@ export const useWhatsApp = () => {
       if (!profile?.organization_id) throw new Error('Organization ID не найден');
 
       // Read existing settings so partial updates don't wipe fields (e.g. switch provider)
-      const { data: existing } = await (supabase.from('messenger_settings' as any) as any)
+      const { data: existing } = await supabase
+        .from('messenger_settings')
         .select('provider, is_enabled, settings, webhook_url')
         .eq('organization_id', profile.organization_id)
         .eq('messenger_type', 'whatsapp')
         .maybeSingle();
 
-      const prev = ((existing as any)?.settings as any) ?? {};
+      const prev = (existing?.settings as Record<string, any>) ?? {};
 
       const mergedSettings = {
         ...prev,
@@ -166,12 +170,13 @@ export const useWhatsApp = () => {
         ...(settings.wappiApiToken !== undefined ? { wappiApiToken: settings.wappiApiToken } : {}),
       };
 
-      const provider = (settings.provider ?? ((existing as any)?.provider === 'wpp' ? 'wpp' : (existing as any)?.provider === 'wappi' ? 'wappi' : 'greenapi')) as 'greenapi' | 'wpp' | 'wappi';
-      const isEnabled = settings.isEnabled ?? (existing as any)?.is_enabled ?? false;
-      const webhookUrl = settings.webhookUrl !== undefined ? settings.webhookUrl : (existing as any)?.webhook_url;
+      const provider = (settings.provider ?? (existing?.provider === 'wpp' ? 'wpp' : existing?.provider === 'wappi' ? 'wappi' : 'greenapi')) as 'greenapi' | 'wpp' | 'wappi';
+      const isEnabled = settings.isEnabled ?? existing?.is_enabled ?? false;
+      const webhookUrl = settings.webhookUrl !== undefined ? settings.webhookUrl : existing?.webhook_url;
 
       // Upsert messenger_settings with organization_id for tenant isolation
-      const { error } = await (supabase.from('messenger_settings' as any) as any)
+      const { error } = await supabase
+        .from('messenger_settings')
         .upsert({
           organization_id: profile.organization_id,
           messenger_type: 'whatsapp',
@@ -262,9 +267,9 @@ export const useWhatsApp = () => {
 
   const getWebhookLogs = useCallback(async (limit: number = 50) => {
     try {
-      const { data, error } = await (supabase.from('webhook_logs' as any) as any)
+      const { data, error } = await supabase
+        .from('webhook_logs')
         .select('*')
-        .eq('messenger_type', 'whatsapp')
         .order('created_at', { ascending: false })
         .limit(limit);
 

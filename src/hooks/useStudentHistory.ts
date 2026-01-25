@@ -1,17 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
+import type { StudentHistory, Json } from '@/integrations/supabase/database.types';
 
-export interface StudentHistoryEvent {
-  id: string;
-  student_id: string;
-  event_type: string;
-  event_category: string;
-  title: string;
-  description: string | null;
-  old_value: any;
-  new_value: any;
-  changed_by: string | null;
-  created_at: string;
+export interface StudentHistoryEvent extends StudentHistory {
   user_name?: string;
 }
 
@@ -19,8 +10,8 @@ export const useStudentHistory = (studentId: string) => {
   return useQuery({
     queryKey: ['student-history', studentId],
     queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('student_history' as any) as any)
+      const { data, error } = await supabase
+        .from('student_history')
         .select(`
           *,
           profiles:changed_by (
@@ -34,12 +25,15 @@ export const useStudentHistory = (studentId: string) => {
 
       if (error) throw error;
 
-      return (data || []).map((event: any) => ({
-        ...event,
-        user_name: event.profiles 
-          ? `${event.profiles.first_name || ''} ${event.profiles.last_name || ''}`.trim() || event.profiles.email
-          : 'Система'
-      })) as StudentHistoryEvent[];
+      return (data || []).map((event) => {
+        const profiles = event.profiles as { first_name?: string; last_name?: string; email?: string } | null;
+        return {
+          ...event,
+          user_name: profiles 
+            ? `${profiles.first_name || ''} ${profiles.last_name || ''}`.trim() || profiles.email
+            : 'Система'
+        };
+      }) as StudentHistoryEvent[];
     },
     enabled: !!studentId,
   });

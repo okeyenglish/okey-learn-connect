@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from './useAuth';
+import type { PinnedModalDB } from '@/integrations/supabase/database.types';
 
 export interface PinnedModal {
   id: string;
@@ -24,8 +25,8 @@ export const usePinnedModalsDB = () => {
     }
 
     try {
-      const { data, error } = await (supabase
-        .from('pinned_modals' as any) as any)
+      const { data, error } = await supabase
+        .from('pinned_modals')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: true });
@@ -35,7 +36,7 @@ export const usePinnedModalsDB = () => {
         return;
       }
 
-      const formattedModals: PinnedModal[] = (data || []).map((modal: any) => ({
+      const formattedModals: PinnedModal[] = (data || []).map((modal) => ({
         id: modal.modal_id,
         type: modal.modal_type,
         title: modal.title,
@@ -93,8 +94,8 @@ export const usePinnedModalsDB = () => {
       }
 
       console.log('Pinning modal:', modal);
-      const { error } = await (supabase
-        .from('pinned_modals' as any) as any)
+      const { error } = await supabase
+        .from('pinned_modals')
         .upsert({
           user_id: user.id,
           modal_id: modal.id,
@@ -124,8 +125,8 @@ export const usePinnedModalsDB = () => {
 
     try {
       console.log('Unpinning modal:', { id, type });
-      const { error } = await (supabase
-        .from('pinned_modals' as any) as any)
+      const { error } = await supabase
+        .from('pinned_modals')
         .delete()
         .eq('user_id', user.id)
         .eq('modal_id', id)
@@ -150,8 +151,8 @@ export const usePinnedModalsDB = () => {
 
     try {
       // Обновляем в базе данных
-      const { error } = await (supabase
-        .from('pinned_modals' as any) as any)
+      const { error } = await supabase
+        .from('pinned_modals')
         .update({ is_open: true })
         .eq('user_id', user.id)
         .eq('modal_id', id)
@@ -181,8 +182,8 @@ export const usePinnedModalsDB = () => {
 
     try {
       // Обновляем в базе данных
-      const { error } = await (supabase
-        .from('pinned_modals' as any) as any)
+      const { error } = await supabase
+        .from('pinned_modals')
         .update({ is_open: false })
         .eq('user_id', user.id)
         .eq('modal_id', id)
