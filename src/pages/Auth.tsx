@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Eye, EyeOff, Phone, Lock } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -105,8 +105,8 @@ export default function Auth() {
 
       if (data.user) {
         // Получаем роль пользователя с приоритетом
-        const { data: roleData, error: roleError } = await supabase
-          .rpc('get_user_role', { _user_id: data.user.id });
+        const { data: roleData, error: roleError } = await (supabase.rpc as any)(
+          'get_user_role', { _user_id: data.user.id });
 
         console.log('User role:', roleData, 'Error:', roleError);
 

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Plus, Pencil, Trash2, Save, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/components/ui/use-toast";
 
 interface FAQItem {
@@ -38,8 +38,7 @@ export default function AdminFAQ() {
 
   const loadFAQItems = async () => {
     try {
-      const { data, error } = await supabase
-        .from('faq')
+      const { data, error } = await (supabase.from('faq' as any) as any)
         .select('*')
         .order('sort_order', { ascending: true });
 
@@ -69,8 +68,7 @@ export default function AdminFAQ() {
     try {
       if (id) {
         // Update existing item
-        const { error } = await supabase
-          .from('faq')
+        const { error } = await (supabase.from('faq' as any) as any)
           .update({
             question: formData.question,
             answer: formData.answer,
@@ -87,8 +85,7 @@ export default function AdminFAQ() {
         });
       } else {
         // Create new item
-        const { error } = await supabase
-          .from('faq')
+        const { error } = await (supabase.from('faq' as any) as any)
           .insert({
             question: formData.question,
             answer: formData.answer,
@@ -122,8 +119,7 @@ export default function AdminFAQ() {
     if (!confirm('Вы уверены, что хотите удалить этот вопрос?')) return;
 
     try {
-      const { error } = await supabase
-        .from('faq')
+      const { error } = await (supabase.from('faq' as any) as any)
         .delete()
         .eq('id', id);
 

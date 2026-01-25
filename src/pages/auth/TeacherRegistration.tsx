@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,8 +35,7 @@ const TeacherRegistration = () => {
 
   const validateToken = async () => {
     try {
-      const { data, error } = await supabase
-        .from('organizations')
+      const { data, error } = await (supabase.from('organizations' as any) as any)
         .select('*, organization_branches(*)')
         .eq('teacher_registration_token', token)
         .eq('teacher_registration_enabled', true)
@@ -53,7 +52,7 @@ const TeacherRegistration = () => {
       }
 
       setOrganizationInfo(data);
-      setBranches(data.organization_branches || []);
+      setBranches((data as any).organization_branches || []);
     } catch (error) {
       console.error('Token validation error:', error);
       navigate('/');
@@ -99,8 +98,7 @@ const TeacherRegistration = () => {
       const userId = authData.user.id;
 
       // 2. Обновляем профиль
-      const { error: profileError } = await supabase
-        .from('profiles')
+      const { error: profileError } = await (supabase.from('profiles' as any) as any)
         .update({
           first_name: formData.firstName,
           last_name: formData.lastName,
@@ -113,8 +111,7 @@ const TeacherRegistration = () => {
       if (profileError) throw profileError;
 
       // 3. Назначаем роль teacher
-      const { error: roleError } = await supabase
-        .from('user_roles')
+      const { error: roleError } = await (supabase.from('user_roles' as any) as any)
         .insert({
           user_id: userId,
           role: 'teacher',
@@ -123,8 +120,7 @@ const TeacherRegistration = () => {
       if (roleError) throw roleError;
 
       // 4. Создаем запись в teachers
-      const { error: teacherError } = await supabase
-        .from('teachers')
+      const { error: teacherError } = await (supabase.from('teachers' as any) as any)
         .insert({
           profile_id: userId,
           first_name: formData.firstName,

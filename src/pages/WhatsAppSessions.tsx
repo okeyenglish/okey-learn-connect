@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -82,20 +82,19 @@ const WhatsAppSessions = () => {
         throw new Error('Пользователь не авторизован');
       }
 
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
+      const { data: profile, error: profileError } = await (supabase.from('profiles' as any) as any)
         .select('organization_id')
         .eq('id', user.id)
         .single();
 
       if (profileError) throw profileError;
-      if (!profile?.organization_id) {
+      const profileData = profile as any;
+      if (!profileData?.organization_id) {
         throw new Error('Организация не найдена');
       }
 
       // Fetch sessions only for user's organization
-      const { data, error } = await supabase
-        .from('whatsapp_sessions')
+      const { data, error } = await (supabase.from('whatsapp_sessions' as any) as any)
         .select(`
           id,
           session_name,
@@ -107,7 +106,7 @@ const WhatsAppSessions = () => {
           last_qr_at,
           organizations(name)
         `)
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', profileData.organization_id)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
