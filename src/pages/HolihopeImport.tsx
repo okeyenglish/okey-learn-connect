@@ -356,13 +356,47 @@ export default function HolihopeImport() {
     );
   };
 
-  const executeStep = async (step: ImportStep, batchParams?: any) => {
+  interface ExecuteStepResult {
+    success: boolean;
+    progress?: EdgeFunctionProgress;
+    nextBatch?: unknown;
+    stats?: { totalImported?: number; progressPercentage?: number; currentPosition?: number; totalCombinations?: number };
+    alreadyRunning?: boolean;
+    lastUpdatedSecondsAgo?: number;
+    timeout?: boolean;
+    transient?: boolean;
+    autoContinue?: boolean;
+    message?: string;
+  }
+
+  interface EdgeFunctionProgress {
+    status?: 'pending' | 'in_progress' | 'completed' | 'error';
+    count?: number;
+    message?: string;
+    error?: string;
+    hasMore?: boolean;
+    nextSkip?: number;
+  }
+
+  interface BatchParams {
+    batch_size?: number;
+    office_index?: number;
+    status_index?: number;
+    time_index?: number;
+    full_history?: boolean;
+    resume?: boolean;
+    skip?: number;
+    batch_mode?: boolean;
+    max_batches?: number;
+  }
+
+  const executeStep = async (step: ImportStep, batchParams?: BatchParams): Promise<ExecuteStepResult> => {
     setSteps((prev) =>
-      prev.map((s) => (s.id === step.id ? { ...s, status: 'in_progress' } : s))
+      prev.map((s) => (s.id === step.id ? { ...s, status: 'in_progress' as const } : s))
     );
 
     try {
-      const body: any = { action: step.action, ...(batchParams || {}) };
+      const body: { action: string } & BatchParams = { action: step.action, ...(batchParams || {}) };
 
       // Step 12 is long-running (many batches); give it more headroom.
       const timeoutMs = body.action === 'import_ed_units' ? 120_000 : 60_000;
@@ -375,12 +409,25 @@ export default function HolihopeImport() {
         },
       });
 
-      const result = (await Promise.race([
+      // EdgeFunctionProgress interface is already defined above
+      
+      interface EdgeFunctionResult {
+        data?: {
+          alreadyRunning?: boolean;
+          lastUpdatedSecondsAgo?: number;
+          progress?: EdgeFunctionProgress[];
+          nextBatch?: unknown;
+          stats?: { totalImported?: number; progressPercentage?: number; currentPosition?: number; totalCombinations?: number };
+        };
+        error?: Error | null;
+      }
+      
+      const result = await Promise.race([
         invokePromise,
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('REQUEST_TIMEOUT')), timeoutMs)
         ),
-      ])) as any;
+      ]) as EdgeFunctionResult;
 
       const { data, error } = result || {};
       if (error) throw error;
@@ -535,7 +582,7 @@ export default function HolihopeImport() {
           };
           
           console.log('Starting ed_units import with auto-continue on server...', batchParams);
-          const result = await executeStep(step, batchParams) as any;
+          const result = await executeStep(step, batchParams);
           console.log('Initial batch result:', result);
           
           if (!result.success) {
@@ -743,7 +790,7 @@ export default function HolihopeImport() {
       
       try {
         console.log('Starting ed_units import with auto-continue on server...', batchParams);
-        const result = await executeStep(step, batchParams) as any;
+        const result = await executeStep(step, batchParams);
         console.log('Initial batch result:', result);
         
         if (!result.success) {
@@ -885,7 +932,7 @@ export default function HolihopeImport() {
     
     try {
       console.log('Resuming ed_units import with auto-continue on server...');
-      const result = await executeStep(step, batchParams) as any;
+      const result = await executeStep(step, batchParams);
       console.log('Resume batch result:', result);
       
       if (!result.success) {

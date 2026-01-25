@@ -12,10 +12,23 @@ import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import { useIsMobile } from '@/hooks/use-mobile';
 
+// Browser API type extensions
+declare global {
+  interface Window {
+    webkitAudioContext?: typeof AudioContext;
+  }
+}
+
+// Helper to detect iOS devices
+const getIsIOS = () => {
+  const ua = navigator.userAgent;
+  return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+};
+
 interface VoiceAssistantProps {
   isOpen: boolean;
   onToggle: () => void;
-  embedded?: boolean; // Новый prop для встраивания в другие компоненты
+  embedded?: boolean;
   context?: {
     currentPage: string;
     activeClientId: string | null;
@@ -44,9 +57,14 @@ interface ChatMessage {
   isVoice?: boolean;
 }
 
+interface DeletedTask {
+  id: string;
+  [key: string]: unknown;
+}
+
 interface ActionResult {
   type: string;
-  data?: any;
+  data?: unknown;
   clientName?: string;
   clientId?: string;
   action?: string;
@@ -56,7 +74,7 @@ interface ActionResult {
   modalType?: string;
   taskId?: string;
   deletedCount?: number;
-  deletedTasks?: any[];
+  deletedTasks?: DeletedTask[];
 }
 
 export default function VoiceAssistant({ 
@@ -75,7 +93,7 @@ export default function VoiceAssistant({
   const [audioEnabled, setAudioEnabled] = useState(true);
   
   const isMobile = useIsMobile();
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1);
+  const isIOS = getIsIOS();
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -148,7 +166,7 @@ export default function VoiceAssistant({
         throw new Error('Ваш браузер не поддерживает запись аудио');
       }
 
-      if (typeof (window as any).MediaRecorder === 'undefined') {
+      if (typeof MediaRecorder === 'undefined') {
         throw new Error('Ваш браузер не поддерживает запись аудио (MediaRecorder). Обновите браузер.');
       }
 
@@ -170,7 +188,7 @@ export default function VoiceAssistant({
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       console.log('Microphone access granted');
       
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext!)();
       if (audioContextRef.current.state === 'suspended') {
         try { await audioContextRef.current.resume(); } catch {}
       }
@@ -181,22 +199,24 @@ export default function VoiceAssistant({
       
       let mimeType = 'audio/webm;codecs=opus';
       try {
+        const checkMimeType = (type: string) => MediaRecorder.isTypeSupported(type);
+        
         if (isIOS) {
-          if ((MediaRecorder as any).isTypeSupported?.('audio/mp4;codecs=mp4a.40.2')) {
+          if (checkMimeType('audio/mp4;codecs=mp4a.40.2')) {
             mimeType = 'audio/mp4;codecs=mp4a.40.2';
-          } else if ((MediaRecorder as any).isTypeSupported?.('audio/mp4')) {
+          } else if (checkMimeType('audio/mp4')) {
             mimeType = 'audio/mp4';
-          } else if ((MediaRecorder as any).isTypeSupported?.('audio/webm')) {
+          } else if (checkMimeType('audio/webm')) {
             mimeType = 'audio/webm';
-          } else if ((MediaRecorder as any).isTypeSupported?.('audio/ogg')) {
+          } else if (checkMimeType('audio/ogg')) {
             mimeType = 'audio/ogg';
           }
         } else if (isMobile) {
-          if ((MediaRecorder as any).isTypeSupported?.('audio/webm;codecs=opus')) {
+          if (checkMimeType('audio/webm;codecs=opus')) {
             mimeType = 'audio/webm;codecs=opus';
-          } else if ((MediaRecorder as any).isTypeSupported?.('audio/ogg')) {
+          } else if (checkMimeType('audio/ogg')) {
             mimeType = 'audio/ogg';
-          } else if ((MediaRecorder as any).isTypeSupported?.('audio/mp4')) {
+          } else if (checkMimeType('audio/mp4')) {
             mimeType = 'audio/mp4';
           }
         }
@@ -362,13 +382,15 @@ export default function VoiceAssistant({
             resultType === 'task_updated' || resultType === 'tasks_deleted' || resultType === 'delete_error') {
           
           if (Array.isArray(data.actionResult?.deletedTasks) && data.actionResult.deletedTasks.length > 0) {
-            const deletedIds = data.actionResult.deletedTasks.map((t: any) => t.id);
-            const updateFn = (old: any) => {
+            const deletedTasks = data.actionResult.deletedTasks as DeletedTask[];
+            const deletedIds = deletedTasks.map((t) => t.id);
+            const updateFn = (old: unknown) => {
               if (!old) return old;
-              if (Array.isArray(old)) return old.filter((task: any) => !deletedIds.includes(task.id));
+              if (Array.isArray(old)) return old.filter((task: { id?: string }) => !deletedIds.includes(task.id || ''));
               return old;
             };
-            const keys: any[] = [ ['tasks'], ['all-tasks'] ];
+            type QueryKey = readonly unknown[];
+            const keys: QueryKey[] = [ ['tasks'], ['all-tasks'] ];
             if (context?.activeClientId) keys.push(['tasks', context.activeClientId]);
             keys.forEach((key) => queryClient.setQueriesData({ queryKey: key }, updateFn));
             queryClient.setQueriesData({
