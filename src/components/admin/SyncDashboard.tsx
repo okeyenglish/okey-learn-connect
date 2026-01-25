@@ -14,6 +14,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useOrganization } from '@/hooks/useOrganization';
 import { getInvokeErrorMessage } from '@/lib/functionsInvokeError';
 import { getErrorMessage } from '@/lib/errorUtils';
+import type {
+  SalebotImportBatchResponse,
+  SalebotFillIdsResponse,
+  SalebotStopResponse,
+  CsvImportResponse,
+} from '@/types/edgeFunctions';
 
 interface SalebotProgress {
   totalClientsProcessed: number;
@@ -70,41 +76,6 @@ interface HolihopeProgress {
   totalStudentsImported: number;
   totalGroupsImported: number;
   lastError: string | null;
-}
-
-// Типы для edge function responses
-interface SalebotStopResponse {
-  success?: boolean;
-  message?: string;
-}
-
-interface SalebotImportBatchResponse {
-  skipped?: boolean;
-  apiLimitReached?: boolean;
-  message?: string;
-  totalClients?: number;
-  messagesImported?: number;
-  processedClients?: number;
-  newMessages?: number;
-  totalNewMessages?: number;
-  completed?: boolean;
-}
-
-interface SalebotFillIdsResponse {
-  success?: boolean;
-  message?: string;
-  totalProcessed?: number;
-  totalMatched?: number;
-  processedThisBatch?: number;
-  matchedThisBatch?: number;
-}
-
-interface CsvImportResponse {
-  success?: boolean;
-  error?: string;
-  updated?: number;
-  created?: number;
-  errors?: number;
 }
 
 // Расширенный тип для salebot_import_progress с fill_ids полями
@@ -1415,7 +1386,7 @@ export function SyncDashboard() {
         }
 
         totalUpdated += result.updated || 0;
-        totalErrors += result.errors || 0;
+        totalErrors += typeof result.errors === 'number' ? result.errors : (result.errors?.length || 0);
 
         // Update progress AFTER successful chunk
         setCsvImportProgress({ 
@@ -1456,7 +1427,7 @@ export function SyncDashboard() {
 
           const result = data as CsvImportResponse;
           totalCreated += result.created || 0;
-          totalErrors += result.errors || 0;
+          totalErrors += typeof result.errors === 'number' ? result.errors : (result.errors?.length || 0);
 
           // Update progress
           setCsvImportProgress({ 
