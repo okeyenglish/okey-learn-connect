@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
-import type { DiscountSurcharge, StudentDiscountSurcharge } from "@/integrations/supabase/database.types";
+import type { DiscountSurcharge, StudentDiscountSurcharge, Json } from "@/integrations/supabase/database.types";
 
 export type { DiscountSurcharge };
 
@@ -21,6 +21,12 @@ export interface PriceCalculation {
     applied: number;
     price_after: number;
   }>;
+}
+
+interface ApplyDiscountResult {
+  id: string;
+  student_id: string;
+  discount_id: string;
 }
 
 // Получить все скидки/доплаты
@@ -81,7 +87,7 @@ export const useCreateDiscount = () => {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as DiscountSurcharge;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['discounts-surcharges'] });
@@ -115,7 +121,7 @@ export const useUpdateDiscount = () => {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as DiscountSurcharge;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['discounts-surcharges'] });
@@ -157,7 +163,7 @@ export const useApplyDiscountToStudent = () => {
       validUntil?: string;
       notes?: string;
     }) => {
-      const { data, error } = await supabase.rpc('apply_discount_to_student' as any, {
+      const { data, error } = await supabase.rpc('apply_discount_to_student', {
         _student_id: studentId,
         _discount_id: discountId,
         _is_permanent: isPermanent,
@@ -168,7 +174,7 @@ export const useApplyDiscountToStudent = () => {
       });
 
       if (error) throw error;
-      return data;
+      return data as ApplyDiscountResult;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['student-discounts', variables.studentId] });
@@ -231,14 +237,15 @@ export const useCalculatePriceWithDiscounts = () => {
       studentId: string;
       discountIds?: string[];
     }) => {
-      const { data, error } = await supabase.rpc('calculate_price_with_discounts' as any, {
+      const { data, error } = await supabase.rpc('calculate_price_with_discounts', {
         _base_price: basePrice,
         _student_id: studentId,
         _discount_ids: discountIds || null,
       });
 
       if (error) throw error;
-      return (data && data.length > 0 ? data[0] : null) as PriceCalculation | null;
+      const results = data as PriceCalculation[] | null;
+      return results && results.length > 0 ? results[0] : null;
     },
   });
 };
