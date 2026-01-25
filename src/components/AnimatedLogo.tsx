@@ -6,6 +6,9 @@ interface AnimatedLogoProps {
 }
 
 export const AnimatedLogo = ({ size = 56, className }: AnimatedLogoProps) => {
+  const borderWidth = 3;
+  const ringRadius = (size / 2) - (borderWidth / 2);
+  
   return (
     <div 
       className={cn(
@@ -14,51 +17,60 @@ export const AnimatedLogo = ({ size = 56, className }: AnimatedLogoProps) => {
       )}
       style={{ width: size, height: size }}
     >
-      {/* Siri-like animated border ring */}
-      <div 
-        className="absolute inset-0 rounded-full animate-siri-border"
-        style={{
-          background: 'conic-gradient(from 0deg, hsl(217 72% 48% / 0.9), hsl(180 60% 50% / 0.8), hsl(260 60% 55% / 0.7), hsl(330 70% 60% / 0.6), hsl(217 72% 48% / 0.9))',
-          padding: '3px',
-        }}
+      {/* SVG animated border rings */}
+      <svg 
+        className="absolute inset-0 w-full h-full"
+        viewBox={`0 0 ${size} ${size}`}
       >
-        <div 
-          className="w-full h-full rounded-full"
-          style={{ background: 'hsl(var(--background))' }}
+        <defs>
+          {/* Siri-like gradient */}
+          <linearGradient id="siriGradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="hsl(217, 72%, 48%)" stopOpacity="0.9" />
+            <stop offset="25%" stopColor="hsl(180, 60%, 50%)" stopOpacity="0.8" />
+            <stop offset="50%" stopColor="hsl(260, 60%, 55%)" stopOpacity="0.7" />
+            <stop offset="75%" stopColor="hsl(330, 70%, 60%)" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="hsl(217, 72%, 48%)" stopOpacity="0.9" />
+          </linearGradient>
+          
+          <linearGradient id="siriGradient2" x1="100%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="hsl(190, 70%, 50%)" stopOpacity="0.6" />
+            <stop offset="50%" stopColor="hsl(280, 60%, 55%)" stopOpacity="0.5" />
+            <stop offset="100%" stopColor="hsl(217, 72%, 48%)" stopOpacity="0.6" />
+          </linearGradient>
+        </defs>
+        
+        {/* Main rotating ring */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={ringRadius}
+          fill="none"
+          stroke="url(#siriGradient1)"
+          strokeWidth={borderWidth}
+          className="animate-siri-ring"
+          style={{ transformOrigin: 'center' }}
         />
-      </div>
-      
-      {/* Second layer - counter rotating for dynamic effect */}
-      <div 
-        className="absolute inset-0 rounded-full animate-siri-border-reverse"
-        style={{
-          background: 'conic-gradient(from 180deg, hsl(190 70% 50% / 0.6), transparent 30%, hsl(280 60% 55% / 0.5), transparent 60%, hsl(217 72% 48% / 0.6), transparent 90%)',
-          padding: '3px',
-          mixBlendMode: 'screen',
-        }}
-      >
-        <div 
-          className="w-full h-full rounded-full"
-          style={{ background: 'hsl(var(--background))' }}
+        
+        {/* Secondary counter-rotating ring */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={ringRadius - 4}
+          fill="none"
+          stroke="url(#siriGradient2)"
+          strokeWidth={2}
+          strokeDasharray="40 60"
+          className="animate-siri-ring-reverse"
+          style={{ transformOrigin: 'center', opacity: 0.7 }}
         />
-      </div>
+      </svg>
       
-      {/* Pulsing glow behind border */}
+      {/* Pulsing glow behind */}
       <div 
-        className="absolute inset-[-4px] rounded-full animate-siri-glow"
+        className="absolute inset-[-4px] rounded-full animate-siri-glow -z-10"
         style={{
-          background: 'conic-gradient(from 90deg, hsl(217 72% 48% / 0.4), hsl(180 60% 50% / 0.3), hsl(260 60% 55% / 0.3), hsl(330 70% 60% / 0.2), hsl(217 72% 48% / 0.4))',
-          filter: 'blur(6px)',
-        }}
-      />
-      
-      {/* Inner breathing glow */}
-      <div 
-        className="absolute rounded-full animate-siri-breathe"
-        style={{
-          width: size * 0.8,
-          height: size * 0.8,
-          background: 'radial-gradient(circle, hsl(217 72% 48% / 0.1) 0%, transparent 70%)',
+          background: 'conic-gradient(from 90deg, hsl(217 72% 48% / 0.3), hsl(180 60% 50% / 0.2), hsl(260 60% 55% / 0.2), hsl(330 70% 60% / 0.15), hsl(217 72% 48% / 0.3))',
+          filter: 'blur(8px)',
         }}
       />
       
@@ -68,15 +80,15 @@ export const AnimatedLogo = ({ size = 56, className }: AnimatedLogoProps) => {
         alt="Logo"
         className="relative z-10 rounded-full object-contain transition-transform duration-300 group-hover:scale-105"
         style={{
-          width: size * 0.75,
-          height: size * 0.75,
+          width: size * 0.7,
+          height: size * 0.7,
           filter: 'drop-shadow(0 0 6px hsl(217 72% 48% / 0.3))',
         }}
       />
       
-      {/* Custom Siri-like keyframes */}
+      {/* Custom keyframes */}
       <style>{`
-        @keyframes siriBorder {
+        @keyframes siriRing {
           0% {
             transform: rotate(0deg);
           }
@@ -85,7 +97,7 @@ export const AnimatedLogo = ({ size = 56, className }: AnimatedLogoProps) => {
           }
         }
         
-        @keyframes siriBorderReverse {
+        @keyframes siriRingReverse {
           0% {
             transform: rotate(360deg);
           }
@@ -100,36 +112,21 @@ export const AnimatedLogo = ({ size = 56, className }: AnimatedLogoProps) => {
             opacity: 0.5;
           }
           50% {
-            transform: rotate(180deg) scale(1.08);
-            opacity: 0.8;
+            transform: rotate(180deg) scale(1.05);
+            opacity: 0.7;
           }
         }
         
-        @keyframes siriBreathe {
-          0%, 100% {
-            transform: scale(1);
-            opacity: 0.3;
-          }
-          50% {
-            transform: scale(1.1);
-            opacity: 0.6;
-          }
+        .animate-siri-ring {
+          animation: siriRing 4s linear infinite;
         }
         
-        .animate-siri-border {
-          animation: siriBorder 4s linear infinite;
-        }
-        
-        .animate-siri-border-reverse {
-          animation: siriBorderReverse 6s linear infinite;
+        .animate-siri-ring-reverse {
+          animation: siriRingReverse 6s linear infinite;
         }
         
         .animate-siri-glow {
           animation: siriGlow 8s ease-in-out infinite;
-        }
-        
-        .animate-siri-breathe {
-          animation: siriBreathe 3s ease-in-out infinite;
         }
       `}</style>
     </div>
