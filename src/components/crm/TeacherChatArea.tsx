@@ -30,6 +30,7 @@ import { AddTeacherModal } from '@/components/admin/AddTeacherModal';
 import { useTeacherChats, useEnsureTeacherClient, TeacherChatItem, useTeacherChatMessages } from '@/hooks/useTeacherChats';
 import { TeacherListItem } from './TeacherListItem';
 import { useClientAvatars } from '@/hooks/useClientAvatars';
+import { useMessageStatusRealtime } from '@/hooks/useChatMessagesOptimized';
 
 interface TeacherGroup {
   id: string;
@@ -193,6 +194,9 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   
   // Use special RPC for teacher messages that bypasses RLS org filter
   const { messages, isLoading: messagesLoading, error: messagesError, refetch: refetchMessages, isFetching: messagesFetching } = useTeacherChatMessages(clientId);
+  
+  // Subscribe to realtime message status updates
+  useMessageStatusRealtime(clientId);
   const sendMessage = useSendMessage();
   const markAsRead = useMarkAsRead();
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);

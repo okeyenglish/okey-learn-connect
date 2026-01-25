@@ -1,8 +1,9 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { ChatMessage } from './useChatMessages';
 import { chatQueryConfig } from '@/lib/queryConfig';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 const MESSAGES_PER_PAGE = 100;
 
@@ -99,6 +100,60 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
   });
 
   return query;
+};
+
+/**
+ * Hook for realtime message status updates
+ * Subscribes to UPDATE events on chat_messages to track delivery status changes
+ */
+export const useMessageStatusRealtime = (clientId: string) => {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!clientId) return;
+
+    const channel = supabase
+      .channel(`message-status-${clientId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `client_id=eq.${clientId}`,
+        },
+        (payload: RealtimePostgresChangesPayload<{ status?: string; id?: string }>) => {
+          const newRecord = payload.new as { status?: string; id?: string };
+          
+          // Only process if status field was updated
+          if (newRecord?.status) {
+            console.log('[Realtime] Message status updated:', newRecord.id, '->', newRecord.status);
+            
+            // Update the cached messages data
+            queryClient.setQueriesData(
+              { queryKey: ['chat-messages-optimized', clientId] },
+              (oldData: any) => {
+                if (!oldData?.messages) return oldData;
+                
+                return {
+                  ...oldData,
+                  messages: oldData.messages.map((msg: ChatMessage) => 
+                    msg.id === newRecord.id 
+                      ? { ...msg, status: newRecord.status }
+                      : msg
+                  )
+                };
+              }
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [clientId, queryClient]);
 };
 
 /**
