@@ -49,9 +49,13 @@ export const PullToRefresh = ({
       const distance = Math.min(diff * resistance, threshold * 1.5);
       setPullDistance(distance);
       
-      if (distance >= threshold) {
+      if (distance >= threshold && pullState !== 'ready') {
         setPullState('ready');
-      } else {
+        // Haptic feedback when reaching threshold
+        if (navigator.vibrate) {
+          navigator.vibrate(10);
+        }
+      } else if (distance < threshold) {
         setPullState('pulling');
       }
       
@@ -68,6 +72,11 @@ export const PullToRefresh = ({
     if (pullState === 'ready') {
       setPullState('refreshing');
       setPullDistance(threshold * 0.6); // Keep indicator visible during refresh
+      
+      // Haptic feedback on refresh start
+      if (navigator.vibrate) {
+        navigator.vibrate([15, 50, 15]);
+      }
       
       try {
         await onRefresh();
