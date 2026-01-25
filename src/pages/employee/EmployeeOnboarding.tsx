@@ -391,7 +391,7 @@ export const EmployeeOnboarding = () => {
 
             {/* Условия работы */}
             {(organization?.settings?.employment_terms || organization?.settings?.employment_terms_pdf_url) && (
-              <div className="p-3 bg-muted rounded-lg space-y-3">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 text-muted-foreground" />
@@ -411,10 +411,21 @@ export const EmployeeOnboarding = () => {
                     </a>
                   )}
                 </div>
+
+                {/* PDF Preview */}
+                {organization?.settings?.employment_terms_pdf_url && (
+                  <div className="border rounded-lg overflow-hidden bg-muted">
+                    <iframe
+                      src={`${organization.settings.employment_terms_pdf_url}#toolbar=0&navpanes=0`}
+                      className="w-full h-64 sm:h-80"
+                      title="Условия работы PDF"
+                    />
+                  </div>
+                )}
                 
                 {/* Text Terms */}
                 {organization?.settings?.employment_terms && (
-                  <div className="max-h-40 overflow-y-auto">
+                  <div className="p-3 bg-muted rounded-lg max-h-40 overflow-y-auto">
                     <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                       {organization.settings.employment_terms}
                     </p>
