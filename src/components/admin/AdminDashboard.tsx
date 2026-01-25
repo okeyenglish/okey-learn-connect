@@ -5,6 +5,7 @@ import { AdminScheduleManager } from "./AdminScheduleManager";
 import { TextbookManager } from "./TextbookManager";
 import { RoleManager } from "./RoleManager";
 import { UserPermissionsManager } from "./UserPermissionsManager";
+import { UserBranchesManager } from "./UserBranchesManager";
 import { AdminCoursePricing } from "./AdminCoursePricing";
 import { AIProviderSettings } from "./AIProviderSettings";
 import ReferencesSection from "@/components/references/ReferencesSection";
@@ -95,6 +96,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <PaymentTerminalsSettings />;
       case "users":
         return <UserPermissionsManager />;
+      case "user-branches":
+        return <UserBranchesManager />;
       case "settings":
         return (
           <Card>
