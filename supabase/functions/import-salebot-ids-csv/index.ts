@@ -1,11 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
+import { 
+  corsHeaders, 
+  errorResponse, 
+  getErrorMessage,
+  handleCors 
+} from '../_shared/types.ts';
 
 const FUNCTION_VERSION = '2026-01-15-1925';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 interface UpdateRequest {
   clientId: string;
@@ -19,10 +20,8 @@ interface NewClientRequest {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   console.log(`🚀 import-salebot-ids-csv v${FUNCTION_VERSION} started`);
 
@@ -308,14 +307,8 @@ Deno.serve(async (req) => {
       },
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ Import error:', error);
-    return new Response(JSON.stringify({
-      success: false,
-      error: error.message
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return errorResponse(getErrorMessage(error), 500);
   }
 });

@@ -1,15 +1,15 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
+import { 
+  corsHeaders, 
+  successResponse, 
+  getErrorMessage,
+  handleCors 
+} from '../_shared/types.ts';
 
 const YANDEX_DIRECT_TOKEN = Deno.env.get('YANDEX_DIRECT_TOKEN');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 // Локации школ O'KEY ENGLISH (из branches)
 const SCHOOL_LOCATIONS = [
@@ -37,10 +37,9 @@ const BASE_QUERIES = [
   'английский для школьников',
 ];
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const { organizationId } = await req.json();
@@ -235,21 +234,18 @@ if (collectedKeywords.length === 0 && accessDenied) {
       output_data: { collected_count: collectedKeywords.length },
     });
 
-    return new Response(JSON.stringify({
-      success: true,
+    return successResponse({
       collected: collectedKeywords.length,
       clusters_created: BASE_QUERIES.length,
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('[seo-collect-wordstat] Error:', error);
 
     return new Response(JSON.stringify({
       success: false,
       code: 'UNEXPECTED_ERROR',
-      message: error instanceof Error ? error.message : 'Неизвестная ошибка при сборе Wordstat',
+      message: getErrorMessage(error),
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -1,24 +1,21 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { 
+  corsHeaders, 
+  successResponse, 
+  errorResponse, 
+  getErrorMessage,
+  handleCors 
+} from '../_shared/types.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const { keyword, keywords, regionIds = [225] } = await req.json();
     
     const directToken = Deno.env.get('YANDEX_DIRECT_TOKEN');
     if (!directToken) {
-      return new Response(
-        JSON.stringify({ error: 'YANDEX_DIRECT_TOKEN not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('YANDEX_DIRECT_TOKEN not configured', 500);
     }
 
     // Batch или single запрос
@@ -44,10 +41,7 @@ serve(async (req) => {
     if (!wordstatResponse.ok) {
       const errorText = await wordstatResponse.text();
       console.error('Wordstat API error:', errorText);
-      return new Response(
-        JSON.stringify({ error: `Wordstat API error: ${wordstatResponse.status}` }),
-        { status: wordstatResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse(`Wordstat API error: ${wordstatResponse.status}`, wordstatResponse.status);
     }
 
     const wordstatData = await wordstatResponse.json();
@@ -80,18 +74,15 @@ serve(async (req) => {
     }
 
     // Возвращаем single или batch результат
-    const response = keywords ? results : results[keyword];
+    const responseData = keywords ? results : results[keyword];
     
     return new Response(
-      JSON.stringify(response),
+      JSON.stringify(responseData),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Wordstat function error:', error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });
