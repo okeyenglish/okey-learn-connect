@@ -6,8 +6,6 @@ interface AnimatedLogoProps {
 }
 
 export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
-  const innerRadius = size * 0.35;
-  
   return (
     <div 
       className={cn(
@@ -20,8 +18,8 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
       <div 
         className="absolute rounded-full animate-neural-wave-1"
         style={{
-          width: size * 1.3,
-          height: size * 1.3,
+          width: size * 1.35,
+          height: size * 1.35,
           background: 'conic-gradient(from 0deg, hsl(217 85% 50% / 0.5), hsl(0 80% 55% / 0.4), hsl(217 85% 50% / 0.5), hsl(0 80% 55% / 0.4))',
           filter: 'blur(14px)',
           transformOrigin: 'center',
@@ -32,8 +30,8 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
       <div 
         className="absolute rounded-full animate-neural-wave-2"
         style={{
-          width: size * 1.15,
-          height: size * 1.15,
+          width: size * 1.2,
+          height: size * 1.2,
           background: 'conic-gradient(from 90deg, hsl(0 80% 55% / 0.6), hsl(217 85% 50% / 0.5), hsl(0 80% 55% / 0.6), hsl(217 85% 50% / 0.5))',
           filter: 'blur(10px)',
           transformOrigin: 'center',
@@ -44,55 +42,36 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
       <div 
         className="absolute rounded-full animate-neural-wave-3"
         style={{
-          width: size,
-          height: size,
+          width: size * 1.05,
+          height: size * 1.05,
           background: 'conic-gradient(from 180deg, hsl(217 90% 50% / 0.7), hsl(0 85% 50% / 0.6), hsl(217 90% 50% / 0.7), hsl(0 85% 50% / 0.6))',
           filter: 'blur(6px)',
           transformOrigin: 'center',
         }}
       />
       
-      {/* Pulsing aura */}
+      {/* Pulsing aura around the logo */}
       <div 
         className="absolute rounded-full animate-neural-pulse"
         style={{
-          width: size * 0.9,
-          height: size * 0.9,
-          background: 'radial-gradient(circle, hsl(217 85% 50% / 0.3) 40%, hsl(0 80% 55% / 0.2) 60%, transparent 75%)',
-          filter: 'blur(4px)',
+          width: size,
+          height: size,
+          background: 'radial-gradient(circle, hsl(217 85% 50% / 0.25) 45%, hsl(0 80% 55% / 0.2) 65%, transparent 80%)',
+          filter: 'blur(3px)',
         }}
       />
       
-      {/* White center circle with OS */}
-      <svg 
-        className="relative z-10"
-        width={innerRadius * 2.2}
-        height={innerRadius * 2.2}
-        viewBox={`0 0 ${innerRadius * 2.2} ${innerRadius * 2.2}`}
-      >
-        {/* White circle */}
-        <circle
-          cx={innerRadius * 1.1}
-          cy={innerRadius * 1.1}
-          r={innerRadius}
-          fill="white"
-          style={{ filter: 'drop-shadow(0 2px 8px rgba(0, 0, 0, 0.15))' }}
-        />
-        
-        {/* OS text */}
-        <text
-          x={innerRadius * 1.1}
-          y={innerRadius * 1.1}
-          textAnchor="middle"
-          dominantBaseline="central"
-          fill="hsl(0 75% 45%)"
-          fontWeight="bold"
-          fontSize={innerRadius * 0.8}
-          fontFamily="system-ui, -apple-system, sans-serif"
-        >
-          OS
-        </text>
-      </svg>
+      {/* Original logo with red-blue ring */}
+      <img 
+        src="/favicon.png" 
+        alt="Logo"
+        className="relative z-10 rounded-full object-contain transition-transform duration-300 group-hover:scale-105"
+        style={{
+          width: size,
+          height: size,
+          filter: 'drop-shadow(0 0 6px hsl(217 85% 50% / 0.3))',
+        }}
+      />
       
       {/* Custom keyframes */}
       <style>{`
