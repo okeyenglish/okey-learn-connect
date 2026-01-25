@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
 import {
-  corsHeaders,
   handleCors,
+  successResponse,
   errorResponse,
   getErrorMessage,
   type OnlinePBXCallRequest,
@@ -227,26 +227,17 @@ Deno.serve(async (req) => {
         processed: true
       });
 
-    return new Response(JSON.stringify({
+    return successResponse({
       success: true,
       message: 'Звонок инициирован через OnlinePBX',
       from_extension: operatorExtension,
       to_number: to_number,
       call_id: responseData.call_id || null,
       call_log_id: callLog?.id
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     console.error('OnlinePBX call error:', error);
-    const message = (error as any)?.message ?? 'Server error';
-    return new Response(JSON.stringify({ 
-      error: message,
-      success: false 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(getErrorMessage(error), 500);
   }
 });

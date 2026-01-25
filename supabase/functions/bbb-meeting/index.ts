@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
 import {
-  corsHeaders,
   handleCors,
+  successResponse,
   errorResponse,
   getErrorMessage,
   type BBBMeetingRequest,
@@ -118,15 +118,12 @@ Deno.serve(async (req) => {
 
       console.log("Meeting created:", { meetingId, createData });
 
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          meetingId,
-          joinUrl: BBB_URL,
-          message: "Meeting created successfully" 
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ 
+        success: true, 
+        meetingId,
+        joinUrl: BBB_URL,
+        message: "Meeting created successfully" 
+      });
     }
 
     if (action === "join") {
@@ -153,14 +150,11 @@ Deno.serve(async (req) => {
 
       console.log("Join URL generated:", { meetingId, isTeacher });
 
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          joinUrl,
-          meetingId 
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ 
+        success: true, 
+        joinUrl,
+        meetingId 
+      });
     }
 
     if (action === "end") {
@@ -178,13 +172,10 @@ Deno.serve(async (req) => {
 
       console.log("Meeting ended:", { meetingId });
 
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: "Meeting ended successfully" 
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ 
+        success: true, 
+        message: "Meeting ended successfully" 
+      });
     }
 
     if (action === "isMeetingRunning") {
@@ -202,27 +193,16 @@ Deno.serve(async (req) => {
       
       const isRunning = checkData.includes("<running>true</running>");
 
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          isRunning 
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ 
+        success: true, 
+        isRunning 
+      });
     }
 
     throw new Error("Invalid action");
 
   } catch (error) {
     console.error("BBB Meeting Error:", error);
-    return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : "Unknown error" 
-      }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });

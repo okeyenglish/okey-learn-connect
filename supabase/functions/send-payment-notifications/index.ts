@@ -1,9 +1,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  handleCors,
+  successResponse,
+  errorResponse,
+  getErrorMessage,
+  type PaymentNotificationRequest,
+} from '../_shared/types.ts';
 
 interface SendNotificationRequest {
   notification_id?: string;
@@ -27,9 +29,8 @@ interface NotificationData {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -73,13 +74,10 @@ Deno.serve(async (req) => {
 
     if (!notifications || notifications.length === 0) {
       console.log('ℹ️ No notifications to send');
-      return new Response(
-        JSON.stringify({ 
-          message: 'No notifications to send',
-          sent_count: 0 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      );
+      return successResponse({ 
+        message: 'No notifications to send',
+        sent_count: 0 
+      });
     }
 
     console.log(`📨 Found ${notifications.length} notifications to send`);
@@ -137,33 +135,17 @@ Deno.serve(async (req) => {
 
     console.log(`📊 Summary: ${sentNotifications.length} sent, ${failedNotifications.length} failed`);
 
-    return new Response(
-      JSON.stringify({
-        message: 'Notification send process completed',
-        sent_count: sentNotifications.length,
-        failed_count: failedNotifications.length,
-        sent_ids: sentNotifications,
-        failed_ids: failedNotifications,
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
-    );
+    return successResponse({
+      message: 'Notification send process completed',
+      sent: sentNotifications.length,
+      failed: failedNotifications.length,
+      sent_ids: sentNotifications,
+      failed_ids: failedNotifications,
+    });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ Function error:', error);
-    
-    return new Response(
-      JSON.stringify({ 
-        error: error.message,
-        sent_count: 0 
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
-      }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });
 
