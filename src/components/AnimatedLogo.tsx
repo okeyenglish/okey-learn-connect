@@ -6,7 +6,7 @@ interface AnimatedLogoProps {
 }
 
 export const AnimatedLogo = ({ size = 144, className }: AnimatedLogoProps) => {
-  const ringSize = size * 1.15; // Tighter ring around logo
+  const ringSize = size * 1.08; // Very tight ring
   
   return (
     <div 
@@ -38,9 +38,9 @@ export const AnimatedLogo = ({ size = 144, className }: AnimatedLogoProps) => {
             hsl(217 72% 55% / 0.6),
             hsl(217 72% 50% / 0.8)
           )`,
-          filter: 'blur(5px)',
-          maskImage: `radial-gradient(circle, transparent ${size / 2 - 6}px, black ${size / 2 - 4}px, black ${ringSize / 2 - 2}px, transparent ${ringSize / 2}px)`,
-          WebkitMaskImage: `radial-gradient(circle, transparent ${size / 2 - 6}px, black ${size / 2 - 4}px, black ${ringSize / 2 - 2}px, transparent ${ringSize / 2}px)`,
+          filter: 'blur(4px)',
+          maskImage: `radial-gradient(circle, transparent ${size / 2 - 10}px, black ${size / 2 - 8}px, black ${ringSize / 2 - 1}px, transparent ${ringSize / 2}px)`,
+          WebkitMaskImage: `radial-gradient(circle, transparent ${size / 2 - 10}px, black ${size / 2 - 8}px, black ${ringSize / 2 - 1}px, transparent ${ringSize / 2}px)`,
         }}
       />
       
@@ -48,8 +48,8 @@ export const AnimatedLogo = ({ size = 144, className }: AnimatedLogoProps) => {
       <div 
         className="absolute rounded-full animate-ring-counter-rotate"
         style={{
-          width: size * 1.08,
-          height: size * 1.08,
+          width: size * 1.02,
+          height: size * 1.02,
           background: `conic-gradient(
             from 180deg,
             hsl(0 60% 50% / 0.5),
@@ -58,9 +58,9 @@ export const AnimatedLogo = ({ size = 144, className }: AnimatedLogoProps) => {
             hsl(217 70% 50% / 0.4),
             hsl(0 60% 50% / 0.5)
           )`,
-          filter: 'blur(3px)',
-          maskImage: `radial-gradient(circle, transparent ${size / 2 - 8}px, black ${size / 2 - 6}px, black ${size / 2 + 2}px, transparent ${size / 2 + 6}px)`,
-          WebkitMaskImage: `radial-gradient(circle, transparent ${size / 2 - 8}px, black ${size / 2 - 6}px, black ${size / 2 + 2}px, transparent ${size / 2 + 6}px)`,
+          filter: 'blur(2px)',
+          maskImage: `radial-gradient(circle, transparent ${size / 2 - 12}px, black ${size / 2 - 10}px, black ${size / 2 - 2}px, transparent ${size / 2}px)`,
+          WebkitMaskImage: `radial-gradient(circle, transparent ${size / 2 - 12}px, black ${size / 2 - 10}px, black ${size / 2 - 2}px, transparent ${size / 2}px)`,
         }}
       />
       
@@ -81,7 +81,7 @@ export const AnimatedLogo = ({ size = 144, className }: AnimatedLogoProps) => {
               boxShadow: `0 0 5px 2px ${i === 0 ? 'hsl(217 80% 60% / 0.7)' : i === 1 ? 'hsl(0 70% 55% / 0.7)' : 'hsl(260 60% 55% / 0.6)'}`,
               top: '50%',
               left: '50%',
-              transform: `rotate(${angle}deg) translateX(${size / 2 - 2}px) translateY(-50%)`,
+              transform: `rotate(${angle}deg) translateX(${size / 2 - 6}px) translateY(-50%)`,
             }}
           />
         ))}
