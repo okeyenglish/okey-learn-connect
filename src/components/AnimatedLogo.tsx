@@ -6,8 +6,8 @@ interface AnimatedLogoProps {
 }
 
 export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
-  // Scale the logo up so the outer white edge is clipped off
-  const logoScale = 1.15;
+  // Scale the logo up more to eliminate white gap
+  const logoScale = 1.25;
   
   return (
     <div 
@@ -21,46 +21,35 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
       <div 
         className="absolute rounded-full animate-neural-wave-1"
         style={{
-          width: size * 1.35,
-          height: size * 1.35,
+          width: size * 1.3,
+          height: size * 1.3,
           background: 'conic-gradient(from 0deg, hsl(217 85% 50% / 0.5), hsl(0 80% 55% / 0.4), hsl(217 85% 50% / 0.5), hsl(0 80% 55% / 0.4))',
-          filter: 'blur(14px)',
+          filter: 'blur(12px)',
           transformOrigin: 'center',
         }}
       />
       
-      {/* Neural wave layer 2 - medium */}
+      {/* Neural wave layer 2 - medium, closer to logo */}
       <div 
         className="absolute rounded-full animate-neural-wave-2"
         style={{
-          width: size * 1.2,
-          height: size * 1.2,
+          width: size * 1.15,
+          height: size * 1.15,
           background: 'conic-gradient(from 90deg, hsl(0 80% 55% / 0.6), hsl(217 85% 50% / 0.5), hsl(0 80% 55% / 0.6), hsl(217 85% 50% / 0.5))',
-          filter: 'blur(10px)',
+          filter: 'blur(8px)',
           transformOrigin: 'center',
         }}
       />
       
-      {/* Neural wave layer 3 - inner vibrant */}
+      {/* Neural wave layer 3 - inner, touching the logo edge */}
       <div 
         className="absolute rounded-full animate-neural-wave-3"
         style={{
-          width: size * 1.05,
-          height: size * 1.05,
-          background: 'conic-gradient(from 180deg, hsl(217 90% 50% / 0.7), hsl(0 85% 50% / 0.6), hsl(217 90% 50% / 0.7), hsl(0 85% 50% / 0.6))',
-          filter: 'blur(6px)',
-          transformOrigin: 'center',
-        }}
-      />
-      
-      {/* Pulsing aura around the logo */}
-      <div 
-        className="absolute rounded-full animate-neural-pulse"
-        style={{
           width: size,
           height: size,
-          background: 'radial-gradient(circle, hsl(217 85% 50% / 0.25) 45%, hsl(0 80% 55% / 0.2) 65%, transparent 80%)',
-          filter: 'blur(3px)',
+          background: 'conic-gradient(from 180deg, hsl(217 90% 50% / 0.7), hsl(0 85% 50% / 0.6), hsl(217 90% 50% / 0.7), hsl(0 85% 50% / 0.6))',
+          filter: 'blur(5px)',
+          transformOrigin: 'center',
         }}
       />
       
@@ -72,7 +61,7 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
           height: size,
         }}
       >
-        {/* Scaled up logo so outer white is clipped */}
+        {/* Scaled up logo so outer white is clipped, red-blue ring at edge */}
         <img 
           src="/favicon.png" 
           alt="Logo"
@@ -82,7 +71,6 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
             height: size * logoScale,
             marginLeft: -(size * logoScale - size) / 2,
             marginTop: -(size * logoScale - size) / 2,
-            filter: 'drop-shadow(0 0 6px hsl(217 85% 50% / 0.3))',
           }}
         />
       </div>
@@ -146,17 +134,6 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
           }
         }
         
-        @keyframes neuralPulse {
-          0%, 100% {
-            transform: scale(1);
-            opacity: 0.5;
-          }
-          50% {
-            transform: scale(1.06);
-            opacity: 0.7;
-          }
-        }
-        
         .animate-neural-wave-1 {
           animation: neuralWave1 12s ease-in-out infinite;
         }
@@ -167,10 +144,6 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
         
         .animate-neural-wave-3 {
           animation: neuralWave3 5s ease-in-out infinite;
-        }
-        
-        .animate-neural-pulse {
-          animation: neuralPulse 3s ease-in-out infinite;
         }
       `}</style>
     </div>
