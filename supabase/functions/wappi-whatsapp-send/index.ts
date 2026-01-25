@@ -1,7 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
 import {
-  corsHeaders,
   handleCors,
+  successResponse,
+  errorResponse,
   getErrorMessage,
   type WhatsAppSendRequest,
   type WhatsAppSendResponse,
@@ -213,12 +214,7 @@ Deno.serve(async (req) => {
     // Handle get_state action
     if (payload?.action === 'get_state') {
       if (!credentials?.profileId || !credentials?.apiToken) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: 'Missing Wappi credentials (Profile ID, API Token)'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse('Missing Wappi credentials (Profile ID, API Token)', 400);
       }
 
       try {
@@ -226,29 +222,16 @@ Deno.serve(async (req) => {
         const status = state?.status || state?.state;
         const authorized = status === 'online' || status === 'connected' || status === 'authenticated';
 
-        return new Response(JSON.stringify({
-          success: authorized,
-          state,
-          status
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return successResponse({ success: authorized, state, status });
       } catch (e: unknown) {
-        return new Response(JSON.stringify({ success: false, error: getErrorMessage(e) }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse(getErrorMessage(e), 500);
       }
     }
 
     // Handle test_connection action
     if (payload?.action === 'test_connection') {
       if (!credentials?.profileId || !credentials?.apiToken) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: 'Missing Wappi credentials. Please configure Profile ID and API Token.'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse('Missing Wappi credentials. Please configure Profile ID and API Token.', 400);
       }
 
       try {
@@ -260,21 +243,9 @@ Deno.serve(async (req) => {
           ? 'Wappi connected successfully'
           : `Status: ${status || 'unknown'}`;
 
-        return new Response(JSON.stringify({
-          success: authorized,
-          state,
-          message,
-          phone: state?.phone
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return successResponse({ success: authorized, state, message, phone: state?.phone });
       } catch (e: unknown) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: getErrorMessage(e)
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse(getErrorMessage(e), 500);
       }
     }
 
@@ -282,23 +253,11 @@ Deno.serve(async (req) => {
     const { clientId, message, phoneNumber, fileUrl, fileName, phoneId } = payload as WhatsAppSendRequest;
 
     if (!clientId) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'clientId is required'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('clientId is required', 400);
     }
 
     if (!credentials?.profileId || !credentials?.apiToken) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Wappi credentials not configured'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Wappi credentials not configured', 400);
     }
 
     console.log('Sending message via Wappi:', { clientId, message, phoneNumber, fileUrl, fileName, phoneId });
@@ -455,19 +414,10 @@ Deno.serve(async (req) => {
       response.error = wappiResponse.error;
     }
 
-    return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return successResponse(response);
 
   } catch (error: unknown) {
     console.error('Error sending message via Wappi:', error);
-
-    return new Response(JSON.stringify({
-      success: false,
-      error: getErrorMessage(error)
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(getErrorMessage(error), 500);
   }
 });
