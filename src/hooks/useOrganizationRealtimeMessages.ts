@@ -1,23 +1,22 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useOrganization } from './useOrganization';
 import { playNotificationSound } from './useNotificationSound';
 import { showBrowserNotification } from './useBrowserNotifications';
 
-/** Realtime payload for chat_messages changes */
+/** Realtime payload for chat_messages changes - matches actual DB schema */
 interface ChatMessagePayload {
-  client_id: string;
-  message_type?: string;
+  client_id: string | null;
   is_outgoing?: boolean;
-  direction?: string;
-  content?: string;
-  sender_name?: string;
+  content?: string | null;
+  message_type?: string | null;
 }
 
 /**
- * Optimized realtime hook that uses a SINGLE channel for all chat messages
- * filtered by organization_id instead of creating a channel per client.
+ * Optimized realtime hook that uses a SINGLE channel for all chat messages.
+ * 
+ * Note: chat_messages table doesn't have organization_id column,
+ * so we subscribe to all changes and rely on RLS for filtering.
  * 
  * This reduces WebSocket connections from N (number of open chats) to 1.
  * 
@@ -25,14 +24,12 @@ interface ChatMessagePayload {
  */
 export const useOrganizationRealtimeMessages = () => {
   const queryClient = useQueryClient();
-  const { organization } = useOrganization();
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const organizationId = organization?.id;
 
   useEffect(() => {
-    if (!organizationId) return;
-
-    console.log('[useOrganizationRealtimeMessages] Setting up organization-wide channel:', organizationId);
+    // We don't need organizationId since chat_messages doesn't have this column
+    // RLS handles the filtering on the server side
+    console.log('[useOrganizationRealtimeMessages] Setting up global chat messages channel');
 
     const invalidateClientMessageQueries = (clientId: string) => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
@@ -50,16 +47,15 @@ export const useOrganizationRealtimeMessages = () => {
       queryClient.invalidateQueries({ queryKey: ['unread-client-ids'] });
     };
 
-    // Create a single channel for all chat messages in the organization
+    // Create a single channel for all chat messages (RLS filters by user's org)
     const channel = supabase
-      .channel(`org_chat_messages_${organizationId}`)
+      .channel('global_chat_messages')
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'chat_messages',
-          filter: `organization_id=eq.${organizationId}`
+          table: 'chat_messages'
         },
         (payload) => {
           const newMsg = payload.new as ChatMessagePayload;
@@ -68,34 +64,36 @@ export const useOrganizationRealtimeMessages = () => {
           console.log('[OrgRealtime] New message for client:', clientId);
 
           // Invalidate messages caches for this specific client (all implementations)
-          invalidateClientMessageQueries(clientId);
+          if (clientId) {
+            invalidateClientMessageQueries(clientId);
+          }
 
           // If it's an incoming client message, play notification sound
-          const isIncoming = newMsg.direction === 'incoming' || 
-                            newMsg.message_type === 'client' || 
-                            newMsg.is_outgoing === false;
+          // Uses 'is_outgoing' field from schema (false = from client)
+          const isIncoming = newMsg.is_outgoing === false;
           
           if (isIncoming) {
             playNotificationSound(0.5);
             
             // Show browser notification when tab is inactive
-            const senderName = newMsg.sender_name || 'Клиент';
             const messagePreview = newMsg.content 
               ? (newMsg.content.length > 50 ? newMsg.content.substring(0, 50) + '...' : newMsg.content)
               : 'Новое сообщение';
             
             showBrowserNotification({
-              title: `Сообщение от ${senderName}`,
+              title: 'Новое сообщение',
               body: messagePreview,
-              tag: `chat-${clientId}`, // Prevent duplicate notifications for same client
+              tag: `chat-${clientId || 'unknown'}`, // Prevent duplicate notifications for same client
               onClick: () => {
                 // Focus will happen automatically, but we could navigate to specific chat here
               },
             });
             
-            queryClient.invalidateQueries({
-              queryKey: ['client-unread-by-messenger', clientId],
-            });
+            if (clientId) {
+              queryClient.invalidateQueries({
+                queryKey: ['client-unread-by-messenger', clientId],
+              });
+            }
           }
 
           // Always update chat threads lists for new messages
@@ -107,8 +105,7 @@ export const useOrganizationRealtimeMessages = () => {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'chat_messages',
-          filter: `organization_id=eq.${organizationId}`
+          table: 'chat_messages'
         },
         (payload) => {
           const updatedMsg = payload.new as ChatMessagePayload;
@@ -117,12 +114,14 @@ export const useOrganizationRealtimeMessages = () => {
           console.log('[OrgRealtime] Message updated for client:', clientId);
           
           // Invalidate messages caches for this specific client
-          invalidateClientMessageQueries(clientId);
+          if (clientId) {
+            invalidateClientMessageQueries(clientId);
 
-          // Update unread counts (message might have been marked as read)
-          queryClient.invalidateQueries({
-            queryKey: ['client-unread-by-messenger', clientId],
-          });
+            // Update unread counts (message might have been marked as read)
+            queryClient.invalidateQueries({
+              queryKey: ['client-unread-by-messenger', clientId],
+            });
+          }
 
           // Message update can also affect last message preview / ordering
           invalidateThreadsQueries();
@@ -133,8 +132,7 @@ export const useOrganizationRealtimeMessages = () => {
         {
           event: 'DELETE',
           schema: 'public',
-          table: 'chat_messages',
-          filter: `organization_id=eq.${organizationId}`
+          table: 'chat_messages'
         },
         (payload) => {
           const deletedMsg = payload.old as ChatMessagePayload;
@@ -143,7 +141,9 @@ export const useOrganizationRealtimeMessages = () => {
           console.log('[OrgRealtime] Message deleted for client:', clientId);
           
           // Invalidate messages caches for this specific client
-          invalidateClientMessageQueries(clientId);
+          if (clientId) {
+            invalidateClientMessageQueries(clientId);
+          }
 
           // Update chat threads lists (delete can change last message)
           invalidateThreadsQueries();
@@ -162,7 +162,7 @@ export const useOrganizationRealtimeMessages = () => {
         channelRef.current = null;
       }
     };
-  }, [organizationId, queryClient]);
+  }, [queryClient]);
 
   return null;
 };
