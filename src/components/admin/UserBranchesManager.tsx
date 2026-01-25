@@ -15,14 +15,16 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Search, Building2, Users, X, Check, Edit2 } from 'lucide-react';
+import { Search, Building2, Users, X, Check, Edit2, User } from 'lucide-react';
 import { useUserBranches, AVAILABLE_BRANCHES, UserWithBranches } from '@/hooks/useUserBranches';
+import { UserProfileModal } from './UserProfileModal';
 
 export function UserBranchesManager() {
   const { usersWithBranches, isLoading, setBranches, isUpdating } = useUserBranches();
   const [search, setSearch] = useState('');
   const [editingUser, setEditingUser] = useState<UserWithBranches | null>(null);
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
+  const [profileUser, setProfileUser] = useState<UserWithBranches | null>(null);
 
   // Filter users by search
   const filteredUsers = useMemo(() => {
@@ -134,11 +136,15 @@ export function UserBranchesManager() {
                 key={user.id}
                 className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
               >
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">
+                <div 
+                  className="flex-1 min-w-0 cursor-pointer"
+                  onClick={() => setProfileUser(user)}
+                >
+                  <div className="font-medium truncate flex items-center gap-2">
                     {user.first_name || user.last_name
                       ? `${user.last_name || ''} ${user.first_name || ''}`.trim()
                       : 'Без имени'}
+                    <User className="h-3 w-3 text-muted-foreground" />
                   </div>
                   <div className="text-sm text-muted-foreground truncate">{user.email}</div>
                   <div className="flex flex-wrap gap-1 mt-1">
@@ -219,6 +225,17 @@ export function UserBranchesManager() {
           </div>
         </ScrollArea>
       </CardContent>
+
+      {/* User Profile Modal */}
+      {profileUser && (
+        <UserProfileModal
+          open={!!profileUser}
+          onOpenChange={(open) => !open && setProfileUser(null)}
+          userId={profileUser.id}
+          userEmail={profileUser.email}
+          userName={`${profileUser.first_name || ''} ${profileUser.last_name || ''}`.trim()}
+        />
+      )}
     </Card>
   );
 }
