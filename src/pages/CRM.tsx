@@ -3865,39 +3865,23 @@ const CRMContent = () => {
             </div>
           )}
           
-          {/* Плавающая кнопка ассистента для десктопа - fixed справа внизу */}
-          {!isMobile && !voiceAssistantOpen && activeChatType === 'client' && (() => {
-            // Показываем пульсацию только если есть НОВЫЕ непрочитанные (больше чем при последнем открытии)
-            const hasNewUnread = totalUnreadCount > lastSeenUnreadCount;
-            const hasUnread = totalUnreadCount > 0;
-            return (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={() => {
-                      setLastSeenUnreadCount(totalUnreadCount);
-                      setVoiceAssistantOpen(true);
-                    }}
-                    className={cn(
-                      "fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-all group",
-                      hasNewUnread && "animate-pulse ring-4 ring-primary/30"
-                    )}
-                    size="icon"
-                  >
-                    <Sparkles className="h-6 w-6 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-125" />
-                    {hasUnread && (
-                      <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs font-medium flex items-center justify-center">
-                        {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
-                      </span>
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left">
-                  <p>{hasUnread ? `Ассистент (${totalUnreadCount} новых)` : 'Ассистент'}</p>
-                </TooltipContent>
-              </Tooltip>
-            );
-          })()}
+          {/* Плавающая кнопка ассистента для десктопа - доступна на всех вкладках */}
+          {!isMobile && !voiceAssistantOpen && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={() => setVoiceAssistantOpen(true)}
+                  className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-all group"
+                  size="icon"
+                >
+                  <Sparkles className="h-6 w-6 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-125" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                <p>Ассистент</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
 
         {/* Right Sidebar - Desktop */}
