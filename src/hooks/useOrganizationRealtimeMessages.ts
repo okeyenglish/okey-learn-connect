@@ -26,6 +26,8 @@ export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'po
 
 // Polling interval when WebSocket is unavailable (5 seconds for faster updates)
 const POLLING_INTERVAL = 5000;
+// Hybrid polling interval - even when connected, poll periodically as backup (30 seconds)
+const HYBRID_POLLING_INTERVAL = 30000;
 // Time to wait before activating fallback polling after connection failure
 const FALLBACK_DELAY = 2000;
 // Interval for reconnection attempts (30 seconds)
@@ -67,11 +69,13 @@ export const useOrganizationRealtimeMessages = () => {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const isSubscribedRef = useRef(false);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hybridPollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fallbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastPollTimeRef = useRef<string | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const isReconnectingRef = useRef(false);
+  const lastRealtimeEventRef = useRef<number>(Date.now());
   
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
   
@@ -189,6 +193,31 @@ export const useOrganizationRealtimeMessages = () => {
     }
   }, []);
 
+  // Start hybrid polling (slower interval as backup even when WebSocket connected)
+  const startHybridPolling = useCallback(() => {
+    if (hybridPollingIntervalRef.current) return;
+    
+    console.log('[OrgRealtime] 🔄 Starting hybrid polling as backup (every', HYBRID_POLLING_INTERVAL / 1000, 's)');
+    lastPollTimeRef.current = new Date().toISOString();
+    
+    hybridPollingIntervalRef.current = setInterval(() => {
+      // Only poll if no realtime events received recently
+      const timeSinceLastEvent = Date.now() - lastRealtimeEventRef.current;
+      if (timeSinceLastEvent > HYBRID_POLLING_INTERVAL - 5000) {
+        console.log('[OrgRealtime] 📥 Hybrid poll (no realtime events for', Math.round(timeSinceLastEvent / 1000), 's)');
+        pollForMessages();
+      }
+    }, HYBRID_POLLING_INTERVAL);
+  }, [pollForMessages]);
+
+  // Stop hybrid polling
+  const stopHybridPolling = useCallback(() => {
+    if (hybridPollingIntervalRef.current) {
+      clearInterval(hybridPollingIntervalRef.current);
+      hybridPollingIntervalRef.current = null;
+    }
+  }, []);
+
   // Stop reconnection attempts
   const stopReconnecting = useCallback(() => {
     if (reconnectIntervalRef.current) {
@@ -230,7 +259,10 @@ export const useOrganizationRealtimeMessages = () => {
           const newMsg = payload.new as ChatMessagePayload;
           const clientId = newMsg.client_id;
           
-          console.log('[OrgRealtime] New message for client:', clientId);
+          // Track that we received a realtime event
+          lastRealtimeEventRef.current = Date.now();
+          
+          console.log('[OrgRealtime] 📨 New message via realtime for client:', clientId);
 
           if (clientId) {
             invalidateClientMessageQueries(clientId);
@@ -311,6 +343,8 @@ export const useOrganizationRealtimeMessages = () => {
           setConnectionStatus('connected');
           stopPolling();
           stopReconnecting();
+          // Start hybrid polling as backup for unreliable realtime (e.g., self-hosted)
+          startHybridPolling();
           console.log('[OrgRealtime] ✅ Successfully subscribed to chat_messages realtime');
         } else if (status === 'CHANNEL_ERROR') {
           console.error('[OrgRealtime] ❌ Channel error');
@@ -329,7 +363,7 @@ export const useOrganizationRealtimeMessages = () => {
 
     channelRef.current = channel;
     return channel;
-  }, [queryClient, invalidateClientMessageQueries, invalidateThreadsQueries, stopPolling, stopReconnecting]);
+  }, [queryClient, invalidateClientMessageQueries, invalidateThreadsQueries, stopPolling, stopReconnecting, startHybridPolling]);
 
   // Handle connection failure - start polling and schedule reconnection
   const handleConnectionFailure = useCallback(() => {
@@ -381,13 +415,14 @@ export const useOrganizationRealtimeMessages = () => {
       console.log('[OrgRealtime] 🔌 Cleaning up channel');
       isSubscribedRef.current = false;
       stopPolling();
+      stopHybridPolling();
       stopReconnecting();
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
-  }, [createChannel, stopPolling, stopReconnecting]);
+  }, [createChannel, stopPolling, stopHybridPolling, stopReconnecting]);
 
   // Listen for online/offline events to trigger reconnection
   useEffect(() => {
