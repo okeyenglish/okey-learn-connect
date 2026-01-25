@@ -14,6 +14,44 @@ export const AnimatedLogo = ({ size = 56, className }: AnimatedLogoProps) => {
       )}
       style={{ width: size, height: size }}
     >
+      {/* Siri-like outer glow - slowest rotation */}
+      <div 
+        className="absolute animate-siri-glow-outer"
+        style={{
+          width: size * 1.3,
+          height: size * 1.3,
+          background: 'conic-gradient(from 0deg, hsl(217 72% 48% / 0.4), hsl(180 60% 50% / 0.3), hsl(260 60% 55% / 0.3), hsl(330 70% 60% / 0.2), hsl(217 72% 48% / 0.4))',
+          borderRadius: '50%',
+          filter: 'blur(12px)',
+          transformOrigin: 'center',
+        }}
+      />
+      
+      {/* Inner glow - medium rotation */}
+      <div 
+        className="absolute animate-siri-glow-inner"
+        style={{
+          width: size * 1.15,
+          height: size * 1.15,
+          background: 'conic-gradient(from 180deg, hsl(190 70% 50% / 0.5), transparent 25%, hsl(280 60% 55% / 0.4), transparent 50%, hsl(217 72% 48% / 0.5), transparent 75%, hsl(330 70% 60% / 0.3))',
+          borderRadius: '50%',
+          filter: 'blur(8px)',
+          transformOrigin: 'center',
+        }}
+      />
+      
+      {/* Breathing pulse glow */}
+      <div 
+        className="absolute animate-siri-breathe"
+        style={{
+          width: size * 1.1,
+          height: size * 1.1,
+          background: 'radial-gradient(circle, hsl(217 72% 48% / 0.3) 40%, hsl(260 60% 55% / 0.2) 60%, transparent 70%)',
+          borderRadius: '50%',
+          filter: 'blur(6px)',
+        }}
+      />
+      
       {/* Rotating ring from logo */}
       <div 
         className="absolute inset-0 flex items-center justify-center animate-logo-ring"
@@ -58,8 +96,57 @@ export const AnimatedLogo = ({ size = 56, className }: AnimatedLogoProps) => {
           }
         }
         
+        @keyframes siriGlowOuter {
+          0% {
+            transform: rotate(0deg) scale(1);
+            opacity: 0.6;
+          }
+          50% {
+            transform: rotate(180deg) scale(1.05);
+            opacity: 0.8;
+          }
+          100% {
+            transform: rotate(360deg) scale(1);
+            opacity: 0.6;
+          }
+        }
+        
+        @keyframes siriGlowInner {
+          0% {
+            transform: rotate(360deg);
+            opacity: 0.7;
+          }
+          100% {
+            transform: rotate(0deg);
+            opacity: 0.7;
+          }
+        }
+        
+        @keyframes siriBreathe {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 0.4;
+          }
+          50% {
+            transform: scale(1.1);
+            opacity: 0.7;
+          }
+        }
+        
         .animate-logo-ring {
           animation: logoRing 8s linear infinite;
+        }
+        
+        .animate-siri-glow-outer {
+          animation: siriGlowOuter 10s ease-in-out infinite;
+        }
+        
+        .animate-siri-glow-inner {
+          animation: siriGlowInner 6s linear infinite;
+        }
+        
+        .animate-siri-breathe {
+          animation: siriBreathe 3s ease-in-out infinite;
         }
       `}</style>
     </div>
