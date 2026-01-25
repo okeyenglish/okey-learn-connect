@@ -38,7 +38,8 @@ export default function Auth() {
   const { toast } = useToast();
 
   // Получаем redirect URL из state или используем по умолчанию
-  const from = (location.state as any)?.from?.pathname || '/';
+  const locationState = location.state as { from?: { pathname?: string } } | null;
+  const from = locationState?.from?.pathname || '/';
 
   // Если пользователь уже авторизован, перенаправляем его в зависимости от роли
   useEffect(() => {

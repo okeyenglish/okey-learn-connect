@@ -37,7 +37,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
-import { canAccessAdminSection } from "@/lib/permissions";
+import { canAccessAdminSection, type AdminSectionId } from "@/lib/permissions";
 import { RoleSwitcher } from "./RoleSwitcher";
 
 const adminItems = [
@@ -74,7 +74,10 @@ export function AdminSidebar({ onSectionChange }: AdminSidebarProps) {
   const { roles, loading, role } = useAuth();
   const isAdminUser = role === 'admin' || roles?.includes?.('admin');
   // Show full menu while roles are loading or when user is admin
-  const filteredItems = adminItems.filter((i) => canAccessAdminSection(roles, i.id as any));
+  const filteredItems = adminItems.filter((i) => {
+    const sectionId = i.id as AdminSectionId;
+    return canAccessAdminSection(roles, sectionId);
+  });
   const visibleItems = (loading || isAdminUser)
     ? adminItems
     : (filteredItems.length ? filteredItems : adminItems.filter((i) => i.id === 'dashboard'));

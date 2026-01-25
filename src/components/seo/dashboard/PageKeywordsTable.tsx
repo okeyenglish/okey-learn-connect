@@ -26,8 +26,8 @@ export function PageKeywordsTable({ pages, keywords, isLoading }: PageKeywordsTa
         ? pageKeywords.reduce((sum, kw) => sum + (kw.monthly_searches || 0), 0) / pageKeywords.length
         : 0;
 
-      const narrowKeywords = pageKeywords.filter(kw => getKeywordType({ keyword: kw.phrase, shows: kw.monthly_searches || 0, competition: kw.wordstat_competition as any }) === 'narrow').length;
-      const wideKeywords = pageKeywords.filter(kw => getKeywordType({ keyword: kw.phrase, shows: kw.monthly_searches || 0, competition: kw.wordstat_competition as any }) === 'wide').length;
+      const narrowKeywords = pageKeywords.filter(kw => getKeywordType({ keyword: kw.phrase, shows: kw.monthly_searches || 0, competition: kw.wordstat_competition as 'LOW' | 'MEDIUM' | 'HIGH' | undefined }) === 'narrow').length;
+      const wideKeywords = pageKeywords.filter(kw => getKeywordType({ keyword: kw.phrase, shows: kw.monthly_searches || 0, competition: kw.wordstat_competition as 'LOW' | 'MEDIUM' | 'HIGH' | undefined }) === 'wide').length;
 
       const progress = calculateOptimizationProgress({
         hasAnalysis: !!page.analysis,

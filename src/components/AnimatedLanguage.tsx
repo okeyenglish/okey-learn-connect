@@ -68,7 +68,7 @@ export default function AnimatedLanguage() {
       m.style.whiteSpace = 'nowrap';
       m.style.font = computed.font;
       m.style.letterSpacing = computed.letterSpacing;
-      m.style.fontWeight = computed.fontWeight as any;
+      m.style.fontWeight = computed.fontWeight;
       document.body.appendChild(m);
       
       const languagesToMeasure = windowWidth <= 768 ? mobileLanguages : languageCombinations;

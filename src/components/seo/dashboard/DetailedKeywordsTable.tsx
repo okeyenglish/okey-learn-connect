@@ -23,7 +23,7 @@ export function DetailedKeywordsTable({ keywords, isLoading }: DetailedKeywordsT
       const type = getKeywordType({
         keyword: kw.phrase,
         shows: kw.monthly_searches || 0,
-        competition: kw.wordstat_competition as any,
+        competition: kw.wordstat_competition as 'LOW' | 'MEDIUM' | 'HIGH' | undefined,
       });
 
       if (typeFilter !== 'all' && type !== typeFilter) return false;
@@ -116,17 +116,17 @@ export function DetailedKeywordsTable({ keywords, isLoading }: DetailedKeywordsT
             </TableHeader>
             <TableBody>
               {filteredKeywords.slice(0, 100).map((kw, index) => {
-                const type = getKeywordType({
+              const type = getKeywordType({
                   keyword: kw.phrase,
                   shows: kw.monthly_searches || 0,
-                  competition: kw.wordstat_competition as any,
+                  competition: kw.wordstat_competition as 'LOW' | 'MEDIUM' | 'HIGH' | undefined,
                 });
 
                 const difficulty = kw.monthly_searches && kw.wordstat_competition 
                   ? calculateSEODifficulty({
                       keyword: kw.phrase,
                       shows: kw.monthly_searches,
-                      competition: kw.wordstat_competition as any,
+                      competition: kw.wordstat_competition as 'LOW' | 'MEDIUM' | 'HIGH',
                     })
                   : null;
 
