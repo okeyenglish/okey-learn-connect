@@ -3850,7 +3850,7 @@ const CRMContent = () => {
               onClick={() => setVoiceAssistantOpen(true)}
               className="fixed bottom-6 right-6 z-50 cursor-pointer"
             >
-              <AnimatedLogo size={120} />
+              <AnimatedLogo size={60} />
             </div>
           )}
         </div>
