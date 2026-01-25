@@ -14,54 +14,53 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
       )}
       style={{ width: size, height: size }}
     >
-      {/* Outer glow pulsing */}
+      {/* Outer glow pulsing - BEHIND logo */}
       <div 
-        className="absolute rounded-full animate-glow-pulse"
+        className="absolute rounded-full animate-glow-pulse -z-10"
         style={{
-          width: size * 1.4,
-          height: size * 1.4,
+          width: size * 1.5,
+          height: size * 1.5,
           background: 'conic-gradient(from 0deg, hsl(217 85% 55% / 0.4), hsl(280 70% 55% / 0.3), hsl(330 75% 55% / 0.3), hsl(0 80% 55% / 0.4), hsl(217 85% 55% / 0.4))',
-          filter: 'blur(15px)',
+          filter: 'blur(18px)',
           transformOrigin: 'center',
         }}
       />
       
-      {/* Mid glow rotating */}
+      {/* Mid glow rotating - BEHIND logo */}
       <div 
-        className="absolute rounded-full animate-glow-rotate"
+        className="absolute rounded-full animate-glow-rotate -z-10"
         style={{
-          width: size * 1.25,
-          height: size * 1.25,
+          width: size * 1.35,
+          height: size * 1.35,
           background: 'conic-gradient(from 90deg, hsl(210 90% 60% / 0.5), hsl(280 70% 60% / 0.4), hsl(340 75% 60% / 0.4), hsl(0 85% 55% / 0.5), hsl(210 90% 60% / 0.5))',
-          filter: 'blur(10px)',
+          filter: 'blur(12px)',
           transformOrigin: 'center',
         }}
       />
       
-      {/* Inner glow breathing */}
+      {/* Inner glow breathing - BEHIND logo */}
       <div 
-        className="absolute rounded-full animate-glow-breathe"
+        className="absolute rounded-full animate-glow-breathe -z-10"
         style={{
-          width: size * 1.1,
-          height: size * 1.1,
-          background: 'radial-gradient(circle, hsl(217 85% 55% / 0.3) 40%, hsl(330 70% 55% / 0.25) 60%, transparent 75%)',
-          filter: 'blur(6px)',
+          width: size * 1.2,
+          height: size * 1.2,
+          background: 'radial-gradient(circle, hsl(217 85% 55% / 0.35) 40%, hsl(330 70% 55% / 0.3) 60%, transparent 75%)',
+          filter: 'blur(8px)',
         }}
       />
       
-      {/* Logo image - with blend mode to remove white background */}
+      {/* Logo image - ON TOP */}
       <img 
         src="/animated-logo.png" 
         alt="Logo"
         className="relative z-10 object-contain transition-transform duration-300 group-hover:scale-105"
         style={{
-          width: size * 1.2,
-          height: size * 1.2,
-          mixBlendMode: 'multiply',
+          width: size * 1.15,
+          height: size * 1.15,
         }}
       />
       
-      {/* Sparkle effects */}
+      {/* Sparkle effects - ON TOP */}
       <div className="absolute inset-0 z-20 pointer-events-none">
         <div 
           className="absolute animate-sparkle-1"
@@ -71,8 +70,8 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
             background: 'white',
             borderRadius: '50%',
             boxShadow: '0 0 6px 2px white',
-            top: '15%',
-            left: '10%',
+            top: '10%',
+            left: '5%',
           }}
         />
         <div 
@@ -83,8 +82,8 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
             background: 'white',
             borderRadius: '50%',
             boxShadow: '0 0 4px 1px white',
-            top: '75%',
-            left: '15%',
+            top: '80%',
+            left: '10%',
           }}
         />
         <div 
@@ -95,8 +94,8 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
             background: 'white',
             borderRadius: '50%',
             boxShadow: '0 0 5px 2px white',
-            top: '85%',
-            right: '20%',
+            top: '90%',
+            right: '15%',
           }}
         />
         <div 
@@ -107,8 +106,8 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
             background: 'white',
             borderRadius: '50%',
             boxShadow: '0 0 6px 2px white',
-            top: '20%',
-            right: '15%',
+            top: '15%',
+            right: '10%',
           }}
         />
       </div>
@@ -121,7 +120,7 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
             opacity: 0.6;
           }
           50% {
-            transform: scale(1.08);
+            transform: scale(1.1);
             opacity: 0.9;
           }
         }
@@ -141,7 +140,7 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
             opacity: 0.5;
           }
           50% {
-            transform: scale(1.05);
+            transform: scale(1.08);
             opacity: 0.8;
           }
         }
