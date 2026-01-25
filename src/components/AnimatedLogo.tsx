@@ -7,8 +7,7 @@ interface AnimatedLogoProps {
 
 export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
   const center = size / 2;
-  const innerRadius = size * 0.35;
-  const outerRadius = size * 0.45;
+  const innerRadius = size * 0.38;
   
   return (
     <div 
@@ -18,84 +17,103 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
       )}
       style={{ width: size, height: size }}
     >
-      {/* Siri-like glow */}
+      {/* Outer glow layer */}
       <div 
-        className="absolute inset-[-6px] rounded-full animate-siri-glow"
+        className="absolute inset-[-8px] rounded-full animate-core-glow"
         style={{
-          background: 'conic-gradient(from 0deg, hsl(217 72% 50% / 0.4), hsl(0 80% 55% / 0.3), hsl(217 72% 50% / 0.4))',
-          filter: 'blur(10px)',
+          background: 'conic-gradient(from 0deg, hsl(217 85% 50% / 0.5), hsl(0 80% 55% / 0.4), hsl(217 85% 50% / 0.5), hsl(0 80% 55% / 0.4))',
+          filter: 'blur(12px)',
         }}
       />
       
-      {/* SVG with animated ribbons */}
-      <svg 
-        className="absolute inset-0 w-full h-full"
-        viewBox={`0 0 ${size} ${size}`}
+      {/* Main AI core ring - thick areas */}
+      <div 
+        className="absolute inset-0 rounded-full animate-core-ring-1"
+        style={{
+          background: `conic-gradient(
+            from 0deg,
+            hsl(217 85% 50%) 0deg,
+            hsl(217 85% 55%) 40deg,
+            hsl(240 70% 55%) 80deg,
+            hsl(0 80% 55%) 120deg,
+            hsl(0 85% 50%) 160deg,
+            hsl(15 85% 55%) 200deg,
+            hsl(217 85% 50%) 240deg,
+            hsl(200 80% 55%) 280deg,
+            hsl(0 75% 55%) 320deg,
+            hsl(217 85% 50%) 360deg
+          )`,
+          padding: '6px',
+          transformOrigin: 'center',
+        }}
       >
-        <defs>
-          {/* Blue gradient */}
-          <linearGradient id="blueRibbon" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="hsl(217 85% 45%)" />
-            <stop offset="50%" stopColor="hsl(217 72% 55%)" />
-            <stop offset="100%" stopColor="hsl(200 80% 50%)" />
-          </linearGradient>
-          
-          {/* Red gradient */}
-          <linearGradient id="redRibbon" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="hsl(0 85% 50%)" />
-            <stop offset="50%" stopColor="hsl(0 80% 55%)" />
-            <stop offset="100%" stopColor="hsl(15 85% 55%)" />
-          </linearGradient>
-        </defs>
-        
-        {/* Blue ribbon arc - rotating */}
-        <g className="animate-ribbon-blue" style={{ transformOrigin: 'center' }}>
-          <path
-            d={`
-              M ${center + outerRadius * Math.cos(-2.5)} ${center + outerRadius * Math.sin(-2.5)}
-              A ${outerRadius} ${outerRadius} 0 0 1 ${center + outerRadius * Math.cos(0.3)} ${center + outerRadius * Math.sin(0.3)}
-              L ${center + innerRadius * Math.cos(0.5)} ${center + innerRadius * Math.sin(0.5)}
-              A ${innerRadius} ${innerRadius} 0 0 0 ${center + innerRadius * Math.cos(-2.3)} ${center + innerRadius * Math.sin(-2.3)}
-              Z
-            `}
-            fill="url(#blueRibbon)"
-            style={{ filter: 'drop-shadow(0 2px 4px rgba(59, 130, 246, 0.4))' }}
-          />
-        </g>
-        
-        {/* Red ribbon arc - rotating opposite */}
-        <g className="animate-ribbon-red" style={{ transformOrigin: 'center' }}>
-          <path
-            d={`
-              M ${center + outerRadius * Math.cos(0.8)} ${center + outerRadius * Math.sin(0.8)}
-              A ${outerRadius} ${outerRadius} 0 0 1 ${center + outerRadius * Math.cos(3.5)} ${center + outerRadius * Math.sin(3.5)}
-              L ${center + innerRadius * Math.cos(3.3)} ${center + innerRadius * Math.sin(3.3)}
-              A ${innerRadius} ${innerRadius} 0 0 0 ${center + innerRadius * Math.cos(1)} ${center + innerRadius * Math.sin(1)}
-              Z
-            `}
-            fill="url(#redRibbon)"
-            style={{ filter: 'drop-shadow(0 2px 4px rgba(239, 68, 68, 0.4))' }}
-          />
-        </g>
-        
-        {/* White center circle */}
+        <div className="w-full h-full rounded-full bg-white" />
+      </div>
+      
+      {/* Secondary pulsing ring - variable thickness */}
+      <div 
+        className="absolute inset-[2px] rounded-full animate-core-ring-2"
+        style={{
+          background: `conic-gradient(
+            from 180deg,
+            transparent 0deg,
+            hsl(217 85% 50% / 0.8) 30deg,
+            hsl(217 85% 55%) 60deg,
+            transparent 90deg,
+            transparent 120deg,
+            hsl(0 80% 55% / 0.8) 150deg,
+            hsl(0 85% 50%) 180deg,
+            transparent 210deg,
+            transparent 240deg,
+            hsl(260 70% 55% / 0.6) 270deg,
+            hsl(217 85% 50% / 0.7) 300deg,
+            transparent 330deg,
+            transparent 360deg
+          )`,
+          padding: '4px',
+          transformOrigin: 'center',
+          mixBlendMode: 'multiply',
+        }}
+      >
+        <div className="w-full h-full rounded-full bg-white" />
+      </div>
+      
+      {/* Inner breathing glow */}
+      <div 
+        className="absolute rounded-full animate-core-breathe"
+        style={{
+          width: size * 0.85,
+          height: size * 0.85,
+          background: 'conic-gradient(from 90deg, hsl(217 85% 50% / 0.15), hsl(0 80% 55% / 0.1), hsl(217 85% 50% / 0.15))',
+          filter: 'blur(4px)',
+        }}
+      />
+      
+      {/* White center with OS text */}
+      <svg 
+        className="relative z-10"
+        width={innerRadius * 2}
+        height={innerRadius * 2}
+        viewBox={`0 0 ${innerRadius * 2} ${innerRadius * 2}`}
+      >
+        {/* White circle */}
         <circle
-          cx={center}
-          cy={center}
-          r={innerRadius - 2}
+          cx={innerRadius}
+          cy={innerRadius}
+          r={innerRadius - 1}
           fill="white"
-          style={{ filter: 'drop-shadow(0 1px 3px rgba(0, 0, 0, 0.1))' }}
+          style={{ filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))' }}
         />
         
         {/* OS text */}
         <text
-          x={center}
-          y={center}
+          x={innerRadius}
+          y={innerRadius}
           textAnchor="middle"
           dominantBaseline="central"
-          fill="hsl(0 80% 45%)"
+          fill="hsl(0 75% 45%)"
           fontWeight="bold"
-          fontSize={size * 0.28}
+          fontSize={innerRadius * 0.75}
           fontFamily="system-ui, -apple-system, sans-serif"
         >
           OS
@@ -104,7 +122,7 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
       
       {/* Custom keyframes */}
       <style>{`
-        @keyframes ribbonBlue {
+        @keyframes coreRing1 {
           0% {
             transform: rotate(0deg);
           }
@@ -113,36 +131,58 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
           }
         }
         
-        @keyframes ribbonRed {
+        @keyframes coreRing2 {
           0% {
-            transform: rotate(0deg);
-          }
-          100% {
-            transform: rotate(-360deg);
-          }
-        }
-        
-        @keyframes siriGlow {
-          0%, 100% {
-            transform: rotate(0deg) scale(1);
-            opacity: 0.5;
+            transform: rotate(360deg) scale(1);
           }
           50% {
-            transform: rotate(180deg) scale(1.08);
-            opacity: 0.8;
+            transform: rotate(180deg) scale(1.02);
+          }
+          100% {
+            transform: rotate(0deg) scale(1);
           }
         }
         
-        .animate-ribbon-blue {
-          animation: ribbonBlue 8s linear infinite;
+        @keyframes coreGlow {
+          0%, 100% {
+            transform: rotate(0deg) scale(1);
+            opacity: 0.6;
+          }
+          33% {
+            transform: rotate(120deg) scale(1.1);
+            opacity: 0.9;
+          }
+          66% {
+            transform: rotate(240deg) scale(1.05);
+            opacity: 0.7;
+          }
         }
         
-        .animate-ribbon-red {
-          animation: ribbonRed 10s linear infinite;
+        @keyframes coreBreathe {
+          0%, 100% {
+            transform: scale(1) rotate(0deg);
+            opacity: 0.4;
+          }
+          50% {
+            transform: scale(1.05) rotate(180deg);
+            opacity: 0.7;
+          }
         }
         
-        .animate-siri-glow {
-          animation: siriGlow 6s ease-in-out infinite;
+        .animate-core-ring-1 {
+          animation: coreRing1 6s linear infinite;
+        }
+        
+        .animate-core-ring-2 {
+          animation: coreRing2 8s ease-in-out infinite;
+        }
+        
+        .animate-core-glow {
+          animation: coreGlow 10s ease-in-out infinite;
+        }
+        
+        .animate-core-breathe {
+          animation: coreBreathe 4s ease-in-out infinite;
         }
       `}</style>
     </div>
