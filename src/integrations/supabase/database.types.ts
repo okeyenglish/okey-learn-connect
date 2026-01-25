@@ -117,6 +117,18 @@ export interface ChatMessage {
   created_at: string;
 }
 
+export type AssistantMessageRole = 'user' | 'assistant';
+
+export interface AssistantMessage {
+  id: string;
+  user_id: string;
+  organization_id: string;
+  role: AssistantMessageRole;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+}
+
 export interface FAQ {
   id: string;
   question: string;
