@@ -40,7 +40,7 @@ import { useMarkChatMessagesAsReadByMessenger, useMarkChatMessagesAsRead } from 
 import { useQueryClient } from "@tanstack/react-query";
 import { getErrorMessage } from '@/lib/errorUtils';
 import { useClientAvatars } from '@/hooks/useClientAvatars';
-import { useMessengerIntegrationStatus, MessengerType } from '@/hooks/useMessengerIntegrationStatus';
+import { useMessengerIntegrationStatus, useAllIntegrationsStatus, MessengerType } from '@/hooks/useMessengerIntegrationStatus';
 
 interface ChatAreaProps {
   clientId: string;
@@ -205,6 +205,9 @@ export const ChatArea = ({
     isLoading: unreadLoading,
     isFetching: unreadFetching,
   } = useClientUnreadByMessenger(clientId);
+  
+  // Get integration statuses for all messengers (for tab indicators)
+  const { data: integrationsStatus } = useAllIntegrationsStatus();
   
   // Get pending GPT responses for this client
   const { data: pendingGPTResponses, isLoading: pendingGPTLoading, error: pendingGPTError } = usePendingGPTResponses(clientId);
@@ -1787,7 +1790,22 @@ export const ChatArea = ({
               value="whatsapp" 
               className="text-xs relative data-[state=active]:bg-green-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
             >
-              WhatsApp
+              <span className="flex items-center gap-1.5">
+                {/* Integration status indicator */}
+                <span 
+                  className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                    integrationsStatus?.whatsapp?.isEnabled && integrationsStatus?.whatsapp?.isConfigured
+                      ? 'bg-green-400 data-[state=active]:bg-white'
+                      : 'bg-red-400 data-[state=active]:bg-red-200'
+                  }`}
+                  title={
+                    integrationsStatus?.whatsapp?.isEnabled && integrationsStatus?.whatsapp?.isConfigured
+                      ? 'Интеграция активна'
+                      : 'Интеграция отключена или не настроена'
+                  }
+                />
+                WhatsApp
+              </span>
               {unreadByMessenger.whatsapp > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                   {unreadByMessenger.whatsapp > 99 ? '99+' : unreadByMessenger.whatsapp}
@@ -1798,7 +1816,21 @@ export const ChatArea = ({
               value="telegram" 
               className="text-xs relative data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
             >
-              Telegram
+              <span className="flex items-center gap-1.5">
+                <span 
+                  className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                    integrationsStatus?.telegram?.isEnabled && integrationsStatus?.telegram?.isConfigured
+                      ? 'bg-green-400 data-[state=active]:bg-white'
+                      : 'bg-red-400 data-[state=active]:bg-red-200'
+                  }`}
+                  title={
+                    integrationsStatus?.telegram?.isEnabled && integrationsStatus?.telegram?.isConfigured
+                      ? 'Интеграция активна'
+                      : 'Интеграция отключена или не настроена'
+                  }
+                />
+                Telegram
+              </span>
               {unreadByMessenger.telegram > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                   {unreadByMessenger.telegram > 99 ? '99+' : unreadByMessenger.telegram}
@@ -1809,7 +1841,21 @@ export const ChatArea = ({
               value="max" 
               className="text-xs relative data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
             >
-              Max
+              <span className="flex items-center gap-1.5">
+                <span 
+                  className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                    integrationsStatus?.max?.isEnabled && integrationsStatus?.max?.isConfigured
+                      ? 'bg-green-400 data-[state=active]:bg-white'
+                      : 'bg-red-400 data-[state=active]:bg-red-200'
+                  }`}
+                  title={
+                    integrationsStatus?.max?.isEnabled && integrationsStatus?.max?.isConfigured
+                      ? 'Интеграция активна'
+                      : 'Интеграция отключена или не настроена'
+                  }
+                />
+                Max
+              </span>
               {unreadByMessenger.max > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                   {unreadByMessenger.max > 99 ? '99+' : unreadByMessenger.max}
