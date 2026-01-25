@@ -83,6 +83,23 @@ let globalLastPlayed = 0;
 const GLOBAL_MIN_INTERVAL = 500;
 
 export const playNotificationSound = (volume = 0.5) => {
+  // Check if sound is enabled in settings
+  try {
+    const stored = localStorage.getItem('notification_settings');
+    if (stored) {
+      const settings = JSON.parse(stored);
+      if (settings.soundEnabled === false) {
+        return; // Sound is disabled
+      }
+      // Use stored volume if available
+      if (typeof settings.soundVolume === 'number') {
+        volume = settings.soundVolume;
+      }
+    }
+  } catch {
+    // Ignore parsing errors
+  }
+
   const now = Date.now();
   if (now - globalLastPlayed < GLOBAL_MIN_INTERVAL) {
     return; // Throttle
@@ -91,8 +108,8 @@ export const playNotificationSound = (volume = 0.5) => {
   try {
     if (!globalAudio) {
       globalAudio = new Audio(NOTIFICATION_SOUND_BASE64);
-      globalAudio.volume = Math.max(0, Math.min(1, volume));
     }
+    globalAudio.volume = Math.max(0, Math.min(1, volume));
 
     globalLastPlayed = now;
     globalAudio.currentTime = 0;
