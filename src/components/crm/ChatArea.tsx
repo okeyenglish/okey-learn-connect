@@ -1940,6 +1940,7 @@ export const ChatArea = ({
             setCurrentHighlightedId(null);
           }}
           onNavigateToMessage={handleNavigateToMessage}
+          onSearchQueryChange={setSearchQuery}
         />
       </div>
 
@@ -2205,6 +2206,7 @@ export const ChatArea = ({
                             onEnterSelectionMode={handleEnterSelectionMode}
                             onQuoteMessage={handleQuoteMessage}
                             isHighlighted={msg.id === currentHighlightedId}
+                            searchQuery={searchQuery}
                           />
                         )}
                       </div>
@@ -2343,6 +2345,7 @@ export const ChatArea = ({
                             onEnterSelectionMode={handleEnterSelectionMode}
                             onQuoteMessage={handleQuoteMessage}
                             isHighlighted={msg.id === currentHighlightedId}
+                            searchQuery={searchQuery}
                           />
                         )}
                       </div>
@@ -2441,6 +2444,7 @@ export const ChatArea = ({
                             onEnterSelectionMode={handleEnterSelectionMode}
                             onQuoteMessage={handleQuoteMessage}
                             isHighlighted={msg.id === currentHighlightedId}
+                            searchQuery={searchQuery}
                           />
                         )}
                       </div>
