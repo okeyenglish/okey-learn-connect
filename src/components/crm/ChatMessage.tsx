@@ -60,6 +60,7 @@ interface ChatMessageProps {
   onMessageEdit?: (messageId: string, newMessage: string) => Promise<void>;
   onMessageDelete?: (messageId: string) => Promise<void>;
   onResendMessage?: (messageId: string) => Promise<void>;
+  onCancelRetry?: (messageId: string) => void;
   messageStatus?: DeliveryStatus;
   clientAvatar?: string;
   managerName?: string;
@@ -76,7 +77,7 @@ interface ChatMessageProps {
   onQuoteMessage?: (text: string) => void;
 }
 
-const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, onResendMessage, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, whatsappChatId, externalMessageId, showAvatar = true, showName = true, isLastInGroup = true, onForwardMessage, onEnterSelectionMode, onQuoteMessage }: ChatMessageProps) => {
+const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, onResendMessage, onCancelRetry, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, whatsappChatId, externalMessageId, showAvatar = true, showName = true, isLastInGroup = true, onForwardMessage, onEnterSelectionMode, onQuoteMessage }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
 
@@ -471,6 +472,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                         className="ml-1"
                         messageId={messageId}
                         onRetry={onResendMessage && messageId ? () => onResendMessage(messageId) : undefined}
+                        onCancelRetry={onCancelRetry && messageId ? () => onCancelRetry(messageId) : undefined}
                         showRetryButton={!!onResendMessage && !!messageId}
                       />
                     )}
