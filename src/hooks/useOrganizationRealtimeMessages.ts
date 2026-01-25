@@ -7,7 +7,8 @@ import { showBrowserNotification } from './useBrowserNotifications';
 /** Realtime payload for chat_messages changes - matches actual DB schema */
 interface ChatMessagePayload {
   client_id: string | null;
-  is_outgoing?: boolean;
+  organization_id: string | null;
+  direction?: string | null; // 'incoming' or 'outgoing'
   content?: string | null;
   message_type?: string | null;
 }
@@ -69,8 +70,8 @@ export const useOrganizationRealtimeMessages = () => {
           }
 
           // If it's an incoming client message, play notification sound
-          // Uses 'is_outgoing' field from schema (false = from client)
-          const isIncoming = newMsg.is_outgoing === false;
+          // Uses 'direction' field from schema ('incoming' = from client)
+          const isIncoming = newMsg.direction === 'incoming';
           
           if (isIncoming) {
             playNotificationSound(0.5);
