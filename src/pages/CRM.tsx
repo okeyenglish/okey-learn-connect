@@ -307,7 +307,8 @@ const CRMContent = () => {
     isLoading: threadsLoading, 
     hasNextPage, 
     isFetchingNextPage, 
-    loadMore 
+    loadMore,
+    refetch: refetchThreads,
   } = useChatThreadsInfinite();
   const { corporateChats, teacherChats, isLoading: systemChatsLoading } = useSystemChatMessages();
   const { communityChats, totalUnread: communityUnread, latestCommunity, isLoading: communityLoading } = useCommunityChats();
@@ -3690,6 +3691,7 @@ const CRMContent = () => {
                           onDeleteChat={handleDeleteChat}
                           onLinkChat={handleLinkChat}
                           isLoading={threadsLoading}
+                          onRefresh={refetchThreads}
                           hasNextPage={hasNextPage}
                           isFetchingNextPage={isFetchingNextPage}
                           onLoadMore={loadMore}
