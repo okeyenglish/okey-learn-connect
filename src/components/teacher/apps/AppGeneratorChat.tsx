@@ -12,6 +12,7 @@ import { useAppGenerator } from '@/hooks/useAppGenerator';
 import { AppViewer } from './AppViewer';
 import { ImprovementButtons } from './ImprovementButtons';
 import { AppCard } from './AppCard';
+import type { CatalogApp } from '@/hooks/useApps';
 interface TeacherWithIds {
   id: string;
   profile_id?: string | null;
@@ -22,19 +23,36 @@ interface AppGeneratorChatProps {
   teacher: TeacherWithIds;
 }
 
+// Type for app format options
+type AppFormat = 
+  | 'quiz' | 'game' | 'flashcards' | 'matching' | 'test' | 'crossword' 
+  | 'wordSearch' | 'fillInBlanks' | 'dragAndDrop' | 'memory' | 'typing';
+
+// Format option for UI
+interface FormatOption {
+  key: AppFormat;
+  label: string;
+  icon: string;
+}
+
+// App suggestion from catalog - uses CatalogApp type
+type AppSuggestion = CatalogApp;
+
 // Типы для стадий генератора с расширенными полями
 interface ExtendedStage {
   stage: string;
+  message?: string;
+  questions?: Array<{
+    key: string;
+    q: string;
+    options: string[];
+  }>;
   prompt?: {
     title?: string;
     brief?: string;
     description?: string;
   };
-  suggestions?: Array<{
-    id: string;
-    title?: string;
-    description?: string;
-  }>;
+  suggestions?: AppSuggestion[];
   result?: {
     app_id: string;
     version: number;
@@ -43,13 +61,13 @@ interface ExtendedStage {
   };
 }
 
+// Cast stage to ExtendedStage for type safety
+const asExtendedStage = (s: unknown): ExtendedStage => s as ExtendedStage;
+
 export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
   const [brief, setBrief] = useState('');
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
-  const [format, setFormat] = useState<
-    'quiz' | 'game' | 'flashcards' | 'matching' | 'test' | 'crossword' | 
-    'wordSearch' | 'fillInBlanks' | 'dragAndDrop' | 'memory' | 'typing'
-  >('quiz');
+  const [format, setFormat] = useState<AppFormat>('quiz');
   const [viewerOpen, setViewerOpen] = useState(false);
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [publishTitle, setPublishTitle] = useState('');
@@ -83,8 +101,9 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
 
   const handleGenerate = () => {
     if (stage.stage === 'generate') {
+      const extStage = asExtendedStage(stage);
       const prompt = {
-        ...((stage as any).prompt || { 
+        ...(extStage.prompt || { 
           title: 'New App', 
           brief,
           description: brief 
@@ -169,7 +188,7 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
           <div className="space-y-2">
             <span className="text-sm font-medium text-muted-foreground">Формат игры:</span>
             <div className="flex flex-wrap gap-2">
-              {[
+              {([
                 { key: 'quiz', label: 'Квиз', icon: '❓' },
                 { key: 'crossword', label: 'Кроссворд', icon: '🔤' },
                 { key: 'flashcards', label: 'Карточки', icon: '🎴' },
@@ -181,12 +200,12 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
                 { key: 'test', label: 'Тест', icon: '📋' },
                 { key: 'typing', label: 'Тренажер набора', icon: '⌨️' },
                 { key: 'game', label: 'Игра', icon: '🎮' },
-              ].map((opt) => (
+              ] as FormatOption[]).map((opt) => (
                 <Badge
                   key={opt.key}
-                  variant={format === (opt.key as any) ? "default" : "outline"}
+                  variant={format === opt.key ? "default" : "outline"}
                   className="cursor-pointer hover:scale-105 transition-transform"
-                  onClick={() => setFormat(opt.key as any)}
+                  onClick={() => setFormat(opt.key)}
                 >
                   <span className="mr-1">{opt.icon}</span>
                   {opt.label}
@@ -246,7 +265,7 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
             <div className="space-y-4">
               <p className="font-medium">{stage.message}</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {stage.suggestions.map((app: any) => (
+                {(stage.suggestions as AppSuggestion[]).map((app) => (
                   <AppCard
                     key={app.id}
                     app={app}
@@ -262,27 +281,30 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
 
           {stage.stage === 'generate' && (
             <div className="space-y-4">
-              {(stage as any).suggestions && (stage as any).suggestions.length > 0 && (
-                <div className="space-y-3">
-                  <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
-                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                      💡 Найдены похожие приложения в каталоге
-                    </p>
-                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                      Возможно, одно из них подойдёт вам?
-                    </p>
+              {(() => {
+                const extStage = asExtendedStage(stage);
+                return extStage.suggestions && extStage.suggestions.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                        💡 Найдены похожие приложения в каталоге
+                      </p>
+                      <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                        Возможно, одно из них подойдёт вам?
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {extStage.suggestions.slice(0, 4).map((app) => (
+                        <AppCard
+                          key={app.id}
+                          app={app}
+                          onOpen={() => window.open(app.preview_url, '_blank')}
+                        />
+                      ))}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {(stage as any).suggestions.slice(0, 4).map((app: any) => (
-                      <AppCard
-                        key={app.id}
-                        app={app}
-                        onOpen={() => window.open(app.preview_url, '_blank')}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
+                );
+              })()}
               
               <div className="p-4 border rounded-lg bg-muted/50">
                 <p className="font-medium mb-3">{stage.message || 'Готов создать новое приложение'}</p>
@@ -348,7 +370,7 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
                     <div className="p-3 border rounded-lg bg-muted/50 space-y-2">
                       <p className="text-sm font-medium">Перегенерировать с другим форматом:</p>
                       <div className="flex flex-wrap gap-2">
-                        {[
+                        {([
                           { key: 'quiz', label: 'Квиз', icon: '❓' },
                           { key: 'crossword', label: 'Кроссворд', icon: '🔤' },
                           { key: 'flashcards', label: 'Карточки', icon: '🎴' },
@@ -360,12 +382,12 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
                           { key: 'test', label: 'Тест', icon: '📋' },
                           { key: 'typing', label: 'Тренажер набора', icon: '⌨️' },
                           { key: 'game', label: 'Игра', icon: '🎮' },
-                        ].map((opt) => (
+                        ] as FormatOption[]).map((opt) => (
                           <Badge
                             key={opt.key}
-                            variant={format === (opt.key as any) ? "default" : "outline"}
+                            variant={format === opt.key ? "default" : "outline"}
                             className="cursor-pointer hover:scale-105 transition-transform"
-                            onClick={() => setFormat(opt.key as any)}
+                            onClick={() => setFormat(opt.key)}
                           >
                             <span className="mr-1">{opt.icon}</span>
                             {opt.label}
@@ -424,7 +446,7 @@ export const AppGeneratorChat = ({ teacher }: AppGeneratorChatProps) => {
           previewUrl={stage.result.preview_url}
           open={viewerOpen}
           onClose={() => setViewerOpen(false)}
-          teacherId={(teacher as any).user_id || teacher.id}
+          teacherId={teacher.user_id || teacher.id}
         />
       )}
 
