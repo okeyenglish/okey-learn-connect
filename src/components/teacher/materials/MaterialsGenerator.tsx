@@ -12,8 +12,18 @@ interface MaterialsGeneratorProps {
   teacher: Teacher;
 }
 
+// Type for generation options
+type GenerationType = 'lesson' | 'explanation' | 'worksheet';
+
+interface GenerationOption {
+  value: GenerationType;
+  label: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
 export const MaterialsGenerator = ({ teacher }: MaterialsGeneratorProps) => {
-  const [generationType, setGenerationType] = React.useState<'lesson' | 'explanation' | 'worksheet'>('lesson');
+  const [generationType, setGenerationType] = React.useState<GenerationType>('lesson');
   const [topic, setTopic] = React.useState('');
   const [level, setLevel] = React.useState('');
   const [isGenerating, setIsGenerating] = React.useState(false);
@@ -45,7 +55,7 @@ export const MaterialsGenerator = ({ teacher }: MaterialsGeneratorProps) => {
     }
   };
 
-  const generationOptions = [
+  const generationOptions: GenerationOption[] = [
     {
       value: 'lesson',
       label: 'План урока',
@@ -80,7 +90,7 @@ export const MaterialsGenerator = ({ teacher }: MaterialsGeneratorProps) => {
                   ? 'border-brand bg-brand/5'
                   : 'border-2 hover:border-brand/50'
               }`}
-              onClick={() => setGenerationType(option.value as any)}
+              onClick={() => setGenerationType(option.value)}
             >
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
