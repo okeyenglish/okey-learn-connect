@@ -220,12 +220,14 @@ export function LessonScheduleStrip({ sessions, className, groupId, onStatusUpda
     setStatusModalOpen(true);
   };
 
-  const handleStatusChange = async (newStatus: string) => {
+  type SessionStatus = 'scheduled' | 'completed' | 'cancelled' | 'rescheduled';
+  
+  const handleStatusChange = async (newStatus: SessionStatus) => {
     if (!selectedSessionId) return;
 
     const { error } = await supabase
       .from('lesson_sessions')
-      .update({ status: newStatus as any })
+      .update({ status: newStatus })
       .eq('id', selectedSessionId);
 
     if (error) {
