@@ -1,36 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
+import type { SubscriptionPlan } from '@/integrations/supabase/database.types';
 
-export interface SubscriptionPlan {
-  id: string;
-  name: string;
-  description?: string | null;
-  subscription_type: 'per_lesson' | 'monthly' | 'weekly';
-  lessons_count?: number | null;
-  duration_days?: number | null;
-  price: number;
-  price_per_lesson?: number | null;
-  is_active?: boolean | null;
-  freeze_days_allowed?: number | null;
-  branch?: string | null;
-  subject?: string | null;
-  age_category?: 'preschool' | 'school' | 'adult' | 'all' | null;
-  auto_renewal?: boolean | null;
-  makeup_lessons_count?: number | null;
-  max_level?: string | null;
-  min_level?: string | null;
-  sort_order?: number | null;
-  created_at: string;
-  updated_at: string;
-}
+export type { SubscriptionPlan };
 
 export const useSubscriptionPlans = () => {
   return useQuery({
     queryKey: ['subscription-plans'],
     queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('subscription_plans' as any) as any)
+      const { data, error } = await supabase
+        .from('subscription_plans')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -45,8 +25,8 @@ export const useCreateSubscriptionPlan = () => {
   
   return useMutation({
     mutationFn: async (planData: Omit<SubscriptionPlan, 'id' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await (supabase
-        .from('subscription_plans' as any) as any)
+      const { data, error } = await supabase
+        .from('subscription_plans')
         .insert(planData)
         .select()
         .single();
@@ -70,8 +50,8 @@ export const useUpdateSubscriptionPlan = () => {
   
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<SubscriptionPlan> & { id: string }) => {
-      const { data, error } = await (supabase
-        .from('subscription_plans' as any) as any)
+      const { data, error } = await supabase
+        .from('subscription_plans')
         .update(updates)
         .eq('id', id)
         .select()
@@ -96,8 +76,8 @@ export const useDeleteSubscriptionPlan = () => {
   
   return useMutation({
     mutationFn: async (planId: string) => {
-      const { error } = await (supabase
-        .from('subscription_plans' as any) as any)
+      const { error } = await supabase
+        .from('subscription_plans')
         .delete()
         .eq('id', planId);
 

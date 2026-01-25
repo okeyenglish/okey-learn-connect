@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import type { TeacherRate as DBTeacherRate, TeacherEarning } from '@/integrations/supabase/database.types';
 
 export interface TeacherRate {
   id: string;
@@ -60,10 +61,10 @@ export const useTeacherRates = (teacherId?: string) => {
   return useQuery({
     queryKey: ['teacher-rates', teacherId],
     queryFn: async () => {
-      let query = (supabase
-        .from('teacher_rates' as any) as any)
+      let query = supabase
+        .from('teacher_rates')
         .select('*')
-        .order('valid_from', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (teacherId) {
         query = query.eq('teacher_id', teacherId);
@@ -71,7 +72,25 @@ export const useTeacherRates = (teacherId?: string) => {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as TeacherRate[];
+      
+      // Map DB type to component type
+      return (data || []).map((rate: DBTeacherRate) => ({
+        ...rate,
+        rate_per_academic_hour: rate.amount,
+        valid_from: rate.created_at,
+        valid_until: null,
+        currency: 'RUB',
+        notes: null,
+        group_id: null,
+        individual_lesson_id: null,
+        min_students: null,
+        max_students: null,
+        bonus_percentage: null,
+        external_id: null,
+        holihope_metadata: null,
+        created_by: null,
+        branch: null,
+      })) as TeacherRate[];
     },
     enabled: !!teacherId,
   });
@@ -81,26 +100,36 @@ export const useTeacherAccruals = (teacherId?: string, periodStart?: string, per
   return useQuery({
     queryKey: ['teacher-accruals', teacherId, periodStart, periodEnd],
     queryFn: async () => {
-      let query = (supabase
-        .from('teacher_earnings' as any) as any)
+      let query = supabase
+        .from('teacher_earnings')
         .select('*')
-        .order('earning_date', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (teacherId) {
         query = query.eq('teacher_id', teacherId);
       }
 
-      if (periodStart) {
-        query = query.gte('earning_date', periodStart);
-      }
-
-      if (periodEnd) {
-        query = query.lte('earning_date', periodEnd);
-      }
-
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as SalaryAccrual[];
+      
+      // Map DB type to component type
+      return (data || []).map((earning: TeacherEarning) => ({
+        id: earning.id,
+        teacher_id: earning.teacher_id,
+        lesson_session_id: earning.session_id,
+        individual_lesson_session_id: earning.individual_session_id,
+        earning_date: earning.created_at,
+        academic_hours: 1,
+        rate_per_hour: earning.amount,
+        amount: earning.amount,
+        currency: 'RUB',
+        status: earning.status,
+        payment_id: null,
+        notes: null,
+        teacher_coefficient: null,
+        created_at: earning.created_at,
+        updated_at: earning.created_at,
+      })) as SalaryAccrual[];
     },
     enabled: !!teacherId,
   });
@@ -115,8 +144,8 @@ export const useTeacherSalaryStats = (
   return useQuery({
     queryKey: ['teacher-salary-stats', teacherId, periodStart, periodEnd],
     queryFn: async () => {
-      const { data, error } = await (supabase.rpc as any)('get_teacher_salary_stats', {
-        p_teacher_id: teacherId,
+      const { data, error } = await supabase.rpc('get_teacher_salary_stats', {
+        p_teacher_id: teacherId!,
         p_period_start: periodStart,
         p_period_end: periodEnd,
       });
@@ -137,16 +166,12 @@ export const useUpsertTeacherRate = () => {
     mutationFn: async (rate: Partial<TeacherRate> & { teacher_id: string; rate_type: string; rate_per_academic_hour: number; valid_from: string }) => {
       if (rate.id) {
         // Update existing rate
-        const { data, error } = await (supabase
-          .from('teacher_rates' as any) as any)
+        const { data, error } = await supabase
+          .from('teacher_rates')
           .update({
             rate_type: rate.rate_type,
-            rate_per_academic_hour: rate.rate_per_academic_hour,
-            valid_from: rate.valid_from,
-            valid_until: rate.valid_until || null,
-            branch: rate.branch || null,
+            amount: rate.rate_per_academic_hour,
             subject: rate.subject || null,
-            notes: rate.notes || null,
             is_active: rate.is_active ?? true,
           })
           .eq('id', rate.id)
@@ -157,17 +182,13 @@ export const useUpsertTeacherRate = () => {
         return data;
       } else {
         // Insert new rate
-        const { data, error } = await (supabase
-          .from('teacher_rates' as any) as any)
+        const { data, error } = await supabase
+          .from('teacher_rates')
           .insert({
             teacher_id: rate.teacher_id,
             rate_type: rate.rate_type,
-            rate_per_academic_hour: rate.rate_per_academic_hour,
-            valid_from: rate.valid_from,
-            valid_until: rate.valid_until || null,
-            branch: rate.branch || null,
+            amount: rate.rate_per_academic_hour,
             subject: rate.subject || null,
-            notes: rate.notes || null,
             is_active: rate.is_active ?? true,
           })
           .select()
@@ -201,8 +222,8 @@ export const useDeleteTeacherRate = () => {
 
   return useMutation({
     mutationFn: async (rateId: string) => {
-      const { error } = await (supabase
-        .from('teacher_rates' as any) as any)
+      const { error } = await supabase
+        .from('teacher_rates')
         .delete()
         .eq('id', rateId);
 
@@ -232,8 +253,8 @@ export const useMarkAccrualsPaid = () => {
 
   return useMutation({
     mutationFn: async (accrualIds: string[]) => {
-      const { error } = await (supabase
-        .from('teacher_earnings' as any) as any)
+      const { error } = await supabase
+        .from('teacher_earnings')
         .update({
           status: 'paid',
         })

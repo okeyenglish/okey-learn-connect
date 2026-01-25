@@ -62,9 +62,14 @@ export interface Teacher {
   updated_at: string;
 }
 
+export type StudentStatus = 'active' | 'archived' | 'expelled' | 'graduated' | 'inactive' | 'not_started' | 'on_pause' | 'trial';
+
 export interface Student {
   id: string;
   name: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  middle_name?: string | null;
   email: string | null;
   phone: string | null;
   parent_name: string | null;
@@ -73,6 +78,14 @@ export interface Student {
   organization_id: string | null;
   family_group_id: string | null;
   external_id: string | null;
+  status: StudentStatus;
+  age?: number | null;
+  date_of_birth?: string | null;
+  gender?: 'male' | 'female' | null;
+  avatar_url?: string | null;
+  lk_email?: string | null;
+  lk_enabled?: boolean | null;
+  notes?: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -872,6 +885,12 @@ export interface Task {
   branch?: string | null;
   created_at: string;
   updated_at: string;
+  // Joined relation
+  clients?: {
+    id: string;
+    name: string;
+    phone?: string | null;
+  } | null;
 }
 
 export interface TuitionCharge {
@@ -942,6 +961,88 @@ export interface PinnedModalDB {
   is_open?: boolean;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface SLAMetric {
+  id: string;
+  metric_type: 'lead_first_touch' | 'attendance_submission' | 'payment_reminder';
+  entity_id: string;
+  entity_type: string;
+  target_time: string;
+  actual_time: string | null;
+  is_met: boolean | null;
+  sla_threshold_minutes: number;
+  delay_minutes: number | null;
+  organization_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SLADashboard {
+  organization_id: string;
+  metric_type: string;
+  total_metrics: number;
+  met_count: number;
+  missed_count: number;
+  avg_delay_minutes: number;
+  sla_percentage: number;
+  date: string;
+}
+
+export interface StudentOperationLog {
+  id: string;
+  student_id: string;
+  operation_type: 
+    | 'created' 
+    | 'updated' 
+    | 'status_changed' 
+    | 'enrolled_to_group' 
+    | 'expelled_from_group' 
+    | 'transferred' 
+    | 'archived' 
+    | 'restored'
+    | 'payment_added'
+    | 'lk_access_granted'
+    | 'lk_access_revoked';
+  old_value: Json | null;
+  new_value: Json | null;
+  notes: string | null;
+  performed_by: string | null;
+  performed_at: string;
+}
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  description?: string | null;
+  subscription_type: 'per_lesson' | 'monthly' | 'weekly';
+  lessons_count?: number | null;
+  duration_days?: number | null;
+  price: number;
+  price_per_lesson?: number | null;
+  is_active?: boolean | null;
+  freeze_days_allowed?: number | null;
+  branch?: string | null;
+  subject?: string | null;
+  age_category?: 'preschool' | 'school' | 'adult' | 'all' | null;
+  auto_renewal?: boolean | null;
+  makeup_lessons_count?: number | null;
+  max_level?: string | null;
+  min_level?: string | null;
+  sort_order?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrganizationAISettings {
+  organization_id: string;
+  organization_name: string;
+  subscription_tier: 'free' | 'paid';
+  ai_limit: number;
+  key_type: 'free' | 'byok' | null;
+  limit_remaining: number | null;
+  limit_monthly: number | null;
+  key_status: string | null;
 }
 
 // ============ RPC функции ============
@@ -1364,6 +1465,31 @@ export interface CustomDatabase {
         Insert: Partial<PinnedModalDB>;
         Update: Partial<PinnedModalDB>;
       };
+      sla_metrics: {
+        Row: SLAMetric;
+        Insert: Partial<SLAMetric>;
+        Update: Partial<SLAMetric>;
+      };
+      mv_sla_dashboard: {
+        Row: SLADashboard;
+        Insert: never;
+        Update: never;
+      };
+      student_operation_logs: {
+        Row: StudentOperationLog;
+        Insert: Partial<StudentOperationLog>;
+        Update: Partial<StudentOperationLog>;
+      };
+      subscription_plans: {
+        Row: SubscriptionPlan;
+        Insert: Partial<SubscriptionPlan>;
+        Update: Partial<SubscriptionPlan>;
+      };
+      v_organization_ai_settings: {
+        Row: OrganizationAISettings;
+        Insert: never;
+        Update: never;
+      };
     };
     Views: {
       [_ in never]: never;
@@ -1479,6 +1605,20 @@ export interface CustomDatabase {
       get_chat_pin_counts: {
         Args: { _chat_ids: string[] };
         Returns: { chat_id: string; pin_count: number }[];
+      };
+      // Teacher salary stats
+      get_teacher_salary_stats: {
+        Args: { p_teacher_id: string; p_period_start?: string; p_period_end?: string };
+        Returns: { total_amount: number; total_hours: number; total_lessons: number; group_lessons: number; individual_lessons: number; paid_amount: number; unpaid_amount: number }[];
+      };
+      // SLA functions
+      record_sla_metric: {
+        Args: { p_metric_type: string; p_entity_id: string; p_entity_type: string; p_target_time: string; p_actual_time: string; p_threshold_minutes: number; p_organization_id: string };
+        Returns: string;
+      };
+      refresh_advanced_materialized_views: {
+        Args: Record<string, never>;
+        Returns: void;
       };
     };
     Enums: {

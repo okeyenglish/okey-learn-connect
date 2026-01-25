@@ -1,18 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
+import type { Task } from '@/integrations/supabase/database.types';
 
-export interface TaskLazy {
-  id: string;
-  title: string;
-  description?: string | null;
-  due_date?: string | null;
-  due_time?: string | null;
-  priority: string;
-  status: string;
-  client_id?: string | null;
-  branch?: string | null;
-  created_at: string;
-  updated_at: string;
+export interface TaskLazy extends Task {
   clients?: {
     id: string;
     name: string;
@@ -25,13 +15,13 @@ export const useTasksLazy = (enabled: boolean = false) => {
   const { data: tasks, isLoading, error } = useQuery({
     queryKey: ['tasks'],
     queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('tasks' as any) as any)
+      const { data, error } = await supabase
+        .from('tasks')
         .select('*')
-        .order('created_at', { ascending: false});
+        .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as any[];
+      return data as Task[];
     },
     enabled, // Only fetch when explicitly enabled
     staleTime: 2 * 60 * 1000, // 2 minutes

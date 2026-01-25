@@ -1,32 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
+import type { SLAMetric, SLADashboard } from '@/integrations/supabase/database.types';
 
-export interface SLAMetric {
-  id: string;
-  metric_type: 'lead_first_touch' | 'attendance_submission' | 'payment_reminder';
-  entity_id: string;
-  entity_type: string;
-  target_time: string;
-  actual_time: string | null;
-  is_met: boolean | null;
-  sla_threshold_minutes: number;
-  delay_minutes: number | null;
-  organization_id: string;
-  created_at: string;
-  updated_at: string;
-}
+export type { SLAMetric };
 
-export interface SLADashboardStats {
-  organization_id: string;
-  metric_type: string;
-  total_metrics: number;
-  met_count: number;
-  missed_count: number;
-  avg_delay_minutes: number;
-  sla_percentage: number;
-  date: string;
-}
+export interface SLADashboardStats extends SLADashboard {}
 
 export const useSLAMetrics = (filters?: {
   metric_type?: string;
@@ -36,8 +15,8 @@ export const useSLAMetrics = (filters?: {
   return useQuery({
     queryKey: ['sla-metrics', filters],
     queryFn: async () => {
-      let query = (supabase
-        .from('sla_metrics' as any) as any)
+      let query = supabase
+        .from('sla_metrics')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -62,8 +41,8 @@ export const useSLADashboard = (days: number = 30) => {
   return useQuery({
     queryKey: ['sla-dashboard', days],
     queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('mv_sla_dashboard' as any) as any)
+      const { data, error } = await supabase
+        .from('mv_sla_dashboard')
         .select('*')
         .order('date', { ascending: false })
         .limit(days);
@@ -87,7 +66,7 @@ export const useRecordSLAMetric = () => {
       threshold_minutes: number;
       organization_id: string;
     }) => {
-      const { data, error } = await (supabase.rpc as any)('record_sla_metric', {
+      const { data, error } = await supabase.rpc('record_sla_metric', {
         p_metric_type: params.metric_type,
         p_entity_id: params.entity_id,
         p_entity_type: params.entity_type,
@@ -112,7 +91,7 @@ export const useRefreshSLADashboard = () => {
 
   return useMutation({
     mutationFn: async () => {
-      const { data, error } = await (supabase.rpc as any)('refresh_advanced_materialized_views');
+      const { data, error } = await supabase.rpc('refresh_advanced_materialized_views');
       if (error) throw error;
       return data;
     },

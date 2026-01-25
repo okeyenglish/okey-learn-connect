@@ -1,20 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
+import type { Teacher } from '@/integrations/supabase/database.types';
 
-export interface Teacher {
-  id: string;
-  profile_id?: string;
-  first_name: string;
-  last_name: string;
-  email?: string;
-  phone?: string;
-  subjects: string[] | null;
-  categories: string[] | null;
-  branch: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
+export type { Teacher };
 
 export interface TeacherFilters {
   subject?: string;
@@ -26,8 +14,8 @@ export const useTeachers = (filters?: TeacherFilters) => {
   const { data: teachers, isLoading, error } = useQuery({
     queryKey: ['teachers', filters],
     queryFn: async () => {
-      let query = (supabase
-        .from('teachers' as any) as any)
+      let query = supabase
+        .from('teachers')
         .select('*')
         .eq('is_active', true)
         .order('last_name', { ascending: true });
