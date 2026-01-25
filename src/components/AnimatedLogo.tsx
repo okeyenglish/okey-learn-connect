@@ -49,21 +49,23 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
         }}
       />
       
-      {/* Logo container with isolation to prevent blend affecting glow */}
+      {/* Logo container - clipped to circle */}
       <div 
-        className="relative z-10 transition-transform duration-300 group-hover:scale-105"
+        className="relative z-10 rounded-full overflow-hidden transition-transform duration-300 group-hover:scale-105"
         style={{
-          width: size * 1.15,
-          height: size * 1.15,
-          isolation: 'isolate',
+          width: size,
+          height: size,
         }}
       >
         <img 
           src="/animated-logo.png" 
           alt="Logo"
-          className="w-full h-full object-contain"
+          className="object-contain"
           style={{
-            mixBlendMode: 'multiply',
+            width: size * 1.25,
+            height: size * 1.25,
+            marginLeft: -(size * 1.25 - size) / 2,
+            marginTop: -(size * 1.25 - size) / 2,
           }}
         />
       </div>
