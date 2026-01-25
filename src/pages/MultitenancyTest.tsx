@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle, XCircle, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -25,13 +25,12 @@ export default function MultitenancyTest() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
-      const { data: profile } = await supabase
-        .from("profiles")
+      const { data: profile } = await (supabase.from("profiles" as any) as any)
         .select("organization_id, first_name, last_name")
         .eq("id", user.id)
         .single();
 
-      return { ...user, profile };
+      return { ...user, profile: profile as any };
     },
   });
 
@@ -40,13 +39,12 @@ export default function MultitenancyTest() {
     queryFn: async () => {
       if (!currentUser?.profile?.organization_id) return null;
 
-      const { data } = await supabase
-        .from("organizations")
+      const { data } = await (supabase.from("organizations" as any) as any)
         .select("*")
         .eq("id", currentUser.profile.organization_id)
         .single();
 
-      return data;
+      return data as any;
     },
     enabled: !!currentUser?.profile?.organization_id,
   });

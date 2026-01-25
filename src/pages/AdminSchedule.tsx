@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Plus, Edit, Trash2, Save, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ContentIndexer } from "@/components/ContentIndexer";
@@ -56,8 +56,7 @@ export default function AdminSchedule() {
   const fetchSchedule = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('schedule')
+      const { data, error } = await (supabase.from('schedule' as any) as any)
         .select('*')
         .order('office_name', { ascending: true })
         .order('created_at', { ascending: true });
@@ -91,8 +90,7 @@ export default function AdminSchedule() {
     try {
       if (editingItem) {
         // Update existing item
-        const { error } = await supabase
-          .from('schedule')
+        const { error } = await (supabase.from('schedule' as any) as any)
           .update({
             name: formData.name,
             office_name: formData.office_name,
@@ -114,8 +112,7 @@ export default function AdminSchedule() {
         });
       } else {
         // Create new item
-        const { error } = await supabase
-          .from('schedule')
+        const { error } = await (supabase.from('schedule' as any) as any)
           .insert([{
             id: crypto.randomUUID(),
             name: formData.name,
@@ -171,8 +168,7 @@ export default function AdminSchedule() {
     if (!confirm("Вы уверены, что хотите удалить это занятие?")) return;
 
     try {
-      const { error } = await supabase
-        .from('schedule')
+      const { error } = await (supabase.from('schedule' as any) as any)
         .update({ is_active: false })
         .eq('id', id);
 

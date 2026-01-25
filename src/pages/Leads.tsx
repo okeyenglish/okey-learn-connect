@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { Button } from "@/components/ui/button";
 import { Plus, Search, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -23,8 +23,7 @@ export default function Leads() {
   const { data: leads, isLoading, refetch } = useQuery({
     queryKey: ["leads", filters, search],
     queryFn: async () => {
-      let query = supabase
-        .from("leads")
+      let query = (supabase.from("leads" as any) as any)
         .select(`
           *,
           lead_source:lead_sources(name),

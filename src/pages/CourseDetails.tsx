@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,25 +35,23 @@ export default function CourseDetails() {
       if (!courseId) throw new Error('Course ID is required');
       
       // Сначала пробуем individual_lessons
-      const { data: individualLesson } = await supabase
-        .from('individual_lessons')
+      const { data: individualLesson } = await (supabase.from('individual_lessons' as any) as any)
         .select('*')
         .eq('id', courseId)
         .single();
 
       if (individualLesson) {
-        return { ...individualLesson, type: 'individual' };
+        return { ...(individualLesson as any), type: 'individual' };
       }
 
       // Потом пробуем learning_groups
-      const { data: learningGroup } = await supabase
-        .from('learning_groups')
+      const { data: learningGroup } = await (supabase.from('learning_groups' as any) as any)
         .select('*')
         .eq('id', courseId)
         .single();
 
       if (learningGroup) {
-        return { ...learningGroup, type: 'group' };
+        return { ...(learningGroup as any), type: 'group' };
       }
 
       throw new Error('Course not found');
@@ -67,12 +65,12 @@ export default function CourseDetails() {
     queryFn: async () => {
       if (!user?.id) return null;
       
-      const { data, error } = await supabase.rpc('get_student_by_user_id', {
+      const { data, error } = await (supabase.rpc as any)('get_student_by_user_id', {
         _user_id: user.id
       });
       
       if (error) return null;
-      return data?.[0] || null;
+      return (data as any[])?.[0] || null;
     },
     enabled: !!user?.id,
   });
@@ -83,8 +81,7 @@ export default function CourseDetails() {
     queryFn: async () => {
       if (!courseId || !student?.id) return [];
       
-      const { data: studentSessions, error } = await supabase
-        .from('student_lesson_sessions')
+      const { data: studentSessions, error } = await (supabase.from('student_lesson_sessions' as any) as any)
         .select(`
           lesson_sessions (
             id,
@@ -102,7 +99,7 @@ export default function CourseDetails() {
       
       if (error) return [];
       
-      return studentSessions?.map(s => s.lesson_sessions).filter(Boolean) || [];
+      return ((studentSessions as any[]) || []).map((s: any) => s.lesson_sessions).filter(Boolean) || [];
     },
     enabled: !!courseId && !!student?.id,
   });

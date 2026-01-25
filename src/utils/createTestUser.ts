@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 export interface TestUser {
   phone: string;
@@ -48,8 +48,7 @@ export const createTestStudent = async (): Promise<TestUser> => {
       console.log('Пользователь создан успешно:', data.user.email);
       
       // Создаем запись в профилях
-      const { error: profileError } = await supabase
-        .from('profiles')
+      const { error: profileError } = await (supabase.from('profiles' as any) as any)
         .insert({
           id: data.user.id,
           first_name: testUser.firstName,
@@ -62,8 +61,7 @@ export const createTestStudent = async (): Promise<TestUser> => {
       }
 
       // Назначаем роль студента
-      const { error: roleError } = await supabase
-        .from('user_roles')
+      const { error: roleError } = await (supabase.from('user_roles' as any) as any)
         .insert({
           user_id: data.user.id,
           role: 'student'

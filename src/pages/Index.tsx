@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { lazy, Suspense } from "react";
@@ -146,9 +146,9 @@ export default function Index() {
   const fetchScheduleData = async () => {
     try {
       // Fetch all schedules in one call using nullable parameter to avoid overloading ambiguity
-      const { data: allScheduleData, error: scheduleError } = await supabase.rpc('get_public_schedule', {
-        branch_name: null
-      });
+      const { data: allScheduleData, error: scheduleError } = await (supabase.rpc as any)(
+        'get_public_schedule', { branch_name: null }
+      ) as { data: any[] | null; error: any };
 
       if (scheduleError) {
         console.error('Error fetching schedule:', scheduleError);

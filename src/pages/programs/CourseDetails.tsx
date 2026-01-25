@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import SEOHead from "@/components/SEOHead";
 import { InlineCourseMaterials } from "@/components/student/InlineCourseMaterials";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { useState, useMemo } from "react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -159,8 +159,7 @@ export default function CourseDetails() {
     queryFn: async () => {
       if (!courseSlug) throw new Error('Course slug is required');
       
-      const { data, error } = await supabase
-        .from('courses')
+      const { data, error } = await (supabase.from('courses' as any) as any)
         .select('*')
         .eq('slug', courseSlug)
         .single();
@@ -176,8 +175,7 @@ export default function CourseDetails() {
     queryKey: ['course-units', course?.id],
     queryFn: async () => {
       if (!course?.id) return [];
-      const { data, error } = await supabase
-        .from('course_units')
+      const { data, error } = await (supabase.from('course_units' as any) as any)
         .select('*')
         .eq('course_id', course.id)
         .order('sort_order');
@@ -200,8 +198,7 @@ export default function CourseDetails() {
     queryKey: ['lessons', unitIds],
     queryFn: async () => {
       if (!unitIds.length) return [] as UnitLesson[];
-      const { data, error } = await supabase
-        .from('lessons')
+      const { data, error } = await (supabase.from('lessons' as any) as any)
         .select('*')
         .in('unit_id', unitIds)
         .order('lesson_number', { ascending: true });

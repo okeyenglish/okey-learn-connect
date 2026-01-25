@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
@@ -12,29 +12,25 @@ export default function BalanceSystemTest() {
     queryKey: ['balance-system-stats'],
     queryFn: async () => {
       // Проверяем балансы студентов
-      const { data: balances } = await supabase
-        .from('student_balances')
+      const { data: balances } = await (supabase.from('student_balances' as any) as any)
         .select('*')
         .order('updated_at', { ascending: false })
         .limit(10);
 
       // Проверяем транзакции балансов
-      const { data: transactions } = await supabase
-        .from('balance_transactions')
+      const { data: transactions } = await (supabase.from('balance_transactions' as any) as any)
         .select('*')
         .order('created_at', { ascending: false })
         .limit(10);
 
       // Проверяем семейные счета
-      const { data: familyLedgers } = await supabase
-        .from('family_ledger' as any)
+      const { data: familyLedgers } = await (supabase.from('family_ledger' as any) as any)
         .select('*')
         .order('updated_at', { ascending: false })
         .limit(10);
 
       // Проверяем транзакции семейных счетов
-      const { data: familyTransactions } = await supabase
-        .from('family_ledger_transactions' as any)
+      const { data: familyTransactions } = await (supabase.from('family_ledger_transactions' as any) as any)
         .select('*')
         .order('created_at', { ascending: false })
         .limit(10);

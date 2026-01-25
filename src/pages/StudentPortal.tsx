@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,14 +28,14 @@ export default function StudentPortal() {
     queryKey: ['student-by-user', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-      const { data, error } = await supabase.rpc('get_student_by_user_id', {
+      const { data, error } = await (supabase.rpc as any)('get_student_by_user_id', {
         _user_id: user.id
       });
       if (error) {
         console.error('Error fetching student:', error);
         return null;
       }
-      return data?.[0] || null;
+      return (data as any[])?.[0] || null;
     },
     enabled: !!user?.id,
   });
@@ -46,8 +46,7 @@ export default function StudentPortal() {
     queryFn: async () => {
       if (!student?.id) return [];
       
-      const { data: studentSessions, error } = await supabase
-        .from('student_lesson_sessions')
+      const { data: studentSessions, error } = await (supabase.from('student_lesson_sessions' as any) as any)
         .select(`
           lesson_session_id,
           attendance_status,

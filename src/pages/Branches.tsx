@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { branches, BranchWithSchedule } from "@/lib/branches";
 import { BranchPhotoGallery } from "@/components/branches/BranchPhotoGallery";
 import { 
@@ -59,9 +59,9 @@ export default function Locations() {
 
   const fetchScheduleData = async () => {
     try {
-      const { data: allScheduleData, error: scheduleError } = await supabase.rpc('get_public_schedule', {
-        branch_name: null
-      });
+      const { data: allScheduleData, error: scheduleError } = await (supabase.rpc as any)(
+        'get_public_schedule', { branch_name: null }
+      );
 
       if (scheduleError) {
         console.error('Error fetching schedule:', scheduleError);

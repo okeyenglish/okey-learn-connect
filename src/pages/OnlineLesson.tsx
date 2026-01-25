@@ -1,7 +1,7 @@
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
@@ -29,8 +29,7 @@ export default function OnlineLesson() {
   const { data: lesson, isLoading } = useQuery({
     queryKey: ['lesson-session', lessonId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('lesson_sessions')
+      const { data, error } = await (supabase.from('lesson_sessions' as any) as any)
         .select('*')
         .eq('id', lessonId)
         .single();
@@ -43,8 +42,7 @@ export default function OnlineLesson() {
   const { data: profile } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
+      const { data, error } = await (supabase.from('profiles' as any) as any)
         .select('*')
         .eq('id', user?.id)
         .single();

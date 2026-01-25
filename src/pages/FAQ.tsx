@@ -3,7 +3,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Send, Phone } from "lucide-react";
 import { Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 
 interface FAQItem {
   id: string;
@@ -19,8 +19,7 @@ export default function FAQ() {
   useEffect(() => {
     const loadFAQ = async () => {
       try {
-        const { data, error } = await supabase
-          .from('faq')
+        const { data, error } = await (supabase.from('faq' as any) as any)
           .select('id, question, answer, sort_order')
           .eq('is_published', true)
           .order('sort_order', { ascending: true });

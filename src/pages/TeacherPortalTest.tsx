@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 
@@ -9,36 +9,31 @@ export default function TeacherPortalTest() {
     queryKey: ['teacher-portal-test'],
     queryFn: async () => {
       // Check teachers with names
-      const { data: teachers } = await supabase
-        .from('teachers')
+      const { data: teachers } = await (supabase.from('teachers' as any) as any)
         .select('*')
         .not('first_name', 'is', null)
         .neq('first_name', '');
       
       // Check groups with teachers
-      const { data: groups } = await supabase
-        .from('learning_groups')
+      const { data: groups } = await (supabase.from('learning_groups' as any) as any)
         .select('*')
         .not('responsible_teacher', 'is', null)
         .neq('responsible_teacher', '');
       
       // Check lesson sessions with teachers
-      const { data: sessions } = await supabase
-        .from('lesson_sessions')
+      const { data: sessions } = await (supabase.from('lesson_sessions' as any) as any)
         .select('*')
         .not('teacher_name', 'is', null)
         .neq('teacher_name', '')
         .neq('teacher_name', 'Преподаватель не назначен');
       
       // Check profile-teacher links
-      const { data: linkedProfiles } = await supabase
-        .from('teachers')
+      const { data: linkedProfiles } = await (supabase.from('teachers' as any) as any)
         .select('id, profile_id, first_name, last_name')
         .not('profile_id', 'is', null);
       
       // Check if there are profiles with teacher role
-      const { data: teacherProfiles } = await supabase
-        .from('user_roles')
+      const { data: teacherProfiles } = await (supabase.from('user_roles' as any) as any)
         .select('user_id, role')
         .eq('role', 'teacher');
       
