@@ -43,7 +43,7 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
         .select(`
           id, client_id, message_text, message_type, system_type, is_read,
           created_at, file_url, file_name, file_type, external_message_id,
-          messenger_type, call_duration,
+          messenger_type, call_duration, status,
           clients(avatar_url, telegram_avatar_url, whatsapp_avatar_url, max_avatar_url)
         `)
         .eq('client_id', clientId)
@@ -55,7 +55,7 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
         console.warn('[useChatMessagesOptimized] Join failed, falling back:', error.message);
         const fallback = await supabase
           .from('chat_messages')
-          .select('id, client_id, message_text, message_type, system_type, is_read, created_at, file_url, file_name, file_type, external_message_id, messenger_type, call_duration')
+          .select('id, client_id, message_text, message_type, system_type, is_read, created_at, file_url, file_name, file_type, external_message_id, messenger_type, call_duration, status')
           .eq('client_id', clientId)
           .order('created_at', { ascending: false })
           .limit(limit + 1);

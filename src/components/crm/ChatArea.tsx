@@ -346,7 +346,7 @@ export const ChatArea = ({
     createdAt: msg.created_at, // Keep original timestamp for date separator
     systemType: msg.system_type,
     callDuration: msg.call_duration,
-    messageStatus: msg.message_status,
+    messageStatus: msg.status || msg.message_status || 'sent',
     // Get avatar based on messenger type, with fallback chain
     clientAvatar: (() => {
       const clients = msg.clients;
