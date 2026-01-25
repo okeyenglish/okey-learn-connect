@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from './useAuth';
+import type { ChatState } from '@/integrations/supabase/database.types';
+
+interface ChatStateRow {
+  chat_id: string;
+  is_pinned: boolean;
+}
 
 /**
  * Hook to fetch pinned chat IDs for the current user.
@@ -20,8 +26,8 @@ export const usePinnedChatIds = () => {
     }
 
     try {
-      const { data, error } = await (supabase
-        .from('chat_states' as any) as any)
+      const { data, error } = await supabase
+        .from('chat_states')
         .select('chat_id')
         .eq('user_id', user.id)
         .eq('is_pinned', true);
@@ -31,7 +37,8 @@ export const usePinnedChatIds = () => {
         return;
       }
 
-      setPinnedChatIds((data || []).map((d: any) => d.chat_id));
+      const rows = (data || []) as ChatStateRow[];
+      setPinnedChatIds(rows.map((d) => d.chat_id));
     } catch (error) {
       console.error('Error loading pinned chat IDs:', error);
     } finally {
@@ -56,7 +63,7 @@ export const usePinnedChatIds = () => {
           },
           (payload) => {
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-              const newState = payload.new as any;
+              const newState = payload.new as ChatStateRow;
               if (newState.is_pinned) {
                 setPinnedChatIds(prev => 
                   prev.includes(newState.chat_id) ? prev : [...prev, newState.chat_id]
@@ -65,7 +72,7 @@ export const usePinnedChatIds = () => {
                 setPinnedChatIds(prev => prev.filter(id => id !== newState.chat_id));
               }
             } else if (payload.eventType === 'DELETE') {
-              const oldState = payload.old as any;
+              const oldState = payload.old as ChatStateRow;
               setPinnedChatIds(prev => prev.filter(id => id !== oldState.chat_id));
             }
           }

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import type { Json } from '@/integrations/supabase/database.types';
 
 export interface Notification {
   id: string;
@@ -14,7 +15,7 @@ export interface Notification {
   sent_at?: string;
   read_at?: string;
   delivery_method: string[];
-  metadata: any;
+  metadata: Json;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -26,7 +27,7 @@ export interface BroadcastCampaign {
   title: string;
   message: string;
   target_audience: string;
-  filters: any;
+  filters: Json;
   delivery_method: string[];
   status: string;
   scheduled_at?: string;
@@ -41,6 +42,10 @@ export interface BroadcastCampaign {
   updated_at: string;
 }
 
+interface RecipientRow {
+  user_id: string;
+}
+
 // Получить уведомления пользователя
 export const useUserNotifications = (userId?: string) => {
   return useQuery({
@@ -49,14 +54,14 @@ export const useUserNotifications = (userId?: string) => {
       if (!userId) return [];
 
       const { data, error } = await supabase
-        .from('notifications' as any)
+        .from('notifications')
         .select('*')
         .eq('recipient_id', userId)
         .order('created_at', { ascending: false })
         .limit(50);
 
       if (error) throw error;
-      return (data || []) as unknown as Notification[];
+      return (data || []) as Notification[];
     },
     enabled: !!userId,
   });
@@ -71,7 +76,7 @@ export const useAllNotifications = (filters?: {
     queryKey: ['all-notifications', filters],
     queryFn: async () => {
       let query = supabase
-        .from('notifications' as any)
+        .from('notifications')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -85,7 +90,7 @@ export const useAllNotifications = (filters?: {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as unknown as Notification[];
+      return (data || []) as Notification[];
     },
   });
 };
@@ -100,7 +105,7 @@ export const useCreateNotification = () => {
       const { data: user } = await supabase.auth.getUser();
       
       const { data, error } = await supabase
-        .from('notifications' as any)
+        .from('notifications')
         .insert({
           ...notification,
           created_by: user.user?.id,
@@ -109,7 +114,7 @@ export const useCreateNotification = () => {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Notification;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-notifications'] });
@@ -136,7 +141,7 @@ export const useMarkNotificationRead = () => {
   return useMutation({
     mutationFn: async (notificationId: string) => {
       const { error } = await supabase
-        .from('notifications' as any)
+        .from('notifications')
         .update({ read_at: new Date().toISOString() })
         .eq('id', notificationId);
 
@@ -155,7 +160,7 @@ export const useBroadcastCampaigns = (filters?: { status?: string }) => {
     queryKey: ['broadcast-campaigns', filters],
     queryFn: async () => {
       let query = supabase
-        .from('broadcast_campaigns' as any)
+        .from('broadcast_campaigns')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -165,7 +170,7 @@ export const useBroadcastCampaigns = (filters?: { status?: string }) => {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as unknown as BroadcastCampaign[];
+      return (data || []) as BroadcastCampaign[];
     },
   });
 };
@@ -181,27 +186,28 @@ export const useCreateBroadcastCampaign = () => {
 
       // Получаем получателей
       const { data: recipients, error: recipientsError } = await supabase.rpc(
-        'get_campaign_recipients' as any,
+        'get_campaign_recipients',
         {
-          p_target_audience: campaign.target_audience,
-          p_filters: campaign.filters || {},
+          p_campaign_id: campaign.id || '',
         }
       );
 
       if (recipientsError) throw recipientsError;
 
+      const recipientRows = (recipients || []) as RecipientRow[];
+
       const { data, error } = await supabase
-        .from('broadcast_campaigns' as any)
+        .from('broadcast_campaigns')
         .insert({
           ...campaign,
-          total_recipients: recipients?.length || 0,
+          total_recipients: recipientRows.length,
           created_by: user.user?.id,
         })
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as BroadcastCampaign;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['broadcast-campaigns'] });
@@ -229,7 +235,7 @@ export const useLaunchCampaign = () => {
     mutationFn: async (campaignId: string) => {
       // Получаем данные кампании
       const { data: campaign, error: campaignError } = await supabase
-        .from('broadcast_campaigns' as any)
+        .from('broadcast_campaigns')
         .select('*')
         .eq('id', campaignId)
         .maybeSingle();
@@ -237,14 +243,13 @@ export const useLaunchCampaign = () => {
       if (campaignError) throw campaignError;
       if (!campaign) throw new Error('Кампания не найдена');
 
-      const campaignData = campaign as any;
+      const campaignData = campaign as BroadcastCampaign;
 
       // Получаем получателей
       const { data: recipients, error: recipientsError } = await supabase.rpc(
-        'get_campaign_recipients' as any,
+        'get_campaign_recipients',
         {
-          p_target_audience: campaignData.target_audience,
-          p_filters: campaignData.filters || {},
+          p_campaign_id: campaignId,
         }
       );
 
@@ -252,8 +257,10 @@ export const useLaunchCampaign = () => {
 
       const { data: user } = await supabase.auth.getUser();
 
+      const recipientRows = (recipients || []) as RecipientRow[];
+
       // Создаём уведомления для всех получателей
-      const notifications = (recipients || []).map((recipient: any) => ({
+      const notifications = recipientRows.map((recipient) => ({
         recipient_id: recipient.user_id,
         recipient_type: 'student',
         title: campaignData.title,
@@ -262,19 +269,19 @@ export const useLaunchCampaign = () => {
         status: 'sent',
         delivery_method: campaignData.delivery_method,
         sent_at: new Date().toISOString(),
-        created_by: user.user?.id,
-        metadata: { campaign_id: campaignId },
+        created_by: user.user?.id || '',
+        metadata: { campaign_id: campaignId } as Json,
       }));
 
       const { error: notificationsError } = await supabase
-        .from('notifications' as any)
+        .from('notifications')
         .insert(notifications);
 
       if (notificationsError) throw notificationsError;
 
       // Обновляем статус кампании
       const { error: updateError } = await supabase
-        .from('broadcast_campaigns' as any)
+        .from('broadcast_campaigns')
         .update({
           status: 'completed',
           started_at: new Date().toISOString(),
@@ -312,7 +319,7 @@ export const useDeleteCampaign = () => {
   return useMutation({
     mutationFn: async (campaignId: string) => {
       const { error } = await supabase
-        .from('broadcast_campaigns' as any)
+        .from('broadcast_campaigns')
         .delete()
         .eq('id', campaignId);
 

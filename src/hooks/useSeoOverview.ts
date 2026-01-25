@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { getCurrentOrganizationId } from '@/lib/organizationHelpers';
+import type { Json } from '@/integrations/supabase/database.types';
 
 export interface KeywordWithStats {
   phrase: string;
@@ -19,12 +20,38 @@ export interface ClusterWithKeywords {
   keywordsCount: number;
 }
 
+interface SeoPageAnalysis {
+  target_keywords?: string[];
+  title?: string;
+}
+
 export interface PageWithKeywords {
   url: string;
   last_analyzed_at: string | null;
-  analysis: any;
+  analysis: Json;
   targetKeywords: string[];
   pageTitle?: string;
+}
+
+interface KwNormRow {
+  phrase: string;
+  monthly_searches: number | null;
+  wordstat_competition: string | null;
+  source: string | null;
+  last_updated: string | null;
+}
+
+interface SeoPageRow {
+  url: string;
+  last_analyzed_at: string | null;
+  analysis: Json;
+}
+
+interface GscQueryRow {
+  position: number | null;
+  clicks: number | null;
+  impressions: number | null;
+  query: string;
 }
 
 /**
@@ -79,7 +106,8 @@ export function useSeoOverview() {
         .order('monthly_searches', { ascending: false, nullsFirst: false });
 
       if (error) throw error;
-      return (data || []).map((d: any) => ({
+      const rows = (data || []) as KwNormRow[];
+      return rows.map((d) => ({
         phrase: d.phrase,
         monthly_searches: d.monthly_searches,
         wordstat_competition: d.wordstat_competition,
@@ -103,14 +131,15 @@ export function useSeoOverview() {
 
       if (error) throw error;
 
-      return (data || []).map((page: any) => {
-        const analysisData = page.analysis as any;
+      const rows = (data || []) as SeoPageRow[];
+      return rows.map((page) => {
+        const analysisData = page.analysis as SeoPageAnalysis | null;
         return {
           url: page.url,
           last_analyzed_at: page.last_analyzed_at,
           analysis: page.analysis,
           targetKeywords: analysisData?.target_keywords || [],
-          pageTitle: analysisData?.title || null,
+          pageTitle: analysisData?.title || undefined,
         };
       }) as PageWithKeywords[];
     },
@@ -129,20 +158,22 @@ export function useSeoOverview() {
 
       if (error) throw error;
 
-      const avgPosition = data.length > 0
-        ? data.reduce((sum: number, q: any) => sum + (q.position || 0), 0) / data.length
+      const rows = (data || []) as GscQueryRow[];
+
+      const avgPosition = rows.length > 0
+        ? rows.reduce((sum, q) => sum + (q.position || 0), 0) / rows.length
         : 0;
 
-      const top10 = data.filter((q: any) => q.position && q.position <= 10).length;
-      const top20 = data.filter((q: any) => q.position && q.position <= 20).length;
-      const totalClicks = data.reduce((sum: number, q: any) => sum + (q.clicks || 0), 0);
+      const top10 = rows.filter((q) => q.position && q.position <= 10).length;
+      const top20 = rows.filter((q) => q.position && q.position <= 20).length;
+      const totalClicks = rows.reduce((sum, q) => sum + (q.clicks || 0), 0);
 
       return {
         avgPosition: Math.round(avgPosition * 10) / 10,
         top10Count: top10,
         top20Count: top20,
         totalClicks,
-        totalQueries: data.length,
+        totalQueries: rows.length,
       };
     },
   });

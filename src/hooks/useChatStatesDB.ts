@@ -9,11 +9,18 @@ export interface ChatState {
   isUnread: boolean;
 }
 
+interface ChatStateRow {
+  chat_id: string;
+  is_pinned: boolean;
+  is_archived: boolean;
+  is_unread: boolean;
+}
+
 export const useChatStatesDB = (chatIds?: string[]) => {
   const [chatStates, setChatStates] = useState<Record<string, ChatState>>({});
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-  const busRef = useRef<any>(null);
+  const busRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   
   // Stabilize chatIds to prevent infinite loops - use sorted string as key
   const chatIdsKey = useMemo(() => {
@@ -65,7 +72,8 @@ export const useChatStatesDB = (chatIds?: string[]) => {
           continue;
         }
 
-        (data || []).forEach(state => {
+        const rows = (data || []) as ChatStateRow[];
+        rows.forEach(state => {
           statesMap[state.chat_id] = {
             chatId: state.chat_id,
             isPinned: state.is_pinned,
@@ -102,7 +110,7 @@ export const useChatStatesDB = (chatIds?: string[]) => {
           (payload) => {
             console.log('Personal chat state change:', payload);
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-              const newState = payload.new as any;
+              const newState = payload.new as ChatStateRow;
               setChatStates(prev => ({
                 ...prev,
                 [newState.chat_id]: {
@@ -113,7 +121,7 @@ export const useChatStatesDB = (chatIds?: string[]) => {
                 }
               }));
             } else if (payload.eventType === 'DELETE') {
-              const oldState = payload.old as any;
+              const oldState = payload.old as ChatStateRow;
               setChatStates(prev => {
                 const newStates = { ...prev };
                 delete newStates[oldState.chat_id];
