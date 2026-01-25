@@ -5,7 +5,7 @@ interface AnimatedLogoProps {
   className?: string;
 }
 
-export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
+export const AnimatedLogo = ({ size = 144, className }: AnimatedLogoProps) => {
   return (
     <div 
       className={cn(
