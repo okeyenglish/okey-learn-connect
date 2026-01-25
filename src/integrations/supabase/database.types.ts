@@ -1003,6 +1003,18 @@ export interface StudentHistory {
   created_at: string;
 }
 
+export interface PaymentNotification {
+  id: string;
+  student_id?: string | null;
+  notification_type: string;
+  notification_date: string;
+  is_sent: boolean;
+  sent_at?: string | null;
+  message?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
 export interface PinnedModalDB {
   id?: string;
   user_id: string;
@@ -1573,6 +1585,11 @@ export interface CustomDatabase {
         Insert: Partial<AIProviderKey>;
         Update: Partial<AIProviderKey>;
       };
+      payment_notifications: {
+        Row: PaymentNotification;
+        Insert: Partial<PaymentNotification>;
+        Update: Partial<PaymentNotification>;
+      };
     };
     Views: {
       [_ in never]: never;
@@ -1745,6 +1762,27 @@ export interface CustomDatabase {
       find_similar_routes: {
         Args: { p_route: string; p_threshold: number };
         Returns: { route: string; similarity: number }[];
+      };
+      // Balance/Student RPC functions
+      get_user_organization_id: {
+        Args: Record<string, never>;
+        Returns: string | null;
+      };
+      get_students_with_low_balance: {
+        Args: { days_threshold: number; hours_threshold: number };
+        Returns: { student_id: string; student_name: string; balance_hours: number; estimated_days_left: number; last_payment_date: string | null; weekly_consumption: number }[];
+      };
+      transfer_between_students: {
+        Args: { _from_student_id: string; _to_student_id: string; _amount: number; _description: string; _via_family_ledger?: boolean };
+        Returns: Json;
+      };
+      auto_create_payment_notifications: {
+        Args: Record<string, never>;
+        Returns: void;
+      };
+      check_student_balance: {
+        Args: { p_student_id: string; p_required_hours: number };
+        Returns: { has_sufficient_balance: boolean; current_balance_hours: number; current_balance_rub: number; message: string }[];
       };
     };
     Enums: {

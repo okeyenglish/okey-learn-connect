@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { getCurrentOrganizationId } from '@/lib/organizationHelpers';
 
 export interface UnifiedSearchResult {
@@ -46,9 +46,8 @@ export const useUnifiedSearch = (query: string) => {
       
       const orgId = await getCurrentOrganizationId();
 
-      // Используем прямой вызов RPC (функция ещё не в types.ts)
-      const { data, error } = await (supabase.rpc as any)('unified_crm_search', {
-        p_org_id: orgId,
+      const { data, error } = await supabase.rpc('unified_crm_search', {
+        p_org_id: orgId || '',
         p_query: debouncedQuery,
         p_limit: 50
       });
@@ -60,7 +59,11 @@ export const useUnifiedSearch = (query: string) => {
         throw error;
       }
 
-      const results: UnifiedSearchResult[] = ((data as any[]) || []).map((row: any) => ({
+      // Parse JSON result
+      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+      const rows = Array.isArray(parsed) ? parsed : [];
+      
+      const results: UnifiedSearchResult[] = rows.map((row: { client_id: string; match_type: string; messenger_type: string | null }) => ({
         clientId: row.client_id,
         matchType: row.match_type as 'phone' | 'name' | 'message',
         messengerType: row.messenger_type as 'whatsapp' | 'telegram' | 'max' | null
