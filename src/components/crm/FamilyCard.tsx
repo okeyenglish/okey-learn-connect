@@ -10,6 +10,7 @@ import { PhoneNumberManager } from "./PhoneNumberManager";
 import { EditContactModal } from "./EditContactModal";
 import { ContactInfoBlock } from "./ContactInfoBlock";
 import { useFamilyData, FamilyMember, Student } from "@/hooks/useFamilyData";
+import { FamilyCardSkeleton } from "./FamilyCardSkeleton";
 import { GroupDetailModal } from "@/components/learning-groups/GroupDetailModal";
 import { IndividualLessonModal } from "@/components/teacher/IndividualLessonModal";
 import { useLearningGroups } from "@/hooks/useLearningGroups";
@@ -108,13 +109,7 @@ export const FamilyCard = ({
   const selectedGroup = allGroups?.find(g => g.id === selectedCourseId) || null;
   
   if (loading) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <p className="text-center text-muted-foreground">Загрузка...</p>
-        </CardContent>
-      </Card>
-    );
+    return <FamilyCardSkeleton />;
   }
 
   if (error || !familyData) {

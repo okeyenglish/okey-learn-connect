@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { FamilyCard } from "./FamilyCard";
+import { FamilyCardSkeleton } from "./FamilyCardSkeleton";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { normalizePhone } from "@/utils/phoneNormalization";
 
@@ -211,18 +212,7 @@ export const FamilyCardWrapper = ({ clientId, onOpenChat }: FamilyCardWrapperPro
   }, [clientId, getCachedFamilyGroup, setCachedFamilyGroup, createFamilyGroupForClient]);
 
   if (loading || creating) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-center gap-2">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <p className="text-muted-foreground">
-              {creating ? 'Создание карточки...' : 'Загрузка...'}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return <FamilyCardSkeleton />;
   }
 
   if (error || !familyGroupId) {
