@@ -199,3 +199,23 @@
   -webkit-box-orient: vertical;
   word-break: break-word;
 }
+
+/* Message delivery status animation */
+@keyframes status-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-status-pop {
+  animation: status-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
