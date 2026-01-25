@@ -1,10 +1,12 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import {
+  corsHeaders,
+  handleCors,
+  errorResponse,
+  getErrorMessage,
+  type BBBMeetingRequest,
+  type BBBMeetingResponse,
+} from "../_shared/types.ts";
 
 // Функция для создания checksum для BBB API
 async function createChecksum(callName: string, queryString: string, secret: string): Promise<string> {
@@ -17,10 +19,9 @@ async function createChecksum(callName: string, queryString: string, secret: str
     .join('');
 }
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const BBB_URL = Deno.env.get("BBB_URL");
