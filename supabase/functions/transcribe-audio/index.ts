@@ -1,16 +1,18 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { 
+  corsHeaders, 
+  successResponse, 
+  errorResponse,
+  getErrorMessage,
+  handleCors,
+  type TranscriptionResponse 
+} from '../_shared/types.ts';
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const { audioUrl, organizationId } = await req.json();
@@ -76,25 +78,15 @@ serve(async (req) => {
     const transcriptionResult = await transcriptionResponse.json();
     console.log('Transcription result:', transcriptionResult);
 
-    return new Response(
-      JSON.stringify({ 
-        text: transcriptionResult.text,
-        success: true 
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    const response: TranscriptionResponse = { 
+      success: true,
+      text: transcriptionResult.text,
+    };
+    
+    return successResponse(response);
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Transcription error:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: (error as any)?.message ?? 'Server error',
-        success: false 
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });

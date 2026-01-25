@@ -1,18 +1,19 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { 
+  corsHeaders, 
+  successResponse, 
+  errorResponse,
+  getErrorMessage,
+  handleCors,
+  type CallSummaryResponse 
+} from '../_shared/types.ts';
 
 serve(async (req) => {
   console.log('Generate call summary function called:', req.method);
   
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     // Initialize Supabase client
@@ -135,44 +136,22 @@ serve(async (req) => {
 
       console.log('Successfully generated and saved summary for call:', callId);
 
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          summary,
-          callId
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200 
-        }
-      );
+      const response: CallSummaryResponse = { 
+        success: true, 
+        summary,
+      };
+      
+      return successResponse(response);
     }
 
     // Handle non-POST requests
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        message: 'Call summary generator is running',
-        method: req.method
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
-    );
+    return successResponse({
+      success: true,
+      message: 'Call summary generator is running',
+    });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Call summary generation error:', error);
-    
-    return new Response(
-      JSON.stringify({ 
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
-      }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });

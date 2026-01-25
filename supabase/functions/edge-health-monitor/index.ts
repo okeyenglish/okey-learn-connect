@@ -1,9 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { 
+  corsHeaders, 
+  successResponse, 
+  errorResponse,
+  getErrorMessage,
+  handleCors,
+  type HealthCheckResponse,
+  type HealthCheckEndpoint 
+} from '../_shared/types.ts';
 
 // Critical functions to monitor - OPTIMIZED: Only essential webhooks and core messaging
 // Reduced from 12 to 8 functions to lower CPU usage
@@ -138,9 +142,8 @@ interface HealthCheckResult {
 console.log('[edge-health-monitor] Function booted');
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://api.academyos.ru';
@@ -281,30 +284,27 @@ Deno.serve(async (req) => {
       console.log('[edge-health-monitor] Could not log to database:', dbError);
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        checked_at: new Date().toISOString(),
-        mode: checkMode,
-        summary: {
-          total: results.length,
-          healthy: healthyCount,
-          unhealthy: unhealthyCount,
-          timeout: timeoutCount,
-          avg_response_time_ms: avgResponseTime,
-        },
-        unhealthy_functions: unhealthyFunctions,
-        all_results: checkMode === 'all' ? results : undefined,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    const response: HealthCheckResponse = {
+      success: true,
+      checked_at: new Date().toISOString(),
+      duration_ms: avgResponseTime,
+      summary: {
+        total: results.length,
+        healthy: healthyCount,
+        unhealthy: unhealthyCount + timeoutCount,
+      },
+    };
+    
+    return successResponse({
+      ...response,
+      mode: checkMode,
+      unhealthy_functions: unhealthyFunctions,
+      all_results: checkMode === 'all' ? results : undefined,
+    });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('[edge-health-monitor] Error:', error);
-    return new Response(
-      JSON.stringify({ success: false, error: String(error) }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });
 
