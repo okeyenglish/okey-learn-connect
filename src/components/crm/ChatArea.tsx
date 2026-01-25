@@ -471,6 +471,7 @@ export const ChatArea = ({
   }, [activeMessengerTab, loadingMessages, messages, whatsappAvailability.checked, clientPhone, checkWhatsAppAvailability]);
 
   // Fetch MAX avatar for client when on MAX tab
+  // Fetch MAX avatar for client and save to DB if found
   useEffect(() => {
     const fetchMaxAvatar = async () => {
       if (activeMessengerTab === 'max' && clientId && !maxClientAvatar) {
@@ -478,6 +479,11 @@ export const ChatArea = ({
           const result = await getMaxAvatar(clientId);
           if (result.success && result.urlAvatar) {
             setMaxClientAvatar(result.urlAvatar);
+            // Save avatar to clients table for preview list
+            await supabase
+              .from('clients')
+              .update({ max_avatar_url: result.urlAvatar })
+              .eq('id', clientId);
           }
         } catch (error) {
           console.error('Error fetching MAX avatar:', error);
@@ -488,7 +494,7 @@ export const ChatArea = ({
     fetchMaxAvatar();
   }, [activeMessengerTab, clientId, maxClientAvatar, getMaxAvatar]);
 
-  // Fetch WhatsApp avatar for client (always fetch on mount/client change for whatsapp tab)
+  // Fetch WhatsApp avatar for client and save to DB if found
   useEffect(() => {
     const fetchWhatsAppAvatar = async () => {
       // Fetch if we're on whatsapp tab or if activeMessengerTab is default (whatsapp)
@@ -499,6 +505,11 @@ export const ChatArea = ({
           console.log('WhatsApp avatar result:', result);
           if (result.success && result.urlAvatar) {
             setWhatsappClientAvatar(result.urlAvatar);
+            // Save avatar to clients table for preview list
+            await supabase
+              .from('clients')
+              .update({ whatsapp_avatar_url: result.urlAvatar })
+              .eq('id', clientId);
           }
         } catch (error) {
           console.error('Error fetching WhatsApp avatar:', error);
@@ -509,7 +520,7 @@ export const ChatArea = ({
     fetchWhatsAppAvatar();
   }, [activeMessengerTab, clientId, whatsappClientAvatar, getWhatsAppAvatar]);
 
-  // Fetch Telegram avatar for client from database
+  // Fetch Telegram avatar for client from database (already saved by webhook)
   useEffect(() => {
     const fetchTelegramAvatar = async () => {
       if (activeMessengerTab === 'telegram' && clientId && !telegramClientAvatar) {
