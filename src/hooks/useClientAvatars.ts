@@ -130,22 +130,25 @@ export const useClientAvatars = (clientId: string | null) => {
           setAvatars(prev => ({ ...prev, [messenger]: avatarUrl }));
         }
 
-        // Save to DB (fire and forget)
+        // Save to DB and force UI refresh
         const updateField = `${messenger}_avatar_url`;
-        supabase
-          .from('clients')
-          .update({ [updateField]: avatarUrl })
-          .eq('id', clientId)
-          .then(() => {
+        void (async () => {
+          try {
+            await supabase
+              .from('clients')
+              .update({ [updateField]: avatarUrl })
+              .eq('id', clientId);
+            
             // Force UI refresh: chat list (threads RPC) + client card queries
             queryClient.invalidateQueries({ queryKey: ['clients'] });
             queryClient.invalidateQueries({ queryKey: ['client', clientId] });
             queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
             queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
-            // legacy keys (safe no-op if unused)
             queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-          })
-          .catch(() => {});
+          } catch {
+            // Ignore DB save errors - avatar is already in cache
+          }
+        })();
 
         return avatarUrl;
       }
