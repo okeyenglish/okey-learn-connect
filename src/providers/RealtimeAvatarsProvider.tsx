@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { updateAvatarCache } from '@/lib/avatarCache';
 
 interface ClientAvatarPayload {
   id: string;
@@ -10,17 +11,6 @@ interface ClientAvatarPayload {
   telegram_avatar_url?: string | null;
   max_avatar_url?: string | null;
 }
-
-// In-memory avatar cache (shared with useClientAvatars hook)
-const avatarCache = new Map<string, {
-  whatsapp?: string | null;
-  telegram?: string | null;
-  max?: string | null;
-  fetchedAt: number;
-}>();
-
-// Export for use in useClientAvatars
-export const getGlobalAvatarCache = () => avatarCache;
 
 /**
  * Global provider that initializes realtime subscription for avatar updates.
@@ -67,19 +57,12 @@ export const RealtimeAvatarsProvider = ({ children }: { children: React.ReactNod
           if (avatarChanged && newData.id) {
             console.log('[AvatarRealtime] Avatar updated for client:', newData.id);
 
-            // Update in-memory cache
-            const existing = avatarCache.get(newData.id) || { fetchedAt: Date.now() };
-            if (newData.whatsapp_avatar_url !== undefined) {
-              existing.whatsapp = newData.whatsapp_avatar_url;
-            }
-            if (newData.telegram_avatar_url !== undefined) {
-              existing.telegram = newData.telegram_avatar_url;
-            }
-            if (newData.max_avatar_url !== undefined) {
-              existing.max = newData.max_avatar_url;
-            }
-            existing.fetchedAt = Date.now();
-            avatarCache.set(newData.id, existing);
+            // Update shared in-memory cache
+            updateAvatarCache(newData.id, {
+              whatsapp: newData.whatsapp_avatar_url,
+              telegram: newData.telegram_avatar_url,
+              max: newData.max_avatar_url,
+            });
 
             // Invalidate React Query cache for immediate UI refresh
             queryClient.invalidateQueries({ queryKey: ['clients'] });

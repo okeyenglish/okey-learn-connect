@@ -1,20 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { 
+  getAvatarCache, 
+  setAvatarCache, 
+  updateAvatarCache, 
+  deleteAvatarCache,
+  AVATAR_CACHE_TTL,
+  type AvatarCacheEntry 
+} from '@/lib/avatarCache';
 
-interface AvatarCache {
-  whatsapp?: string | null;
-  telegram?: string | null;
-  max?: string | null;
-  fetchedAt: number;
-}
-
-// In-memory cache shared across all hook instances
-const avatarCache = new Map<string, AvatarCache>();
+// Pending fetches to prevent duplicate requests
 const pendingFetches = new Map<string, Promise<void>>();
-
-// Cache TTL: 30 minutes
-const CACHE_TTL = 30 * 60 * 1000;
 
 export interface ClientAvatars {
   whatsapp: string | null;
@@ -36,9 +33,11 @@ export const useClientAvatars = (clientId: string | null) => {
   const loadAvatars = useCallback(async () => {
     if (!clientId) return;
 
+    const avatarCache = getAvatarCache();
+
     // Check memory cache first
     const cached = avatarCache.get(clientId);
-    if (cached && Date.now() - cached.fetchedAt < CACHE_TTL) {
+    if (cached && Date.now() - cached.fetchedAt < AVATAR_CACHE_TTL) {
       setAvatars({
         whatsapp: cached.whatsapp || null,
         telegram: cached.telegram || null,
@@ -72,14 +71,14 @@ export const useClientAvatars = (clientId: string | null) => {
           .eq('id', clientId)
           .maybeSingle();
 
-        const newCache: AvatarCache = {
+        const newCache: AvatarCacheEntry = {
           whatsapp: client?.whatsapp_avatar_url || null,
           telegram: client?.telegram_avatar_url || null,
           max: client?.max_avatar_url || null,
           fetchedAt: Date.now(),
         };
 
-        avatarCache.set(clientId, newCache);
+        setAvatarCache(clientId, newCache);
 
         if (mountedRef.current) {
           setAvatars({
@@ -109,6 +108,8 @@ export const useClientAvatars = (clientId: string | null) => {
   ) => {
     if (!clientId) return null;
 
+    const avatarCache = getAvatarCache();
+
     // Check cache first
     const cached = avatarCache.get(clientId);
     const cachedAvatar = cached?.[messenger];
@@ -120,10 +121,7 @@ export const useClientAvatars = (clientId: string | null) => {
       
       if (result.success && avatarUrl) {
         // Update cache
-        const existing = avatarCache.get(clientId) || { fetchedAt: Date.now() };
-        existing[messenger] = avatarUrl;
-        existing.fetchedAt = Date.now();
-        avatarCache.set(clientId, existing);
+        updateAvatarCache(clientId, { [messenger]: avatarUrl });
 
         // Update state
         if (mountedRef.current) {
@@ -161,7 +159,7 @@ export const useClientAvatars = (clientId: string | null) => {
   // Clear cache for client (e.g., on client change)
   const clearCache = useCallback(() => {
     if (clientId) {
-      avatarCache.delete(clientId);
+      deleteAvatarCache(clientId);
     }
   }, [clientId]);
 
@@ -169,10 +167,7 @@ export const useClientAvatars = (clientId: string | null) => {
   const updateAvatar = useCallback((messenger: 'whatsapp' | 'telegram' | 'max', url: string) => {
     if (!clientId) return;
     
-    const existing = avatarCache.get(clientId) || { fetchedAt: Date.now() };
-    existing[messenger] = url;
-    avatarCache.set(clientId, existing);
-    
+    updateAvatarCache(clientId, { [messenger]: url });
     setAvatars(prev => ({ ...prev, [messenger]: url }));
   }, [clientId]);
 
@@ -197,6 +192,7 @@ export const useClientAvatars = (clientId: string | null) => {
 
 // Utility to prefetch avatars for multiple clients
 export const prefetchClientAvatars = async (clientIds: string[]) => {
+  const avatarCache = getAvatarCache();
   const uncachedIds = clientIds.filter(id => !avatarCache.has(id));
   
   if (uncachedIds.length === 0) return;
@@ -208,7 +204,7 @@ export const prefetchClientAvatars = async (clientIds: string[]) => {
       .in('id', uncachedIds);
 
     clients?.forEach(client => {
-      avatarCache.set(client.id, {
+      setAvatarCache(client.id, {
         whatsapp: client.whatsapp_avatar_url || null,
         telegram: client.telegram_avatar_url || null,
         max: client.max_avatar_url || null,
@@ -220,11 +216,5 @@ export const prefetchClientAvatars = async (clientIds: string[]) => {
   }
 };
 
-// Get avatar from cache (synchronous)
-export const getCachedAvatar = (clientId: string, messenger: 'whatsapp' | 'telegram' | 'max'): string | null => {
-  const cached = avatarCache.get(clientId);
-  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL) {
-    return cached[messenger] || null;
-  }
-  return null;
-};
+// Re-export from shared cache module
+export { getCachedAvatar, getCachedAvatarAny } from '@/lib/avatarCache';
