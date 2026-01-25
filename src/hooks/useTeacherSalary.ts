@@ -151,7 +151,8 @@ export const useTeacherSalaryStats = (
       });
 
       if (error) throw error;
-      return (data as any)?.[0] as SalaryStats;
+      const result = (data || []) as SalaryStats[];
+      return result[0] ?? null;
     },
     enabled: !!teacherId,
   });

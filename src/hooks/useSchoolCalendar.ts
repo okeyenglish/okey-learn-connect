@@ -36,6 +36,52 @@ export interface BranchStats {
   students_count: number;
 }
 
+interface GroupSession {
+  id: string;
+  lesson_date: string;
+  status: string | null;
+  classroom: string | null;
+  group_id: string | null;
+}
+
+interface GroupData {
+  id: string;
+  name: string;
+  subject: string | null;
+  level: string | null;
+  branch: string | null;
+  schedule_time: string | null;
+  duration: number | null;
+  teacher_id: string | null;
+  profiles: { first_name: string | null; last_name: string | null } | null;
+}
+
+interface IndividualSession {
+  id: string;
+  lesson_date: string;
+  status: string | null;
+  duration: number | null;
+  individual_lesson_id: string | null;
+}
+
+interface IndividualLessonData {
+  id: string;
+  subject: string | null;
+  level: string | null;
+  branch: string | null;
+  schedule_time: string | null;
+  teacher_id: string | null;
+  student_name: string | null;
+  duration: number | null;
+  profiles: { first_name: string | null; last_name: string | null } | null;
+}
+
+interface ClassroomData {
+  name: string;
+  branch: string | null;
+  capacity: number | null;
+}
+
 export const useSchoolCalendar = (startDate?: Date, endDate?: Date, branch?: string) => {
   return useQuery({
     queryKey: ['school-calendar', startDate, endDate, branch],
@@ -46,8 +92,8 @@ export const useSchoolCalendar = (startDate?: Date, endDate?: Date, branch?: str
       const end = format(endDate, 'yyyy-MM-dd');
 
       // Получаем все групповые занятия
-      const groupQuery = (supabase
-        .from('lesson_sessions' as any) as any)
+      const { data: groupSessions } = await supabase
+        .from('lesson_sessions')
         .select(`
           id,
           lesson_date,
@@ -58,15 +104,13 @@ export const useSchoolCalendar = (startDate?: Date, endDate?: Date, branch?: str
         .gte('lesson_date', start)
         .lte('lesson_date', end);
 
-      const { data: groupSessions } = await groupQuery;
-
       // Получаем данные групп
-      const groupIds = groupSessions?.map((s: any) => s.group_id) || [];
-      let groupsData: any[] = [];
+      const groupIds = (groupSessions as GroupSession[] || []).map(s => s.group_id).filter(Boolean) as string[];
+      let groupsData: GroupData[] = [];
       
       if (groupIds.length > 0) {
-        const { data } = await (supabase
-          .from('learning_groups' as any) as any)
+        const { data } = await supabase
+          .from('learning_groups')
           .select(`
             id,
             name,
@@ -80,12 +124,12 @@ export const useSchoolCalendar = (startDate?: Date, endDate?: Date, branch?: str
           `)
           .in('id', groupIds);
         
-        groupsData = data || [];
+        groupsData = (data || []) as unknown as GroupData[];
       }
 
       // Получаем индивидуальные занятия
-      const individualQuery = (supabase
-        .from('individual_lesson_sessions' as any) as any)
+      const { data: individualSessions } = await supabase
+        .from('individual_lesson_sessions')
         .select(`
           id,
           lesson_date,
@@ -96,15 +140,13 @@ export const useSchoolCalendar = (startDate?: Date, endDate?: Date, branch?: str
         .gte('lesson_date', start)
         .lte('lesson_date', end);
 
-      const { data: individualSessions } = await individualQuery;
-
       // Получаем данные индивидуальных уроков
-      const lessonIds = individualSessions?.map((s: any) => s.individual_lesson_id) || [];
-      let lessonsData: any[] = [];
+      const lessonIds = (individualSessions as IndividualSession[] || []).map(s => s.individual_lesson_id).filter(Boolean) as string[];
+      let lessonsData: IndividualLessonData[] = [];
       
       if (lessonIds.length > 0) {
-        const { data } = await (supabase
-          .from('individual_lessons' as any) as any)
+        const { data } = await supabase
+          .from('individual_lessons')
           .select(`
             id,
             subject,
@@ -113,53 +155,54 @@ export const useSchoolCalendar = (startDate?: Date, endDate?: Date, branch?: str
             schedule_time,
             teacher_id,
             student_name,
+            duration,
             profiles (first_name, last_name)
           `)
           .in('id', lessonIds);
         
-        lessonsData = data || [];
+        lessonsData = (data || []) as unknown as IndividualLessonData[];
       }
 
       // Форматируем групповые занятия
-      const groupLessons: SchoolLesson[] = (groupSessions || []).map((session: any) => {
-        const group = groupsData.find((g: any) => g.id === session.group_id);
+      const groupLessons: SchoolLesson[] = ((groupSessions as GroupSession[]) || []).map((session) => {
+        const group = groupsData.find((g) => g.id === session.group_id);
         return {
           id: session.id,
           lesson_date: session.lesson_date,
-          lesson_time: group?.schedule_time,
+          lesson_time: group?.schedule_time ?? undefined,
           lesson_type: 'group' as const,
           subject: group?.subject || '',
-          level: group?.level,
+          level: group?.level ?? undefined,
           branch: group?.branch || '',
-          teacher_id: group?.teacher_id,
+          teacher_id: group?.teacher_id ?? undefined,
           teacher_name: group?.profiles
             ? `${group.profiles.first_name} ${group.profiles.last_name}`
             : undefined,
           group_name: group?.name,
-          classroom: session.classroom,
-          status: session.status,
-          duration: group?.duration,
+          classroom: session.classroom ?? undefined,
+          status: session.status || '',
+          duration: group?.duration ?? undefined,
         };
       });
 
       // Форматируем индивидуальные занятия
-      const individualLessons: SchoolLesson[] = (individualSessions || []).map((session: any) => {
-        const lesson = lessonsData.find((l: any) => l.id === session.individual_lesson_id);
+      const individualLessons: SchoolLesson[] = ((individualSessions as IndividualSession[]) || []).map((session) => {
+        const lesson = lessonsData.find((l) => l.id === session.individual_lesson_id);
         return {
           id: session.id,
           lesson_date: session.lesson_date,
-          lesson_time: lesson?.schedule_time,
+          lesson_time: lesson?.schedule_time ?? undefined,
           lesson_type: 'individual' as const,
           subject: lesson?.subject || '',
-          level: lesson?.level,
+          level: lesson?.level ?? undefined,
           branch: lesson?.branch || '',
-          teacher_id: lesson?.teacher_id,
+          teacher_id: lesson?.teacher_id ?? undefined,
           teacher_name: lesson?.profiles
             ? `${lesson.profiles.first_name} ${lesson.profiles.last_name}`
             : undefined,
-          student_name: lesson?.student_name,
-          status: session.status,
-          duration: session.duration || lesson?.duration,
+          student_name: lesson?.student_name ?? undefined,
+          status: session.status || '',
+          duration: session.duration || lesson?.duration || undefined,
         };
       });
 
@@ -191,20 +234,19 @@ export const useClassroomSchedule = (branch?: string, date?: string) => {
       if (!branch || !date || branch === 'all') return [];
 
       // Получаем список кабинетов филиала
-      const { data: classrooms } = await (supabase
-        .from('classrooms' as any) as any)
+      const { data: classrooms } = await supabase
+        .from('classrooms')
         .select('name, branch, capacity')
         .eq('branch', branch)
         .eq('is_active', true);
 
       if (!classrooms || classrooms.length === 0) return [];
 
-      // Получаем занятия за день (дублируем логику из useSchoolCalendar)
+      // Получаем занятия за день
       const start = format(new Date(date), 'yyyy-MM-dd');
-      const end = start;
 
-      const groupQuery = (supabase
-        .from('lesson_sessions' as any) as any)
+      const { data: groupSessions } = await supabase
+        .from('lesson_sessions')
         .select(`
           id,
           lesson_date,
@@ -213,15 +255,14 @@ export const useClassroomSchedule = (branch?: string, date?: string) => {
           group_id
         `)
         .gte('lesson_date', start)
-        .lte('lesson_date', end);
+        .lte('lesson_date', start);
 
-      const { data: groupSessions } = await groupQuery;
-      const groupIds = groupSessions?.map((s: any) => s.group_id) || [];
-      let groupsData: any[] = [];
+      const groupIds = (groupSessions as GroupSession[] || []).map(s => s.group_id).filter(Boolean) as string[];
+      let groupsData: GroupData[] = [];
       
       if (groupIds.length > 0) {
-        const { data } = await (supabase
-          .from('learning_groups' as any) as any)
+        const { data } = await supabase
+          .from('learning_groups')
           .select(`
             id,
             name,
@@ -235,11 +276,11 @@ export const useClassroomSchedule = (branch?: string, date?: string) => {
           `)
           .in('id', groupIds);
         
-        groupsData = data || [];
+        groupsData = (data || []) as unknown as GroupData[];
       }
 
-      const individualQuery = (supabase
-        .from('individual_lesson_sessions' as any) as any)
+      const { data: individualSessions } = await supabase
+        .from('individual_lesson_sessions')
         .select(`
           id,
           lesson_date,
@@ -248,15 +289,14 @@ export const useClassroomSchedule = (branch?: string, date?: string) => {
           individual_lesson_id
         `)
         .gte('lesson_date', start)
-        .lte('lesson_date', end);
+        .lte('lesson_date', start);
 
-      const { data: individualSessions } = await individualQuery;
-      const lessonIds = individualSessions?.map((s: any) => s.individual_lesson_id) || [];
-      let lessonsData: any[] = [];
+      const lessonIds = (individualSessions as IndividualSession[] || []).map(s => s.individual_lesson_id).filter(Boolean) as string[];
+      let lessonsData: IndividualLessonData[] = [];
       
       if (lessonIds.length > 0) {
-        const { data } = await (supabase
-          .from('individual_lessons' as any) as any)
+        const { data } = await supabase
+          .from('individual_lessons')
           .select(`
             id,
             subject,
@@ -265,72 +305,73 @@ export const useClassroomSchedule = (branch?: string, date?: string) => {
             schedule_time,
             teacher_id,
             student_name,
+            duration,
             profiles (first_name, last_name)
           `)
           .in('id', lessonIds);
         
-        lessonsData = data || [];
+        lessonsData = (data || []) as unknown as IndividualLessonData[];
       }
 
-      const groupLessons: SchoolLesson[] = (groupSessions || []).map((session: any) => {
-        const group = groupsData.find((g: any) => g.id === session.group_id);
+      const groupLessons: SchoolLesson[] = ((groupSessions as GroupSession[]) || []).map((session) => {
+        const group = groupsData.find((g) => g.id === session.group_id);
         return {
           id: session.id,
           lesson_date: session.lesson_date,
-          lesson_time: group?.schedule_time,
+          lesson_time: group?.schedule_time ?? undefined,
           lesson_type: 'group' as const,
           subject: group?.subject || '',
-          level: group?.level,
+          level: group?.level ?? undefined,
           branch: group?.branch || '',
-          teacher_id: group?.teacher_id,
+          teacher_id: group?.teacher_id ?? undefined,
           teacher_name: group?.profiles
             ? `${group.profiles.first_name} ${group.profiles.last_name}`
             : undefined,
           group_name: group?.name,
-          classroom: session.classroom,
-          status: session.status,
-          duration: group?.duration,
+          classroom: session.classroom ?? undefined,
+          status: session.status || '',
+          duration: group?.duration ?? undefined,
         };
       });
 
-      const individualLessons: SchoolLesson[] = (individualSessions || []).map((session: any) => {
-        const lesson = lessonsData.find((l: any) => l.id === session.individual_lesson_id);
+      const individualLessons: SchoolLesson[] = ((individualSessions as IndividualSession[]) || []).map((session) => {
+        const lesson = lessonsData.find((l) => l.id === session.individual_lesson_id);
         return {
           id: session.id,
           lesson_date: session.lesson_date,
-          lesson_time: lesson?.schedule_time,
+          lesson_time: lesson?.schedule_time ?? undefined,
           lesson_type: 'individual' as const,
           subject: lesson?.subject || '',
-          level: lesson?.level,
+          level: lesson?.level ?? undefined,
           branch: lesson?.branch || '',
-          teacher_id: lesson?.teacher_id,
+          teacher_id: lesson?.teacher_id ?? undefined,
           teacher_name: lesson?.profiles
             ? `${lesson.profiles.first_name} ${lesson.profiles.last_name}`
             : undefined,
-          student_name: lesson?.student_name,
-          status: session.status,
-          duration: session.duration || lesson?.duration,
+          student_name: lesson?.student_name ?? undefined,
+          status: session.status || '',
+          duration: session.duration || lesson?.duration || undefined,
         };
       });
 
-      let allLessons = [...groupLessons, ...individualLessons].filter(
+      const allLessons = [...groupLessons, ...individualLessons].filter(
         (l) => l.branch === branch
       );
 
       // Группируем по кабинетам
-      const scheduleByClassroom: ClassroomSchedule[] = classrooms.map((classroom: any) => {
+      const scheduleByClassroom: ClassroomSchedule[] = (classrooms as ClassroomData[]).map((classroom) => {
         const classroomLessons = allLessons.filter(
-          (l: SchoolLesson) => l.classroom === classroom.name
+          (l) => l.classroom === classroom.name
         );
 
         const totalMinutes = classroomLessons.reduce(
-          (sum: number, l: SchoolLesson) => sum + (l.duration || 0),
+          (sum, l) => sum + (l.duration || 0),
           0
         );
 
         return {
           classroom: classroom.name,
-          branch: classroom.branch,
+          branch: classroom.branch || '',
           lessons: classroomLessons,
           utilization_percent: Math.round((totalMinutes / (12 * 60)) * 100),
         };

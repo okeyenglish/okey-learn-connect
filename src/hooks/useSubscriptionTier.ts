@@ -37,7 +37,7 @@ export const useUpdateSubscriptionTier = () => {
     }) => {
       const { error } = await supabase
         .from('organizations')
-        .update({ subscription_tier: tier } as any)
+        .update({ subscription_tier: tier })
         .eq('id', organizationId);
 
       if (error) throw error;
