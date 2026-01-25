@@ -76,6 +76,7 @@ import { useOrganizationRealtimeMessages } from "@/hooks/useOrganizationRealtime
 import { RealtimeStatusIndicator } from "@/components/crm/RealtimeStatusIndicator";
 import { useManagerBranches } from "@/hooks/useManagerBranches";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { useAssistantMessages } from "@/hooks/useAssistantMessages";
 import {
   Search, 
   CheckSquare, 
@@ -305,26 +306,6 @@ const CRMContent = () => {
   const [chatInitialSearchQuery, setChatInitialSearchQuery] = useState<string | undefined>(undefined);
   // Message ID to highlight and scroll to when navigating from search
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | undefined>(undefined);
-  // Счётчик непрочитанных при последнем открытии ассистента (для остановки пульсации)
-  const [lastSeenUnreadCount, setLastSeenUnreadCount] = useState(() => {
-    const saved = localStorage.getItem('assistant-last-seen-unread');
-    return saved ? parseInt(saved, 10) : 0;
-  });
-  
-  // Сохраняем в localStorage при изменении и синхронизируем между вкладками
-  useEffect(() => {
-    localStorage.setItem('assistant-last-seen-unread', String(lastSeenUnreadCount));
-  }, [lastSeenUnreadCount]);
-  
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'assistant-last-seen-unread' && e.newValue !== null) {
-        setLastSeenUnreadCount(parseInt(e.newValue, 10));
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
   
   // Критичные данные - загружаем ТОЛЬКО threads с infinite scroll (50 за раз)
   // useClients убран из критического пути - 27К клиентов тормозили загрузку
@@ -417,6 +398,7 @@ const CRMContent = () => {
   const updateTask = useUpdateTask();
   const { organization, branches } = useOrganization();
   const { canAccessBranch, hasRestrictions: hasManagerBranchRestrictions } = useManagerBranches();
+  const { unreadCount: assistantUnreadCount, markAllAsRead: markAssistantAsRead } = useAssistantMessages();
   const isMobile = useIsMobile();
   
   // Auto-manage right panel state based on screen size
@@ -3870,15 +3852,26 @@ const CRMContent = () => {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  onClick={() => setVoiceAssistantOpen(true)}
-                  className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-all group"
+                  onClick={() => {
+                    markAssistantAsRead();
+                    setVoiceAssistantOpen(true);
+                  }}
+                  className={cn(
+                    "fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-all group",
+                    assistantUnreadCount > 0 && "animate-pulse ring-4 ring-primary/30"
+                  )}
                   size="icon"
                 >
                   <Sparkles className="h-6 w-6 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-125" />
+                  {assistantUnreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs font-medium flex items-center justify-center">
+                      {assistantUnreadCount > 99 ? '99+' : assistantUnreadCount}
+                    </span>
+                  )}
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="left">
-                <p>Ассистент</p>
+                <p>{assistantUnreadCount > 0 ? `Ассистент (${assistantUnreadCount} новых)` : 'Ассистент'}</p>
               </TooltipContent>
             </Tooltip>
           )}
