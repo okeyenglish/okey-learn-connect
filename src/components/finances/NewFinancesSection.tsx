@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, DollarSign, CreditCard, Wallet } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Search, DollarSign, CreditCard, Wallet, Building2 } from 'lucide-react';
 import { useCurrencies, useInvoices, usePayments, useBonusAccounts } from '@/hooks/useFinances';
+import { useUserAllowedBranches } from '@/hooks/useUserAllowedBranches';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
@@ -56,6 +58,9 @@ interface BonusAccountWithJoins {
 export const NewFinancesSection = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('invoices');
+  const [selectedBranch, setSelectedBranch] = useState('all');
+  
+  const { allowedBranches } = useUserAllowedBranches();
 
   const { data: currencies, isLoading: currenciesLoading } = useCurrencies();
   const { data: invoicesRaw, isLoading: invoicesLoading } = useInvoices();
@@ -102,6 +107,22 @@ export const NewFinancesSection = () => {
         <div>
           <h2 className="text-3xl font-bold">Финансы</h2>
           <p className="text-muted-foreground">Управление счетами, платежами и валютами</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+            <SelectTrigger className="w-[180px]">
+              <Building2 className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Филиал" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Все филиалы</SelectItem>
+              {allowedBranches.map((branch) => (
+                <SelectItem key={branch} value={branch}>
+                  {branch}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
