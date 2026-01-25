@@ -14,66 +14,76 @@ export const AnimatedLogo = ({ size = 56, className }: AnimatedLogoProps) => {
       )}
       style={{ width: size, height: size }}
     >
-      {/* Animated snake border */}
-      <svg 
-        className="absolute inset-0 w-full h-full"
-        viewBox="0 0 100 100"
-        style={{ transform: 'rotate(-90deg)' }}
-      >
-        <defs>
-          {/* Gradient for the snake effect */}
-          <linearGradient id="snakeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0" />
-            <stop offset="30%" stopColor="#3b82f6" stopOpacity="1" />
-            <stop offset="70%" stopColor="#ef4444" stopOpacity="1" />
-            <stop offset="100%" stopColor="#ef4444" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        
-        {/* Background circle (subtle) */}
-        <circle
-          cx="50"
-          cy="50"
-          r="46"
-          fill="none"
-          stroke="rgba(59, 130, 246, 0.1)"
-          strokeWidth="3"
-        />
-        
-        {/* Animated snake path */}
-        <circle
-          cx="50"
-          cy="50"
-          r="46"
-          fill="none"
-          stroke="url(#snakeGradient)"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeDasharray="70 220"
-          className="animate-snake"
-        />
-        
-        {/* Second snake for more dynamic effect */}
-        <circle
-          cx="50"
-          cy="50"
-          r="46"
-          fill="none"
-          stroke="url(#snakeGradient)"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeDasharray="40 250"
-          className="animate-snake-reverse"
-          style={{ opacity: 0.6 }}
-        />
-      </svg>
-      
-      {/* Glow effect behind logo */}
+      {/* Siri-like animated orbs container */}
       <div 
-        className="absolute rounded-full bg-gradient-to-r from-blue-500/20 to-red-500/20 blur-md animate-pulse"
+        className="absolute inset-0 rounded-full overflow-hidden"
+        style={{ filter: 'blur(3px)' }}
+      >
+        {/* Primary blue orb - rotating clockwise */}
+        <div 
+          className="absolute rounded-full animate-siri-orb-1"
+          style={{
+            width: size * 0.6,
+            height: size * 0.6,
+            background: 'radial-gradient(circle, hsl(217 72% 58% / 0.8) 0%, hsl(217 72% 48% / 0.4) 50%, transparent 70%)',
+            top: '10%',
+            left: '10%',
+          }}
+        />
+        
+        {/* Secondary teal orb - rotating counter-clockwise */}
+        <div 
+          className="absolute rounded-full animate-siri-orb-2"
+          style={{
+            width: size * 0.5,
+            height: size * 0.5,
+            background: 'radial-gradient(circle, hsl(180 60% 50% / 0.7) 0%, hsl(190 70% 45% / 0.3) 50%, transparent 70%)',
+            bottom: '5%',
+            right: '5%',
+          }}
+        />
+        
+        {/* Accent violet orb */}
+        <div 
+          className="absolute rounded-full animate-siri-orb-3"
+          style={{
+            width: size * 0.45,
+            height: size * 0.45,
+            background: 'radial-gradient(circle, hsl(260 60% 55% / 0.6) 0%, hsl(280 50% 50% / 0.3) 50%, transparent 70%)',
+            top: '30%',
+            right: '0%',
+          }}
+        />
+        
+        {/* Soft pink accent orb */}
+        <div 
+          className="absolute rounded-full animate-siri-orb-4"
+          style={{
+            width: size * 0.4,
+            height: size * 0.4,
+            background: 'radial-gradient(circle, hsl(330 70% 60% / 0.5) 0%, hsl(350 60% 55% / 0.2) 50%, transparent 70%)',
+            bottom: '20%',
+            left: '5%',
+          }}
+        />
+      </div>
+      
+      {/* Outer glow ring */}
+      <div 
+        className="absolute inset-0 rounded-full animate-siri-glow"
         style={{
-          width: size * 0.7,
-          height: size * 0.7,
+          background: 'conic-gradient(from 0deg, hsl(217 72% 48% / 0.3), hsl(180 60% 50% / 0.3), hsl(260 60% 55% / 0.3), hsl(330 70% 60% / 0.2), hsl(217 72% 48% / 0.3))',
+          filter: 'blur(6px)',
+        }}
+      />
+      
+      {/* Inner breathing glow */}
+      <div 
+        className="absolute rounded-full animate-siri-breathe"
+        style={{
+          width: size * 0.85,
+          height: size * 0.85,
+          background: 'radial-gradient(circle, hsl(217 72% 48% / 0.15) 0%, transparent 70%)',
         }}
       />
       
@@ -81,39 +91,132 @@ export const AnimatedLogo = ({ size = 56, className }: AnimatedLogoProps) => {
       <img 
         src="/favicon.png" 
         alt="Logo"
-        className="relative z-10 rounded-full object-contain drop-shadow-lg transition-transform duration-300 group-hover:scale-105"
+        className="relative z-10 rounded-full object-contain transition-transform duration-300 group-hover:scale-105"
         style={{
-          width: size * 0.75,
-          height: size * 0.75,
+          width: size * 0.7,
+          height: size * 0.7,
+          filter: 'drop-shadow(0 0 8px hsl(217 72% 48% / 0.4))',
         }}
       />
       
-      {/* Custom keyframes */}
+      {/* Custom Siri-like keyframes */}
       <style>{`
-        @keyframes snakeMove {
+        @keyframes siriOrb1 {
+          0%, 100% {
+            transform: translate(0, 0) scale(1);
+            opacity: 0.8;
+          }
+          25% {
+            transform: translate(15%, 20%) scale(1.1);
+            opacity: 0.6;
+          }
+          50% {
+            transform: translate(25%, 5%) scale(0.9);
+            opacity: 0.9;
+          }
+          75% {
+            transform: translate(10%, -10%) scale(1.05);
+            opacity: 0.7;
+          }
+        }
+        
+        @keyframes siriOrb2 {
+          0%, 100% {
+            transform: translate(0, 0) scale(1);
+            opacity: 0.7;
+          }
+          25% {
+            transform: translate(-20%, -15%) scale(1.15);
+            opacity: 0.5;
+          }
+          50% {
+            transform: translate(-10%, -25%) scale(0.95);
+            opacity: 0.8;
+          }
+          75% {
+            transform: translate(-5%, 10%) scale(1.1);
+            opacity: 0.6;
+          }
+        }
+        
+        @keyframes siriOrb3 {
+          0%, 100% {
+            transform: translate(0, 0) scale(1);
+            opacity: 0.6;
+          }
+          33% {
+            transform: translate(-15%, 15%) scale(1.2);
+            opacity: 0.8;
+          }
+          66% {
+            transform: translate(-25%, -5%) scale(0.85);
+            opacity: 0.5;
+          }
+        }
+        
+        @keyframes siriOrb4 {
+          0%, 100% {
+            transform: translate(0, 0) scale(1);
+            opacity: 0.5;
+          }
+          33% {
+            transform: translate(20%, -20%) scale(1.1);
+            opacity: 0.7;
+          }
+          66% {
+            transform: translate(10%, 15%) scale(0.9);
+            opacity: 0.4;
+          }
+        }
+        
+        @keyframes siriGlow {
           0% {
-            stroke-dashoffset: 0;
+            transform: rotate(0deg) scale(1);
+            opacity: 0.6;
+          }
+          50% {
+            transform: rotate(180deg) scale(1.05);
+            opacity: 0.8;
           }
           100% {
-            stroke-dashoffset: -290;
+            transform: rotate(360deg) scale(1);
+            opacity: 0.6;
           }
         }
         
-        @keyframes snakeMoveReverse {
-          0% {
-            stroke-dashoffset: 0;
+        @keyframes siriBreathe {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 0.4;
           }
-          100% {
-            stroke-dashoffset: 290;
+          50% {
+            transform: scale(1.15);
+            opacity: 0.7;
           }
         }
         
-        .animate-snake {
-          animation: snakeMove 3s linear infinite;
+        .animate-siri-orb-1 {
+          animation: siriOrb1 6s ease-in-out infinite;
         }
         
-        .animate-snake-reverse {
-          animation: snakeMoveReverse 4s linear infinite;
+        .animate-siri-orb-2 {
+          animation: siriOrb2 7s ease-in-out infinite;
+        }
+        
+        .animate-siri-orb-3 {
+          animation: siriOrb3 5s ease-in-out infinite;
+        }
+        
+        .animate-siri-orb-4 {
+          animation: siriOrb4 8s ease-in-out infinite;
+        }
+        
+        .animate-siri-glow {
+          animation: siriGlow 10s linear infinite;
+        }
+        
+        .animate-siri-breathe {
+          animation: siriBreathe 3s ease-in-out infinite;
         }
       `}</style>
     </div>
