@@ -3287,6 +3287,7 @@ const CRMContent = () => {
                           onBulkSelect={handleBulkSelectToggle}
                           onDeleteChat={handleDeleteChat}
                           onLinkChat={handleLinkChat}
+                          isLoading={threadsLoading}
                           hasNextPage={hasNextPage}
                           isFetchingNextPage={isFetchingNextPage}
                           onLoadMore={loadMore}
@@ -3688,6 +3689,7 @@ const CRMContent = () => {
                           onBulkSelect={handleBulkSelectToggle}
                           onDeleteChat={handleDeleteChat}
                           onLinkChat={handleLinkChat}
+                          isLoading={threadsLoading}
                           hasNextPage={hasNextPage}
                           isFetchingNextPage={isFetchingNextPage}
                           onLoadMore={loadMore}
