@@ -171,6 +171,68 @@ export interface MessengerSettings {
   profileId?: string;
 }
 
+// ============================================================================
+// Telegram-specific Types
+// ============================================================================
+
+/**
+ * Telegram settings from messenger_settings
+ */
+export interface TelegramSettings {
+  profileId: string;
+  apiToken: string;
+  webhookUrl?: string;
+}
+
+/**
+ * Telegram send message request
+ */
+export interface TelegramSendRequest extends SendMessageRequest {
+  clientId: string;
+  text?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  phoneId?: string;
+}
+
+/**
+ * Telegram send message response
+ */
+export interface TelegramSendResponse extends SendMessageResponse {
+  success: boolean;
+  messageId?: string;
+  savedMessageId?: string;
+  error?: string;
+  code?: string;
+}
+
+/**
+ * Telegram get avatar request
+ */
+export interface TelegramGetAvatarRequest {
+  clientId?: string;
+  chatId?: string;
+}
+
+/**
+ * Telegram get avatar response
+ */
+export interface TelegramGetAvatarResponse extends BaseResponse {
+  success: boolean;
+  avatarUrl?: string;
+  error?: string;
+}
+
+/**
+ * Wappi.pro contact response
+ */
+export interface WappiContactResponse {
+  photo_url?: string;
+  avatar_url?: string;
+  status?: string;
+}
+
 /**
  * Instance state for messenger connections
  */

@@ -1,21 +1,22 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  corsHeaders,
+  handleCors,
+  errorResponse,
+  getErrorMessage,
+  type TelegramGetAvatarRequest,
+  type TelegramGetAvatarResponse,
+  type TelegramSettings,
+  type WappiContactResponse,
+} from '../_shared/types.ts';
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   if (req.method !== 'POST') {
-    return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse('Method not allowed', 405);
   }
 
   try {
@@ -27,10 +28,7 @@ Deno.serve(async (req) => {
     // Get user from auth header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Authorization header required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Authorization header required', 401);
     }
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(
@@ -38,10 +36,7 @@ Deno.serve(async (req) => {
     );
 
     if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Unauthorized', 401);
     }
 
     // Get organization ID
@@ -52,10 +47,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (profileError || !profile?.organization_id) {
-      return new Response(
-        JSON.stringify({ error: 'Organization not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Organization not found', 404);
     }
 
     const organizationId = profile.organization_id;
@@ -70,23 +62,18 @@ Deno.serve(async (req) => {
 
     if (settingsError) {
       console.error('Error fetching Telegram settings:', settingsError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch Telegram settings' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Failed to fetch Telegram settings', 500);
     }
 
-    const profileId = messengerSettings?.settings?.profileId;
-    const wappiApiToken = messengerSettings?.settings?.apiToken;
+    const settings = messengerSettings?.settings as TelegramSettings | null;
+    const profileId = settings?.profileId;
+    const wappiApiToken = settings?.apiToken;
 
     if (!profileId || !wappiApiToken) {
-      return new Response(
-        JSON.stringify({ error: 'Telegram not configured' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Telegram not configured', 400);
     }
 
-    const body = await req.json();
+    const body = await req.json() as TelegramGetAvatarRequest;
     const { clientId, chatId: providedChatId } = body;
 
     let chatId = providedChatId;
@@ -101,35 +88,26 @@ Deno.serve(async (req) => {
         .single();
 
       if (clientError || !client) {
-        return new Response(
-          JSON.stringify({ error: 'Client not found' }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return errorResponse('Client not found', 404);
       }
 
       chatId = client.telegram_chat_id || client.telegram_user_id?.toString();
     }
 
     if (!chatId) {
-      return new Response(
-        JSON.stringify({ error: 'Chat ID is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Chat ID is required', 400);
     }
 
     // Get avatar from Wappi.pro
     const avatarResult = await getAvatar(profileId, chatId, wappiApiToken);
 
     if (!avatarResult.success) {
-      return new Response(
-        JSON.stringify({ error: avatarResult.error || 'Failed to get avatar' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse(avatarResult.error || 'Failed to get avatar', 500);
     }
 
     // Update client avatar if clientId provided
     if (clientId && avatarResult.avatarUrl) {
-      const updateData: any = {
+      const updateData: Record<string, string> = {
         telegram_avatar_url: avatarResult.avatarUrl
       };
 
@@ -138,7 +116,7 @@ Deno.serve(async (req) => {
         .from('clients')
         .select('avatar_url')
         .eq('id', clientId)
-        .single();
+        .maybeSingle();
 
       if (!clientData?.avatar_url) {
         updateData.avatar_url = avatarResult.avatarUrl;
@@ -150,19 +128,18 @@ Deno.serve(async (req) => {
         .eq('id', clientId);
     }
 
+    const response: TelegramGetAvatarResponse = { 
+      success: true, 
+      avatarUrl: avatarResult.avatarUrl
+    };
+
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        avatarUrl: avatarResult.avatarUrl
-      }),
+      JSON.stringify(response),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Telegram get avatar error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });
 
@@ -183,7 +160,7 @@ async function getAvatar(
       }
     );
 
-    const data = await response.json();
+    const data = await response.json() as WappiContactResponse;
     console.log('Wappi.pro get contact response:', data);
 
     if (!response.ok) {
@@ -195,13 +172,13 @@ async function getAvatar(
 
     return {
       success: true,
-      avatarUrl: data.photo_url || data.avatar_url || null
+      avatarUrl: data.photo_url || data.avatar_url || undefined
     };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error getting avatar:', error);
     return {
       success: false,
-      error: error.message || 'Failed to get avatar'
+      error: getErrorMessage(error)
     };
   }
 }

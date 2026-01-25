@@ -4,8 +4,9 @@ import {
   handleCors,
   errorResponse,
   getErrorMessage,
-  type SendMessageRequest,
-  type MessengerSettings,
+  type TelegramSendRequest,
+  type TelegramSendResponse,
+  type TelegramSettings,
 } from '../_shared/types.ts';
 
 Deno.serve(async (req) => {
@@ -29,10 +30,7 @@ Deno.serve(async (req) => {
     // Get user from auth header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Authorization header required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Authorization header required', 401);
     }
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(
@@ -40,10 +38,7 @@ Deno.serve(async (req) => {
     );
 
     if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Unauthorized', 401);
     }
 
     // Get organization ID
@@ -54,10 +49,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (profileError || !profile?.organization_id) {
-      return new Response(
-        JSON.stringify({ error: 'Organization not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Organization not found', 404);
     }
 
     const organizationId = profile.organization_id;
@@ -72,37 +64,26 @@ Deno.serve(async (req) => {
 
     if (settingsError) {
       console.error('Error fetching Telegram settings:', settingsError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch Telegram settings' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Failed to fetch Telegram settings', 500);
     }
 
     if (!messengerSettings || !messengerSettings.is_enabled) {
-      return new Response(
-        JSON.stringify({ error: 'Telegram integration not configured or disabled' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Telegram integration not configured or disabled', 400);
     }
 
-    const profileId = messengerSettings.settings?.profileId;
-    const wappiApiToken = messengerSettings.settings?.apiToken;
+    const settings = messengerSettings.settings as TelegramSettings | null;
+    const profileId = settings?.profileId;
+    const wappiApiToken = settings?.apiToken;
 
     if (!profileId || !wappiApiToken) {
-      return new Response(
-        JSON.stringify({ error: 'Telegram Profile ID or API Token not configured' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Telegram Profile ID or API Token not configured', 400);
     }
 
-    const body = await req.json();
+    const body = await req.json() as TelegramSendRequest;
     const { clientId, text, fileUrl, fileName, fileType, phoneId } = body;
 
     if (!clientId) {
-      return new Response(
-        JSON.stringify({ error: 'Client ID is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Client ID is required', 400);
     }
 
     // Get client with phone number
@@ -114,10 +95,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (clientError || !client) {
-      return new Response(
-        JSON.stringify({ error: 'Client not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Client not found', 404);
     }
 
     // Try to get chat ID from specified phone number first
@@ -153,7 +131,7 @@ Deno.serve(async (req) => {
         .select('telegram_chat_id, telegram_user_id, phone')
         .eq('client_id', clientId)
         .eq('is_primary', true)
-        .single();
+        .maybeSingle();
       
       if (primaryPhone) {
         recipient = primaryPhone.telegram_chat_id || primaryPhone.telegram_user_id?.toString();
@@ -184,11 +162,13 @@ Deno.serve(async (req) => {
     }
     
     if (!recipient) {
+      const response: TelegramSendResponse = { 
+        success: false,
+        error: 'У клиента нет Telegram и номера телефона',
+        code: 'NO_TELEGRAM_CONTACT'
+      };
       return new Response(
-        JSON.stringify({ 
-          error: 'У клиента нет Telegram и номера телефона',
-          code: 'NO_TELEGRAM_CONTACT'
-        }),
+        JSON.stringify(response),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -196,23 +176,17 @@ Deno.serve(async (req) => {
     console.log('Sending Telegram message to:', recipient, 'usePhoneNumber:', usePhoneNumber);
 
     // Send message via Wappi.pro using per-organization apiToken
-    let sendResult;
+    let sendResult: { success: boolean; messageId?: string; error?: string };
     if (fileUrl) {
       sendResult = await sendFileMessage(profileId, recipient, fileUrl, text || '', wappiApiToken);
     } else if (text) {
       sendResult = await sendTextMessage(profileId, recipient, text, wappiApiToken);
     } else {
-      return new Response(
-        JSON.stringify({ error: 'Message text or file is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Message text or file is required', 400);
     }
 
     if (!sendResult.success) {
-      return new Response(
-        JSON.stringify({ error: sendResult.error || 'Failed to send message' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse(sendResult.error || 'Failed to send message', 500);
     }
 
     // Save message to database - message_type is 'manager' for outgoing messages
@@ -247,20 +221,19 @@ Deno.serve(async (req) => {
       .update({ last_message_at: new Date().toISOString() })
       .eq('id', clientId);
 
+    const response: TelegramSendResponse = { 
+      success: true, 
+      messageId: sendResult.messageId,
+      savedMessageId: savedMessage?.id
+    };
+
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        messageId: sendResult.messageId,
-        savedMessageId: savedMessage?.id
-      }),
+      JSON.stringify(response),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Telegram send error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });
 
@@ -329,11 +302,11 @@ async function sendMessage(
       success: false,
       error: data?.detail || `HTTP ${response.status}`,
     };
-  } catch (err) {
+  } catch (err: unknown) {
     console.error(`[telegram-send] ${kind} message failed:`, err);
     return {
       success: false,
-      error: err?.message || String(err),
+      error: getErrorMessage(err),
     };
   }
 }
