@@ -631,6 +631,479 @@ export interface WebhookProxyResponse extends BaseResponse {
 }
 
 // ============================================================================
+// Green API WhatsApp Webhook Types
+// ============================================================================
+
+/**
+ * Green API instance data in webhook
+ */
+export interface GreenAPIInstanceData {
+  idInstance: string;
+  wid: string;
+  typeInstance: string;
+}
+
+/**
+ * Green API sender data in webhook
+ */
+export interface GreenAPISenderData {
+  chatId: string;
+  chatName?: string;
+  sender: string;
+  senderName?: string;
+}
+
+/**
+ * Green API text message data
+ */
+export interface GreenAPITextMessageData {
+  textMessage: string;
+}
+
+/**
+ * Green API file message data
+ */
+export interface GreenAPIFileMessageData {
+  downloadUrl: string;
+  caption?: string;
+  fileName?: string;
+  jpegThumbnail?: string;
+  mimeType?: string;
+}
+
+/**
+ * Green API extended text message data
+ */
+export interface GreenAPIExtendedTextMessageData {
+  text: string;
+  stanzaId?: string;
+  participant?: string;
+}
+
+/**
+ * Green API reaction message data
+ */
+export interface GreenAPIReactionMessageData {
+  messageId: string;
+  reaction: string;
+}
+
+/**
+ * Green API message data in webhook
+ */
+export interface GreenAPIMessageData {
+  typeMessage: string;
+  textMessageData?: GreenAPITextMessageData;
+  fileMessageData?: GreenAPIFileMessageData;
+  extendedTextMessageData?: GreenAPIExtendedTextMessageData;
+  reactionMessageData?: GreenAPIReactionMessageData;
+}
+
+/**
+ * Green API status data in webhook
+ */
+export interface GreenAPIStatusData {
+  timestamp: number;
+  idMessage: string;
+  status: string;
+}
+
+/**
+ * Green API webhook payload
+ */
+export interface GreenAPIWebhook {
+  typeWebhook: string;
+  instanceData: GreenAPIInstanceData;
+  timestamp: number;
+  idMessage?: string;
+  senderData?: GreenAPISenderData;
+  messageData?: GreenAPIMessageData;
+  status?: string;
+  statusData?: GreenAPIStatusData;
+}
+
+// ============================================================================
+// Wappi WhatsApp Webhook Types
+// ============================================================================
+
+/**
+ * Wappi message in webhook
+ */
+export interface WappiMessage {
+  wh_type: 'incoming_message' | 'outgoing_message_api' | 'outgoing_message_phone' | 'delivery_status' | 'authorization_status';
+  profile_id: string;
+  id: string;
+  body: string;
+  type: 'chat' | 'image' | 'video' | 'document' | 'audio' | 'ptt' | 'location' | 'vcard' | 'sticker' | 'reaction';
+  from: string;
+  to: string;
+  senderName?: string;
+  chatId: string;
+  timestamp: string;
+  time: number;
+  caption?: string;
+  mimetype?: string;
+  file_name?: string;
+  file_link?: string;
+  contact_name?: string;
+  contact_username?: string;
+  contact_phone?: string;
+  is_forwarded?: boolean;
+  isReply?: boolean;
+  isForwarded?: boolean;
+  stanza_id?: string;
+  quotedMsgId?: string;
+  thumbnail?: string;
+  picture?: string;
+  from_where?: string;
+  is_me?: boolean;
+  username?: string;
+}
+
+/**
+ * Wappi webhook payload
+ */
+export interface WappiWebhook {
+  messages: WappiMessage[];
+}
+
+// ============================================================================
+// WPP Connect Webhook Types
+// ============================================================================
+
+/**
+ * WPP Connect media data
+ */
+export interface WPPMediaData {
+  url?: string;
+  fileName?: string;
+  mime?: string;
+  mimetype?: string;
+}
+
+/**
+ * WPP Connect message data
+ */
+export interface WPPMessageData {
+  from: string;
+  text?: string;
+  body?: string;
+  media?: WPPMediaData;
+  timestamp?: number;
+  id?: string;
+  fromMe?: boolean;
+  session?: string;
+  sessionName?: string;
+}
+
+/**
+ * WPP Connect webhook event
+ */
+export interface WPPWebhookEvent {
+  type?: string;
+  event?: string;
+  session?: string;
+  qrcode?: string;
+  qr?: string;
+  data?: WPPMessageData;
+  instanceData?: {
+    idInstance?: string;
+  };
+}
+
+// ============================================================================
+// Telegram Webhook Types (Wappi format)
+// ============================================================================
+
+/**
+ * Telegram message via Wappi
+ */
+export interface TelegramWappiMessage {
+  id: string;
+  profile_id: string;
+  wh_type: 'incoming_message' | 'outgoing_message' | 'outgoing_message_phone' | 'delivery_status' | 'authorization_status';
+  timestamp: string;
+  time: number;
+  body?: string;
+  type: 'text' | 'image' | 'video' | 'document' | 'audio' | 'ptt' | 'location' | 'vcard' | 'sticker';
+  from?: string;
+  to?: string;
+  senderName?: string;
+  chatId: string;
+  username?: string;
+  contact_username?: string;
+  contact_name?: string;
+  contact_phone?: string;
+  caption?: string;
+  file_link?: string;
+  mimetype?: string;
+  isForwarded?: boolean;
+  quotedMsgId?: string;
+  thumbnail?: string;
+  picture?: string;
+  from_where?: string;
+  is_me?: boolean;
+}
+
+/**
+ * Telegram webhook payload via Wappi
+ */
+export interface TelegramWappiWebhook {
+  messages: TelegramWappiMessage[];
+}
+
+// ============================================================================
+// Salebot Webhook Types
+// ============================================================================
+
+/**
+ * Salebot client data in webhook
+ */
+export interface SalebotClientData {
+  id: number;
+  recepient: string;
+  client_type: number;
+  name: string;
+  avatar: string;
+  created_at: string;
+  tag: string;
+  group: string;
+}
+
+/**
+ * Salebot attachment in webhook
+ */
+export interface SalebotAttachment {
+  url?: string;
+  file?: string;
+  name?: string;
+  filename?: string;
+  type?: string;
+}
+
+/**
+ * Salebot webhook payload
+ */
+export interface SalebotWebhookPayload {
+  id: number;
+  client: SalebotClientData;
+  message: string;
+  attachments: (string | SalebotAttachment)[];
+  message_id: number;
+  project_id: number;
+  is_input: 0 | 1;
+  delivered: 0 | 1;
+  error_message: string | null;
+}
+
+/**
+ * Salebot client type to messenger type mapping
+ * 0 = VK, 1 = Telegram, 2 = Viber, 3 = Facebook, 5 = Online chat
+ * 6 = WhatsApp, 7 = Avito, 8 = Odnoklassniki, 10 = Instagram
+ * 12 = Yula, 13 = Telephony, 14 = Email, 16 = Telegram Business
+ * 19 = Cian, 20 = Max, 21 = Telegram account, 22 = TikTok
+ */
+export type SalebotClientType = 0 | 1 | 2 | 3 | 5 | 6 | 7 | 8 | 10 | 12 | 13 | 14 | 16 | 19 | 20 | 21 | 22;
+
+/**
+ * Messenger type values
+ */
+export type MessengerTypeValue = 'whatsapp' | 'telegram' | 'viber' | 'vk' | 'max' | 'instagram' | 'facebook';
+
+// ============================================================================
+// MAX (Green API v3) Webhook Types
+// ============================================================================
+
+/**
+ * MAX message in webhook
+ */
+export interface MaxMessage {
+  id: string;
+  chatId: string;
+  from: string;
+  to?: string;
+  body?: string;
+  type: string;
+  timestamp: number;
+  senderName?: string;
+  caption?: string;
+  mimetype?: string;
+  fileName?: string;
+  downloadUrl?: string;
+}
+
+/**
+ * MAX webhook payload
+ */
+export interface MaxWebhookPayload {
+  typeWebhook: string;
+  instanceData: {
+    idInstance: string;
+    wid: string;
+  };
+  timestamp: number;
+  idMessage?: string;
+  senderData?: {
+    chatId: string;
+    sender: string;
+    senderName?: string;
+  };
+  messageData?: {
+    typeMessage: string;
+    textMessageData?: { textMessage: string };
+    fileMessageData?: {
+      downloadUrl: string;
+      caption?: string;
+      fileName?: string;
+      mimeType?: string;
+    };
+  };
+}
+
+// ============================================================================
+// WhatsApp Send/Edit/Delete Types
+// ============================================================================
+
+/**
+ * WhatsApp send message request (all providers)
+ */
+export interface WhatsAppSendRequest {
+  clientId: string;
+  message?: string;
+  text?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  phoneNumber?: string;
+  chatId?: string;
+  quotedMessageId?: string;
+}
+
+/**
+ * WhatsApp send message response
+ */
+export interface WhatsAppSendResponse extends BaseResponse {
+  messageId?: string;
+  idMessage?: string;
+  chatId?: string;
+  savedMessageId?: string;
+  timestamp?: string;
+}
+
+/**
+ * WhatsApp edit message request
+ */
+export interface WhatsAppEditRequest {
+  clientId: string;
+  messageId: string;
+  newMessage: string;
+  newText?: string;
+}
+
+/**
+ * WhatsApp delete message request
+ */
+export interface WhatsAppDeleteRequest {
+  clientId: string;
+  messageId: string;
+  deleteForEveryone?: boolean;
+}
+
+/**
+ * WhatsApp typing indicator request
+ */
+export interface WhatsAppTypingRequest {
+  clientId: string;
+  chatId?: string;
+}
+
+/**
+ * WhatsApp download file request
+ */
+export interface WhatsAppDownloadRequest {
+  chatId?: string;
+  messageId: string;
+  idMessage?: string;
+  organizationId?: string;
+}
+
+/**
+ * WhatsApp download file response
+ */
+export interface WhatsAppDownloadResponse extends BaseResponse {
+  downloadUrl?: string;
+  mimeType?: string;
+  fileName?: string;
+  base64?: string;
+}
+
+// ============================================================================
+// WPP Connect Session Types
+// ============================================================================
+
+/**
+ * WPP session status
+ */
+export type WPPSessionStatus = 'connected' | 'disconnected' | 'qr_issued' | 'connecting' | 'error';
+
+/**
+ * WPP session record in database
+ */
+export interface WPPSessionRecord {
+  organization_id: string;
+  session_name: string;
+  status: WPPSessionStatus;
+  last_qr_b64?: string | null;
+  last_qr_at?: string | null;
+  updated_at: string;
+}
+
+/**
+ * WPP start session request
+ */
+export interface WPPStartRequest {
+  force?: boolean;
+}
+
+/**
+ * WPP start session response
+ */
+export interface WPPStartResponse extends BaseResponse {
+  status?: WPPSessionStatus;
+  qrCode?: string;
+  sessionName?: string;
+}
+
+/**
+ * WPP status response
+ */
+export interface WPPStatusResponse extends BaseResponse {
+  status?: WPPSessionStatus;
+  qrCode?: string;
+  phone?: string;
+  sessionName?: string;
+}
+
+/**
+ * WPP disconnect response
+ */
+export interface WPPDisconnectResponse extends BaseResponse {
+  status?: 'disconnected';
+}
+
+/**
+ * WPP diagnostics response
+ */
+export interface WPPDiagnosticsResponse extends BaseResponse {
+  sessions?: Array<{
+    name: string;
+    status: string;
+    phone?: string;
+  }>;
+  serverStatus?: string;
+}
+
+// ============================================================================
 // SEO Types
 // ============================================================================
 
