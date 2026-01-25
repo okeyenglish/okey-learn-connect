@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 
 interface SendMessageParams {
@@ -34,8 +34,7 @@ export const useWhatsApp = () => {
   const getMessengerSettings = useCallback(async (): Promise<WhatsAppSettings | null> => {
     try {
       // RLS will automatically filter by organization_id
-      const { data, error } = await supabase
-        .from('messenger_settings')
+      const { data, error } = await (supabase.from('messenger_settings' as any) as any)
         .select('*')
         .eq('messenger_type', 'whatsapp')
         .maybeSingle();
@@ -48,16 +47,16 @@ export const useWhatsApp = () => {
         return null;
       }
 
-      const settings = data.settings as any;
-      const provider = (data.provider === 'wpp' ? 'wpp' : data.provider === 'wappi' ? 'wappi' : 'greenapi') as 'greenapi' | 'wpp' | 'wappi';
+      const settings = (data as any).settings as any;
+      const provider = ((data as any).provider === 'wpp' ? 'wpp' : (data as any).provider === 'wappi' ? 'wappi' : 'greenapi') as 'greenapi' | 'wpp' | 'wappi';
       
       return {
         provider,
         instanceId: settings?.instanceId || '',
         apiToken: settings?.apiToken || '',
         apiUrl: settings?.apiUrl || 'https://api.green-api.com',
-        webhookUrl: data.webhook_url || '',
-        isEnabled: data.is_enabled || false,
+        webhookUrl: (data as any).webhook_url || '',
+        isEnabled: (data as any).is_enabled || false,
         wppSession: settings?.wppSession || 'default',
         wppBaseUrl: settings?.wppBaseUrl || '',
         wppApiKey: settings?.wppApiKey || '',
@@ -138,8 +137,7 @@ export const useWhatsApp = () => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user) throw new Error('Пользователь не авторизован');
 
-      const { data: profile } = await supabase
-        .from('profiles')
+      const { data: profile } = await (supabase.from('profiles' as any) as any)
         .select('organization_id')
         .eq('id', userData.user.id)
         .single();
@@ -147,14 +145,13 @@ export const useWhatsApp = () => {
       if (!profile?.organization_id) throw new Error('Organization ID не найден');
 
       // Read existing settings so partial updates don't wipe fields (e.g. switch provider)
-      const { data: existing } = await supabase
-        .from('messenger_settings')
+      const { data: existing } = await (supabase.from('messenger_settings' as any) as any)
         .select('provider, is_enabled, settings, webhook_url')
         .eq('organization_id', profile.organization_id)
         .eq('messenger_type', 'whatsapp')
         .maybeSingle();
 
-      const prev = (existing?.settings as any) ?? {};
+      const prev = ((existing as any)?.settings as any) ?? {};
 
       const mergedSettings = {
         ...prev,
@@ -169,13 +166,12 @@ export const useWhatsApp = () => {
         ...(settings.wappiApiToken !== undefined ? { wappiApiToken: settings.wappiApiToken } : {}),
       };
 
-      const provider = (settings.provider ?? (existing?.provider === 'wpp' ? 'wpp' : existing?.provider === 'wappi' ? 'wappi' : 'greenapi')) as 'greenapi' | 'wpp' | 'wappi';
-      const isEnabled = settings.isEnabled ?? existing?.is_enabled ?? false;
-      const webhookUrl = settings.webhookUrl !== undefined ? settings.webhookUrl : existing?.webhook_url;
+      const provider = (settings.provider ?? ((existing as any)?.provider === 'wpp' ? 'wpp' : (existing as any)?.provider === 'wappi' ? 'wappi' : 'greenapi')) as 'greenapi' | 'wpp' | 'wappi';
+      const isEnabled = settings.isEnabled ?? (existing as any)?.is_enabled ?? false;
+      const webhookUrl = settings.webhookUrl !== undefined ? settings.webhookUrl : (existing as any)?.webhook_url;
 
       // Upsert messenger_settings with organization_id for tenant isolation
-      const { error } = await supabase
-        .from('messenger_settings')
+      const { error } = await (supabase.from('messenger_settings' as any) as any)
         .upsert({
           organization_id: profile.organization_id,
           messenger_type: 'whatsapp',
@@ -266,8 +262,7 @@ export const useWhatsApp = () => {
 
   const getWebhookLogs = useCallback(async (limit: number = 50) => {
     try {
-      const { data, error } = await supabase
-        .from('webhook_logs')
+      const { data, error } = await (supabase.from('webhook_logs' as any) as any)
         .select('*')
         .eq('messenger_type', 'whatsapp')
         .order('created_at', { ascending: false })
@@ -501,53 +496,32 @@ export const useWhatsApp = () => {
     }
   }, []);
 
-  // Get all contacts
-  const getContacts = useCallback(async () => {
+  // Send typing indicator (not all providers support this)
+  const sendTyping = useCallback(async (clientId: string, isTyping: boolean) => {
     try {
-      const { data, error } = await supabase.functions.invoke('whatsapp-get-contacts', {
-        body: {}
+      const settings = await getMessengerSettings();
+      const provider = settings?.provider || 'greenapi';
+      
+      // Only Green API supports typing indicator
+      if (provider !== 'greenapi') {
+        return { success: false, error: 'Typing not supported' };
+      }
+
+      const { data, error } = await supabase.functions.invoke('whatsapp-send', {
+        body: { action: 'send_typing', clientId, isTyping }
       });
 
       if (error) throw error;
-      return data;
+      return { success: true };
     } catch (error: any) {
-      console.error('Error getting WhatsApp contacts:', error);
-      return { success: false, contacts: [], error: error.message };
-    }
-  }, []);
-
-  // Get contact info
-  const getContactInfo = useCallback(async (clientId: string) => {
-    try {
-      const { data, error } = await supabase.functions.invoke('whatsapp-get-contact-info', {
-        body: { clientId }
-      });
-
-      if (error) throw error;
-      return data;
-    } catch (error: any) {
-      console.error('Error getting WhatsApp contact info:', error);
+      console.error('Error sending typing indicator:', error);
       return { success: false, error: error.message };
     }
-  }, []);
-
-  // Send typing notification
-  const sendTyping = useCallback(async (clientId: string) => {
-    try {
-      const { data, error } = await supabase.functions.invoke('whatsapp-typing', {
-        body: { clientId }
-      });
-
-      if (error) throw error;
-      return data;
-    } catch (error: any) {
-      console.error('Error sending WhatsApp typing:', error);
-      return { success: false, error: error.message };
-    }
-  }, []);
+  }, [getMessengerSettings]);
 
   return {
     loading,
+    sendMessage,
     sendTextMessage,
     sendFileMessage,
     getMessengerSettings,
@@ -562,8 +536,6 @@ export const useWhatsApp = () => {
     downloadFile,
     checkAvailability,
     getAvatar,
-    getContacts,
-    getContactInfo,
-    sendTyping,
+    sendTyping
   };
 };

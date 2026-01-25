@@ -561,7 +561,7 @@ export const ChatArea = ({
       if (activeMessengerTab === 'max') {
         sendMaxTyping(clientId);
       } else if (activeMessengerTab === 'whatsapp') {
-        sendWhatsAppTyping(clientId);
+        sendWhatsAppTyping(clientId, true);
       }
     } else {
       updateTypingStatus(false);

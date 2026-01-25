@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 export interface TypingPresence {
   count: number;
@@ -24,8 +24,7 @@ export const useTypingPresence = () => {
   }, []);
 
   const refresh = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('typing_status')
+    const { data, error } = await (supabase.from('typing_status' as any) as any)
       .select('client_id, is_typing, manager_name');
     if (!error) rebuildFrom(data || []);
   }, [rebuildFrom]);

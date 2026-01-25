@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 interface TypingStatus {
   user_id: string;
@@ -22,8 +22,7 @@ export const useTypingStatus = (clientId: string) => {
       currentUserIdRef.current = userData.user?.id ?? null;
 
       if (currentUserIdRef.current) {
-        const { data: profile } = await supabase
-          .from('profiles')
+        const { data: profile } = await (supabase.from('profiles' as any) as any)
           .select('first_name,last_name')
           .eq('id', currentUserIdRef.current)
           .maybeSingle();
@@ -38,13 +37,12 @@ export const useTypingStatus = (clientId: string) => {
     if (!clientId) return;
     let isMounted = true;
     (async () => {
-      const { data, error } = await supabase
-        .from('typing_status')
+      const { data, error } = await (supabase.from('typing_status' as any) as any)
         .select('user_id, client_id, is_typing, manager_name')
         .eq('client_id', clientId)
         .eq('is_typing', true);
       if (!error && isMounted) {
-        setTypingUsers((data || []).filter(t => t.user_id !== currentUserIdRef.current));
+        setTypingUsers((data || []).filter((t: any) => t.user_id !== currentUserIdRef.current));
       }
     })();
     return () => { isMounted = false; };
@@ -73,12 +71,11 @@ export const useTypingStatus = (clientId: string) => {
       .subscribe();
 
     async function refreshTyping() {
-      const { data } = await supabase
-        .from('typing_status')
+      const { data } = await (supabase.from('typing_status' as any) as any)
         .select('user_id, client_id, is_typing, manager_name')
         .eq('client_id', clientId)
         .eq('is_typing', true);
-      setTypingUsers((data || []).filter(t => t.user_id !== currentUserIdRef.current));
+      setTypingUsers((data || []).filter((t: any) => t.user_id !== currentUserIdRef.current));
     }
 
     return () => {
@@ -108,8 +105,7 @@ export const useTypingStatus = (clientId: string) => {
     } as any;
 
     // Upsert to avoid duplicate key errors on rapid updates
-    await supabase
-      .from('typing_status')
+    await (supabase.from('typing_status' as any) as any)
       .upsert(payload, { onConflict: 'user_id,client_id' });
 
     // Auto set false after 5s of inactivity when typing

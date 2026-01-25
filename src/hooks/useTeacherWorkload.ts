@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/typedClient';
+import { startOfWeek, endOfWeek, format } from 'date-fns';
 
 export const useTeacherWorkload = (teacherName: string) => {
   return useQuery({
@@ -11,8 +11,8 @@ export const useTeacherWorkload = (teacherName: string) => {
       const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
 
       // Получаем группы преподавателя
-      const { data: groups, error: groupsError } = await supabase
-        .from('learning_groups')
+      const { data: groups, error: groupsError } = await (supabase
+        .from('learning_groups' as any) as any)
         .select('id')
         .eq('responsible_teacher', teacherName)
         .eq('is_active', true);
@@ -20,8 +20,8 @@ export const useTeacherWorkload = (teacherName: string) => {
       if (groupsError) throw groupsError;
 
       // Получаем индивидуальные занятия
-      const { data: individualLessons, error: individualError } = await supabase
-        .from('individual_lessons')
+      const { data: individualLessons, error: individualError } = await (supabase
+        .from('individual_lessons' as any) as any)
         .select('id')
         .eq('teacher_name', teacherName)
         .eq('is_active', true);
@@ -29,8 +29,8 @@ export const useTeacherWorkload = (teacherName: string) => {
       if (individualError) throw individualError;
 
       // Получаем занятия на эту неделю
-      const { data: weekSessions, error: sessionsError } = await supabase
-        .from('lesson_sessions')
+      const { data: weekSessions, error: sessionsError } = await (supabase
+        .from('lesson_sessions' as any) as any)
         .select('id, start_time, end_time')
         .eq('teacher_name', teacherName)
         .gte('lesson_date', format(weekStart, 'yyyy-MM-dd'))
@@ -40,7 +40,7 @@ export const useTeacherWorkload = (teacherName: string) => {
       if (sessionsError) throw sessionsError;
 
       // Подсчитываем часы в неделю
-      const weeklyHours = (weekSessions || []).reduce((total, session) => {
+      const weeklyHours = (weekSessions || []).reduce((total: number, session: any) => {
         const start = new Date(`2000-01-01T${session.start_time}`);
         const end = new Date(`2000-01-01T${session.end_time}`);
         const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
@@ -65,8 +65,8 @@ export const useTeacherLessonsHistory = (teacherName: string, months: number = 6
       const now = new Date();
       const startDate = new Date(now.getFullYear(), now.getMonth() - months, 1);
 
-      const { data, error } = await supabase
-        .from('lesson_sessions')
+      const { data, error } = await (supabase
+        .from('lesson_sessions' as any) as any)
         .select('lesson_date, status, start_time, end_time')
         .eq('teacher_name', teacherName)
         .gte('lesson_date', format(startDate, 'yyyy-MM-dd'))
@@ -76,7 +76,7 @@ export const useTeacherLessonsHistory = (teacherName: string, months: number = 6
       if (error) throw error;
 
       // Группируем по месяцам
-      const monthlyStats = (data || []).reduce((acc: any, session) => {
+      const monthlyStats = (data || []).reduce((acc: any, session: any) => {
         const month = format(new Date(session.lesson_date), 'yyyy-MM');
         if (!acc[month]) {
           acc[month] = {

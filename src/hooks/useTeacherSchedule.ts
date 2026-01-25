@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, eachDayOfInterval } from 'date-fns';
+import { supabase } from '@/integrations/supabase/typedClient';
+import { startOfWeek, endOfWeek, format } from 'date-fns';
 
 export interface TeacherLesson {
   id: string;
@@ -43,21 +43,19 @@ export const useTeacherSchedule = (
       const end = endDate || endOfWeek(new Date(), { weekStartsOn: 1 });
 
       // Получаем групповые занятия преподавателя
-      let groupQuery = supabase
-        .from('learning_groups' as any)
+      let groupQuery = (supabase.from('learning_groups' as any) as any)
         .select('id, name, subject, level, branch, schedule_time, duration')
         .eq('teacher_id', teacherId);
 
       // Фильтруем по филиалу, если выбран конкретный
       if (branchId && branchId !== 'all') {
-        const { data: branchData } = await supabase
-          .from('organization_branches')
+        const { data: branchData } = await (supabase.from('organization_branches' as any) as any)
           .select('name')
           .eq('id', branchId)
           .single();
         
         if (branchData) {
-          groupQuery = groupQuery.eq('branch', branchData.name);
+          groupQuery = groupQuery.eq('branch', (branchData as any).name);
         }
       }
 
@@ -67,8 +65,7 @@ export const useTeacherSchedule = (
 
       let groupLessons: any[] = [];
       if (groupIds.length > 0) {
-        const { data, error: groupError } = await supabase
-          .from('lesson_sessions' as any)
+        const { data, error: groupError } = await (supabase.from('lesson_sessions' as any) as any)
           .select(`
             id,
             lesson_date,
@@ -93,21 +90,19 @@ export const useTeacherSchedule = (
       }
 
       // Получаем индивидуальные уроки преподавателя
-      let individualQuery = supabase
-        .from('individual_lessons' as any)
+      let individualQuery = (supabase.from('individual_lessons' as any) as any)
         .select('id, subject, level, branch, schedule_time, duration, student_name, student_id')
         .eq('teacher_id', teacherId);
 
       // Фильтруем по филиалу, если выбран конкретный
       if (branchId && branchId !== 'all') {
-        const { data: branchData } = await supabase
-          .from('organization_branches')
+        const { data: branchData } = await (supabase.from('organization_branches' as any) as any)
           .select('name')
           .eq('id', branchId)
           .single();
         
         if (branchData) {
-          individualQuery = individualQuery.eq('branch', branchData.name);
+          individualQuery = individualQuery.eq('branch', (branchData as any).name);
         }
       }
 
@@ -117,8 +112,7 @@ export const useTeacherSchedule = (
 
       let individualLessons: any[] = [];
       if (lessonIds.length > 0) {
-        const { data, error: individualError } = await supabase
-          .from('individual_lesson_sessions' as any)
+        const { data, error: individualError } = await (supabase.from('individual_lesson_sessions' as any) as any)
           .select(`
             id,
             lesson_date,

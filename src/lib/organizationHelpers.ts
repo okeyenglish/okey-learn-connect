@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 /**
  * Get the current user's organization ID
@@ -11,8 +11,7 @@ export const getCurrentOrganizationId = async (): Promise<string> => {
     throw new Error('User not authenticated');
   }
 
-  const { data: profile, error } = await supabase
-    .from('profiles')
+  const { data: profile, error } = await (supabase.from('profiles' as any) as any)
     .select('organization_id')
     .eq('id', user.id)
     .single();

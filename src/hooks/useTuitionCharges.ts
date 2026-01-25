@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
 
 export interface TuitionCharge {
@@ -33,14 +33,13 @@ export const useTuitionCharges = (studentId?: string) => {
     queryFn: async () => {
       if (!studentId) return [];
       
-      const { data, error } = await supabase
-        .from('tuition_charges' as any)
+      const { data, error } = await (supabase.from('tuition_charges' as any) as any)
         .select('*')
         .eq('student_id', studentId)
         .order('charge_date', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as any as TuitionCharge[];
+      return (data || []) as TuitionCharge[];
     },
     enabled: !!studentId,
   });
@@ -56,15 +55,14 @@ export const useTuitionChargesByLearningUnit = (
     queryFn: async () => {
       if (!learningUnitType || !learningUnitId) return [];
       
-      const { data, error } = await supabase
-        .from('tuition_charges' as any)
+      const { data, error } = await (supabase.from('tuition_charges' as any) as any)
         .select('*')
         .eq('learning_unit_type', learningUnitType)
         .eq('learning_unit_id', learningUnitId)
         .order('charge_date', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as any as TuitionCharge[];
+      return (data || []) as TuitionCharge[];
     },
     enabled: !!(learningUnitType && learningUnitId),
   });
@@ -98,8 +96,8 @@ export const useCreateTuitionCharge = () => {
       paymentId?: string;
     }) => {
       // Создаём списание
-      const { data: charge, error: chargeError } = await supabase
-        .from('tuition_charges' as any)
+      const { data: charge, error: chargeError } = await (supabase
+        .from('tuition_charges' as any) as any)
         .insert({
           student_id: studentId,
           learning_unit_type: learningUnitType,
@@ -118,8 +116,8 @@ export const useCreateTuitionCharge = () => {
 
       // Если указан платёж - создаём связь
       if (paymentId && charge) {
-        const { error: linkError } = await supabase
-          .from('payment_tuition_link' as any)
+        const { error: linkError } = await (supabase
+          .from('payment_tuition_link' as any) as any)
           .insert({
             payment_id: paymentId,
             tuition_charge_id: (charge as any).id,
@@ -130,7 +128,7 @@ export const useCreateTuitionCharge = () => {
       }
 
       // Списываем с баланса студента
-      await supabase.rpc('add_balance_transaction', {
+      await (supabase.rpc as any)('add_balance_transaction', {
         _student_id: studentId,
         _amount: -amount,
         _transaction_type: 'debit',
@@ -171,8 +169,8 @@ export const useCancelTuitionCharge = () => {
   return useMutation({
     mutationFn: async ({ chargeId }: { chargeId: string }) => {
       // Получаем данные списания
-      const { data: charge, error: fetchError } = await supabase
-        .from('tuition_charges' as any)
+      const { data: charge, error: fetchError } = await (supabase
+        .from('tuition_charges' as any) as any)
         .select('*')
         .eq('id', chargeId)
         .single();
@@ -180,15 +178,15 @@ export const useCancelTuitionCharge = () => {
       if (fetchError) throw fetchError;
 
       // Обновляем статус
-      const { error: updateError } = await supabase
-        .from('tuition_charges' as any)
+      const { error: updateError } = await (supabase
+        .from('tuition_charges' as any) as any)
         .update({ status: 'cancelled' })
         .eq('id', chargeId);
 
       if (updateError) throw updateError;
 
       // Возвращаем деньги на баланс студента
-      await supabase.rpc('add_balance_transaction' as any, {
+      await (supabase.rpc as any)('add_balance_transaction', {
         _student_id: (charge as any).student_id,
         _amount: (charge as any).amount,
         _transaction_type: 'refund',
@@ -201,8 +199,8 @@ export const useCancelTuitionCharge = () => {
     },
     onSuccess: (charge: any) => {
       queryClient.invalidateQueries({ queryKey: ['tuition-charges'] });
-      queryClient.invalidateQueries({ queryKey: ['student-balance', charge.student_id] });
-      queryClient.invalidateQueries({ queryKey: ['balance-transactions', charge.student_id] });
+      queryClient.invalidateQueries({ queryKey: ['student-balance', charge?.student_id] });
+      queryClient.invalidateQueries({ queryKey: ['balance-transactions', charge?.student_id] });
       toast({
         title: "Успешно",
         description: "Списание отменено, средства возвращены",

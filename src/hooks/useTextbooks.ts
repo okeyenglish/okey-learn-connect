@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 
 export interface Textbook {
@@ -26,8 +26,7 @@ export const useTextbooks = () => {
   const fetchTextbooks = useCallback(async (programType?: string) => {
     try {
       setLoading(true);
-      let query = supabase
-        .from('textbooks')
+      let query = (supabase.from('textbooks' as any) as any)
         .select('*')
         .order('sort_order', { ascending: true });
       
@@ -39,7 +38,7 @@ export const useTextbooks = () => {
       
       if (error) throw error;
       
-      setTextbooks(data || []);
+      setTextbooks((data || []) as Textbook[]);
     } catch (error: any) {
       toast({
         title: 'Ошибка загрузки',
@@ -82,8 +81,7 @@ export const useTextbooks = () => {
         .getPublicUrl(fileName);
 
       // Save metadata to database
-      const { data, error } = await supabase
-        .from('textbooks')
+      const { data, error } = await (supabase.from('textbooks' as any) as any)
         .insert({
           title,
           description,
@@ -133,8 +131,7 @@ export const useTextbooks = () => {
       }
 
       // Delete from database
-      const { error } = await supabase
-        .from('textbooks')
+      const { error } = await (supabase.from('textbooks' as any) as any)
         .delete()
         .eq('id', id);
 
@@ -160,8 +157,7 @@ export const useTextbooks = () => {
     updates: Partial<Pick<Textbook, 'title' | 'description' | 'program_type' | 'category' | 'subcategory' | 'sort_order'>>
   ) => {
     try {
-      const { error } = await supabase
-        .from('textbooks')
+      const { error } = await (supabase.from('textbooks' as any) as any)
         .update(updates)
         .eq('id', id);
 

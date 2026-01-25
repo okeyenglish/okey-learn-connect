@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 export interface InternalLink {
   route: string;
@@ -22,8 +22,7 @@ export async function updateInternalLinks(
     link_type: link.type || 'contextual'
   }));
   
-  const { error } = await supabase
-    .from('internal_link_graph')
+  const { error } = await (supabase.from('internal_link_graph' as any) as any)
     .upsert(inserts, { 
       onConflict: 'from_route,to_route,anchor',
       ignoreDuplicates: false 
@@ -45,8 +44,7 @@ export async function suggestInternalLinks(
   limit = 7
 ): Promise<Array<{ route: string; anchor: string; relevance: number }>> {
   // Получаем опубликованные страницы
-  const query = supabase
-    .from('content_ideas')
+  let query = (supabase.from('content_ideas' as any) as any)
     .select('route, title, meta, branch, idea_type')
     .eq('status', 'published')
     .neq('route', currentRoute)
@@ -54,7 +52,7 @@ export async function suggestInternalLinks(
   
   // Для локальных страниц приоритет страницам того же филиала
   if (branch) {
-    query.or(`branch.eq.${branch},branch.is.null`);
+    query = query.or(`branch.eq.${branch},branch.is.null`);
   }
   
   const { data: pages } = await query;
@@ -64,8 +62,8 @@ export async function suggestInternalLinks(
   // Простая эвристика релевантности
   const topicWords = new Set(topic.toLowerCase().split(/\s+/));
   
-  const scored = pages.map(page => {
-    const titleWords = new Set(page.title.toLowerCase().split(/\s+/));
+  const scored = (pages as any[]).map((page: any) => {
+    const titleWords = new Set(String(page.title || '').toLowerCase().split(/\s+/));
     const overlap = [...titleWords].filter(w => topicWords.has(w)).length;
     
     // Бонус для страниц того же филиала
@@ -77,8 +75,8 @@ export async function suggestInternalLinks(
     const relevance = (overlap / Math.max(titleWords.size, topicWords.size)) + branchBonus + typeBonus;
     
     return {
-      route: page.route,
-      anchor: page.title,
+      route: page.route as string,
+      anchor: page.title as string,
       relevance: Math.min(relevance, 1.0)
     };
   });
@@ -93,19 +91,18 @@ export async function suggestInternalLinks(
  * Находит hub-страницы (каталоги, категории) для перелинковки
  */
 export async function findHubPages(branch?: string): Promise<string[]> {
-  const query = supabase
-    .from('content_ideas')
+  let query = (supabase.from('content_ideas' as any) as any)
     .select('route')
     .eq('status', 'published')
     .in('idea_type', ['hub', 'category'])
     .limit(15);
   
   if (branch) {
-    query.or(`branch.eq.${branch},branch.is.null`);
+    query = query.or(`branch.eq.${branch},branch.is.null`);
   }
   
   const { data } = await query;
-  return data?.map(p => p.route) || [];
+  return (data as any[])?.map((p: any) => p.route as string) || [];
 }
 
 /**
@@ -114,8 +111,7 @@ export async function findHubPages(branch?: string): Promise<string[]> {
 export async function getIncomingLinks(
   route: string
 ): Promise<Array<{ from_route: string; anchor: string; strength: number }>> {
-  const { data, error } = await supabase
-    .from('internal_link_graph')
+  const { data, error } = await (supabase.from('internal_link_graph' as any) as any)
     .select('from_route, anchor, strength')
     .eq('to_route', route)
     .order('strength', { ascending: false })
@@ -126,7 +122,7 @@ export async function getIncomingLinks(
     return [];
   }
   
-  return data || [];
+  return (data || []) as Array<{ from_route: string; anchor: string; strength: number }>;
 }
 
 /**
@@ -135,8 +131,7 @@ export async function getIncomingLinks(
 export async function getOutgoingLinks(
   route: string
 ): Promise<Array<{ to_route: string; anchor: string; link_type: string }>> {
-  const { data, error } = await supabase
-    .from('internal_link_graph')
+  const { data, error } = await (supabase.from('internal_link_graph' as any) as any)
     .select('to_route, anchor, link_type')
     .eq('from_route', route)
     .order('created_at', { ascending: false })
@@ -147,7 +142,7 @@ export async function getOutgoingLinks(
     return [];
   }
   
-  return data || [];
+  return (data || []) as Array<{ to_route: string; anchor: string; link_type: string }>;
 }
 
 /**
@@ -155,8 +150,7 @@ export async function getOutgoingLinks(
  */
 export async function recalculateLinkStrength() {
   // Получаем все ссылки
-  const { data: links } = await supabase
-    .from('internal_link_graph')
+  const { data: links } = await (supabase.from('internal_link_graph' as any) as any)
     .select('from_route, to_route');
   
   if (!links) return;
@@ -164,18 +158,17 @@ export async function recalculateLinkStrength() {
   // Простой подсчет: чем больше ссылок на страницу, тем выше strength
   const incomingCounts: Record<string, number> = {};
   
-  for (const link of links) {
+  for (const link of (links as any[])) {
     incomingCounts[link.to_route] = (incomingCounts[link.to_route] || 0) + 1;
   }
   
   // Обновляем strength (нормализуем от 0 до 1)
   const maxIncoming = Math.max(...Object.values(incomingCounts), 1);
   
-  for (const link of links) {
+  for (const link of (links as any[])) {
     const strength = Math.min((incomingCounts[link.to_route] || 1) / maxIncoming, 1.0);
     
-    await supabase
-      .from('internal_link_graph')
+    await (supabase.from('internal_link_graph' as any) as any)
       .update({ strength: Number(strength.toFixed(2)) })
       .eq('from_route', link.from_route)
       .eq('to_route', link.to_route);
@@ -187,22 +180,20 @@ export async function recalculateLinkStrength() {
  */
 export async function findOrphanPages(): Promise<string[]> {
   // Получаем все опубликованные страницы
-  const { data: allPages } = await supabase
-    .from('content_ideas')
+  const { data: allPages } = await (supabase.from('content_ideas' as any) as any)
     .select('route')
     .eq('status', 'published');
   
   if (!allPages) return [];
   
   // Получаем все целевые маршруты из графа
-  const { data: linkedPages } = await supabase
-    .from('internal_link_graph')
+  const { data: linkedPages } = await (supabase.from('internal_link_graph' as any) as any)
     .select('to_route');
   
-  const linkedRoutes = new Set(linkedPages?.map(p => p.to_route) || []);
+  const linkedRoutes = new Set((linkedPages as any[])?.map((p: any) => p.to_route) || []);
   
   // Находим страницы без входящих ссылок
-  return allPages
-    .filter(page => !linkedRoutes.has(page.route))
-    .map(page => page.route);
+  return (allPages as any[])
+    .filter((page: any) => !linkedRoutes.has(page.route))
+    .map((page: any) => page.route as string);
 }
