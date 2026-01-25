@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTeachers, getTeacherFullName } from "@/hooks/useTeachers";
 import { useClassrooms } from "@/hooks/useReferences";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/errorUtils";
 
 interface RescheduleIndividualLessonModalProps {
   open: boolean;
@@ -152,11 +153,11 @@ export function RescheduleIndividualLessonModal({
 
       onRescheduled?.();
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error rescheduling lesson:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось перенести урок",
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     } finally {

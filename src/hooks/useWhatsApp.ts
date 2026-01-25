@@ -459,11 +459,11 @@ export const useWhatsApp = () => {
       if (error) throw error;
 
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error downloading file:', error);
       toast({
         title: "Ошибка скачивания",
-        description: error.message || "Не удалось скачать файл",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
       return null;
@@ -519,9 +519,9 @@ export const useWhatsApp = () => {
 
       if (error) throw error;
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error sending typing indicator:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: getErrorMessage(error) };
     }
   }, [getMessengerSettings]);
 

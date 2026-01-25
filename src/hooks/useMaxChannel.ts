@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 export interface MaxChannel {
   id: string;
@@ -32,7 +33,7 @@ export const useMaxChannel = () => {
       if (error) throw error;
       setChannels(data?.channels || []);
       return data?.channels || [];
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching MAX channels:', error);
       toast({
         title: 'Ошибка',
@@ -61,11 +62,11 @@ export const useMaxChannel = () => {
       
       await fetchChannels();
       return data?.channel;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error adding MAX channel:', error);
       toast({
         title: 'Ошибка',
-        description: error.message || 'Не удалось добавить MAX канал',
+        description: getErrorMessage(error),
         variant: 'destructive'
       });
       return null;
@@ -89,7 +90,7 @@ export const useMaxChannel = () => {
       
       await fetchChannels();
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting MAX channel:', error);
       toast({
         title: 'Ошибка',
@@ -108,11 +109,11 @@ export const useMaxChannel = () => {
 
       if (error) throw error;
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error sending MAX message:', error);
       toast({
         title: 'Ошибка отправки',
-        description: error.message || 'Не удалось отправить сообщение',
+        description: getErrorMessage(error),
         variant: 'destructive'
       });
       return null;

@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobilePhoneHelper } from "./MobilePhoneHelper";
+import { getErrorMessage } from "@/lib/errorUtils";
 
 interface OnlinePBXPhoneProps {
   phoneNumber?: string;
@@ -73,12 +74,12 @@ const OnlinePBXPhone: React.FC<OnlinePBXPhoneProps> = ({ phoneNumber, onCallEnd 
       } else {
         throw new Error(data?.error || 'Failed to initiate call');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('OnlinePBX call failed:', error);
       setCallStatus('failed');
       toast({
         title: "Ошибка звонка",
-        description: error.message || "Не удалось совершить звонок",
+        description: getErrorMessage(error),
         variant: "destructive"
       });
       

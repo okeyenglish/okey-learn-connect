@@ -968,10 +968,10 @@ export const ChatArea = ({
           description: "GPT сгенерировал подходящий ответ на основе контекста диалога",
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Ошибка генерации",
-        description: error.message || "Не удалось сгенерировать ответ",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -1227,11 +1227,11 @@ export const ChatArea = ({
       } else {
         throw new Error(data?.error || 'Не удалось совершить звонок');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('OnlinePBX call failed:', error);
       toast({
         title: "Ошибка звонка",
-        description: error.message || "Не удалось совершить звонок",
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     }

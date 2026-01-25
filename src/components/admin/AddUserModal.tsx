@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { UserPlus, Mail, Phone, MapPin, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabaseTyped as supabase } from "@/integrations/supabase/typedClient";
+import { getErrorMessage } from '@/lib/errorUtils';
 
 type AppRole = 'admin' | 'branch_manager' | 'methodist' | 'head_teacher' | 'sales_manager' | 'marketing_manager' | 'manager' | 'accountant' | 'receptionist' | 'support' | 'teacher' | 'student';
 
@@ -195,11 +196,11 @@ export function AddUserModal({ open, onOpenChange, onUserAdded, children }: AddU
       
       onUserAdded?.();
       onOpenChange?.(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating user:', error);
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось создать пользователя",
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     } finally {

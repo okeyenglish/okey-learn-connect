@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCreateClient } from "@/hooks/useClients";
 import { toast } from "sonner";
 import { UserPlus, Loader2 } from "lucide-react";
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface AddClientModalProps {
   children?: React.ReactNode;
@@ -53,8 +54,8 @@ export const AddClientModal = ({ children, onClientCreated, open: externalOpen, 
       if (client) {
         onClientCreated?.(client.id);
       }
-    } catch (error: any) {
-      toast.error("Ошибка при создании клиента: " + (error.message || 'Неизвестная ошибка'));
+    } catch (error: unknown) {
+      toast.error("Ошибка при создании клиента: " + getErrorMessage(error));
     }
   };
 

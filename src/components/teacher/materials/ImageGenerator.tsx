@@ -7,6 +7,7 @@ import { Loader2, Sparkles, Download, Copy, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from '@/hooks/use-toast';
 import { Teacher } from '@/hooks/useTeachers';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface ImageGeneratorProps {
   teacher: Teacher;
@@ -55,15 +56,16 @@ export const ImageGenerator = ({ teacher }: ImageGeneratorProps) => {
       } else {
         throw new Error('Изображение не было создано');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMsg = getErrorMessage(error);
       let errorMessage = 'Не удалось создать изображение';
       
-      if (error.message?.includes('429')) {
+      if (errorMsg.includes('429')) {
         errorMessage = 'Превышен лимит запросов. Пожалуйста, попробуйте позже.';
-      } else if (error.message?.includes('402')) {
+      } else if (errorMsg.includes('402')) {
         errorMessage = 'Недостаточно средств. Пожалуйста, пополните баланс Lovable AI.';
-      } else if (error.message) {
-        errorMessage = error.message;
+      } else {
+        errorMessage = errorMsg;
       }
 
       toast({
