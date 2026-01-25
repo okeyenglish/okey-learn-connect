@@ -27,12 +27,40 @@ export interface Subscription {
   };
 }
 
+/** DB row shape with joined student */
+interface SubscriptionRow {
+  id: string;
+  student_id: string;
+  name: string;
+  status: string;
+  subscription_type: string;
+  total_lessons: number | null;
+  remaining_lessons: number | null;
+  total_price: number;
+  price_per_lesson: number | null;
+  start_date: string;
+  valid_until: string | null;
+  freeze_enabled: boolean | null;
+  branch: string;
+  subject: string;
+  level: string | null;
+  created_at: string;
+  updated_at: string;
+  student?: {
+    id: string;
+    name: string;
+    phone: string | null;
+  } | null;
+}
+
+type SubscriptionInsert = Omit<Subscription, 'id' | 'created_at' | 'updated_at' | 'student'>;
+
 export const useSubscriptions = () => {
   return useQuery({
     queryKey: ['subscriptions'],
-    queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('subscriptions' as any) as any)
+    queryFn: async (): Promise<Subscription[]> => {
+      const { data, error } = await supabase
+        .from('subscriptions')
         .select(`
           *,
           student:students(id, name, phone)
@@ -40,7 +68,14 @@ export const useSubscriptions = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Subscription[];
+
+      const rows = (data || []) as unknown as SubscriptionRow[];
+      return rows.map((row) => ({
+        ...row,
+        status: row.status as Subscription['status'],
+        subscription_type: row.subscription_type as Subscription['subscription_type'],
+        student: row.student ?? undefined,
+      }));
     },
   });
 };
@@ -49,9 +84,9 @@ export const useCreateSubscription = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (subscriptionData: Omit<Subscription, 'id' | 'created_at' | 'updated_at' | 'student'>) => {
-      const { data, error } = await (supabase
-        .from('subscriptions' as any) as any)
+    mutationFn: async (subscriptionData: SubscriptionInsert) => {
+      const { data, error } = await supabase
+        .from('subscriptions')
         .insert(subscriptionData)
         .select()
         .single();
@@ -75,8 +110,8 @@ export const useUpdateSubscription = () => {
   
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Subscription> & { id: string }) => {
-      const { data, error } = await (supabase
-        .from('subscriptions' as any) as any)
+      const { data, error } = await supabase
+        .from('subscriptions')
         .update(updates)
         .eq('id', id)
         .select()
@@ -112,9 +147,10 @@ export const useFreezeSubscription = () => {
       reason: string;
     }) => {
       // Temporary implementation - would use RPC function when it exists
-      const { data, error } = await (supabase
-        .from('subscriptions' as any) as any)
-        .update({ status: 'paused' as const })
+      console.log('Freeze params:', { startDate, endDate, reason });
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .update({ status: 'paused' })
         .eq('id', subscriptionId)
         .select()
         .single();
@@ -139,9 +175,9 @@ export const useUnfreezeSubscription = () => {
   return useMutation({
     mutationFn: async (subscriptionId: string) => {
       // Temporary implementation - would use RPC function when it exists
-      const { data, error } = await (supabase
-        .from('subscriptions' as any) as any)
-        .update({ status: 'active' as const })
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .update({ status: 'active' })
         .eq('id', subscriptionId)
         .select()
         .single();

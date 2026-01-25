@@ -12,6 +12,16 @@ export interface GlobalEntityMapping {
   updated_at: string;
 }
 
+/** DB row for students with student_gid */
+interface StudentGidRow {
+  student_gid: string | null;
+}
+
+/** DB row for profiles with teacher_gid */
+interface ProfileTeacherGidRow {
+  teacher_gid: string | null;
+}
+
 export const useGlobalMapping = (entityType: string, localId: string) => {
   return useQuery({
     queryKey: ['global-mapping', entityType, localId],
@@ -85,7 +95,7 @@ export const useCreateGlobalMapping = () => {
 export const useStudentGlobalId = (studentId: string) => {
   return useQuery({
     queryKey: ['student-gid', studentId],
-    queryFn: async () => {
+    queryFn: async (): Promise<string | null> => {
       const { data, error } = await supabase
         .from('students')
         .select('student_gid')
@@ -93,7 +103,8 @@ export const useStudentGlobalId = (studentId: string) => {
         .single();
 
       if (error) throw error;
-      return (data as any)?.student_gid as string;
+      const row = data as unknown as StudentGidRow | null;
+      return row?.student_gid ?? null;
     },
     enabled: Boolean(studentId),
   });
@@ -102,7 +113,7 @@ export const useStudentGlobalId = (studentId: string) => {
 export const useTeacherGlobalId = (teacherId: string) => {
   return useQuery({
     queryKey: ['teacher-gid', teacherId],
-    queryFn: async () => {
+    queryFn: async (): Promise<string | null> => {
       const { data, error } = await supabase
         .from('profiles')
         .select('teacher_gid')
@@ -110,7 +121,8 @@ export const useTeacherGlobalId = (teacherId: string) => {
         .single();
 
       if (error) throw error;
-      return (data as any)?.teacher_gid as string | null;
+      const row = data as unknown as ProfileTeacherGidRow | null;
+      return row?.teacher_gid ?? null;
     },
     enabled: Boolean(teacherId),
   });

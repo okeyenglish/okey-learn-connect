@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { getCurrentOrganizationId } from '@/lib/organizationHelpers';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -42,13 +42,32 @@ export interface ClientPhoneNumber {
   updated_at: string;
 }
 
+/** DB row with joined relations */
+interface ClientRow {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  notes: string | null;
+  avatar_url: string | null;
+  telegram_avatar_url: string | null;
+  whatsapp_avatar_url: string | null;
+  max_avatar_url: string | null;
+  is_active: boolean;
+  branch: string | null;
+  created_at: string;
+  updated_at: string;
+  client_branches?: { branch: string }[] | null;
+  client_phone_numbers?: { phone: string; is_primary: boolean }[] | null;
+}
+
 export const useClients = (enabled: boolean = true) => {
   const { data: clients, isLoading, error } = useQuery({
     queryKey: ['clients'],
     enabled,
     staleTime: 60000, // Cache for 1 minute to reduce DB load
     gcTime: 300000, // Keep in cache for 5 minutes
-    queryFn: async () => {
+    queryFn: async (): Promise<Client[]> => {
       console.log('Fetching clients...', { userId: supabase.auth.getUser() });
       try {
         // OPTIMIZED: Limited query to prevent timeout on large datasets (27K+ clients)
@@ -72,17 +91,30 @@ export const useClients = (enabled: boolean = true) => {
         }
         console.log('Clients fetched successfully:', data?.length);
         
-        return (data || []).map(client => {
+        const rows = (data || []) as unknown as ClientRow[];
+
+        return rows.map((client) => {
           // Get primary phone from client_phone_numbers if clients.phone is empty
-          const primaryPhoneRecord = client.client_phone_numbers?.find((p: any) => p.is_primary);
+          const primaryPhoneRecord = client.client_phone_numbers?.find((p) => p.is_primary);
           const effectivePhone = client.phone || primaryPhoneRecord?.phone || '';
           
           return {
-            ...client,
+            id: client.id,
+            name: client.name || '',
             phone: effectivePhone,
-            branches: client.client_branches?.map((b: any) => b.branch) || [],
+            email: client.email ?? undefined,
+            notes: client.notes ?? undefined,
+            avatar_url: client.avatar_url ?? undefined,
+            telegram_avatar_url: client.telegram_avatar_url ?? undefined,
+            whatsapp_avatar_url: client.whatsapp_avatar_url ?? undefined,
+            max_avatar_url: client.max_avatar_url ?? undefined,
+            is_active: client.is_active,
+            branch: client.branch ?? undefined,
+            branches: client.client_branches?.map((b) => b.branch) || [],
+            created_at: client.created_at,
+            updated_at: client.updated_at,
           };
-        }) as Client[];
+        });
       } catch (err) {
         console.error('Client fetch failed:', err);
         throw err;
@@ -100,7 +132,7 @@ export const useClients = (enabled: boolean = true) => {
 export const useClient = (clientId: string) => {
   const { data: client, isLoading, error } = useQuery({
     queryKey: ['client', clientId],
-    queryFn: async () => {
+    queryFn: async (): Promise<Client | null> => {
       const { data, error } = await supabase
         .from('clients')
         .select('*')
@@ -108,7 +140,24 @@ export const useClient = (clientId: string) => {
         .single();
       
       if (error) throw error;
-      return data as Client;
+      if (!data) return null;
+
+      const row = data as unknown as ClientRow;
+      return {
+        id: row.id,
+        name: row.name || '',
+        phone: row.phone || '',
+        email: row.email ?? undefined,
+        notes: row.notes ?? undefined,
+        avatar_url: row.avatar_url ?? undefined,
+        telegram_avatar_url: row.telegram_avatar_url ?? undefined,
+        whatsapp_avatar_url: row.whatsapp_avatar_url ?? undefined,
+        max_avatar_url: row.max_avatar_url ?? undefined,
+        is_active: row.is_active,
+        branch: row.branch ?? undefined,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      };
     },
     enabled: !!clientId,
   });
@@ -123,7 +172,7 @@ export const useClient = (clientId: string) => {
 export const useClientPhoneNumbers = (clientId: string) => {
   const { data: phoneNumbers, isLoading, error } = useQuery({
     queryKey: ['client-phones', clientId],
-    queryFn: async () => {
+    queryFn: async (): Promise<ClientPhoneNumber[]> => {
       const { data, error } = await supabase
         .from('client_phone_numbers')
         .select('*')
@@ -131,7 +180,7 @@ export const useClientPhoneNumbers = (clientId: string) => {
         .order('is_primary', { ascending: false });
       
       if (error) throw error;
-      return data as ClientPhoneNumber[];
+      return (data || []) as unknown as ClientPhoneNumber[];
     },
     enabled: !!clientId,
   });
@@ -147,7 +196,7 @@ export const useCreateClient = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (clientData: Omit<Client, 'id' | 'created_at' | 'updated_at' | 'organization_id'>) => {
+    mutationFn: async (clientData: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => {
       const orgId = await getCurrentOrganizationId();
       
       const { data, error } = await supabase
@@ -182,7 +231,9 @@ export const useUpdateClient = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
-      queryClient.invalidateQueries({ queryKey: ['client', data.id] });
+      if (data?.id) {
+        queryClient.invalidateQueries({ queryKey: ['client', data.id] });
+      }
     },
   });
 };
@@ -247,16 +298,29 @@ export const useSearchClients = () => {
 
       if (error) throw error;
       
+      const rows = (data || []) as unknown as ClientRow[];
+
       // Enrich with primary phone from client_phone_numbers if clients.phone is empty
-      const enrichedData = (data || []).map(client => {
-        const primaryPhone = client.client_phone_numbers?.find((p: any) => p.is_primary);
+      const enrichedData: Client[] = rows.map((client) => {
+        const primaryPhone = client.client_phone_numbers?.find((p) => p.is_primary);
         return {
-          ...client,
+          id: client.id,
+          name: client.name || '',
           phone: client.phone || primaryPhone?.phone || '',
+          email: client.email ?? undefined,
+          notes: client.notes ?? undefined,
+          avatar_url: client.avatar_url ?? undefined,
+          telegram_avatar_url: client.telegram_avatar_url ?? undefined,
+          whatsapp_avatar_url: client.whatsapp_avatar_url ?? undefined,
+          max_avatar_url: client.max_avatar_url ?? undefined,
+          is_active: client.is_active,
+          branch: client.branch ?? undefined,
+          created_at: client.created_at,
+          updated_at: client.updated_at,
         };
       });
       
-      setSearchResults(enrichedData as Client[]);
+      setSearchResults(enrichedData);
     } catch (error) {
       console.error('Search error:', error);
       setSearchResults([]);

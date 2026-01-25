@@ -8,8 +8,14 @@ export interface MessageSearchResult {
   messengerType: 'whatsapp' | 'telegram' | 'max' | null;
 }
 
+/** Row returned by RPC search_messages_by_text */
+interface SearchMessageRow {
+  client_id: string;
+  messenger_type: string | null;
+}
+
 // Progressive search intervals in days
-const SEARCH_INTERVALS = [90, 180, null]; // null = all time
+const SEARCH_INTERVALS: (number | null)[] = [90, 180, null]; // null = all time
 
 /**
  * Hook to search chat messages by message_text content using full-text search.
@@ -50,7 +56,7 @@ export const useMessageContentSearch = (query: string) => {
         const intervalStart = performance.now();
         
         const { data, error } = await supabase
-          .rpc('search_messages_by_text' as any, {
+          .rpc('search_messages_by_text', {
             p_org_id: orgId,
             p_search_text: debouncedQuery,
             p_limit: 50,
@@ -64,13 +70,13 @@ export const useMessageContentSearch = (query: string) => {
           throw error;
         }
 
-        const results = data as any[] | null;
+        const results = (data || []) as unknown as SearchMessageRow[];
 
-        if (results && results.length > 0) {
+        if (results.length > 0) {
           const totalDuration = (performance.now() - startTime).toFixed(0);
           console.log(`[useMessageContentSearch] Found ${results.length} results in ${intervalLabel} (${intervalDuration}ms, total: ${totalDuration}ms)`);
           
-          return results.map((row: { client_id: string; messenger_type: string | null }) => ({
+          return results.map((row) => ({
             clientId: row.client_id,
             messengerType: row.messenger_type as 'whatsapp' | 'telegram' | 'max' | null
           }));

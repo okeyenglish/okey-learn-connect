@@ -29,10 +29,23 @@ export interface PushNotificationState {
   isLoading: boolean;
 }
 
+/** Diagnostic info structure for SW errors */
+interface SWDiagnostics {
+  name?: string;
+  message?: string;
+  swStatus?: number;
+  swContentType?: string | null;
+  swSnippet?: string;
+  href?: string;
+  ua?: string;
+  secure?: boolean;
+  diagError?: string;
+}
+
 export function usePushNotifications() {
   // === ALL HOOKS FIRST (unconditional, stable order) ===
   const { user } = useAuth();
-  const lastSWErrorRef = useRef<unknown>(null);
+  const lastSWErrorRef = useRef<SWDiagnostics | null>(null);
 
   // Compute derived booleans (no hooks here)
   const isPreviewHost =
@@ -68,6 +81,7 @@ export function usePushNotifications() {
     if (!isSupported) return null;
 
     const captureSWDiagnostics = async (err: unknown) => {
+      const error = err as Error | undefined;
       try {
         const res = await fetch('/sw.js', {
           cache: 'no-store',
@@ -78,8 +92,8 @@ export function usePushNotifications() {
         const text = await res.text();
         const snippet = text.slice(0, 120);
         lastSWErrorRef.current = {
-          name: (err as any)?.name,
-          message: (err as any)?.message,
+          name: error?.name,
+          message: error?.message,
           swStatus: res.status,
           swContentType: ct,
           swSnippet: snippet,
@@ -89,10 +103,11 @@ export function usePushNotifications() {
         };
         console.warn('[Push] SW diagnostics:', lastSWErrorRef.current);
       } catch (e) {
+        const diagErr = e as Error | undefined;
         lastSWErrorRef.current = {
-          name: (err as any)?.name,
-          message: (err as any)?.message,
-          diagError: (e as any)?.message || String(e),
+          name: error?.name,
+          message: error?.message,
+          diagError: diagErr?.message || String(e),
           href: typeof window !== 'undefined' ? window.location.href : undefined,
         };
         console.warn('[Push] SW diagnostics failed:', lastSWErrorRef.current);
@@ -240,7 +255,7 @@ export function usePushNotifications() {
       if (isPreviewHost) {
         toast.error('Push недоступен в предпросмотре. Откройте опубликованный домен (crm.academyos.ru)');
       } else {
-      toast.error('Push-уведомления не поддерживаются в этом браузере');
+        toast.error('Push-уведомления не поддерживаются в этом браузере');
       }
       return false;
     }
@@ -275,7 +290,7 @@ export function usePushNotifications() {
       }
 
       if (!registration || !registration.active) {
-        const err = lastSWErrorRef.current as any;
+        const err = lastSWErrorRef.current;
         const name = err?.name ? String(err.name) : 'Ошибка';
         const msg = err?.message ? String(err.message) : '';
         const details = msg ? `: ${msg}` : '';
@@ -342,7 +357,7 @@ export function usePushNotifications() {
 
     } catch (error) {
       console.error('Error subscribing to push:', error);
-      const err = error as any;
+      const err = error as Error;
       const name = err?.name ? String(err.name) : 'Ошибка';
       const msg = err?.message ? String(err.message) : '';
       const details = msg ? `: ${msg}` : '';

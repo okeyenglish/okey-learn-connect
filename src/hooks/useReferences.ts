@@ -72,14 +72,14 @@ export interface Classroom {
 export const useSubjects = () => {
   return useQuery({
     queryKey: ['subjects'],
-    queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('subjects' as any) as any)
+    queryFn: async (): Promise<Subject[]> => {
+      const { data, error } = await supabase
+        .from('subjects')
         .select('*')
         .order('sort_order', { ascending: true });
 
       if (error) throw error;
-      return data as Subject[];
+      return (data || []) as unknown as Subject[];
     }
   });
 };
@@ -90,8 +90,8 @@ export const useCreateSubject = () => {
 
   return useMutation({
     mutationFn: async (subjectData: Omit<Subject, 'id' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await (supabase
-        .from('subjects' as any) as any)
+      const { data, error } = await supabase
+        .from('subjects')
         .insert(subjectData)
         .select()
         .single();
@@ -106,7 +106,7 @@ export const useCreateSubject = () => {
         description: "Новый предмет успешно добавлен"
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось создать предмет",
@@ -122,8 +122,8 @@ export const useUpdateSubject = () => {
 
   return useMutation({
     mutationFn: async (subjectData: Partial<Subject> & { id: string }) => {
-      const { data, error } = await (supabase
-        .from('subjects' as any) as any)
+      const { data, error } = await supabase
+        .from('subjects')
         .update(subjectData)
         .eq('id', subjectData.id)
         .select()
@@ -139,7 +139,7 @@ export const useUpdateSubject = () => {
         description: "Изменения успешно сохранены"
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось обновить предмет",
@@ -155,8 +155,8 @@ export const useDeleteSubject = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase
-        .from('subjects' as any) as any)
+      const { error } = await supabase
+        .from('subjects')
         .delete()
         .eq('id', id);
 
@@ -169,7 +169,7 @@ export const useDeleteSubject = () => {
         description: "Предмет успешно удален"
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось удалить предмет",
@@ -183,14 +183,14 @@ export const useDeleteSubject = () => {
 export const useProficiencyLevels = () => {
   return useQuery({
     queryKey: ['proficiency-levels'],
-    queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('proficiency_levels' as any) as any)
+    queryFn: async (): Promise<ProficiencyLevel[]> => {
+      const { data, error } = await supabase
+        .from('proficiency_levels')
         .select('*')
         .order('level_order', { ascending: true });
 
       if (error) throw error;
-      return data as ProficiencyLevel[];
+      return (data || []) as unknown as ProficiencyLevel[];
     }
   });
 };
@@ -201,8 +201,8 @@ export const useCreateProficiencyLevel = () => {
 
   return useMutation({
     mutationFn: async (levelData: Omit<ProficiencyLevel, 'id' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await (supabase
-        .from('proficiency_levels' as any) as any)
+      const { data, error } = await supabase
+        .from('proficiency_levels')
         .insert(levelData)
         .select()
         .single();
@@ -217,7 +217,7 @@ export const useCreateProficiencyLevel = () => {
         description: "Новый уровень подготовки успешно добавлен"
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось создать уровень",
@@ -231,14 +231,14 @@ export const useCreateProficiencyLevel = () => {
 export const useLearningFormats = () => {
   return useQuery({
     queryKey: ['learning-formats'],
-    queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('learning_formats' as any) as any)
+    queryFn: async (): Promise<LearningFormat[]> => {
+      const { data, error } = await supabase
+        .from('learning_formats')
         .select('*')
         .order('name', { ascending: true });
 
       if (error) throw error;
-      return data as LearningFormat[];
+      return (data || []) as unknown as LearningFormat[];
     }
   });
 };
@@ -247,14 +247,14 @@ export const useLearningFormats = () => {
 export const useAgeCategories = () => {
   return useQuery({
     queryKey: ['age-categories'],
-    queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('age_categories' as any) as any)
+    queryFn: async (): Promise<AgeCategory[]> => {
+      const { data, error } = await supabase
+        .from('age_categories')
         .select('*')
         .order('min_age', { ascending: true });
 
       if (error) throw error;
-      return data as AgeCategory[];
+      return (data || []) as unknown as AgeCategory[];
     }
   });
 };
@@ -263,14 +263,14 @@ export const useAgeCategories = () => {
 export const useAbsenceReasons = () => {
   return useQuery({
     queryKey: ['absence-reasons'],
-    queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('absence_reasons' as any) as any)
+    queryFn: async (): Promise<AbsenceReason[]> => {
+      const { data, error } = await supabase
+        .from('absence_reasons')
         .select('*')
         .order('name', { ascending: true });
 
       if (error) throw error;
-      return data as AbsenceReason[];
+      return (data || []) as unknown as AbsenceReason[];
     }
   });
 };
@@ -279,14 +279,14 @@ export const useAbsenceReasons = () => {
 export const useClassrooms = () => {
   return useQuery({
     queryKey: ['classrooms'],
-    queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('classrooms' as any) as any)
+    queryFn: async (): Promise<Classroom[]> => {
+      const { data, error } = await supabase
+        .from('classrooms')
         .select('*')
         .order('branch', { ascending: true });
 
       if (error) throw error;
-      return data as Classroom[];
+      return (data || []) as unknown as Classroom[];
     }
   });
 };
@@ -297,8 +297,8 @@ export const useCreateClassroom = () => {
 
   return useMutation({
     mutationFn: async (classroomData: Omit<Classroom, 'id' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await (supabase
-        .from('classrooms' as any) as any)
+      const { data, error } = await supabase
+        .from('classrooms')
         .insert(classroomData)
         .select()
         .single();
@@ -313,7 +313,7 @@ export const useCreateClassroom = () => {
         description: "Новая аудитория успешно добавлена"
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось создать аудиторию",
@@ -329,8 +329,8 @@ export const useUpdateClassroom = () => {
 
   return useMutation({
     mutationFn: async (classroomData: Partial<Classroom> & { id: string }) => {
-      const { data, error } = await (supabase
-        .from('classrooms' as any) as any)
+      const { data, error } = await supabase
+        .from('classrooms')
         .update(classroomData)
         .eq('id', classroomData.id)
         .select()
@@ -346,7 +346,7 @@ export const useUpdateClassroom = () => {
         description: "Изменения успешно сохранены"
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось обновить аудиторию",
@@ -362,8 +362,8 @@ export const useDeleteClassroom = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase
-        .from('classrooms' as any) as any)
+      const { error } = await supabase
+        .from('classrooms')
         .delete()
         .eq('id', id);
 
@@ -376,7 +376,7 @@ export const useDeleteClassroom = () => {
         description: "Аудитория успешно удалена"
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось удалить аудиторию",
