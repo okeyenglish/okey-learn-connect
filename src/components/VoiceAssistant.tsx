@@ -5,13 +5,14 @@ import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Mic, MicOff, Volume2, VolumeX, Loader2, Send, Bot, User, X } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, Loader2, Send, Bot, User, X, Trash2 } from 'lucide-react';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAssistantMessages, AssistantMessage } from '@/hooks/useAssistantMessages';
 
 // Browser API type extensions
 declare global {
@@ -86,7 +87,6 @@ export default function VoiceAssistant({
   onOpenModal,
   onOpenChat 
 }: VoiceAssistantProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -108,6 +108,24 @@ export default function VoiceAssistant({
   
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  
+  // Используем хук для сохранения сообщений в БД
+  const { 
+    messages: dbMessages, 
+    addMessage: addDbMessage, 
+    markAllAsRead,
+    clearHistory,
+    isLoading: messagesLoading 
+  } = useAssistantMessages();
+  
+  // Конвертируем сообщения из БД в локальный формат
+  const messages: ChatMessage[] = dbMessages.map((msg: AssistantMessage) => ({
+    id: msg.id,
+    type: msg.role,
+    content: msg.content,
+    timestamp: new Date(msg.created_at),
+    isVoice: false,
+  }));
 
   // Очистка ресурсов при размонтировании
   useEffect(() => {
@@ -139,25 +157,25 @@ export default function VoiceAssistant({
     }
   }, [messages]);
 
-  // Фокус на поле ввода при открытии
+  // Фокус на поле ввода и пометка сообщений как прочитанных при открытии
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
+    if (isOpen) {
+      markAllAsRead();
+      if (inputRef.current) {
+        setTimeout(() => {
+          inputRef.current?.focus();
+        }, 100);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, markAllAsRead]);
 
-  const addMessage = (content: string, type: 'user' | 'assistant', isVoice = false) => {
-    const newMessage: ChatMessage = {
-      id: Date.now().toString(),
-      type,
-      content,
-      timestamp: new Date(),
-      isVoice
-    };
-    setMessages(prev => [...prev, newMessage]);
-  };
+  const addMessage = useCallback(async (content: string, type: 'user' | 'assistant', isVoice = false) => {
+    try {
+      await addDbMessage(type, content);
+    } catch (error) {
+      console.error('[VoiceAssistant] Error saving message:', error);
+    }
+  }, [addDbMessage]);
 
   const startRecording = useCallback(async () => {
     try {
@@ -777,7 +795,22 @@ export default function VoiceAssistant({
           <Bot className="h-5 w-5 text-primary" />
           <h3 className="font-semibold">AI Ассистент</h3>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1">
+          {messages.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (confirm('Очистить всю историю сообщений?')) {
+                  clearHistory();
+                }
+              }}
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+              title="Очистить историю"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
