@@ -1,6 +1,7 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { registerScheduledRetry, unregisterScheduledRetry } from './useRetryCountdown';
+import { useAutoRetrySettings, getAutoRetrySettings } from './useAutoRetrySettings';
 
 interface RetryState {
   retryCount: number;
@@ -8,8 +9,13 @@ interface RetryState {
   isRetrying: boolean;
 }
 
-export const MAX_RETRY_ATTEMPTS = 3;
-export const RETRY_DELAY_MS = 30 * 1000; // 30 seconds
+// Default values (can be overridden by organization settings)
+export const DEFAULT_MAX_RETRY_ATTEMPTS = 3;
+export const DEFAULT_RETRY_DELAY_MS = 30 * 1000; // 30 seconds
+
+// For backward compatibility - these will use cached settings
+export const MAX_RETRY_ATTEMPTS = DEFAULT_MAX_RETRY_ATTEMPTS;
+export const RETRY_DELAY_MS = DEFAULT_RETRY_DELAY_MS;
 
 // Track retry state per message (in-memory for current session)
 const retryStateMap = new Map<string, RetryState>();
@@ -102,6 +108,23 @@ export const useAutoRetryMessages = (
   onMaxRetriesReached?: (messageId: string) => void
 ) => {
   const activeRetriesRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  
+  // Get organization settings for auto-retry
+  const { settings: autoRetrySettings } = useAutoRetrySettings();
+  
+  // Memoize settings to avoid re-renders
+  const retryDelayMs = useMemo(() => 
+    (autoRetrySettings?.retryDelaySeconds || 30) * 1000, 
+    [autoRetrySettings?.retryDelaySeconds]
+  );
+  const maxRetryAttempts = useMemo(() => 
+    autoRetrySettings?.maxRetryAttempts || DEFAULT_MAX_RETRY_ATTEMPTS, 
+    [autoRetrySettings?.maxRetryAttempts]
+  );
+  const isEnabled = useMemo(() => 
+    autoRetrySettings?.enabled !== false, 
+    [autoRetrySettings?.enabled]
+  );
 
   // Initialize retry state from DB metadata
   const initRetryStateFromDB = useCallback(async (messageId: string, metadata: Record<string, unknown> | null): Promise<number> => {
@@ -122,6 +145,12 @@ export const useAutoRetryMessages = (
 
   // Schedule an automatic retry for a failed message
   const scheduleRetry = useCallback((messageId: string, metadata?: Record<string, unknown> | null) => {
+    // Check if auto-retry is enabled
+    if (!isEnabled) {
+      console.log(`[AutoRetry] Disabled by organization settings`);
+      return;
+    }
+
     // Check if already handling this failure (within 5 seconds window)
     const lastHandled = handledFailuresMap.get(messageId);
     if (lastHandled && Date.now() - lastHandled < 5000) {
@@ -142,9 +171,9 @@ export const useAutoRetryMessages = (
       state.retryCount = dbRetryCount;
     }
 
-    // Check if max retries reached
-    if (state.retryCount >= MAX_RETRY_ATTEMPTS) {
-      console.log(`[AutoRetry] Max retries (${MAX_RETRY_ATTEMPTS}) reached for ${messageId.slice(0, 8)}`);
+    // Check if max retries reached (use dynamic setting)
+    if (state.retryCount >= maxRetryAttempts) {
+      console.log(`[AutoRetry] Max retries (${maxRetryAttempts}) reached for ${messageId.slice(0, 8)}`);
       onMaxRetriesReached?.(messageId);
       return;
     }
@@ -155,13 +184,13 @@ export const useAutoRetryMessages = (
       return;
     }
 
-    console.log(`[AutoRetry] Scheduling retry #${state.retryCount + 1} for ${messageId.slice(0, 8)} in ${RETRY_DELAY_MS / 1000}s`);
+    console.log(`[AutoRetry] Scheduling retry #${state.retryCount + 1} for ${messageId.slice(0, 8)} in ${retryDelayMs / 1000}s`);
 
     // Register for countdown display
-    const scheduledAt = Date.now() + RETRY_DELAY_MS;
+    const scheduledAt = Date.now() + retryDelayMs;
     registerScheduledRetry(messageId, scheduledAt);
 
-    // Schedule retry
+    // Schedule retry with dynamic delay
     const timeoutId = setTimeout(async () => {
       const currentState = retryStateMap.get(messageId);
       if (!currentState) return;
@@ -190,11 +219,11 @@ export const useAutoRetryMessages = (
           await clearRetryCountInDB(messageId);
         } else {
           // Failed - will be re-scheduled when failure event fires again
-          console.log(`[AutoRetry] ❌ Retry failed for ${messageId.slice(0, 8)}, attempt ${currentState.retryCount}/${MAX_RETRY_ATTEMPTS}`);
+          console.log(`[AutoRetry] ❌ Retry failed for ${messageId.slice(0, 8)}, attempt ${currentState.retryCount}/${maxRetryAttempts}`);
           currentState.isRetrying = false;
           
           // Check if max retries reached after this attempt
-          if (currentState.retryCount >= MAX_RETRY_ATTEMPTS) {
+          if (currentState.retryCount >= maxRetryAttempts) {
             console.log(`[AutoRetry] Max retries reached for ${messageId.slice(0, 8)}`);
             onMaxRetriesReached?.(messageId);
           }
@@ -203,11 +232,11 @@ export const useAutoRetryMessages = (
         console.error(`[AutoRetry] Error during retry:`, error);
         currentState.isRetrying = false;
       }
-    }, RETRY_DELAY_MS);
+    }, retryDelayMs);
 
     state.timeoutId = timeoutId;
     activeRetriesRef.current.set(messageId, timeoutId);
-  }, [onRetry, onMaxRetriesReached]);
+  }, [onRetry, onMaxRetriesReached, isEnabled, retryDelayMs, maxRetryAttempts]);
 
   // Cancel a scheduled retry
   const cancelRetry = useCallback((messageId: string) => {
@@ -230,9 +259,10 @@ export const useAutoRetryMessages = (
 
   // Check if auto-retry is still possible for a message
   const canAutoRetry = useCallback((messageId: string, metadata?: Record<string, unknown> | null): boolean => {
+    if (!isEnabled) return false;
     const retryCount = getRetryCount(messageId, metadata);
-    return retryCount < MAX_RETRY_ATTEMPTS;
-  }, [getRetryCount]);
+    return retryCount < maxRetryAttempts;
+  }, [getRetryCount, isEnabled, maxRetryAttempts]);
 
   // Reset retry state for a message (e.g., after manual successful send)
   const resetRetryState = useCallback(async (messageId: string) => {
@@ -262,7 +292,8 @@ export const useAutoRetryMessages = (
     canAutoRetry,
     resetRetryState,
     initRetryStateFromDB,
-    MAX_RETRY_ATTEMPTS,
-    RETRY_DELAY_MS,
+    maxRetryAttempts,
+    retryDelayMs,
+    isEnabled,
   };
 };
