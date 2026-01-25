@@ -6,127 +6,171 @@ interface AnimatedLogoProps {
 }
 
 export const AnimatedLogo = ({ size = 144, className }: AnimatedLogoProps) => {
+  const ringSize = size * 1.4;
+  const innerRingSize = size * 1.25;
+  
   return (
     <div 
       className={cn(
         "relative flex items-center justify-center cursor-pointer group",
         className
       )}
-      style={{ width: size, height: size }}
+      style={{ width: ringSize, height: ringSize }}
     >
-      {/* Outer glow pulsing - BEHIND logo */}
+      {/* Outer soft glow - ambient energy */}
       <div 
-        className="absolute rounded-full animate-glow-pulse -z-10"
+        className="absolute rounded-full animate-ambient-pulse"
         style={{
-          width: size * 1.5,
-          height: size * 1.5,
-          background: 'conic-gradient(from 0deg, hsl(217 85% 55% / 0.4), hsl(280 70% 55% / 0.3), hsl(330 75% 55% / 0.3), hsl(0 80% 55% / 0.4), hsl(217 85% 55% / 0.4))',
-          filter: 'blur(18px)',
-          transformOrigin: 'center',
+          width: ringSize * 1.2,
+          height: ringSize * 1.2,
+          background: 'radial-gradient(circle, hsl(217 72% 48% / 0.15) 30%, hsl(0 65% 50% / 0.1) 60%, transparent 80%)',
+          filter: 'blur(20px)',
         }}
       />
       
-      {/* Mid glow rotating - BEHIND logo */}
+      {/* Main rotating ring - blue to red gradient */}
       <div 
-        className="absolute rounded-full animate-glow-rotate -z-10"
+        className="absolute rounded-full animate-ring-rotate"
         style={{
-          width: size * 1.35,
-          height: size * 1.35,
-          background: 'conic-gradient(from 90deg, hsl(210 90% 60% / 0.5), hsl(280 70% 60% / 0.4), hsl(340 75% 60% / 0.4), hsl(0 85% 55% / 0.5), hsl(210 90% 60% / 0.5))',
-          filter: 'blur(12px)',
-          transformOrigin: 'center',
-        }}
-      />
-      
-      {/* Inner glow breathing - BEHIND logo */}
-      <div 
-        className="absolute rounded-full animate-glow-breathe -z-10"
-        style={{
-          width: size * 1.2,
-          height: size * 1.2,
-          background: 'radial-gradient(circle, hsl(217 85% 55% / 0.35) 40%, hsl(330 70% 55% / 0.3) 60%, transparent 75%)',
+          width: ringSize,
+          height: ringSize,
+          background: `conic-gradient(
+            from 0deg,
+            hsl(217 72% 48% / 0.6),
+            hsl(217 72% 55% / 0.4),
+            hsl(280 50% 50% / 0.3),
+            hsl(340 60% 50% / 0.4),
+            hsl(0 65% 50% / 0.5),
+            hsl(340 60% 50% / 0.4),
+            hsl(280 50% 50% / 0.3),
+            hsl(217 72% 55% / 0.4),
+            hsl(217 72% 48% / 0.6)
+          )`,
           filter: 'blur(8px)',
+          maskImage: 'radial-gradient(circle, transparent 55%, black 60%, black 70%, transparent 75%)',
+          WebkitMaskImage: 'radial-gradient(circle, transparent 55%, black 60%, black 70%, transparent 75%)',
         }}
       />
       
-      {/* Logo image - full size with blend mode to remove white background */}
-      <img 
-        src="/animated-logo.png" 
-        alt="Logo"
-        className="relative z-10 object-contain transition-transform duration-300 group-hover:scale-105"
+      {/* Inner glow ring - softer, counter-rotate */}
+      <div 
+        className="absolute rounded-full animate-ring-counter-rotate"
         style={{
-          width: size * 1.3,
-          height: size * 1.3,
-          mixBlendMode: 'multiply',
+          width: innerRingSize,
+          height: innerRingSize,
+          background: `conic-gradient(
+            from 180deg,
+            hsl(0 65% 50% / 0.3),
+            hsl(217 72% 48% / 0.2),
+            hsl(0 65% 50% / 0.3),
+            hsl(217 72% 48% / 0.2),
+            hsl(0 65% 50% / 0.3)
+          )`,
+          filter: 'blur(6px)',
+          maskImage: 'radial-gradient(circle, transparent 60%, black 65%, black 72%, transparent 78%)',
+          WebkitMaskImage: 'radial-gradient(circle, transparent 60%, black 65%, black 72%, transparent 78%)',
         }}
       />
       
-      {/* Sparkle effects - ON TOP */}
-      <div className="absolute inset-0 z-20 pointer-events-none">
+      {/* Light trail particles - moving along the ring */}
+      <div className="absolute rounded-full animate-particles-orbit" style={{ width: ringSize, height: ringSize }}>
+        {[0, 72, 144, 216, 288].map((angle, i) => (
+          <div
+            key={i}
+            className="absolute"
+            style={{
+              width: 4,
+              height: 4,
+              background: i % 2 === 0 ? 'hsl(217 72% 60%)' : 'hsl(0 65% 55%)',
+              borderRadius: '50%',
+              boxShadow: `0 0 8px 2px ${i % 2 === 0 ? 'hsl(217 72% 60% / 0.6)' : 'hsl(0 65% 55% / 0.6)'}`,
+              top: '50%',
+              left: '50%',
+              transform: `rotate(${angle}deg) translateX(${ringSize / 2 - 4}px) translateY(-50%)`,
+              opacity: 0.7,
+            }}
+          />
+        ))}
+      </div>
+      
+      {/* Subtle sparks - for aliveness */}
+      <div className="absolute inset-0 pointer-events-none">
         <div 
-          className="absolute animate-sparkle-1"
-          style={{
-            width: 3,
-            height: 3,
-            background: 'white',
-            borderRadius: '50%',
-            boxShadow: '0 0 6px 2px white',
-            top: '10%',
-            left: '5%',
-          }}
-        />
-        <div 
-          className="absolute animate-sparkle-2"
-          style={{
-            width: 2,
-            height: 2,
-            background: 'white',
-            borderRadius: '50%',
-            boxShadow: '0 0 4px 1px white',
-            top: '80%',
-            left: '10%',
-          }}
-        />
-        <div 
-          className="absolute animate-sparkle-3"
+          className="absolute animate-spark-1"
           style={{
             width: 2,
             height: 2,
-            background: 'white',
+            background: 'hsl(217 72% 70%)',
             borderRadius: '50%',
-            boxShadow: '0 0 5px 2px white',
-            top: '90%',
-            right: '15%',
+            boxShadow: '0 0 6px 2px hsl(217 72% 60% / 0.5)',
+            top: '8%',
+            left: '50%',
           }}
         />
         <div 
-          className="absolute animate-sparkle-4"
+          className="absolute animate-spark-2"
           style={{
-            width: 3,
-            height: 3,
-            background: 'white',
+            width: 2,
+            height: 2,
+            background: 'hsl(0 65% 60%)',
             borderRadius: '50%',
-            boxShadow: '0 0 6px 2px white',
-            top: '15%',
-            right: '10%',
+            boxShadow: '0 0 6px 2px hsl(0 65% 55% / 0.5)',
+            top: '50%',
+            right: '5%',
+          }}
+        />
+        <div 
+          className="absolute animate-spark-3"
+          style={{
+            width: 2,
+            height: 2,
+            background: 'hsl(280 50% 60%)',
+            borderRadius: '50%',
+            boxShadow: '0 0 5px 1px hsl(280 50% 55% / 0.4)',
+            bottom: '10%',
+            left: '25%',
+          }}
+        />
+        <div 
+          className="absolute animate-spark-4"
+          style={{
+            width: 2,
+            height: 2,
+            background: 'hsl(217 72% 65%)',
+            borderRadius: '50%',
+            boxShadow: '0 0 5px 1px hsl(217 72% 60% / 0.4)',
+            bottom: '20%',
+            right: '20%',
           }}
         />
       </div>
       
+      {/* Logo image */}
+      <img 
+        src="/animated-logo.png" 
+        alt="AcademyOS Logo"
+        className="relative z-10 object-contain transition-transform duration-500 group-hover:scale-105"
+        style={{
+          width: size,
+          height: size,
+          mixBlendMode: 'multiply',
+        }}
+      />
+      
       {/* Custom keyframes */}
       <style>{`
-        @keyframes glowPulse {
+        @keyframes ambientPulse {
           0%, 100% {
             transform: scale(1);
             opacity: 0.6;
           }
           50% {
-            transform: scale(1.1);
-            opacity: 0.9;
+            transform: scale(1.05);
+            opacity: 0.8;
           }
         }
         
-        @keyframes glowRotate {
+        @keyframes ringRotate {
           0% {
             transform: rotate(0deg);
           }
@@ -135,87 +179,98 @@ export const AnimatedLogo = ({ size = 144, className }: AnimatedLogoProps) => {
           }
         }
         
-        @keyframes glowBreathe {
+        @keyframes ringCounterRotate {
+          0% {
+            transform: rotate(360deg);
+          }
+          100% {
+            transform: rotate(0deg);
+          }
+        }
+        
+        @keyframes particlesOrbit {
+          0% {
+            transform: rotate(0deg);
+          }
+          100% {
+            transform: rotate(360deg);
+          }
+        }
+        
+        @keyframes spark1 {
           0%, 100% {
-            transform: scale(1);
-            opacity: 0.5;
+            opacity: 0;
+            transform: scale(0.5);
           }
           50% {
-            transform: scale(1.08);
             opacity: 0.8;
-          }
-        }
-        
-        @keyframes sparkle1 {
-          0%, 100% {
-            opacity: 0;
-            transform: scale(0.5);
-          }
-          50% {
-            opacity: 1;
             transform: scale(1);
           }
         }
         
-        @keyframes sparkle2 {
-          0%, 100% {
-            opacity: 0;
-            transform: scale(0.5);
-          }
-          60% {
-            opacity: 1;
-            transform: scale(1.2);
-          }
-        }
-        
-        @keyframes sparkle3 {
+        @keyframes spark2 {
           0%, 100% {
             opacity: 0;
             transform: scale(0.5);
           }
           40% {
-            opacity: 1;
+            opacity: 0.7;
+            transform: scale(1.1);
+          }
+        }
+        
+        @keyframes spark3 {
+          0%, 100% {
+            opacity: 0;
+            transform: scale(0.5);
+          }
+          60% {
+            opacity: 0.6;
             transform: scale(1);
           }
         }
         
-        @keyframes sparkle4 {
+        @keyframes spark4 {
           0%, 100% {
             opacity: 0;
             transform: scale(0.5);
           }
           70% {
-            opacity: 1;
-            transform: scale(1.1);
+            opacity: 0.7;
+            transform: scale(1.05);
           }
         }
         
-        .animate-glow-pulse {
-          animation: glowPulse 4s ease-in-out infinite;
+        .animate-ambient-pulse {
+          animation: ambientPulse 6s ease-in-out infinite;
         }
         
-        .animate-glow-rotate {
-          animation: glowRotate 15s linear infinite;
+        .animate-ring-rotate {
+          animation: ringRotate 20s linear infinite;
         }
         
-        .animate-glow-breathe {
-          animation: glowBreathe 3s ease-in-out infinite;
+        .animate-ring-counter-rotate {
+          animation: ringCounterRotate 25s linear infinite;
         }
         
-        .animate-sparkle-1 {
-          animation: sparkle1 2s ease-in-out infinite;
+        .animate-particles-orbit {
+          animation: particlesOrbit 15s linear infinite;
         }
         
-        .animate-sparkle-2 {
-          animation: sparkle2 2.5s ease-in-out infinite 0.3s;
+        .animate-spark-1 {
+          animation: spark1 3s ease-in-out infinite;
         }
         
-        .animate-sparkle-3 {
-          animation: sparkle3 2.2s ease-in-out infinite 0.6s;
+        .animate-spark-2 {
+          animation: spark2 4s ease-in-out infinite 0.5s;
         }
         
-        .animate-sparkle-4 {
-          animation: sparkle4 2.8s ease-in-out infinite 0.9s;
+        .animate-spark-3 {
+          animation: spark3 3.5s ease-in-out infinite 1s;
+        }
+        
+        .animate-spark-4 {
+          animation: spark4 4.5s ease-in-out infinite 1.5s;
         }
       `}</style>
     </div>
