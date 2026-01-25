@@ -169,7 +169,6 @@ Deno.serve(async (req) => {
       phone: invitation.phone,
       branch: invitation.branch || null,
       organization_id: invitation.organization_id,
-      is_active: true,
     };
 
     if (existingProfile) {
