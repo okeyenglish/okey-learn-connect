@@ -2,17 +2,20 @@
 // Public endpoint to force-stop ongoing Salebot chat import by flipping is_running flag
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  corsHeaders,
+  handleCors,
+  successResponse,
+  errorResponse,
+  getErrorMessage,
+  type SalebotStopRequest,
+  type SalebotStopResponse,
+} from '../_shared/types.ts';
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
@@ -20,10 +23,7 @@ Deno.serve(async (req) => {
 
     if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
       console.error('Missing Supabase env variables');
-      return new Response(JSON.stringify({ error: 'Server misconfigured' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      });
+      return errorResponse('Server misconfigured', 500);
     }
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
@@ -38,23 +38,21 @@ Deno.serve(async (req) => {
 
     if (selectError) {
       console.error('Select error:', selectError);
-      return new Response(JSON.stringify({ error: selectError.message }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      });
+      return errorResponse(selectError.message, 500);
     }
 
     if (!progress) {
-      return new Response(JSON.stringify({ ok: true, message: 'Нет активного процесса импорта' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      });
+      const response: SalebotStopResponse = { 
+        success: true, 
+        message: 'Нет активного процесса импорта' 
+      };
+      return successResponse(response);
     }
 
     // Parse body to check for force_reset mode
     let forceReset = false;
     try {
-      const body = await req.json();
+      const body = await req.json() as SalebotStopRequest;
       forceReset = body?.force_reset === true;
     } catch {
       // No body or invalid JSON - that's OK
@@ -85,10 +83,7 @@ Deno.serve(async (req) => {
 
     if (updateError) {
       console.error('Update error:', updateError);
-      return new Response(JSON.stringify({ error: updateError.message }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      });
+      return errorResponse(updateError.message, 500);
     }
 
     const message = forceReset 
@@ -97,15 +92,17 @@ Deno.serve(async (req) => {
 
     console.log(`✅ ${message}:`, updated);
 
+    const response: SalebotStopResponse = { 
+      success: true, 
+      message
+    };
+
     return new Response(
-      JSON.stringify({ ok: true, message, progress: updated, forceReset }),
-      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      JSON.stringify({ ...response, progress: updated, forceReset }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Unhandled error:', err);
-    return new Response(JSON.stringify({ error: 'Internal error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders },
-    });
+    return errorResponse(getErrorMessage(err), 500);
   }
 });

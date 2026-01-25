@@ -565,6 +565,81 @@ export interface HolihopeSyncResponse extends BaseResponse {
 }
 
 // ============================================================================
+// OnlinePBX Types
+// ============================================================================
+
+/**
+ * OnlinePBX webhook payload from PBX
+ */
+export interface OnlinePBXWebhookPayload {
+  event?: string;
+  direction?: 'incoming' | 'outgoing' | 'inbound' | 'outbound';
+  caller?: string;
+  callee?: string;
+  uuid?: string;
+  call_duration?: string | number;
+  dialog_duration?: string | number;
+  download_url?: string;
+  hangup_cause?: string;
+  call_id?: string;
+  from?: string;
+  to?: string;
+  status?: string;
+  start_time?: string;
+  end_time?: string;
+  duration?: number;
+  record_url?: string;
+  domain?: string;
+  pbx_domain?: string;
+  account?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * OnlinePBX call request
+ */
+export interface OnlinePBXCallRequest {
+  to_number: string;
+  from_user: string;
+}
+
+/**
+ * OnlinePBX call response
+ */
+export interface OnlinePBXCallResponse extends BaseResponse {
+  success: boolean;
+  message?: string;
+  from_extension?: string;
+  to_number?: string;
+  call_id?: string | null;
+  call_log_id?: string;
+  error?: string;
+}
+
+/**
+ * OnlinePBX webhook response
+ */
+export interface OnlinePBXWebhookResponse extends BaseResponse {
+  success: boolean;
+  message?: string;
+  callId?: string;
+  deduplicated?: boolean;
+}
+
+/**
+ * OnlinePBX settings from messenger_settings
+ */
+export interface OnlinePBXSettings {
+  pbx_domain?: string;
+  pbxDomain?: string;
+  api_key_id?: string;
+  apiKeyId?: string;
+  api_key_secret?: string;
+  apiKeySecret?: string;
+  is_enabled?: boolean;
+}
+
+// ============================================================================
 // Payment Types
 // ============================================================================
 

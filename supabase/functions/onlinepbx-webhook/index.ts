@@ -1,43 +1,16 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-// Validation schema for webhook data - relaxed to accept OnlinePBX format
-const WebhookSchema = z.object({
-  event: z.string().optional(),
-  direction: z.enum(['incoming', 'outgoing', 'inbound', 'outbound']).optional(),
-  caller: z.string().optional(),
-  callee: z.string().optional(),
-  uuid: z.string().optional(),
-  call_duration: z.string().or(z.number()).optional(),
-  dialog_duration: z.string().or(z.number()).optional(),
-  download_url: z.string().optional(),
-  hangup_cause: z.string().optional(),
-}).passthrough();
-
-interface OnlinePBXWebhookData {
-  call_id?: string;
-  from?: string;
-  to?: string;
-  direction?: 'incoming' | 'outgoing';
-  status?: string;
-  start_time?: string;
-  end_time?: string;
-  duration?: number;
-  record_url?: string;
-  domain?: string;
-  pbx_domain?: string;
-  account?: string;
-  [key: string]: any;
-}
+import {
+  corsHeaders,
+  handleCors,
+  successResponse,
+  errorResponse,
+  getErrorMessage,
+  type OnlinePBXWebhookPayload,
+  type OnlinePBXWebhookResponse,
+} from '../_shared/types.ts';
 
 // Find organization by PBX domain from messenger_settings
-async function findOrganizationByPbxDomain(supabase: any, pbxDomain: string): Promise<string | null> {
+async function findOrganizationByPbxDomain(supabase: ReturnType<typeof createClient>, pbxDomain: string): Promise<string | null> {
   if (!pbxDomain) return null;
   
   console.log('[onlinepbx-webhook] Looking up organization by PBX domain:', pbxDomain);
@@ -61,12 +34,12 @@ async function findOrganizationByPbxDomain(supabase: any, pbxDomain: string): Pr
     const normalizedDomain = pbxDomain.toLowerCase().replace(/\.onpbx\.ru$/, '');
     
     for (const setting of settings) {
-      const settingDomain = (setting.settings?.pbxDomain || setting.settings?.pbx_domain || '').toLowerCase();
+      const settingDomain = ((setting.settings as Record<string, unknown>)?.pbxDomain || (setting.settings as Record<string, unknown>)?.pbx_domain || '').toString().toLowerCase();
       const normalizedSettingDomain = settingDomain.replace(/\.onpbx\.ru$/, '');
       
       if (normalizedSettingDomain === normalizedDomain || settingDomain === pbxDomain.toLowerCase()) {
         console.log('[onlinepbx-webhook] Found organization:', setting.organization_id, 'for domain:', pbxDomain);
-        return setting.organization_id;
+        return setting.organization_id as string;
       }
     }
   }
@@ -80,12 +53,12 @@ async function findOrganizationByPbxDomain(supabase: any, pbxDomain: string): Pr
   if (legacySettings) {
     const normalizedDomain = pbxDomain.toLowerCase().replace(/\.onpbx\.ru$/, '');
     for (const setting of legacySettings) {
-      const settingDomain = (setting.setting_value?.pbx_domain || '').toLowerCase();
+      const settingDomain = ((setting.setting_value as Record<string, unknown>)?.pbx_domain || '').toString().toLowerCase();
       const normalizedSettingDomain = settingDomain.replace(/\.onpbx\.ru$/, '');
       
       if (normalizedSettingDomain === normalizedDomain || settingDomain === pbxDomain.toLowerCase()) {
         console.log('[onlinepbx-webhook] Found organization (legacy):', setting.organization_id, 'for domain:', pbxDomain);
-        return setting.organization_id;
+        return setting.organization_id as string;
       }
     }
   }
@@ -94,15 +67,14 @@ async function findOrganizationByPbxDomain(supabase: any, pbxDomain: string): Pr
   return null;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   console.log('=== OnlinePBX WEBHOOK RECEIVED ===');
   console.log('Method:', req.method);
   console.log('URL:', req.url);
   console.log('Headers:', JSON.stringify(Object.fromEntries(req.headers.entries()), null, 2));
 
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -110,10 +82,7 @@ serve(async (req) => {
     
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error('Missing Supabase environment variables');
-      return new Response(
-        JSON.stringify({ error: 'Configuration error' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
+      return errorResponse('Configuration error', 500);
     }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
@@ -122,7 +91,7 @@ serve(async (req) => {
 
     if (req.method === 'POST') {
       const contentType = req.headers.get('content-type') || '';
-      let webhookData: OnlinePBXWebhookData = {};
+      let webhookData: OnlinePBXWebhookPayload = {};
       
       try {
         if (contentType.includes('application/json')) {
@@ -130,26 +99,23 @@ serve(async (req) => {
         } else if (contentType.includes('application/x-www-form-urlencoded')) {
           const textBody = await req.text();
           const params = new URLSearchParams(textBody);
-          const obj: any = {};
+          const obj: Record<string, string> = {};
           params.forEach((value, key) => { obj[key] = value; });
-          webhookData = obj;
+          webhookData = obj as unknown as OnlinePBXWebhookPayload;
         } else {
           const textBody = await req.text();
           try {
             webhookData = JSON.parse(textBody);
           } catch {
             const params = new URLSearchParams(textBody);
-            const obj: any = {};
+            const obj: Record<string, string> = {};
             params.forEach((value, key) => { obj[key] = value; });
-            webhookData = obj;
+            webhookData = obj as unknown as OnlinePBXWebhookPayload;
           }
         }
       } catch (parseErr) {
         console.error('Failed to parse webhook body', parseErr);
-        return new Response(
-          JSON.stringify({ success: false, error: 'Invalid body', details: String(parseErr) }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-        );
+        return errorResponse(`Invalid body: ${String(parseErr)}`, 400);
       }
       
       console.log('Content-Type:', contentType);
@@ -567,10 +533,15 @@ serve(async (req) => {
         callLog = newCallLog;
       }
 
+      const response: OnlinePBXWebhookResponse = { 
+        success: true, 
+        message: 'Webhook processed successfully',
+        callId: callLog?.id
+      };
+
       return new Response(
         JSON.stringify({ 
-          success: true, 
-          message: 'Webhook processed successfully',
+          ...response,
           callUpdated: !!callLog,
           phoneNumber: selectedPhone,
           normalizedPhone,
@@ -581,16 +552,10 @@ serve(async (req) => {
       );
     }
 
-    return new Response(
-      JSON.stringify({ success: true, message: 'OnlinePBX Webhook is running', method: req.method }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    );
+    return successResponse({ success: true, message: 'OnlinePBX Webhook is running', method: req.method });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Webhook error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });
