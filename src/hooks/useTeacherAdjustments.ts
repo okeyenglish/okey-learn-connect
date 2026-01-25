@@ -13,7 +13,7 @@ export interface TeacherAdjustment {
   status: 'pending' | 'paid' | 'cancelled';
   payment_id?: string;
   external_id?: string;
-  holihope_metadata?: any;
+  holihope_metadata?: Record<string, unknown> | null;
   created_by?: string;
   created_at: string;
   updated_at: string;
@@ -28,8 +28,8 @@ export const useTeacherAdjustments = (
   return useQuery({
     queryKey: ['teacher-adjustments', teacherId, periodStart, periodEnd],
     queryFn: async () => {
-      let query = (supabase
-        .from('teacher_adjustments' as any) as any)
+      let query = supabase
+        .from('teacher_adjustments')
         .select('*')
         .order('adjustment_date', { ascending: false });
 
@@ -60,8 +60,8 @@ export const useCreateAdjustment = () => {
 
   return useMutation({
     mutationFn: async (adjustment: Omit<TeacherAdjustment, 'id' | 'created_at' | 'updated_at' | 'status'> & { status?: string }) => {
-      const { data, error } = await (supabase
-        .from('teacher_adjustments' as any) as any)
+      const { data, error } = await supabase
+        .from('teacher_adjustments')
         .insert({
           teacher_id: adjustment.teacher_id,
           adjustment_type: adjustment.adjustment_type,
@@ -105,8 +105,8 @@ export const useUpdateAdjustment = () => {
 
   return useMutation({
     mutationFn: async ({ id, ...update }: Partial<TeacherAdjustment> & { id: string }) => {
-      const { data, error } = await (supabase
-        .from('teacher_adjustments' as any) as any)
+      const { data, error } = await supabase
+        .from('teacher_adjustments')
         .update({
           ...update,
           updated_at: new Date().toISOString(),
@@ -143,8 +143,8 @@ export const useDeleteAdjustment = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase
-        .from('teacher_adjustments' as any) as any)
+      const { error } = await supabase
+        .from('teacher_adjustments')
         .delete()
         .eq('id', id);
 
@@ -175,8 +175,8 @@ export const useMarkAdjustmentsPaid = () => {
 
   return useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await (supabase
-        .from('teacher_adjustments' as any) as any)
+      const { error } = await supabase
+        .from('teacher_adjustments')
         .update({ status: 'paid' })
         .in('id', ids);
 
