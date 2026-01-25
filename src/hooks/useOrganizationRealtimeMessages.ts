@@ -36,6 +36,7 @@ export const useOrganizationRealtimeMessages = () => {
     }
 
     console.log('[OrgRealtime] 🔌 Setting up global chat messages channel...');
+    console.log('[OrgRealtime] Supabase URL:', (supabase as any).supabaseUrl || 'unknown');
 
     const invalidateClientMessageQueries = (clientId: string) => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
