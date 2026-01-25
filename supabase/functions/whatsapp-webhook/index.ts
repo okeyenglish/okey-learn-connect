@@ -1,60 +1,17 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import {
+  corsHeaders,
+  handleCors,
+  getErrorMessage,
+  type GreenAPIWebhook,
+  type GreenAPISenderData,
+  type GreenAPIMessageData,
+} from '../_shared/types.ts'
 
 // Создаем клиент Supabase с service role для полного доступа
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-interface GreenAPIWebhook {
-  typeWebhook: string;
-  instanceData: {
-    idInstance: string;
-    wid: string;
-    typeInstance: string;
-  };
-  timestamp: number;
-  idMessage?: string;
-  senderData?: {
-    chatId: string;
-    chatName?: string;
-    sender: string;
-    senderName?: string;
-  };
-  messageData?: {
-    typeMessage: string;
-    textMessageData?: {
-      textMessage: string;
-    };
-    fileMessageData?: {
-      downloadUrl: string;
-      caption?: string;
-      fileName?: string;
-      jpegThumbnail?: string;
-      mimeType?: string;
-    };
-    extendedTextMessageData?: {
-      text: string;
-      stanzaId?: string;
-      participant?: string;
-    };
-    reactionMessageData?: {
-      messageId: string;
-      reaction: string;
-    };
-  };
-  status?: string;
-  statusData?: {
-    timestamp: number;
-    idMessage: string;
-    status: string;
-  };
-}
 
 async function resolveOrganizationIdFromWebhook(webhook: GreenAPIWebhook): Promise<string | null> {
   const instanceIdRaw = webhook.instanceData?.idInstance as any;
@@ -123,11 +80,9 @@ async function resolveOrganizationIdFromWebhook(webhook: GreenAPIWebhook): Promi
   return (data.organization_id as string | null) ?? null;
 }
 
-serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const webhook: GreenAPIWebhook = await req.json()
@@ -188,7 +143,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error processing webhook:', error)
     
     // Сохраняем ошибку в лог
@@ -196,15 +151,15 @@ serve(async (req) => {
       await supabase.from('webhook_logs').insert({
         messenger_type: 'whatsapp',
         event_type: 'error',
-        webhook_data: { error: (error as any)?.message },
+        webhook_data: { error: getErrorMessage(error) },
         processed: false,
-        error_message: (error as any)?.message
+        error_message: getErrorMessage(error)
       })
     } catch (logError) {
       console.error('Error saving error log:', logError)
   }
 
-  return new Response(JSON.stringify({ error: (error as any)?.message }), {
+  return new Response(JSON.stringify({ error: getErrorMessage(error) }), {
     status: 500,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
@@ -355,7 +310,7 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook, organizationId: s
     
   if (existingProcessing && existingProcessing.length > 0) {
     console.log('Already processing GPT response for this client, skipping:', existingProcessing[0]);
-    return new Response('OK - Already processing', { status: 200 });
+    return;
   }
   
   // Use setTimeout with minimal delay to avoid blocking webhook
