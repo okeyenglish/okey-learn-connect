@@ -48,6 +48,9 @@ export interface BonusAccount {
   updated_at: string;
 }
 
+type InvoiceInsert = Omit<Invoice, 'id' | 'created_at' | 'updated_at'>;
+type PaymentInsert = Omit<Payment, 'id' | 'created_at' | 'updated_at'>;
+
 // Hooks
 export const useCurrencies = () => {
   return useQuery({
@@ -124,10 +127,10 @@ export const useCreateInvoice = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (invoiceData: Partial<Invoice>) => {
+    mutationFn: async (invoiceData: Partial<InvoiceInsert>) => {
       const { data, error } = await supabase
         .from('invoices')
-        .insert([invoiceData as any])
+        .insert([invoiceData])
         .select()
         .single();
       
@@ -138,7 +141,7 @@ export const useCreateInvoice = () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       toast.success('Счёт успешно создан');
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast.error('Ошибка при создании счёта: ' + error.message);
     }
   });
@@ -148,10 +151,10 @@ export const useCreatePayment = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (paymentData: Partial<Payment>) => {
+    mutationFn: async (paymentData: Partial<PaymentInsert>) => {
       const { data, error } = await supabase
         .from('payments')
-        .insert([paymentData as any])
+        .insert([paymentData])
         .select()
         .single();
       
@@ -164,7 +167,7 @@ export const useCreatePayment = () => {
       queryClient.invalidateQueries({ queryKey: ['bonus_accounts'] });
       toast.success('Платёж успешно создан');
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast.error('Ошибка при создании платежа: ' + error.message);
     }
   });

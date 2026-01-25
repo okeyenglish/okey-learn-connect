@@ -30,6 +30,38 @@ export interface ScheduleFilters {
   type?: 'group' | 'individual';
 }
 
+interface GroupStudentCount {
+  count: number;
+}
+
+interface LearningGroupRow {
+  id: string;
+  name: string;
+  branch: string | null;
+  level: string | null;
+  subject: string | null;
+  capacity: number | null;
+  status: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  group_students: GroupStudentCount[];
+}
+
+interface IndividualLessonRow {
+  id: string;
+  student_name: string | null;
+  teacher_name: string | null;
+  branch: string | null;
+  lesson_location: string | null;
+  schedule_days: string[] | null;
+  schedule_time: string | null;
+  level: string | null;
+  subject: string | null;
+  status: string | null;
+  period_start: string | null;
+  period_end: string | null;
+}
+
 // Hook для получения расписания из групп и индивидуальных занятий
 export const useScheduleData = (filters: ScheduleFilters = {}) => {
   return useQuery({
@@ -60,26 +92,28 @@ export const useScheduleData = (filters: ScheduleFilters = {}) => {
       const { data: groups, error: groupError } = await groupQuery;
       if (groupError) throw groupError;
 
+      const groupRows = (groups || []) as unknown as LearningGroupRow[];
+
       // Преобразуем групповые занятия в сессии
-      groups?.forEach(group => {
+      groupRows.forEach(group => {
         sessions.push({
           id: group.id,
           type: 'group',
           name: group.name,
           teacher_name: 'Не назначен',
-          branch: group.branch,
+          branch: group.branch || '',
           classroom: 'Аудитория',
           days: ['monday', 'wednesday'], // Временная заглушка
           time: '10:00-11:30',
           start_time: '10:00',
           end_time: '11:30',
-          level: group.level,
-          subject: group.subject,
-          student_count: (group.group_students as any)?.[0]?.count || 0,
-          capacity: group.capacity,
+          level: group.level || undefined,
+          subject: group.subject || undefined,
+          student_count: group.group_students?.[0]?.count || 0,
+          capacity: group.capacity || undefined,
           status: group.status === 'active' ? 'active' : 'paused',
-          period_start: group.period_start,
-          period_end: group.period_end
+          period_start: group.period_start || undefined,
+          period_end: group.period_end || undefined
         });
       });
 
@@ -108,28 +142,30 @@ export const useScheduleData = (filters: ScheduleFilters = {}) => {
       const { data: individual, error: individualError } = await individualQuery;
       if (individualError) throw individualError;
 
+      const lessonRows = (individual || []) as IndividualLessonRow[];
+
       // Преобразуем индивидуальные занятия в сессии
-      individual?.forEach(lesson => {
+      lessonRows.forEach(lesson => {
         const [startTime, endTime] = lesson.schedule_time?.split('-') || ['', ''];
         sessions.push({
           id: lesson.id,
           type: 'individual',
           name: `Индивидуально: ${lesson.student_name}`,
           teacher_name: lesson.teacher_name || 'Не назначен',
-          branch: lesson.branch,
-          classroom: lesson.lesson_location,
+          branch: lesson.branch || '',
+          classroom: lesson.lesson_location || undefined,
           days: lesson.schedule_days || [],
           time: lesson.schedule_time || '',
           start_time: startTime,
           end_time: endTime,
-          level: lesson.level,
-          subject: lesson.subject,
+          level: lesson.level || undefined,
+          subject: lesson.subject || undefined,
           student_count: 1,
           capacity: 1,
           status: lesson.status === 'active' ? 'active' : 
                   lesson.status === 'suspended' ? 'paused' : 'completed',
-          period_start: lesson.period_start,
-          period_end: lesson.period_end
+          period_start: lesson.period_start || undefined,
+          period_end: lesson.period_end || undefined
         });
       });
 
