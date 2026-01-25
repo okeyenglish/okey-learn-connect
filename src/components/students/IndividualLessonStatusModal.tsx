@@ -21,6 +21,29 @@ import { RescheduleIndividualLessonModal } from "./RescheduleIndividualLessonMod
 import { ChangeLessonDurationModal } from "./ChangeLessonDurationModal";
 import { useQueryClient } from "@tanstack/react-query";
 
+// Type definitions for session updates
+type LessonSessionStatus = 'scheduled' | 'free' | 'cancelled' | 'rescheduled' | 'completed';
+
+interface SessionUpdateData {
+  status?: LessonSessionStatus;
+  paid_minutes?: number;
+  payment_id?: string | null;
+  is_additional?: boolean;
+  duration?: number;
+  created_by?: string;
+  updated_at?: string;
+}
+
+interface SessionRecord {
+  id: string;
+  lesson_date: string;
+  duration: number | null;
+  paid_minutes: number | null;
+  status: string;
+  payment_id: string | null;
+  is_additional?: boolean;
+}
+
 interface IndividualLessonStatusModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -324,19 +347,19 @@ const [selectedAction, setSelectedAction] = useState<string | null>(null);
 
       const { data: currentSession } = await supabase
         .from('individual_lesson_sessions')
-        .select('status, payment_id, is_additional')
+        .select('status, payment_id, is_additional, paid_minutes')
         .eq('individual_lesson_id', lessonId)
         .eq('lesson_date', lessonDate)
         .maybeSingle();
 
       const wasPaid = currentSession?.payment_id != null;
-      const hasPaidMinutes = (currentSession as any)?.paid_minutes > 0;
+      const hasPaidMinutes = currentSession?.paid_minutes != null && currentSession.paid_minutes > 0;
       
       let paymentToAssign: string | null = null;
       
       // If reverting to scheduled and current has no paid minutes, pull minutes back from future sessions
       if (statusValue === 'scheduled') {
-        const currentPaidMinutes = (currentSession as any)?.paid_minutes || 0;
+        const currentPaidMinutes = currentSession?.paid_minutes || 0;
         
         // Get the duration for this session
         const { data: sessionWithDuration } = await supabase
@@ -398,7 +421,7 @@ const [selectedAction, setSelectedAction] = useState<string | null>(null);
 
           // Update current session with collected minutes and payment
           if (collectedMinutes > 0) {
-            const updateData: any = {
+            const updateData: SessionUpdateData = {
               paid_minutes: currentPaidMinutes + collectedMinutes,
               status: 'scheduled',
               updated_at: new Date().toISOString()
@@ -526,7 +549,7 @@ toast({
       }
       
       // Try update first to avoid duplicate rows
-      const updateData: any = { status: statusValue, created_by: user.id, updated_at: new Date().toISOString() };
+      const updateData: SessionUpdateData = { status: statusValue as LessonSessionStatus, created_by: user.id, updated_at: new Date().toISOString() };
       if (paymentToAssign) updateData.payment_id = paymentToAssign;
       
       // Когда дополнительное занятие становится обычным, убираем флаг is_additional
@@ -548,10 +571,19 @@ toast({
 
       if (!updatedRows || updatedRows.length === 0) {
         // No row existed - insert new
-        const insertData: any = {
+        interface SessionInsertData {
+          individual_lesson_id: string;
+          lesson_date: string;
+          status: LessonSessionStatus;
+          created_by: string;
+          is_additional: boolean;
+          payment_id?: string;
+        }
+        
+        const insertData: SessionInsertData = {
           individual_lesson_id: lessonId,
           lesson_date: lessonDate,
-          status: statusValue,
+          status: statusValue as LessonSessionStatus,
           created_by: user.id,
           is_additional: false, // Новое обычное занятие
         };
@@ -584,11 +616,12 @@ toast({
         onStatusUpdated?.();
         onOpenChange(false);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating lesson status:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Не удалось обновить статус занятия';
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось обновить статус занятия",
+        description: errorMessage,
         variant: "destructive"
       });
     }
@@ -638,8 +671,8 @@ toast({
             .eq('lesson_date', dateStr)
             .maybeSingle();
 
-          const updateData: any = {
-            status: selectedAction,
+          const updateData: SessionUpdateData = {
+            status: selectedAction as LessonSessionStatus,
             created_by: user.id,
             updated_at: new Date().toISOString()
           };
@@ -668,7 +701,7 @@ toast({
               .insert({
                 individual_lesson_id: lessonId,
                 lesson_date: dateStr,
-                status: selectedAction,
+                status: selectedAction as LessonSessionStatus,
                 created_by: user.id,
                 is_additional: false,
               });
@@ -708,8 +741,18 @@ toast({
         let currentPaymentIndex = 0;
 
         // Карта существующих сессий по дате для быстрого доступа
-        const sessionsByDate = new Map<string, { id: string; duration: number | null; paid_minutes: number | null; status: string; payment_id: string | null }>();
-        (futureSessions || []).forEach((s: any) => sessionsByDate.set(s.lesson_date, s));
+        const sessionsByDate = new Map<string, SessionRecord>();
+        (futureSessions || []).forEach((s) => {
+          const record: SessionRecord = {
+            id: s.id,
+            lesson_date: s.lesson_date,
+            duration: s.duration,
+            paid_minutes: s.paid_minutes,
+            status: s.status,
+            payment_id: s.payment_id,
+          };
+          sessionsByDate.set(s.lesson_date, record);
+        });
 
         // Подготовим вычисление по расписанию день за днем
         const dayMapping: Record<string, number> = {
@@ -754,15 +797,23 @@ toast({
                 .insert({
                   individual_lesson_id: lessonId,
                   lesson_date: dateStr,
-                  status: 'scheduled',
+                  status: 'scheduled' as LessonSessionStatus,
                   duration: lessonInfo?.duration || 60,
                   created_by: user.id,
                 })
-                .select('id, duration, paid_minutes, status')
+                .select('id, duration, paid_minutes, status, payment_id, lesson_date')
                 .single();
               if (created) {
-                session = created as any;
-                sessionsByDate.set(dateStr, session as any);
+                const createdRecord: SessionRecord = {
+                  id: created.id,
+                  lesson_date: created.lesson_date,
+                  duration: created.duration,
+                  paid_minutes: created.paid_minutes,
+                  status: created.status,
+                  payment_id: created.payment_id,
+                };
+                session = createdRecord;
+                sessionsByDate.set(dateStr, createdRecord);
               }
             }
           }
@@ -779,7 +830,7 @@ toast({
             const newPaidMinutes = currentPaid + minutesToAdd;
 
             // Если есть payment_id из освобожденных, привязываем его
-            const updateData: any = { 
+            const updateData: SessionUpdateData = { 
               paid_minutes: newPaidMinutes, 
               updated_at: new Date().toISOString() 
             };
@@ -839,7 +890,7 @@ toast({
             const take = Math.min(need, donorPaid);
 
             // Обновляем в БД приемник - переносим минуты и платеж
-            const receiverUpdate: any = { 
+            const receiverUpdate: SessionUpdateData = { 
               paid_minutes: (s.paid_minutes || 0) + take, 
               updated_at: new Date().toISOString() 
             };
@@ -859,7 +910,7 @@ toast({
             s.paid_minutes = (s.paid_minutes || 0) + take;
 
             // Обновляем в БД донор
-            const donorUpdate: any = {
+            const donorUpdate: SessionUpdateData = {
               paid_minutes: donorPaid - take,
               updated_at: new Date().toISOString()
             };
@@ -905,10 +956,11 @@ toast({
       setSelectedAction(null);
       setSelectedDates(new Set());
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Не удалось обновить статусы';
       toast({
         title: "Ошибка",
-        description: error.message || "Не удалось обновить статусы",
+        description: errorMessage,
         variant: "destructive"
       });
     }
