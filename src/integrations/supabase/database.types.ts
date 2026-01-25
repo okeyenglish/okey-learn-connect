@@ -1839,6 +1839,10 @@ export interface CustomDatabase {
         Args: { p_organization_id: string; p_amount: number; p_description?: string };
         Returns: Json;
       };
+      get_chat_threads_by_client_ids: {
+        Args: { p_client_ids: string[] };
+        Returns: Json[];
+      };
       manual_compensate_payment: {
         Args: { p_payment_id: string; p_reason?: string };
         Returns: Json;

@@ -32,12 +32,63 @@ export interface JournalIndividualLesson {
   }[];
 }
 
+interface GroupQueryResult {
+  id: string;
+  name: string;
+  level: string | null;
+  branch: string | null;
+  subject: string | null;
+  group_students: { count: number }[] | null;
+}
+
+interface SessionResult {
+  id: string;
+  lesson_date: string;
+  start_time: string | null;
+  status: string | null;
+}
+
+interface IndividualLessonResult {
+  id: string;
+  student_name: string | null;
+  subject: string | null;
+  branch: string | null;
+  duration: number | null;
+  schedule_days: string[] | null;
+  schedule_time: string | null;
+  is_active: boolean;
+}
+
+interface IndividualSessionResult {
+  id: string;
+  lesson_date: string;
+  status: string | null;
+  duration: number | null;
+}
+
+interface GroupStudentResult {
+  id: string;
+  status: string;
+  students: {
+    id: string;
+    name: string;
+    first_name: string | null;
+    last_name: string | null;
+  } | null;
+}
+
+interface AttendanceResult {
+  student_id: string;
+  attendance_status: string | null;
+  notes: string | null;
+}
+
 export const useTeacherGroups = (teacherName: string) => {
   return useQuery({
     queryKey: ['teacher-journal-groups', teacherName],
     queryFn: async () => {
-      const { data: groups, error } = await (supabase
-        .from('learning_groups' as any) as any)
+      const { data: groups, error } = await supabase
+        .from('learning_groups')
         .select(`
           id,
           name,
@@ -53,9 +104,9 @@ export const useTeacherGroups = (teacherName: string) => {
 
       // Для каждой группы получаем последние занятия
       const groupsWithSessions = await Promise.all(
-        (groups || []).map(async (group: any) => {
-          const { data: sessions } = await (supabase
-            .from('lesson_sessions' as any) as any)
+        ((groups as GroupQueryResult[]) || []).map(async (group) => {
+          const { data: sessions } = await supabase
+            .from('lesson_sessions')
             .select('id, lesson_date, start_time, status')
             .eq('group_id', group.id)
             .order('lesson_date', { ascending: false })
@@ -64,11 +115,16 @@ export const useTeacherGroups = (teacherName: string) => {
           return {
             id: group.id,
             name: group.name,
-            level: group.level,
-            branch: group.branch,
-            subject: group.subject,
+            level: group.level || '',
+            branch: group.branch || '',
+            subject: group.subject || '',
             students_count: group.group_students?.[0]?.count || 0,
-            recent_sessions: sessions || [],
+            recent_sessions: ((sessions as SessionResult[]) || []).map(s => ({
+              id: s.id,
+              lesson_date: s.lesson_date,
+              start_time: s.start_time || '',
+              status: s.status || '',
+            })),
           };
         })
       );
@@ -83,8 +139,8 @@ export const useTeacherIndividualLessons = (teacherName: string) => {
   return useQuery({
     queryKey: ['teacher-journal-individual', teacherName],
     queryFn: async () => {
-      const { data: lessons, error } = await (supabase
-        .from('individual_lessons' as any) as any)
+      const { data: lessons, error } = await supabase
+        .from('individual_lessons')
         .select(`
           id,
           student_name,
@@ -102,9 +158,9 @@ export const useTeacherIndividualLessons = (teacherName: string) => {
 
       // Для каждого урока получаем последние сессии
       const lessonsWithSessions = await Promise.all(
-        (lessons || []).map(async (lesson: any) => {
-          const { data: sessions } = await (supabase
-            .from('individual_lesson_sessions' as any) as any)
+        ((lessons as IndividualLessonResult[]) || []).map(async (lesson) => {
+          const { data: sessions } = await supabase
+            .from('individual_lesson_sessions')
             .select('id, lesson_date, status, duration')
             .eq('individual_lesson_id', lesson.id)
             .order('lesson_date', { ascending: false })
@@ -112,13 +168,18 @@ export const useTeacherIndividualLessons = (teacherName: string) => {
 
           return {
             id: lesson.id,
-            student_name: lesson.student_name,
-            subject: lesson.subject,
-            branch: lesson.branch,
-            duration: lesson.duration,
+            student_name: lesson.student_name || '',
+            subject: lesson.subject || '',
+            branch: lesson.branch || '',
+            duration: lesson.duration || 0,
             schedule_days: lesson.schedule_days || [],
-            schedule_time: lesson.schedule_time,
-            recent_sessions: sessions || [],
+            schedule_time: lesson.schedule_time || '',
+            recent_sessions: ((sessions as IndividualSessionResult[]) || []).map(s => ({
+              id: s.id,
+              lesson_date: s.lesson_date,
+              status: s.status || '',
+              duration: s.duration || 0,
+            })),
           };
         })
       );
@@ -133,8 +194,8 @@ export const useGroupStudentsAttendance = (groupId: string, sessionId?: string) 
   return useQuery({
     queryKey: ['group-students-attendance', groupId, sessionId],
     queryFn: async () => {
-      const { data: students, error } = await (supabase
-        .from('group_students' as any) as any)
+      const { data: students, error } = await supabase
+        .from('group_students')
         .select(`
           id,
           status,
@@ -150,26 +211,29 @@ export const useGroupStudentsAttendance = (groupId: string, sessionId?: string) 
 
       if (error) throw error;
 
+      const typedStudents = (students || []) as unknown as GroupStudentResult[];
+
       // Если указана сессия, получаем посещаемость для неё
       if (sessionId) {
-        const { data: attendance } = await (supabase
-          .from('student_lesson_sessions' as any) as any)
+        const { data: attendance } = await supabase
+          .from('student_lesson_sessions')
           .select('student_id, attendance_status, notes')
           .eq('lesson_session_id', sessionId);
 
+        const typedAttendance = (attendance || []) as AttendanceResult[];
         const attendanceMap = new Map(
-          (attendance || []).map((a: any) => [a.student_id, a])
+          typedAttendance.map((a) => [a.student_id, a])
         );
 
-        return (students || []).map((gs: any) => ({
+        return typedStudents.map((gs) => ({
           ...gs.students,
           group_student_id: gs.id,
-          attendance_status: (attendanceMap.get(gs.students?.id) as any)?.attendance_status || 'not_marked',
-          attendance_notes: (attendanceMap.get(gs.students?.id) as any)?.notes,
+          attendance_status: attendanceMap.get(gs.students?.id || '')?.attendance_status || 'not_marked',
+          attendance_notes: attendanceMap.get(gs.students?.id || '')?.notes,
         }));
       }
 
-      return (students || []).map((gs: any) => ({
+      return typedStudents.map((gs) => ({
         ...gs.students,
         group_student_id: gs.id,
       }));

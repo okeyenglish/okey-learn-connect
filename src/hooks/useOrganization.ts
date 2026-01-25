@@ -9,8 +9,8 @@ export interface Organization {
   domain: string | null;
   status: string;
   plan_type: string;
-  settings: any;
-  branding: any;
+  settings: Record<string, unknown> | null;
+  branding: Record<string, unknown> | null;
   max_students: number | null;
   max_users: number | null;
   max_branches: number | null;
@@ -27,8 +27,8 @@ export interface OrganizationBranch {
   address: string | null;
   phone: string | null;
   email: string | null;
-  working_hours: any;
-  settings: any;
+  working_hours: Record<string, unknown> | null;
+  settings: Record<string, unknown> | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -44,7 +44,7 @@ export const useOrganization = () => {
       if (!profile?.organization_id) return null;
 
       const { data, error } = await supabase
-        .from('organizations' as any)
+        .from('organizations')
         .select('*')
         .eq('id', profile.organization_id)
         .single();
@@ -61,7 +61,7 @@ export const useOrganization = () => {
       if (!profile?.organization_id) return [];
 
       const { data, error } = await supabase
-        .from('organization_branches' as any)
+        .from('organization_branches')
         .select('*')
         .eq('organization_id', profile.organization_id)
         .eq('is_active', true)
@@ -70,7 +70,7 @@ export const useOrganization = () => {
       if (error) throw error;
       
       // Удаление дубликатов по названию (оставляем первую запись)
-      const uniqueBranches = (data as OrganizationBranch[]).reduce((acc, branch) => {
+      const uniqueBranches = ((data || []) as OrganizationBranch[]).reduce((acc, branch) => {
         const existing = acc.find(b => b.name === branch.name);
         if (!existing) acc.push(branch);
         return acc;

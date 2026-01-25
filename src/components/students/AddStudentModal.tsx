@@ -152,12 +152,12 @@ export function AddStudentModal({ open, onOpenChange, children }: AddStudentModa
           last_name: formData.lastName,
           middle_name: formData.middleName || null,
           phone: formData.phone || null,
-          status: (formData.status as 'active' | 'inactive' | 'trial' | 'graduated') || 'active',
+          status: formData.status || 'active',
           family_group_id: family?.id || null,
           notes: formData.notes || null,
           age: age,
-          date_of_birth: birthDate ? format(birthDate, 'yyyy-MM-dd') : null
-        } as any]);
+          date_of_birth: birthDate ? format(birthDate, 'yyyy-MM-dd') : null,
+        }]);
       if (studentErr) throw studentErr;
 
       await queryClient.invalidateQueries({ queryKey: ['students'] });

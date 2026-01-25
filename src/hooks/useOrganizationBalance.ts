@@ -21,7 +21,7 @@ export interface BalanceTransaction {
   currency_id: string;
   description: string;
   ai_requests_count: number | null;
-  metadata: any;
+  metadata: Record<string, unknown> | null;
   created_by: string | null;
   created_at: string;
 }
@@ -35,7 +35,7 @@ export const useOrganizationBalance = (organizationId?: string) => {
       }
 
       const { data, error } = await supabase
-        .from('organization_balances' as any)
+        .from('organization_balances')
         .select('*')
         .eq('organization_id', organizationId)
         .single();
@@ -56,14 +56,14 @@ export const useBalanceTransactions = (organizationId?: string) => {
       }
 
       const { data, error } = await supabase
-        .from('organization_balance_transactions' as any)
+        .from('organization_balance_transactions')
         .select('*')
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
         .limit(100);
 
       if (error) throw error;
-      return data as BalanceTransaction[];
+      return (data || []) as BalanceTransaction[];
     },
     enabled: !!organizationId,
   });
@@ -82,7 +82,7 @@ export const useTopUpBalance = () => {
       amount: number;
       description?: string;
     }) => {
-      const { data, error } = await supabase.rpc('topup_organization_balance' as any, {
+      const { data, error } = await supabase.rpc('topup_organization_balance', {
         p_organization_id: organizationId,
         p_amount: amount,
         p_description: description,
