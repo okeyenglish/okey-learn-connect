@@ -155,6 +155,8 @@ import { WppTestPanel } from "@/components/crm/WppTestPanel";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { useCRMModals, useCRMState, useCRMTasks, useCRMSearch } from "@/pages/crm/hooks";
+import type { CRMChat, ClientCRMChat, SystemCRMChat, CorporateChat, PinnedModalType, RealtimePayload, GroupStudentRow } from "@/pages/crm/types";
+import { isClientChat } from "@/pages/crm/types";
 
 const CRMContent = () => {
   const { user, profile, role, roles, signOut } = useAuth();
@@ -420,7 +422,7 @@ const CRMContent = () => {
     let pendingRefetch = false;
     let eventCount = 0;
 
-    const debouncedRefetch = (payload?: any) => {
+    const debouncedRefetch = (payload?: RealtimePayload) => {
       pendingRefetch = true;
       eventCount++;
       
@@ -495,7 +497,7 @@ const CRMContent = () => {
         .select('student_id')
         .eq('status', 'active');
       if (error) throw error;
-      return (data || []).map((gs: any) => gs.student_id as string);
+      return (data || []).map((gs: GroupStudentRow) => gs.student_id);
     },
     enabled: openModal === "Лиды", // Загружаем только когда открыт модал "Лиды"
   });
@@ -810,19 +812,19 @@ const CRMContent = () => {
   };
 
   // Системные чаты из БД - агрегируем корпоративные в одну "папку"
-  const corporateUnread = (corporateChats || []).reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0);
-  const latestCorporate = (corporateChats || []).reduce((latest: any, c: any) => {
+  const corporateUnread = (corporateChats || []).reduce((sum: number, c: CorporateChat) => sum + (c.unreadCount || 0), 0);
+  const latestCorporate = (corporateChats || []).reduce<CorporateChat | null>((latest, c: CorporateChat) => {
     if (!c?.lastMessageTime) return latest;
     if (!latest) return c;
     return new Date(c.lastMessageTime) > new Date(latest.lastMessageTime) ? c : latest;
-  }, null as any);
+  }, null);
 
-  const teacherUnread = (teacherChats || []).reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0);
-  const latestTeacher = (teacherChats || []).reduce((latest: any, c: any) => {
+  const teacherUnread = (teacherChats || []).reduce((sum: number, c: CorporateChat) => sum + (c.unreadCount || 0), 0);
+  const latestTeacher = (teacherChats || []).reduce<CorporateChat | null>((latest, c: CorporateChat) => {
     if (!c?.lastMessageTime) return latest;
     if (!latest) return c;
     return new Date(c.lastMessageTime) > new Date(latest.lastMessageTime) ? c : latest;
-  }, null as any);
+  }, null);
 
   // Системные чаты (корпоративные как одна запись)
   const systemChats = [
@@ -942,7 +944,7 @@ const CRMContent = () => {
 
   // Клиенты без тредов НЕ показываются при первой загрузке для скорости
   // Они появятся только при поиске или открытии модалов
-  const clientChatsWithoutThreads: any[] = [];
+  const clientChatsWithoutThreads: ClientCRMChat[] = [];
 
   const allChats = useMemo(() => [
     ...systemChats,
@@ -1138,7 +1140,7 @@ const CRMContent = () => {
       if (chat.type === "corporate" || chat.type === "teachers" || chat.type === "communities") return true;
       
       // Используем branch напрямую из chat (теперь приходит из threads RPC)
-      const clientBranch = (chat as any).branch;
+      const clientBranch = isClientChat(chat) ? chat.branch : null;
       if (!clientBranch) return true; // Если у клиента нет филиала - показываем
       
       // Нормализуем для сравнения: "OKEY ENGLISH Котельники" -> "котельники"
@@ -1155,7 +1157,7 @@ const CRMContent = () => {
       if (chat.type === "corporate" || chat.type === "teachers") return true;
       
       // Используем branch напрямую из chat
-      const clientBranch = (chat as any).branch;
+      const clientBranch = isClientChat(chat) ? chat.branch : null;
       
       return canAccessBranch(clientBranch);
     })
@@ -1262,7 +1264,7 @@ const CRMContent = () => {
   }, [selectedChatIds]);
 
   // Обработчики для чатов
-  const handleChatClick = useCallback(async (chatId: string, chatType: 'client' | 'corporate' | 'teachers', foundInMessages?: boolean, messengerType?: 'whatsapp' | 'telegram' | 'max' | null) => {
+  const handleChatClick = useCallback(async (chatId: string, chatType: 'client' | 'corporate' | 'teachers' | 'communities', foundInMessages?: boolean, messengerType?: 'whatsapp' | 'telegram' | 'max' | null) => {
     console.log('Переключение на чат:', { chatId, chatType, foundInMessages, messengerType });
     
     // Только переключаемся на новый чат, если это действительно другой чат
@@ -1664,7 +1666,7 @@ const CRMContent = () => {
   const handlePinMenuModal = (modalType: string) => {
     pinModal({
       id: `menu-${modalType}`,
-      type: modalType as any,
+      type: modalType as PinnedModalType,
       title: modalType,
       props: {}
     });
@@ -3142,26 +3144,25 @@ const CRMContent = () => {
                                                  }}
                                                />
                                            {/* Lead indicator */}
-                                             {(() => {
-                                               const chatInfo = chat as any;
-                                               if (chatInfo.type !== 'client') return null;
-                                               const clientStatus = getClientStatus(chatInfo.id);
-                                               
-                                               if (isMobile) {
-                                                 console.log(`Mobile lead check for ${chatInfo.name}:`, {
-                                                   id: chatInfo.id,
-                                                   isLead: clientStatus.isLead,
-                                                   hasActiveStudents: clientStatus.hasActiveStudents,
-                                                   studentsCount: clientStatus.studentsCount
-                                                 });
-                                               }
-                                               
-                                               return clientStatus.isLead ? (
-                                                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white z-10">
-                                                   <UserPlus className="w-2.5 h-2.5 text-white" />
-                                                 </div>
-                                               ) : null;
-                                             })()}
+                                              {(() => {
+                                                if (chat.type !== 'client') return null;
+                                                const clientStatus = getClientStatus(chat.id);
+                                                
+                                                if (isMobile) {
+                                                  console.log(`Mobile lead check for ${chat.name}:`, {
+                                                    id: chat.id,
+                                                    isLead: clientStatus.isLead,
+                                                    hasActiveStudents: clientStatus.hasActiveStudents,
+                                                    studentsCount: clientStatus.studentsCount
+                                                  });
+                                                }
+                                                
+                                                return clientStatus.isLead ? (
+                                                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white z-10">
+                                                    <UserPlus className="w-2.5 h-2.5 text-white" />
+                                                  </div>
+                                                ) : null;
+                                              })()}
                                           </div>
                                         ) : (
                                           <div className="relative flex-shrink-0">
@@ -3169,25 +3170,24 @@ const CRMContent = () => {
                                               <User className="h-5 w-5 text-white" />
                                             </div>
                                             {/* Lead indicator */}
-                                             {(() => {
-                                               const chatInfo = chat as any;
-                                               if (chatInfo.type !== 'client') return null;
-                                               const clientStatus = getClientStatus(chatInfo.id);
-                                               
-                                               if (isMobile) {
-                                                 console.log(`Mobile lead check without avatar for ${chatInfo.name}:`, {
-                                                   id: chatInfo.id,
-                                                   isLead: clientStatus.isLead,
-                                                   hasActiveStudents: clientStatus.hasActiveStudents
-                                                 });
-                                               }
-                                               
-                                               return clientStatus.isLead ? (
-                                                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white z-10">
-                                                   <UserPlus className="w-2.5 h-2.5 text-white" />
-                                                 </div>
-                                               ) : null;
-                                             })()}
+                                              {(() => {
+                                                if (chat.type !== 'client') return null;
+                                                const clientStatus = getClientStatus(chat.id);
+                                                
+                                                if (isMobile) {
+                                                  console.log(`Mobile lead check without avatar for ${chat.name}:`, {
+                                                    id: chat.id,
+                                                    isLead: clientStatus.isLead,
+                                                    hasActiveStudents: clientStatus.hasActiveStudents
+                                                  });
+                                                }
+                                                
+                                                return clientStatus.isLead ? (
+                                                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white z-10">
+                                                    <UserPlus className="w-2.5 h-2.5 text-white" />
+                                                  </div>
+                                                ) : null;
+                                              })()}
                                           </div>
                                        )}
                                        
@@ -3529,21 +3529,13 @@ const CRMContent = () => {
                                 >
                                   <div className="flex items-start justify-between gap-3">
                                      <div 
-                                       className="flex items-start gap-3 flex-1 cursor-pointer"
-                                       onClick={() => {
-                                         handleChatClick(chat.id, chat.type as any);
-                                       }}
-                                     >
-                                        {chat.type === 'corporate' ? (
-                                          <div className="w-12 h-12 rounded-full bg-[hsl(var(--avatar-blue))] shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-border/30">
-                                            <Building2 className="h-6 w-6 text-white" />
-                                          </div>
-                                        ) : chat.type === 'teachers' ? (
-                                          <div className="w-12 h-12 rounded-full bg-[hsl(var(--avatar-purple))] shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-border/30">
-                                            <GraduationCap className="h-6 w-6 text-white" />
-                                          </div>
-                                       ) : chat.avatar_url ? (
-                                         <div className="relative flex-shrink-0">
+                                        className="flex items-start gap-3 flex-1 cursor-pointer"
+                                        onClick={() => {
+                                          handleChatClick(chat.id, chat.type);
+                                        }}
+                                      >
+                                        {chat.avatar_url ? (
+                                          <div className="relative flex-shrink-0">
                                             <img 
                                               src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
                                               alt={`${chat.name} avatar`} 
@@ -3558,7 +3550,7 @@ const CRMContent = () => {
                                                target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
                                              }}
                                            />
-                                         </div>
+                                          </div>
                                         ) : (
                                           <div className="w-12 h-12 rounded-full bg-[hsl(var(--avatar-blue))] shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-border/30">
                                             <User className="h-6 w-6 text-white" />
