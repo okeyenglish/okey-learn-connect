@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useOrganization } from '@/hooks/useOrganization';
 import { getInvokeErrorMessage } from '@/lib/functionsInvokeError';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 interface SalebotProgress {
   totalClientsProcessed: number;
@@ -422,7 +423,7 @@ export function SyncDashboard() {
       });
       
       await fetchProgressOnly();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Reset error:', error);
       const msg = await getInvokeErrorMessage(error);
       toast({
@@ -483,7 +484,7 @@ export function SyncDashboard() {
       }
       
       await fetchProgressOnly();
-    } catch (error: any) {
+    } catch (error: unknown) {
       const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
@@ -534,7 +535,7 @@ export function SyncDashboard() {
       });
       
       await fetchProgressOnly();
-    } catch (error: any) {
+    } catch (error: unknown) {
       const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
@@ -576,10 +577,10 @@ export function SyncDashboard() {
       });
       
       await fetchProgressOnly();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
@@ -626,10 +627,10 @@ export function SyncDashboard() {
       
       // Refresh progress
       await fetchProgressOnly();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
@@ -664,7 +665,7 @@ export function SyncDashboard() {
         title: 'Импорт возобновлён',
         description: 'Автоматический импорт Salebot успешно запущен',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
@@ -697,7 +698,7 @@ export function SyncDashboard() {
           description: `Обработано клиентов: ${result?.totalClients || 0}, сообщений: ${result?.messagesImported || 0}`,
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
@@ -737,7 +738,7 @@ export function SyncDashboard() {
         title: 'Синхронизация запущена',
         description: 'Поиск новых сообщений у существующих клиентов',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
@@ -784,7 +785,7 @@ export function SyncDashboard() {
         title: 'Синхронизация диалогов запущена',
         description: `Обработано: ${result?.processedClients || 0} клиентов, новых сообщений: ${result?.newMessages || 0}`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
@@ -835,7 +836,7 @@ export function SyncDashboard() {
       });
       
       // Don't set isSyncingWithIds to false immediately - let polling show real status
-    } catch (error: any) {
+    } catch (error: unknown) {
       const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
@@ -943,7 +944,7 @@ export function SyncDashboard() {
           .update({ is_running: false })
           .eq('id', progress.id);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
@@ -990,7 +991,7 @@ export function SyncDashboard() {
         title: 'Заполнение Salebot IDs запущено',
         description: `Обработано: ${result?.processedThisBatch || 0}, связано: ${result?.matchedThisBatch || 0}`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
@@ -1098,7 +1099,7 @@ export function SyncDashboard() {
           .update({ is_running: false })
           .eq('id', progress.id);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
@@ -1126,7 +1127,7 @@ export function SyncDashboard() {
         title: 'Полный реимпорт запущен',
         description: `Прогресс сброшен, импорт начнётся с начала списка. Клиентов: ${result?.totalClients || 0}, сообщений: ${result?.messagesImported || 0}`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       const msg = await getInvokeErrorMessage(error);
       toast({
         title: 'Ошибка',
@@ -1493,12 +1494,12 @@ export function SyncDashboard() {
         clientsWithSalebotId: clientsWithIdRes.count || 0,
         clientsWithoutSalebotId: clientsWithoutIdRes.count || 0
       } : null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Ошибка импорта CSV:', error);
       setCsvImportProgress(null);
       toast({
         title: 'Ошибка импорта',
-        description: error.message || 'Неизвестная ошибка при импорте',
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
@@ -1538,10 +1539,10 @@ export function SyncDashboard() {
           description: 'Счетчики импорта сброшены. Импорт начнется с начала.',
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     }
@@ -1567,10 +1568,10 @@ export function SyncDashboard() {
           description: `Импорт будет использовать список: ${salebotListId || 'все клиенты'}`,
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     }
@@ -1612,10 +1613,10 @@ export function SyncDashboard() {
         title: 'Лимит обновлён',
         description: `Новый дневной лимит: ${limitValue.toLocaleString()} запросов`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Ошибка',
-        description: error.message,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
