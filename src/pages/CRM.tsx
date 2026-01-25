@@ -123,9 +123,9 @@ import {
   Palette,
   CreditCard,
   MapPin,
-  Bot,
   HardDrive
 } from "lucide-react";
+import { AnimatedLogo } from "@/components/AnimatedLogo";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import { toast } from "sonner";
@@ -3848,10 +3848,10 @@ const CRMContent = () => {
           {!isMobile && !voiceAssistantOpen && activeChatType === 'client' && (
             <Button
               onClick={() => setVoiceAssistantOpen(true)}
-              className="absolute bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-40 bg-primary hover:bg-primary/90"
+              className="absolute bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-40 bg-primary hover:bg-primary/90 p-0 overflow-hidden"
               size="icon"
             >
-              <Bot className="h-6 w-6" />
+              <AnimatedLogo size={40} />
             </Button>
           )}
         </div>
