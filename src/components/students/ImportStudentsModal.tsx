@@ -23,10 +23,29 @@ interface ImportStats {
   errors: string[];
 }
 
+// Excel row type - keys are column headers from the spreadsheet
+interface ExcelRow {
+  [key: string]: string | number | null | undefined;
+}
+
+// Typed student insert data
+interface StudentInsertData {
+  first_name: string;
+  last_name: string;
+  middle_name: string;
+  date_of_birth: string | null;
+  age: number | null;
+  phone: string | null;
+  status: string;
+  notes: string | null;
+  name: string;
+  branch?: string;
+}
+
 export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalProps) {
   const { branches } = useOrganization();
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<ExcelRow[]>([]);
   const [importStats, setImportStats] = useState<ImportStats | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<string>('');
@@ -36,7 +55,7 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
       const arrayBuffer = await file.arrayBuffer();
       const workbook = XLSX.read(arrayBuffer);
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      const jsonData = XLSX.utils.sheet_to_json<ExcelRow>(worksheet);
 
       if (jsonData.length === 0) {
         throw new Error('Файл пустой');
@@ -104,19 +123,26 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
       for (const row of data) {
         try {
           // Подготовка данных студента
-          const studentData: any = {
-            first_name: row['Имя'] || row['first_name'] || '',
-            last_name: row['Фамилия'] || row['last_name'] || '',
-            middle_name: row['Отчество'] || row['middle_name'] || '',
-            date_of_birth: row['Дата рождения'] || row['date_of_birth'] || null,
-            age: row['Возраст'] || row['age'] || null,
-            phone: row['Телефон'] || row['phone'] || null,
-            status: row['Статус'] || row['status'] || 'active',
-            notes: row['Примечания'] || row['notes'] || null,
+          const firstName = String(row['Имя'] || row['first_name'] || '');
+          const lastName = String(row['Фамилия'] || row['last_name'] || '');
+          const middleName = String(row['Отчество'] || row['middle_name'] || '');
+          const dateOfBirth = row['Дата рождения'] || row['date_of_birth'];
+          const ageValue = row['Возраст'] || row['age'];
+          const phoneValue = row['Телефон'] || row['phone'];
+          const statusValue = row['Статус'] || row['status'];
+          const notesValue = row['Примечания'] || row['notes'];
+          
+          const studentData: StudentInsertData = {
+            first_name: firstName,
+            last_name: lastName,
+            middle_name: middleName,
+            date_of_birth: dateOfBirth ? String(dateOfBirth) : null,
+            age: ageValue ? Number(ageValue) : null,
+            phone: phoneValue ? String(phoneValue) : null,
+            status: statusValue ? String(statusValue) : 'active',
+            notes: notesValue ? String(notesValue) : null,
+            name: `${lastName} ${firstName}`.trim() || 'Без имени',
           };
-
-          // Генерация имени студента
-          studentData.name = `${studentData.last_name} ${studentData.first_name}`.trim() || 'Без имени';
           
           // Добавляем филиал если выбран
           if (selectedBranch) {
@@ -126,7 +152,7 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
           // Создание студента
           const { error } = await supabase
             .from('students')
-            .insert(studentData as any);
+            .insert(studentData);
 
           if (error) throw error;
 
@@ -300,7 +326,7 @@ export function ImportStudentsModal({ open, onOpenChange }: ImportStudentsModalP
                       <TableRow key={rowIndex}>
                         {Object.keys(row).map((key) => (
                           <TableCell key={key} className="text-sm">
-                            {row[key] || '—'}
+                            {row[key] != null ? String(row[key]) : '—'}
                           </TableCell>
                         ))}
                       </TableRow>

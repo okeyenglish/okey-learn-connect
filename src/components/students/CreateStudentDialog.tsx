@@ -23,6 +23,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { getCurrentOrganizationId } from '@/lib/organizationHelpers';
 
+// Type definitions
+type StudentGender = 'male' | 'female' | '';
+type StudentStatus = 'active' | 'trial' | 'not_started' | 'inactive' | 'on_pause';
+
 // Валидационная схема с использованием zod
 const studentSchema = z.object({
   firstName: z.string()
@@ -259,11 +263,12 @@ export function CreateStudentDialog({ open, onOpenChange }: CreateStudentDialogP
       setAvatarPreview('');
       setActiveTab('basic');
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Create student error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Не удалось добавить ученика';
       toast({
         title: 'Ошибка',
-        description: error?.message || 'Не удалось добавить ученика',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -395,7 +400,7 @@ export function CreateStudentDialog({ open, onOpenChange }: CreateStudentDialogP
                       <Label htmlFor="gender">Пол</Label>
                       <Select
                         value={watch('gender')}
-                        onValueChange={(value) => setValue('gender', value as any)}
+                        onValueChange={(value) => setValue('gender', value as StudentGender)}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Выберите пол" />
@@ -482,7 +487,7 @@ export function CreateStudentDialog({ open, onOpenChange }: CreateStudentDialogP
                       <Label htmlFor="status">Статус *</Label>
                       <Select
                         value={watch('status')}
-                        onValueChange={(value) => setValue('status', value as any)}
+                        onValueChange={(value) => setValue('status', value as StudentStatus)}
                       >
                         <SelectTrigger>
                           <SelectValue />
