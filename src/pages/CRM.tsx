@@ -61,6 +61,7 @@ import { GroupsModal } from "@/components/learning-groups/GroupsModal";
 import { IndividualLessonsModal } from "@/components/individual-lessons/IndividualLessonsModal";
 import { MobileChatNavigation } from "@/components/crm/MobileChatNavigation";
 import { MobileNewChatModal } from "@/components/crm/MobileNewChatModal";
+import { AddEmployeeModal } from "@/components/employees/AddEmployeeModal";
 import { EducationSubmenu } from "@/components/learning-groups/EducationSubmenu";
 import { usePinnedModalsDB, PinnedModal } from "@/hooks/usePinnedModalsDB";
 import { useChatStatesDB } from "@/hooks/useChatStatesDB";
@@ -214,6 +215,8 @@ const CRMContent = () => {
     setIsManualModalOpen,
     showWhatsAppSessionsModal,
     setShowWhatsAppSessionsModal,
+    showAddEmployeeModal,
+    setShowAddEmployeeModal,
   } = modals;
 
   const {
@@ -1677,6 +1680,10 @@ const CRMContent = () => {
 
   const handleMobileNewChatClick = () => {
     setShowNewChatModal(true);
+  };
+
+  const handleMobileEmployeeClick = () => {
+    setShowAddEmployeeModal(true);
   };
 
   // Обработчики для закрепления модальных окон
@@ -4064,6 +4071,7 @@ const CRMContent = () => {
           onClientsClick={handleMobileClientsClick}
           onCommunitiesClick={handleMobileCommunitiesClick}
           onNewChatClick={handleMobileNewChatClick}
+          onEmployeeClick={handleMobileEmployeeClick}
           corporateUnreadCount={corporateChats?.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0) || 0}
           teachersUnreadCount={teacherChats?.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0) || 0}
           clientsUnreadCount={threads?.filter((t: any) => t.unread_count > 0).length || 0}
@@ -4096,6 +4104,12 @@ const CRMContent = () => {
         onOpenChange={setShowNewChatModal}
         onCreateChat={handleCreateNewChat}
         onExistingClientFound={handleExistingClientFound}
+      />
+
+      {/* Модальное окно добавления сотрудника */}
+      <AddEmployeeModal
+        open={showAddEmployeeModal}
+        onOpenChange={setShowAddEmployeeModal}
       />
 
       {/* Модальное окно расписания */}

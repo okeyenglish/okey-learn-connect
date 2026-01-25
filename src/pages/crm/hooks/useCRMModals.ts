@@ -18,6 +18,7 @@ export const useCRMModals = () => {
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [showWhatsAppSessionsModal, setShowWhatsAppSessionsModal] = useState(false);
+  const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
 
   return {
     openModal,
@@ -54,5 +55,7 @@ export const useCRMModals = () => {
     setIsManualModalOpen,
     showWhatsAppSessionsModal,
     setShowWhatsAppSessionsModal,
+    showAddEmployeeModal,
+    setShowAddEmployeeModal,
   };
 };

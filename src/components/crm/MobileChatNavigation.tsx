@@ -13,6 +13,7 @@ interface MobileChatNavigationProps {
   onNewChatClick: () => void;
   onPaymentClick?: () => void;
   onTaskClick?: () => void;
+  onEmployeeClick?: () => void;
   corporateUnreadCount?: number;
   teachersUnreadCount?: number;
   clientsUnreadCount?: number;
@@ -28,6 +29,7 @@ export const MobileChatNavigation = ({
   onNewChatClick,
   onPaymentClick,
   onTaskClick,
+  onEmployeeClick,
   corporateUnreadCount = 0,
   teachersUnreadCount = 0,
   clientsUnreadCount = 0,
@@ -103,7 +105,7 @@ export const MobileChatNavigation = ({
     { icon: QrCode, label: 'Веб-вход', onClick: () => setShowQRScanner(true) },
     { icon: CreditCard, label: 'Оплата', onClick: onPaymentClick },
     { icon: ListTodo, label: 'Задача', onClick: onTaskClick },
-    { icon: Briefcase, label: 'Сотрудник', onClick: onNewChatClick },
+    { icon: Briefcase, label: 'Сотрудник', onClick: onEmployeeClick },
     { icon: UserPlus, label: 'Клиент', onClick: onNewChatClick },
   ];
 
