@@ -9,31 +9,36 @@ export default function TeacherPortalTest() {
     queryKey: ['teacher-portal-test'],
     queryFn: async () => {
       // Check teachers with names
-      const { data: teachers } = await (supabase.from('teachers' as any) as any)
+      const { data: teachers } = await supabase
+        .from('teachers')
         .select('*')
         .not('first_name', 'is', null)
         .neq('first_name', '');
       
       // Check groups with teachers
-      const { data: groups } = await (supabase.from('learning_groups' as any) as any)
+      const { data: groups } = await supabase
+        .from('learning_groups')
         .select('*')
         .not('responsible_teacher', 'is', null)
         .neq('responsible_teacher', '');
       
       // Check lesson sessions with teachers
-      const { data: sessions } = await (supabase.from('lesson_sessions' as any) as any)
+      const { data: sessions } = await supabase
+        .from('lesson_sessions')
         .select('*')
         .not('teacher_name', 'is', null)
         .neq('teacher_name', '')
         .neq('teacher_name', 'Преподаватель не назначен');
       
       // Check profile-teacher links
-      const { data: linkedProfiles } = await (supabase.from('teachers' as any) as any)
+      const { data: linkedProfiles } = await supabase
+        .from('teachers')
         .select('id, profile_id, first_name, last_name')
         .not('profile_id', 'is', null);
       
       // Check if there are profiles with teacher role
-      const { data: teacherProfiles } = await (supabase.from('user_roles' as any) as any)
+      const { data: teacherProfiles } = await supabase
+        .from('user_roles')
         .select('user_id, role')
         .eq('role', 'teacher');
       

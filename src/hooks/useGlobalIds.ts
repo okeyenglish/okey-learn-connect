@@ -17,7 +17,7 @@ export const useGlobalMapping = (entityType: string, localId: string) => {
     queryKey: ['global-mapping', entityType, localId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('global_entity_mappings' as any)
+        .from('global_entity_mappings')
         .select('*')
         .eq('entity_type', entityType)
         .eq('local_id', localId)
@@ -37,7 +37,7 @@ export const useGlobalMappings = (filters?: {
   return useQuery({
     queryKey: ['global-mappings', filters],
     queryFn: async () => {
-      let query = supabase.from('global_entity_mappings' as any).select('*');
+      let query = supabase.from('global_entity_mappings').select('*');
 
       if (filters?.entity_type) {
         query = query.eq('entity_type', filters.entity_type);
@@ -64,7 +64,7 @@ export const useCreateGlobalMapping = () => {
       organization_id: string;
     }) => {
       const { data, error } = await supabase
-        .from('global_entity_mappings' as any)
+        .from('global_entity_mappings')
         .insert(params)
         .select()
         .single();

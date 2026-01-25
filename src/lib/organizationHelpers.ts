@@ -11,7 +11,8 @@ export const getCurrentOrganizationId = async (): Promise<string> => {
     throw new Error('User not authenticated');
   }
 
-  const { data: profile, error } = await (supabase.from('profiles' as any) as any)
+  const { data: profile, error } = await supabase
+    .from('profiles')
     .select('organization_id')
     .eq('id', user.id)
     .single();

@@ -23,14 +23,15 @@ export default function Leads() {
   const { data: leads, isLoading, refetch } = useQuery({
     queryKey: ["leads", filters, search],
     queryFn: async () => {
-      let query = (supabase.from("leads" as any) as any)
+      let query = supabase
+        .from('leads')
         .select(`
           *,
           lead_source:lead_sources(name),
           status:lead_statuses(name, color, slug),
           assigned:profiles!leads_assigned_to_fkey(first_name, last_name)
         `)
-        .order("created_at", { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (search) {
         query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`);

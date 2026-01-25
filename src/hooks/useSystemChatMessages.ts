@@ -24,8 +24,8 @@ export const useSystemChatMessages = () => {
     queryKey: ['system-chats', 'corporate'],
     queryFn: async () => {
       // Get corporate chat clients only
-      const { data: clients, error: clientsError } = await (supabase
-        .from('clients' as any) as any)
+      const { data: clients, error: clientsError } = await supabase
+        .from('clients')
         .select('id, name, branch')
         .or('name.ilike.%Корпоративный чат%,name.ilike.%Чат педагогов%')
         .order('updated_at', { ascending: false });
@@ -34,17 +34,17 @@ export const useSystemChatMessages = () => {
 
       // Get latest message for each client
       const chatData = await Promise.all(
-        (clients || []).map(async (client: any) => {
-          const { data: lastMsg } = await (supabase
-            .from('chat_messages' as any) as any)
+        (clients || []).map(async (client) => {
+          const { data: lastMsg } = await supabase
+            .from('chat_messages')
             .select('message_text, created_at, is_read')
             .eq('client_id', client.id)
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
 
-          const { count: unreadCount } = await (supabase
-            .from('chat_messages' as any) as any)
+          const { count: unreadCount } = await supabase
+            .from('chat_messages')
             .select('*', { count: 'exact', head: true })
             .eq('client_id', client.id)
             .eq('is_read', false)

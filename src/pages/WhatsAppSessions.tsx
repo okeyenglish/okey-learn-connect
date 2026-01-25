@@ -82,19 +82,20 @@ const WhatsAppSessions = () => {
         throw new Error('Пользователь не авторизован');
       }
 
-      const { data: profile, error: profileError } = await (supabase.from('profiles' as any) as any)
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
         .select('organization_id')
         .eq('id', user.id)
         .single();
 
       if (profileError) throw profileError;
-      const profileData = profile as any;
-      if (!profileData?.organization_id) {
+      if (!profile?.organization_id) {
         throw new Error('Организация не найдена');
       }
 
       // Fetch sessions only for user's organization
-      const { data, error } = await (supabase.from('whatsapp_sessions' as any) as any)
+      const { data, error } = await supabase
+        .from('whatsapp_sessions')
         .select(`
           id,
           session_name,
@@ -106,7 +107,7 @@ const WhatsAppSessions = () => {
           last_qr_at,
           organizations(name)
         `)
-        .eq('organization_id', profileData.organization_id)
+        .eq('organization_id', profile.organization_id)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;

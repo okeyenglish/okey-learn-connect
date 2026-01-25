@@ -307,8 +307,20 @@ export interface ClientPhoneNumber {
   id: string;
   client_id: string;
   phone: string;
+  phone_type?: string | null;
   is_primary: boolean;
+  is_whatsapp_enabled?: boolean;
+  is_telegram_enabled?: boolean;
+  whatsapp_chat_id?: string | null;
+  telegram_chat_id?: string | null;
+  telegram_user_id?: number | null;
+  max_chat_id?: string | null;
+  max_user_id?: number | null;
+  whatsapp_avatar_url?: string | null;
+  telegram_avatar_url?: string | null;
+  max_avatar_url?: string | null;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface AuditLog {
@@ -349,7 +361,11 @@ export interface CallLog {
 export interface PendingGPTResponse {
   id: string;
   client_id: string;
+  suggested_response?: string | null;
+  messages_context?: string | null;
   status: string | null;
+  approved_at?: string | null;
+  approved_by?: string | null;
   created_at: string;
 }
 
@@ -366,14 +382,176 @@ export interface Payment {
   id: string;
   client_id: string | null;
   student_id: string | null;
+  group_id?: string | null;
   amount: number;
   status: string;
   description: string | null;
   payment_method: string | null;
   method?: string | null;
   payment_date?: string | null;
+  lessons_count?: number | null;
   created_at: string;
   updated_at: string;
+}
+
+// ============ Дополнительные таблицы ============
+
+export interface WhatsAppSession {
+  id: string;
+  session_id: string;
+  status: string;
+  qr_code?: string | null;
+  organization_id: string | null;
+  branch?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface SearchConsoleQuery {
+  id: string;
+  organization_id: string;
+  query: string;
+  position?: number | null;
+  clicks?: number | null;
+  impressions?: number | null;
+  ctr?: number | null;
+  date?: string | null;
+  created_at: string;
+}
+
+export interface TeacherEarning {
+  id: string;
+  teacher_id: string;
+  session_id?: string | null;
+  individual_session_id?: string | null;
+  amount: number;
+  status: string;
+  paid_at?: string | null;
+  created_at: string;
+}
+
+export interface TeacherRate {
+  id: string;
+  teacher_id: string;
+  rate_type: string;
+  amount: number;
+  subject?: string | null;
+  level?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface BalanceTransaction {
+  id: string;
+  student_id?: string | null;
+  family_group_id?: string | null;
+  amount: number;
+  transaction_type: string;
+  description?: string | null;
+  reference_id?: string | null;
+  reference_type?: string | null;
+  created_by?: string | null;
+  created_at: string;
+}
+
+export interface FamilyLedger {
+  id: string;
+  family_group_id: string;
+  balance: number;
+  updated_at: string;
+}
+
+export interface FamilyLedgerTransaction {
+  id: string;
+  family_group_id: string;
+  amount: number;
+  transaction_type: string;
+  description?: string | null;
+  reference_id?: string | null;
+  created_by?: string | null;
+  created_at: string;
+}
+
+export interface TypingStatus {
+  id: string;
+  user_id: string;
+  client_id: string;
+  is_typing: boolean;
+  updated_at: string;
+}
+
+export interface MessageReadStatus {
+  id: string;
+  message_id: string;
+  user_id: string;
+  user_name?: string | null;
+  read_at: string;
+}
+
+export interface MessageReaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  user_type: string;
+  emoji: string;
+  created_at: string;
+}
+
+export interface ClientBranch {
+  id: string;
+  client_id: string;
+  branch: string;
+  created_at: string;
+}
+
+export interface CourseUnit {
+  id: string;
+  course_id: string;
+  title: string;
+  description?: string | null;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface Lesson {
+  id: string;
+  unit_id: string;
+  title: string;
+  description?: string | null;
+  duration_minutes?: number | null;
+  sort_order: number;
+  materials?: Json | null;
+  created_at: string;
+}
+
+export interface PushSubscription {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  keys: Json;
+  user_agent?: string | null;
+  created_at: string;
+}
+
+export interface UserPermission {
+  id: string;
+  user_id: string;
+  permission: string;
+  granted_by?: string | null;
+  created_at: string;
+}
+
+export interface EventOutbox {
+  id: string;
+  event_type: string;
+  aggregate_type: string;
+  aggregate_id: string;
+  payload: Json;
+  status: string;
+  organization_id?: string | null;
+  processed_at?: string | null;
+  created_at: string;
 }
 
 export interface LearningGroup {
@@ -959,14 +1137,179 @@ export interface CustomDatabase {
         Insert: Partial<Segment>;
         Update: Partial<Segment>;
       };
+      // Новые таблицы
+      whatsapp_sessions: {
+        Row: WhatsAppSession;
+        Insert: Partial<WhatsAppSession>;
+        Update: Partial<WhatsAppSession>;
+      };
+      search_console_queries: {
+        Row: SearchConsoleQuery;
+        Insert: Partial<SearchConsoleQuery>;
+        Update: Partial<SearchConsoleQuery>;
+      };
+      teacher_earnings: {
+        Row: TeacherEarning;
+        Insert: Partial<TeacherEarning>;
+        Update: Partial<TeacherEarning>;
+      };
+      teacher_rates: {
+        Row: TeacherRate;
+        Insert: Partial<TeacherRate>;
+        Update: Partial<TeacherRate>;
+      };
+      balance_transactions: {
+        Row: BalanceTransaction;
+        Insert: Partial<BalanceTransaction>;
+        Update: Partial<BalanceTransaction>;
+      };
+      family_ledger: {
+        Row: FamilyLedger;
+        Insert: Partial<FamilyLedger>;
+        Update: Partial<FamilyLedger>;
+      };
+      family_ledger_transactions: {
+        Row: FamilyLedgerTransaction;
+        Insert: Partial<FamilyLedgerTransaction>;
+        Update: Partial<FamilyLedgerTransaction>;
+      };
+      typing_status: {
+        Row: TypingStatus;
+        Insert: Partial<TypingStatus>;
+        Update: Partial<TypingStatus>;
+      };
+      message_read_status: {
+        Row: MessageReadStatus;
+        Insert: Partial<MessageReadStatus>;
+        Update: Partial<MessageReadStatus>;
+      };
+      message_reactions: {
+        Row: MessageReaction;
+        Insert: Partial<MessageReaction>;
+        Update: Partial<MessageReaction>;
+      };
+      client_branches: {
+        Row: ClientBranch;
+        Insert: Partial<ClientBranch>;
+        Update: Partial<ClientBranch>;
+      };
+      course_units: {
+        Row: CourseUnit;
+        Insert: Partial<CourseUnit>;
+        Update: Partial<CourseUnit>;
+      };
+      lessons: {
+        Row: Lesson;
+        Insert: Partial<Lesson>;
+        Update: Partial<Lesson>;
+      };
+      push_subscriptions: {
+        Row: PushSubscription;
+        Insert: Partial<PushSubscription>;
+        Update: Partial<PushSubscription>;
+      };
+      user_permissions: {
+        Row: UserPermission;
+        Insert: Partial<UserPermission>;
+        Update: Partial<UserPermission>;
+      };
+      event_outbox: {
+        Row: EventOutbox;
+        Insert: Partial<EventOutbox>;
+        Update: Partial<EventOutbox>;
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
       get_public_schedule: {
-        Args: { branch_name: string };
+        Args: { branch_name: string | null };
         Returns: GetPublicScheduleResult[];
+      };
+      get_user_role: {
+        Args: { _user_id: string };
+        Returns: string | null;
+      };
+      get_user_roles: {
+        Args: { _user_id: string };
+        Returns: string[];
+      };
+      has_role: {
+        Args: { _user_id: string; _role: AppRole };
+        Returns: boolean;
+      };
+      get_message_read_status: {
+        Args: { p_message_id: string };
+        Returns: MessageReadStatus[];
+      };
+      mark_message_as_read: {
+        Args: { p_message_id: string };
+        Returns: void;
+      };
+      mark_chat_messages_as_read: {
+        Args: { p_client_id: string };
+        Returns: void;
+      };
+      mark_chat_messages_as_read_by_messenger: {
+        Args: { p_client_id: string; p_messenger_type: string };
+        Returns: void;
+      };
+      unified_crm_search: {
+        Args: { p_org_id: string; p_query: string; p_limit?: number };
+        Returns: Json;
+      };
+      fast_search_clients: {
+        Args: { p_query: string; p_limit?: number };
+        Returns: Json;
+      };
+      get_family_data_optimized: {
+        Args: { p_family_group_id: string };
+        Returns: Json;
+      };
+      bulk_charge_tuition: {
+        Args: { p_filters: Json; p_amount: number; p_description?: string };
+        Returns: Json;
+      };
+      bulk_generate_invoices: {
+        Args: { p_filters: Json; p_due_days?: number };
+        Returns: Json;
+      };
+      topup_organization_balance: {
+        Args: { p_organization_id: string; p_amount: number; p_description?: string };
+        Returns: Json;
+      };
+      manual_compensate_payment: {
+        Args: { p_payment_id: string; p_reason?: string };
+        Returns: Json;
+      };
+      check_group_permission: {
+        Args: { p_user_id: string; p_group_id: string; p_permission: string };
+        Returns: boolean;
+      };
+      publish_event: {
+        Args: { p_event_type: string; p_aggregate_type: string; p_aggregate_id: string; p_payload: Json; p_organization_id?: string };
+        Returns: string;
+      };
+      process_pending_events: {
+        Args: { p_limit?: number };
+        Returns: number;
+      };
+      refresh_all_materialized_views: {
+        Args: Record<string, never>;
+        Returns: void;
+      };
+      get_campaign_recipients: {
+        Args: { p_campaign_id: string };
+        Returns: Json;
+      };
+      get_user_permissions: {
+        Args: { _user_id: string };
+        Returns: Record<string, boolean>;
+      };
+      count_clients_without_imported_messages: {
+        Args: { p_org_id: string };
+        Returns: number;
       };
     };
     Enums: {
