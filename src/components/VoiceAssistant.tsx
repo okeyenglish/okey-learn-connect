@@ -640,7 +640,7 @@ export default function VoiceAssistant({
             {messages.length === 0 && (
               <div className="text-center text-muted-foreground py-8">
                 <div className="flex justify-center mb-4">
-                  <AnimatedLogo size={80} isActive={isRecording || isProcessing || isSpeaking} />
+                  <AnimatedLogo size={120} isActive={isRecording || isProcessing || isSpeaking} />
                 </div>
                 <p className="text-sm">Привет! Я ваш AI-ассистент.</p>
                 <p className="text-xs mt-1">Напишите сообщение или нажмите на микрофон</p>
@@ -803,7 +803,7 @@ export default function VoiceAssistant({
           {messages.length === 0 && (
             <div className="text-center text-muted-foreground py-8">
               <div className="flex justify-center mb-4">
-                <AnimatedLogo size={80} isActive={isRecording || isProcessing || isSpeaking} />
+                <AnimatedLogo size={120} isActive={isRecording || isProcessing || isSpeaking} />
               </div>
               <p className="text-sm">Привет! Я ваш AI-ассистент.</p>
               <p className="text-xs mt-1">Напишите сообщение или нажмите на микрофон</p>
