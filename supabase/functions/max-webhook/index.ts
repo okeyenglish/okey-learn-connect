@@ -1,6 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
 import { 
+  corsHeaders,
   handleCors, 
+  successResponse,
+  errorResponse,
   getErrorMessage,
   type MaxWebhookPayload,
   type MaxWebhookInstanceData,
@@ -8,11 +11,6 @@ import {
   type MaxWebhookMessageData,
   type MaxWebhookType
 } from '../_shared/types.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 const DEFAULT_GREEN_API_URL = 'https://api.green-api.com';
 const GREEN_API_URL =
@@ -47,10 +45,7 @@ Deno.serve(async (req) => {
 
     if (settingsError) {
       console.error('Error fetching messenger settings:', settingsError);
-      return new Response(JSON.stringify({ error: 'Settings error' }), { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      });
+      return errorResponse('Settings error', 500);
     }
 
     // Find matching organization by instanceId
@@ -62,9 +57,7 @@ Deno.serve(async (req) => {
     if (!matchingSettings) {
       console.error(`No organization found for MAX instanceId: ${instanceId}`);
       // Return 200 to prevent Green API from retrying
-      return new Response(JSON.stringify({ status: 'ignored', reason: 'unknown instance' }), { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      });
+      return successResponse({ status: 'ignored', reason: 'unknown instance' });
     }
 
     const organizationId = matchingSettings.organization_id;
@@ -95,16 +88,11 @@ Deno.serve(async (req) => {
         console.log('Unknown webhook type:', typeWebhook);
     }
 
-    return new Response(JSON.stringify({ success: true }), { 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-    });
+    return successResponse({ success: true });
 
   } catch (error: unknown) {
     console.error('Error processing MAX webhook:', error);
-    return new Response(JSON.stringify({ error: getErrorMessage(error) }), { 
-      status: 500, 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-    });
+    return errorResponse(getErrorMessage(error), 500);
   }
 });
 

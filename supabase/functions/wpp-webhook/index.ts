@@ -1,12 +1,15 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1'
 import { createHmac } from "https://deno.land/std@0.168.0/node/crypto.ts"
+import { 
+  corsHeaders,
+  handleCors,
+  successResponse,
+  errorResponse,
+  getErrorMessage,
+  type WPPWebhookEvent,
+  type WPPMessageData,
+} from '../_shared/types.ts'
 import { extractOrgIdFromSession } from './helpers.ts'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-wpp-signature',
-}
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -28,10 +31,9 @@ async function isValidSignature(signature: string, rawBody: string): Promise<boo
   return signature === expectedSignature
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
-  }
+Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const rawBody = await req.text()
@@ -46,11 +48,11 @@ serve(async (req) => {
       const signature = req.headers.get('x-wpp-signature') || ''
       const validSignature = await isValidSignature(signature, rawBody)
       if (!validSignature) {
-        return new Response('Invalid signature', { status: 401, headers: corsHeaders })
+        return errorResponse('Invalid signature', 401)
       }
     }
 
-    const event = JSON.parse(rawBody)
+    const event: WPPWebhookEvent = JSON.parse(rawBody)
     
     console.log('WPP Webhook received:', event.type || event.event)
 
@@ -126,24 +128,15 @@ serve(async (req) => {
         console.log('Event handled:', msgEvent)
     }
 
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    return successResponse({ ok: true })
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('WPP Webhook error:', error)
-    
-    return new Response(JSON.stringify({ 
-      ok: false, 
-      error: (error as any)?.message 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    return errorResponse(getErrorMessage(error), 500)
   }
 })
 
-async function handleIncomingMessage(data: any) {
+async function handleIncomingMessage(data: WPPMessageData) {
   const { from, text, media, timestamp, id, body, fromMe, session } = data
   
   if (!from) {
@@ -158,15 +151,15 @@ async function handleIncomingMessage(data: any) {
   console.log('Processing message from:', phone, 'isFromMe:', isFromMe)
   
   // Determine organization_id from event context
-  let organizationId = extractOrgIdFromSession(session || data.sessionName)
+  let organizationId = extractOrgIdFromSession(session || (data as any).sessionName)
   
   // Try to find by Green-API instance ID
-  if (!organizationId && data.instanceData?.idInstance) {
-    console.log('Looking up organization by idInstance:', data.instanceData.idInstance)
+  if (!organizationId && (data as any).instanceData?.idInstance) {
+    console.log('Looking up organization by idInstance:', (data as any).instanceData.idInstance)
     const { data: settings } = await supabase
       .from('messenger_settings')
       .select('organization_id')
-      .eq('green_api_instance_id', data.instanceData.idInstance)
+      .eq('green_api_instance_id', (data as any).instanceData.idInstance)
       .maybeSingle()
     organizationId = settings?.organization_id
   }
@@ -237,7 +230,7 @@ async function handleIncomingMessage(data: any) {
     .eq('id', client.id)
 
   // Also update whatsapp_chat_id in client_phone_numbers if phone matches
-  await updatePhoneNumberMessengerData(supabase, client.id, {
+  await updatePhoneNumberMessengerData(client.id, {
     phone: phone,
     whatsappChatId: `${phone}@c.us`
   })
@@ -269,7 +262,7 @@ async function handleIncomingMessage(data: any) {
       messenger_type: 'whatsapp',
       file_url: media?.url || null,
       file_name: media?.fileName || null,
-      file_type: media?.mime ? getFileTypeFromMime(media.mime) : null,
+      file_type: media?.mime || media?.mimetype ? getFileTypeFromMime(media?.mime || media?.mimetype || '') : null,
       webhook_id: id || null,
     })
 
@@ -280,8 +273,9 @@ async function handleIncomingMessage(data: any) {
   }
 }
 
-async function handleMessageStatus(data: any) {
-  const { id, status } = data
+async function handleMessageStatus(data: WPPMessageData) {
+  const { id } = data
+  const status = (data as any).status
   
   if (!id) return
 
@@ -301,7 +295,6 @@ function getFileTypeFromMime(mime: string): string {
 
 // Helper function to update messenger data in client_phone_numbers
 async function updatePhoneNumberMessengerData(
-  supabase: any,
   clientId: string,
   data: { phone?: string | null; whatsappChatId?: string | null }
 ): Promise<void> {
