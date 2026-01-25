@@ -2,6 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from './useAuth';
 
+export interface OrganizationBranding {
+  companyName?: string;
+  logoUrl?: string;
+  faviconUrl?: string;
+}
+
 export interface Organization {
   id: string;
   name: string;
@@ -10,7 +16,7 @@ export interface Organization {
   status: string;
   plan_type: string;
   settings: Record<string, unknown> | null;
-  branding: Record<string, unknown> | null;
+  branding: OrganizationBranding | null;
   max_students: number | null;
   max_users: number | null;
   max_branches: number | null;
