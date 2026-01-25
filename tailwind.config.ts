@@ -40,34 +40,41 @@ export default {
           DEFAULT: "hsl(var(--brand))",
           600: "hsl(var(--brand-600))",
           500: "hsl(var(--brand-500))",
+          400: "hsl(var(--brand-400))",
           100: "hsl(var(--brand-100))",
+          50: "hsl(var(--brand-50))",
         },
         
-        /* Status colors */
+        /* Status colors — мягкие, не агрессивные */
         success: {
           DEFAULT: "hsl(var(--success))",
           600: "hsl(var(--success-600))",
           100: "hsl(var(--success-100))",
+          50: "hsl(var(--success-50))",
         },
         warning: {
           DEFAULT: "hsl(var(--warning))",
           600: "hsl(var(--warning-600))",
           100: "hsl(var(--warning-100))",
+          50: "hsl(var(--warning-50))",
         },
         danger: {
           DEFAULT: "hsl(var(--danger))",
           600: "hsl(var(--danger-600))",
           100: "hsl(var(--danger-100))",
+          50: "hsl(var(--danger-50))",
         },
         info: {
           DEFAULT: "hsl(var(--info))",
           600: "hsl(var(--info-600))",
           100: "hsl(var(--info-100))",
+          50: "hsl(var(--info-50))",
         },
         neutral: {
           DEFAULT: "hsl(var(--neutral))",
           500: "hsl(var(--neutral-500))",
           100: "hsl(var(--neutral-100))",
+          50: "hsl(var(--neutral-50))",
         },
         
         primary: {

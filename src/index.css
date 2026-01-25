@@ -31,15 +31,19 @@ body.scanner-active #root {
   background: transparent !important;
 }
 
-/* O'KEY ENGLISH Design System - All colors MUST be HSL */
+/* AcademyOS Design System
+   Ключевое ощущение: спокойствие, надёжность, ясность
+   Стиль: современный SaaS / infrastructure product
+   All colors MUST be HSL */
 
 @layer base {
   :root {
     /* === Surfaces & Backgrounds === */
+    /* Много воздуха, чистота */
     --bg: 0 0% 100%;
     --bg-soft: 220 20% 98%;
     --surface: 0 0% 100%;
-    --surface-alt: 220 20% 97%;
+    --surface-alt: 220 14% 96%;
     
     /* Backward compatibility */
     --background: 0 0% 100%;
@@ -47,180 +51,199 @@ body.scanner-active #root {
     --popover: 0 0% 100%;
     
     /* === Text Colors === */
-    --text-primary: 220 15% 20%;
-    --text-secondary: 220 10% 45%;
-    --text-muted: 220 8% 60%;
+    /* Хорошо читаемая типографика */
+    --text-primary: 220 25% 18%;
+    --text-secondary: 220 12% 42%;
+    --text-muted: 220 10% 56%;
     
-    --foreground: 220 15% 20%;
-    --card-foreground: 220 15% 20%;
-    --popover-foreground: 220 15% 20%;
+    --foreground: 220 25% 18%;
+    --card-foreground: 220 25% 18%;
+    --popover-foreground: 220 25% 18%;
     
     /* === Brand Colors === */
-    --brand: 0 84% 60%;
-    --brand-600: 0 84% 52%;
-    --brand-500: 0 84% 60%;
-    --brand-100: 0 84% 96%;
+    /* Спокойный глубокий синий — надёжность, ясность */
+    --brand: 217 72% 48%;
+    --brand-600: 217 72% 42%;
+    --brand-500: 217 72% 48%;
+    --brand-400: 217 72% 56%;
+    --brand-100: 217 72% 95%;
+    --brand-50: 217 72% 97%;
     
-    /* Primary stays same for compatibility */
-    --primary: 0 84% 60%;
+    /* Primary = brand синий */
+    --primary: 217 72% 48%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 0 84% 52%;
+    --primary-hover: 217 72% 42%;
     
     /* === Status Colors === */
-    --success: 142 76% 36%;
-    --success-600: 142 76% 36%;
-    --success-100: 142 76% 95%;
+    /* Success: мягкий зелёный — "всё хорошо", "можно двигаться дальше" */
+    --success: 152 60% 42%;
+    --success-600: 152 60% 36%;
+    --success-100: 152 60% 94%;
+    --success-50: 152 60% 97%;
     
-    --warning: 38 92% 50%;
-    --warning-600: 38 92% 50%;
-    --warning-100: 38 92% 95%;
+    /* Warning: тёплый приглушённый оранжевый — подсказка, внимание */
+    --warning: 32 75% 50%;
+    --warning-600: 32 75% 44%;
+    --warning-100: 32 75% 94%;
+    --warning-50: 32 75% 97%;
     
-    --danger: 0 84% 60%;
-    --danger-600: 0 84% 60%;
-    --danger-100: 0 84% 96%;
+    /* Danger/Error: мягкий красный — только для реальных ошибок, редко */
+    --danger: 0 65% 55%;
+    --danger-600: 0 65% 48%;
+    --danger-100: 0 65% 95%;
+    --danger-50: 0 65% 97%;
     
-    --info: 217 91% 60%;
-    --info-600: 217 91% 60%;
-    --info-100: 217 91% 96%;
+    /* Info: голубой — нейтральная информация */
+    --info: 200 80% 50%;
+    --info-600: 200 80% 44%;
+    --info-100: 200 80% 94%;
+    --info-50: 200 80% 97%;
     
-    --neutral: 220 10% 50%;
-    --neutral-500: 220 10% 50%;
-    --neutral-100: 220 10% 95%;
+    /* Neutral: серый */
+    --neutral: 220 12% 50%;
+    --neutral-500: 220 12% 50%;
+    --neutral-100: 220 12% 94%;
+    --neutral-50: 220 12% 97%;
     
     /* === Secondary & Accent === */
-    --secondary: 220 20% 96%;
-    --secondary-foreground: 220 15% 20%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 25% 18%;
     
-    --accent: 220 15% 94%;
-    --accent-foreground: 220 15% 20%;
+    --accent: 217 72% 95%;
+    --accent-foreground: 217 72% 42%;
     
-    --muted: 220 15% 96%;
-    --muted-foreground: 220 10% 45%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 12% 42%;
     
-    --destructive: 0 84% 60%;
+    /* Destructive использовать редко */
+    --destructive: 0 65% 55%;
     --destructive-foreground: 0 0% 100%;
     
     /* === Borders & Inputs === */
-    --border: 220 13% 91%;
-    --border-alpha: 220 13% 50% / 0.12;
-    --input: 220 13% 91%;
-    --ring: 0 84% 60%;
+    --border: 220 14% 90%;
+    --border-alpha: 220 14% 50% / 0.12;
+    --input: 220 14% 90%;
+    --ring: 217 72% 48%;
     
     /* === Elevation Shadows === */
-    --elev-1: 0 1px 4px hsl(220 15% 20% / 0.1);
-    --elev-2: 0 4px 16px hsl(220 15% 20% / 0.12);
-    --elev-3: 0 8px 32px hsl(220 15% 20% / 0.16);
+    /* Мягкие тени для карточек */
+    --elev-1: 0 1px 3px hsl(220 25% 18% / 0.06), 0 1px 2px hsl(220 25% 18% / 0.04);
+    --elev-2: 0 4px 12px hsl(220 25% 18% / 0.08), 0 2px 4px hsl(220 25% 18% / 0.04);
+    --elev-3: 0 8px 24px hsl(220 25% 18% / 0.10), 0 4px 8px hsl(220 25% 18% / 0.06);
     
     /* === Radii === */
-    --radius-sm: 4px;
-    --radius: 8px;
-    --radius-md: 12px;
+    --radius-sm: 6px;
+    --radius: 10px;
+    --radius-md: 14px;
     --radius-lg: 20px;
     
     /* === Avatar Colors === */
-    --avatar-blue: 213 90% 88%;
-    --avatar-purple: 220 35% 62%;
+    --avatar-blue: 217 72% 92%;
+    --avatar-purple: 260 50% 70%;
     
     /* === Animations === */
     --transition-fast: all 120ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-base: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-smooth: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: all 280ms cubic-bezier(0.4, 0, 0.2, 1);
     
     /* === Sidebar === */
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 220 15% 20%;
-    --sidebar-primary: 0 84% 60%;
+    --sidebar-background: 220 14% 98%;
+    --sidebar-foreground: 220 25% 18%;
+    --sidebar-primary: 217 72% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 94%;
-    --sidebar-accent-foreground: 220 15% 20%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 0 84% 60%;
+    --sidebar-accent: 217 72% 95%;
+    --sidebar-accent-foreground: 217 72% 42%;
+    --sidebar-border: 220 14% 92%;
+    --sidebar-ring: 217 72% 48%;
   }
 
   .dark {
     /* === Surfaces & Backgrounds === */
-    --bg: 220 20% 10%;
-    --bg-soft: 220 20% 12%;
-    --surface: 220 20% 14%;
-    --surface-alt: 220 20% 16%;
+    --bg: 220 20% 8%;
+    --bg-soft: 220 18% 11%;
+    --surface: 220 18% 13%;
+    --surface-alt: 220 16% 16%;
     
-    --background: 220 20% 10%;
-    --card: 220 20% 14%;
-    --popover: 220 20% 14%;
+    --background: 220 20% 8%;
+    --card: 220 18% 13%;
+    --popover: 220 18% 13%;
     
     /* === Text Colors === */
-    --text-primary: 220 15% 95%;
-    --text-secondary: 220 10% 70%;
-    --text-muted: 220 8% 55%;
+    --text-primary: 220 14% 96%;
+    --text-secondary: 220 10% 72%;
+    --text-muted: 220 8% 56%;
     
-    --foreground: 220 15% 95%;
-    --card-foreground: 220 15% 95%;
-    --popover-foreground: 220 15% 95%;
+    --foreground: 220 14% 96%;
+    --card-foreground: 220 14% 96%;
+    --popover-foreground: 220 14% 96%;
     
     /* === Brand Colors === */
-    --brand: 0 84% 60%;
-    --brand-600: 0 84% 52%;
-    --brand-500: 0 84% 60%;
-    --brand-100: 0 84% 20%;
+    /* Спокойный синий в dark mode */
+    --brand: 217 72% 56%;
+    --brand-600: 217 72% 50%;
+    --brand-500: 217 72% 56%;
+    --brand-400: 217 72% 62%;
+    --brand-100: 217 72% 18%;
+    --brand-50: 217 72% 14%;
     
-    --primary: 0 84% 60%;
+    --primary: 217 72% 56%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 0 84% 52%;
+    --primary-hover: 217 72% 50%;
     
     /* === Status Colors === */
-    --success: 142 76% 45%;
-    --success-600: 142 76% 45%;
-    --success-100: 142 76% 20%;
+    --success: 152 60% 48%;
+    --success-600: 152 60% 42%;
+    --success-100: 152 60% 18%;
     
-    --warning: 38 92% 55%;
-    --warning-600: 38 92% 55%;
-    --warning-100: 38 92% 20%;
+    --warning: 32 75% 55%;
+    --warning-600: 32 75% 48%;
+    --warning-100: 32 75% 18%;
     
-    --danger: 0 84% 60%;
-    --danger-600: 0 84% 60%;
-    --danger-100: 0 84% 20%;
+    --danger: 0 65% 58%;
+    --danger-600: 0 65% 52%;
+    --danger-100: 0 65% 18%;
     
-    --info: 217 91% 65%;
-    --info-600: 217 91% 65%;
-    --info-100: 217 91% 20%;
+    --info: 200 80% 55%;
+    --info-600: 200 80% 48%;
+    --info-100: 200 80% 18%;
     
-    --neutral: 220 10% 50%;
-    --neutral-500: 220 10% 50%;
-    --neutral-100: 220 10% 20%;
+    --neutral: 220 12% 55%;
+    --neutral-500: 220 12% 55%;
+    --neutral-100: 220 12% 22%;
     
     /* === Secondary & Accent === */
-    --secondary: 220 20% 18%;
-    --secondary-foreground: 220 15% 90%;
+    --secondary: 220 18% 16%;
+    --secondary-foreground: 220 14% 92%;
     
-    --accent: 220 20% 20%;
-    --accent-foreground: 220 15% 90%;
+    --accent: 217 72% 18%;
+    --accent-foreground: 217 72% 70%;
     
-    --muted: 220 20% 16%;
+    --muted: 220 16% 16%;
     --muted-foreground: 220 10% 65%;
     
-    --destructive: 0 84% 60%;
+    --destructive: 0 65% 55%;
     --destructive-foreground: 0 0% 100%;
     
     /* === Borders & Inputs === */
-    --border: 220 13% 25%;
-    --border-alpha: 220 13% 70% / 0.12;
-    --input: 220 13% 25%;
-    --ring: 0 84% 60%;
+    --border: 220 14% 22%;
+    --border-alpha: 220 14% 70% / 0.12;
+    --input: 220 14% 22%;
+    --ring: 217 72% 56%;
     
     /* === Elevation Shadows === */
-    --elev-1: 0 1px 4px hsl(220 15% 5% / 0.3);
-    --elev-2: 0 4px 16px hsl(220 15% 5% / 0.4);
-    --elev-3: 0 8px 32px hsl(220 15% 5% / 0.5);
+    --elev-1: 0 1px 3px hsl(220 25% 4% / 0.25);
+    --elev-2: 0 4px 12px hsl(220 25% 4% / 0.35);
+    --elev-3: 0 8px 24px hsl(220 25% 4% / 0.45);
     
     /* === Sidebar === */
-    --sidebar-background: 220 20% 12%;
-    --sidebar-foreground: 220 15% 90%;
-    --sidebar-primary: 0 84% 60%;
+    --sidebar-background: 220 18% 10%;
+    --sidebar-foreground: 220 14% 92%;
+    --sidebar-primary: 217 72% 56%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 20% 18%;
-    --sidebar-accent-foreground: 220 15% 90%;
-    --sidebar-border: 220 13% 25%;
-    --sidebar-ring: 0 84% 60%;
+    --sidebar-accent: 217 72% 18%;
+    --sidebar-accent-foreground: 217 72% 70%;
+    --sidebar-border: 220 14% 22%;
+    --sidebar-ring: 217 72% 56%;
   }
 }
 
@@ -346,12 +369,13 @@ body.scanner-active #root {
   }
 
   /* === Gradients === */
+  /* Спокойные синие градиенты */
   .text-gradient {
-    @apply bg-gradient-to-r from-brand via-purple-600 to-blue-600 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-brand via-blue-500 to-cyan-500 bg-clip-text text-transparent;
   }
 
   .bg-gradient-primary {
-    @apply bg-gradient-to-r from-brand via-purple-600 to-blue-600;
+    @apply bg-gradient-to-r from-brand via-blue-500 to-cyan-500;
   }
 
   .bg-gradient-subtle {
@@ -359,7 +383,12 @@ body.scanner-active #root {
   }
 
   .bg-gradient-hero {
-    @apply bg-gradient-to-r from-brand via-purple-600 to-blue-600;
+    @apply bg-gradient-to-br from-brand/10 via-blue-500/5 to-cyan-500/5;
+  }
+  
+  /* Мягкий градиент для карточек */
+  .bg-gradient-card {
+    @apply bg-gradient-to-br from-surface via-surface to-bg-soft;
   }
 
   /* === Skeleton Loading Animation === */
