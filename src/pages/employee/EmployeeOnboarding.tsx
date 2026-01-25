@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   UserPlus, 
   Loader2, 
@@ -13,7 +14,9 @@ import {
   AlertCircle,
   Building2,
   FileText,
-  Download
+  Download,
+  Maximize2,
+  X
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/typedClient";
@@ -64,6 +67,7 @@ export const EmployeeOnboarding = () => {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   
   const [formData, setFormData] = useState({
     lastName: '',
@@ -398,17 +402,28 @@ export const EmployeeOnboarding = () => {
                     <span className="text-sm font-medium">Условия работы</span>
                   </div>
                   
-                  {/* PDF Download Button */}
+                  {/* PDF Actions */}
                   {organization?.settings?.employment_terms_pdf_url && (
-                    <a 
-                      href={organization.settings.employment_terms_pdf_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      Скачать PDF
-                    </a>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsPdfModalOpen(true)}
+                        className="gap-1.5 hidden sm:inline-flex"
+                      >
+                        <Maximize2 className="h-3.5 w-3.5" />
+                        На весь экран
+                      </Button>
+                      <a 
+                        href={organization.settings.employment_terms_pdf_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        Скачать PDF
+                      </a>
+                    </div>
                   )}
                 </div>
 
@@ -494,6 +509,40 @@ export const EmployeeOnboarding = () => {
           </form>
         </CardContent>
       </Card>
+
+      {/* Fullscreen PDF Modal */}
+      <Dialog open={isPdfModalOpen} onOpenChange={setIsPdfModalOpen}>
+        <DialogContent className="max-w-[95vw] w-full max-h-[95vh] h-full p-0">
+          <DialogHeader className="px-4 py-3 border-b flex flex-row items-center justify-between">
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-red-500" />
+              Условия работы
+            </DialogTitle>
+            <div className="flex items-center gap-2">
+              {organization?.settings?.employment_terms_pdf_url && (
+                <a 
+                  href={organization.settings.employment_terms_pdf_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Скачать
+                </a>
+              )}
+            </div>
+          </DialogHeader>
+          <div className="flex-1 h-[calc(95vh-60px)]">
+            {organization?.settings?.employment_terms_pdf_url && (
+              <iframe
+                src={`${organization.settings.employment_terms_pdf_url}#toolbar=1&navpanes=1`}
+                className="w-full h-full border-0"
+                title="Условия работы PDF - Полноэкранный режим"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
