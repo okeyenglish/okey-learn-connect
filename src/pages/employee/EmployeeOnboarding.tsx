@@ -140,7 +140,7 @@ export const EmployeeOnboarding = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!invitation) return;
+    if (!invitation || !token) return;
 
     // Валидация
     if (!formData.lastName.trim()) {
@@ -153,7 +153,12 @@ export const EmployeeOnboarding = () => {
       return;
     }
 
-    if (formData.password && formData.password !== formData.confirmPassword) {
+    if (!formData.password || formData.password.length < 6) {
+      toast.error('Пароль должен быть не менее 6 символов');
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
       toast.error('Пароли не совпадают');
       return;
     }
@@ -166,102 +171,47 @@ export const EmployeeOnboarding = () => {
     setIsSubmitting(true);
 
     try {
-      // 1. Создаём пользователя в auth.users
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email.trim(),
-        password: formData.password || generateRandomPassword(),
-        options: {
-          emailRedirectTo: `${window.location.origin}/crm`,
-          data: {
-            first_name: invitation.first_name,
-            last_name: formData.lastName.trim(),
-          }
+      // Вызываем Edge Function для завершения онбординга
+      const { data, error } = await supabase.functions.invoke('complete-employee-onboarding', {
+        body: {
+          invite_token: token,
+          last_name: formData.lastName.trim(),
+          middle_name: formData.middleName.trim() || undefined,
+          email: formData.email.trim(),
+          password: formData.password,
+          terms_accepted: true,
         }
       });
 
-      if (authError) throw authError;
-
-      if (!authData.user) {
-        throw new Error('Не удалось создать пользователя');
+      if (error) {
+        throw error;
       }
 
-      // 2. Обновляем профиль
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          first_name: invitation.first_name,
-          last_name: formData.lastName.trim(),
-          phone: invitation.phone,
-          branch: invitation.branch,
-          organization_id: invitation.organization_id
-        })
-        .eq('id', authData.user.id);
-
-      if (profileError) {
-        console.error('Profile update error:', profileError);
-      }
-
-      // 3. Назначаем роль
-      const roleMap: Record<string, string> = {
-        manager: 'manager',
-        methodist: 'methodist',
-        branch_manager: 'branch_manager',
-        teacher: 'teacher',
-        accountant: 'accountant',
-        receptionist: 'receptionist',
-        sales_manager: 'sales_manager',
-        head_teacher: 'head_teacher',
-      };
-
-      const role = roleMap[invitation.position] || 'manager';
-
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: authData.user.id,
-          role: role
-        });
-
-      if (roleError) {
-        console.error('Role assignment error:', roleError);
-      }
-
-      // 4. Обновляем приглашение
-      await supabase
-        .from('employee_invitations')
-        .update({
-          status: 'accepted',
-          terms_accepted_at: new Date().toISOString(),
-          profile_id: authData.user.id,
-          last_name: formData.lastName.trim(),
-          middle_name: formData.middleName.trim() || null,
-          email: formData.email.trim()
-        })
-        .eq('id', invitation.id);
-
-      // 5. Если это преподаватель, создаём запись в teachers
-      if (invitation.position === 'teacher') {
-        await supabase
-          .from('teachers')
-          .insert({
-            profile_id: authData.user.id,
-            first_name: invitation.first_name,
-            last_name: formData.lastName.trim(),
-            email: formData.email.trim(),
-            phone: invitation.phone,
-            branch: invitation.branch,
-            organization_id: invitation.organization_id,
-            is_active: true
-          });
+      if (!data?.success) {
+        throw new Error(data?.error || 'Ошибка регистрации');
       }
 
       setSuccess(true);
       toast.success('Регистрация завершена!');
 
-      // Редирект через 2 секунды
-      setTimeout(() => {
-        navigate('/crm');
-      }, 2000);
+      // Автоматический вход
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: formData.email.trim(),
+        password: formData.password,
+      });
+
+      if (signInError) {
+        console.warn('Auto sign-in failed:', signInError);
+        // Даже если автологин не удался, редирект на страницу входа
+        setTimeout(() => {
+          navigate('/auth');
+        }, 2000);
+      } else {
+        // Редирект в CRM после успешного входа
+        setTimeout(() => {
+          navigate('/');
+        }, 2000);
+      }
 
     } catch (err) {
       console.error('Onboarding error:', err);
@@ -269,10 +219,6 @@ export const EmployeeOnboarding = () => {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const generateRandomPassword = () => {
-    return Math.random().toString(36).slice(-12) + 'A1!';
   };
 
   const handleInputChange = (field: string, value: string | boolean) => {
@@ -417,31 +363,28 @@ export const EmployeeOnboarding = () => {
 
             {/* Пароль */}
             <div className="space-y-2">
-              <Label htmlFor="password">Пароль (необязательно)</Label>
+              <Label htmlFor="password">Пароль *</Label>
               <Input
                 id="password"
                 type="password"
                 value={formData.password}
                 onChange={(e) => handleInputChange('password', e.target.value)}
-                placeholder="Придумайте пароль или оставьте пустым"
+                placeholder="Минимум 6 символов"
+                required
               />
-              <p className="text-xs text-muted-foreground">
-                Если оставить пустым, будет создан случайный пароль
-              </p>
             </div>
 
-            {formData.password && (
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Подтвердите пароль</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                  placeholder="Повторите пароль"
-                />
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Подтвердите пароль *</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={formData.confirmPassword}
+                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                placeholder="Повторите пароль"
+                required
+              />
+            </div>
 
             {/* Условия работы */}
             {organization?.settings?.employment_terms && (
