@@ -363,9 +363,9 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
           </div>
         )}
 
-        {/* Пустое место для выравнивания, если аватарка не показывается */}
+        {/* Пустое место для выравнивания, если аватарка не показывается - используем invisible чтобы сохранить структуру */}
         {type === 'client' && !showAvatar && (
-          <div className="w-10 flex-shrink-0"></div>
+          <div className="w-10 h-10 flex-shrink-0 invisible" aria-hidden="true"></div>
         )}
         
         {type === 'manager' && showAvatar && (
@@ -380,7 +380,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
 
         {/* Пустое место для выравнивания менеджера, если аватарка не показывается */}
         {type === 'manager' && !showAvatar && (
-          <div className="w-10 flex-shrink-0 order-2"></div>
+          <div className="w-10 h-10 flex-shrink-0 order-2 invisible" aria-hidden="true"></div>
         )}
 
         <div className={`relative group ${type === 'manager' ? 'order-1' : ''}`}>
