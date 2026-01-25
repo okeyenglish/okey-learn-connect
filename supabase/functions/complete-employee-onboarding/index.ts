@@ -148,18 +148,9 @@ Deno.serve(async (req) => {
     const userId = authData.user.id;
     console.log("[complete-employee-onboarding] User created:", userId);
 
-    // 4. Обновить профиль (он создаётся автоматически через триггер handle_new_user)
-    // Даём триггеру время на создание профиля
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Сначала проверяем, существует ли профиль
-    const { data: existingProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("id, organization_id")
-      .eq("id", userId)
-      .single();
-    
-    console.log("[complete-employee-onboarding] Existing profile check:", existingProfile);
+    // 4. Обновить профиль с organization_id
+    // Используем upsert для надёжности - независимо от того, создал ли триггер профиль или нет
+    console.log("[complete-employee-onboarding] Upserting profile with organization_id:", invitation.organization_id);
     
     const profileData = {
       id: userId,
@@ -171,31 +162,39 @@ Deno.serve(async (req) => {
       organization_id: invitation.organization_id,
     };
 
-    if (existingProfile) {
-      // Профиль существует - делаем update
-      console.log("[complete-employee-onboarding] Updating existing profile with organization_id:", invitation.organization_id);
-      const { error: profileError } = await supabaseAdmin
-        .from("profiles")
-        .update(profileData)
-        .eq("id", userId);
+    // Даём триггеру handle_new_user немного времени
+    await new Promise(resolve => setTimeout(resolve, 500));
 
-      if (profileError) {
-        console.error("[complete-employee-onboarding] Profile update error:", profileError);
+    // Используем upsert - это атомарная операция, которая вставит или обновит
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .upsert(profileData, { 
+        onConflict: 'id',
+        ignoreDuplicates: false 
+      });
+
+    if (profileError) {
+      console.error("[complete-employee-onboarding] Profile upsert error:", profileError);
+      // Пробуем ещё раз через update если upsert не сработал
+      const { error: updateError } = await supabaseAdmin
+        .from("profiles")
+        .update({
+          first_name: invitation.first_name,
+          last_name: body.last_name,
+          email: body.email,
+          phone: invitation.phone,
+          branch: invitation.branch || null,
+          organization_id: invitation.organization_id,
+        })
+        .eq("id", userId);
+      
+      if (updateError) {
+        console.error("[complete-employee-onboarding] Profile update fallback error:", updateError);
       } else {
-        console.log("[complete-employee-onboarding] Profile updated successfully");
+        console.log("[complete-employee-onboarding] Profile updated via fallback");
       }
     } else {
-      // Профиль не существует - делаем insert
-      console.log("[complete-employee-onboarding] Inserting new profile with organization_id:", invitation.organization_id);
-      const { error: insertError } = await supabaseAdmin
-        .from("profiles")
-        .insert(profileData);
-      
-      if (insertError) {
-        console.error("[complete-employee-onboarding] Profile insert error:", insertError);
-      } else {
-        console.log("[complete-employee-onboarding] Profile inserted successfully");
-      }
+      console.log("[complete-employee-onboarding] Profile upserted successfully");
     }
 
     // Верификация: проверяем что organization_id установлен

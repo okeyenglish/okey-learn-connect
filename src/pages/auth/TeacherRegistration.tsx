@@ -98,18 +98,37 @@ const TeacherRegistration = () => {
 
       const userId = authData.user.id;
 
-      // 2. Обновляем профиль
+      // 2. Ждём создания профиля триггером и обновляем с organization_id
+      // Используем upsert для надёжности
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       const { error: profileError } = await supabase.from('profiles')
-        .update({
+        .upsert({
+          id: userId,
           first_name: formData.firstName,
           last_name: formData.lastName,
           phone: formData.phone,
           branch: formData.branch,
           organization_id: organizationInfo.id,
-        })
-        .eq('id', userId);
+          email: formData.email,
+        }, { 
+          onConflict: 'id',
+          ignoreDuplicates: false 
+        });
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Profile upsert error:', profileError);
+        // Fallback to update
+        await supabase.from('profiles')
+          .update({
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            phone: formData.phone,
+            branch: formData.branch,
+            organization_id: organizationInfo.id,
+          })
+          .eq('id', userId);
+      }
 
       // 3. Назначаем роль teacher
       const { error: roleError } = await supabase.from('user_roles')
@@ -120,7 +139,7 @@ const TeacherRegistration = () => {
 
       if (roleError) throw roleError;
 
-      // 4. Создаем запись в teachers
+      // 4. Создаем запись в teachers с organization_id
       const { error: teacherError } = await supabase.from('teachers')
         .insert({
           profile_id: userId,
@@ -129,6 +148,7 @@ const TeacherRegistration = () => {
           email: formData.email,
           phone: formData.phone,
           branch: formData.branch,
+          organization_id: organizationInfo.id,
           is_active: true,
         });
 
