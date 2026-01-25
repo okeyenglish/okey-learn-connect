@@ -797,18 +797,61 @@ export interface HomeworkTemplate {
 export interface AIProviderKeyPublic {
   id: string;
   provider: string;
+  organization_id?: string | null;
+  teacher_id?: string | null;
+  key_preview?: string | null;
+  limit_remaining?: number | null;
+  status: string;
   masked_key: string;
   is_active: boolean;
   created_at: string;
 }
 
-export interface AIKeyProvisionJob {
+export interface AIProviderKey {
   id: string;
-  user_id: string;
   provider: string;
+  organization_id?: string | null;
+  teacher_id?: string | null;
+  key_value: string;
   status: string;
   created_at: string;
   updated_at?: string;
+}
+
+export interface AIKeyProvisionJob {
+  id: string;
+  organization_id?: string | null;
+  teacher_id?: string | null;
+  entity_name?: string | null;
+  provider: string;
+  monthly_limit?: number | null;
+  reset_policy?: string | null;
+  status: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface InternalLinkGraph {
+  id: string;
+  from_route: string;
+  to_route: string;
+  anchor: string;
+  link_type: string;
+  strength?: number | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface ContentIdea {
+  id: string;
+  title: string;
+  route?: string | null;
+  organization_id: string;
+  status: string | null;
+  branch?: string | null;
+  idea_type?: string | null;
+  meta?: Json | null;
+  created_at: string;
 }
 
 export interface App {
@@ -1520,6 +1563,16 @@ export interface CustomDatabase {
         Insert: Partial<Schedule>;
         Update: Partial<Schedule>;
       };
+      internal_link_graph: {
+        Row: InternalLinkGraph;
+        Insert: Partial<InternalLinkGraph>;
+        Update: Partial<InternalLinkGraph>;
+      };
+      ai_provider_keys: {
+        Row: AIProviderKey;
+        Insert: Partial<AIProviderKey>;
+        Update: Partial<AIProviderKey>;
+      };
     };
     Views: {
       [_ in never]: never;
@@ -1687,6 +1740,11 @@ export interface CustomDatabase {
       create_sheet: {
         Args: { p_name: string; p_slug: string; p_columns: Json[] };
         Returns: void;
+      };
+      // SEO RPC functions
+      find_similar_routes: {
+        Args: { p_route: string; p_threshold: number };
+        Returns: { route: string; similarity: number }[];
       };
     };
     Enums: {

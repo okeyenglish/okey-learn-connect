@@ -314,7 +314,7 @@ export const EditIndividualLessonModal = ({
             }));
 
           if (toInsert.length > 0) {
-            await supabase.from('individual_lesson_sessions').insert(toInsert as any);
+            await supabase.from('individual_lesson_sessions').insert(toInsert);
           }
         }
         
