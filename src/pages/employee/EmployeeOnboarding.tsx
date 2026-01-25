@@ -12,7 +12,8 @@ import {
   CheckCircle2, 
   AlertCircle,
   Building2,
-  FileText
+  FileText,
+  Download
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/typedClient";
@@ -36,6 +37,8 @@ interface Organization {
   name: string;
   settings: {
     employment_terms?: string;
+    employment_terms_pdf_url?: string;
+    employment_terms_pdf_name?: string;
     [key: string]: unknown;
   } | null;
 }
@@ -387,15 +390,36 @@ export const EmployeeOnboarding = () => {
             </div>
 
             {/* Условия работы */}
-            {organization?.settings?.employment_terms && (
-              <div className="p-3 bg-muted rounded-lg max-h-40 overflow-y-auto">
-                <div className="flex items-center gap-2 mb-2">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Условия работы</span>
+            {(organization?.settings?.employment_terms || organization?.settings?.employment_terms_pdf_url) && (
+              <div className="p-3 bg-muted rounded-lg space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Условия работы</span>
+                  </div>
+                  
+                  {/* PDF Download Button */}
+                  {organization?.settings?.employment_terms_pdf_url && (
+                    <a 
+                      href={organization.settings.employment_terms_pdf_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Скачать PDF
+                    </a>
+                  )}
                 </div>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {organization.settings.employment_terms}
-                </p>
+                
+                {/* Text Terms */}
+                {organization?.settings?.employment_terms && (
+                  <div className="max-h-40 overflow-y-auto">
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                      {organization.settings.employment_terms}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
