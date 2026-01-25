@@ -161,6 +161,7 @@ async function handleIncomingMessage(
       message_text: messageText,
       message_type: 'client', // incoming message from client
       messenger_type: 'telegram',
+      status: 'delivered', // incoming messages are already delivered
       is_outgoing: false,
       is_read: false,
       external_message_id: message.id,
@@ -371,13 +372,13 @@ async function handleOutgoingMessage(
       message_text: messageText,
       message_type: 'manager', // outgoing from manager
       messenger_type: 'telegram',
+      status: 'sent', // outgoing starts as sent, updated via delivery_status
       is_outgoing: true,
       is_read: true,
       external_message_id: message.id,
       file_url: fileUrl,
       file_name: fileName,
       file_type: fileType || contentType,
-      message_status: 'sent',
       created_at: message.timestamp || new Date().toISOString()
     });
 
@@ -385,9 +386,48 @@ async function handleOutgoingMessage(
 }
 
 async function handleDeliveryStatus(supabase: any, message: TelegramWappiMessage): Promise<void> {
-  // Update message status based on delivery report
+  console.log('Processing Telegram delivery status:', JSON.stringify(message, null, 2));
+  
   // Wappi.pro sends delivery status with message id reference
-  console.log('Delivery status:', message);
+  const status = (message.body || message.status)?.toString().toLowerCase();
+  const messageIdToUpdate = message.stanza_id || message.id;
+  
+  if (!messageIdToUpdate) {
+    console.error('No message ID found in delivery status webhook');
+    return;
+  }
+
+  // Map status values
+  const statusMap: Record<string, string> = {
+    'sent': 'sent',
+    'delivered': 'delivered',
+    'read': 'read',
+    'viewed': 'read',
+    'played': 'read',
+    'failed': 'failed',
+    'error': 'failed'
+  };
+
+  const mappedStatus = statusMap[status || ''] || status;
+  
+  if (!mappedStatus) {
+    console.log('Unknown delivery status:', message.body);
+    return;
+  }
+
+  console.log(`Updating Telegram message ${messageIdToUpdate} status to: ${mappedStatus}`);
+
+  // Update message status in database
+  const { error, count } = await supabase
+    .from('chat_messages')
+    .update({ status: mappedStatus })
+    .eq('external_message_id', messageIdToUpdate);
+
+  if (error) {
+    console.error('Error updating Telegram message status:', error);
+  } else {
+    console.log(`Updated ${count || 0} Telegram message(s) status to ${mappedStatus}`);
+  }
 }
 
 async function mergeClients(

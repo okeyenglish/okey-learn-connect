@@ -307,7 +307,7 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
     message_text: messageText,
     message_type: 'client',
     messenger_type: 'whatsapp',
-    message_status: 'delivered',
+    status: 'delivered', // incoming messages are already delivered
     external_message_id: message.id,
     is_outgoing: false,
     is_read: false,
@@ -424,7 +424,7 @@ async function handleOutgoingMessage(message: WappiMessage, organizationId: stri
     message_text: messageText,
     message_type: 'manager',
     messenger_type: 'whatsapp',
-    message_status: 'delivered',
+    status: 'sent', // outgoing message starts as sent, will be updated via delivery_status
     external_message_id: message.id,
     is_outgoing: true,
     is_read: true,
@@ -447,19 +447,46 @@ async function handleOutgoingMessage(message: WappiMessage, organizationId: stri
 }
 
 async function handleDeliveryStatus(message: WappiMessage) {
-  console.log('Processing delivery status:', message.id, message.body)
+  console.log('Processing delivery status:', JSON.stringify(message, null, 2))
+
+  // Wappi sends status in body field: 'sent', 'delivered', 'read', 'failed'
+  const status = message.body?.toLowerCase()
+  const messageIdToUpdate = message.stanza_id || message.id
+  
+  if (!messageIdToUpdate) {
+    console.error('No message ID found in delivery status webhook')
+    return
+  }
+
+  // Map Wappi status to our status values
+  const statusMap: Record<string, string> = {
+    'sent': 'sent',
+    'delivered': 'delivered',
+    'read': 'read',
+    'viewed': 'read',
+    'played': 'read', // for voice messages
+    'failed': 'failed',
+    'error': 'failed'
+  }
+
+  const mappedStatus = statusMap[status || ''] || status
+  
+  if (!mappedStatus) {
+    console.log('Unknown delivery status:', message.body)
+    return
+  }
+
+  console.log(`Updating message ${messageIdToUpdate} status to: ${mappedStatus}`)
 
   // Update message status in database
-  const status = message.body // 'sent', 'delivered', 'read', etc.
-
-  const { error } = await supabase
+  const { error, count } = await supabase
     .from('chat_messages')
-    .update({ message_status: status as any })
-    .eq('external_message_id', message.stanza_id || message.id)
+    .update({ status: mappedStatus })
+    .eq('external_message_id', messageIdToUpdate)
 
   if (error) {
     console.error('Error updating message status:', error)
+  } else {
+    console.log(`Updated ${count || 0} message(s) status to ${mappedStatus}`)
   }
-
-  console.log(`Updated message status to ${status}`)
 }

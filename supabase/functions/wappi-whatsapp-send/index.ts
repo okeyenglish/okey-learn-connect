@@ -366,8 +366,8 @@ Deno.serve(async (req) => {
 
     console.log('Wappi response:', wappiResponse);
 
-    // Save message to database
-    const messageStatus = wappiResponse.error ? 'failed' : 'queued';
+    // Save message to database with status field
+    const messageStatus = wappiResponse.error ? 'failed' : 'sent';
     const externalMessageId = wappiResponse.message_id || wappiResponse.id;
 
     const { data: savedMessage, error: saveError } = await supabase
@@ -378,7 +378,7 @@ Deno.serve(async (req) => {
         message_text: message,
         message_type: 'manager',
         messenger_type: 'whatsapp',
-        message_status: messageStatus,
+        status: messageStatus, // Use 'status' field for delivery tracking
         external_message_id: externalMessageId,
         is_outgoing: true,
         is_read: true,
