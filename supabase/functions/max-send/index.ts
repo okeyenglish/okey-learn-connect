@@ -2,6 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
 import {
   corsHeaders,
   handleCors,
+  successResponse,
+  errorResponse,
   getErrorMessage,
   type MaxSettings,
   type MaxSendMessageRequest,
@@ -28,10 +30,7 @@ Deno.serve(async (req) => {
     // Get auth user
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Unauthorized', 401);
     }
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(
@@ -39,13 +38,9 @@ Deno.serve(async (req) => {
     );
 
     if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Unauthorized', 401);
     }
 
-    // Get user's organization
     const { data: profile } = await supabase
       .from('profiles')
       .select('organization_id')
@@ -53,10 +48,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (!profile?.organization_id) {
-      return new Response(
-        JSON.stringify({ error: 'Organization not found' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Organization not found', 400);
     }
 
     const organizationId = profile.organization_id;
@@ -72,31 +64,21 @@ Deno.serve(async (req) => {
 
     if (settingsError || !messengerSettings) {
       console.error('MAX settings not found:', settingsError);
-      return new Response(
-        JSON.stringify({ error: 'MAX integration not configured' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('MAX integration not configured', 400);
     }
 
     const maxSettings = messengerSettings.settings as MaxSettings;
     if (!maxSettings?.instanceId || !maxSettings?.apiToken) {
-      return new Response(
-        JSON.stringify({ error: 'MAX credentials not configured' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('MAX credentials not configured', 400);
     }
 
     const { instanceId, apiToken } = maxSettings;
 
-    // Parse request body
     const body: MaxSendMessageRequest = await req.json();
     const { clientId, text, fileUrl, fileName, fileType, phoneId } = body;
 
     if (!clientId || (!text && !fileUrl)) {
-      return new Response(
-        JSON.stringify({ error: 'clientId and text or fileUrl are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('clientId and text or fileUrl are required', 400);
     }
 
     // Get client info
@@ -108,10 +90,7 @@ Deno.serve(async (req) => {
 
     if (clientError || !client) {
       console.error('Client not found:', clientError);
-      return new Response(
-        JSON.stringify({ error: 'Client not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Client not found', 404);
     }
 
     // Determine chatId for MAX
@@ -176,10 +155,7 @@ Deno.serve(async (req) => {
     }
 
     if (!chatId) {
-      return new Response(
-        JSON.stringify({ error: 'Client has no MAX chat ID or phone number' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Client has no MAX chat ID or phone number', 400);
     }
 
     console.log(`Sending MAX message to chatId: ${chatId}, text length: ${text?.length || 0}`);
@@ -289,16 +265,10 @@ Deno.serve(async (req) => {
       savedMessageId: savedMessage?.id
     };
 
-    return new Response(
-      JSON.stringify(response),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return successResponse(response as unknown as Record<string, unknown>);
 
   } catch (error: unknown) {
     console.error('Error in max-send:', error);
-    return new Response(
-      JSON.stringify({ error: getErrorMessage(error) }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(getErrorMessage(error), 500);
   }
 });

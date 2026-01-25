@@ -2,6 +2,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
 import {
   corsHeaders,
   handleCors,
+  successResponse,
+  errorResponse,
   getErrorMessage,
   type WhatsAppSendRequest,
   type WhatsAppSendResponse,
@@ -57,16 +59,9 @@ Deno.serve(async (req) => {
     // Handle get_state action (for connection status check)
     if (payload?.action === 'get_state' || payload?.action === 'test_connection') {
       if (!organizationId) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: 'Organization not found'
-        }), {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse('Organization not found', 401);
       }
 
-      // Get WhatsApp settings from messenger_settings (per-organization)
       const { data: messengerSettings, error: settingsError } = await supabase
         .from('messenger_settings')
         .select('settings, is_enabled')
@@ -75,12 +70,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (settingsError || !messengerSettings?.settings) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: 'WhatsApp not configured for your organization'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse('WhatsApp not configured for your organization', 400);
       }
 
       const settings = messengerSettings.settings as MessengerSettings;
@@ -89,12 +79,7 @@ Deno.serve(async (req) => {
       const greenApiToken = settings.apiToken;
 
       if (!greenApiIdInstance || !greenApiToken) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: 'Missing Green API credentials in organization settings'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse('Missing Green API credentials in organization settings', 400);
       }
 
       try {
@@ -108,36 +93,23 @@ Deno.serve(async (req) => {
             : (state?.error === 'NON_JSON_RESPONSE'
                 ? 'Green-API returned non-JSON (check API URL)'
                 : `State: ${stateValue ?? 'unknown'}`);
-          return new Response(JSON.stringify({ success: authorized, state, message }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return successResponse({ success: authorized, state, message } as unknown as Record<string, unknown>);
         }
 
-        return new Response(JSON.stringify({ 
+        return successResponse({ 
           success: authorized, 
           state,
           stateInstance: stateValue
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        } as unknown as Record<string, unknown>);
       } catch (e: unknown) {
-        return new Response(JSON.stringify({ success: false, error: getErrorMessage(e) }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse(getErrorMessage(e), 500);
       }
     }
 
     const { clientId, message, phoneNumber, fileUrl, fileName, phoneId } = payload as WhatsAppSendRequest;
     
-    // Validate clientId before proceeding
     if (!clientId) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'clientId is required' 
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('clientId is required', 400);
     }
     
     console.log('Sending message:', { clientId, message, phoneNumber, fileUrl, fileName, phoneId });
@@ -329,20 +301,11 @@ Deno.serve(async (req) => {
       response.error = greenApiResponse.error;
     }
 
-    return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return successResponse(response as unknown as Record<string, unknown>);
 
   } catch (error: unknown) {
     console.error('Error sending message:', error);
-    
-    return new Response(JSON.stringify({ 
-      success: false,
-      error: getErrorMessage(error)
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(getErrorMessage(error), 500);
   }
 });
 
