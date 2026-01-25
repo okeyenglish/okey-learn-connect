@@ -1,38 +1,18 @@
 /**
  * Типизированный Supabase клиент для self-hosted Supabase
  * 
- * Используйте этот клиент вместо стандартного для получения
- * правильной типизации таблиц и функций.
+ * DEPRECATED: Используйте основной клиент из ./client
+ * Этот файл существует для обратной совместимости.
  * 
  * Пример использования:
- * import { supabaseTyped as supabase } from "@/integrations/supabase/typedClient";
+ * import { supabase } from "@/integrations/supabase/client";
  */
 
-import { createClient } from '@supabase/supabase-js';
-import type { CustomDatabase } from './database.types';
+// Re-export main client to avoid multiple GoTrueClient instances
+export { supabase } from './client';
 
-const SUPABASE_URL = "https://api.academyos.ru";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY5MDg4ODgzLCJleHAiOjE5MjY3Njg4ODN9.WEsCyaCdQvxzVObedC-A9hWTJUSwI_p9nCG1wlbaNEg";
-
-/**
- * Типизированный Supabase клиент с кастомными типами БД
- * Используем any для обхода проблем совместимости с Lovable Cloud types.ts
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const supabaseTyped = createClient<any>(
-  SUPABASE_URL, 
-  SUPABASE_PUBLISHABLE_KEY, 
-  {
-    auth: {
-      storage: localStorage,
-      persistSession: true,
-      autoRefreshToken: true,
-    }
-  }
-);
-
-// Alias for easier migration - allows: import { supabase } from "@/integrations/supabase/typedClient"
-export const supabase = supabaseTyped;
+// Alias for backward compatibility
+export { supabase as supabaseTyped } from './client';
 
 // Re-export types for convenience
 export type { CustomDatabase } from './database.types';
