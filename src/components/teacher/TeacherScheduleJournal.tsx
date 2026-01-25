@@ -114,7 +114,7 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
       if (groupError) throw groupError;
 
       // Получаем индивидуальные занятия
-      let individualQuery = (supabase as any)
+      let individualQuery = supabase
         .from('individual_lesson_sessions')
         .select(`
           *,
@@ -213,7 +213,7 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
         .gte('lesson_date', startOfWeek.toISOString().split('T')[0])
         .lte('lesson_date', endOfWeek.toISOString().split('T')[0]);
 
-      const { data: individualData } = await (supabase as any)
+      const { data: individualData } = await supabase
         .from('individual_lesson_sessions')
         .select('id, start_time, end_time, duration_minutes')
         .eq('teacher_name', teacherName)
@@ -281,7 +281,7 @@ export const TeacherScheduleJournal = ({ teacher, selectedBranchId }: TeacherSch
       if (groupError) throw groupError;
 
       // Получаем индивидуальные занятия
-      let individualQuery = (supabase as any)
+      let individualQuery = supabase
         .from('individual_lesson_sessions')
         .select(`
           *,

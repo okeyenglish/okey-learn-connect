@@ -16,7 +16,7 @@ export type Json =
   | Json[]
 
 // Enum для ролей пользователей
-export type AppRole = 'admin' | 'moderator' | 'user' | 'teacher' | 'manager' | 'owner' | 'branch_manager' | 'methodist' | 'head_teacher' | 'sales_manager' | 'marketing_manager' | 'accountant' | 'receptionist' | 'support' | 'student';
+export type AppRole = 'admin' | 'moderator' | 'user' | 'teacher' | 'manager' | 'owner' | 'branch_manager' | 'methodist' | 'head_teacher' | 'sales_manager' | 'marketing_manager' | 'accountant' | 'receptionist' | 'support' | 'student' | 'parent';
 
 // ============ Основные таблицы ============
 
@@ -1125,6 +1125,103 @@ export interface Schedule {
   updated_at?: string;
 }
 
+// Teacher floating rates
+export interface TeacherFloatingRate {
+  id: string;
+  rate_id: string;
+  student_count: number;
+  rate_amount: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Student tags
+export interface StudentTag {
+  id: string;
+  name: string;
+  color: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StudentTagAssignment {
+  id: string;
+  student_id: string;
+  tag_id: string;
+  assigned_at: string;
+  assigned_by: string | null;
+}
+
+// Teacher salary accruals
+export interface TeacherSalaryAccrual {
+  id: string;
+  teacher_id: string;
+  lesson_session_id?: string | null;
+  individual_lesson_session_id?: string | null;
+  earning_date: string;
+  amount: number;
+  academic_hours: number;
+  status: string;
+  notes?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+// AI Model Mappings
+export interface AIModelMapping {
+  id: string;
+  tier: string;
+  use_case: string;
+  model_id: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+// Role permissions
+export interface RolePermission {
+  id: string;
+  role: AppRole;
+  permission: string;
+  resource: string;
+  can_create: boolean;
+  can_read: boolean;
+  can_update: boolean;
+  can_delete: boolean;
+  created_at?: string;
+}
+
+// Discount/Surcharge system
+export interface DiscountSurcharge {
+  id: string;
+  name: string;
+  type: 'discount' | 'surcharge';
+  value_type: 'fixed' | 'percent';
+  value: number;
+  description?: string | null;
+  is_permanent: boolean;
+  is_active: boolean;
+  auto_apply: boolean;
+  apply_priority: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StudentDiscountSurcharge {
+  id: string;
+  student_id: string;
+  discount_surcharge_id: string;
+  is_permanent: boolean;
+  times_used: number;
+  max_uses?: number | null;
+  valid_from?: string | null;
+  valid_until?: string | null;
+  notes?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ============ RPC функции ============
 
 export interface GetPublicScheduleResult {
@@ -1589,6 +1686,46 @@ export interface CustomDatabase {
         Row: PaymentNotification;
         Insert: Partial<PaymentNotification>;
         Update: Partial<PaymentNotification>;
+      };
+      teacher_floating_rates: {
+        Row: TeacherFloatingRate;
+        Insert: Partial<TeacherFloatingRate>;
+        Update: Partial<TeacherFloatingRate>;
+      };
+      student_tags: {
+        Row: StudentTag;
+        Insert: Partial<StudentTag>;
+        Update: Partial<StudentTag>;
+      };
+      student_tag_assignments: {
+        Row: StudentTagAssignment;
+        Insert: Partial<StudentTagAssignment>;
+        Update: Partial<StudentTagAssignment>;
+      };
+      teacher_salary_accruals: {
+        Row: TeacherSalaryAccrual;
+        Insert: Partial<TeacherSalaryAccrual>;
+        Update: Partial<TeacherSalaryAccrual>;
+      };
+      ai_model_mappings: {
+        Row: AIModelMapping;
+        Insert: Partial<AIModelMapping>;
+        Update: Partial<AIModelMapping>;
+      };
+      role_permissions: {
+        Row: RolePermission;
+        Insert: Partial<RolePermission>;
+        Update: Partial<RolePermission>;
+      };
+      discounts_surcharges: {
+        Row: DiscountSurcharge;
+        Insert: Partial<DiscountSurcharge>;
+        Update: Partial<DiscountSurcharge>;
+      };
+      student_discounts_surcharges: {
+        Row: StudentDiscountSurcharge;
+        Insert: Partial<StudentDiscountSurcharge>;
+        Update: Partial<StudentDiscountSurcharge>;
       };
     };
     Views: {

@@ -97,7 +97,7 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
   const { data: groups, isLoading: groupsLoading } = useQuery({
     queryKey: ['teacher-groups', teacher.id, selectedBranchId],
     queryFn: async () => {
-      let query = (supabase as any)
+      let query = supabase
         .from('learning_groups')
         .select('*')
         .eq('teacher_id', teacher.id)
@@ -118,7 +118,7 @@ export const TeacherHome = ({ teacher, selectedBranchId }: TeacherHomeProps) => 
   const { data: individualLessons, isLoading: individualLoading } = useQuery({
     queryKey: ['teacher-individual-lessons', teacher.id, selectedBranchId],
     queryFn: async () => {
-      let query = (supabase as any)
+      let query = supabase
         .from('individual_lessons')
         .select('*')
         .eq('teacher_id', teacher.id)

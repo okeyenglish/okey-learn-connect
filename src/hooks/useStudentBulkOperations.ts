@@ -66,7 +66,7 @@ export const useBulkArchiveStudents = () => {
 
       // Log operations
       for (const studentId of studentIds) {
-        await (supabase as any).from('student_operation_logs').insert({
+        await supabase.from('student_operation_logs').insert({
           student_id: studentId,
           operation_type: 'archived',
           notes: reason,
@@ -119,7 +119,7 @@ export const useBulkAssignToGroup = () => {
 
       // Log operations
       for (const studentId of studentIds) {
-        await (supabase as any).from('student_operation_logs').insert({
+        await supabase.from('student_operation_logs').insert({
           student_id: studentId,
           operation_type: 'enrolled_to_group',
           new_value: { group_id: groupId },

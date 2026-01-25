@@ -28,7 +28,7 @@ export const SalaryDetailsModal = ({
   const { data: accruals, isLoading: accrualsLoading } = useQuery({
     queryKey: ['teacher-accruals-details', teacherId, periodStart, periodEnd],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('teacher_salary_accruals')
         .select(`
           *,

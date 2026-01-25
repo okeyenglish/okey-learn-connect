@@ -58,8 +58,7 @@ export const useAIModelMappings = () => {
   return useQuery({
     queryKey: ['ai_model_mappings'],
     queryFn: async () => {
-      // This table may not be typed yet, keep as any for now
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('ai_model_mappings')
         .select('*')
         .eq('is_active', true)

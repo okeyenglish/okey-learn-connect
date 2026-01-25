@@ -1,25 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import type { TeacherFloatingRate } from '@/integrations/supabase/database.types';
 
-export interface TeacherFloatingRate {
-  id: string;
-  rate_id: string;
-  student_count: number;
-  rate_amount: number;
-  created_at: string;
-  updated_at: string;
-}
+export type { TeacherFloatingRate };
 
 // Получить плавающие ставки для конкретной ставки преподавателя
 export const useTeacherFloatingRates = (rateId?: string) => {
   return useQuery({
     queryKey: ['teacher-floating-rates', rateId],
     queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('teacher_floating_rates' as any) as any)
+      const { data, error } = await supabase
+        .from('teacher_floating_rates')
         .select('*')
-        .eq('rate_id', rateId)
+        .eq('rate_id', rateId!)
         .order('student_count', { ascending: true });
 
       if (error) throw error;
@@ -37,8 +31,8 @@ export const useUpsertFloatingRate = () => {
   return useMutation({
     mutationFn: async (rate: Partial<TeacherFloatingRate> & { rate_id: string; student_count: number; rate_amount: number }) => {
       if (rate.id) {
-        const { data, error } = await (supabase
-          .from('teacher_floating_rates' as any) as any)
+        const { data, error } = await supabase
+          .from('teacher_floating_rates')
           .update({
             student_count: rate.student_count,
             rate_amount: rate.rate_amount,
@@ -51,8 +45,8 @@ export const useUpsertFloatingRate = () => {
         if (error) throw error;
         return data;
       } else {
-        const { data, error } = await (supabase
-          .from('teacher_floating_rates' as any) as any)
+        const { data, error } = await supabase
+          .from('teacher_floating_rates')
           .insert({
             rate_id: rate.rate_id,
             student_count: rate.student_count,
@@ -89,8 +83,8 @@ export const useDeleteFloatingRate = () => {
 
   return useMutation({
     mutationFn: async ({ id, rateId }: { id: string; rateId: string }) => {
-      const { error } = await (supabase
-        .from('teacher_floating_rates' as any) as any)
+      const { error } = await supabase
+        .from('teacher_floating_rates')
         .delete()
         .eq('id', id);
 
