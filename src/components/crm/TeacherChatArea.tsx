@@ -264,18 +264,29 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     fetchMaxAvatar();
   }, [activeMessengerTab, clientId, maxClientAvatar, getMaxAvatar]);
 
-  // Fetch Telegram avatar from DB
+  // Fetch Telegram avatar - first check DB, then call edge function if not found
   useEffect(() => {
     const fetchTelegramAvatar = async () => {
       if (activeMessengerTab === 'telegram' && clientId && !telegramClientAvatar) {
         try {
+          // First check if avatar already in DB
           const { data } = await supabase
             .from('clients')
             .select('telegram_avatar_url')
             .eq('id', clientId)
             .maybeSingle();
+          
           if (data?.telegram_avatar_url) {
             setTelegramClientAvatar(data.telegram_avatar_url);
+          } else {
+            // If not in DB, call edge function to fetch from Telegram API
+            const { data: avatarData, error } = await supabase.functions.invoke('telegram-get-avatar', {
+              body: { clientId }
+            });
+            
+            if (!error && avatarData?.success && avatarData?.avatarUrl) {
+              setTelegramClientAvatar(avatarData.avatarUrl);
+            }
           }
         } catch (error) {
           console.error('Error fetching Telegram avatar:', error);
