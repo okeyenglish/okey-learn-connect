@@ -3844,14 +3844,22 @@ const CRMContent = () => {
             </div>
           )}
           
-          {/* Плавающая кнопка AI Центра для десктопа - fixed справа внизу */}
+          {/* Плавающая кнопка ассистента для десктопа - fixed справа внизу */}
           {!isMobile && !voiceAssistantOpen && activeChatType === 'client' && (
-            <div
-              onClick={() => setVoiceAssistantOpen(true)}
-              className="fixed bottom-6 right-6 z-50 cursor-pointer"
-            >
-              <AnimatedLogo size={90} />
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={() => setVoiceAssistantOpen(true)}
+                  className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground"
+                  size="icon"
+                >
+                  <MessageSquare className="h-6 w-6" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                <p>Ассистент</p>
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
 
