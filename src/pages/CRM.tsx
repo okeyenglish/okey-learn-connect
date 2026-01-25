@@ -311,10 +311,20 @@ const CRMContent = () => {
     return saved ? parseInt(saved, 10) : 0;
   });
   
-  // Сохраняем в localStorage при изменении
+  // Сохраняем в localStorage при изменении и синхронизируем между вкладками
   useEffect(() => {
     localStorage.setItem('assistant-last-seen-unread', String(lastSeenUnreadCount));
   }, [lastSeenUnreadCount]);
+  
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'assistant-last-seen-unread' && e.newValue !== null) {
+        setLastSeenUnreadCount(parseInt(e.newValue, 10));
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
   
   // Критичные данные - загружаем ТОЛЬКО threads с infinite scroll (50 за раз)
   // useClients убран из критического пути - 27К клиентов тормозили загрузку
