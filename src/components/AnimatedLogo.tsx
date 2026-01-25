@@ -6,6 +6,8 @@ interface AnimatedLogoProps {
 }
 
 export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
+  const innerRadius = size * 0.35;
+  
   return (
     <div 
       className={cn(
@@ -18,21 +20,21 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
       <div 
         className="absolute rounded-full animate-neural-wave-1"
         style={{
-          width: size * 1.4,
-          height: size * 1.4,
-          background: 'conic-gradient(from 0deg, hsl(217 80% 55% / 0.4), hsl(260 70% 60% / 0.3), hsl(320 70% 55% / 0.25), hsl(217 80% 55% / 0.4))',
-          filter: 'blur(15px)',
+          width: size * 1.3,
+          height: size * 1.3,
+          background: 'conic-gradient(from 0deg, hsl(217 85% 50% / 0.5), hsl(0 80% 55% / 0.4), hsl(217 85% 50% / 0.5), hsl(0 80% 55% / 0.4))',
+          filter: 'blur(14px)',
           transformOrigin: 'center',
         }}
       />
       
-      {/* Neural wave layer 2 - medium glow */}
+      {/* Neural wave layer 2 - medium */}
       <div 
         className="absolute rounded-full animate-neural-wave-2"
         style={{
-          width: size * 1.25,
-          height: size * 1.25,
-          background: 'conic-gradient(from 120deg, hsl(200 75% 50% / 0.5), hsl(280 65% 55% / 0.4), hsl(340 65% 55% / 0.3), hsl(200 75% 50% / 0.5))',
+          width: size * 1.15,
+          height: size * 1.15,
+          background: 'conic-gradient(from 90deg, hsl(0 80% 55% / 0.6), hsl(217 85% 50% / 0.5), hsl(0 80% 55% / 0.6), hsl(217 85% 50% / 0.5))',
           filter: 'blur(10px)',
           transformOrigin: 'center',
         }}
@@ -42,9 +44,9 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
       <div 
         className="absolute rounded-full animate-neural-wave-3"
         style={{
-          width: size * 1.1,
-          height: size * 1.1,
-          background: 'conic-gradient(from 240deg, hsl(217 85% 50% / 0.6), hsl(0 75% 55% / 0.5), hsl(260 70% 55% / 0.4), hsl(217 85% 50% / 0.6))',
+          width: size,
+          height: size,
+          background: 'conic-gradient(from 180deg, hsl(217 90% 50% / 0.7), hsl(0 85% 50% / 0.6), hsl(217 90% 50% / 0.7), hsl(0 85% 50% / 0.6))',
           filter: 'blur(6px)',
           transformOrigin: 'center',
         }}
@@ -54,24 +56,43 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
       <div 
         className="absolute rounded-full animate-neural-pulse"
         style={{
-          width: size,
-          height: size,
-          background: 'radial-gradient(circle, hsl(217 80% 55% / 0.2) 30%, hsl(280 60% 55% / 0.15) 60%, transparent 70%)',
+          width: size * 0.9,
+          height: size * 0.9,
+          background: 'radial-gradient(circle, hsl(217 85% 50% / 0.3) 40%, hsl(0 80% 55% / 0.2) 60%, transparent 75%)',
           filter: 'blur(4px)',
         }}
       />
       
-      {/* Logo image */}
-      <img 
-        src="/favicon.png" 
-        alt="Logo"
-        className="relative z-10 rounded-full object-contain transition-transform duration-300 group-hover:scale-105"
-        style={{
-          width: size * 0.85,
-          height: size * 0.85,
-          filter: 'drop-shadow(0 0 8px hsl(217 80% 55% / 0.3))',
-        }}
-      />
+      {/* White center circle with OS */}
+      <svg 
+        className="relative z-10"
+        width={innerRadius * 2.2}
+        height={innerRadius * 2.2}
+        viewBox={`0 0 ${innerRadius * 2.2} ${innerRadius * 2.2}`}
+      >
+        {/* White circle */}
+        <circle
+          cx={innerRadius * 1.1}
+          cy={innerRadius * 1.1}
+          r={innerRadius}
+          fill="white"
+          style={{ filter: 'drop-shadow(0 2px 8px rgba(0, 0, 0, 0.15))' }}
+        />
+        
+        {/* OS text */}
+        <text
+          x={innerRadius * 1.1}
+          y={innerRadius * 1.1}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="hsl(0 75% 45%)"
+          fontWeight="bold"
+          fontSize={innerRadius * 0.8}
+          fontFamily="system-ui, -apple-system, sans-serif"
+        >
+          OS
+        </text>
+      </svg>
       
       {/* Custom keyframes */}
       <style>{`
@@ -81,7 +102,7 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
             opacity: 0.6;
           }
           33% {
-            transform: rotate(120deg) scale(1.05);
+            transform: rotate(120deg) scale(1.04);
             opacity: 0.8;
           }
           66% {
@@ -100,7 +121,7 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
             opacity: 0.7;
           }
           50% {
-            transform: rotate(180deg) scale(1.03);
+            transform: rotate(180deg) scale(1.02);
             opacity: 0.85;
           }
           100% {
@@ -115,15 +136,15 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
             opacity: 0.8;
           }
           25% {
-            transform: rotate(90deg) scale(1.02);
+            transform: rotate(90deg) scale(1.01);
             opacity: 0.9;
           }
           50% {
-            transform: rotate(180deg) scale(0.98);
+            transform: rotate(180deg) scale(0.99);
             opacity: 0.75;
           }
           75% {
-            transform: rotate(270deg) scale(1.04);
+            transform: rotate(270deg) scale(1.02);
             opacity: 0.85;
           }
           100% {
@@ -138,8 +159,8 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
             opacity: 0.5;
           }
           50% {
-            transform: scale(1.08);
-            opacity: 0.75;
+            transform: scale(1.06);
+            opacity: 0.7;
           }
         }
         
@@ -152,7 +173,7 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
         }
         
         .animate-neural-wave-3 {
-          animation: neuralWave3 6s ease-in-out infinite;
+          animation: neuralWave3 5s ease-in-out infinite;
         }
         
         .animate-neural-pulse {
