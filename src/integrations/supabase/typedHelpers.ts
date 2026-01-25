@@ -898,9 +898,9 @@ export async function typedSelectJoinById<TResult>(
 
 // ============ Advanced Filter Helpers ============
 
-type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'in' | 'is';
+export type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'in' | 'is' | 'contains' | 'containedBy' | 'overlaps';
 
-interface FilterCondition {
+export interface FilterCondition {
   column: string;
   operator: FilterOperator;
   value: unknown;
@@ -969,6 +969,15 @@ export async function typedSelectAdvanced<TResult>(
           break;
         case 'is':
           query = query.is(column, value as null);
+          break;
+        case 'contains':
+          query = query.contains(column, value as unknown[]);
+          break;
+        case 'containedBy':
+          query = query.containedBy(column, value as unknown[]);
+          break;
+        case 'overlaps':
+          query = query.overlaps(column, value as unknown[]);
           break;
       }
     }

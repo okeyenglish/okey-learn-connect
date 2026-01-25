@@ -20,6 +20,7 @@
  * mutate({ name: 'John', status: 'active' });
  */
 
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery, UseQueryOptions, UseMutationOptions } from '@tanstack/react-query';
 import {
   typedSelect,
@@ -44,6 +45,8 @@ import {
   TypedMutationResult,
   PaginatedResult,
   JoinSelects,
+  FilterOperator as HelperFilterOperator,
+  FilterCondition as HelperFilterCondition,
   // Join types
   StudentWithFamily,
   StudentWithGroups,
@@ -575,6 +578,273 @@ export function getTotalFromInfinite<T>(
   data: { pages: InfinitePageData<T>[] } | undefined
 ): number | undefined {
   return data?.pages[0]?.total;
+}
+
+// ============ Advanced Infinite Query Hook ============
+
+// Re-export types from typedHelpers
+export type FilterOperator = HelperFilterOperator;
+export type FilterCondition = HelperFilterCondition;
+
+interface UseInfiniteTypedQueryAdvancedOptions {
+  filters: FilterCondition[];
+  select?: string;
+  order?: { column: string; ascending?: boolean };
+  pageSize?: number;
+  enabled?: boolean;
+  staleTime?: number;
+  gcTime?: number;
+  refetchOnWindowFocus?: boolean;
+}
+
+/**
+ * React Query хук для бесконечной прокрутки с расширенными фильтрами
+ * Поддерживает операторы: eq, neq, gt, gte, lt, lte, like, ilike, in, is, contains, overlaps
+ * 
+ * @example
+ * const { data, fetchNextPage, hasNextPage } = useInfiniteTypedQueryAdvanced<StudentFull>(
+ *   'students',
+ *   JoinSelects.studentFull,
+ *   {
+ *     filters: [
+ *       { column: 'status', operator: 'eq', value: 'active' },
+ *       { column: 'first_name', operator: 'ilike', value: '%Иван%' },
+ *       { column: 'branch', operator: 'in', value: ['main', 'secondary'] },
+ *       { column: 'balance', operator: 'gte', value: 0 }
+ *     ],
+ *     order: { column: 'created_at', ascending: false },
+ *     pageSize: 30
+ *   }
+ * );
+ * 
+ * const allStudents = getAllItemsFromInfinite(data);
+ */
+export function useInfiniteTypedQueryAdvanced<TResult>(
+  table: TableName,
+  selectStr: string,
+  options: UseInfiniteTypedQueryAdvancedOptions
+) {
+  const { 
+    filters, 
+    select,
+    order, 
+    pageSize = 50, 
+    enabled = true, 
+    staleTime,
+    gcTime,
+    refetchOnWindowFocus 
+  } = options;
+
+  // Сериализуем фильтры для queryKey
+  const filtersKey = JSON.stringify(filters);
+
+  return useInfiniteQuery({
+    queryKey: ['infinite-advanced', table, selectStr, filtersKey, order],
+    queryFn: async ({ pageParam = 0 }): Promise<InfinitePageData<TResult>> => {
+      const result = await typedSelectAdvanced<TResult>(
+        table,
+        selectStr,
+        filters,
+        {
+          order,
+          limit: pageSize + 1, // +1 для проверки hasMore
+          offset: pageParam,
+        }
+      );
+
+      if (result.error) throw result.error;
+
+      const items = result.data || [];
+      const hasMore = items.length > pageSize;
+      const returnItems = hasMore ? items.slice(0, pageSize) : items;
+
+      return {
+        items: returnItems,
+        nextCursor: pageParam + pageSize,
+        hasMore,
+        total: result.count ?? undefined,
+      };
+    },
+    getNextPageParam: (lastPage) => {
+      return lastPage.hasMore ? lastPage.nextCursor : undefined;
+    },
+    initialPageParam: 0,
+    enabled,
+    staleTime,
+    gcTime,
+    refetchOnWindowFocus,
+  });
+}
+
+/**
+ * Билдер фильтров для удобного создания условий
+ * 
+ * @example
+ * const filters = filterBuilder()
+ *   .eq('status', 'active')
+ *   .ilike('name', '%test%')
+ *   .in('branch', ['main', 'secondary'])
+ *   .gte('balance', 0)
+ *   .isNull('deleted_at')
+ *   .build();
+ * 
+ * const { data } = useInfiniteTypedQueryAdvanced('students', '*', { filters });
+ */
+export function filterBuilder() {
+  const conditions: FilterCondition[] = [];
+
+  const builder = {
+    eq: (column: string, value: unknown) => {
+      conditions.push({ column, operator: 'eq', value });
+      return builder;
+    },
+    neq: (column: string, value: unknown) => {
+      conditions.push({ column, operator: 'neq', value });
+      return builder;
+    },
+    gt: (column: string, value: unknown) => {
+      conditions.push({ column, operator: 'gt', value });
+      return builder;
+    },
+    gte: (column: string, value: unknown) => {
+      conditions.push({ column, operator: 'gte', value });
+      return builder;
+    },
+    lt: (column: string, value: unknown) => {
+      conditions.push({ column, operator: 'lt', value });
+      return builder;
+    },
+    lte: (column: string, value: unknown) => {
+      conditions.push({ column, operator: 'lte', value });
+      return builder;
+    },
+    like: (column: string, pattern: string) => {
+      conditions.push({ column, operator: 'like', value: pattern });
+      return builder;
+    },
+    ilike: (column: string, pattern: string) => {
+      conditions.push({ column, operator: 'ilike', value: pattern });
+      return builder;
+    },
+    in: (column: string, values: unknown[]) => {
+      conditions.push({ column, operator: 'in', value: values });
+      return builder;
+    },
+    isNull: (column: string) => {
+      conditions.push({ column, operator: 'is', value: null });
+      return builder;
+    },
+    isNotNull: (column: string) => {
+      // Supabase использует neq для not null
+      conditions.push({ column, operator: 'neq', value: null });
+      return builder;
+    },
+    contains: (column: string, value: unknown[]) => {
+      conditions.push({ column, operator: 'contains', value });
+      return builder;
+    },
+    containedBy: (column: string, value: unknown[]) => {
+      conditions.push({ column, operator: 'containedBy', value });
+      return builder;
+    },
+    overlaps: (column: string, value: unknown[]) => {
+      conditions.push({ column, operator: 'overlaps', value });
+      return builder;
+    },
+    // Поиск по тексту (удобный метод)
+    search: (column: string, query: string) => {
+      conditions.push({ column, operator: 'ilike', value: `%${query}%` });
+      return builder;
+    },
+    // Диапазон дат
+    dateRange: (column: string, from: string, to: string) => {
+      conditions.push({ column, operator: 'gte', value: from });
+      conditions.push({ column, operator: 'lte', value: to });
+      return builder;
+    },
+    // Условное добавление фильтра
+    when: (condition: boolean, addFilter: (b: typeof builder) => typeof builder) => {
+      if (condition) {
+        return addFilter(builder);
+      }
+      return builder;
+    },
+    build: () => [...conditions],
+    clear: () => {
+      conditions.length = 0;
+      return builder;
+    },
+  };
+
+  return builder;
+}
+
+/**
+ * Хук с билдером фильтров для динамических запросов
+ * 
+ * @example
+ * const { 
+ *   data, 
+ *   filters, 
+ *   addFilter, 
+ *   removeFilter, 
+ *   clearFilters,
+ *   fetchNextPage 
+ * } = useInfiniteTypedQueryWithFilters<Student>(
+ *   'students',
+ *   '*',
+ *   { pageSize: 30 }
+ * );
+ * 
+ * // Добавить фильтр
+ * addFilter('status', 'eq', 'active');
+ * 
+ * // Удалить фильтр
+ * removeFilter('status');
+ */
+export function useInfiniteTypedQueryWithFilters<TResult>(
+  table: TableName,
+  selectStr: string,
+  options: Omit<UseInfiniteTypedQueryAdvancedOptions, 'filters'> & { 
+    initialFilters?: FilterCondition[] 
+  } = {}
+) {
+  const { initialFilters = [], ...queryOptions } = options;
+  const [filters, setFilters] = useState<FilterCondition[]>(initialFilters);
+
+  const query = useInfiniteTypedQueryAdvanced<TResult>(table, selectStr, {
+    ...queryOptions,
+    filters,
+  });
+
+  const addFilter = useCallback((column: string, operator: FilterOperator, value: unknown) => {
+    setFilters(prev => {
+      // Удаляем существующий фильтр для этой колонки
+      const filtered = prev.filter(f => f.column !== column);
+      return [...filtered, { column, operator, value }];
+    });
+  }, []);
+
+  const removeFilter = useCallback((column: string) => {
+    setFilters(prev => prev.filter(f => f.column !== column));
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setFilters([]);
+  }, []);
+
+  const setAllFilters = useCallback((newFilters: FilterCondition[]) => {
+    setFilters(newFilters);
+  }, []);
+
+  return {
+    ...query,
+    filters,
+    addFilter,
+    removeFilter,
+    clearFilters,
+    setFilters: setAllFilters,
+  };
 }
 
 // ============ Count Query Hook ============
