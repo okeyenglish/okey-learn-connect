@@ -4,25 +4,52 @@ import { supabase } from '@/integrations/supabase/client';
 import { playNotificationSound } from './useNotificationSound';
 import { showBrowserNotification } from './useBrowserNotifications';
 
-/** Realtime payload for chat_messages changes - matches actual DB schema */
+/** 
+ * Realtime payload for chat_messages changes 
+ * Supports both schemas:
+ * - Self-hosted (message_type, message_text, is_outgoing)
+ * - Lovable Cloud (direction, content)
+ */
 interface ChatMessagePayload {
   client_id: string | null;
   organization_id: string | null;
-  direction?: string | null; // 'incoming' or 'outgoing'
+  // Lovable Cloud schema
+  direction?: string | null;
   content?: string | null;
+  // Self-hosted schema
   message_type?: string | null;
+  message_text?: string | null;
+  is_outgoing?: boolean | null;
 }
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'polling' | 'reconnecting';
 
-// Polling interval when WebSocket is unavailable (10 seconds)
-const POLLING_INTERVAL = 10000;
+// Polling interval when WebSocket is unavailable (5 seconds for faster updates)
+const POLLING_INTERVAL = 5000;
 // Time to wait before activating fallback polling after connection failure
-const FALLBACK_DELAY = 5000;
+const FALLBACK_DELAY = 2000;
 // Interval for reconnection attempts (30 seconds)
 const RECONNECT_INTERVAL = 30000;
 // Max reconnection attempts before giving up temporarily
 const MAX_RECONNECT_ATTEMPTS = 10;
+// Timeout to detect WebSocket connection failure
+const CONNECTION_TIMEOUT = 10000;
+
+/** Helper to check if message is incoming based on both schemas */
+const isIncomingMessage = (msg: ChatMessagePayload): boolean => {
+  // Lovable Cloud schema
+  if (msg.direction === 'incoming') return true;
+  // Self-hosted schema
+  if (msg.message_type === 'client') return true;
+  if (msg.is_outgoing === false) return true;
+  return false;
+};
+
+/** Helper to get message preview text from both schemas */
+const getMessagePreview = (msg: ChatMessagePayload): string => {
+  const text = msg.content || msg.message_text || 'Новое сообщение';
+  return text.length > 50 ? text.substring(0, 50) + '...' : text;
+};
 
 /**
  * Optimized realtime hook that uses a SINGLE channel for all chat messages.
@@ -47,6 +74,9 @@ export const useOrganizationRealtimeMessages = () => {
   const isReconnectingRef = useRef(false);
   
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
+  
+  // Ref to hold handleConnectionFailure to avoid circular dependency
+  const handleConnectionFailureRef = useRef<() => void>(() => {});
 
   // Invalidation helpers
   const invalidateClientMessageQueries = useCallback((clientId: string) => {
@@ -70,9 +100,10 @@ export const useOrganizationRealtimeMessages = () => {
     const since = lastPollTimeRef.current || new Date(Date.now() - POLLING_INTERVAL * 2).toISOString();
     
     try {
+      // Select fields from both schemas for compatibility
       const { data: newMessages, error } = await supabase
         .from('chat_messages')
-        .select('id, client_id, direction, content, created_at')
+        .select('id, client_id, direction, content, message_type, message_text, is_outgoing, created_at')
         .gt('created_at', since)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -98,23 +129,25 @@ export const useOrganizationRealtimeMessages = () => {
           }
         });
 
-        // Check for incoming messages to play sound
-        const hasIncoming = newMessages.some(m => m.direction === 'incoming');
-        if (hasIncoming) {
+        // Check for incoming messages using both schemas
+        const incomingMessages = newMessages.filter(m => 
+          m.direction === 'incoming' || m.message_type === 'client' || m.is_outgoing === false
+        );
+        
+        if (incomingMessages.length > 0) {
           playNotificationSound(0.5);
           
-          const latestIncoming = newMessages.find(m => m.direction === 'incoming');
-          if (latestIncoming) {
-            const messagePreview = latestIncoming.content 
-              ? (latestIncoming.content.length > 50 ? latestIncoming.content.substring(0, 50) + '...' : latestIncoming.content)
-              : 'Новое сообщение';
-            
-            showBrowserNotification({
-              title: 'Новое сообщение',
-              body: messagePreview,
-              tag: `chat-${latestIncoming.client_id || 'unknown'}`,
-            });
-          }
+          const latestIncoming = incomingMessages[0];
+          const messagePreview = latestIncoming.content || latestIncoming.message_text || 'Новое сообщение';
+          const truncatedPreview = messagePreview.length > 50 
+            ? messagePreview.substring(0, 50) + '...' 
+            : messagePreview;
+          
+          showBrowserNotification({
+            title: 'Новое сообщение',
+            body: truncatedPreview,
+            tag: `chat-${latestIncoming.client_id || 'unknown'}`,
+          });
         }
 
         // Always update threads
@@ -175,6 +208,14 @@ export const useOrganizationRealtimeMessages = () => {
     }
 
     console.log('[OrgRealtime] 🔌 Creating channel...');
+    
+    // Set connection timeout
+    const connectionTimeout = setTimeout(() => {
+      if (!isSubscribedRef.current) {
+        console.warn('[OrgRealtime] ⏱️ Connection timeout, switching to polling');
+        handleConnectionFailureRef.current();
+      }
+    }, CONNECTION_TIMEOUT);
 
     const channel = supabase
       .channel('global_chat_messages_' + Date.now()) // Unique name to avoid conflicts
@@ -195,18 +236,13 @@ export const useOrganizationRealtimeMessages = () => {
             invalidateClientMessageQueries(clientId);
           }
 
-          const isIncoming = newMsg.direction === 'incoming';
-          
-          if (isIncoming) {
+          // Use helper to check both schemas
+          if (isIncomingMessage(newMsg)) {
             playNotificationSound(0.5);
-            
-            const messagePreview = newMsg.content 
-              ? (newMsg.content.length > 50 ? newMsg.content.substring(0, 50) + '...' : newMsg.content)
-              : 'Новое сообщение';
             
             showBrowserNotification({
               title: 'Новое сообщение',
-              body: messagePreview,
+              body: getMessagePreview(newMsg),
               tag: `chat-${clientId || 'unknown'}`,
             });
             
@@ -266,6 +302,9 @@ export const useOrganizationRealtimeMessages = () => {
       .subscribe((status) => {
         console.log('[OrgRealtime] 📡 Channel status:', status);
         
+        // Clear connection timeout on any status update
+        clearTimeout(connectionTimeout);
+        
         if (status === 'SUBSCRIBED') {
           isSubscribedRef.current = true;
           reconnectAttemptsRef.current = 0;
@@ -276,11 +315,11 @@ export const useOrganizationRealtimeMessages = () => {
         } else if (status === 'CHANNEL_ERROR') {
           console.error('[OrgRealtime] ❌ Channel error');
           isSubscribedRef.current = false;
-          handleConnectionFailure();
+          handleConnectionFailureRef.current();
         } else if (status === 'TIMED_OUT') {
           console.error('[OrgRealtime] ⏱️ Channel timed out');
           isSubscribedRef.current = false;
-          handleConnectionFailure();
+          handleConnectionFailureRef.current();
         } else if (status === 'CLOSED') {
           console.warn('[OrgRealtime] 🔒 Channel closed');
           isSubscribedRef.current = false;
@@ -322,6 +361,9 @@ export const useOrganizationRealtimeMessages = () => {
       }, RECONNECT_INTERVAL);
     }
   }, [startPolling, stopReconnecting, createChannel]);
+
+  // Keep the ref in sync with the latest handleConnectionFailure
+  handleConnectionFailureRef.current = handleConnectionFailure;
 
   // Initial setup
   useEffect(() => {
