@@ -20,7 +20,7 @@
  * mutate({ name: 'John', status: 'active' });
  */
 
-import { useQuery, useMutation, useQueryClient, UseQueryOptions, UseMutationOptions } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery, UseQueryOptions, UseMutationOptions } from '@tanstack/react-query';
 import {
   typedSelect,
   typedSelectOne,
@@ -164,6 +164,8 @@ export const queryKeys = {
     [table, 'join', select, filters] as const,
   paginated: (table: TableName, filters: Record<string, unknown>, page: number) => 
     [table, 'paginated', filters, page] as const,
+  infinite: (table: TableName, filters: Record<string, unknown>, selectStr?: string) => 
+    [table, 'infinite', filters, selectStr] as const,
   count: (table: TableName, filters: Record<string, unknown>) => 
     [table, 'count', filters] as const,
   rpc: (fnName: string, args: Record<string, unknown>) => 
@@ -386,6 +388,193 @@ export function useTypedPaginatedQuery<TResult>(
     page: query.data?.page || page,
     pageSize: query.data?.pageSize || pageSize,
   };
+}
+
+// ============ Infinite Query Hooks ============
+
+interface UseInfiniteTypedQueryOptions<T> {
+  filters?: Partial<T>;
+  select?: string;
+  order?: { column: string; ascending?: boolean };
+  pageSize?: number;
+  enabled?: boolean;
+  staleTime?: number;
+  gcTime?: number;
+  refetchOnWindowFocus?: boolean;
+}
+
+interface InfinitePageData<T> {
+  items: T[];
+  nextCursor: number;
+  hasMore: boolean;
+  total?: number;
+}
+
+/**
+ * React Query хук для бесконечной прокрутки с типизацией
+ * 
+ * @example
+ * const { 
+ *   data, 
+ *   fetchNextPage, 
+ *   hasNextPage, 
+ *   isFetchingNextPage 
+ * } = useInfiniteTypedQuery('students', {
+ *   filters: { status: 'active' },
+ *   order: { column: 'created_at', ascending: false },
+ *   pageSize: 50
+ * });
+ * 
+ * // Получить все загруженные элементы
+ * const allItems = data?.pages.flatMap(page => page.items) ?? [];
+ */
+export function useInfiniteTypedQuery<T extends TableName>(
+  table: T,
+  options: UseInfiniteTypedQueryOptions<TableRowMap[T]> = {}
+) {
+  const { 
+    filters = {}, 
+    select, 
+    order, 
+    pageSize = 50, 
+    enabled = true, 
+    staleTime,
+    gcTime,
+    refetchOnWindowFocus 
+  } = options;
+
+  return useInfiniteQuery({
+    queryKey: queryKeys.infinite(table, filters as Record<string, unknown>, select),
+    queryFn: async ({ pageParam = 0 }): Promise<InfinitePageData<TableRowMap[T]>> => {
+      const result = await typedSelect(table, filters, {
+        select,
+        order: order as { column: keyof TableRowMap[T]; ascending?: boolean } | undefined,
+        limit: pageSize + 1, // +1 to check if there are more
+        offset: pageParam,
+      });
+
+      if (result.error) throw result.error;
+
+      const items = result.data || [];
+      const hasMore = items.length > pageSize;
+      const returnItems = hasMore ? items.slice(0, pageSize) : items;
+
+      return {
+        items: returnItems,
+        nextCursor: pageParam + pageSize,
+        hasMore,
+        total: result.count ?? undefined,
+      };
+    },
+    getNextPageParam: (lastPage) => {
+      return lastPage.hasMore ? lastPage.nextCursor : undefined;
+    },
+    initialPageParam: 0,
+    enabled,
+    staleTime,
+    gcTime,
+    refetchOnWindowFocus,
+  });
+}
+
+interface UseInfiniteTypedQueryJoinOptions {
+  filters?: Record<string, unknown>;
+  order?: { column: string; ascending?: boolean };
+  pageSize?: number;
+  enabled?: boolean;
+  staleTime?: number;
+  gcTime?: number;
+  refetchOnWindowFocus?: boolean;
+}
+
+/**
+ * React Query хук для бесконечной прокрутки с JOIN
+ * 
+ * @example
+ * const { 
+ *   data, 
+ *   fetchNextPage, 
+ *   hasNextPage 
+ * } = useInfiniteTypedQueryJoin<StudentFull>(
+ *   'students',
+ *   JoinSelects.studentFull,
+ *   { 
+ *     filters: { status: 'active' },
+ *     order: { column: 'created_at', ascending: false },
+ *     pageSize: 30 
+ *   }
+ * );
+ * 
+ * const allStudents = data?.pages.flatMap(page => page.items) ?? [];
+ */
+export function useInfiniteTypedQueryJoin<TResult>(
+  table: TableName,
+  selectStr: string,
+  options: UseInfiniteTypedQueryJoinOptions = {}
+) {
+  const { 
+    filters = {}, 
+    order, 
+    pageSize = 50, 
+    enabled = true, 
+    staleTime,
+    gcTime,
+    refetchOnWindowFocus 
+  } = options;
+
+  return useInfiniteQuery({
+    queryKey: queryKeys.infinite(table, filters, selectStr),
+    queryFn: async ({ pageParam = 0 }): Promise<InfinitePageData<TResult>> => {
+      const result = await typedSelectJoin<TResult>(table, selectStr, filters, {
+        order,
+        limit: pageSize + 1,
+        offset: pageParam,
+      });
+
+      if (result.error) throw result.error;
+
+      const items = result.data || [];
+      const hasMore = items.length > pageSize;
+      const returnItems = hasMore ? items.slice(0, pageSize) : items;
+
+      return {
+        items: returnItems,
+        nextCursor: pageParam + pageSize,
+        hasMore,
+        total: result.count ?? undefined,
+      };
+    },
+    getNextPageParam: (lastPage) => {
+      return lastPage.hasMore ? lastPage.nextCursor : undefined;
+    },
+    initialPageParam: 0,
+    enabled,
+    staleTime,
+    gcTime,
+    refetchOnWindowFocus,
+  });
+}
+
+/**
+ * Хелпер для получения всех элементов из infinite query
+ * 
+ * @example
+ * const query = useInfiniteTypedQuery('students', { filters: { status: 'active' } });
+ * const allItems = getAllItemsFromInfinite(query.data);
+ */
+export function getAllItemsFromInfinite<T>(
+  data: { pages: InfinitePageData<T>[] } | undefined
+): T[] {
+  return data?.pages.flatMap(page => page.items) ?? [];
+}
+
+/**
+ * Хелпер для получения общего количества из infinite query
+ */
+export function getTotalFromInfinite<T>(
+  data: { pages: InfinitePageData<T>[] } | undefined
+): number | undefined {
+  return data?.pages[0]?.total;
 }
 
 // ============ Count Query Hook ============
@@ -751,6 +940,7 @@ export function createOptimisticUpdateHandlers<T extends TableName>(
 
 export { JoinSelects };
 export type {
+  InfinitePageData,
   StudentWithFamily,
   StudentWithGroups,
   StudentWithParents,
