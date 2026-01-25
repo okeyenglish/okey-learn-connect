@@ -305,6 +305,8 @@ const CRMContent = () => {
   const [chatInitialSearchQuery, setChatInitialSearchQuery] = useState<string | undefined>(undefined);
   // Message ID to highlight and scroll to when navigating from search
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | undefined>(undefined);
+  // Счётчик непрочитанных при последнем открытии ассистента (для остановки пульсации)
+  const [lastSeenUnreadCount, setLastSeenUnreadCount] = useState(0);
   
   // Критичные данные - загружаем ТОЛЬКО threads с infinite scroll (50 за раз)
   // useClients убран из критического пути - 27К клиентов тормозили загрузку
@@ -3847,16 +3849,20 @@ const CRMContent = () => {
           
           {/* Плавающая кнопка ассистента для десктопа - fixed справа внизу */}
           {!isMobile && !voiceAssistantOpen && activeChatType === 'client' && (() => {
-            // Показываем пульсацию если есть непрочитанные сообщения
+            // Показываем пульсацию только если есть НОВЫЕ непрочитанные (больше чем при последнем открытии)
+            const hasNewUnread = totalUnreadCount > lastSeenUnreadCount;
             const hasUnread = totalUnreadCount > 0;
             return (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    onClick={() => setVoiceAssistantOpen(true)}
+                    onClick={() => {
+                      setLastSeenUnreadCount(totalUnreadCount);
+                      setVoiceAssistantOpen(true);
+                    }}
                     className={cn(
                       "fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-all",
-                      hasUnread && "animate-pulse ring-4 ring-primary/30"
+                      hasNewUnread && "animate-pulse ring-4 ring-primary/30"
                     )}
                     size="icon"
                   >
