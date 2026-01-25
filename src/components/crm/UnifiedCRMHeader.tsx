@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { StudentsModal } from './StudentsModal';
 import { useAuth } from '@/hooks/useAuth';
+import { useOrganization } from '@/hooks/useOrganization';
 import { useToast } from '@/hooks/use-toast';
 import {
   MessageSquare,
@@ -16,7 +17,6 @@ import {
   Users,
   Calendar,
   BookOpen,
-  Building,
   BarChart3,
   Menu,
   MessageCircle,
@@ -32,9 +32,14 @@ export const UnifiedCRMHeader = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, profile, role, roles, signOut } = useAuth();
+  const { organization } = useOrganization();
   const { toast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [studentsModalOpen, setStudentsModalOpen] = useState(false);
+
+  // Get company name from organization branding or use default
+  const companyName = organization?.branding?.companyName || organization?.name || "O'KEY ENGLISH";
+  const logoUrl = organization?.branding?.logoUrl || '/favicon.png';
 
   const handleSignOut = async () => {
     try {
@@ -203,9 +208,9 @@ export const UnifiedCRMHeader = () => {
             onClick={() => navigate('/')}
             className="flex items-center space-x-2"
           >
-            <img src="/favicon.png" alt="Logo" className="h-6 w-6" />
+            <img src={logoUrl} alt="Logo" className="h-6 w-6" />
             <span className="hidden font-bold sm:inline-block">
-              O'KEY ENGLISH CRM
+              {companyName} CRM
             </span>
           </Button>
         </div>
