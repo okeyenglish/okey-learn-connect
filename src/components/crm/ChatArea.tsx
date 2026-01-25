@@ -13,7 +13,7 @@ import { ru } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useTypingStatus } from "@/hooks/useTypingStatus";
 import { useClientUnreadByMessenger } from "@/hooks/useChatMessages";
-import { useChatMessagesOptimized } from "@/hooks/useChatMessagesOptimized";
+import { useChatMessagesOptimized, useMessageStatusRealtime } from "@/hooks/useChatMessagesOptimized";
 import { ChatMessage } from "./ChatMessage";
 import { DateSeparator, shouldShowDateSeparator } from "./DateSeparator";
 import { SalebotCallbackMessage, isSalebotCallback, isHiddenSalebotMessage, isSuccessPayment } from "./SalebotCallbackMessage";
@@ -101,6 +101,9 @@ export const ChatArea = ({
     isLoading: loadingMessages, 
     isFetching: fetchingMessages 
   } = useChatMessagesOptimized(clientId, messageLimit);
+  
+  // Subscribe to realtime message status updates
+  useMessageStatusRealtime(clientId);
   
   const hasMoreMessages = messagesData?.hasMore ?? false;
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);

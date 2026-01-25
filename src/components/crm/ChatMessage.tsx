@@ -463,30 +463,21 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                         <span className="ml-1 text-[9px]">ред.</span>
                       )}
                     </span>
-                    {/* Delivery status for outgoing messages */}
+                    {/* Delivery status for outgoing messages - shows sent/delivered/read status */}
                     {type === 'manager' && message !== '[Сообщение удалено]' && (
                       <MessageDeliveryStatus 
                         status={messageStatus}
-                        className="ml-0.5"
+                        className="ml-1"
                       />
                     )}
-                    {/* Internal read status (by other managers) */}
-                    {type === 'manager' && messageId && message !== '[Сообщение удалено]' && (
-                      <MessageReadIndicator 
-                        messageId={messageId} 
-                        isOutgoing={true}
-                        authorName={managerName || "Менеджер"}
-                        authorAvatar={undefined}
-                        className="ml-0.5"
-                      />
-                    )}
+                    {/* Read indicator for incoming messages */}
                     {type === 'client' && messageId && (
                       <MessageReadIndicator 
                         messageId={messageId} 
                         isOutgoing={false}
                         authorName="Клиент"
                         authorAvatar={clientAvatar}
-                        className="ml-0.5"
+                        className="ml-1"
                       />
                     )}
                   </div>
