@@ -6,11 +6,9 @@ interface AnimatedLogoProps {
 }
 
 export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
-  const strokeWidth = 4;
-  const radius = (size / 2) - (strokeWidth / 2);
-  const circumference = 2 * Math.PI * radius;
-  // Fill the inner area right up to the ring to avoid any visible “white gap”
-  const innerLogoSize = size - (strokeWidth * 2);
+  const center = size / 2;
+  const innerRadius = size * 0.35;
+  const outerRadius = size * 0.45;
   
   return (
     <div 
@@ -20,85 +18,93 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
       )}
       style={{ width: size, height: size }}
     >
-      {/* Siri-like glow behind the ring */}
+      {/* Siri-like glow */}
       <div 
-        className="absolute inset-[-4px] rounded-full animate-siri-glow"
+        className="absolute inset-[-6px] rounded-full animate-siri-glow"
         style={{
-          background: 'conic-gradient(from 0deg, hsl(217 72% 50% / 0.5), hsl(0 80% 55% / 0.4), hsl(217 72% 50% / 0.5))',
-          filter: 'blur(8px)',
+          background: 'conic-gradient(from 0deg, hsl(217 72% 50% / 0.4), hsl(0 80% 55% / 0.3), hsl(217 72% 50% / 0.4))',
+          filter: 'blur(10px)',
         }}
       />
       
-      {/* SVG animated ring border */}
+      {/* SVG with animated ribbons */}
       <svg 
         className="absolute inset-0 w-full h-full"
         viewBox={`0 0 ${size} ${size}`}
       >
         <defs>
-          {/* Animated gradient */}
-          <linearGradient id="siriRingGradient" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="hsl(217 72% 50%)">
-              <animate attributeName="stop-color" values="hsl(217 72% 50%);hsl(0 80% 55%);hsl(217 72% 50%)" dur="4s" repeatCount="indefinite" />
-            </stop>
-            <stop offset="50%" stopColor="hsl(0 80% 55%)">
-              <animate attributeName="stop-color" values="hsl(0 80% 55%);hsl(217 72% 50%);hsl(0 80% 55%)" dur="4s" repeatCount="indefinite" />
-            </stop>
-            <stop offset="100%" stopColor="hsl(217 72% 50%)">
-              <animate attributeName="stop-color" values="hsl(217 72% 50%);hsl(0 80% 55%);hsl(217 72% 50%)" dur="4s" repeatCount="indefinite" />
-            </stop>
+          {/* Blue gradient */}
+          <linearGradient id="blueRibbon" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="hsl(217 85% 45%)" />
+            <stop offset="50%" stopColor="hsl(217 72% 55%)" />
+            <stop offset="100%" stopColor="hsl(200 80% 50%)" />
           </linearGradient>
           
-          {/* Second gradient for layered effect */}
-          <linearGradient id="siriRingGradient2" gradientUnits="userSpaceOnUse" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="hsl(0 80% 55%)" stopOpacity="0.8" />
-            <stop offset="50%" stopColor="hsl(217 72% 50%)" stopOpacity="0.9" />
-            <stop offset="100%" stopColor="hsl(0 80% 55%)" stopOpacity="0.8" />
+          {/* Red gradient */}
+          <linearGradient id="redRibbon" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="hsl(0 85% 50%)" />
+            <stop offset="50%" stopColor="hsl(0 80% 55%)" />
+            <stop offset="100%" stopColor="hsl(15 85% 55%)" />
           </linearGradient>
         </defs>
         
-        {/* Main rotating ring segment */}
+        {/* Blue ribbon arc - rotating */}
+        <g className="animate-ribbon-blue" style={{ transformOrigin: 'center' }}>
+          <path
+            d={`
+              M ${center + outerRadius * Math.cos(-2.5)} ${center + outerRadius * Math.sin(-2.5)}
+              A ${outerRadius} ${outerRadius} 0 0 1 ${center + outerRadius * Math.cos(0.3)} ${center + outerRadius * Math.sin(0.3)}
+              L ${center + innerRadius * Math.cos(0.5)} ${center + innerRadius * Math.sin(0.5)}
+              A ${innerRadius} ${innerRadius} 0 0 0 ${center + innerRadius * Math.cos(-2.3)} ${center + innerRadius * Math.sin(-2.3)}
+              Z
+            `}
+            fill="url(#blueRibbon)"
+            style={{ filter: 'drop-shadow(0 2px 4px rgba(59, 130, 246, 0.4))' }}
+          />
+        </g>
+        
+        {/* Red ribbon arc - rotating opposite */}
+        <g className="animate-ribbon-red" style={{ transformOrigin: 'center' }}>
+          <path
+            d={`
+              M ${center + outerRadius * Math.cos(0.8)} ${center + outerRadius * Math.sin(0.8)}
+              A ${outerRadius} ${outerRadius} 0 0 1 ${center + outerRadius * Math.cos(3.5)} ${center + outerRadius * Math.sin(3.5)}
+              L ${center + innerRadius * Math.cos(3.3)} ${center + innerRadius * Math.sin(3.3)}
+              A ${innerRadius} ${innerRadius} 0 0 0 ${center + innerRadius * Math.cos(1)} ${center + innerRadius * Math.sin(1)}
+              Z
+            `}
+            fill="url(#redRibbon)"
+            style={{ filter: 'drop-shadow(0 2px 4px rgba(239, 68, 68, 0.4))' }}
+          />
+        </g>
+        
+        {/* White center circle */}
         <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="url(#siriRingGradient)"
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={`${circumference * 0.6} ${circumference * 0.4}`}
-          className="animate-siri-ring-main"
-          style={{ transformOrigin: 'center' }}
+          cx={center}
+          cy={center}
+          r={innerRadius - 2}
+          fill="white"
+          style={{ filter: 'drop-shadow(0 1px 3px rgba(0, 0, 0, 0.1))' }}
         />
         
-        {/* Secondary counter-rotating segment */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="url(#siriRingGradient2)"
-          strokeWidth={strokeWidth - 1}
-          strokeLinecap="round"
-          strokeDasharray={`${circumference * 0.3} ${circumference * 0.7}`}
-          className="animate-siri-ring-secondary"
-          style={{ transformOrigin: 'center', opacity: 0.7 }}
-        />
+        {/* OS text */}
+        <text
+          x={center}
+          y={center}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="hsl(0 80% 45%)"
+          fontWeight="bold"
+          fontSize={size * 0.28}
+          fontFamily="system-ui, -apple-system, sans-serif"
+        >
+          OS
+        </text>
       </svg>
-      
-      {/* Static center logo - smaller to fit inside ring */}
-      <img 
-        src="/favicon.png" 
-        alt="Logo"
-        className="relative z-10 rounded-full object-contain transition-transform duration-300 group-hover:scale-105"
-        style={{
-          width: innerLogoSize,
-          height: innerLogoSize,
-        }}
-      />
       
       {/* Custom keyframes */}
       <style>{`
-        @keyframes siriRingMain {
+        @keyframes ribbonBlue {
           0% {
             transform: rotate(0deg);
           }
@@ -107,36 +113,36 @@ export const AnimatedLogo = ({ size = 72, className }: AnimatedLogoProps) => {
           }
         }
         
-        @keyframes siriRingSecondary {
+        @keyframes ribbonRed {
           0% {
-            transform: rotate(360deg);
+            transform: rotate(0deg);
           }
           100% {
-            transform: rotate(0deg);
+            transform: rotate(-360deg);
           }
         }
         
         @keyframes siriGlow {
           0%, 100% {
             transform: rotate(0deg) scale(1);
-            opacity: 0.6;
+            opacity: 0.5;
           }
           50% {
-            transform: rotate(180deg) scale(1.05);
-            opacity: 0.9;
+            transform: rotate(180deg) scale(1.08);
+            opacity: 0.8;
           }
         }
         
-        .animate-siri-ring-main {
-          animation: siriRingMain 4s linear infinite;
+        .animate-ribbon-blue {
+          animation: ribbonBlue 8s linear infinite;
         }
         
-        .animate-siri-ring-secondary {
-          animation: siriRingSecondary 6s linear infinite;
+        .animate-ribbon-red {
+          animation: ribbonRed 10s linear infinite;
         }
         
         .animate-siri-glow {
-          animation: siriGlow 8s ease-in-out infinite;
+          animation: siriGlow 6s ease-in-out infinite;
         }
       `}</style>
     </div>
