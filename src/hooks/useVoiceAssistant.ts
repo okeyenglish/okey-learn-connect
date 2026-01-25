@@ -4,13 +4,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 
+interface ActionResult {
+  type?: 'task_created' | 'multiple_tasks_created' | 'message_sent' | string;
+  [key: string]: unknown;
+}
+
 interface VoiceAssistantState {
   isRecording: boolean;
   isProcessing: boolean;
   isSpeaking: boolean;
   lastCommand: string;
   lastResponse: string;
-  actionResult: any;
+  actionResult: ActionResult | null;
 }
 
 export const useVoiceAssistant = () => {

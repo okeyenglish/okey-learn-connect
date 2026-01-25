@@ -2,19 +2,33 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle, Clock, AlertTriangle, Wifi, Mic, Shield, Network } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/typedClient';
+
+type DiagnosticStatus = 'pending' | 'success' | 'error' | 'warning';
 
 interface DiagnosticItem {
   key: string;
   label: string;
-  status: 'pending' | 'success' | 'error' | 'warning';
+  status: DiagnosticStatus;
   details?: string;
   icon: React.ReactNode;
 }
 
+interface SipProfile {
+  sip_domain?: string;
+  sip_ws_url?: string;
+}
+
+declare global {
+  interface Window {
+    updateWebRTCDiagnostic?: (key: string, status: DiagnosticStatus, details?: string) => void;
+  }
+}
+
 interface WebRTCDiagnosticsProps {
   isVisible: boolean;
-  sipProfile?: any;
-  onDiagnosticUpdate?: (key: string, status: 'pending' | 'success' | 'error' | 'warning', details?: string) => void;
+  sipProfile?: SipProfile;
+  onDiagnosticUpdate?: (key: string, status: DiagnosticStatus, details?: string) => void;
 }
 
 export const WebRTCDiagnostics: React.FC<WebRTCDiagnosticsProps> = ({ 
@@ -197,9 +211,9 @@ export const WebRTCDiagnostics: React.FC<WebRTCDiagnosticsProps> = ({
 
   const saveBestWebSocketURL = async (url: string) => {
     try {
-      const { data: { user } } = await (window as any).supabase?.auth?.getUser?.() || {};
+      const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        await (window as any).supabase?.from?.('profiles')?.update?.({ sip_ws_url: url })?.eq?.('id', user.id);
+        await supabase.from('profiles').update({ sip_ws_url: url }).eq('id', user.id);
         console.log('Saved best WebSocket URL:', url);
       }
     } catch (error) {
@@ -252,9 +266,9 @@ export const WebRTCDiagnostics: React.FC<WebRTCDiagnosticsProps> = ({
 
   // Expose diagnostic update function globally for WebRTC component
   useEffect(() => {
-    (window as any).updateWebRTCDiagnostic = updateDiagnostic;
+    window.updateWebRTCDiagnostic = updateDiagnostic;
     return () => {
-      delete (window as any).updateWebRTCDiagnostic;
+      delete window.updateWebRTCDiagnostic;
     };
   }, []);
 

@@ -119,11 +119,17 @@ export const QRScanner = ({ onClose }: QRScannerProps) => {
         }
       );
 
-      let data: any = {};
+      interface QRConfirmResponse {
+        success?: boolean;
+        error?: string;
+        message?: string;
+      }
+      
+      let data: QRConfirmResponse = {};
       const responseText = await response.text();
       
       try {
-        data = JSON.parse(responseText);
+        data = JSON.parse(responseText) as QRConfirmResponse;
       } catch {
         console.error('Response is not JSON:', responseText);
       }
