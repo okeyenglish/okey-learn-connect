@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import * as React from "react";
+import { useNavigate } from "react-router-dom";
 import { AdminFAQManager } from "./AdminFAQManager";
 import { AdminScheduleManager } from "./AdminScheduleManager";
 import { TextbookManager } from "./TextbookManager";
@@ -39,11 +40,16 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({ activeSection }: AdminDashboardProps) {
   const [currentSection, setCurrentSection] = useState(activeSection);
+  const navigate = useNavigate();
 
   // Update current section when prop changes
   React.useEffect(() => {
     setCurrentSection(activeSection);
-  }, [activeSection]);
+    // Redirect to webhook-test page
+    if (activeSection === 'webhook-test') {
+      navigate('/admin/webhook-test');
+    }
+  }, [activeSection, navigate]);
 
   const renderContent = () => {
     switch (currentSection) {

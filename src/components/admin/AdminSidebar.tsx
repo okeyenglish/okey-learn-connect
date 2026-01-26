@@ -25,7 +25,8 @@ import {
   Webhook,
   MonitorCheck,
   CalendarPlus,
-  Target
+  Target,
+  TestTube
 } from "lucide-react";
 import {
   Sidebar,
@@ -54,6 +55,7 @@ const adminItems = [
   { title: "Телефония", id: "telephony", icon: Phone },
   { title: "Маршрутизация", id: "routing-rules", icon: Route },
   { title: "Webhooks", id: "webhooks", icon: Webhook },
+  { title: "Тест Webhooks", id: "webhook-test", icon: TestTube },
   { title: "Мониторинг", id: "system-monitor", icon: MonitorCheck },
   { title: "Textbooks", id: "textbooks", icon: BookOpen },
   { title: "Справочники", id: "references", icon: Database },
