@@ -7,6 +7,46 @@ import { startMetric, endMetric } from '@/lib/performanceMetrics';
 // Cache normalized phone -> clientId to avoid repeated lookups (huge perf win on large clients table)
 const teacherClientIdByPhoneCache = new Map<string, string>();
 
+// In-memory cache: whether the current user is allowed to use direct chat_messages fallback
+let allowDirectTeacherMessagesFallback: boolean | null = null;
+
+const getAllowDirectTeacherMessagesFallback = async (): Promise<boolean> => {
+  if (allowDirectTeacherMessagesFallback !== null) return allowDirectTeacherMessagesFallback;
+
+  try {
+    const { data: u, error: uErr } = await supabase.auth.getUser();
+    if (uErr) {
+      allowDirectTeacherMessagesFallback = false;
+      return allowDirectTeacherMessagesFallback;
+    }
+
+    const uid = u.user?.id;
+    if (!uid) {
+      allowDirectTeacherMessagesFallback = false;
+      return allowDirectTeacherMessagesFallback;
+    }
+
+    const { data: roles, error: rolesErr } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', uid);
+
+    if (rolesErr) {
+      allowDirectTeacherMessagesFallback = false;
+      return allowDirectTeacherMessagesFallback;
+    }
+
+    const allowed = (roles || []).some((r: any) =>
+      ['admin', 'manager', 'branch_manager', 'accountant'].includes(String(r.role))
+    );
+    allowDirectTeacherMessagesFallback = allowed;
+    return allowDirectTeacherMessagesFallback;
+  } catch {
+    allowDirectTeacherMessagesFallback = false;
+    return allowDirectTeacherMessagesFallback;
+  }
+};
+
 /**
  * Hook to load teacher chat messages using SECURITY DEFINER RPC
  * This bypasses RLS org filter for teacher-linked clients
@@ -69,10 +109,21 @@ export const useTeacherChatMessages = (clientId: string, enabled = true) => {
       try {
         // First attempt: RPC with timeout
         const rpcResult = await rpcWithTimeout();
-        
-        if (rpcResult.data) {
+
+        // IMPORTANT:
+        // Some SECURITY DEFINER RPCs may legally return an empty set (e.g. access check fails)
+        // which is indistinguishable from "no messages".
+        // For admin/manager roles we prefer to fallback to direct SELECT when RPC returns 0 rows.
+        if (Array.isArray(rpcResult.data) && rpcResult.data.length > 0) {
           endMetric(metricId, 'completed', { msgCount: rpcResult.data.length, method: 'rpc' });
           return rpcResult.data;
+        }
+
+        const canFallback = await getAllowDirectTeacherMessagesFallback();
+        if (!canFallback) {
+          // Respect restricted roles (e.g. teacher) — do not fallback to broad SELECT.
+          endMetric(metricId, 'completed', { msgCount: 0, method: 'rpc_empty_no_fallback' });
+          return [];
         }
 
         // Second attempt: Direct SELECT (faster for teacher chats, bypasses complex RPC)
