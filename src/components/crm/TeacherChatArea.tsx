@@ -143,11 +143,18 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
   const filteredTeachers = useMemo(() => {
     return teachers.filter((teacher) => {
-      // Search filter
-      const q = searchQuery.toLowerCase();
-      const matchesSearch = (teacher.fullName || '').toLowerCase().includes(q) ||
-             ((teacher.branch || '').toLowerCase().includes(q));
-      if (!matchesSearch) return false;
+      // Search filter - search by name, branch, phone, email
+      const q = searchQuery.toLowerCase().trim();
+      if (q) {
+        const matchesSearch = 
+          (teacher.fullName || '').toLowerCase().includes(q) ||
+          (teacher.firstName || '').toLowerCase().includes(q) ||
+          (teacher.lastName || '').toLowerCase().includes(q) ||
+          (teacher.branch || '').toLowerCase().includes(q) ||
+          (teacher.phone || '').replace(/\D/g, '').includes(q.replace(/\D/g, '')) ||
+          (teacher.email || '').toLowerCase().includes(q);
+        if (!matchesSearch) return false;
+      }
 
       // Branch filter
       if (filterBranch !== 'all' && teacher.branch !== filterBranch) return false;
@@ -184,13 +191,21 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       <div className="p-2 border-b border-border shrink-0 space-y-2">
         <div className="flex gap-1">
           <div className="flex-1 relative">
+            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder="Поиск по чатам..."
+              placeholder="Поиск по имени, телефону..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 text-sm pr-8"
+              className="h-8 text-sm pl-8 pr-8"
             />
-            <Search className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
           <Popover open={showFilters} onOpenChange={setShowFilters}>
             <PopoverTrigger asChild>
