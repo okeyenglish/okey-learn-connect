@@ -628,21 +628,18 @@ export const ChatArea = ({
     // При переходе на вкладку "Звонки" помечаем пропущенные звонки как просмотренные
     if (newTab === 'calls') {
       try {
+        // Получаем непросмотренные звонки с сервера и помечаем их как просмотренные
         const response = await selfHostedPost<{
           success: boolean;
-          calls: Array<{ id: string; status: string }>;
-        }>('get-call-logs', { 
-          action: 'history', 
+          unviewedCount: number;
+          unviewedIds: string[];
+        }>('mark-calls-viewed', { 
+          action: 'get-unviewed-count', 
           clientId,
-          limit: 50,
-          filters: { status: 'missed' }
         });
         
-        if (response.success && response.data?.calls) {
-          const missedCallIds = response.data.calls.map(c => c.id);
-          if (missedCallIds.length > 0) {
-            markCallsAsViewed(missedCallIds);
-          }
+        if (response.success && response.data?.unviewedIds?.length) {
+          await markCallsAsViewed(response.data.unviewedIds);
         }
       } catch (error) {
         console.warn('[handleTabChange] Failed to mark calls as viewed:', error);

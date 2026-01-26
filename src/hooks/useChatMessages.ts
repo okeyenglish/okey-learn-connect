@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { countUnviewedMissedCalls } from './useViewedMissedCalls';
+import { getUnviewedMissedCallsCount } from './useViewedMissedCalls';
 
 export interface ChatMessage {
   id: string;
@@ -445,28 +445,25 @@ export const useClientUnreadByMessenger = (clientId: string) => {
         }
       });
 
-      // Fetch missed calls from self-hosted API
+      // Fetch unviewed missed calls count from server
       try {
-        const callsResponse = await selfHostedPost<{
-          success: boolean;
-          calls: Array<{ id: string; started_at: string }>;
-        }>('get-call-logs', { 
-          action: 'history', 
-          clientId,
-          limit: 50,
-          filters: { status: 'missed' }
-        });
+        counts.calls = await getUnviewedMissedCallsCount(clientId);
+        
+        // Check if we have unviewed missed calls
+        if (counts.calls > 0) {
+          // Get the latest missed call to check if it's newer than latest unread message
+          const callsResponse = await selfHostedPost<{
+            success: boolean;
+            calls: Array<{ id: string; started_at: string }>;
+          }>('get-call-logs', { 
+            action: 'history', 
+            clientId,
+            limit: 1,
+            filters: { status: 'missed' }
+          });
 
-        if (callsResponse.success && callsResponse.data?.calls) {
-          const callRows = callsResponse.data.calls;
-          const missedCallIds = callRows.map(c => c.id);
-          
-          // Count only unviewed missed calls
-          counts.calls = countUnviewedMissedCalls(clientId, missedCallIds);
-          
-          // Check if latest unviewed missed call is newer than latest unread message
-          if (counts.calls > 0 && callRows.length > 0) {
-            const latestCallTime = new Date(callRows[0].started_at);
+          if (callsResponse.success && callsResponse.data?.calls?.length) {
+            const latestCallTime = new Date(callsResponse.data.calls[0].started_at);
             if (!latestUnreadTime || latestCallTime > latestUnreadTime) {
               lastUnreadMessenger = 'calls';
             }
