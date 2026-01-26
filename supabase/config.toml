@@ -1,5 +1,8 @@
 project_id = "kbojujfwtvmsgudumown"
 
+[functions.submit-trial-request]
+verify_jwt = false
+
 [functions.telegram-channels]
 verify_jwt = true
 
