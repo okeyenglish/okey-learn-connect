@@ -142,6 +142,7 @@ import { TeacherMessagesPanel } from "@/components/crm/TeacherMessagesPanel";
 import { UserPermissionsManager } from "@/components/admin/UserPermissionsManager";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
+import { useMissedCallNotifications } from "@/hooks/useMissedCallNotifications";
 
 // Lazy load тяжелых компонентов модальных окон для быстрого открытия
 const LeadsModalContent = lazy(() => import("@/components/leads/LeadsModalContent").then(m => ({ default: m.LeadsModalContent })));
@@ -177,6 +178,9 @@ const CRMContent = () => {
   // This replaces per-chat subscriptions, reducing WebSocket connections from N to 1
   // Falls back to polling if WebSocket is unavailable
   const { connectionStatus } = useOrganizationRealtimeMessages();
+  
+  // Listen for missed call events and show notifications
+  useMissedCallNotifications();
   
   // Custom hooks for state management
   const modals = useCRMModals();
