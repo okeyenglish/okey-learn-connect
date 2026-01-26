@@ -207,7 +207,8 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         .from('chat_messages')
         .select('id')
         .eq('client_id', clientId)
-        .eq('direction', 'incoming')
+        // In self-hosted schema incoming messages are marked by is_outgoing = false
+        .eq('is_outgoing', false)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -270,8 +271,10 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         .from('chat_messages')
         .update({ is_read: true })
         .eq('client_id', clientId)
-        .eq('is_read', false)
-        .eq('direction', 'incoming');
+        // In self-hosted schema incoming messages are marked by is_outgoing = false
+        .eq('is_outgoing', false)
+        // Some rows may have NULL is_read; treat them as unread too
+        .or('is_read.is.null,is_read.eq.false');
       
       if (error) {
         console.error('Error marking as read:', error);
