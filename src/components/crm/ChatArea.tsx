@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from "react";
 import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, PanelLeft, PanelRight, CheckCheck, ListTodo, CreditCard, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,6 +48,7 @@ import { getErrorMessage } from '@/lib/errorUtils';
 import { useClientAvatars } from '@/hooks/useClientAvatars';
 import { useMessengerIntegrationStatus, useAllIntegrationsStatus, MessengerType } from '@/hooks/useMessengerIntegrationStatus';
 import { selfHostedPost } from '@/lib/selfHostedApi';
+import { useMessageDrafts } from '@/hooks/useMessageDrafts';
 
 interface ChatAreaProps {
   clientId: string;
@@ -102,7 +103,8 @@ export const ChatArea = ({
   messagesSource = 'default',
   simplifiedToolbar = false
 }: ChatAreaProps) => {
-  const [message, setMessage] = useState("");
+  // Use persistent draft hook to preserve message across tab switches
+  const { draft: message, setDraft: setMessage, clearDraft } = useMessageDrafts(clientId);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
@@ -898,7 +900,7 @@ export const ChatArea = ({
     
     const filesToSend = [...attachedFiles];
     
-    setMessage(""); // Clear input immediately
+    clearDraft(); // Clear input immediately (persisted)
     setQuotedText(null); // Clear quoted text
     setPaymentLinkAttachment(null); // Clear payment link attachment
     setAttachedFiles([]); // Clear attached files immediately
@@ -1323,7 +1325,7 @@ export const ChatArea = ({
       description: `Сообщение будет отправлено ${format(scheduledDateTime, "d MMMM yyyy 'в' HH:mm", { locale: ru })}`,
     });
 
-    setMessage("");
+    clearDraft();
     setScheduleDate("");
     setScheduleTime("");
     setShowScheduleDialog(false);
@@ -1410,7 +1412,7 @@ export const ChatArea = ({
       description: `Сообщение будет отправлено ${format(scheduledDateTime, "d MMMM yyyy 'в' HH:mm", { locale: ru })}`,
     });
 
-    setMessage("");
+    clearDraft();
     setScheduleDate("");
     setScheduleTime("");
     setEditingScheduledMessage(null);
