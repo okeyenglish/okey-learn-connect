@@ -19,12 +19,13 @@ export const useTeacherChatMessages = (clientId: string, enabled = true) => {
       
       const metricId = startMetric('teacher-chat-messages', { clientId });
 
-      // Abort hanging requests (Network shows long Pending for teacher chats)
-      const TIMEOUT_MS = 12_000;
+      // Abort hanging requests - reduced from 12s to 6s for faster fallback
+      const TIMEOUT_MS = 6_000;
       const controller = new AbortController();
       const onAbort = () => controller.abort();
       signal?.addEventListener('abort', onAbort);
       const timeoutId = window.setTimeout(() => {
+        console.warn('[useTeacherChatMessages] Timeout reached, aborting RPC for clientId:', clientId);
         controller.abort();
         endMetric(metricId, 'timeout');
       }, TIMEOUT_MS);
@@ -185,8 +186,10 @@ export const useTeacherChats = (branch?: string | null) => {
         return null;
       }
     },
-    staleTime: 15000, // 15 seconds - MV is fast, can refresh more often
+    staleTime: 60_000, // 60 seconds - MV caches data, no need for frequent refresh
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
     retry: false, // Don't retry - fallback will handle it
+    refetchOnWindowFocus: false,
   });
 
   // Fallback: Fetch teachers + unread counts separately (legacy approach)
