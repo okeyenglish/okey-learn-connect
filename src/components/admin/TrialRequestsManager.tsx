@@ -4,7 +4,6 @@ import { ru } from 'date-fns/locale';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -45,7 +44,22 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar as CalendarIcon, Search, Filter, MoreHorizontal, Phone, MapPin, MessageSquare, Trash2, RefreshCw, Download, Users } from 'lucide-react';
+import { 
+  Calendar as CalendarIcon, 
+  Search, 
+  Filter, 
+  MoreHorizontal, 
+  Phone, 
+  MapPin, 
+  MessageSquare, 
+  Trash2, 
+  RefreshCw, 
+  Download, 
+  Users,
+  Link2,
+  User,
+  GraduationCap
+} from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -56,13 +70,16 @@ import {
   getStatusLabel,
   getStatusColor,
   TrialRequestFilters,
+  TrialLessonRequest,
 } from '@/hooks/useTrialRequests';
 import { useUserAllowedBranches } from '@/hooks/useUserAllowedBranches';
+import { LinkTrialRequestModal } from './LinkTrialRequestModal';
 
 export const TrialRequestsManager = () => {
   const [filters, setFilters] = useState<TrialRequestFilters>({});
   const [showFilters, setShowFilters] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [linkRequest, setLinkRequest] = useState<TrialLessonRequest | null>(null);
 
   const { branchesForDropdown } = useUserAllowedBranches();
   const { data: requests, isLoading, refetch } = useTrialRequests(filters);
@@ -71,12 +88,13 @@ export const TrialRequestsManager = () => {
 
   // Stats
   const stats = useMemo(() => {
-    if (!requests) return { total: 0, new: 0, scheduled: 0, enrolled: 0 };
+    if (!requests) return { total: 0, new: 0, scheduled: 0, enrolled: 0, linked: 0 };
     return {
       total: requests.length,
       new: requests.filter(r => r.status === 'new' || !r.status).length,
       scheduled: requests.filter(r => r.status === 'scheduled').length,
       enrolled: requests.filter(r => r.status === 'enrolled').length,
+      linked: requests.filter(r => r.client_id || r.student_id).length,
     };
   }, [requests]);
 
@@ -84,7 +102,7 @@ export const TrialRequestsManager = () => {
     if (!requests?.length) return;
 
     const csv = [
-      ['Имя', 'Телефон', 'Филиал', 'Адрес', 'Комментарий', 'Статус', 'Источник', 'Дата'].join(';'),
+      ['Имя', 'Телефон', 'Филиал', 'Адрес', 'Комментарий', 'Статус', 'Источник', 'Клиент', 'Студент', 'Дата'].join(';'),
       ...requests.map(r => [
         r.name,
         r.phone,
@@ -93,6 +111,8 @@ export const TrialRequestsManager = () => {
         r.comment || '',
         getStatusLabel(r.status),
         r.source || '',
+        r.client?.name || '',
+        r.student ? `${r.student.first_name} ${r.student.last_name || ''}` : '',
         format(new Date(r.created_at), 'dd.MM.yyyy HH:mm'),
       ].join(';')),
     ].join('\n');
@@ -127,7 +147,7 @@ export const TrialRequestsManager = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -136,7 +156,7 @@ export const TrialRequestsManager = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold">{stats.total}</p>
-                <p className="text-xs text-muted-foreground">Всего заявок</p>
+                <p className="text-xs text-muted-foreground">Всего</p>
               </div>
             </div>
           </CardContent>
@@ -180,6 +200,19 @@ export const TrialRequestsManager = () => {
             </div>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-full bg-indigo-100">
+                <Link2 className="h-5 w-5 text-indigo-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.linked}</p>
+                <p className="text-xs text-muted-foreground">Привязаны</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
@@ -199,12 +232,12 @@ export const TrialRequestsManager = () => {
         </CardHeader>
         {showFilters && (
           <CardContent className="pt-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
               {/* Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Поиск по имени или телефону"
+                  placeholder="Поиск..."
                   className="pl-9"
                   value={filters.search || ''}
                   onChange={(e) => setFilters({ ...filters, search: e.target.value })}
@@ -244,12 +277,28 @@ export const TrialRequestsManager = () => {
                 </SelectContent>
               </Select>
 
+              {/* Linked filter */}
+              <Select
+                value={filters.linked || 'all'}
+                onValueChange={(v) => setFilters({ ...filters, linked: v as TrialRequestFilters['linked'] })}
+              >
+                <SelectTrigger>
+                  <Link2 className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Привязка" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Все</SelectItem>
+                  <SelectItem value="linked">Привязаны</SelectItem>
+                  <SelectItem value="unlinked">Не привязаны</SelectItem>
+                </SelectContent>
+              </Select>
+
               {/* Date From */}
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="justify-start">
                     <CalendarIcon className="h-4 w-4 mr-2" />
-                    {filters.dateFrom ? format(new Date(filters.dateFrom), 'dd.MM.yyyy') : 'Дата от'}
+                    {filters.dateFrom ? format(new Date(filters.dateFrom), 'dd.MM.yyyy') : 'От'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -267,7 +316,7 @@ export const TrialRequestsManager = () => {
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="justify-start">
                     <CalendarIcon className="h-4 w-4 mr-2" />
-                    {filters.dateTo ? format(new Date(filters.dateTo), 'dd.MM.yyyy') : 'Дата до'}
+                    {filters.dateTo ? format(new Date(filters.dateTo), 'dd.MM.yyyy') : 'До'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -282,7 +331,7 @@ export const TrialRequestsManager = () => {
             </div>
 
             {/* Clear filters */}
-            {(filters.search || filters.branch || filters.status || filters.dateFrom || filters.dateTo) && (
+            {Object.values(filters).some(Boolean) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -312,7 +361,7 @@ export const TrialRequestsManager = () => {
                   <TableHead>Имя</TableHead>
                   <TableHead>Телефон</TableHead>
                   <TableHead>Филиал</TableHead>
-                  <TableHead>Комментарий</TableHead>
+                  <TableHead>Привязка</TableHead>
                   <TableHead>Статус</TableHead>
                   <TableHead>Дата</TableHead>
                   <TableHead className="w-10"></TableHead>
@@ -321,7 +370,16 @@ export const TrialRequestsManager = () => {
               <TableBody>
                 {requests.map((request) => (
                   <TableRow key={request.id}>
-                    <TableCell className="font-medium">{request.name}</TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{request.name}</div>
+                        {request.comment && (
+                          <div className="text-xs text-muted-foreground truncate max-w-[150px]">
+                            {request.comment}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <a
                         href={`tel:${request.phone}`}
@@ -332,15 +390,35 @@ export const TrialRequestsManager = () => {
                       </a>
                     </TableCell>
                     <TableCell>
-                      <div>
-                        <div className="font-medium">{request.branch_name}</div>
-                        {request.branch_address && (
-                          <div className="text-xs text-muted-foreground">{request.branch_address}</div>
-                        )}
-                      </div>
+                      <div className="font-medium text-sm">{request.branch_name}</div>
                     </TableCell>
-                    <TableCell className="max-w-[200px] truncate">
-                      {request.comment || '—'}
+                    <TableCell>
+                      {request.client || request.student ? (
+                        <div className="flex flex-col gap-1">
+                          {request.client && (
+                            <Badge variant="outline" className="gap-1 w-fit">
+                              <User className="h-3 w-3" />
+                              {request.client.name || 'Клиент'}
+                            </Badge>
+                          )}
+                          {request.student && (
+                            <Badge variant="outline" className="gap-1 w-fit">
+                              <GraduationCap className="h-3 w-3" />
+                              {request.student.first_name} {request.student.last_name || ''}
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-muted-foreground"
+                          onClick={() => setLinkRequest(request)}
+                        >
+                          <Link2 className="h-4 w-4 mr-1" />
+                          Привязать
+                        </Button>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge className={`${getStatusColor(request.status)} text-white`}>
@@ -358,8 +436,12 @@ export const TrialRequestsManager = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Изменить статус</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => setLinkRequest(request)}>
+                            <Link2 className="h-4 w-4 mr-2" />
+                            Привязать к CRM
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
+                          <DropdownMenuLabel>Изменить статус</DropdownMenuLabel>
                           {TRIAL_REQUEST_STATUSES.map((s) => (
                             <DropdownMenuItem
                               key={s.value}
@@ -397,6 +479,13 @@ export const TrialRequestsManager = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Link modal */}
+      <LinkTrialRequestModal
+        open={!!linkRequest}
+        onOpenChange={(open) => !open && setLinkRequest(null)}
+        request={linkRequest}
+      />
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
