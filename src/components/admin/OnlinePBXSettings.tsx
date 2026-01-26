@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,13 +8,21 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Phone, Copy, CheckCircle, XCircle, RefreshCw, ExternalLink, Eye, EyeOff, KeyRound } from "lucide-react";
-
-const SELF_HOSTED_API = "https://api.academyos.ru/functions/v1";
+import { selfHostedGet, selfHostedPost, SELF_HOSTED_API } from "@/lib/selfHostedApi";
 
 interface OnlinePBXConfig {
   pbxDomain: string;
   authKey: string;
   webhookKey?: string;
+}
+
+interface OnlinePBXSettingsResponse {
+  success: boolean;
+  settings?: OnlinePBXConfig;
+  isEnabled?: boolean;
+  configured?: boolean;
+  webhookUrl?: string;
+  error?: string;
 }
 
 const defaultConfig: OnlinePBXConfig = {
@@ -43,35 +50,17 @@ export function OnlinePBXSettings() {
     }
   }, [profile?.organization_id]);
 
-  const getAuthToken = async (): Promise<string | null> => {
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token || null;
-  };
-
   const loadSettings = async () => {
     try {
       setLoading(true);
       
-      const token = await getAuthToken();
-      if (!token) {
-        toast.error('Необходима авторизация');
-        return;
+      const response = await selfHostedGet<OnlinePBXSettingsResponse>('onlinepbx-settings');
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to load settings');
       }
 
-      const response = await fetch(`${SELF_HOSTED_API}/onlinepbx-settings`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Failed to load settings');
-      }
-
+      const data = response.data;
       if (data?.success) {
         setConfig({
           pbxDomain: data.settings?.pbxDomain || '',
@@ -109,32 +98,18 @@ export function OnlinePBXSettings() {
     try {
       setSaving(true);
 
-      const token = await getAuthToken();
-      if (!token) {
-        toast.error('Необходима авторизация');
-        return;
-      }
-
-      const response = await fetch(`${SELF_HOSTED_API}/onlinepbx-settings`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          pbxDomain: config.pbxDomain,
-          authKey: config.authKey,
-          isEnabled,
-          regenerateWebhookKey: regenerateKey
-        })
+      const response = await selfHostedPost<OnlinePBXSettingsResponse>('onlinepbx-settings', {
+        pbxDomain: config.pbxDomain,
+        authKey: config.authKey,
+        isEnabled,
+        regenerateWebhookKey: regenerateKey
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Failed to save settings');
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to save settings');
       }
 
+      const data = response.data;
       if (data?.success) {
         toast.success(regenerateKey ? 'Webhook ключ обновлён' : 'Настройки сохранены');
         setConfigured(true);
@@ -170,32 +145,17 @@ export function OnlinePBXSettings() {
     try {
       setTesting(true);
       
-      const token = await getAuthToken();
-      if (!token) {
-        toast.error('Необходима авторизация');
-        return;
-      }
-
-      const response = await fetch(`${SELF_HOSTED_API}/test-onlinepbx`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          pbx_domain: config.pbxDomain,
-          auth_key: config.authKey
-        })
+      const response = await selfHostedPost<{ success: boolean; error?: string }>('test-onlinepbx', {
+        pbx_domain: config.pbxDomain,
+        auth_key: config.authKey
       });
 
-      const data = await response.json();
-
-      if (data?.success) {
+      if (response.data?.success) {
         setConnectionStatus('connected');
         toast.success('Подключение успешно!');
       } else {
         setConnectionStatus('error');
-        toast.error(data?.error || 'Ошибка подключения к OnlinePBX');
+        toast.error(response.data?.error || response.error || 'Ошибка подключения к OnlinePBX');
       }
     } catch (error) {
       console.error('Error testing OnlinePBX connection:', error);
@@ -207,7 +167,7 @@ export function OnlinePBXSettings() {
   };
 
   const copyWebhookUrl = async () => {
-    const urlToCopy = webhookUrl || `https://api.academyos.ru/functions/v1/onlinepbx-webhook`;
+    const urlToCopy = webhookUrl || `${SELF_HOSTED_API}/onlinepbx-webhook`;
     try {
       await navigator.clipboard.writeText(urlToCopy);
       setCopied(true);

@@ -1,9 +1,7 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getErrorMessage } from '@/lib/errorUtils';
-
-const SELF_HOSTED_API = "https://api.academyos.ru/functions/v1";
+import { selfHostedGet, selfHostedPost, selfHostedDelete } from '@/lib/selfHostedApi';
 
 export interface MaxChannel {
   id: string;
@@ -20,11 +18,6 @@ export interface MaxChannel {
   updated_at: string;
 }
 
-const getAuthToken = async (): Promise<string | null> => {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token || null;
-};
-
 export const useMaxChannel = () => {
   const [loading, setLoading] = useState(false);
   const [channels, setChannels] = useState<MaxChannel[]>([]);
@@ -33,27 +26,14 @@ export const useMaxChannel = () => {
   const fetchChannels = useCallback(async () => {
     setLoading(true);
     try {
-      const token = await getAuthToken();
-      if (!token) {
-        throw new Error('Not authenticated');
+      const response = await selfHostedGet<{ channels: MaxChannel[] }>('max-channels');
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch channels');
       }
 
-      const response = await fetch(`${SELF_HOSTED_API}/max-channels`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Failed to fetch channels');
-      }
-
-      setChannels(data?.channels || []);
-      return data?.channels || [];
+      setChannels(response.data?.channels || []);
+      return response.data?.channels || [];
     } catch (error: unknown) {
       console.error('Error fetching MAX channels:', error);
       toast({
@@ -70,24 +50,10 @@ export const useMaxChannel = () => {
   const addChannel = useCallback(async (name: string, token: string, autoStart = true) => {
     setLoading(true);
     try {
-      const authToken = await getAuthToken();
-      if (!authToken) {
-        throw new Error('Not authenticated');
-      }
+      const response = await selfHostedPost<{ channel: MaxChannel }>('max-channels', { name, token, autoStart });
 
-      const response = await fetch(`${SELF_HOSTED_API}/max-channels`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ name, token, autoStart })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Failed to add channel');
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to add channel');
       }
       
       toast({
@@ -96,7 +62,7 @@ export const useMaxChannel = () => {
       });
       
       await fetchChannels();
-      return data?.channel;
+      return response.data?.channel;
     } catch (error: unknown) {
       console.error('Error adding MAX channel:', error);
       toast({
@@ -112,23 +78,10 @@ export const useMaxChannel = () => {
 
   const deleteChannel = useCallback(async (channelId: string) => {
     try {
-      const token = await getAuthToken();
-      if (!token) {
-        throw new Error('Not authenticated');
-      }
+      const response = await selfHostedDelete(`max-channels?channelId=${channelId}`);
 
-      const response = await fetch(`${SELF_HOSTED_API}/max-channels?channelId=${channelId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Failed to delete channel');
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to delete channel');
       }
       
       toast({
@@ -151,27 +104,13 @@ export const useMaxChannel = () => {
 
   const sendMessage = useCallback(async (clientId: string, channelId: string, text: string) => {
     try {
-      const token = await getAuthToken();
-      if (!token) {
-        throw new Error('Not authenticated');
+      const response = await selfHostedPost<unknown>('max-send', { clientId, channelId, text });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to send message');
       }
 
-      const response = await fetch(`${SELF_HOSTED_API}/max-send`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ clientId, channelId, text })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Failed to send message');
-      }
-
-      return data;
+      return response.data;
     } catch (error: unknown) {
       console.error('Error sending MAX message:', error);
       toast({

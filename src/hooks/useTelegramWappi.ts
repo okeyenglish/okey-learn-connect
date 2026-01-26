@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getErrorMessage } from '@/lib/errorUtils';
-
-const SELF_HOSTED_API = "https://api.academyos.ru/functions/v1";
+import { selfHostedGet, selfHostedPost, selfHostedDelete, SELF_HOSTED_API } from '@/lib/selfHostedApi';
 
 export interface TelegramSettings {
   profileId: string;
@@ -24,11 +22,6 @@ export interface TelegramSettingsResponse {
   instanceState: TelegramInstanceState | null;
 }
 
-const getAuthToken = async (): Promise<string | null> => {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token || null;
-};
-
 export const useTelegramWappi = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [settings, setSettings] = useState<TelegramSettings | null>(null);
@@ -38,31 +31,18 @@ export const useTelegramWappi = () => {
   const fetchSettings = useCallback(async (): Promise<TelegramSettingsResponse> => {
     setIsLoading(true);
     try {
-      const token = await getAuthToken();
-      if (!token) {
-        throw new Error('Not authenticated');
+      const response = await selfHostedGet<{ settings: TelegramSettings | null; instanceState: TelegramInstanceState | null }>('telegram-channels');
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch settings');
       }
 
-      const response = await fetch(`${SELF_HOSTED_API}/telegram-channels`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Failed to fetch settings');
-      }
-
-      setSettings(data.settings || null);
-      setInstanceState(data.instanceState || null);
+      setSettings(response.data?.settings || null);
+      setInstanceState(response.data?.instanceState || null);
       
       return {
-        settings: data.settings || null,
-        instanceState: data.instanceState || null
+        settings: response.data?.settings || null,
+        instanceState: response.data?.instanceState || null
       };
     } catch (error: unknown) {
       console.error('Error fetching Telegram settings:', error);
@@ -84,32 +64,21 @@ export const useTelegramWappi = () => {
   ): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const token = await getAuthToken();
-      if (!token) {
-        throw new Error('Not authenticated');
+      const response = await selfHostedPost<{ settings: TelegramSettings | null; instanceState: TelegramInstanceState | null; error?: string }>(
+        'telegram-channels',
+        { profileId, apiToken, isEnabled }
+      );
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to save settings');
       }
 
-      const response = await fetch(`${SELF_HOSTED_API}/telegram-channels`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ profileId, apiToken, isEnabled })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Failed to save settings');
+      if (response.data?.error) {
+        throw new Error(response.data.error);
       }
 
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      setSettings(data.settings || null);
-      setInstanceState(data.instanceState || null);
+      setSettings(response.data?.settings || null);
+      setInstanceState(response.data?.instanceState || null);
       
       toast({
         title: "Успешно",
@@ -133,23 +102,10 @@ export const useTelegramWappi = () => {
   const deleteSettings = useCallback(async (): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const token = await getAuthToken();
-      if (!token) {
-        throw new Error('Not authenticated');
-      }
+      const response = await selfHostedDelete('telegram-channels');
 
-      const response = await fetch(`${SELF_HOSTED_API}/telegram-channels`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Failed to delete settings');
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to delete settings');
       }
 
       setSettings(null);
@@ -197,31 +153,20 @@ export const useTelegramWappi = () => {
     sendingRef.current.add(messageKey);
 
     try {
-      const token = await getAuthToken();
-      if (!token) {
-        throw new Error('Not authenticated');
+      const response = await selfHostedPost<{ messageId?: string; error?: string }>(
+        'telegram-send',
+        { clientId, text, fileUrl, fileName, fileType }
+      );
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to send message');
       }
 
-      const response = await fetch(`${SELF_HOSTED_API}/telegram-send`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ clientId, text, fileUrl, fileName, fileType })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Failed to send message');
+      if (response.data?.error) {
+        throw new Error(response.data.error);
       }
 
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      return { success: true, messageId: data.messageId };
+      return { success: true, messageId: response.data?.messageId };
     } catch (error: unknown) {
       console.error('Error sending Telegram message:', error);
       toast({
@@ -239,7 +184,7 @@ export const useTelegramWappi = () => {
   }, [toast]);
 
   const getWebhookUrl = useCallback((): string => {
-    return `https://api.academyos.ru/functions/v1/telegram-webhook`;
+    return `${SELF_HOSTED_API}/telegram-webhook`;
   }, []);
 
   useEffect(() => {
