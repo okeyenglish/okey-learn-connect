@@ -149,6 +149,16 @@ export default {
           "0%": { opacity: "0", transform: "translateY(12px) scale(0.97)" },
           "100%": { opacity: "1", transform: "translateY(0) scale(1)" }
         },
+        "message-send": {
+          "0%": { 
+            opacity: "0", 
+            transform: "translateY(16px) scale(0.95)"
+          },
+          "100%": { 
+            opacity: "1", 
+            transform: "translateY(0) scale(1)"
+          }
+        },
         "scale-in": {
           "0%": { transform: "scale(0.95)", opacity: "0" },
           "100%": { transform: "scale(1)", opacity: "1" }
@@ -178,6 +188,7 @@ export default {
         "enter": "fade-in 0.2s ease-out, scale-in 0.2s ease-out",
         "exit": "fade-out 0.2s ease-out, scale-out 0.2s ease-out",
         "message-enter": "message-enter 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
+        "message-send": "message-send 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards",
       },
     },
   },
