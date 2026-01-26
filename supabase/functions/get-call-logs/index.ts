@@ -94,8 +94,8 @@ serve(async (req) => {
     }
 
     if (action === 'history' && clientId) {
-      // Get call history for a client
-      const { data, error } = await supabase
+      // Get call history for a client - first try by client_id
+      let { data, error } = await supabase
         .from('call_logs')
         .select('*')
         .eq('client_id', clientId)
@@ -104,6 +104,67 @@ serve(async (req) => {
         .limit(limit);
 
       if (error) throw error;
+
+      // If no calls found by client_id, try fallback search by phone number
+      if (!data || data.length === 0) {
+        console.log('[get-call-logs] No calls by client_id, trying phone fallback');
+        
+        // Get client's phone numbers
+        const { data: client } = await supabase
+          .from('clients')
+          .select('phone')
+          .eq('id', clientId)
+          .single();
+        
+        const { data: additionalPhones } = await supabase
+          .from('client_phone_numbers')
+          .select('phone')
+          .eq('client_id', clientId);
+        
+        const phones: string[] = [];
+        if (client?.phone) phones.push(client.phone);
+        if (additionalPhones) {
+          phones.push(...additionalPhones.map(p => p.phone).filter(Boolean));
+        }
+        
+        if (phones.length > 0) {
+          // Normalize phones for search (extract last 10 digits)
+          const normalizedPhones = phones.map(p => {
+            const digits = (p.match(/\d+/g) || []).join('');
+            return digits.length >= 10 ? digits.slice(-10) : digits;
+          }).filter(p => p.length >= 10);
+          
+          console.log('[get-call-logs] Searching calls by phones:', normalizedPhones);
+          
+          if (normalizedPhones.length > 0) {
+            // Build OR conditions for phone matching
+            const phoneConditions = normalizedPhones.map(p => `phone_number.ilike.%${p}%`).join(',');
+            
+            const { data: phoneData, error: phoneError } = await supabase
+              .from('call_logs')
+              .select('*')
+              .eq('organization_id', organizationId)
+              .or(phoneConditions)
+              .order('started_at', { ascending: false })
+              .limit(limit);
+            
+            if (!phoneError && phoneData && phoneData.length > 0) {
+              data = phoneData;
+              console.log('[get-call-logs] Found', phoneData.length, 'calls by phone fallback');
+              
+              // Optionally: update these call_logs to link them to the client
+              const callIds = phoneData.filter(c => !c.client_id).map(c => c.id);
+              if (callIds.length > 0) {
+                console.log('[get-call-logs] Linking', callIds.length, 'orphan calls to client:', clientId);
+                await supabase
+                  .from('call_logs')
+                  .update({ client_id: clientId })
+                  .in('id', callIds);
+              }
+            }
+          }
+        }
+      }
 
       return new Response(
         JSON.stringify({ success: true, calls: data || [], total: data?.length || 0 }),
