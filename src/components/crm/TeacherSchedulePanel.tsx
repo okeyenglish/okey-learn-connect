@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, isSameDay, isToday } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -7,8 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, Users, User, BookOpen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, Users, User, BookOpen, Plus, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { EditLessonModal } from '@/components/schedule/EditLessonModal';
+import { AddLessonModal } from '@/components/schedule/AddLessonModal';
+import type { LessonSession } from '@/hooks/useLessonSessions';
 
 interface TeacherSchedulePanelProps {
   teacherId: string;
@@ -25,9 +28,13 @@ interface ScheduleLesson {
   level: string | null;
   branch: string | null;
   group_name: string | null;
+  group_id: string | null;
   student_name: string | null;
   classroom: string | null;
   status: string | null;
+  teacher_id: string | null;
+  teacher_name: string | null;
+  notes: string | null;
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -39,13 +46,18 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 
 export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teacherId, teacherName }) => {
   const [currentWeek, setCurrentWeek] = useState(new Date());
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<LessonSession | null>(null);
+  
+  const queryClient = useQueryClient();
 
   const startDate = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const endDate = endOfWeek(currentWeek, { weekStartsOn: 1 });
   const daysInWeek = eachDayOfInterval({ start: startDate, end: endDate });
 
   // Fetch teacher's schedule from lesson_sessions
-  const { data: lessons = [], isLoading, error } = useQuery({
+  const { data: lessons = [], isLoading, error, refetch } = useQuery({
     queryKey: ['teacher-chat-schedule', teacherId, format(startDate, 'yyyy-MM-dd')],
     queryFn: async () => {
       if (!teacherId) return [];
@@ -65,7 +77,7 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
       if (groupIds.length > 0) {
         const { data: sessions } = await supabase
           .from('lesson_sessions')
-          .select('id, lesson_date, start_time, end_time, status, classroom, group_id')
+          .select('id, lesson_date, start_time, end_time, status, classroom, group_id, teacher_id, teacher_name, branch, notes')
           .in('group_id', groupIds)
           .gte('lesson_date', format(startDate, 'yyyy-MM-dd'))
           .lte('lesson_date', format(endDate, 'yyyy-MM-dd'))
@@ -82,11 +94,15 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
             type: 'group' as const,
             subject: group?.subject || null,
             level: group?.level || null,
-            branch: group?.branch || null,
+            branch: session.branch || group?.branch || null,
             group_name: group?.name || null,
+            group_id: session.group_id,
             student_name: null,
             classroom: session.classroom,
             status: session.status,
+            teacher_id: session.teacher_id,
+            teacher_name: session.teacher_name,
+            notes: session.notes,
           };
         });
       }
@@ -95,7 +111,7 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
       const { data: directSessions } = await supabase
         .from('lesson_sessions')
         .select(`
-          id, lesson_date, start_time, end_time, status, classroom, teacher_name, branch,
+          id, lesson_date, start_time, end_time, status, classroom, teacher_name, branch, teacher_id, notes,
           group_id, learning_groups(id, name, subject, level)
         `)
         .eq('teacher_id', teacherId)
@@ -116,9 +132,13 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
           level: (session.learning_groups as any)?.level || null,
           branch: session.branch,
           group_name: (session.learning_groups as any)?.name || null,
+          group_id: session.group_id,
           student_name: null,
           classroom: session.classroom,
           status: session.status,
+          teacher_id: session.teacher_id,
+          teacher_name: session.teacher_name,
+          notes: session.notes,
         }));
 
       // Combine and sort
@@ -131,6 +151,52 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
     enabled: !!teacherId,
     staleTime: 30000,
   });
+
+  const getDayOfWeek = (dateStr: string): LessonSession['day_of_week'] => {
+    const date = new Date(dateStr);
+    const dayMap: Record<number, LessonSession['day_of_week']> = {
+      0: 'sunday',
+      1: 'monday',
+      2: 'tuesday',
+      3: 'wednesday',
+      4: 'thursday',
+      5: 'friday',
+      6: 'saturday'
+    };
+    return dayMap[date.getDay()];
+  };
+
+  const handleEditLesson = (lesson: ScheduleLesson) => {
+    // Convert to LessonSession format for EditLessonModal
+    const sessionData: LessonSession = {
+      id: lesson.id,
+      lesson_date: lesson.lesson_date,
+      start_time: lesson.start_time || '',
+      end_time: lesson.end_time || '',
+      status: (lesson.status as LessonSession['status']) || 'scheduled',
+      classroom: lesson.classroom || '',
+      group_id: lesson.group_id || '',
+      teacher_name: lesson.teacher_name || teacherName || '',
+      branch: lesson.branch || '',
+      notes: lesson.notes || '',
+      day_of_week: getDayOfWeek(lesson.lesson_date),
+      created_at: '',
+      updated_at: '',
+    };
+    setSelectedSession(sessionData);
+    setEditModalOpen(true);
+  };
+
+  const handleAddLesson = () => {
+    setAddModalOpen(true);
+  };
+
+  const handleSessionUpdated = () => {
+    setEditModalOpen(false);
+    setSelectedSession(null);
+    refetch();
+    queryClient.invalidateQueries({ queryKey: ['teacher-chat-schedule'] });
+  };
 
   const getLessonsForDay = (day: Date) => {
     return lessons.filter(lesson => isSameDay(new Date(lesson.lesson_date), day));
@@ -180,6 +246,15 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
             <span className="font-medium text-sm">{weekLabel}</span>
           </div>
           <div className="flex items-center gap-1">
+            <Button 
+              variant="default" 
+              size="sm" 
+              className="h-7 px-2 text-xs gap-1"
+              onClick={() => handleAddLesson()}
+            >
+              <Plus className="h-3 w-3" />
+              Добавить
+            </Button>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentWeek(subWeeks(currentWeek, 1))}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -230,20 +305,43 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
                 <div 
                   key={day.toISOString()} 
                   className={cn(
-                    "min-h-[100px] rounded-lg border p-1.5",
+                    "min-h-[100px] rounded-lg border p-1.5 group relative",
                     isToday(day) && "border-primary/50 bg-primary/5",
                     isPast && "opacity-60 bg-muted/30",
                     !isToday(day) && !isPast && "border-border bg-card"
                   )}
                 >
+                  {/* Add button on hover */}
+                  {!isPast && (
+                    <button
+                      onClick={() => handleAddLesson()}
+                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity h-5 w-5 rounded bg-primary/10 hover:bg-primary/20 flex items-center justify-center"
+                    >
+                      <Plus className="h-3 w-3 text-primary" />
+                    </button>
+                  )}
+                  
                   {dayLessons.length === 0 ? (
-                    <div className="h-full flex items-center justify-center">
-                      <span className="text-[10px] text-muted-foreground">—</span>
+                    <div 
+                      className="h-full flex items-center justify-center cursor-pointer hover:bg-accent/50 rounded transition-colors"
+                      onClick={() => !isPast && handleAddLesson()}
+                    >
+                      <span className="text-[10px] text-muted-foreground group-hover:hidden">—</span>
+                      {!isPast && (
+                        <span className="text-[10px] text-primary hidden group-hover:flex items-center gap-0.5">
+                          <Plus className="h-2.5 w-2.5" />
+                          Добавить
+                        </span>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-1">
                       {dayLessons.map(lesson => (
-                        <LessonCard key={lesson.id} lesson={lesson} />
+                        <LessonCard 
+                          key={lesson.id} 
+                          lesson={lesson} 
+                          onEdit={() => handleEditLesson(lesson)}
+                        />
                       ))}
                     </div>
                   )}
@@ -263,48 +361,75 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
           </div>
         </div>
       </ScrollArea>
+
+      {/* Edit Modal */}
+      <EditLessonModal
+        session={selectedSession}
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        onSessionUpdated={handleSessionUpdated}
+      />
+
+      {/* Add Modal */}
+      <AddLessonModal
+        open={addModalOpen}
+        onOpenChange={(open) => {
+          setAddModalOpen(open);
+          if (!open) {
+            // Refetch when modal closes
+            refetch();
+            queryClient.invalidateQueries({ queryKey: ['teacher-chat-schedule'] });
+          }
+        }}
+      />
     </div>
   );
 };
 
 // Compact lesson card component
-const LessonCard: React.FC<{ lesson: ScheduleLesson }> = ({ lesson }) => {
+const LessonCard: React.FC<{ lesson: ScheduleLesson; onEdit: () => void }> = ({ lesson, onEdit }) => {
   const status = statusConfig[lesson.status || 'scheduled'] || statusConfig.scheduled;
   
   return (
-    <div 
+    <button 
+      onClick={onEdit}
       className={cn(
-        "rounded p-1.5 text-[10px] leading-tight",
+        "rounded p-1.5 text-[10px] leading-tight w-full text-left transition-all hover:ring-2 hover:ring-primary/30 cursor-pointer group/card",
         status.className
       )}
     >
-      {lesson.start_time && (
-        <div className="font-medium flex items-center gap-0.5 mb-0.5">
-          <Clock className="h-2.5 w-2.5" />
-          {lesson.start_time.slice(0, 5)}
-          {lesson.end_time && ` - ${lesson.end_time.slice(0, 5)}`}
+      <div className="flex items-start justify-between gap-0.5">
+        <div className="flex-1 min-w-0">
+          {lesson.start_time && (
+            <div className="font-medium flex items-center gap-0.5 mb-0.5">
+              <Clock className="h-2.5 w-2.5" />
+              {lesson.start_time.slice(0, 5)}
+              {lesson.end_time && ` - ${lesson.end_time.slice(0, 5)}`}
+            </div>
+          )}
+          
+          {lesson.group_name && (
+            <div className="truncate font-medium">
+              {lesson.group_name}
+            </div>
+          )}
+          
+          {lesson.subject && !lesson.group_name && (
+            <div className="truncate">
+              {lesson.subject}
+            </div>
+          )}
+          
+          {lesson.classroom && (
+            <div className="truncate opacity-75 flex items-center gap-0.5">
+              <MapPin className="h-2 w-2" />
+              {lesson.classroom}
+            </div>
+          )}
         </div>
-      )}
-      
-      {lesson.group_name && (
-        <div className="truncate font-medium">
-          {lesson.group_name}
-        </div>
-      )}
-      
-      {lesson.subject && !lesson.group_name && (
-        <div className="truncate">
-          {lesson.subject}
-        </div>
-      )}
-      
-      {lesson.classroom && (
-        <div className="truncate opacity-75 flex items-center gap-0.5">
-          <MapPin className="h-2 w-2" />
-          {lesson.classroom}
-        </div>
-      )}
-    </div>
+        <Pencil className="h-2.5 w-2.5 opacity-0 group-hover/card:opacity-60 flex-shrink-0 mt-0.5" />
+      </div>
+    </button>
   );
 };
 
