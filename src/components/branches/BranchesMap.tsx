@@ -3,10 +3,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { MapPin, Navigation, ExternalLink, Loader2, LocateFixed, Train, X, Search, Clock } from 'lucide-react';
+import { MapPin, Navigation, ExternalLink, Loader2, LocateFixed, Train, X, Search, Clock, CalendarPlus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { physicalBranches, METRO_STATIONS, MOSCOW_CENTER } from '@/lib/branches';
+import { TrialLessonModal } from './TrialLessonModal';
 
 // Формула Haversine для расчёта расстояния между двумя точками
 const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -333,8 +334,14 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
                     <Clock className="h-3 w-3 text-muted-foreground" />
                     <span className="text-xs text-muted-foreground">{branch.workingHours}</span>
                   </div>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    <Link to={`/branches/${branch.id}`}>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <TrialLessonModal branchName={branch.name} branchAddress={branch.address}>
+                      <Button size="sm" variant="default" className="h-7 text-xs gap-1">
+                        <CalendarPlus className="h-3 w-3" />
+                        Записаться
+                      </Button>
+                    </TrialLessonModal>
+                    <Link to={`/branches/${branch.id}`} onClick={(e) => e.stopPropagation()}>
                       <Button size="sm" variant="outline" className="h-7 text-xs">
                         Подробнее
                       </Button>
@@ -348,7 +355,7 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <Button size="sm" variant="default" className="h-7 text-xs gap-1">
+                      <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
                         <Navigation className="h-3 w-3" />
                         Маршрут
                       </Button>
