@@ -166,10 +166,32 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
                           <span>{call.manager_name}</span>
                         </div>
                       )}
-                      {call.summary && (
-                        <div className="flex items-start gap-1 text-xs text-muted-foreground mt-1">
-                          <Sparkles className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                          <span className="line-clamp-2">{call.summary}</span>
+
+                      {/* AI Summary and Score for answered calls */}
+                      {call.status === 'answered' && (call.summary || call.ai_evaluation) && (
+                        <div className="mt-2 p-2 bg-muted/50 rounded-md space-y-1.5">
+                          {call.ai_evaluation && typeof call.ai_evaluation === 'object' && (call.ai_evaluation as any).overall_score !== undefined && (
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant="secondary" 
+                                className={`text-xs ${
+                                  (call.ai_evaluation as any).overall_score >= 8 
+                                    ? 'bg-green-100 text-green-800 border-green-200'
+                                    : (call.ai_evaluation as any).overall_score >= 6
+                                    ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                                    : 'bg-red-100 text-red-800 border-red-200'
+                                }`}
+                              >
+                                Оценка: {(call.ai_evaluation as any).overall_score}/10
+                              </Badge>
+                            </div>
+                          )}
+                          {call.summary && (
+                            <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                              <Sparkles className="h-3 w-3 flex-shrink-0 mt-0.5 text-primary" />
+                              <span className="line-clamp-3">{call.summary}</span>
+                            </div>
+                          )}
                         </div>
                       )}
                       
