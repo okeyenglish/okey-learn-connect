@@ -190,7 +190,16 @@ export const useTeacherChats = (branch?: string | null) => {
   });
 
   // Fallback: Fetch teachers + unread counts separately (legacy approach)
-  const useLegacy = mvThreads === null || !!mvError;
+  // IMPORTANT:
+  // MV/RPC may legitimately return an empty list (e.g. no linked threads yet),
+  // but the UI still expects to show teachers from `teachers` table.
+  // So we enable the legacy path when MV is unavailable OR returns 0 rows.
+  const useLegacy = !mvLoading && (
+    mvThreads === null ||
+    !!mvError ||
+    (Array.isArray(mvThreads) && mvThreads.length === 0) ||
+    typeof mvThreads === 'undefined'
+  );
 
   // Define teacher type for legacy query
   type TeacherRow = {
