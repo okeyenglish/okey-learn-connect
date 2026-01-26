@@ -1,75 +1,46 @@
 
 
-# План: Миграция всех запросов на Self-Hosted Supabase
+# План: Исправление оставшихся файлов с VITE_SUPABASE
 
-## Проблема
+## Найденные проблемы
 
-Обнаружены 4 файла, которые используют переменные окружения Lovable Cloud (`VITE_SUPABASE_URL` и `VITE_SUPABASE_ANON_KEY`) вместо self-hosted инстанса `api.academyos.ru`:
-
-| Файл | Проблема |
-|------|----------|
-| `SystemMonitor.tsx` | REST API запросы к `schema_migrations` и `edge_function_health_logs` |
-| `SystemMonitorPanel.tsx` | Аналогичные REST API запросы |
-| `QRScanner.tsx` | Вызов edge function `qr-login-confirm` |
-| `MyApps.tsx` | URL для storage bucket `apps` |
-
-## Решение
-
-Создать централизованные константы и заменить все использования Lovable Cloud переменных на self-hosted конфигурацию.
+| Файл | Строка | Текущий код |
+|------|--------|-------------|
+| `AssistantTab.tsx` | 112 | `import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY` с fallback на неправильный ключ |
+| `HomeworkModal.tsx` | 81 | `import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY` с fallback на self-hosted ключ |
 
 ---
 
 ## Шаги реализации
 
-### Шаг 1: Создать константы в `selfHostedApi.ts`
+### Шаг 1: Исправить `AssistantTab.tsx`
 
-Добавить экспортируемые константы для URL и ключа self-hosted инстанса:
+Добавить импорт и заменить использование ключа:
 
 ```typescript
-export const SELF_HOSTED_URL = "https://api.academyos.ru";
-export const SELF_HOSTED_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
-export const SELF_HOSTED_API = "https://api.academyos.ru/functions/v1";
-```
+// Добавить импорт
+import { SELF_HOSTED_ANON_KEY } from '@/lib/selfHostedApi';
 
-### Шаг 2: Исправить `SystemMonitor.tsx`
-
-Заменить:
-```typescript
-// Было:
-`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/...`
-'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+// Было (строка 112):
+'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJ...старый ключ...'}`,
 
 // Станет:
-`${SELF_HOSTED_URL}/rest/v1/...`
-'apikey': SELF_HOSTED_ANON_KEY
+'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}`,
 ```
 
-### Шаг 3: Исправить `SystemMonitorPanel.tsx`
+### Шаг 2: Исправить `HomeworkModal.tsx`
 
-Аналогичная замена REST API запросов на self-hosted URL.
+Аналогичная замена:
 
-### Шаг 4: Исправить `QRScanner.tsx`
-
-Заменить вызов edge function:
 ```typescript
-// Было:
-`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/qr-login-confirm`
-'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+// Добавить импорт
+import { SELF_HOSTED_ANON_KEY } from '@/lib/selfHostedApi';
 
-// Станет - использовать selfHostedPost:
-import { selfHostedPost } from '@/lib/selfHostedApi';
-const response = await selfHostedPost('qr-login-confirm', { token, session });
-```
-
-### Шаг 5: Исправить `MyApps.tsx`
-
-Заменить storage URL:
-```typescript
-// Было:
-`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/apps/...`
+// Было (строка 81):
+'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJ...'}`,
 
 // Станет:
-`${SELF_HOSTED_URL}/storage/v1/object/public/apps/...`
+'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}`,
 ```
 
 ---
@@ -78,31 +49,15 @@ const response = await selfHostedPost('qr-login-confirm', { token, session });
 
 | Файл | Изменения |
 |------|-----------|
-| `src/lib/selfHostedApi.ts` | Добавить `SELF_HOSTED_URL` и `SELF_HOSTED_ANON_KEY` константы |
-| `src/pages/SystemMonitor.tsx` | Заменить `VITE_SUPABASE_*` на self-hosted константы |
-| `src/components/admin/SystemMonitorPanel.tsx` | Заменить `VITE_SUPABASE_*` на self-hosted константы |
-| `src/components/mobile/QRScanner.tsx` | Использовать `selfHostedPost` вместо raw fetch |
-| `src/components/teacher/apps/MyApps.tsx` | Использовать `SELF_HOSTED_URL` для storage |
-
----
-
-## Техническая информация
-
-**Self-hosted конфигурация:**
-- URL: `https://api.academyos.ru`
-- Anon Key: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY5MDg4ODgzLCJleHAiOjE5MjY3Njg4ODN9.WEsCyaCdQvxzVObedC-A9hWTJUSwI_p9nCG1wlbaNEg`
-
-**Lovable Cloud (НЕ использовать):**
-- URL: `https://igqdjqmohwsgyeuhitqg.supabase.co`
-- Anon Key: из `VITE_SUPABASE_ANON_KEY`
+| `src/components/teacher/floating-chat/AssistantTab.tsx` | Импорт + замена ключа |
+| `src/components/teacher/modals/HomeworkModal.tsx` | Импорт + замена ключа |
 
 ---
 
 ## Результат
 
-После внесения изменений:
-- Все REST API запросы будут идти на `api.academyos.ru`
-- Все edge functions будут вызываться через self-hosted
-- Storage URLs будут указывать на self-hosted bucket
-- Единая точка конфигурации в `selfHostedApi.ts`
+После изменений:
+- Все файлы будут использовать единый self-hosted ключ из `selfHostedApi.ts`
+- Не будет зависимости от переменных окружения Lovable Cloud
+- Исключён риск использования неправильного ключа
 
