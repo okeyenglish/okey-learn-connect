@@ -84,32 +84,44 @@ Deno.serve(async (req) => {
 });
 
 async function getAISettings(supabase: any, organizationId: string): Promise<Response> {
-  const { data: messengerSettings, error } = await supabase
-    .from('messenger_settings')
-    .select('settings, is_enabled')
-    .eq('organization_id', organizationId)
-    .eq('messenger_type', 'openai')
-    .maybeSingle();
+  console.log('[ai-settings] Getting settings for org:', organizationId);
+  
+  try {
+    const { data: messengerSettings, error } = await supabase
+      .from('messenger_settings')
+      .select('settings, is_enabled')
+      .eq('organization_id', organizationId)
+      .eq('messenger_type', 'openai')
+      .maybeSingle();
 
-  if (error) {
-    console.error('Error fetching AI settings:', error);
+    if (error) {
+      console.error('[ai-settings] Error fetching settings:', error);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch settings', details: error.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('[ai-settings] Found settings:', messengerSettings ? 'yes' : 'no');
+
+    const settings: AISettings | null = messengerSettings ? {
+      openaiApiKey: messengerSettings.settings?.openaiApiKey 
+        ? '••••••••' + messengerSettings.settings.openaiApiKey.slice(-4) 
+        : '',
+      isEnabled: messengerSettings.is_enabled || false
+    } : null;
+
     return new Response(
-      JSON.stringify({ error: 'Failed to fetch settings' }),
+      JSON.stringify({ settings }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (err) {
+    console.error('[ai-settings] Unexpected error:', err);
+    return new Response(
+      JSON.stringify({ error: 'Unexpected error', details: err.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-
-  const settings: AISettings | null = messengerSettings ? {
-    openaiApiKey: messengerSettings.settings?.openaiApiKey 
-      ? '••••••••' + messengerSettings.settings.openaiApiKey.slice(-4) 
-      : '',
-    isEnabled: messengerSettings.is_enabled || false
-  } : null;
-
-  return new Response(
-    JSON.stringify({ settings }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
 }
 
 async function saveAISettings(
