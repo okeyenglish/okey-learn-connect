@@ -138,14 +138,23 @@ export const ChatListItem = React.memo(({
                 ? 'ring-orange-200 shadow-sm' 
                 : 'ring-border/30'
             }`}>
-              {chat.avatar_url ? (
-                <AvatarImage src={chat.avatar_url} alt={chat.name} />
-              ) : null}
-              <AvatarFallback className={`text-sm font-medium ${
-                isPinned 
-                  ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white' 
-                  : 'bg-primary/15 text-primary'
-              }`}>
+              {chat.avatar_url && chat.avatar_url.trim() !== '' && (
+                <AvatarImage 
+                  src={chat.avatar_url} 
+                  alt={chat.name}
+                  onLoadingStatusChange={(status) => {
+                    // Force re-render on error - Radix handles fallback display
+                  }}
+                />
+              )}
+              <AvatarFallback 
+                delayMs={chat.avatar_url ? 200 : 0}
+                className={`text-sm font-medium ${
+                  isPinned 
+                    ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white' 
+                    : 'bg-primary/15 text-primary'
+                }`}
+              >
                 {chat.name
                   ?.split(' ')
                   .map(n => n[0])
