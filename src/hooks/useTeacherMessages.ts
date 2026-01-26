@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 /** DB row for profile */
 interface ProfileRow {
@@ -41,16 +42,14 @@ const sendPushToManagers = async (teacherName: string, messageText: string, mess
     const managers = (managersRaw || []) as unknown as ProfileRow[];
     if (managers.length > 0) {
       const managerIds = managers.map((m) => m.id);
-      await supabase.functions.invoke('send-push-notification', {
-        body: {
-          userIds: managerIds,
-          payload: {
-            title: '📝 Новое сообщение на модерацию',
-            body: `От ${teacherName}: ${messageText.slice(0, 50)}...`,
-            icon: '/pwa-192x192.png',
-            url: '/crm?tab=messages',
-            tag: `teacher-message-${messageId}`,
-          },
+      await selfHostedPost('send-push-notification', {
+        userIds: managerIds,
+        payload: {
+          title: '📝 Новое сообщение на модерацию',
+          body: `От ${teacherName}: ${messageText.slice(0, 50)}...`,
+          icon: '/pwa-192x192.png',
+          url: '/crm?tab=messages',
+          tag: `teacher-message-${messageId}`,
         },
       });
     }
@@ -208,18 +207,16 @@ export const useTeacherMessages = () => {
       // Notify teacher about moderation result
       try {
         const statusText = status === 'approved' ? '✅ одобрено' : '❌ отклонено';
-        await supabase.functions.invoke('send-push-notification', {
-          body: {
-            userId: updatedData.teacher_id,
-            payload: {
-              title: `Сообщение ${statusText}`,
-              body: status === 'approved' 
-                ? 'Ваше сообщение будет отправлено клиентам'
-                : moderationNotes || 'Сообщение не прошло модерацию',
-              icon: '/pwa-192x192.png',
-              url: '/teacher-portal?tab=messages',
-              tag: `moderation-${messageId}`,
-            },
+        await selfHostedPost('send-push-notification', {
+          userId: updatedData.teacher_id,
+          payload: {
+            title: `Сообщение ${statusText}`,
+            body: status === 'approved' 
+              ? 'Ваше сообщение будет отправлено клиентам'
+              : moderationNotes || 'Сообщение не прошло модерацию',
+            icon: '/pwa-192x192.png',
+            url: '/teacher-portal?tab=messages',
+            tag: `moderation-${messageId}`,
           },
         });
       } catch (pushError) {

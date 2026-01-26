@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/typedClient';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 export interface Employee {
   id: string;
@@ -14,14 +14,16 @@ export const useEmployees = (branch?: string) => {
   return useQuery({
     queryKey: ['employees', branch],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('get-employees', {
-        body: { branch: branch || null },
+      const response = await selfHostedPost<{ employees: Employee[] }>('get-employees', {
+        branch: branch || null,
       });
-      if (error) {
-        console.error('Error fetching employees:', error);
-        throw error;
+      
+      if (!response.success) {
+        console.error('Error fetching employees:', response.error);
+        throw new Error(response.error || 'Failed to fetch employees');
       }
-      return (data?.employees ?? []) as Employee[];
+      
+      return response.data?.employees ?? [];
     },
   });
 };
