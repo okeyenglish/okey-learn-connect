@@ -434,19 +434,38 @@ Deno.serve(async (req) => {
         // Create new call log
         console.log('Creating new call log for phone:', normalizedPhone);
         
-        // Find client by phone - IMPROVED: use ilike for fuzzy matching
+        // Find client by phone - IMPROVED: support multiple phone formats
         // Filter by organization to ensure proper matching
         let clientId: string | null = null;
         const last10 = normalizedPhone.length >= 10 ? normalizedPhone.slice(-10) : normalizedPhone;
-        console.log('[onlinepbx-webhook] Searching for client in org:', organizationId, 'last10:', last10);
         
-        // First try client_phone_numbers with ilike (most reliable - normalized phones)
+        // Generate multiple search variants for different formats
+        // Russian phones can be: +79123456789, 89123456789, 79123456789, 9123456789
+        const phoneVariants: string[] = [];
+        if (last10.length === 10) {
+          phoneVariants.push(last10);                    // 9123456789
+          phoneVariants.push('7' + last10);              // 79123456789
+          phoneVariants.push('8' + last10);              // 89123456789
+          phoneVariants.push('+7' + last10);             // +79123456789
+          // Formatted variants
+          const formatted = `+7 (${last10.slice(0, 3)}) ${last10.slice(3, 6)}-${last10.slice(6, 8)}-${last10.slice(8, 10)}`;
+          phoneVariants.push(formatted);                 // +7 (912) 345-67-89
+        } else {
+          phoneVariants.push(normalizedPhone);
+        }
+        
+        console.log('[onlinepbx-webhook] Searching for client in org:', organizationId, 'variants:', phoneVariants.slice(0, 3));
+        
+        // First try client_phone_numbers with multiple patterns
         if (last10.length >= 10) {
+          // Build OR conditions for all variants
+          const orConditions = phoneVariants.map(v => `phone.ilike.%${v}%`).join(',');
+          
           const { data: phoneRecords } = await supabase
             .from('client_phone_numbers')
             .select('client_id, phone, clients!inner(id, organization_id)')
             .eq('clients.organization_id', organizationId)
-            .ilike('phone', `%${last10}%`)
+            .or(orConditions)
             .limit(5);
           
           if (phoneRecords && phoneRecords.length > 0) {
@@ -455,18 +474,36 @@ Deno.serve(async (req) => {
           }
         }
         
-        // Fallback: search in clients.phone with ilike
+        // Fallback: search in clients.phone with multiple patterns
         if (!clientId && last10.length >= 10) {
+          const orConditions = phoneVariants.map(v => `phone.ilike.%${v}%`).join(',');
+          
           const { data: clients } = await supabase
             .from('clients')
             .select('id, phone')
             .eq('organization_id', organizationId)
-            .or(`phone.ilike.%${last10}%,phone.ilike.%${normalizedPhone}%`)
+            .or(orConditions)
             .limit(5);
           
           if (clients && clients.length > 0) {
             clientId = clients[0].id;
             console.log('[onlinepbx-webhook] Found client via clients table:', clientId);
+          }
+        }
+        
+        // Final fallback: try WhatsApp ID format (without + prefix)
+        if (!clientId && last10.length >= 10) {
+          const whatsappId = '7' + last10 + '@c.us';
+          const { data: waClients } = await supabase
+            .from('clients')
+            .select('id')
+            .eq('organization_id', organizationId)
+            .or(`whatsapp_id.eq.${whatsappId},telegram_user_id.eq.${last10}`)
+            .limit(1);
+          
+          if (waClients && waClients.length > 0) {
+            clientId = waClients[0].id;
+            console.log('[onlinepbx-webhook] Found client via messenger ID:', clientId);
           }
         }
 
