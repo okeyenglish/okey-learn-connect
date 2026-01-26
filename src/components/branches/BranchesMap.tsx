@@ -1,16 +1,17 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Navigation, ExternalLink, Loader2, LocateFixed } from 'lucide-react';
+import { MapPin, Navigation, ExternalLink, Loader2, LocateFixed, Train, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
-// Координаты филиалов
+// Координаты филиалов с информацией о метро
 const BRANCH_COORDINATES: {
   id: string;
   name: string;
   address: string;
+  metro: string;
   lat: number;
   lng: number;
   yandexOrgId?: string;
@@ -19,6 +20,7 @@ const BRANCH_COORDINATES: {
     id: 'kotelniki',
     name: 'Котельники',
     address: '2-й Покровский проезд, 14к2',
+    metro: 'Котельники',
     lat: 55.6606,
     lng: 37.8593,
     yandexOrgId: '124903478543',
@@ -27,6 +29,7 @@ const BRANCH_COORDINATES: {
     id: 'novokosino',
     name: 'Новокосино',
     address: 'Реутов, Юбилейный проспект, 60',
+    metro: 'Новокосино',
     lat: 55.7453,
     lng: 37.8687,
     yandexOrgId: '92516357375',
@@ -35,6 +38,7 @@ const BRANCH_COORDINATES: {
     id: 'okskaya',
     name: 'Окская',
     address: 'ул. Окская, д. 3, корп. 1',
+    metro: 'Окская',
     lat: 55.7126,
     lng: 37.7544,
     yandexOrgId: '1276487501',
@@ -43,6 +47,7 @@ const BRANCH_COORDINATES: {
     id: 'stakhanovskaya',
     name: 'Стахановская',
     address: '2-й Грайвороновский пр-д, 42к1',
+    metro: 'Стахановская',
     lat: 55.7267,
     lng: 37.7474,
     yandexOrgId: '131325658206',
@@ -51,6 +56,7 @@ const BRANCH_COORDINATES: {
     id: 'solntsevo',
     name: 'Солнцево',
     address: 'ул. Богданова, 6к1',
+    metro: 'Солнцево',
     lat: 55.6559,
     lng: 37.4010,
     yandexOrgId: '178121909150',
@@ -59,6 +65,7 @@ const BRANCH_COORDINATES: {
     id: 'mytishchi',
     name: 'Мытищи',
     address: 'ул. Борисовка, 16А',
+    metro: 'Мытищи (МЦД)',
     lat: 55.9116,
     lng: 37.7363,
     yandexOrgId: '1124754951',
@@ -67,6 +74,7 @@ const BRANCH_COORDINATES: {
     id: 'lyubertsy-1',
     name: 'Люберцы',
     address: '3 Почтовое отделение, 65к1',
+    metro: 'Люберцы (МЦД)',
     lat: 55.6873,
     lng: 37.9009,
     yandexOrgId: '1159268195',
@@ -75,11 +83,15 @@ const BRANCH_COORDINATES: {
     id: 'lyubertsy-2',
     name: 'Красная горка',
     address: 'проспект Гагарина, 3/8',
+    metro: 'Люберцы (МЦД)',
     lat: 55.6777,
     lng: 37.8933,
     yandexOrgId: '97284619155',
   },
 ];
+
+// Уникальные станции метро для фильтра
+const METRO_STATIONS = [...new Set(BRANCH_COORDINATES.map(b => b.metro))].sort();
 
 // Центр Москвы
 const MOSCOW_CENTER = { lat: 55.7558, lng: 37.6173 };
@@ -120,19 +132,30 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [selectedMetro, setSelectedMetro] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
 
-  // Расчёт расстояний до всех филиалов
-  const branchesWithDistance = BRANCH_COORDINATES.map(branch => ({
-    ...branch,
-    distance: userLocation 
-      ? calculateDistance(userLocation.lat, userLocation.lng, branch.lat, branch.lng)
-      : null
-  })).sort((a, b) => {
-    if (a.distance === null) return 0;
-    if (b.distance === null) return 0;
-    return a.distance - b.distance;
-  });
+  // Фильтрация и расчёт расстояний до филиалов
+  const branchesWithDistance = useMemo(() => {
+    let filtered = BRANCH_COORDINATES;
+    
+    // Фильтрация по метро
+    if (selectedMetro) {
+      filtered = filtered.filter(branch => branch.metro === selectedMetro);
+    }
+    
+    // Добавляем расстояние и сортируем
+    return filtered.map(branch => ({
+      ...branch,
+      distance: userLocation 
+        ? calculateDistance(userLocation.lat, userLocation.lng, branch.lat, branch.lng)
+        : null
+    })).sort((a, b) => {
+      if (a.distance === null) return 0;
+      if (b.distance === null) return 0;
+      return a.distance - b.distance;
+    });
+  }, [userLocation, selectedMetro]);
 
   const requestLocation = () => {
     if (!navigator.geolocation) {
@@ -194,38 +217,83 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
 
   return (
     <div className="space-y-6">
-      {/* Кнопка геолокации */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <MapPin className="h-5 w-5 text-primary" />
-          <span className="font-medium">8 филиалов в Москве и Подмосковье</span>
+      {/* Панель фильтров и геолокации */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-primary" />
+            <span className="font-medium">
+              {selectedMetro 
+                ? `Филиалы у м. ${selectedMetro}` 
+                : '8 филиалов в Москве и Подмосковье'}
+            </span>
+          </div>
+          <Button
+            onClick={requestLocation}
+            disabled={isLocating}
+            variant={userLocation ? "outline" : "default"}
+            className="gap-2"
+          >
+            {isLocating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Определение...
+              </>
+            ) : (
+              <>
+                <LocateFixed className="h-4 w-4" />
+                {userLocation ? 'Обновить местоположение' : 'Найти ближайший филиал'}
+              </>
+            )}
+          </Button>
         </div>
-        <Button
-          onClick={requestLocation}
-          disabled={isLocating}
-          variant={userLocation ? "outline" : "default"}
-          className="gap-2"
-        >
-          {isLocating ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Определение...
-            </>
-          ) : (
-            <>
-              <LocateFixed className="h-4 w-4" />
-              {userLocation ? 'Обновить местоположение' : 'Найти ближайший филиал'}
-            </>
-          )}
-        </Button>
-      </div>
 
-      {userLocation && (
-        <Badge variant="secondary" className="gap-2">
-          <LocateFixed className="h-3 w-3" />
-          Филиалы отсортированы по расстоянию от вас
-        </Badge>
-      )}
+        {/* Фильтр по метро */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Train className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Метро:</span>
+          <div className="flex flex-wrap gap-2">
+            {METRO_STATIONS.map(metro => (
+              <Button
+                key={metro}
+                size="sm"
+                variant={selectedMetro === metro ? "default" : "outline"}
+                className="h-7 text-xs"
+                onClick={() => setSelectedMetro(selectedMetro === metro ? null : metro)}
+              >
+                {metro}
+              </Button>
+            ))}
+            {selectedMetro && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs gap-1"
+                onClick={() => setSelectedMetro(null)}
+              >
+                <X className="h-3 w-3" />
+                Сбросить
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Статус бейджи */}
+        <div className="flex flex-wrap gap-2">
+          {userLocation && (
+            <Badge variant="secondary" className="gap-2">
+              <LocateFixed className="h-3 w-3" />
+              Отсортировано по расстоянию
+            </Badge>
+          )}
+          {selectedMetro && (
+            <Badge variant="outline" className="gap-2">
+              <Train className="h-3 w-3" />
+              Найдено: {branchesWithDistance.length} филиал(ов)
+            </Badge>
+          )}
+        </div>
+      </div>
 
       {/* Карта */}
       <Card className="overflow-hidden">
@@ -285,6 +353,10 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
                   <p className="text-xs text-muted-foreground truncate mt-0.5">
                     {branch.address}
                   </p>
+                  <div className="flex items-center gap-1 mt-1">
+                    <Train className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">{branch.metro}</span>
+                  </div>
                   <div className="flex flex-wrap gap-2 mt-2">
                     <Link to={`/branches/${branch.id}`}>
                       <Button size="sm" variant="outline" className="h-7 text-xs">
