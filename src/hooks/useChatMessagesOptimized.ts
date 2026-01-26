@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { ChatMessage } from './useChatMessages';
 import { chatQueryConfig } from '@/lib/queryConfig';
+import { startMetric, endMetric } from '@/lib/performanceMetrics';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 const MESSAGES_PER_PAGE = 100;
@@ -36,59 +37,63 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
     queryFn: async () => {
       if (!clientId) return { messages: [], hasMore: false, totalCount: 0 };
 
-      const startTime = performance.now();
+      const metricId = startMetric('chat-messages', { clientId, limit });
       
-      // Self-hosted schema uses: message_text, message_type, messenger_type, file_url, etc.
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select(`
-          id, client_id, message_text, message_type, system_type, is_read,
-          created_at, file_url, file_name, file_type, external_message_id,
-          messenger_type, call_duration, message_status, metadata,
-          clients(avatar_url, telegram_avatar_url, whatsapp_avatar_url, max_avatar_url)
-        `)
-        .eq('client_id', clientId)
-        .order('created_at', { ascending: false })
-        .limit(limit + 1);
-
-      if (error) {
-        // Fallback without join if RLS blocks it
-        console.warn('[useChatMessagesOptimized] Join failed, falling back:', error.message);
-        const fallback = await supabase
+      try {
+        // Self-hosted schema uses: message_text, message_type, messenger_type, file_url, etc.
+        const { data, error } = await supabase
           .from('chat_messages')
-          .select('id, client_id, message_text, message_type, system_type, is_read, created_at, file_url, file_name, file_type, external_message_id, messenger_type, call_duration, message_status')
+          .select(`
+            id, client_id, message_text, message_type, system_type, is_read,
+            created_at, file_url, file_name, file_type, external_message_id,
+            messenger_type, call_duration, message_status, metadata,
+            clients(avatar_url, telegram_avatar_url, whatsapp_avatar_url, max_avatar_url)
+          `)
           .eq('client_id', clientId)
           .order('created_at', { ascending: false })
           .limit(limit + 1);
 
-        if (fallback.error) throw fallback.error;
+        if (error) {
+          // Fallback without join if RLS blocks it
+          console.warn('[useChatMessagesOptimized] Join failed, falling back:', error.message);
+          const fallback = await supabase
+            .from('chat_messages')
+            .select('id, client_id, message_text, message_type, system_type, is_read, created_at, file_url, file_name, file_type, external_message_id, messenger_type, call_duration, message_status')
+            .eq('client_id', clientId)
+            .order('created_at', { ascending: false })
+            .limit(limit + 1);
 
-        const fallbackMessages = fallback.data || [];
-        const hasMore = fallbackMessages.length > limit;
-        const messages = hasMore ? fallbackMessages.slice(0, limit) : fallbackMessages;
+          if (fallback.error) {
+            endMetric(metricId, 'failed', { error: fallback.error.message });
+            throw fallback.error;
+          }
+
+          const fallbackMessages = fallback.data || [];
+          const hasMore = fallbackMessages.length > limit;
+          const messages = hasMore ? fallbackMessages.slice(0, limit) : fallbackMessages;
+          const reversed = (messages as ChatMessage[]).reverse();
+
+          // Update in-memory cache
+          messageCache.set(clientId, { messages: reversed, timestamp: Date.now() });
+
+          endMetric(metricId, 'completed', { msgCount: messages.length, fallback: true });
+          return { messages: reversed, hasMore, totalCount: messages.length };
+        }
+
+        const allData = data || [];
+        const hasMore = allData.length > limit;
+        const messages = hasMore ? allData.slice(0, limit) : allData;
         const reversed = (messages as ChatMessage[]).reverse();
 
         // Update in-memory cache
         messageCache.set(clientId, { messages: reversed, timestamp: Date.now() });
 
-        const endTime = performance.now();
-        console.log(`[useChatMessagesOptimized] Fallback completed in ${(endTime - startTime).toFixed(0)}ms, ${messages.length} msgs`);
-
+        endMetric(metricId, 'completed', { msgCount: messages.length });
         return { messages: reversed, hasMore, totalCount: messages.length };
+      } catch (err) {
+        endMetric(metricId, 'failed', { error: String(err) });
+        throw err;
       }
-
-      const allData = data || [];
-      const hasMore = allData.length > limit;
-      const messages = hasMore ? allData.slice(0, limit) : allData;
-      const reversed = (messages as ChatMessage[]).reverse();
-
-      // Update in-memory cache
-      messageCache.set(clientId, { messages: reversed, timestamp: Date.now() });
-
-      const endTime = performance.now();
-      console.log(`[useChatMessagesOptimized] ✅ ${messages.length} msgs in ${(endTime - startTime).toFixed(0)}ms`);
-
-      return { messages: reversed, hasMore, totalCount: messages.length };
     },
     enabled: enabled && !!clientId,
     staleTime: 10 * 1000, // Reduced to 10 seconds for fresher data

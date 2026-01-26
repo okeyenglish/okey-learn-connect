@@ -4,6 +4,7 @@ import { ChatThread, UnreadByMessenger } from './useChatMessages';
 import { chatListQueryConfig } from '@/lib/queryConfig';
 import { isGroupChatName, isTelegramGroup } from './useCommunityChats';
 import { useMemo, useEffect, useState, useCallback } from 'react';
+import { startMetric, endMetric } from '@/lib/performanceMetrics';
 
 interface RpcThreadRow {
   client_id: string;
@@ -53,32 +54,45 @@ export const useChatThreadsOptimized = () => {
   const recentThreadsQuery = useQuery({
     queryKey: ['chat-threads'],
     queryFn: async (): Promise<ChatThread[]> => {
-      console.log('[useChatThreadsOptimized] Step 1: Loading from materialized view...');
-      const startTime = performance.now();
+      const metricId = startMetric('chat-threads-list', { source: 'mv' });
 
-      // Try materialized view first (fastest: ~9ms)
-      const { data, error } = await supabase
-        .rpc('get_chat_threads_from_mv', { p_limit: 200 });
+      try {
+        // Try materialized view first (fastest: ~9ms)
+        const { data, error } = await supabase
+          .rpc('get_chat_threads_from_mv', { p_limit: 200 });
 
-      if (error) {
-        console.warn('[useChatThreadsOptimized] MV error, falling back to optimized RPC:', error.message);
-        
-        // Fallback to optimized RPC (~257ms)
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .rpc('get_chat_threads_optimized', { p_limit: 200 });
-        
-        if (fallbackError) {
-          console.error('[useChatThreadsOptimized] Optimized RPC also failed, trying fast:', fallbackError);
-          const { data: fastData, error: fastError } = await supabase
-            .rpc('get_chat_threads_fast', { p_limit: 200 });
-          if (fastError) throw fastError;
-          return mapRpcToThreads((fastData || []) as RpcThreadRow[], startTime);
+        if (error) {
+          console.warn('[useChatThreadsOptimized] MV error, falling back to optimized RPC:', error.message);
+          
+          // Fallback to optimized RPC (~257ms)
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .rpc('get_chat_threads_optimized', { p_limit: 200 });
+          
+          if (fallbackError) {
+            console.error('[useChatThreadsOptimized] Optimized RPC also failed, trying fast:', fallbackError);
+            const { data: fastData, error: fastError } = await supabase
+              .rpc('get_chat_threads_fast', { p_limit: 200 });
+            if (fastError) {
+              endMetric(metricId, 'failed', { error: fastError.message });
+              throw fastError;
+            }
+            const threads = mapRpcToThreads((fastData || []) as RpcThreadRow[]);
+            endMetric(metricId, 'completed', { count: threads.length, method: 'fast' });
+            return threads;
+          }
+          
+          const threads = mapRpcToThreads((fallbackData || []) as RpcThreadRow[]);
+          endMetric(metricId, 'completed', { count: threads.length, method: 'optimized' });
+          return threads;
         }
-        
-        return mapRpcToThreads((fallbackData || []) as RpcThreadRow[], startTime);
-      }
 
-      return mapRpcToThreads((data || []) as RpcThreadRow[], startTime);
+        const threads = mapRpcToThreads((data || []) as RpcThreadRow[]);
+        endMetric(metricId, 'completed', { count: threads.length, method: 'mv' });
+        return threads;
+      } catch (err) {
+        endMetric(metricId, 'failed', { error: String(err) });
+        throw err;
+      }
     },
     ...chatListQueryConfig,
     placeholderData: (previousData) => previousData,
@@ -145,8 +159,8 @@ export const useChatThreadsOptimized = () => {
           console.error('[useChatThreadsOptimized] Failed to load missing unread:', error);
           setMissingUnreadThreads([]);
         } else {
-          const threads = mapRpcToThreads((data || []) as RpcThreadRow[], startTime);
-          console.log(`[useChatThreadsOptimized] Step 3: Loaded ${threads.length} missing unread threads in ${(performance.now() - startTime).toFixed(2)}ms`);
+          const threads = mapRpcToThreads((data || []) as RpcThreadRow[]);
+          setMissingUnreadThreads(threads);
           setMissingUnreadThreads(threads);
         }
       } catch (e) {
@@ -202,7 +216,7 @@ export const useChatThreadsOptimized = () => {
 };
 
 // Helper function to map RPC result to ChatThread format
-function mapRpcToThreads(data: RpcThreadRow[], startTime: number): ChatThread[] {
+function mapRpcToThreads(data: RpcThreadRow[], startTime?: number): ChatThread[] {
   // Filter out group chats and system chats
   const filteredData = data.filter((row) => {
     const name = row.client_name || '';
@@ -212,14 +226,12 @@ function mapRpcToThreads(data: RpcThreadRow[], startTime: number): ChatThread[] 
     if (telegramChatId) {
       const chatIdStr = String(telegramChatId);
       if (isTelegramGroup(chatIdStr)) {
-        console.log(`[useChatThreadsOptimized] Filtering out Telegram group: ${name}, chat_id: ${chatIdStr}`);
         return false;
       }
     }
     
     // Exclude group chats by name patterns (ЖК, Английский язык, etc.)
     if (isGroupChatName(name)) {
-      console.log(`[useChatThreadsOptimized] Filtering out by name pattern: ${name}`);
       return false;
     }
     
@@ -256,9 +268,6 @@ function mapRpcToThreads(data: RpcThreadRow[], startTime: number): ChatThread[] 
     last_unread_messenger: row.last_unread_messenger || row.last_messenger_type || null,
     messages: []
   }));
-
-  const endTime = performance.now();
-  console.log(`[useChatThreadsOptimized] ✅ Completed in ${(endTime - startTime).toFixed(2)}ms, ${threads.length} threads (filtered from ${data.length})`);
 
   return threads;
 }
