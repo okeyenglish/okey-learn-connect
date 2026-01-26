@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { getErrorMessage } from '@/lib/errorUtils';
-import { selfHostedGet, selfHostedPost, selfHostedDelete, SELF_HOSTED_API } from '@/lib/selfHostedApi';
+import { selfHostedGet, selfHostedPost, selfHostedDelete, SELF_HOSTED_API, RetryConfig } from '@/lib/selfHostedApi';
+import { useApiRetryStatus } from '@/hooks/useApiRetryStatus';
 
 export interface TelegramSettings {
   profileId: string;
@@ -27,6 +28,12 @@ export const useTelegramWappi = () => {
   const [settings, setSettings] = useState<TelegramSettings | null>(null);
   const [instanceState, setInstanceState] = useState<TelegramInstanceState | null>(null);
   const { toast } = useToast();
+  
+  // Track retry status for UI indicators
+  const retryStatus = useApiRetryStatus({
+    autoHideSuccessMs: 1500,
+    autoHideFailedMs: 5000,
+  });
 
   const fetchSettings = useCallback(async (): Promise<TelegramSettingsResponse> => {
     setIsLoading(true);
@@ -151,11 +158,31 @@ export const useTelegramWappi = () => {
 
     // Mark as sending
     sendingRef.current.add(messageKey);
+    retryStatus.reset();
 
     try {
+      // Create retry config with UI callbacks
+      const retryConfig: RetryConfig = {
+        onRetry: (attempt, maxAttempts, error) => {
+          retryStatus.setRetrying(attempt, maxAttempts);
+          console.log(`[Telegram] Retry attempt ${attempt}/${maxAttempts}: ${error}`);
+        },
+        onSuccess: (retryCount) => {
+          if (retryCount > 0) {
+            retryStatus.setSuccess(retryCount + 1);
+          } else {
+            retryStatus.reset();
+          }
+        },
+        onFailed: (retryCount, error) => {
+          retryStatus.setFailed(retryCount + 1, error);
+        },
+      };
+
       const response = await selfHostedPost<{ messageId?: string; error?: string }>(
         'telegram-send',
-        { clientId, text, fileUrl, fileName, fileType }
+        { clientId, text, fileUrl, fileName, fileType },
+        { retry: retryConfig }
       );
 
       if (!response.success) {
@@ -181,7 +208,7 @@ export const useTelegramWappi = () => {
         sendingRef.current.delete(messageKey);
       }, 1500);
     }
-  }, [toast]);
+  }, [toast, retryStatus]);
 
   const getWebhookUrl = useCallback((): string => {
     return `${SELF_HOSTED_API}/telegram-webhook`;
@@ -199,6 +226,9 @@ export const useTelegramWappi = () => {
     saveSettings,
     deleteSettings,
     sendMessage,
-    getWebhookUrl
+    getWebhookUrl,
+    // Retry status for UI indicators
+    retryStatus: retryStatus.state,
+    isRetrying: retryStatus.isActive,
   };
 };

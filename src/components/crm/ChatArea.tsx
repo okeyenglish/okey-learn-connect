@@ -185,9 +185,9 @@ export const ChatArea = ({
   const MAX_MESSAGE_LENGTH = 4000;
 
   const { sendTextMessage, sendFileMessage, loading, deleteMessage, editMessage, checkAvailability: checkWhatsAppAvailability, getAvatar: getWhatsAppAvatar, sendTyping: sendWhatsAppTyping, retryStatus: whatsappRetryStatus, isRetrying: isWhatsappRetrying } = useWhatsApp();
-  const { sendMessage: sendMaxMessage, loading: maxLoading } = useMaxGreenApi();
+  const { sendMessage: sendMaxMessage, loading: maxLoading, retryStatus: maxRetryStatus, isRetrying: isMaxRetrying } = useMaxGreenApi();
   const { editMessage: editMaxMessage, deleteMessage: deleteMaxMessage, sendTyping: sendMaxTyping, checkAvailability: checkMaxAvailability, getAvatar: getMaxAvatar } = useMax();
-  const { sendMessage: sendTelegramMessage } = useTelegramWappi();
+  const { sendMessage: sendTelegramMessage, retryStatus: telegramRetryStatus, isRetrying: isTelegramRetrying } = useTelegramWappi();
   const { checkIntegrationStatus } = useMessengerIntegrationStatus();
   // State for availability check (MAX and WhatsApp)
   const [maxAvailability, setMaxAvailability] = useState<{ checked: boolean; available: boolean | null }>({ checked: false, available: null });
@@ -2595,12 +2595,26 @@ export const ChatArea = ({
             />
             
             
-            {/* Retry indicator - shows when WhatsApp send is being retried */}
+            {/* Retry indicator - shows when message send is being retried */}
             {activeMessengerTab === 'whatsapp' && (
               <SendRetryIndicator
                 status={whatsappRetryStatus?.status || 'idle'}
                 currentAttempt={whatsappRetryStatus?.currentAttempt}
                 maxAttempts={whatsappRetryStatus?.maxAttempts}
+              />
+            )}
+            {activeMessengerTab === 'telegram' && (
+              <SendRetryIndicator
+                status={telegramRetryStatus?.status || 'idle'}
+                currentAttempt={telegramRetryStatus?.currentAttempt}
+                maxAttempts={telegramRetryStatus?.maxAttempts}
+              />
+            )}
+            {activeMessengerTab === 'max' && (
+              <SendRetryIndicator
+                status={maxRetryStatus?.status || 'idle'}
+                currentAttempt={maxRetryStatus?.currentAttempt}
+                maxAttempts={maxRetryStatus?.maxAttempts}
               />
             )}
             
