@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Navigation, ExternalLink, Loader2, LocateFixed, Train, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { MapPin, Navigation, ExternalLink, Loader2, LocateFixed, Train, X, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -153,11 +154,22 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [selectedMetro, setSelectedMetro] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const mapRef = useRef<HTMLDivElement>(null);
 
   // Фильтрация и расчёт расстояний до филиалов
   const branchesWithDistance = useMemo(() => {
     let filtered = BRANCH_COORDINATES;
+    
+    // Поиск по названию, адресу и метро
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(branch => 
+        branch.name.toLowerCase().includes(query) ||
+        branch.address.toLowerCase().includes(query) ||
+        branch.metro.toLowerCase().includes(query)
+      );
+    }
     
     // Фильтрация по метро
     if (selectedMetro) {
@@ -175,7 +187,14 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
       if (b.distance === null) return 0;
       return a.distance - b.distance;
     });
-  }, [userLocation, selectedMetro]);
+  }, [userLocation, selectedMetro, searchQuery]);
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedMetro(null);
+  };
+
+  const hasFilters = searchQuery.trim() || selectedMetro;
 
   const requestLocation = () => {
     if (!navigator.geolocation) {
@@ -251,14 +270,26 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
     <div className="space-y-6">
       {/* Панель фильтров и геолокации */}
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-primary" />
-            <span className="font-medium">
-              {selectedMetro 
-                ? `Филиалы у м. ${selectedMetro}` 
-                : '8 филиалов в Москве и Подмосковье'}
-            </span>
+        {/* Поиск и геолокация */}
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="relative flex-1 min-w-[200px] max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Поиск по названию, адресу или метро..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-9"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                onClick={() => setSearchQuery('')}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </div>
           <Button
             onClick={requestLocation}
@@ -296,32 +327,30 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
                 {metro}
               </Button>
             ))}
-            {selectedMetro && (
+            {hasFilters && (
               <Button
                 size="sm"
                 variant="ghost"
                 className="h-7 text-xs gap-1"
-                onClick={() => setSelectedMetro(null)}
+                onClick={clearFilters}
               >
                 <X className="h-3 w-3" />
-                Сбросить
+                Сбросить всё
               </Button>
             )}
           </div>
         </div>
 
         {/* Статус бейджи */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <MapPin className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium">
+            Найдено: {branchesWithDistance.length} из {BRANCH_COORDINATES.length} филиалов
+          </span>
           {userLocation && (
-            <Badge variant="secondary" className="gap-2">
+            <Badge variant="secondary" className="gap-1">
               <LocateFixed className="h-3 w-3" />
-              Отсортировано по расстоянию
-            </Badge>
-          )}
-          {selectedMetro && (
-            <Badge variant="outline" className="gap-2">
-              <Train className="h-3 w-3" />
-              Найдено: {branchesWithDistance.length} филиал(ов)
+              По расстоянию
             </Badge>
           )}
         </div>
