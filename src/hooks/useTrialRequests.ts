@@ -12,8 +12,20 @@ export interface TrialLessonRequest {
   source: string | null;
   status: string | null;
   organization_id: string | null;
+  client_id: string | null;
+  student_id: string | null;
   created_at: string;
   updated_at: string;
+  // Joined data
+  client?: {
+    id: string;
+    name: string | null;
+  } | null;
+  student?: {
+    id: string;
+    first_name: string;
+    last_name: string | null;
+  } | null;
 }
 
 export interface TrialRequestFilters {
@@ -22,6 +34,7 @@ export interface TrialRequestFilters {
   dateFrom?: string;
   dateTo?: string;
   search?: string;
+  linked?: 'all' | 'linked' | 'unlinked';
 }
 
 export const useTrialRequests = (filters: TrialRequestFilters = {}) => {
@@ -30,7 +43,11 @@ export const useTrialRequests = (filters: TrialRequestFilters = {}) => {
     queryFn: async (): Promise<TrialLessonRequest[]> => {
       let query = supabase
         .from('trial_lesson_requests')
-        .select('*')
+        .select(`
+          *,
+          client:clients(id, name),
+          student:students(id, first_name, last_name)
+        `)
         .order('created_at', { ascending: false });
 
       if (filters.branch && filters.branch !== 'all') {
@@ -51,6 +68,12 @@ export const useTrialRequests = (filters: TrialRequestFilters = {}) => {
 
       if (filters.search) {
         query = query.or(`name.ilike.%${filters.search}%,phone.ilike.%${filters.search}%`);
+      }
+
+      if (filters.linked === 'linked') {
+        query = query.or('client_id.not.is.null,student_id.not.is.null');
+      } else if (filters.linked === 'unlinked') {
+        query = query.is('client_id', null).is('student_id', null);
       }
 
       const { data, error } = await query;
@@ -84,6 +107,41 @@ export const useUpdateTrialRequestStatus = () => {
     onError: (error) => {
       console.error('Error updating status:', error);
       toast.error('Ошибка обновления статуса');
+    },
+  });
+};
+
+export const useLinkTrialRequest = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      id, 
+      client_id, 
+      student_id 
+    }: { 
+      id: string; 
+      client_id?: string | null; 
+      student_id?: string | null;
+    }) => {
+      const { error } = await supabase
+        .from('trial_lesson_requests')
+        .update({ 
+          client_id, 
+          student_id, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trial-requests'] });
+      toast.success('Заявка привязана');
+    },
+    onError: (error) => {
+      console.error('Error linking request:', error);
+      toast.error('Ошибка привязки');
     },
   });
 };
