@@ -11,6 +11,9 @@ const SOLNTSEVO_PLACEHOLDER = "https://images.unsplash.com/photo-1580582932707-5
 const MYTISHCHI_PLACEHOLDER = "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&h=600&fit=crop";
 const ONLINE_PLACEHOLDER = "https://images.unsplash.com/photo-1588196749597-9ff075ee6b5b?w=800&h=600&fit=crop";
 
+// Центр Москвы для карты
+export const MOSCOW_CENTER = { lat: 55.7558, lng: 37.6173 };
+
 export interface Branch {
   id: string;
   name: string;
@@ -19,6 +22,12 @@ export interface Branch {
   workingHours: string;
   image: string;
   features: string[];
+}
+
+export interface BranchWithCoordinates extends Branch {
+  lat: number;
+  lng: number;
+  yandexOrgId?: string;
 }
 
 export interface BranchWithSchedule extends Branch {
@@ -33,79 +42,103 @@ export interface BranchForIndex extends Branch {
   nextGroup: string;
 }
 
-// Основной массив филиалов с полной информацией
-export const branches: Branch[] = [
+// Основной массив филиалов с полной информацией включая координаты
+export const branches: BranchWithCoordinates[] = [
   { 
     id: "kotelniki",
     name: "Котельники", 
     address: "2-й Покровский проезд, 14к2",
     metro: "Котельники",
-    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
+    workingHours: "Пн-Пт 9:00-21:00, Сб 10:00-18:00",
     image: kotelnikiImage,
-    features: ["Современные классы", "Интерактивные доски", "Детская зона"]
+    features: ["Современные классы", "Интерактивные доски", "Детская зона"],
+    lat: 55.6606,
+    lng: 37.8593,
+    yandexOrgId: "124903478543",
   },
   { 
     id: "novokosino",
     name: "Новокосино", 
     address: "Реутов, Юбилейный проспект, 60",
     metro: "Новокосино",
-    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
+    workingHours: "Пн-Пт 9:00-21:00, Сб 10:00-18:00",
     image: novokosinoImage,
-    features: ["Просторные классы", "Парковка", "Кафе рядом"]
+    features: ["Просторные классы", "Парковка", "Кафе рядом"],
+    lat: 55.7453,
+    lng: 37.8687,
+    yandexOrgId: "92516357375",
   },
   { 
     id: "okskaya",
     name: "Окская", 
     address: "ул. Окская, д. 3, корп. 1",
     metro: "Окская",
-    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
+    workingHours: "Пн-Пт 9:00-21:00, Сб 10:00-18:00",
     image: okskayaImage,
-    features: ["Уютная атмосфера", "Библиотека", "Игровая комната"]
+    features: ["Уютная атмосфера", "Библиотека", "Игровая комната"],
+    lat: 55.7126,
+    lng: 37.7544,
+    yandexOrgId: "1276487501",
   },
   { 
     id: "stakhanovskaya",
     name: "Стахановская", 
     address: "2-й Грайвороновский пр-д, 42к1",
     metro: "Стахановская",
-    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
+    workingHours: "Пн-Пт 9:00-21:00, Сб 10:00-18:00",
     image: stakhanovskayaImage,
-    features: ["Новый ремонт", "Мультимедиа", "Удобный подъезд"]
+    features: ["Новый ремонт", "Мультимедиа", "Удобный подъезд"],
+    lat: 55.7267,
+    lng: 37.7474,
+    yandexOrgId: "131325658206",
   },
   { 
     id: "solntsevo",
     name: "Солнцево", 
     address: "ул. Богданова, 6к1",
     metro: "Солнцево",
-    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
+    workingHours: "Пн-Пт 9:00-21:00, Сб 10:00-18:00",
     image: SOLNTSEVO_PLACEHOLDER,
-    features: ["Новые классы", "Удобная парковка", "Детская площадка"]
+    features: ["Новые классы", "Удобная парковка", "Детская площадка"],
+    lat: 55.6559,
+    lng: 37.4010,
+    yandexOrgId: "178121909150",
   },
   { 
     id: "mytishchi",
     name: "Мытищи", 
     address: "ул. Борисовка, 16А",
-    metro: "Мытищи (МЦД-1)",
-    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
+    metro: "Мытищи (МЦД)",
+    workingHours: "Пн-Пт 9:00-21:00, Сб 10:00-18:00",
     image: MYTISHCHI_PLACEHOLDER,
-    features: ["Просторные аудитории", "Техническое оснащение", "Буфет"]
+    features: ["Просторные аудитории", "Техническое оснащение", "Буфет"],
+    lat: 55.9116,
+    lng: 37.7363,
+    yandexOrgId: "1124754951",
   },
   { 
     id: "lyubertsy-1",
     name: "Люберцы", 
     address: "3 Почтовое отделение, 65к1",
-    metro: "Люберцы (МЦД-1)",
-    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
+    metro: "Люберцы (МЦД)",
+    workingHours: "Пн-Пт 9:00-21:00, Сб 10:00-18:00",
     image: lyubertsyImage,
-    features: ["Комфортная обстановка", "Методические материалы", "Зона отдыха"]
+    features: ["Комфортная обстановка", "Методические материалы", "Зона отдыха"],
+    lat: 55.6873,
+    lng: 37.9009,
+    yandexOrgId: "1159268195",
   },
   { 
     id: "lyubertsy-2",
     name: "Красная горка", 
     address: "проспект Гагарина, 3/8",
-    metro: "Люберцы (МЦД-1)",
-    workingHours: "Пн-Пт: 9:00-21:00, Сб-Вс: 10:00-18:00",
+    metro: "Люберцы (МЦД)",
+    workingHours: "Пн-Пт 9:00-21:00, Сб 10:00-18:00",
     image: krasnayaGorkaImage,
-    features: ["Центральное расположение", "Современное оборудование", "Библиотека"]
+    features: ["Центральное расположение", "Современное оборудование", "Библиотека"],
+    lat: 55.6777,
+    lng: 37.8933,
+    yandexOrgId: "97284619155",
   },
   { 
     id: "online",
@@ -114,12 +147,20 @@ export const branches: Branch[] = [
     metro: "По всей планете",
     workingHours: "24/7 доступ к материалам",
     image: ONLINE_PLACEHOLDER,
-    features: ["Cambridge One", "Интерактивные уроки", "Гибкое расписание"]
+    features: ["Cambridge One", "Интерактивные уроки", "Гибкое расписание"],
+    lat: 0,
+    lng: 0,
   }
 ];
 
+// Филиалы только с физическим расположением (без онлайн)
+export const physicalBranches = branches.filter(b => b.id !== 'online');
+
+// Уникальные станции метро для фильтра
+export const METRO_STATIONS = [...new Set(physicalBranches.map(b => b.metro))].sort();
+
 // Утилиты для работы с филиалами
-export const getBranchById = (id: string): Branch | undefined => {
+export const getBranchById = (id: string): BranchWithCoordinates | undefined => {
   return branches.find(branch => branch.id === id);
 };
 

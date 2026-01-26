@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,105 +6,7 @@ import { Input } from '@/components/ui/input';
 import { MapPin, Navigation, ExternalLink, Loader2, LocateFixed, Train, X, Search, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-
-// Координаты филиалов с информацией о метро и времени работы
-const BRANCH_COORDINATES: {
-  id: string;
-  name: string;
-  address: string;
-  metro: string;
-  workingHours: string;
-  lat: number;
-  lng: number;
-  yandexOrgId?: string;
-}[] = [
-  {
-    id: 'kotelniki',
-    name: 'Котельники',
-    address: '2-й Покровский проезд, 14к2',
-    metro: 'Котельники',
-    workingHours: 'Пн-Пт 9:00-21:00, Сб 10:00-18:00',
-    lat: 55.6606,
-    lng: 37.8593,
-    yandexOrgId: '124903478543',
-  },
-  {
-    id: 'novokosino',
-    name: 'Новокосино',
-    address: 'Реутов, Юбилейный проспект, 60',
-    metro: 'Новокосино',
-    workingHours: 'Пн-Пт 9:00-21:00, Сб 10:00-18:00',
-    lat: 55.7453,
-    lng: 37.8687,
-    yandexOrgId: '92516357375',
-  },
-  {
-    id: 'okskaya',
-    name: 'Окская',
-    address: 'ул. Окская, д. 3, корп. 1',
-    metro: 'Окская',
-    workingHours: 'Пн-Пт 9:00-21:00, Сб 10:00-18:00',
-    lat: 55.7126,
-    lng: 37.7544,
-    yandexOrgId: '1276487501',
-  },
-  {
-    id: 'stakhanovskaya',
-    name: 'Стахановская',
-    address: '2-й Грайвороновский пр-д, 42к1',
-    metro: 'Стахановская',
-    workingHours: 'Пн-Пт 9:00-21:00, Сб 10:00-18:00',
-    lat: 55.7267,
-    lng: 37.7474,
-    yandexOrgId: '131325658206',
-  },
-  {
-    id: 'solntsevo',
-    name: 'Солнцево',
-    address: 'ул. Богданова, 6к1',
-    metro: 'Солнцево',
-    workingHours: 'Пн-Пт 9:00-21:00, Сб 10:00-18:00',
-    lat: 55.6559,
-    lng: 37.4010,
-    yandexOrgId: '178121909150',
-  },
-  {
-    id: 'mytishchi',
-    name: 'Мытищи',
-    address: 'ул. Борисовка, 16А',
-    metro: 'Мытищи (МЦД)',
-    workingHours: 'Пн-Пт 9:00-21:00, Сб 10:00-18:00',
-    lat: 55.9116,
-    lng: 37.7363,
-    yandexOrgId: '1124754951',
-  },
-  {
-    id: 'lyubertsy-1',
-    name: 'Люберцы',
-    address: '3 Почтовое отделение, 65к1',
-    metro: 'Люберцы (МЦД)',
-    workingHours: 'Пн-Пт 9:00-21:00, Сб 10:00-18:00',
-    lat: 55.6873,
-    lng: 37.9009,
-    yandexOrgId: '1159268195',
-  },
-  {
-    id: 'lyubertsy-2',
-    name: 'Красная горка',
-    address: 'проспект Гагарина, 3/8',
-    metro: 'Люберцы (МЦД)',
-    workingHours: 'Пн-Пт 9:00-21:00, Сб 10:00-18:00',
-    lat: 55.6777,
-    lng: 37.8933,
-    yandexOrgId: '97284619155',
-  },
-];
-
-// Уникальные станции метро для фильтра
-const METRO_STATIONS = [...new Set(BRANCH_COORDINATES.map(b => b.metro))].sort();
-
-// Центр Москвы
-const MOSCOW_CENTER = { lat: 55.7558, lng: 37.6173 };
+import { physicalBranches, METRO_STATIONS, MOSCOW_CENTER } from '@/lib/branches';
 
 // Формула Haversine для расчёта расстояния между двумя точками
 const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -168,7 +70,7 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
 
   // Фильтрация и расчёт расстояний до филиалов
   const branchesWithDistance = useMemo(() => {
-    let filtered = BRANCH_COORDINATES;
+    let filtered = [...physicalBranches];
     
     // Поиск по названию, адресу и метро
     if (searchQuery.trim()) {
@@ -268,7 +170,7 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
     const zoom = 'z=10';
     
     // Создаём метки для всех филиалов
-    const points = BRANCH_COORDINATES.map((branch, index) => 
+    const points = physicalBranches.map((branch, index) => 
       `pt=${branch.lng}%2C${branch.lat}%2Cpm2rdl${index + 1}`
     ).join('~');
     
@@ -354,7 +256,7 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
         <div className="flex flex-wrap items-center gap-2">
           <MapPin className="h-4 w-4 text-primary" />
           <span className="text-sm font-medium">
-            Найдено: {branchesWithDistance.length} из {BRANCH_COORDINATES.length} филиалов
+            Найдено: {branchesWithDistance.length} из {physicalBranches.length} филиалов
           </span>
           {userLocation && (
             <Badge variant="secondary" className="gap-1">
