@@ -507,7 +507,7 @@ Deno.serve(async (req) => {
           }
         }
         
-        // Log client search result to webhook_logs for debugging
+        // Log client search result to webhook_logs for debugging (non-blocking)
         const clientSearchLog = {
           phone_searched: selectedPhone,
           normalized_phone: normalizedPhone,
@@ -521,7 +521,8 @@ Deno.serve(async (req) => {
           organization_id: organizationId
         };
         
-        await supabase.from('webhook_logs').insert({
+        // Fire-and-forget logging - don't await to not block main flow
+        supabase.from('webhook_logs').insert({
           messenger_type: 'onlinepbx',
           event_type: 'client_search',
           webhook_data: clientSearchLog,
