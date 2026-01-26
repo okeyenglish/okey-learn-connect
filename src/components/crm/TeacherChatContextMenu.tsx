@@ -43,9 +43,7 @@ export const TeacherChatContextMenu = ({
     }
   };
 
-  const handleReadStatusToggle = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
+  const handleReadStatusToggle = () => {
     if (isUnread && onMarkRead) {
       onMarkRead();
     } else {
@@ -53,21 +51,15 @@ export const TeacherChatContextMenu = ({
     }
   };
 
-  const handlePinClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
+  const handlePinClick = () => {
     onPinDialog();
   };
 
-  const handleBlockClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
+  const handleBlockClick = () => {
     onBlock?.();
   };
 
-  const handleDeleteClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
+  const handleDeleteClick = () => {
     onDelete?.();
   };
 
@@ -81,7 +73,7 @@ export const TeacherChatContextMenu = ({
         {children}
       </ContextMenuTrigger>
       <ContextMenuContent className="w-56">
-        <ContextMenuItem onClick={handleReadStatusToggle} className="cursor-pointer">
+        <ContextMenuItem onSelect={handleReadStatusToggle} className="cursor-pointer">
           {isUnread ? (
             <>
               <MessageCircle className="mr-2 h-4 w-4" />
@@ -95,7 +87,7 @@ export const TeacherChatContextMenu = ({
           )}
         </ContextMenuItem>
         
-        <ContextMenuItem onClick={handlePinClick} className="cursor-pointer">
+        <ContextMenuItem onSelect={handlePinClick} className="cursor-pointer">
           <Pin className="mr-2 h-4 w-4" />
           {isPinned ? 'Открепить диалог' : 'Закрепить диалог'}
         </ContextMenuItem>
@@ -103,7 +95,7 @@ export const TeacherChatContextMenu = ({
         {onBlock && (
           <>
             <ContextMenuSeparator />
-            <ContextMenuItem onClick={handleBlockClick} className="cursor-pointer">
+            <ContextMenuItem onSelect={handleBlockClick} className="cursor-pointer">
               <Lock className="mr-2 h-4 w-4" />
               Заблокировать
             </ContextMenuItem>
@@ -113,7 +105,7 @@ export const TeacherChatContextMenu = ({
         {onDelete && (
           <>
             <ContextMenuSeparator />
-            <ContextMenuItem onClick={handleDeleteClick} className="cursor-pointer text-destructive">
+            <ContextMenuItem onSelect={handleDeleteClick} className="cursor-pointer text-destructive">
               <Trash2 className="mr-2 h-4 w-4" />
               Удалить чат
             </ContextMenuItem>
