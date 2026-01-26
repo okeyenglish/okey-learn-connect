@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getErrorMessage } from '@/lib/errorUtils';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 type WppStatus = 'connected' | 'disconnected' | 'qr_issued' | 'qr_pending' | 'pairing' | 'syncing';
 
@@ -31,19 +32,19 @@ export function WhatsAppConnector() {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke('wpp-status');
+      const response = await selfHostedPost<{ status?: WppStatus; qrcode?: string }>('wpp-status', {});
 
-      if (error) {
-        console.error('Error fetching WPP status:', error);
-        setError(error.message);
+      if (!response.success) {
+        console.error('Error fetching WPP status:', response.error);
+        setError(response.error || 'Unknown error');
         // Exponential backoff on error
         backoffRef.current = Math.min(backoffRef.current * 1.5, 10000);
         return;
       }
 
-      if (data) {
-        setStatus(data.status);
-        setQr(data.qrcode || null);
+      if (response.data) {
+        setStatus(response.data.status || 'disconnected');
+        setQr(response.data.qrcode || null);
         setError(null);
         // Reset backoff on success
         backoffRef.current = 2000;
@@ -70,33 +71,23 @@ export function WhatsAppConnector() {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke('wpp-start');
+      const response = await selfHostedPost<{ ok?: boolean; status?: WppStatus; qrcode?: string; error?: string }>('wpp-start', {});
 
-      if (error) {
-        console.error('Error starting WPP session:', error);
+      if (!response.success || !response.data?.ok) {
+        console.error('WPP start failed:', response);
         toast({
           title: "Ошибка",
-          description: `Не удалось запустить сессию: ${error.message}`,
+          description: response.data?.error || response.error || "Не удалось запустить сессию WhatsApp",
           variant: "destructive",
         });
         return;
       }
 
-      if (!data?.ok) {
-        console.error('WPP start failed:', data);
-        toast({
-          title: "Ошибка",
-          description: data?.error || "Не удалось запустить сессию WhatsApp",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setStatus(data.status);
-      let qrCode = data.qrcode || null;
+      setStatus(response.data.status || 'disconnected');
+      let qrCode = response.data.qrcode || null;
 
       // Fallback: check DB for recent QR if not in response
-      if (!qrCode && data.status !== 'connected') {
+      if (!qrCode && response.data.status !== 'connected') {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const { data: profile } = await supabase
@@ -130,7 +121,7 @@ export function WhatsAppConnector() {
           title: "Успешно",
           description: "QR-код для подключения сгенерирован",
         });
-      } else if (data.status === 'connected') {
+      } else if (response.data.status === 'connected') {
         toast({
           title: "Подключено",
           description: "WhatsApp уже подключен",
@@ -199,12 +190,12 @@ export function WhatsAppConnector() {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke('wpp-disconnect');
+      const response = await selfHostedPost<{ ok?: boolean; error?: string }>('wpp-disconnect', {});
 
-      if (error || !data?.ok) {
+      if (!response.success || !response.data?.ok) {
         toast({
           title: "Ошибка",
-          description: data?.error || "Не удалось отключить WhatsApp",
+          description: response.data?.error || response.error || "Не удалось отключить WhatsApp",
           variant: "destructive",
         });
         return;
@@ -240,21 +231,21 @@ export function WhatsAppConnector() {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke('wpp-diagnostics');
+      const response = await selfHostedPost<{ ok?: boolean; error?: string; summary?: { total?: number; successful?: number; okButEmpty?: number } }>('wpp-diagnostics', {});
 
-      if (error || !data?.ok) {
+      if (!response.success || !response.data?.ok) {
         toast({
           title: "Ошибка диагностики",
-          description: data?.error || error?.message || "Не удалось выполнить диагностику",
+          description: response.data?.error || response.error || "Не удалось выполнить диагностику",
           variant: "destructive",
         });
         return;
       }
 
-      setDiagnostics(data);
+      setDiagnostics(response.data);
       toast({
         title: "Диагностика завершена",
-        description: `Выполнено ${data.summary?.total || 0} тестов. Успешных: ${data.summary?.successful || 0}, пустых: ${data.summary?.okButEmpty || 0}`,
+        description: `Выполнено ${response.data.summary?.total || 0} тестов. Успешных: ${response.data.summary?.successful || 0}, пустых: ${response.data.summary?.okButEmpty || 0}`,
       });
     } catch (error: unknown) {
       toast({

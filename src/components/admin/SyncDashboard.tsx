@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useOrganization } from '@/hooks/useOrganization';
 import { getInvokeErrorMessage } from '@/lib/functionsInvokeError';
 import { getErrorMessage } from '@/lib/errorUtils';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import type {
   SalebotImportBatchResponse,
   SalebotFillIdsResponse,
@@ -370,15 +371,13 @@ export function SyncDashboard() {
     try {
       setIsResettingStuck(true);
       
-      const { data, error } = await supabase.functions.invoke('salebot-stop', {
-        body: { force_reset: true },
-      });
+      const response = await selfHostedPost<SalebotStopResponse>('salebot-stop', { force_reset: true });
 
-      if (error) {
-        throw new Error(await getInvokeErrorMessage(error));
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to reset process');
       }
 
-      const result = data as SalebotStopResponse;
+      const result = response.data;
       
       // Reset local state
       setIsSyncingWithIds(false);
@@ -390,7 +389,7 @@ export function SyncDashboard() {
       
       toast({
         title: '✅ Процесс сброшен',
-        description: result.message || 'Все флаги очищены. Можно запустить новый импорт.',
+        description: result?.message || 'Все флаги очищены. Можно запустить новый импорт.',
       });
       
       await fetchProgressOnly();
@@ -439,13 +438,11 @@ export function SyncDashboard() {
           .eq('id', progress.id);
         
         // Auto-trigger background chain to continue import
-        const { error } = await supabase.functions.invoke('import-salebot-chats-auto', {
-          body: { mode: 'background_chain' }
-        });
+        const chainResponse = await selfHostedPost('import-salebot-chats-auto', { mode: 'background_chain' });
         
-        if (error) {
-          console.error('Error triggering background chain:', error);
-          throw new Error(await getInvokeErrorMessage(error));
+        if (!chainResponse.success) {
+          console.error('Error triggering background chain:', chainResponse.error);
+          throw new Error(chainResponse.error || 'Failed to trigger chain');
         }
         
         toast({
@@ -494,11 +491,9 @@ export function SyncDashboard() {
       }
       
       // Trigger background_chain mode
-      const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
-        body: { mode: 'background_chain' }
-      });
+      const response = await selfHostedPost('import-salebot-chats-auto', { mode: 'background_chain' });
       
-      if (error) throw new Error(await getInvokeErrorMessage(error));
+      if (!response.success) throw new Error(response.error || 'Failed to trigger chain');
       
       toast({
         title: '🔄 Импорт продолжен',
@@ -629,8 +624,8 @@ export function SyncDashboard() {
       }
       
       // Trigger import
-      const { error } = await supabase.functions.invoke('import-salebot-chats-auto');
-      if (error) throw new Error(await getInvokeErrorMessage(error));
+      const importResponse = await selfHostedPost('import-salebot-chats-auto', {});
+      if (!importResponse.success) throw new Error(importResponse.error || 'Failed to trigger import');
       
       toast({
         title: 'Импорт возобновлён',
@@ -652,10 +647,10 @@ export function SyncDashboard() {
     try {
       setIsRunningBatch(true);
       
-      const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto');
-      if (error) throw new Error(await getInvokeErrorMessage(error));
+      const response = await selfHostedPost<SalebotImportBatchResponse>('import-salebot-chats-auto', {});
+      if (!response.success) throw new Error(response.error || 'Failed to run batch');
       
-      const result = data as SalebotImportBatchResponse;
+      const result = response.data;
       
       if (result?.skipped) {
         toast({
@@ -700,10 +695,8 @@ export function SyncDashboard() {
           .eq('id', progress.id);
       }
       
-      const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
-        body: { mode: 'sync_new' }
-      });
-      if (error) throw new Error(await getInvokeErrorMessage(error));
+      const response = await selfHostedPost('import-salebot-chats-auto', { mode: 'sync_new' });
+      if (!response.success) throw new Error(response.error || 'Failed to sync new');
       
       toast({
         title: 'Синхронизация запущена',
@@ -746,12 +739,10 @@ export function SyncDashboard() {
           .eq('id', progress.id);
       }
       
-      const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
-        body: { mode: 'resync_messages' }
-      });
-      if (error) throw new Error(await getInvokeErrorMessage(error));
+      const response = await selfHostedPost<SalebotImportBatchResponse>('import-salebot-chats-auto', { mode: 'resync_messages' });
+      if (!response.success) throw new Error(response.error || 'Failed to resync');
       
-      const result = data as SalebotImportBatchResponse;
+      const result = response.data;
       toast({
         title: 'Синхронизация диалогов запущена',
         description: `Обработано: ${result?.processedClients || 0} клиентов, новых сообщений: ${result?.newMessages || 0}`,
@@ -796,10 +787,8 @@ export function SyncDashboard() {
       }
       
       // Use background_chain mode - self-invoking for unlimited processing
-      const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
-        body: { mode: 'background_chain' }
-      });
-      if (error) throw new Error(await getInvokeErrorMessage(error));
+      const response = await selfHostedPost('import-salebot-chats-auto', { mode: 'background_chain' });
+      if (!response.success) throw new Error(response.error || 'Failed to start background chain');
       
       toast({
         title: '🚀 Фоновый импорт запущен!',
@@ -871,12 +860,10 @@ export function SyncDashboard() {
         }
       }
       
-      const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
-        body: { mode: 'sync_with_salebot_ids' }
-      });
-      if (error) throw new Error(await getInvokeErrorMessage(error));
+      const response = await selfHostedPost<SalebotImportBatchResponse>('import-salebot-chats-auto', { mode: 'sync_with_salebot_ids' });
+      if (!response.success) throw new Error(response.error || 'Failed to sync with IDs');
       
-      const result = data as SalebotImportBatchResponse;
+      const result = response.data;
       
       // Check if stopped during this batch
       const { data: checkPaused } = await supabase
@@ -952,12 +939,10 @@ export function SyncDashboard() {
           .eq('id', progress.id);
       }
       
-      const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
-        body: { mode: 'fill_salebot_ids' }
-      });
-      if (error) throw new Error(await getInvokeErrorMessage(error));
+      const response = await selfHostedPost<SalebotFillIdsResponse>('import-salebot-chats-auto', { mode: 'fill_salebot_ids' });
+      if (!response.success) throw new Error(response.error || 'Failed to fill IDs');
       
-      const result = data as SalebotFillIdsResponse;
+      const result = response.data;
       toast({
         title: 'Заполнение Salebot IDs запущено',
         description: `Обработано: ${result?.processedThisBatch || 0}, связано: ${result?.matchedThisBatch || 0}`,
@@ -1025,12 +1010,10 @@ export function SyncDashboard() {
         }
       }
       
-      const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
-        body: { mode: 'sync_new_clients_only' }
-      });
-      if (error) throw new Error(await getInvokeErrorMessage(error));
+      const response = await selfHostedPost<SalebotImportBatchResponse>('import-salebot-chats-auto', { mode: 'sync_new_clients_only' });
+      if (!response.success) throw new Error(response.error || 'Failed to sync new clients');
       
-      const result = data as SalebotImportBatchResponse;
+      const result = response.data;
       
       // Check if stopped during this batch
       const { data: checkPaused } = await supabase
@@ -1088,12 +1071,10 @@ export function SyncDashboard() {
     try {
       setIsFullReimporting(true);
       
-      const { data, error } = await supabase.functions.invoke('import-salebot-chats-auto', {
-        body: { mode: 'full_reimport' }
-      });
-      if (error) throw new Error(await getInvokeErrorMessage(error));
+      const response = await selfHostedPost<SalebotImportBatchResponse>('import-salebot-chats-auto', { mode: 'full_reimport' });
+      if (!response.success) throw new Error(response.error || 'Failed to start full reimport');
       
-      const result = data as SalebotImportBatchResponse;
+      const result = response.data;
       toast({
         title: 'Полный реимпорт запущен',
         description: `Прогресс сброшен, импорт начнётся с начала списка. Клиентов: ${result?.totalClients || 0}, сообщений: ${result?.messagesImported || 0}`,
@@ -1299,36 +1280,19 @@ export function SyncDashboard() {
       let totalErrors = 0;
 
       // Helper function for invoking with retry
-      const invokeWithRetry = async (body: Record<string, unknown>, maxRetries = 3) => {
-        for (let attempt = 0; attempt < maxRetries; attempt++) {
-          // Refresh session before each attempt to prevent token expiration
-          await supabase.auth.refreshSession();
-          
-          const { data, error } = await supabase.functions.invoke('import-salebot-ids-csv', {
-            body
-          });
-          
-          if (!error) {
-            return { data, error: null };
-          }
-          
-          const errorWithContext = error as InvokeErrorWithContext;
-          const context = errorWithContext.context;
-          const status = context?.status;
-          
-          // Don't retry on auth errors - these are real authorization issues
-          if (status === 401 || status === 403) {
-            return { data: null, error };
-          }
-          
-          // Retry on 5xx or network errors
-          if (attempt < maxRetries - 1) {
-            const delayMs = 1000 * (attempt + 1); // 1s, 2s, 3s
-            console.log(`⚠️ Ошибка ${status || 'network'}, повторная попытка через ${delayMs}ms...`);
-            await new Promise(r => setTimeout(r, delayMs));
-          }
+      const invokeWithRetry = async (body: Record<string, unknown>) => {
+        // Refresh session before each attempt to prevent token expiration
+        await supabase.auth.refreshSession();
+        
+        const response = await selfHostedPost<CsvImportResponse>('import-salebot-ids-csv', body, {
+          retry: { maxRetries: 3 }
+        });
+        
+        if (!response.success) {
+          return { data: null, error: new Error(response.error || 'Request failed') };
         }
-        return { data: null, error: new Error('Превышено количество попыток') };
+        
+        return { data: response.data, error: null };
       };
 
       // Process updates

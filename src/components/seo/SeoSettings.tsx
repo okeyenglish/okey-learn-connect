@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Settings, Send, CheckCircle, XCircle, Sparkles, RefreshCw, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { toast } from "sonner";
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 const SeoSettings = () => {
   const [testUrl, setTestUrl] = useState("");
@@ -63,26 +64,24 @@ const SeoSettings = () => {
     setTestResult(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('seo-indexnow', {
-        body: {
-          urls: [testUrl],
-          host: "okeyenglish.ru",
-          organizationId: organizationId
-        }
+      const response = await selfHostedPost<{ status?: string }>('seo-indexnow', {
+        urls: [testUrl],
+        host: "okeyenglish.ru",
+        organizationId: organizationId
       });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
 
       setTestResult({
         success: true,
-        message: `Успешно отправлено! Статус: ${data.status}`
+        message: `Успешно отправлено! Статус: ${response.data?.status}`
       });
       toast.success("URL успешно отправлен в IndexNow");
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("IndexNow test error:", error);
       setTestResult({
         success: false,
-        message: error.message || "Ошибка при отправке"
+        message: (error as Error).message || "Ошибка при отправке"
       });
       toast.error("Ошибка при тестировании IndexNow");
     } finally {
@@ -100,17 +99,19 @@ const SeoSettings = () => {
     setWordstatResult(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('seo-collect-wordstat', {
-        body: { organizationId }
+      const response = await selfHostedPost<{ success?: boolean; message?: string; collected?: number; clusters_created?: number }>('seo-collect-wordstat', {
+        organizationId
       });
 
-      if (data && data.success === false) {
+      if (response.data && response.data.success === false) {
         // Возвращаем читабельное сообщение пользователю
-        throw new Error(data.message || 'Ошибка при сборе данных из Яндекс.Вордстат');
+        throw new Error(response.data.message || 'Ошибка при сборе данных из Яндекс.Вордстат');
       }
 
-      setWordstatResult(data);
-      toast.success(`Собрано ${data.collected} запросов, создано ${data.clusters_created} кластеров`);
+      if (!response.success) throw new Error(response.error);
+
+      setWordstatResult(response.data);
+      toast.success(`Собрано ${response.data?.collected} запросов, создано ${response.data?.clusters_created} кластеров`);
     } catch (error) {
       console.error("Wordstat collection error:", error);
       const errorObj = error as Error | { message?: string; error?: { message?: string } };
@@ -133,14 +134,14 @@ const SeoSettings = () => {
     setEnrichResult(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('seo-enrich-clusters', {
-        body: { organizationId }
+      const response = await selfHostedPost<{ enriched?: number; total?: number; errors?: number }>('seo-enrich-clusters', {
+        organizationId
       });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
 
-      setEnrichResult(data);
-      toast.success(`Обогащено ${data.enriched} кластеров из ${data.total}`);
+      setEnrichResult(response.data);
+      toast.success(`Обогащено ${response.data?.enriched} кластеров из ${response.data?.total}`);
     } catch (error) {
       console.error("Cluster enrichment error:", error);
       toast.error("Ошибка при обогащении кластеров");
@@ -159,14 +160,14 @@ const SeoSettings = () => {
     setClusterResult(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('seo-auto-cluster', {
-        body: { organizationId }
+      const response = await selfHostedPost<{ clustersCreated?: number; totalKeywords?: number; clusters?: unknown[] }>('seo-auto-cluster', {
+        organizationId
       });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
 
-      setClusterResult(data);
-      toast.success(`Создано ${data.clustersCreated} кластеров из ${data.totalKeywords} запросов`);
+      setClusterResult(response.data);
+      toast.success(`Создано ${response.data?.clustersCreated} кластеров из ${response.data?.totalKeywords} запросов`);
     } catch (error) {
       console.error("Auto clustering error:", error);
       toast.error("Ошибка при автоматической кластеризации");
@@ -193,18 +194,16 @@ const SeoSettings = () => {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - 90); // Последние 90 дней
 
-      const { data, error } = await supabase.functions.invoke('seo-import-gsc', {
-        body: {
-          siteUrl: gscSiteUrl,
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: endDate.toISOString().split('T')[0],
-          organizationId
-        }
+      const response = await selfHostedPost<{ imported?: number }>('seo-import-gsc', {
+        siteUrl: gscSiteUrl,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        organizationId
       });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
 
-      toast.success(`Импортировано ${data.imported} записей из Google Search Console`);
+      toast.success(`Импортировано ${response.data?.imported} записей из Google Search Console`);
     } catch (error) {
       console.error("GSC import error:", error);
       toast.error("Ошибка при импорте данных из Google Search Console");
@@ -218,15 +217,15 @@ const SeoSettings = () => {
     setYandexInfo(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('seo-yandex-info');
+      const response = await selfHostedPost<{ userId?: string; hosts?: unknown[] }>('seo-yandex-info', {});
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
 
       setYandexInfo({
-        userId: data.userId,
-        hosts: data.hosts
+        userId: response.data?.userId || '',
+        hosts: response.data?.hosts || []
       });
-      toast.success(`Получено: user_id и ${data.hosts.length} хостов`);
+      toast.success(`Получено: user_id и ${response.data?.hosts?.length || 0} хостов`);
     } catch (error) {
       console.error("Yandex info fetch error:", error);
       toast.error("Ошибка при получении данных из Яндекс.Вебмастер");
@@ -240,13 +239,13 @@ const SeoSettings = () => {
     setTokensCheck(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('seo-check-tokens');
+      const response = await selfHostedPost<{ summary?: { all_tokens_valid?: boolean } }>('seo-check-tokens', {});
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
 
-      setTokensCheck(data);
+      setTokensCheck(response.data);
       
-      if (data.summary.all_tokens_valid) {
+      if (response.data?.summary?.all_tokens_valid) {
         toast.success("Все токены валидны и работают корректно!");
       } else {
         toast.warning("Некоторые токены имеют проблемы, проверьте детали ниже");

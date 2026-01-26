@@ -17,7 +17,7 @@ import { AdminModal } from "@/components/admin/AdminModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { supabase } from "@/integrations/supabase/typedClient";
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import { toast } from "sonner";
 
 interface ManagerMenuProps {
@@ -60,22 +60,20 @@ export const ManagerMenu = ({
     
     setTestPushLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('send-push-notification', {
-        body: {
-          userId: user.id,
-          payload: {
-            title: 'Тестовое уведомление 🔔',
-            body: `Push работает! ${new Date().toLocaleTimeString('ru-RU')}`,
-            icon: '/pwa-192x192.png',
-            tag: 'test-push',
-            url: '/crm',
-          },
+      const response = await selfHostedPost<{ sent?: number }>('send-push-notification', {
+        userId: user.id,
+        payload: {
+          title: 'Тестовое уведомление 🔔',
+          body: `Push работает! ${new Date().toLocaleTimeString('ru-RU')}`,
+          icon: '/pwa-192x192.png',
+          tag: 'test-push',
+          url: '/crm',
         },
       });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
       
-      if (data?.sent > 0) {
+      if (response.data?.sent && response.data.sent > 0) {
         toast.success(`Push отправлен`);
       } else {
         toast.warning('Нет активных подписок');

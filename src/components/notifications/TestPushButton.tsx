@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Bell, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 interface TestPushButtonProps {
   variant?: 'default' | 'outline' | 'ghost';
@@ -23,27 +23,25 @@ export function TestPushButton({ variant = 'outline', size = 'sm', className }: 
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('send-push-notification', {
-        body: {
-          userId: user.id,
-          payload: {
-            title: 'Тестовое уведомление 🔔',
-            body: `Push работает! Время: ${new Date().toLocaleTimeString('ru-RU')}`,
-            icon: '/pwa-192x192.png',
-            badge: '/pwa-192x192.png',
-            tag: `test-push-${Date.now()}`, // Unique tag to prevent iOS from collapsing notifications
-            url: '/crm',
-          },
+      const response = await selfHostedPost<{ sent?: number }>('send-push-notification', {
+        userId: user.id,
+        payload: {
+          title: 'Тестовое уведомление 🔔',
+          body: `Push работает! Время: ${new Date().toLocaleTimeString('ru-RU')}`,
+          icon: '/pwa-192x192.png',
+          badge: '/pwa-192x192.png',
+          tag: `test-push-${Date.now()}`, // Unique tag to prevent iOS from collapsing notifications
+          url: '/crm',
         },
       });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
 
-      console.log('Test push response:', data);
+      console.log('Test push response:', response.data);
       
-      if (data?.sent > 0) {
-        toast.success(`Push отправлен (${data.sent} подписок)`);
-      } else if (data?.sent === 0) {
+      if (response.data?.sent && response.data.sent > 0) {
+        toast.success(`Push отправлен (${response.data.sent} подписок)`);
+      } else if (response.data?.sent === 0) {
         toast.warning('Нет активных подписок. Включите уведомления.');
       } else {
         toast.info('Запрос отправлен');

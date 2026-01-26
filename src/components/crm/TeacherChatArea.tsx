@@ -27,6 +27,7 @@ import { useMax } from '@/hooks/useMax';
 import { useTelegramWappi } from '@/hooks/useTelegramWappi';
 import { SendRetryIndicator } from '@/components/crm/SendRetryIndicator';
 import { supabase } from '@/integrations/supabase/typedClient';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import { AddTeacherModal } from '@/components/admin/AddTeacherModal';
 import { useTeacherChats, useEnsureTeacherClient, TeacherChatItem, useTeacherChatMessages } from '@/hooks/useTeacherChats';
 import { TeacherListItem } from './TeacherListItem';
@@ -249,12 +250,10 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   useEffect(() => {
     if (activeMessengerTab === 'telegram' && clientId && !cachedAvatars.telegram) {
       fetchExternalAvatar('telegram', async () => {
-        const { data: avatarData, error } = await supabase.functions.invoke('telegram-get-avatar', {
-          body: { clientId }
-        });
+        const response = await selfHostedPost<{ success?: boolean; avatarUrl?: string }>('telegram-get-avatar', { clientId });
         return {
-          success: !error && avatarData?.success,
-          avatarUrl: avatarData?.avatarUrl
+          success: response.success && response.data?.success,
+          avatarUrl: response.data?.avatarUrl
         };
       });
     }
