@@ -38,13 +38,35 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
 
       const startTime = performance.now();
       
-      // Optimized: Select only needed fields
+      // Helper to map Cloud schema fields to ChatMessage interface
+      const mapToChatMessage = (msg: any): ChatMessage => ({
+        id: msg.id,
+        client_id: msg.client_id,
+        message_text: msg.content || '', // Cloud uses 'content'
+        message_type: msg.direction === 'incoming' ? 'client' : 'manager', // Cloud uses 'direction'
+        system_type: msg.message_type === 'system' ? msg.message_type : undefined,
+        is_read: msg.is_read ?? false,
+        created_at: msg.created_at,
+        file_url: msg.media_url || undefined, // Cloud uses 'media_url'
+        file_name: msg.file_name || undefined,
+        file_type: msg.media_type || undefined, // Cloud uses 'media_type'
+        external_message_id: msg.external_id || undefined, // Cloud uses 'external_id'
+        messenger_type: msg.messenger || undefined, // Cloud uses 'messenger'
+        message_status: msg.status || undefined,
+        metadata: msg.metadata || undefined,
+        // Preserve avatar data from join
+        ...(msg.clients && { 
+          clients: msg.clients 
+        }),
+      });
+      
+      // Optimized: Select only needed fields using actual schema column names
       const { data, error } = await supabase
         .from('chat_messages')
         .select(`
-          id, client_id, message_text, message_type, system_type, is_read,
-          created_at, file_url, file_name, file_type, external_message_id,
-          messenger_type, call_duration, status,
+          id, client_id, content, message_type, direction, is_read,
+          created_at, media_url, media_type, file_name, external_id,
+          messenger, status, sender_id, sender_name, reply_to_id, metadata,
           clients(avatar_url, telegram_avatar_url, whatsapp_avatar_url, max_avatar_url)
         `)
         .eq('client_id', clientId)
@@ -56,7 +78,7 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
         console.warn('[useChatMessagesOptimized] Join failed, falling back:', error.message);
         const fallback = await supabase
           .from('chat_messages')
-          .select('id, client_id, message_text, message_type, system_type, is_read, created_at, file_url, file_name, file_type, external_message_id, messenger_type, call_duration, status')
+          .select('id, client_id, content, message_type, direction, is_read, created_at, media_url, media_type, file_name, external_id, messenger, status, sender_id, sender_name')
           .eq('client_id', clientId)
           .order('created_at', { ascending: false })
           .limit(limit + 1);
@@ -66,7 +88,8 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
         const fallbackMessages = fallback.data || [];
         const hasMore = fallbackMessages.length > limit;
         const messages = hasMore ? fallbackMessages.slice(0, limit) : fallbackMessages;
-        const reversed = (messages as ChatMessage[]).reverse();
+        const mappedMessages = messages.map(mapToChatMessage);
+        const reversed = mappedMessages.reverse();
 
         // Update in-memory cache
         messageCache.set(clientId, { messages: reversed, timestamp: Date.now() });
@@ -80,7 +103,8 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
       const allData = data || [];
       const hasMore = allData.length > limit;
       const messages = hasMore ? allData.slice(0, limit) : allData;
-      const reversed = (messages as ChatMessage[]).reverse();
+      const mappedMessages = messages.map(mapToChatMessage);
+      const reversed = mappedMessages.reverse();
 
       // Update in-memory cache
       messageCache.set(clientId, { messages: reversed, timestamp: Date.now() });
@@ -217,7 +241,7 @@ export const useUnreadCountOptimized = (clientId: string) => {
         .select('messenger_type')
         .eq('client_id', clientId)
         .eq('is_read', false)
-        .eq('message_type', 'client');
+        .eq('direction', 'incoming');
 
       if (error) throw error;
 
@@ -229,7 +253,7 @@ export const useUnreadCountOptimized = (clientId: string) => {
       };
 
       (data || []).forEach((msg: any) => {
-        const type = msg.messenger_type || 'whatsapp';
+        const type = msg.messenger || 'whatsapp';
         byMessenger[type] = (byMessenger[type] || 0) + 1;
       });
 
@@ -282,13 +306,33 @@ export const usePrefetchMessages = () => {
       queryFn: async () => {
         const startTime = performance.now();
         
+        // Helper to map Cloud schema fields to ChatMessage interface
+        const mapToChatMessage = (msg: any): ChatMessage => ({
+          id: msg.id,
+          client_id: msg.client_id,
+          message_text: msg.content || '',
+          message_type: msg.direction === 'incoming' ? 'client' : 'manager',
+          system_type: msg.message_type === 'system' ? msg.message_type : undefined,
+          is_read: msg.is_read ?? false,
+          created_at: msg.created_at,
+          file_url: msg.media_url || undefined,
+          file_name: msg.file_name || undefined,
+          file_type: msg.media_type || undefined,
+          external_message_id: msg.external_id || undefined,
+          messenger_type: msg.messenger || undefined,
+          message_status: msg.status || undefined,
+          metadata: msg.metadata || undefined,
+          ...(msg.clients && { clients: msg.clients }),
+        });
+        
         // Use limit+1 technique (no COUNT needed)
         // Include client avatar data for instant display
         const { data, error } = await supabase
           .from('chat_messages')
           .select(`
-            *,
-            clients(avatar_url, whatsapp_chat_id, telegram_avatar_url, whatsapp_avatar_url, max_avatar_url)
+            id, client_id, content, direction, message_type, is_read, created_at,
+            media_url, media_type, file_name, external_id, messenger, status, metadata,
+            clients(avatar_url, telegram_avatar_url, whatsapp_avatar_url, max_avatar_url)
           `)
           .eq('client_id', clientId)
           .order('created_at', { ascending: false })
@@ -302,7 +346,7 @@ export const usePrefetchMessages = () => {
           // Fallback without join
           const fallback = await supabase
             .from('chat_messages')
-            .select('*')
+            .select('id, client_id, content, direction, message_type, is_read, created_at, media_url, media_type, file_name, external_id, messenger, status')
             .eq('client_id', clientId)
             .order('created_at', { ascending: false })
             .limit(MESSAGES_PER_PAGE + 1);
@@ -312,7 +356,7 @@ export const usePrefetchMessages = () => {
           const messages = hasMore ? allData.slice(0, MESSAGES_PER_PAGE) : allData;
           
           return {
-            messages: (messages as ChatMessage[]).reverse(),
+            messages: messages.map(mapToChatMessage).reverse(),
             hasMore,
             totalCount: messages.length
           };
@@ -326,7 +370,7 @@ export const usePrefetchMessages = () => {
         console.log(`[Prefetch] ✅ ${clientId.slice(0, 8)} loaded in ${(endTime - startTime).toFixed(0)}ms`);
 
         return {
-          messages: (messages as ChatMessage[]).reverse(),
+          messages: messages.map(mapToChatMessage).reverse(),
           hasMore,
           totalCount: messages.length
         };
