@@ -14,9 +14,10 @@ WITH teacher_links AS (
     t.profile_id,
     t.first_name as teacher_first_name,
     t.last_name as teacher_last_name,
-    t.organization_id
+    c.organization_id
   FROM teacher_client_links tcl
   JOIN teachers t ON t.id = tcl.teacher_id AND t.is_active = true
+  JOIN clients c ON c.id = tcl.client_id
 ),
 client_messages AS (
   -- Get last message and unread counts per client
