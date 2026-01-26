@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { getErrorMessage } from '@/lib/errorUtils';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import { PWAInstallInstructions } from '@/components/pwa/PWAInstallInstructions';
 
 interface Invitation {
@@ -180,23 +181,17 @@ export const EmployeeOnboarding = () => {
 
     try {
       // Вызываем Edge Function для завершения онбординга
-      const { data, error } = await supabase.functions.invoke('complete-employee-onboarding', {
-        body: {
-          invite_token: token,
-          last_name: formData.lastName.trim(),
-          middle_name: formData.middleName.trim() || undefined,
-          email: formData.email.trim(),
-          password: formData.password,
-          terms_accepted: true,
-        }
+      const response = await selfHostedPost<{ success?: boolean; error?: string }>('complete-employee-onboarding', {
+        invite_token: token,
+        last_name: formData.lastName.trim(),
+        middle_name: formData.middleName.trim() || undefined,
+        email: formData.email.trim(),
+        password: formData.password,
+        terms_accepted: true,
       });
 
-      if (error) {
-        throw error;
-      }
-
-      if (!data?.success) {
-        throw new Error(data?.error || 'Ошибка регистрации');
+      if (!response.success || !response.data?.success) {
+        throw new Error(response.error || response.data?.error || 'Ошибка регистрации');
       }
 
       // Автоматический вход (без редиректа - пользователь сам перейдёт после установки PWA)

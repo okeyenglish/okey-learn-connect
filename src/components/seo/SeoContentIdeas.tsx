@@ -10,6 +10,7 @@ import { getCurrentOrganizationId } from "@/lib/organizationHelpers";
 import { getErrorMessage } from '@/lib/errorUtils';
 import { useWordstatData } from "@/hooks/useWordstatData";
 import { WordstatStats } from "./WordstatStats";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 
 const SeoContentIdeas = () => {
   const { toast } = useToast();
@@ -35,11 +36,12 @@ const SeoContentIdeas = () => {
       setIsProcessing(ideaId);
       const orgId = await getCurrentOrganizationId();
 
-      const { data, error } = await supabase.functions.invoke("seo-create-brief", {
-        body: { ideaId, organizationId: orgId },
+      const response = await selfHostedPost("seo-create-brief", { 
+        ideaId, 
+        organizationId: orgId 
       });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error || 'Failed to create brief');
 
       toast({
         title: "Бриф создан",
@@ -63,15 +65,16 @@ const SeoContentIdeas = () => {
       setIsProcessing(ideaId);
       const orgId = await getCurrentOrganizationId();
 
-      const { data, error } = await supabase.functions.invoke("seo-generate-content", {
-        body: { ideaId, organizationId: orgId },
+      const response = await selfHostedPost<{ content?: { word_count?: number } }>("seo-generate-content", { 
+        ideaId, 
+        organizationId: orgId 
       });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error || 'Failed to generate content');
 
       toast({
         title: "Контент сгенерирован",
-        description: `Статья создана, слов: ${data.content?.word_count || 0}`,
+        description: `Статья создана, слов: ${response.data?.content?.word_count || 0}`,
       });
 
       refetch();

@@ -35,6 +35,7 @@ import {
 import { Loader2, RefreshCw, QrCode, Trash2, PowerOff, Plus, Pause, Play } from "lucide-react";
 import { WhatsAppDebugPanel } from "./WhatsAppDebugPanel";
 import { getErrorMessage } from '@/lib/errorUtils';
+import { wppStatus, wppStart, wppDisconnect } from '@/lib/wppApi';
 
 type WhatsAppSession = {
   id: string;
@@ -213,11 +214,7 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
         });
       }
 
-      const { data, error } = await supabase.functions.invoke('wpp-status', {
-        body: { session_name: sessionName, force: true },
-      });
-
-      if (error) throw error;
+      const data = await wppStatus(sessionName, true);
       
       setLastSyncTimes(prev => ({
         ...prev,
@@ -302,21 +299,7 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
         description: "Инициализация новой WhatsApp сессии",
       });
 
-      const { data, error } = await supabase.functions.invoke('wpp-start', {
-        body: { session_suffix: sessionSuffix },
-      });
-
-      if (error) {
-        const anyErr: any = error;
-        const status = anyErr?.context?.status ? ` (HTTP ${anyErr.context.status})` : '';
-        const bodySnippet = anyErr?.context?.body ? `\n${String(anyErr.context.body).slice(0, 200)}` : '';
-        toast({
-          title: "Ошибка",
-          description: `${anyErr?.message || 'Не удалось создать сессию'}${status}${bodySnippet}`,
-          variant: "destructive",
-        });
-        throw error;
-      }
+      const data = await wppStart(sessionSuffix);
 
       await fetchSessions();
 
@@ -349,7 +332,7 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
           const exists = prev.some(s => s.session_name === data.session_name);
           const next = exists
             ? prev.map(s => s.session_name === data.session_name ? { ...s, status: 'connected' as const, last_qr_b64: undefined, last_qr_at: undefined } : s)
-            : [{ id: crypto.randomUUID(), session_name: data.session_name, status: 'connected' as const, organization_id: prev[0]?.organization_id || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as WhatsAppSession, ...prev];
+            : [{ id: crypto.randomUUID(), session_name: data.session_name!, status: 'connected' as const, organization_id: prev[0]?.organization_id || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as WhatsAppSession, ...prev];
           return next;
         });
         toast({
@@ -359,14 +342,11 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
       }
     } catch (error: unknown) {
       console.error('[createNewSession] Error:', error);
-      const err = error as { context?: unknown; message?: string };
-      if (!err?.context) {
-        toast({
-          title: "Ошибка",
-          description: getErrorMessage(error),
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Ошибка",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -379,11 +359,7 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
         description: `Отключение сессии ${sessionName}`,
       });
 
-      const { error } = await supabase.functions.invoke('wpp-disconnect', {
-        body: { session_name: sessionName },
-      });
-
-      if (error) throw error;
+      await wppDisconnect(sessionName);
 
       await fetchSessions();
       
@@ -584,11 +560,7 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
 
     pollingIntervalRef.current = setInterval(async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('wpp-status', {
-          body: { session_name: sessionName },
-        });
-
-        if (error) throw error;
+        const data = await wppStatus(sessionName);
 
         if (data?.qrcode && data?.status === 'qr_issued') {
           setQrDialog(prev => {
@@ -661,32 +633,11 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
       const parts = sessionName.split('_');
       const sessionSuffix = parts.length > 2 ? parts[parts.length - 1] : undefined;
 
-      const { data, error } = await supabase.functions.invoke('wpp-start', {
-        body: sessionSuffix ? { session_suffix: sessionSuffix } : {},
-      });
-
-      if (error) {
-        const anyErr = error as { message?: string; context?: { status?: number; body?: string } };
-        const status = anyErr?.context?.status ? ` (HTTP ${anyErr.context.status})` : '';
-        const bodySnippet = anyErr?.context?.body ? `\n${String(anyErr.context.body).slice(0, 200)}` : '';
-        toast({
-          title: "Ошибка",
-          description: `${anyErr?.message || 'Не удалось запустить сессию'}${status}${bodySnippet}`,
-          variant: "destructive",
-        });
-        throw error;
-      }
+      await wppStart(sessionSuffix);
 
       await fetchSessions();
 
-      const { data: statusData, error: statusError } = await supabase.functions.invoke('wpp-status', {
-        body: { 
-          session_name: sessionName,
-          force: true 
-        },
-      });
-
-      if (statusError) throw statusError;
+      const statusData = await wppStatus(sessionName, true);
 
       if (statusData?.qrcode) {
         setQrDialog({ 
@@ -713,14 +664,11 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
       }
     } catch (error: unknown) {
       console.error('Error reconnecting:', error);
-      const err = error as { context?: unknown };
-      if (!err?.context) {
-        toast({
-          title: "Ошибка",
-          description: getErrorMessage(error),
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Ошибка",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
     }
   };
 
@@ -728,14 +676,7 @@ export const WhatsAppSessionsModal = ({ open, onOpenChange }: WhatsAppSessionsMo
     try {
       setRefreshingQr(true);
       
-      const { data, error } = await supabase.functions.invoke('wpp-status', {
-        body: { 
-          session_name: sessionName,
-          force: true 
-        },
-      });
-
-      if (error) throw error;
+      const data = await wppStatus(sessionName, true);
 
       if (data?.qrcode) {
         setQrDialog(prev => ({ 

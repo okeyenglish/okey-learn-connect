@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabaseTyped as supabase } from "@/integrations/supabase/typedClient";
 import { Loader2, Video, X } from "lucide-react";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 
 interface OnlineLessonModalProps {
   isOpen: boolean;
@@ -14,6 +15,14 @@ interface OnlineLessonModalProps {
   studentId?: string;
   studentName?: string;
   groupName?: string;
+}
+
+interface BBBCreateResponse {
+  meetingId: string;
+}
+
+interface BBBJoinResponse {
+  joinUrl: string;
 }
 
 export const OnlineLessonModal: React.FC<OnlineLessonModalProps> = ({
@@ -47,17 +56,17 @@ export const OnlineLessonModal: React.FC<OnlineLessonModalProps> = ({
       if (!user) throw new Error("Не авторизован");
 
       // Создаем встречу
-      const createResponse = await supabase.functions.invoke("bbb-meeting", {
-        body: {
-          action: "create",
-          lessonType,
-          teacherName,
-          groupId,
-          studentId,
-        },
+      const createResponse = await selfHostedPost<BBBCreateResponse>("bbb-meeting", {
+        action: "create",
+        lessonType,
+        teacherName,
+        groupId,
+        studentId,
       });
 
-      if (createResponse.error) throw createResponse.error;
+      if (!createResponse.success || !createResponse.data) {
+        throw new Error(createResponse.error || "Failed to create meeting");
+      }
 
       const { meetingId: newMeetingId } = createResponse.data;
       setMeetingId(newMeetingId);
@@ -73,19 +82,19 @@ export const OnlineLessonModal: React.FC<OnlineLessonModalProps> = ({
         ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() 
         : "Пользователь";
 
-      const joinResponse = await supabase.functions.invoke("bbb-meeting", {
-        body: {
-          action: "join",
-          meetingID: newMeetingId,
-          fullName,
-          teacherName,
-          lessonType,
-          groupId,
-          studentId,
-        },
+      const joinResponse = await selfHostedPost<BBBJoinResponse>("bbb-meeting", {
+        action: "join",
+        meetingID: newMeetingId,
+        fullName,
+        teacherName,
+        lessonType,
+        groupId,
+        studentId,
       });
 
-      if (joinResponse.error) throw joinResponse.error;
+      if (!joinResponse.success || !joinResponse.data) {
+        throw new Error(joinResponse.error || "Failed to join meeting");
+      }
 
       setJoinUrl(joinResponse.data.joinUrl);
 
@@ -106,11 +115,9 @@ export const OnlineLessonModal: React.FC<OnlineLessonModalProps> = ({
     if (!meetingId) return;
 
     try {
-      await supabase.functions.invoke("bbb-meeting", {
-        body: {
-          action: "end",
-          meetingID: meetingId,
-        },
+      await selfHostedPost("bbb-meeting", {
+        action: "end",
+        meetingID: meetingId,
       });
 
       toast({

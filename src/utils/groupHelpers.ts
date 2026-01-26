@@ -1,16 +1,14 @@
 import { supabase } from "@/integrations/supabase/typedClient";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 
 /**
  * Генерирует название для мини-группы на основе фамилий студентов
  */
 export const generateMiniGroupName = async (groupId: string): Promise<string> => {
   try {
-    const { data, error } = await supabase.functions.invoke('generate-mini-group-name', {
-      body: { groupId }
-    });
-
-    if (error) throw error;
-    return data.name;
+    const response = await selfHostedPost<{ name: string }>('generate-mini-group-name', { groupId });
+    if (!response.success) throw new Error(response.error || 'Failed to generate name');
+    return response.data?.name || '';
   } catch (error) {
     console.error('Error generating mini-group name:', error);
     throw error;
@@ -22,11 +20,8 @@ export const generateMiniGroupName = async (groupId: string): Promise<string> =>
  */
 export const syncAutoGroup = async (groupId: string): Promise<void> => {
   try {
-    const { error } = await supabase.functions.invoke('sync-single-auto-group', {
-      body: { groupId }
-    });
-
-    if (error) throw error;
+    const response = await selfHostedPost('sync-single-auto-group', { groupId });
+    if (!response.success) throw new Error(response.error || 'Failed to sync group');
   } catch (error) {
     console.error('Error syncing auto-group:', error);
     throw error;

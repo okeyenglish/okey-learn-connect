@@ -4,10 +4,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Loader2, Sparkles, Download, Copy, RefreshCw } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from '@/hooks/use-toast';
 import { Teacher } from '@/hooks/useTeachers';
 import { getErrorMessage } from '@/lib/errorUtils';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 interface ImageGeneratorProps {
   teacher: Teacher;
@@ -41,14 +41,16 @@ export const ImageGenerator = ({ teacher }: ImageGeneratorProps) => {
     try {
       const { width, height } = IMAGE_SIZES[size];
       
-      const { data, error } = await supabase.functions.invoke('generate-image', {
-        body: { prompt, width, height }
+      const response = await selfHostedPost<{ imageUrl?: string }>('generate-image', { 
+        prompt, 
+        width, 
+        height 
       });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error || 'Failed to generate image');
 
-      if (data?.imageUrl) {
-        setGeneratedImage(data.imageUrl);
+      if (response.data?.imageUrl) {
+        setGeneratedImage(response.data.imageUrl);
         toast({
           title: 'Изображение создано!',
           description: 'Вы можете скачать или использовать его в материалах',
