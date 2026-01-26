@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useTeacherChats, useEnsureTeacherClient, TeacherChatItem } from '@/hooks/useTeacherChats';
+import { useTeacherPinnedDB } from '@/hooks/useTeacherPinnedDB';
 import { useToast } from '@/hooks/use-toast';
 import { ChatArea } from './ChatArea';
 import { TeacherSchedulePanel } from './TeacherSchedulePanel';
@@ -33,37 +34,16 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   
-  // Pinned teachers - persisted in localStorage
-  const [pinnedTeacherIds, setPinnedTeacherIds] = useState<Set<string>>(() => {
-    try {
-      const stored = localStorage.getItem('pinned-teacher-chats');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return new Set(Array.isArray(parsed) ? parsed : []);
-      }
-    } catch (e) {
-      console.error('Error loading pinned teachers:', e);
-    }
-    return new Set();
-  });
-  
-  // Persist pinned teachers to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem('pinned-teacher-chats', JSON.stringify([...pinnedTeacherIds]));
-    } catch (e) {
-      console.error('Error saving pinned teachers:', e);
-    }
-  }, [pinnedTeacherIds]);
+  // Pinned teachers - persisted in DB per user
+  const { 
+    pinnedIds: pinnedTeacherIds, 
+    togglePin, 
+    getPinCounts,
+    loading: pinnedLoading 
+  } = useTeacherPinnedDB();
   
   // Convert to pinCounts format for compatibility with TeacherChatList
-  const pinCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    pinnedTeacherIds.forEach(id => {
-      counts[id] = 1;
-    });
-    return counts;
-  }, [pinnedTeacherIds]);
+  const pinCounts = useMemo(() => getPinCounts(), [getPinCounts]);
   
   const isMobile = useIsMobile();
 
@@ -329,24 +309,24 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     }
   }, [teachers, toast, refetchTeachers]);
 
-  const handlePinDialog = useCallback((teacherId: string) => {
+  const handlePinDialog = useCallback(async (teacherId: string) => {
     const isPinned = pinnedTeacherIds.has(teacherId);
     
-    setPinnedTeacherIds(prev => {
-      const newSet = new Set(prev);
-      if (isPinned) {
-        newSet.delete(teacherId);
-      } else {
-        newSet.add(teacherId);
-      }
-      return newSet;
-    });
+    const success = await togglePin(teacherId);
     
-    toast({
-      title: isPinned ? "Диалог откреплён" : "Диалог закреплён",
-      description: isPinned ? "Чат убран из закреплённых" : "Чат добавлен в закреплённые",
-    });
-  }, [pinnedTeacherIds, toast]);
+    if (success) {
+      toast({
+        title: isPinned ? "Диалог откреплён" : "Диалог закреплён",
+        description: isPinned ? "Чат убран из закреплённых" : "Чат добавлен в закреплённые",
+      });
+    } else {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось изменить закрепление",
+        variant: "destructive",
+      });
+    }
+  }, [pinnedTeacherIds, togglePin, toast]);
 
   const handleDeleteChat = useCallback((teacherId: string) => {
     toast({
