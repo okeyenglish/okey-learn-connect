@@ -6,6 +6,7 @@ import { Send, Sparkles, BookOpen, Calendar, Gamepad2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import { SELF_HOSTED_ANON_KEY } from '@/lib/selfHostedApi';
 
 interface AssistantTabProps {
   teacherId: string;
@@ -109,7 +110,7 @@ export const AssistantTab = ({ teacherId, context }: AssistantTabProps) => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtib2p1amZ3dHZtc2d1ZHVtb3duIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxOTQ5MzksImV4cCI6MjA3Mzc3MDkzOX0.4SZggdlllMM8SYUo9yZKR-fR-nK4fIL4ZMciQW2EaNY'}`,
+            'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}`,
           },
           body: JSON.stringify({ messages: allMessages, context }),
         }

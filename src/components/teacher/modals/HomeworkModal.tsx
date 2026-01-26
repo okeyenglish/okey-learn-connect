@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 import { CalendarIcon, BookOpen, Upload, Sparkles, Clock, FileText } from 'lucide-react';
+import { SELF_HOSTED_ANON_KEY } from '@/lib/selfHostedApi';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
@@ -78,7 +79,7 @@ export const HomeworkModal = ({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY5MDg4ODgzLCJleHAiOjE5MjY3Njg4ODN9.WEsCyaCdQvxzVObedC-A9hWTJUSwI_p9nCG1wlbaNEg'}`,
+            'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}`,
           },
           body: JSON.stringify({
             level: lessonData?.learning_groups?.level,
