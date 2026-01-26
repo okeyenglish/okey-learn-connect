@@ -187,19 +187,113 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const { toast } = useToast();
 
   // Context menu handlers
-  const handleMarkUnread = useCallback((teacherId: string) => {
-    toast({
-      title: "Отмечено непрочитанным",
-      description: "Чат отмечен как непрочитанный",
-    });
-  }, [toast]);
+  const handleMarkUnread = useCallback(async (teacherId: string) => {
+    // Find the teacher to get their clientId
+    const teacher = teachers.find(t => t.id === teacherId);
+    const clientId = teacher?.clientId;
+    
+    if (!clientId) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось найти клиента для этого преподавателя",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      // First, find the latest incoming message
+      const { data: latestMessage, error: findError } = await supabase
+        .from('chat_messages')
+        .select('id')
+        .eq('client_id', clientId)
+        .eq('direction', 'incoming')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (findError || !latestMessage) {
+        console.error('Error finding latest message:', findError);
+        toast({
+          title: "Ошибка",
+          description: "Нет входящих сообщений для отметки",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Now update that specific message
+      const { error } = await supabase
+        .from('chat_messages')
+        .update({ is_read: false })
+        .eq('id', latestMessage.id);
+      
+      if (error) {
+        console.error('Error marking as unread:', error);
+        toast({
+          title: "Ошибка",
+          description: "Не удалось отметить как непрочитанное",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      toast({
+        title: "Отмечено непрочитанным",
+        description: "Чат отмечен как непрочитанный",
+      });
+      
+      // Invalidate queries to refresh UI
+      refetchTeachers();
+    } catch (error) {
+      console.error('Error in handleMarkUnread:', error);
+    }
+  }, [teachers, toast, refetchTeachers]);
 
-  const handleMarkRead = useCallback((teacherId: string) => {
-    toast({
-      title: "Отмечено прочитанным", 
-      description: "Чат отмечен как прочитанный",
-    });
-  }, [toast]);
+  const handleMarkRead = useCallback(async (teacherId: string) => {
+    // Find the teacher to get their clientId
+    const teacher = teachers.find(t => t.id === teacherId);
+    const clientId = teacher?.clientId;
+    
+    if (!clientId) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось найти клиента для этого преподавателя",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      // Mark all unread messages as read
+      const { error } = await supabase
+        .from('chat_messages')
+        .update({ is_read: true })
+        .eq('client_id', clientId)
+        .eq('is_read', false)
+        .eq('direction', 'incoming');
+      
+      if (error) {
+        console.error('Error marking as read:', error);
+        toast({
+          title: "Ошибка",
+          description: "Не удалось отметить как прочитанное",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      toast({
+        title: "Отмечено прочитанным",
+        description: "Чат отмечен как прочитанный",
+      });
+      
+      // Invalidate queries to refresh UI
+      refetchTeachers();
+    } catch (error) {
+      console.error('Error in handleMarkRead:', error);
+    }
+  }, [teachers, toast, refetchTeachers]);
 
   const handlePinDialog = useCallback((teacherId: string) => {
     setPinCounts(prev => ({
