@@ -56,7 +56,7 @@ export const useAssistantMessages = () => {
     },
     enabled: !!user?.id,
     staleTime: 10000,
-    refetchInterval: 30000,
+    refetchInterval: 60000, // OPTIMIZED: 30s → 60s to reduce DB load
   });
 
   // Добавляем сообщение

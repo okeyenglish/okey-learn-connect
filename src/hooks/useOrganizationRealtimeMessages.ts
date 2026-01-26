@@ -26,8 +26,9 @@ export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'po
 
 // Polling interval when WebSocket is unavailable (5 seconds for faster updates)
 const POLLING_INTERVAL = 5000;
-// Hybrid polling interval - even when connected, poll periodically as backup (30 seconds)
-const HYBRID_POLLING_INTERVAL = 30000;
+// Hybrid polling interval - even when connected, poll periodically as backup
+// OPTIMIZED: 30s → 60s to reduce DB load
+const HYBRID_POLLING_INTERVAL = 60000;
 // Time to wait before activating fallback polling after connection failure
 const FALLBACK_DELAY = 2000;
 // Interval for reconnection attempts (30 seconds)
