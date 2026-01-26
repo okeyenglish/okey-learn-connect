@@ -30,6 +30,7 @@ import { OnlinePBXSettings } from "./OnlinePBXSettings";
 import { WebhooksDirectory } from "./WebhooksDirectory";
 import { SystemMonitorPanel } from "./SystemMonitorPanel";
 import { TrialRequestsManager } from "./TrialRequestsManager";
+import { KpiManagementPage } from "./KpiManagementPage";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -48,6 +49,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
     switch (currentSection) {
       case "trial-requests":
         return <TrialRequestsManager />;
+      case "kpi-management":
+        return <KpiManagementPage />;
       case "faq":
         return <AdminFAQManager />;
       case "schedule":
@@ -181,6 +184,14 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle className="text-green-600">💬 Мессенджеры</CardTitle>
                   <CardDescription>WhatsApp, Telegram, MAX - все интеграции</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              {/* KPI менеджеров */}
+              <Card className="cursor-pointer hover:bg-muted/50 border-amber-200" onClick={() => setCurrentSection("kpi-management")}>
+                <CardHeader>
+                  <CardTitle className="text-amber-600">🎯 KPI менеджеров</CardTitle>
+                  <CardDescription>Целевые показатели и уведомления</CardDescription>
                 </CardHeader>
               </Card>
               
