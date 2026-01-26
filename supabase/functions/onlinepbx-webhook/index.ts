@@ -334,72 +334,78 @@ Deno.serve(async (req) => {
         // Create new call log
         console.log('Creating new call log for phone:', normalizedPhone);
         
-        // Find client by phone
+        // Find client by phone - IMPROVED: use ilike for fuzzy matching
         let clientId: string | null = null;
-        const formattedPhone = formatPhoneForSearch(normalizedPhone);
-        const variants = [selectedPhone, normalizedPhone, '+' + normalizedPhone, formattedPhone].filter(Boolean);
+        const last10 = normalizedPhone.length >= 10 ? normalizedPhone.slice(-10) : normalizedPhone;
+        console.log('[onlinepbx-webhook] Searching for client with phone variants, last10:', last10);
         
-        for (const v of variants) {
-          const { data: client } = await supabase
+        // First try client_phone_numbers with ilike (most reliable - normalized phones)
+        if (!clientId && last10.length >= 10) {
+          const { data: phoneRecords } = await supabase
+            .from('client_phone_numbers')
+            .select('client_id, phone, clients!inner(id, organization_id)')
+            .ilike('phone', `%${last10}%`)
+            .limit(5);
+          
+          if (phoneRecords && phoneRecords.length > 0) {
+            const firstMatch = phoneRecords[0];
+            clientId = firstMatch.client_id;
+            const clientData = firstMatch.clients as unknown as { id: string; organization_id: string };
+            if (!organizationId && clientData?.organization_id) {
+              organizationId = clientData.organization_id;
+              console.log('[onlinepbx-webhook] Found client via client_phone_numbers:', clientId, 'org:', organizationId);
+            }
+          }
+        }
+        
+        // Fallback: search in clients.phone with ilike
+        if (!clientId && last10.length >= 10) {
+          const { data: clients } = await supabase
             .from('clients')
-            .select('id, organization_id')
-            .eq('phone', v)
+            .select('id, organization_id, phone')
+            .or(`phone.ilike.%${last10}%,phone.ilike.%${normalizedPhone}%`)
+            .limit(5);
+          
+          if (clients && clients.length > 0) {
+            clientId = clients[0].id;
+            if (!organizationId && clients[0].organization_id) {
+              organizationId = clients[0].organization_id;
+              console.log('[onlinepbx-webhook] Found client via clients table:', clientId, 'org:', organizationId);
+            }
+          }
+        }
+        
+        // If still no organization, try to get from messenger_settings for any active OnlinePBX
+        if (!organizationId) {
+          const { data: anyConfig } = await supabase
+            .from('messenger_settings')
+            .select('organization_id')
+            .eq('messenger_type', 'onlinepbx')
+            .eq('is_enabled', true)
+            .limit(1)
             .maybeSingle();
           
-          if (client) {
-            clientId = client.id;
-            // Use client's organization if we don't have one from domain
-            if (!organizationId && client.organization_id) {
-              organizationId = client.organization_id;
-              console.log('[onlinepbx-webhook] Using client organization:', organizationId);
-            }
-            break;
+          if (anyConfig?.organization_id) {
+            organizationId = anyConfig.organization_id;
+            console.log('[onlinepbx-webhook] Using first active OnlinePBX config organization:', organizationId);
           }
         }
         
-        // Try client_phone_numbers
-        if (!clientId) {
-          for (const v of variants) {
-            const { data: phoneRecord } = await supabase
-              .from('client_phone_numbers')
-              .select('client_id')
-              .eq('phone', v)
-              .maybeSingle();
-            
-            if (phoneRecord) {
-              clientId = phoneRecord.client_id;
-              break;
-            }
-          }
-        }
-        
-        // Fallback search by last 10 digits
-        if (!clientId && normalizedPhone.length >= 10) {
-          const last10 = normalizedPhone.slice(-10);
-          const { data: list } = await supabase
-            .from('clients')
-            .select('id, organization_id')
-            .ilike('phone', `%${last10}`)
-            .limit(1);
-          
-          if (list && list.length > 0) {
-            clientId = list[0].id;
-            if (!organizationId && list[0].organization_id) {
-              organizationId = list[0].organization_id;
-            }
-          }
-        }
-        
-        // Final fallback for organization
+        // Final fallback - get first real organization (not the fake one)
         if (!organizationId) {
           const { data: defaultOrg } = await supabase
             .from('organizations')
             .select('id')
+            .neq('id', '00000000-0000-0000-0000-000000000001')
             .limit(1)
-            .single();
+            .maybeSingle();
           
-          organizationId = defaultOrg?.id || '00000000-0000-0000-0000-000000000001';
-          console.log('[onlinepbx-webhook] Using fallback organization:', organizationId);
+          organizationId = defaultOrg?.id || null;
+          if (organizationId) {
+            console.log('[onlinepbx-webhook] Using first real organization:', organizationId);
+          } else {
+            console.error('[onlinepbx-webhook] CRITICAL: No organization found for call!');
+          }
         }
 
         // Find manager by OnlinePBX extension
