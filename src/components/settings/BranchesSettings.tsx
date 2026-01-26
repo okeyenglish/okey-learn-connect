@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { Plus, Phone, Mail, Edit, Trash2, Loader2, ChevronDown, ChevronRight, Building, DoorOpen, Users, GripVertical, Clock } from 'lucide-react';
 import { OrganizationBranch } from '@/hooks/useOrganization';
 import { ClassroomModal } from '@/components/references/ClassroomModal';
-import { WorkingHoursEditor, WorkingHours, getDefaultWorkingHours, formatWorkingHoursShort } from './WorkingHoursEditor';
+import { WorkingHoursEditor, WorkingHours, getDefaultWorkingHours, formatWorkingHoursShort, validateWorkingHours } from './WorkingHoursEditor';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   DndContext,
@@ -298,6 +298,12 @@ export const BranchesSettings = () => {
     if (!organization?.id) return;
     if (!formData.name) {
       toast.error('Укажите название филиала');
+      return;
+    }
+
+    const validation = validateWorkingHours(formData.working_hours);
+    if (!validation.isValid) {
+      toast.error(validation.errors[0]);
       return;
     }
 

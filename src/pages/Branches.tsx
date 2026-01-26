@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { branches, BranchWithSchedule } from "@/lib/branches";
 import { BranchPhotoGallery } from "@/components/branches/BranchPhotoGallery";
+import { usePublicBranches } from "@/hooks/usePublicBranches";
 import { 
   MapPin, 
   Clock, 
@@ -52,6 +53,16 @@ const languages = [
 export default function Locations() {
   const [branchesWithSchedule, setBranchesWithSchedule] = useState<BranchWithSchedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { data: publicBranches } = usePublicBranches();
+
+  // Создаём карту рабочих часов из БД
+  const workingHoursMap = useMemo(() => {
+    const map = new Map<string, string>();
+    publicBranches?.forEach((pb) => {
+      map.set(pb.name, pb.working_hours_formatted);
+    });
+    return map;
+  }, [publicBranches]);
 
   useEffect(() => {
     fetchScheduleData();
@@ -281,7 +292,7 @@ export default function Locations() {
                 {/* Working Hours */}
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="w-4 h-4 text-primary" />
-                  <span>{branch.workingHours}</span>
+                  <span>{workingHoursMap.get(branch.name) || branch.workingHours}</span>
                 </div>
 
                 {/* Available Languages */}
