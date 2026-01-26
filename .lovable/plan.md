@@ -1,102 +1,132 @@
 
-Цель: зафиксировать в репозитории (в документации) правильные имена docker-compose сервисов на вашем self-hosted сервере и добавить короткий “cheat sheet”/траблшутинг, чтобы больше не упираться в ошибки вида `no such service`, `no configuration file`, `not a git repository`.
+# План: Добавление вкладки "Звонки" в System Monitor
 
----
+## Обзор
+Добавляем новую вкладку "Звонки" в System Monitor для просмотра последних звонков из self-hosted API. Вкладка позволит администраторам мониторить все звонки системы с фильтрами и быстрым доступом к деталям.
 
-## 1) Что произошло по логам (и как быстро починить прямо сейчас)
-### Ошибка 1: `fatal: not a git repository`
-Вы выполнили `git pull origin main` из `~` (домашней директории root), а не из каталога проекта. Поэтому Git не нашёл `.git`.
+## Архитектура решения
 
-Быстрая проверка/фикс:
-```bash
-cd /home/automation/supabase-project
-pwd
-ls -la .git || echo "NO_GIT_REPO_HERE"
-```
-Если `.git` есть:
-```bash
-git pull origin main
-```
-Если `.git` нет (или проект деплоится не через git), значит обновление на сервер идёт через rsync/GitHub Actions и “git pull” на сервере не применим — нужно обновлять файлы другим способом (в документации это отдельно пропишем).
-
-### Ошибка 2: `no configuration file provided: not found`
-Команда `docker compose restart functions` также была выполнена не там, где лежит `docker-compose.yml`.
-
-Быстрая проверка/фикс:
-```bash
-cd /home/automation/supabase-project
-ls -la docker-compose.yml docker-compose.yaml
-docker compose config --services | grep -E '^functions$' || true
-docker compose restart functions
-docker compose logs -f functions --tail=100
+```text
++-------------------+        +-----------------------+
+|   SystemMonitor   |  -->   |  CallLogsTab (новый)  |
++-------------------+        +-----------------------+
+                                       |
+                                       v
+                            +--------------------+
+                            |   selfHostedPost   |
+                            |   get-call-logs    |
+                            +--------------------+
+                                       |
+                                       v
+                            +--------------------+
+                            |  self-hosted DB    |
+                            |    call_logs       |
+                            +--------------------+
 ```
 
----
+## Детали реализации
 
-## 2) Изменения, которые внесём в документацию (в кодовой базе)
-Мы обновим существующий документ:
-- `docs/migration/11-edge-functions-deployment.md`
+### 1. Новый компонент CallLogsTab
 
-### 2.1. Добавить раздел “Как называются сервисы в docker compose”
-Добавим явное пояснение:
-- **docker compose service**: `functions` (это то, что нужно писать в `docker compose restart ...`)
-- **container name** может быть другим (например, `supabase-edge-functions`), поэтому `docker logs supabase-edge-functions` может работать, но `docker compose restart supabase-edge-functions` — нет.
+**Файл:** `src/components/admin/CallLogsTab.tsx`
 
-Вставим также ваш реальный вывод `docker compose config --services` как пример, и выделим ключевые сервисы:
-- `functions` — Edge Functions runtime
-- `db`, `auth`, `rest`, `realtime`, `storage`, `kong`, `studio`, `analytics`, `meta`, `supavisor`, `vector`, `imgproxy`, `traefik`
+Компонент включает:
+- Таблицу с колонками: Дата/время, Направление, Номер, Статус, Длительность, Менеджер
+- Фильтры: статус (все/отвеченные/пропущенные), направление (все/входящие/исходящие), период
+- Пагинация (offset-based, limit 50)
+- Возможность открыть CallDetailModal для детального просмотра
+- Автообновление при нажатии кнопки "Обновить"
 
-### 2.2. Добавить “Cheat sheet” команд (самое важное)
-Короткий блок команд, которые всегда выполнять из директории с compose-файлом:
-```bash
-cd /home/automation/supabase-project   # (или ваша директория с docker-compose.yml)
-docker compose config --services
-docker compose ps
-docker compose restart functions
-docker compose logs -f functions --tail=100
+Визуальные элементы:
+- Иконки направления (входящий/исходящий)
+- Цветовые бейджи статуса (зеленый - отвечен, красный - пропущен, желтый - занято)
+- Форматированная длительность (мм:сс)
+
+### 2. Интеграция в SystemMonitor
+
+**Файл:** `src/pages/SystemMonitor.tsx`
+
+Изменения:
+- Добавить import для Phone иконки и CallLogsTab компонента
+- Добавить новый TabsTrigger "Звонки" с иконкой Phone
+- Добавить TabsContent с CallLogsTab
+
+### 3. Использование существующего Edge Function
+
+Edge Function `get-call-logs` уже поддерживает все необходимые операции:
+- `action: 'list'` - список всех звонков с пагинацией
+- Фильтры: `status`, `direction`, `dateFrom`, `dateTo`, `managerId`
+- Возвращает данные с join на `clients` таблицу
+
+## Структура компонента CallLogsTab
+
+```text
++------------------------------------------+
+|  Фильтры: [Статус ▼] [Направление ▼]     |
+|           [Период: от - до]   [Обновить] |
++------------------------------------------+
+|  Таблица звонков                         |
+|  +-----------------------------------------+
+|  | Дата      | ← | Номер    | Статус | ... |
+|  | 26.01 14: | ↓  | +7912... | ✓      | 2м  |
+|  | 26.01 13: | ↑  | +7903... | ✗      | -   |
+|  +-----------------------------------------+
++------------------------------------------+
+|  Показано 1-50 из 234 | [<] [1] [2] [>]  |
++------------------------------------------+
 ```
 
-### 2.3. Траблшутинг: три частые ошибки и решение
-Добавим новые пункты в “Типичные ошибки и решения”:
+## Файлы для изменения
 
-1) `no such service: supabase-edge-functions`
-- Причина: путаем имя контейнера и имя compose-сервиса  
-- Решение: `docker compose config --services` → используем `functions`
+| Файл | Действие | Описание |
+|------|----------|----------|
+| `src/components/admin/CallLogsTab.tsx` | Создать | Новый компонент вкладки звонков |
+| `src/pages/SystemMonitor.tsx` | Изменить | Добавить вкладку и импорты |
 
-2) `no configuration file provided: not found`
-- Причина: запуск `docker compose ...` не из директории с `docker-compose.yml`
-- Решение: `cd <папка_с_docker-compose.yml>`
+## Технические детали
 
-3) `fatal: not a git repository`
-- Причина: запуск `git pull` не из папки репозитория
-- Решение: `cd <папка_с_.git>` и только потом `git pull`
-- Дополнение: если репозитория на сервере нет (деплой через rsync), то “git pull на сервере” не используется
+### Типы данных
 
-4) (опционально, но полезно) `detected dubious ownership in repository`
-- Решение: `git config --global --add safe.directory /home/automation/supabase-project`
+```typescript
+interface CallLog {
+  id: string;
+  phone_number: string;
+  direction: 'incoming' | 'outgoing';
+  status: 'initiated' | 'answered' | 'missed' | 'busy' | 'failed';
+  duration_seconds: number | null;
+  started_at: string;
+  manager_name: string | null;
+  clients?: { id: string; name: string; phone: string } | null;
+}
 
-### 2.4. Уточнить пути в документе (чтобы не путало /opt/supabase vs /home/automation/...)
-Сейчас в документе примеры завязаны на `/opt/supabase`, а у вас фактический путь — `/home/automation/supabase-project`.
+interface CallLogsFilters {
+  status?: string;
+  direction?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+```
 
-Чтобы не ломать тем, у кого всё-таки `/opt/supabase`, сделаем так:
-- Введём понятие переменной/плейсхолдера: `SUPABASE_DIR`
-- В примерах будем писать:
-  - `cd $SUPABASE_DIR`
-  - и рядом коротко: “например, `/home/automation/supabase-project`”
+### API запрос
 
----
+```typescript
+const response = await selfHostedPost('get-call-logs', {
+  action: 'list',
+  limit: 50,
+  offset: page * 50,
+  filters: {
+    status: statusFilter,
+    direction: directionFilter,
+    dateFrom: dateRange?.from?.toISOString(),
+    dateTo: dateRange?.to?.toISOString()
+  }
+});
+```
 
-## 3) Критерии готовности (Definition of Done)
-- В `docs/migration/11-edge-functions-deployment.md` есть явное указание: “перезапускать надо `docker compose restart functions`”.
-- Есть таблица/список сервисов (как минимум `functions` + основные).
-- Есть раздел “частые ошибки” с точными сообщениями ошибок и командами решения.
-- В примерах команд не используется `supabase-edge-functions` как имя сервиса (чтобы больше не вводило в заблуждение).
+## Зависимости
 
----
-
-## 4) Что мне нужно от вас (если хотите максимально точно под ваш сервер)
-Не обязательно, но улучшит точность документации:
-- Подтвердить, какой путь считать “основным” для прод-сервера: `/home/automation/supabase-project` или `/opt/supabase`
-- Есть ли на сервере реально git-репозиторий (наличие `.git` в этой папке), или деплой строго через rsync/GitHub Actions
-
-После вашего одобрения я внесу правки в документацию в репозитории (в Lovable), чтобы это было “записано” и не потерялось.
+Все необходимые компоненты уже есть в проекте:
+- UI компоненты: Table, Badge, Button, Select, DatePickerWithRange, ScrollArea, Skeleton
+- Модальное окно: CallDetailModal (переиспользуем)
+- API: selfHostedPost
+- Иконки: Phone, PhoneIncoming, PhoneOutgoing, Clock, RefreshCw
