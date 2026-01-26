@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, Clock, Calendar, Eye, MessageSquare, Sparkles } from "lucide-react";
+import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, Clock, Calendar, Eye, MessageSquare, Sparkles, User } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -158,8 +158,14 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
                       <div className="text-xs text-muted-foreground truncate">
                         {call.phone_number}
                       </div>
-                      
-                      {/* Summary Preview */}
+
+                      {/* Manager name */}
+                      {call.manager_name && (
+                        <div className="flex items-center gap-1 text-xs text-primary mt-1">
+                          <User className="h-3 w-3" />
+                          <span>{call.manager_name}</span>
+                        </div>
+                      )}
                       {call.summary && (
                         <div className="flex items-start gap-1 text-xs text-muted-foreground mt-1">
                           <Sparkles className="h-3 w-3 flex-shrink-0 mt-0.5" />

@@ -63,11 +63,8 @@ interface CallLogWithEvaluation {
   duration_seconds: number | null;
   started_at: string;
   ai_evaluation: AiCallEvaluation | null;
-  profiles?: {
-    id: string;
-    first_name: string | null;
-    last_name: string | null;
-  } | null;
+  manager_id: string | null;
+  manager_name: string | null;
 }
 
 const SCORE_LABELS: Record<string, string> = {
@@ -124,7 +121,8 @@ export const CallQualityDashboard = () => {
           duration_seconds,
           started_at,
           ai_evaluation,
-          employee_id
+          manager_id,
+          manager_name
         `)
         .not('ai_evaluation', 'is', null)
         .gte('started_at', dateRange.start.toISOString())
@@ -163,7 +161,7 @@ export const CallQualityDashboard = () => {
         totalCalls: 0,
         averageScore: 0,
         criteriaAverages: {} as Record<string, number>,
-        topPerformers: [] as { name: string; avgScore: number; callCount: number }[],
+        topPerformers: [] as { id: string; name: string; avgScore: number; callCount: number; scores: Record<string, number> }[],
         dailyTrend: [] as { date: string; score: number; count: number }[],
         radarData: [] as { criterion: string; score: number; fullMark: number }[]
       };
@@ -222,12 +220,57 @@ export const CallQualityDashboard = () => {
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    // Top performers (mock - in real app would group by employee_id)
-    const topPerformers = [
-      { name: 'Менеджер 1', avgScore: 8.5, callCount: 12 },
-      { name: 'Менеджер 2', avgScore: 7.8, callCount: 8 },
-      { name: 'Менеджер 3', avgScore: 7.2, callCount: 15 }
-    ];
+    // Real manager rankings based on manager_id/manager_name
+    const managerMap = new Map<string, { 
+      name: string; 
+      totalScore: number; 
+      callCount: number;
+      scores: Record<string, number>;
+      scoreCounts: Record<string, number>;
+    }>();
+    
+    evaluatedCalls.forEach(call => {
+      const managerId = call.manager_id || 'unknown';
+      const managerName = call.manager_name || 'Не определён';
+      
+      const existing = managerMap.get(managerId) || { 
+        name: managerName, 
+        totalScore: 0, 
+        callCount: 0,
+        scores: { greeting: 0, needs_identification: 0, product_presentation: 0, objection_handling: 0, closing: 0 },
+        scoreCounts: { greeting: 0, needs_identification: 0, product_presentation: 0, objection_handling: 0, closing: 0 }
+      };
+      
+      existing.totalScore += call.ai_evaluation?.overall_score || 0;
+      existing.callCount += 1;
+      
+      if (call.ai_evaluation?.scores) {
+        Object.keys(existing.scores).forEach(key => {
+          const score = call.ai_evaluation!.scores[key as keyof typeof call.ai_evaluation.scores];
+          if (typeof score === 'number') {
+            existing.scores[key] += score;
+            existing.scoreCounts[key] += 1;
+          }
+        });
+      }
+      
+      managerMap.set(managerId, existing);
+    });
+
+    const topPerformers = Array.from(managerMap.entries())
+      .map(([id, data]) => ({
+        id,
+        name: data.name,
+        avgScore: Math.round((data.totalScore / data.callCount) * 10) / 10,
+        callCount: data.callCount,
+        scores: Object.fromEntries(
+          Object.entries(data.scores).map(([key, total]) => [
+            key, 
+            data.scoreCounts[key] > 0 ? Math.round((total / data.scoreCounts[key]) * 10) / 10 : 0
+          ])
+        )
+      }))
+      .sort((a, b) => b.avgScore - a.avgScore);
 
     return {
       totalCalls,
@@ -384,7 +427,8 @@ export const CallQualityDashboard = () => {
         <TabsList>
           <TabsTrigger value="criteria">По критериям</TabsTrigger>
           <TabsTrigger value="trend">Динамика</TabsTrigger>
-          <TabsTrigger value="managers">Менеджеры</TabsTrigger>
+          <TabsTrigger value="managers">Рейтинг менеджеров</TabsTrigger>
+          <TabsTrigger value="kpi">KPI и цели</TabsTrigger>
         </TabsList>
 
         {/* Criteria Tab */}
@@ -504,45 +548,64 @@ export const CallQualityDashboard = () => {
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Award className="h-5 w-5 text-yellow-500" />
-                Рейтинг менеджеров
+                Рейтинг менеджеров по качеству звонков
               </CardTitle>
               <CardDescription>
-                Топ менеджеров по качеству звонков
+                Ранжирование на основе AI-оценок за выбранный период
               </CardDescription>
             </CardHeader>
             <CardContent>
               {stats.topPerformers.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {stats.topPerformers.map((manager, index) => (
                     <div 
-                      key={manager.name}
+                      key={manager.id}
                       className={cn(
-                        "flex items-center justify-between p-3 rounded-lg border",
-                        index === 0 && "bg-yellow-50 border-yellow-200"
+                        "p-4 rounded-lg border",
+                        index === 0 && "bg-yellow-50 border-yellow-200",
+                        index === 1 && "bg-gray-50 border-gray-200",
+                        index === 2 && "bg-orange-50 border-orange-200"
                       )}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
-                          index === 0 ? "bg-yellow-200 text-yellow-800" :
-                          index === 1 ? "bg-gray-200 text-gray-700" :
-                          index === 2 ? "bg-orange-200 text-orange-800" :
-                          "bg-muted text-muted-foreground"
-                        )}>
-                          {index + 1}
-                        </div>
-                        <div>
-                          <div className="font-medium">{manager.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {manager.callCount} звонков
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold",
+                            index === 0 ? "bg-yellow-200 text-yellow-800" :
+                            index === 1 ? "bg-gray-200 text-gray-700" :
+                            index === 2 ? "bg-orange-200 text-orange-800" :
+                            "bg-muted text-muted-foreground"
+                          )}>
+                            {index + 1}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-lg">{manager.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {manager.callCount} звонков проанализировано
+                            </div>
                           </div>
                         </div>
+                        <div className={cn(
+                          "text-3xl font-bold",
+                          getScoreColor(manager.avgScore)
+                        )}>
+                          {manager.avgScore.toFixed(1)}
+                          <span className="text-sm text-muted-foreground font-normal">/10</span>
+                        </div>
                       </div>
-                      <div className={cn(
-                        "text-xl font-bold",
-                        getScoreColor(manager.avgScore)
-                      )}>
-                        {manager.avgScore.toFixed(1)}
+                      
+                      {/* Individual criteria scores */}
+                      <div className="grid grid-cols-5 gap-2 mt-3">
+                        {Object.entries(manager.scores).map(([key, value]) => (
+                          <div key={key} className="text-center">
+                            <div className="text-xs text-muted-foreground mb-1">
+                              {SCORE_LABELS[key]?.split(' ')[0] || key}
+                            </div>
+                            <div className={cn("text-sm font-medium", getScoreColor(value))}>
+                              {value.toFixed(1)}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   ))}
@@ -552,9 +615,144 @@ export const CallQualityDashboard = () => {
                   <div className="text-center">
                     <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
                     <p>Нет данных о менеджерах</p>
+                    <p className="text-sm">Привяжите трубки OnlinePBX к профилям сотрудников</p>
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* KPI Tab */}
+        <TabsContent value="kpi" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* KPI Targets */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Target className="h-5 w-5 text-primary" />
+                  Цели по качеству
+                </CardTitle>
+                <CardDescription>
+                  Целевые показатели для менеджеров
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Минимальная средняя оценка</span>
+                    <Badge variant="outline" className="font-mono">≥ 7.0</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Приветствие</span>
+                    <Badge variant="outline" className="font-mono">≥ 8.0</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Выявление потребностей</span>
+                    <Badge variant="outline" className="font-mono">≥ 7.0</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Презентация</span>
+                    <Badge variant="outline" className="font-mono">≥ 7.0</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Работа с возражениями</span>
+                    <Badge variant="outline" className="font-mono">≥ 6.0</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Закрытие сделки</span>
+                    <Badge variant="outline" className="font-mono">≥ 7.0</Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* KPI Achievement */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Award className="h-5 w-5 text-green-500" />
+                  Выполнение KPI
+                </CardTitle>
+                <CardDescription>
+                  Статус достижения целей за период
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {stats.topPerformers.length > 0 ? (
+                  <div className="space-y-3">
+                    {stats.topPerformers.slice(0, 5).map((manager) => {
+                      const meetsKPI = manager.avgScore >= 7.0;
+                      return (
+                        <div key={manager.id} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className={cn(
+                              "w-2 h-2 rounded-full",
+                              meetsKPI ? "bg-green-500" : "bg-red-500"
+                            )} />
+                            <span className="text-sm">{manager.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={cn(
+                              "text-sm font-medium",
+                              getScoreColor(manager.avgScore)
+                            )}>
+                              {manager.avgScore.toFixed(1)}
+                            </span>
+                            <Badge 
+                              variant={meetsKPI ? "default" : "destructive"}
+                              className="text-xs"
+                            >
+                              {meetsKPI ? "Выполнено" : "Не выполнено"}
+                            </Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-4">
+                    Нет данных
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Team Statistics */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Командная статистика</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">
+                    {stats.topPerformers.filter(m => m.avgScore >= 7.0).length}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Выполняют KPI</div>
+                </div>
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold text-orange-600">
+                    {stats.topPerformers.filter(m => m.avgScore < 7.0).length}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Требуют внимания</div>
+                </div>
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold">
+                    {stats.topPerformers.length > 0 
+                      ? Math.round(stats.topPerformers.reduce((sum, m) => sum + m.callCount, 0) / stats.topPerformers.length)
+                      : 0}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Звонков/менеджер</div>
+                </div>
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <div className={cn("text-2xl font-bold", getScoreColor(stats.averageScore))}>
+                    {stats.averageScore || '—'}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Средняя по команде</div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

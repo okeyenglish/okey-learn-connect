@@ -30,6 +30,8 @@ interface CallLog {
   recording_url: string | null;
   transcription: string | null;
   ai_evaluation: AiCallEvaluation | null;
+  manager_id: string | null;
+  manager_name: string | null;
   clients?: {
     name?: string;
   } | null;
@@ -314,6 +316,15 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({
                     {formatDuration(call.duration_seconds)}
                   </div>
                 </div>
+                {call.manager_name && (
+                  <div className="col-span-2">
+                    <div className="text-sm text-muted-foreground">Менеджер</div>
+                    <div className="font-medium flex items-center gap-1">
+                      <User className="h-4 w-4 text-primary" />
+                      {call.manager_name}
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
