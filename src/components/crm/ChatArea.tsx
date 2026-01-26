@@ -212,6 +212,29 @@ export const ChatArea = ({
   const [isChatSwitching, setIsChatSwitching] = useState(false);
   // State for highlighted message (from search navigation)
   const [currentHighlightedId, setCurrentHighlightedId] = useState<string | null>(null);
+  // Track recently sent message IDs for animation (messages sent in last 2 seconds)
+  const recentlySentIds = useRef<Set<string>>(new Set());
+  
+  // Helper to mark a message as just sent
+  const markAsSent = useCallback((messageId: string) => {
+    recentlySentIds.current.add(messageId);
+    // Remove after animation completes (1.5 seconds)
+    setTimeout(() => {
+      recentlySentIds.current.delete(messageId);
+    }, 1500);
+  }, []);
+  
+  // Check if a message is "just sent" - either in our set OR created within last 2 seconds (outgoing only)
+  const isMessageJustSent = useCallback((msg: { id: string; type: string; createdAt?: string }) => {
+    if (recentlySentIds.current.has(msg.id)) return true;
+    // For outgoing messages created in last 2 seconds, also animate
+    if (msg.type === 'manager' && msg.createdAt) {
+      const created = new Date(msg.createdAt).getTime();
+      const now = Date.now();
+      if (now - created < 2000) return true;
+    }
+    return false;
+  }, []);
   
   
   // Функция для форматирования отображаемого имени (Фамилия Имя, без отчества)
@@ -661,7 +684,7 @@ export const ChatArea = ({
     if (prevClientIdForSwitch.current && prevClientIdForSwitch.current !== clientId) {
       // Show switching animation
       setIsChatSwitching(true);
-      setTimeout(() => setIsChatSwitching(false), 200);
+      setTimeout(() => setIsChatSwitching(false), 250);
     }
     prevClientIdForSwitch.current = clientId;
     setMessageLimit(100);
@@ -2166,7 +2189,7 @@ export const ChatArea = ({
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="whatsapp" ref={whatsappScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-all duration-200 ${isTabTransitioning || isChatSwitching ? 'opacity-50 scale-[0.99]' : 'opacity-100 scale-100'}`}>
+          <TabsContent value="whatsapp" ref={whatsappScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
             <NewMessageIndicator
               scrollContainerRef={whatsappScrollRef}
               bottomRef={whatsappEndRef}
@@ -2279,6 +2302,7 @@ export const ChatArea = ({
                             onQuoteMessage={handleQuoteMessage}
                             isHighlighted={msg.id === currentHighlightedId}
                             searchQuery={searchQuery}
+                            isJustSent={isMessageJustSent(msg)}
                           />
                         )}
                       </div>
@@ -2336,7 +2360,7 @@ export const ChatArea = ({
               <div ref={whatsappEndRef} />
             </TabsContent>
           
-          <TabsContent value="telegram" ref={telegramScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-all duration-200 ${isTabTransitioning || isChatSwitching ? 'opacity-50 scale-[0.99]' : 'opacity-100 scale-100'}`}>
+          <TabsContent value="telegram" ref={telegramScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
             <NewMessageIndicator
               scrollContainerRef={telegramScrollRef}
               bottomRef={telegramEndRef}
@@ -2418,6 +2442,7 @@ export const ChatArea = ({
                             onQuoteMessage={handleQuoteMessage}
                             isHighlighted={msg.id === currentHighlightedId}
                             searchQuery={searchQuery}
+                            isJustSent={isMessageJustSent(msg)}
                           />
                         )}
                       </div>
@@ -2434,7 +2459,7 @@ export const ChatArea = ({
             <div ref={telegramEndRef} />
           </TabsContent>
           
-          <TabsContent value="max" ref={maxScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-all duration-200 ${isTabTransitioning || isChatSwitching ? 'opacity-50 scale-[0.99]' : 'opacity-100 scale-100'}`}>
+          <TabsContent value="max" ref={maxScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
             <NewMessageIndicator
               scrollContainerRef={maxScrollRef}
               bottomRef={maxEndRef}
@@ -2517,6 +2542,7 @@ export const ChatArea = ({
                             onQuoteMessage={handleQuoteMessage}
                             isHighlighted={msg.id === currentHighlightedId}
                             searchQuery={searchQuery}
+                            isJustSent={isMessageJustSent(msg)}
                           />
                         )}
                       </div>
@@ -2550,7 +2576,7 @@ export const ChatArea = ({
             <div ref={maxEndRef} />
           </TabsContent>
           
-          <TabsContent value="email" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-all duration-200 ${isTabTransitioning || isChatSwitching ? 'opacity-50 scale-[0.99]' : 'opacity-100 scale-100'}`}>
+          <TabsContent value="email" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
             <div className="space-y-1">
               <div className="text-center text-muted-foreground text-sm py-4">
                 История переписки Email
@@ -2558,7 +2584,7 @@ export const ChatArea = ({
             </div>
           </TabsContent>
           
-          <TabsContent value="calls" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-all duration-200 ${isTabTransitioning || isChatSwitching ? 'opacity-50 scale-[0.99]' : 'opacity-100 scale-100'}`}>
+          <TabsContent value="calls" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
             <CallHistory clientId={clientId} />
           </TabsContent>
         </Tabs>
