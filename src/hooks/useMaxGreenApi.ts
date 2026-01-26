@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getErrorMessage } from '@/lib/errorUtils';
+import { selfHostedGet, selfHostedPost, selfHostedDelete } from '@/lib/selfHostedApi';
 
 export interface MaxSettings {
   instanceId: string;
@@ -38,16 +38,14 @@ export const useMaxGreenApi = () => {
   const fetchSettings = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('max-channels', {
-        method: 'GET'
-      });
+      const response = await selfHostedGet<MaxSettingsResponse>('max-channels');
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
 
-      setSettings(data?.settings || null);
-      setInstanceState(data?.instanceState || null);
+      setSettings(response.data?.settings || null);
+      setInstanceState(response.data?.instanceState || null);
       
-      return data;
+      return response.data;
     } catch (error: unknown) {
       console.error('Error fetching MAX settings:', error);
       toast({
@@ -64,25 +62,23 @@ export const useMaxGreenApi = () => {
   const saveSettings = useCallback(async (instanceId: string, apiToken: string, isEnabled = true) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('max-channels', {
-        body: { instanceId, apiToken, isEnabled }
-      });
+      const response = await selfHostedPost<MaxSettingsResponse & { error?: string }>('max-channels', { instanceId, apiToken, isEnabled });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
 
-      if (data?.error) {
-        throw new Error(data.error);
+      if (response.data?.error) {
+        throw new Error(response.data.error);
       }
 
-      setSettings(data?.settings || null);
-      setInstanceState(data?.instanceState || null);
+      setSettings(response.data?.settings || null);
+      setInstanceState(response.data?.instanceState || null);
 
       toast({
         title: 'Успешно',
         description: 'Настройки MAX сохранены'
       });
 
-      return data;
+      return response.data;
     } catch (error: unknown) {
       console.error('Error saving MAX settings:', error);
       toast({
@@ -99,11 +95,9 @@ export const useMaxGreenApi = () => {
   const deleteSettings = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('max-channels', {
-        method: 'DELETE'
-      });
+      const response = await selfHostedDelete('max-channels');
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
 
       setSettings(null);
       setInstanceState(null);
@@ -135,17 +129,15 @@ export const useMaxGreenApi = () => {
     fileType?: string
   ) => {
     try {
-      const { data, error } = await supabase.functions.invoke('max-send', {
-        body: { clientId, text, fileUrl, fileName, fileType }
-      });
+      const response = await selfHostedPost<{ error?: string }>('max-send', { clientId, text, fileUrl, fileName, fileType });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
 
-      if (data?.error) {
-        throw new Error(data.error);
+      if (response.data?.error) {
+        throw new Error(response.data.error);
       }
 
-      return data;
+      return response.data;
     } catch (error: unknown) {
       console.error('Error sending MAX message:', error);
       toast({

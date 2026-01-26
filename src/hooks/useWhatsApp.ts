@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 import { getErrorMessage } from '@/lib/errorUtils';
+import { selfHostedPost, selfHostedGet } from '@/lib/selfHostedApi';
 import type { MessengerSettings as MessengerSettingsDB } from '@/integrations/supabase/database.types';
 
 interface SendMessageParams {
@@ -84,19 +85,13 @@ export const useWhatsApp = () => {
       const provider = settings?.provider || 'greenapi';
       const functionName = provider === 'wpp' ? 'wpp-send' : provider === 'wappi' ? 'wappi-whatsapp-send' : 'whatsapp-send';
 
-      const { data, error } = await supabase.functions.invoke(functionName, {
-        body: params
-      });
+      const response = await selfHostedPost<{ success: boolean; messageId?: string; error?: string }>(functionName, params);
 
-      if (error) {
-        throw error;
+      if (!response.success || !response.data?.success) {
+        throw new Error(response.error || response.data?.error || 'Failed to send message');
       }
 
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to send message');
-      }
-
-      return { success: true, messageId: data.messageId };
+      return { success: true, messageId: response.data.messageId };
 
     } catch (error: unknown) {
       console.error('Error sending WhatsApp message:', error);
@@ -228,14 +223,16 @@ export const useWhatsApp = () => {
       const functionName = provider === 'wpp' ? 'wpp-send' : provider === 'wappi' ? 'wappi-whatsapp-send' : 'whatsapp-send';
 
       // Проверяем состояние инстанса через edge функцию
-      const { data, error } = await supabase.functions.invoke(functionName, {
-        body: { action: 'test_connection' }
-      });
+      const response = await selfHostedPost<{ success: boolean; state?: { stateInstance?: string; state?: string; status?: string }; message?: string; error?: string; rawSnippet?: string }>(
+        functionName, 
+        { action: 'test_connection' }
+      );
 
-      if (error) {
-        throw error;
+      if (!response.success) {
+        throw new Error(response.error || 'Connection test failed');
       }
 
+      const data = response.data;
       const ok = data?.success;
       const stateValue = data?.state?.stateInstance || data?.state?.state || data?.state?.status;
       const rawSnippet = data?.rawSnippet ? `\nRaw: ${data.rawSnippet}` : '';
@@ -300,11 +297,21 @@ export const useWhatsApp = () => {
       
       const functionName = provider === 'wpp' ? 'wpp-status' : provider === 'wappi' ? 'wappi-whatsapp-status' : 'whatsapp-send';
       
-      const { data, error } = await supabase.functions.invoke(functionName, {
-        body: provider === 'greenapi' ? { action: 'get_state' } : undefined
-      });
+      const response = await selfHostedPost<{ 
+        status?: string; 
+        state?: string | { stateInstance?: string }; 
+        stateInstance?: string;
+        wid?: string; 
+        phone?: string; 
+        pushname?: string 
+      }>(
+        functionName,
+        provider === 'greenapi' ? { action: 'get_state' } : undefined
+      );
       
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
+      
+      const data = response.data;
       
       // Normalize response from different providers
       if (provider === 'wpp') {
@@ -315,7 +322,7 @@ export const useWhatsApp = () => {
           name: data?.pushname
         };
       } else if (provider === 'wappi') {
-        const status = data?.status || data?.state;
+        const status = data?.status || (typeof data?.state === 'string' ? data.state : undefined);
         return {
           status: status === 'CONNECTED' || status === 'online' || status === 'connected' ? 'online' : 'offline',
           phone: data?.wid || data?.phone,
@@ -323,7 +330,8 @@ export const useWhatsApp = () => {
         };
       } else {
         // Green API response
-        const state = data?.state?.stateInstance || data?.stateInstance;
+        const stateObj = typeof data?.state === 'object' ? data.state : null;
+        const state = stateObj?.stateInstance || data?.stateInstance;
         return {
           status: state === 'authorized' ? 'online' : state === 'notAuthorized' ? 'offline' : 'error',
           phone: data?.phone,
@@ -338,20 +346,13 @@ export const useWhatsApp = () => {
 
   const checkWppStatus = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('Not authenticated');
-      }
-
-      const { data, error } = await supabase.functions.invoke('wpp-status', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (error) throw error;
+      const response = await selfHostedGet<unknown>('wpp-status');
       
-      return data;
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to check WPP status');
+      }
+      
+      return response.data;
     } catch (error) {
       console.error('Error checking WPP status:', error);
       throw error;
@@ -360,20 +361,13 @@ export const useWhatsApp = () => {
 
   const startWppSession = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('Not authenticated');
-      }
-
-      const { data, error } = await supabase.functions.invoke('wpp-start', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (error) throw error;
+      const response = await selfHostedPost<unknown>('wpp-start');
       
-      return data;
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to start WPP session');
+      }
+      
+      return response.data;
     } catch (error) {
       console.error('Error starting WPP session:', error);
       throw error;
@@ -388,14 +382,10 @@ export const useWhatsApp = () => {
       const provider = settings?.provider || 'greenapi';
       const functionName = provider === 'wpp' ? 'wpp-delete' : provider === 'wappi' ? 'wappi-whatsapp-delete' : 'delete-whatsapp-message';
 
-      const { data, error } = await supabase.functions.invoke(functionName, {
-        body: { messageId, clientId }
-      });
+      const response = await selfHostedPost<{ success: boolean; error?: string }>(functionName, { messageId, clientId });
 
-      if (error) throw error;
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to delete message');
+      if (!response.success || !response.data?.success) {
+        throw new Error(response.error || response.data?.error || 'Failed to delete message');
       }
 
       return { success: true };
@@ -420,17 +410,13 @@ export const useWhatsApp = () => {
       const provider = settings?.provider || 'greenapi';
       const functionName = provider === 'wpp' ? 'wpp-edit' : provider === 'wappi' ? 'wappi-whatsapp-edit' : 'edit-whatsapp-message';
 
-      const { data, error } = await supabase.functions.invoke(functionName, {
-        body: { messageId, newMessage, clientId }
-      });
+      const response = await selfHostedPost<{ success: boolean; error?: string }>(functionName, { messageId, newMessage, clientId });
 
-      if (error) throw error;
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to edit message');
+      if (!response.success || !response.data?.success) {
+        throw new Error(response.error || response.data?.error || 'Failed to edit message');
       }
 
-      return { success: true, data };
+      return { success: true, data: response.data };
     } catch (error: unknown) {
       console.error('Error editing message:', error);
       toast({
@@ -452,13 +438,13 @@ export const useWhatsApp = () => {
       const provider = settings?.provider || 'greenapi';
       const functionName = provider === 'wpp' ? 'wpp-download' : provider === 'wappi' ? 'wappi-whatsapp-download' : 'download-whatsapp-file';
 
-      const { data, error } = await supabase.functions.invoke(functionName, {
-        body: { messageId, organizationId }
-      });
+      const response = await selfHostedPost<unknown>(functionName, { messageId, organizationId });
 
-      if (error) throw error;
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to download file');
+      }
 
-      return data;
+      return response.data;
     } catch (error: unknown) {
       console.error('Error downloading file:', error);
       toast({
@@ -475,12 +461,12 @@ export const useWhatsApp = () => {
   // Check WhatsApp availability for a phone number
   const checkAvailability = useCallback(async (phoneNumber: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('whatsapp-check-availability', {
-        body: { phoneNumber }
-      });
+      const response = await selfHostedPost<{ success: boolean; existsWhatsapp?: boolean; chatId?: string; error?: string }>('whatsapp-check-availability', { phoneNumber });
 
-      if (error) throw error;
-      return data;
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to check availability');
+      }
+      return response.data || { success: false };
     } catch (error: unknown) {
       console.error('Error checking WhatsApp availability:', error);
       return { success: false, error: getErrorMessage(error) };
@@ -490,12 +476,12 @@ export const useWhatsApp = () => {
   // Get avatar for a contact
   const getAvatar = useCallback(async (clientId: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('whatsapp-get-avatar', {
-        body: { clientId }
-      });
+      const response = await selfHostedPost<{ success: boolean; error?: string }>('whatsapp-get-avatar', { clientId });
 
-      if (error) throw error;
-      return data;
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to get avatar');
+      }
+      return response.data;
     } catch (error: unknown) {
       console.error('Error getting WhatsApp avatar:', error);
       return { success: false, error: getErrorMessage(error) };
@@ -513,11 +499,11 @@ export const useWhatsApp = () => {
         return { success: false, error: 'Typing not supported' };
       }
 
-      const { data, error } = await supabase.functions.invoke('whatsapp-send', {
-        body: { action: 'send_typing', clientId, isTyping }
-      });
+      const response = await selfHostedPost<{ success: boolean }>('whatsapp-send', { action: 'send_typing', clientId, isTyping });
 
-      if (error) throw error;
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to send typing');
+      }
       return { success: true };
     } catch (error: unknown) {
       console.error('Error sending typing indicator:', error);

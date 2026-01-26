@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 
 export const useWhatsAppFile = () => {
   const [loading, setLoading] = useState(false);
@@ -31,12 +32,10 @@ export const useWhatsAppFile = () => {
         ? { messageId, organizationId: profile?.organization_id }
         : { chatId, idMessage: messageId };
 
-      const { data, error } = await supabase.functions.invoke(functionName, {
-        body
-      });
+      const response = await selfHostedPost<{ downloadUrl?: string }>(functionName, body);
 
-      if (error) {
-        console.error('Error downloading WhatsApp file:', error);
+      if (!response.success) {
+        console.error('Error downloading WhatsApp file:', response.error);
         toast({
           title: "Ошибка",
           description: "Не удалось загрузить файл",
@@ -45,8 +44,8 @@ export const useWhatsAppFile = () => {
         return null;
       }
 
-      if (data?.downloadUrl) {
-        return data.downloadUrl;
+      if (response.data?.downloadUrl) {
+        return response.data.downloadUrl;
       }
 
       return null;
