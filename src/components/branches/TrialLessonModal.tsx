@@ -14,7 +14,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Phone, MessageCircle, Send, CheckCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 
 interface TrialLessonModalProps {
   branchName: string;
@@ -61,25 +60,25 @@ export const TrialLessonModal = ({ branchName, branchAddress, children }: TrialL
     setIsSubmitting(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('submit-trial-request', {
-        body: {
+      const response = await fetch('https://api.academyos.ru/functions/v1/submit-trial-request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           name: formData.name.trim(),
           phone: formData.phone.trim(),
           comment: formData.comment.trim() || undefined,
           branch_name: branchName,
           branch_address: branchAddress,
-        },
+        }),
       });
 
-      if (error) {
-        console.error('Error submitting trial request:', error);
-        toast.error('Ошибка отправки заявки. Попробуйте ещё раз.');
-        setIsSubmitting(false);
-        return;
-      }
+      const data = await response.json();
 
-      if (data?.error) {
-        toast.error(data.error);
+      if (!response.ok || data?.error) {
+        console.error('Error submitting trial request:', data);
+        toast.error(data?.error || 'Ошибка отправки заявки. Попробуйте ещё раз.');
         setIsSubmitting(false);
         return;
       }
