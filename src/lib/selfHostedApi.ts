@@ -1,7 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getErrorMessage } from '@/lib/errorUtils';
 
-const SELF_HOSTED_API = "https://api.academyos.ru/functions/v1";
+// Self-hosted Supabase configuration
+export const SELF_HOSTED_URL = "https://api.academyos.ru";
+export const SELF_HOSTED_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY5MDg4ODgzLCJleHAiOjE5MjY3Njg4ODN9.WEsCyaCdQvxzVObedC-A9hWTJUSwI_p9nCG1wlbaNEg";
+const SELF_HOSTED_API = `${SELF_HOSTED_URL}/functions/v1`;
 
 // Default retry configuration
 const DEFAULT_RETRY_CONFIG = {

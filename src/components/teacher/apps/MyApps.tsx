@@ -5,6 +5,7 @@ import { useApps } from '@/hooks/useApps';
 import { AppCard } from './AppCard';
 import { AppViewer } from './AppViewer';
 import { Teacher } from '@/hooks/useTeachers';
+import { SELF_HOSTED_URL } from '@/lib/selfHostedApi';
 
 interface MyAppsProps {
   teacher: Teacher;
@@ -86,7 +87,7 @@ export const MyApps = ({ teacher, onCreateNew }: MyAppsProps) => {
                   app={app}
                   onOpen={() => {
                     // Get latest version URL
-                    const url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/apps/${app.id}/${app.latest_version}/index.html`;
+                    const url = `${SELF_HOSTED_URL}/storage/v1/object/public/apps/${app.id}/${app.latest_version}/index.html`;
                     setSelectedApp({ id: app.id, url });
                   }}
                   onPublish={() => handlePublish(app.id)}
@@ -113,7 +114,7 @@ export const MyApps = ({ teacher, onCreateNew }: MyAppsProps) => {
                   key={app.id}
                   app={app}
                   onOpen={() => {
-                    const url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/apps/${app.id}/${app.latest_version}/index.html`;
+                    const url = `${SELF_HOSTED_URL}/storage/v1/object/public/apps/${app.id}/${app.latest_version}/index.html`;
                     setSelectedApp({ id: app.id, url });
                   }}
                   onUninstall={() => uninstallApp({ appId: app.id, teacherId })}
