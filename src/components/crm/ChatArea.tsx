@@ -291,7 +291,7 @@ export const ChatArea = ({
   const [checkingWhatsAppAvailability, setCheckingWhatsAppAvailability] = useState(false);
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
+  const { updateTypingStatus, getTypingMessage, getTypingInfo, isOtherUserTyping } = useTypingStatus(clientId);
   const markChatMessagesAsReadByMessengerMutation = useMarkChatMessagesAsReadByMessenger();
   const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
   const queryClient = useQueryClient();
@@ -819,9 +819,9 @@ export const ChatArea = ({
     setMessage(value);
     onMessageChange?.(value.trim().length > 0);
     
-    // Update typing status
+    // Update typing status with draft text (first 100 chars)
     if (value.trim().length > 0) {
-      updateTypingStatus(true);
+      updateTypingStatus(true, value.slice(0, 100));
       
       // Send typing notification based on active tab
       if (activeMessengerTab === 'max') {
@@ -2715,12 +2715,32 @@ export const ChatArea = ({
               />
             )}
             
+            {/* Typing indicator above textarea */}
+            {isOtherUserTyping && getTypingInfo() && (
+              <div className="px-2 py-1.5 bg-orange-50 border border-orange-200 rounded-md mb-1">
+                <div className="text-xs text-orange-700 flex items-center gap-1.5">
+                  <span className="inline-flex gap-0.5">
+                    <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
+                    <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
+                    <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
+                  </span>
+                  <span className="font-medium">{getTypingInfo()?.managerName}</span>
+                  <span>печатает:</span>
+                  {getTypingInfo()?.draftText && (
+                    <span className="text-orange-600 italic truncate max-w-[200px]">
+                      "{getTypingInfo()?.draftText}"
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            
             {/* Textarea */}
             <Textarea
               ref={textareaRef}
               placeholder={
                 isOtherUserTyping 
-                  ? getTypingMessage() || "Менеджер печатает..." 
+                  ? `🔒 ${getTypingInfo()?.managerName || 'Менеджер'} печатает...`
                   : commentMode 
                     ? "Введите комментарий..." 
                     : "Введите сообщение..."
@@ -2728,12 +2748,12 @@ export const ChatArea = ({
               value={message}
               onChange={(e) => handleMessageChange(e.target.value)}
               onKeyPress={handleKeyPress}
-              onKeyDown={() => updateTypingStatus(true)}
-              onFocus={() => updateTypingStatus(true)}
+              onKeyDown={() => updateTypingStatus(true, message)}
+              onFocus={() => updateTypingStatus(true, message)}
               onBlur={() => updateTypingStatus(false)}
               className={`min-h-[48px] max-h-[120px] resize-none text-base ${
                 commentMode ? "bg-yellow-50 border-yellow-300" : ""
-              } ${isOtherUserTyping ? "bg-orange-50 border-orange-200" : ""}`}
+              } ${isOtherUserTyping ? "bg-orange-50 border-orange-200 cursor-not-allowed" : ""}`}
               disabled={loading || !!pendingMessage || isOtherUserTyping}
             />
             

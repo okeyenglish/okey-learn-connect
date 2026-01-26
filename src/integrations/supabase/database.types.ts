@@ -504,6 +504,8 @@ export interface TypingStatus {
   client_id: string;
   is_typing: boolean;
   updated_at: string;
+  draft_text?: string | null;
+  manager_name?: string | null;
 }
 
 export interface MessageReadStatus {

@@ -283,7 +283,7 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
   const { messages } = useChatMessages(clientId);
   const sendMessage = useSendMessage();
   const markAsRead = useMarkAsRead();
-  const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
+  const { updateTypingStatus, getTypingMessage, getTypingInfo, isOtherUserTyping } = useTypingStatus(clientId);
   
   useRealtimeMessages(clientId);
   useEffect(() => {
@@ -295,7 +295,7 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
   const handleMessageChange = (value: string) => {
     setMessage(value);
     onMessageChange?.(value.trim().length > 0);
-    updateTypingStatus(value.length > 0);
+    updateTypingStatus(value.length > 0, value.slice(0, 100));
   };
 
   const handleSendMessage = async () => {

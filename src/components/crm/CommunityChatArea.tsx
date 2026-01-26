@@ -62,7 +62,7 @@ export const CommunityChatArea = ({ onMessageChange, selectedCommunityId = null,
   const hasMoreMessages = messagesData?.hasMore || false;
   const sendMessage = useSendMessage();
   const markAsRead = useMarkAsRead();
-  const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
+  const { updateTypingStatus, getTypingMessage, getTypingInfo, isOtherUserTyping } = useTypingStatus(clientId);
   
   useRealtimeMessages(clientId);
   
@@ -75,7 +75,7 @@ export const CommunityChatArea = ({ onMessageChange, selectedCommunityId = null,
   const handleMessageChange = (value: string) => {
     setMessage(value);
     onMessageChange?.(value.trim().length > 0);
-    updateTypingStatus(value.length > 0);
+    updateTypingStatus(value.length > 0, value.slice(0, 100));
   };
 
   const handleSendMessage = async () => {
@@ -298,9 +298,13 @@ export const CommunityChatArea = ({ onMessageChange, selectedCommunityId = null,
               type={msg.message_type === 'system' ? 'manager' : msg.message_type}
             />
           ))}
-          {isOtherUserTyping && (
-            <div className="text-sm text-muted-foreground italic">
-              {getTypingMessage()}
+          {isOtherUserTyping && getTypingInfo() && (
+            <div className="text-sm text-orange-600 italic flex items-center gap-1.5">
+              <span className="font-medium">{getTypingInfo()?.managerName}</span>
+              <span>печатает</span>
+              {getTypingInfo()?.draftText && (
+                <span className="text-orange-500 truncate max-w-[150px]">: "{getTypingInfo()?.draftText}"</span>
+              )}
             </div>
           )}
         </div>
