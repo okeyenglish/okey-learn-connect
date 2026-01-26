@@ -117,52 +117,82 @@ async function saveAISettings(
   organizationId: string,
   body: { openaiApiKey?: string; isEnabled?: boolean }
 ): Promise<Response> {
+  console.log('[ai-settings] Saving settings for org:', organizationId);
   const { openaiApiKey, isEnabled = true } = body;
 
   // Get existing settings to preserve API key if not provided
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from('messenger_settings')
-    .select('settings')
+    .select('id, settings')
     .eq('organization_id', organizationId)
     .eq('messenger_type', 'openai')
     .maybeSingle();
 
-  const settingsData: any = {
-    openaiApiKey: openaiApiKey || existing?.settings?.openaiApiKey
-  };
+  if (existingError) {
+    console.error('[ai-settings] Error fetching existing settings:', existingError);
+  }
 
-  if (!settingsData.openaiApiKey) {
+  console.log('[ai-settings] Existing settings:', existing ? 'found' : 'not found');
+
+  // If apiKey starts with bullets (masked), use existing
+  const actualApiKey = openaiApiKey?.startsWith('••') 
+    ? existing?.settings?.openaiApiKey 
+    : openaiApiKey || existing?.settings?.openaiApiKey;
+
+  if (!actualApiKey) {
     return new Response(
       JSON.stringify({ error: 'OpenAI API Key is required' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 
-  const { error: saveError } = await supabase
-    .from('messenger_settings')
-    .upsert({
-      organization_id: organizationId,
-      messenger_type: 'openai',
-      settings: settingsData,
-      is_enabled: isEnabled,
-      updated_at: new Date().toISOString()
-    }, {
-      onConflict: 'organization_id,messenger_type'
-    });
+  const settingsData = {
+    openaiApiKey: actualApiKey
+  };
+
+  let saveError;
+  
+  if (existing?.id) {
+    // Update existing record
+    console.log('[ai-settings] Updating existing record:', existing.id);
+    const { error } = await supabase
+      .from('messenger_settings')
+      .update({
+        settings: settingsData,
+        is_enabled: isEnabled,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', existing.id);
+    saveError = error;
+  } else {
+    // Insert new record
+    console.log('[ai-settings] Inserting new record');
+    const { error } = await supabase
+      .from('messenger_settings')
+      .insert({
+        organization_id: organizationId,
+        messenger_type: 'openai',
+        settings: settingsData,
+        is_enabled: isEnabled
+      });
+    saveError = error;
+  }
 
   if (saveError) {
-    console.error('Error saving AI settings:', saveError);
+    console.error('[ai-settings] Error saving settings:', saveError);
     return new Response(
-      JSON.stringify({ error: 'Failed to save settings' }),
+      JSON.stringify({ error: 'Failed to save settings', details: saveError.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
+
+  console.log('[ai-settings] Settings saved successfully');
 
   return new Response(
     JSON.stringify({ 
       success: true,
       settings: {
-        openaiApiKey: '••••••••' + settingsData.openaiApiKey.slice(-4),
+        openaiApiKey: '••••••••' + actualApiKey.slice(-4),
         isEnabled
       }
     }),
