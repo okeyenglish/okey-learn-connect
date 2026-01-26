@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Phone, PhoneCall, ArrowLeft, Smartphone } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useAuth } from '@/hooks/useAuth';
 
 interface MobilePhoneHelperProps {
@@ -39,14 +39,12 @@ export const MobilePhoneHelper: React.FC<MobilePhoneHelperProps> = ({ phoneNumbe
     setIsRequestingCallback(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('onlinepbx-call', {
-        body: {
-          to_number: phoneNumber,
-          from_user: user.id
-        }
+      const response = await selfHostedPost('onlinepbx-call', {
+        to_number: phoneNumber,
+        from_user: user.id
       });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
 
       toast({
         title: "Запрос отправлен",

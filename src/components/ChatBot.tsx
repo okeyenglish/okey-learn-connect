@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessageCircle, Send, Bot, User, Phone, Mail } from "lucide-react";
-import { supabase } from "@/integrations/supabase/typedClient";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 
 interface Message {
   role: "user" | "assistant";
@@ -130,17 +130,21 @@ export default function ChatBot() {
         content: msg.content
       }));
       
-      const { data, error } = await supabase.functions.invoke('ask', {
-        body: { 
-          question: q,
-          history: conversationHistory
-        }
-      });
+      const response = await selfHostedPost<{
+        answer: string;
+        showContacts?: boolean;
+        sources?: Array<{ idx: number; url: string; title: string; similarity: number }>;
+      }>('ask', { 
+        question: q,
+        history: conversationHistory
+      }, { requireAuth: false });
 
-      if (error) {
-        console.error('Supabase function error:', error);
-        throw new Error(error.message);
+      if (!response.success) {
+        console.error('Chat function error:', response.error);
+        throw new Error(response.error);
       }
+      
+      const data = response.data;
 
       let assistantMessage: Message;
 
@@ -154,11 +158,11 @@ export default function ChatBot() {
       } else {
         assistantMessage = {
           role: "assistant",
-          content: data.showContacts 
+          content: data?.showContacts 
             ? "Лучше такой вопрос уточнить у менеджера поддержки. Они сейчас онлайн в мессенджерах:"
-            : data.answer,
-          showContacts: data.showContacts,
-          sources: data.sources
+            : data?.answer || 'Не удалось получить ответ',
+          showContacts: data?.showContacts,
+          sources: data?.sources
         };
       }
       

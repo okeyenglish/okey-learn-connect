@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Mic, MicOff, Volume2, VolumeX, Loader2, Send, Bot, User, X, Trash2 } from 'lucide-react';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -367,26 +367,31 @@ export default function VoiceAssistant({
       // Добавляем сообщение пользователя
       addMessage(message, 'user', isVoice);
       
-      const { data, error } = await supabase.functions.invoke('voice-assistant', {
-        body: {
-          text: message,
-          userId: user?.id,
-          context: context ? {
-            currentPage: context.currentPage,
-            activeClientId: context.activeClientId || undefined,
-            activeClientName: context.activeClientName || undefined,
-            userRole: context.userRole,
-            userBranch: context.userBranch,
-            activeChatType: context.activeChatType
-          } : undefined
-        }
+      const response = await selfHostedPost<{
+        success: boolean;
+        response?: string;
+        actionResult?: ActionResult;
+        audioResponse?: string;
+        error?: string;
+      }>('voice-assistant', {
+        text: message,
+        userId: user?.id,
+        context: context ? {
+          currentPage: context.currentPage,
+          activeClientId: context.activeClientId || undefined,
+          activeClientName: context.activeClientName || undefined,
+          userRole: context.userRole,
+          userBranch: context.userBranch,
+          activeChatType: context.activeChatType
+        } : undefined
       });
       
-      if (error) {
-        console.error('Supabase function error:', error);
+      if (!response.success) {
+        console.error('Voice assistant error:', response.error);
         throw new Error('Ошибка сервера');
       }
       
+      const data = response.data;
       if (data?.success) {
         const response = data.response || 'Нет ответа';
         addMessage(response, 'assistant');
@@ -478,33 +483,39 @@ export default function VoiceAssistant({
       
       console.log('Audio converted to base64, length:', base64Audio.length);
       
-      const { data, error } = await supabase.functions.invoke('voice-assistant', {
-        body: {
-          audio: base64Audio,
-          userId: user?.id,
-          context: context ? {
-            currentPage: context.currentPage,
-            activeClientId: context.activeClientId || undefined,
-            activeClientName: context.activeClientName || undefined,
-            userRole: context.userRole,
-            userBranch: context.userBranch,
-            activeChatType: context.activeChatType
-          } : undefined
-        }
+      const response = await selfHostedPost<{
+        success: boolean;
+        transcription?: string;
+        response?: string;
+        actionResult?: ActionResult;
+        audioResponse?: string;
+        error?: string;
+      }>('voice-assistant', {
+        audio: base64Audio,
+        userId: user?.id,
+        context: context ? {
+          currentPage: context.currentPage,
+          activeClientId: context.activeClientId || undefined,
+          activeClientName: context.activeClientName || undefined,
+          userRole: context.userRole,
+          userBranch: context.userBranch,
+          activeChatType: context.activeChatType
+        } : undefined
       });
       
-      if (error) {
-        console.error('Supabase function error:', error);
+      if (!response.success) {
+        console.error('Voice assistant error:', response.error);
         throw new Error('Ошибка сервера');
       }
       
+      const data = response.data;
       if (data?.success) {
         const userMessage = data.transcription || 'Команда не распознана';
-        const response = data.response || 'Нет ответа';
+        const responseText = data.response || 'Нет ответа';
         
         // Добавляем сообщения в чат
         addMessage(userMessage, 'user', true);
-        addMessage(response, 'assistant');
+        addMessage(responseText, 'assistant');
 
         // Выполняем действия если есть
         if (data.actionResult) {

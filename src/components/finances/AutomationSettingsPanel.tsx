@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Bell, Play, Clock, CheckCircle, XCircle, RefreshCw, Mail, MessageSquare, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/typedClient';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -52,15 +53,14 @@ export const AutomationSettingsPanel = () => {
   const handleRunNotificationGeneration = async () => {
     setIsRunning(true);
     try {
-      const { data, error } = await supabase.functions.invoke('auto-payment-notifications', {
-        body: { manual: true },
-      });
+      const response = await selfHostedPost<{ notifications_created: number; students_notified: string[] }>('auto-payment-notifications', { manual: true });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
+      const data = response.data;
 
       toast({
         title: 'Успешно',
-        description: `Создано ${data.notifications_created} уведомлений для ${data.students_notified.length} студентов`,
+        description: `Создано ${data?.notifications_created || 0} уведомлений для ${data?.students_notified?.length || 0} студентов`,
       });
 
       loadCronLogs();
@@ -78,19 +78,18 @@ export const AutomationSettingsPanel = () => {
   const handleSendNotifications = async (notificationId?: string) => {
     setIsSending(true);
     try {
-      const { data, error } = await supabase.functions.invoke('send-payment-notifications', {
-        body: {
-          notification_id: notificationId,
-          send_all: !notificationId,
-          delivery_method: 'all',
-        },
+      const response = await selfHostedPost<{ sent_count: number }>('send-payment-notifications', {
+        notification_id: notificationId,
+        send_all: !notificationId,
+        delivery_method: 'all',
       });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
+      const data = response.data;
 
       toast({
         title: 'Успешно',
-        description: `Отправлено ${data.sent_count} уведомлений`,
+        description: `Отправлено ${data?.sent_count || 0} уведомлений`,
       });
 
       loadCronLogs();

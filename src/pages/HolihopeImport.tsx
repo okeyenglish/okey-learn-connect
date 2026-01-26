@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -402,36 +403,25 @@ export default function HolihopeImport() {
       // Step 12 is long-running (many batches); give it more headroom.
       const timeoutMs = body.action === 'import_ed_units' ? 120_000 : 60_000;
 
-      const invokePromise = supabase.functions.invoke('import-holihope', {
-        body,
-        headers: {
-          'Content-Type': 'application/json',
-          'x-action': body.action,
-        },
-      });
+      const invokePromise = selfHostedPost<{
+        alreadyRunning?: boolean;
+        lastUpdatedSecondsAgo?: number;
+        progress?: EdgeFunctionProgress[];
+        nextBatch?: unknown;
+        stats?: { totalImported?: number; progressPercentage?: number; currentPosition?: number; totalCombinations?: number };
+      }>('import-holihope', body);
 
       // EdgeFunctionProgress interface is already defined above
-      
-      interface EdgeFunctionResult {
-        data?: {
-          alreadyRunning?: boolean;
-          lastUpdatedSecondsAgo?: number;
-          progress?: EdgeFunctionProgress[];
-          nextBatch?: unknown;
-          stats?: { totalImported?: number; progressPercentage?: number; currentPosition?: number; totalCombinations?: number };
-        };
-        error?: Error | null;
-      }
       
       const result = await Promise.race([
         invokePromise,
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('REQUEST_TIMEOUT')), timeoutMs)
         ),
-      ]) as EdgeFunctionResult;
+      ]);
 
-      const { data, error } = result || {};
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error || 'Ошибка вызова функции');
+      const data = result.data;
 
       // Check if edge function returned "already running" response
       if (data?.alreadyRunning) {
@@ -1022,16 +1012,14 @@ export default function HolihopeImport() {
     });
 
     try {
-      const { data, error } = await supabase.functions.invoke('import-holihope', {
-        body: JSON.stringify({ action: 'delete_ed_units_and_schedule' }),
-        headers: { 'Content-Type': 'application/json', 'x-action': 'delete_ed_units_and_schedule' },
-      });
+      const response = await selfHostedPost<{ stats?: { learningGroups?: number; individualLessons?: number; lessonSessions?: number; studentLessonSessions?: number } }>('import-holihope', { action: 'delete_ed_units_and_schedule' });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
+      const data = response.data;
 
       toast({
         title: 'Удаление завершено!',
-        description: `Удалено: ${data.stats?.learningGroups || 0} групп, ${data.stats?.individualLessons || 0} индивидуальных уроков, ${data.stats?.lessonSessions || 0} занятий, ${data.stats?.studentLessonSessions || 0} студенческих сессий`,
+        description: `Удалено: ${data?.stats?.learningGroups || 0} групп, ${data?.stats?.individualLessons || 0} индивидуальных уроков, ${data?.stats?.lessonSessions || 0} занятий, ${data?.stats?.studentLessonSessions || 0} студенческих сессий`,
       });
     } catch (error: unknown) {
       console.error('Delete error:', error);
@@ -1057,16 +1045,14 @@ export default function HolihopeImport() {
     });
 
     try {
-      const { data, error } = await supabase.functions.invoke('import-holihope', {
-        body: JSON.stringify({ action: 'delete_all_data' }),
-        headers: { 'Content-Type': 'application/json', 'x-action': 'delete_all_data' },
-      });
+      const response = await selfHostedPost<{ stats?: { students?: number; clients?: number; familyGroups?: number; leads?: number } }>('import-holihope', { action: 'delete_all_data' });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
+      const data = response.data;
 
       toast({
         title: 'Очистка завершена!',
-        description: `Удалено: ${data.stats?.students || 0} учеников, ${data.stats?.clients || 0} клиентов, ${data.stats?.familyGroups || 0} семейных групп, ${data.stats?.leads || 0} лидов`,
+        description: `Удалено: ${data?.stats?.students || 0} учеников, ${data?.stats?.clients || 0} клиентов, ${data?.stats?.familyGroups || 0} семейных групп, ${data?.stats?.leads || 0} лидов`,
       });
     } catch (error: unknown) {
       console.error('Clear error:', error);
@@ -1084,17 +1070,15 @@ export default function HolihopeImport() {
     const previewAction = step.action.replace('import_', 'preview_');
     
     try {
-      const { data, error } = await supabase.functions.invoke('import-holihope', {
-        body: JSON.stringify({ action: previewAction }),
-        headers: { 'Content-Type': 'application/json', 'x-action': previewAction },
-      });
+      const response = await selfHostedPost<{ total?: number }>('import-holihope', { action: previewAction });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
+      const data = response.data;
 
       console.log('Preview data:', data);
       toast({
         title: `Preview: ${step.name}`,
-        description: `Будет импортировано ${data.total || 0} записей. См. консоль для деталей.`,
+        description: `Будет импортировано ${data?.total || 0} записей. См. консоль для деталей.`,
       });
       
     } catch (error: unknown) {
@@ -1681,8 +1665,8 @@ export default function HolihopeImport() {
                   <Button
                     onClick={async () => {
                       try {
-                        const { error } = await supabase.functions.invoke('salebot-stop');
-                        if (error) throw error;
+                        const response = await selfHostedPost('salebot-stop', {});
+                        if (!response.success) throw new Error(response.error);
                         toast({
                           title: 'Импорт остановлен',
                           description: 'Автоматический импорт Salebot успешно остановлен',
@@ -1741,8 +1725,8 @@ export default function HolihopeImport() {
                         }
                         
                         // Запускаем импорт
-                        const { error } = await supabase.functions.invoke('import-salebot-chats-auto');
-                        if (error) throw error;
+                        const response = await selfHostedPost('import-salebot-chats-auto', {});
+                        if (!response.success) throw new Error(response.error);
                         
                         toast({
                           title: 'Импорт возобновлён',
@@ -1935,17 +1919,17 @@ export default function HolihopeImport() {
                             const controller = new AbortController();
                             const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
                             
-                            const response = await supabase.functions.invoke('import-salebot-chats', {
-                              body: { offset, limit },
-                              headers: {
-                                'Content-Type': 'application/json',
-                              },
-                            });
+                            const response = await selfHostedPost<{
+                              totalImported?: number;
+                              totalClients?: number;
+                              nextOffset?: number;
+                              completed?: boolean;
+                            }>('import-salebot-chats', { offset, limit });
                             
                             clearTimeout(timeoutId);
                             
-                            if (response.error) {
-                              throw new Error(response.error.message || 'Ошибка вызова функции');
+                            if (!response.success) {
+                              throw new Error(response.error || 'Ошибка вызова функции');
                             }
                             
                             data = response.data;

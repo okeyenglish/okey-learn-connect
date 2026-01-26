@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Send, Clock, MessageSquare } from "lucide-react";
-import { supabase } from "@/integrations/supabase/typedClient";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 
 interface SpeakingClubSignupModalProps {
   level?: string;
@@ -40,26 +40,25 @@ export default function SpeakingClubSignupModal({ level, children }: SpeakingClu
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('webhook-proxy', {
-        body: {
-          source: "speaking_club_signup",
-          page: window.location.pathname,
-          utm: new URLSearchParams(window.location.search).toString(),
-          course: "Speaking Club Online",
-          level: formData.timeSlot ? timeSlots.find(slot => slot.value === formData.timeSlot)?.level || formData.level || "Не указан" : formData.level || "Не указан",
-          timeSlot: formData.timeSlot || "Не выбрано",
-          phone: formData.phone,
-          name: formData.name || "Не указано",
-          parentType: formData.parentType,
-          message: `Заявка на Speaking Club Online. Уровень: ${formData.level || "Не указан"}. Время: ${formData.timeSlot || "Не выбрано"}. Телефон ${formData.parentType}: ${formData.phone}${formData.name ? `. Имя: ${formData.name}` : ""}`
-        }
-      });
-      if (error) {
-        console.error('Speaking club webhook proxy error:', error);
-        throw error;
+      const response = await selfHostedPost('webhook-proxy', {
+        source: "speaking_club_signup",
+        page: window.location.pathname,
+        utm: new URLSearchParams(window.location.search).toString(),
+        course: "Speaking Club Online",
+        level: formData.timeSlot ? timeSlots.find(slot => slot.value === formData.timeSlot)?.level || formData.level || "Не указан" : formData.level || "Не указан",
+        timeSlot: formData.timeSlot || "Не выбрано",
+        phone: formData.phone,
+        name: formData.name || "Не указано",
+        parentType: formData.parentType,
+        message: `Заявка на Speaking Club Online. Уровень: ${formData.level || "Не указан"}. Время: ${formData.timeSlot || "Не выбрано"}. Телефон ${formData.parentType}: ${formData.phone}${formData.name ? `. Имя: ${formData.name}` : ""}`
+      }, { requireAuth: false });
+
+      if (!response.success) {
+        console.error('Speaking club webhook proxy error:', response.error);
+        throw new Error(response.error);
       }
 
-      console.log('Speaking club webhook proxy response:', data);
+      console.log('Speaking club webhook proxy response:', response.data);
 
       
       toast({
