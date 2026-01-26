@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/typedClient";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobilePhoneHelper } from "./MobilePhoneHelper";
 import { getErrorMessage } from "@/lib/errorUtils";
@@ -47,16 +48,16 @@ const OnlinePBXPhone: React.FC<OnlinePBXPhoneProps> = ({ phoneNumber, onCallEnd 
         throw new Error('User not authenticated');
       }
 
-      const { data, error } = await supabase.functions.invoke('onlinepbx-call', {
-        body: { 
-          to_number: phoneInput,
-          from_user: user.id
-        }
+      const response = await selfHostedPost<{ success: boolean; error?: string }>('onlinepbx-call', { 
+        to_number: phoneInput,
+        from_user: user.id
       });
 
-      if (error) {
-        throw error;
+      if (!response.success) {
+        throw new Error(response.error);
       }
+      
+      const data = response.data;
 
       if (data?.success) {
         setCallStatus('connected');

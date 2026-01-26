@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Clock, Users, MapPin, UserCheck } from "lucide-react";
 import { supabaseTyped as supabase } from "@/integrations/supabase/typedClient";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 import { useToast } from "@/hooks/use-toast";
 
 interface ScheduleItem {
@@ -276,16 +277,14 @@ export default function ScheduleTable({ branchName }: ScheduleTableProps) {
         timestamp: new Date().toISOString()
       };
 
-      const { data, error } = await supabase.functions.invoke('webhook-proxy', {
-        body: enrollmentData,
-      });
+      const response = await selfHostedPost('webhook-proxy', enrollmentData, { requireAuth: false });
 
-      if (error) {
-        console.error('Schedule table proxy error:', error);
-        throw new Error(typeof error === 'string' ? error : (error.message || 'Webhook error'));
+      if (!response.success) {
+        console.error('Schedule table proxy error:', response.error);
+        throw new Error(response.error || 'Webhook error');
       }
 
-      console.log('Schedule table proxy success:', data);
+      console.log('Schedule table proxy success:', response.data);
 
       toast({
         title: "Заявка отправлена!",

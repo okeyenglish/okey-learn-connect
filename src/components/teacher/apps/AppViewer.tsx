@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Maximize2, Minimize2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { supabase } from '@/integrations/supabase/typedClient';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 interface AppViewerProps {
   appId: string;
@@ -20,9 +20,8 @@ export const AppViewer = ({ appId, previewUrl, open, onClose, teacherId }: AppVi
 
   useEffect(() => {
     if (open && teacherId && appId) {
-      supabase.functions.invoke('manage-app', {
-        body: { action: 'usage', app_id: appId, teacher_id: teacherId }
-      }).catch(console.error);
+      selfHostedPost('manage-app', { action: 'usage', app_id: appId, teacher_id: teacherId })
+        .catch(console.error);
     }
   }, [open, appId, teacherId]);
 

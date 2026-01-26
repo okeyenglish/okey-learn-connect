@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { selfHostedGet } from '@/lib/selfHostedApi';
 
 const PaymentSuccess = () => {
   const [searchParams] = useSearchParams();
@@ -21,10 +21,7 @@ const PaymentSuccess = () => {
       }
 
       try {
-        const { data, error } = await supabase.functions.invoke('tbank-status', {
-          body: null,
-          method: 'GET',
-        });
+        const response = await selfHostedGet('tbank-status');
 
         // Если не можем проверить статус, считаем что успех (редирект с SuccessURL)
         setStatus('success');

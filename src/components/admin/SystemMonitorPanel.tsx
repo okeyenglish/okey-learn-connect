@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, Database, Zap, CheckCircle, XCircle, Clock, AlertTriangle } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabaseTyped as supabase } from "@/integrations/supabase/typedClient";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
@@ -76,12 +76,10 @@ export function SystemMonitorPanel() {
   // Health check mutation
   const healthCheck = useMutation({
     mutationFn: async (mode: 'critical' | 'all') => {
-      const { data, error } = await supabase.functions.invoke('edge-health-monitor', {
-        body: { mode, alerts: false },
-      });
+      const response = await selfHostedPost<HealthCheckResponse>('edge-health-monitor', { mode, alerts: false });
       
-      if (error) throw error;
-      return data as HealthCheckResponse;
+      if (!response.success) throw new Error(response.error);
+      return response.data as HealthCheckResponse;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['health_logs'] });

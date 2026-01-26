@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { supabase } from "@/integrations/supabase/typedClient";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 import { Loader2, Database, CheckCircle, XCircle } from "lucide-react";
 
 export const ContentIndexer = () => {
@@ -20,16 +20,14 @@ export const ContentIndexer = () => {
     try {
       console.log('Starting content indexing...');
       
-      const { data, error } = await supabase.functions.invoke('index-content', {
-        method: 'POST'
-      });
+      const response = await selfHostedPost<{ success: boolean; message: string; processed?: number }>('index-content', {});
 
-      if (error) {
-        throw error;
+      if (!response.success) {
+        throw new Error(response.error);
       }
 
-      console.log('Indexing result:', data);
-      setResult(data);
+      console.log('Indexing result:', response.data);
+      setResult(response.data || { success: true, message: 'Индексация завершена' });
     } catch (error) {
       console.error('Indexing failed:', error);
       setResult({
