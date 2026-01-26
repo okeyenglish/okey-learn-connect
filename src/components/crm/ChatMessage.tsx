@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { OptimizedAttachedFile } from "./OptimizedAttachedFile";
-import { MessageReadIndicator } from "./MessageReadIndicator";
+// MessageReadIndicator removed - was causing N network requests per message
 import { MessageDeliveryStatus, DeliveryStatus } from "./MessageDeliveryStatus";
 import { MessageReactions } from "./MessageReactions";
 import { MessageContextMenu } from "./MessageContextMenu";
@@ -481,16 +481,8 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                         showRetryButton={!!onResendMessage && !!messageId}
                       />
                     )}
-                    {/* Read indicator for incoming messages */}
-                    {type === 'client' && messageId && (
-                      <MessageReadIndicator 
-                        messageId={messageId} 
-                        isOutgoing={false}
-                        authorName="Клиент"
-                        authorAvatar={clientAvatar}
-                        className="ml-1"
-                      />
-                    )}
+                    {/* Read indicator removed for incoming messages to avoid N network requests */}
+                    {/* For outgoing messages, delivery status is shown via MessageDeliveryStatus above */}
                   </div>
                 </div>
                  
