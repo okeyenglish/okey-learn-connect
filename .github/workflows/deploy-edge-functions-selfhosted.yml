@@ -99,11 +99,11 @@ jobs:
         run: |
           ssh ${{ secrets.SELFHOSTED_SSH_USER }}@${{ secrets.SELFHOSTED_SSH_HOST }} << 'EOF'
             cd /home/automation/supabase-project
-            docker compose restart supabase-edge-functions
+            docker compose restart functions
             sleep 5
-            docker ps | grep edge
+            docker compose ps functions
             echo "=== Last 20 lines of edge-functions logs ==="
-            docker logs --tail 20 supabase-edge-functions
+            docker compose logs --tail 20 functions
           EOF
 
       # ========== HEALTH CHECK ==========
