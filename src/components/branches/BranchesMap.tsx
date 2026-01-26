@@ -3,16 +3,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { MapPin, Navigation, ExternalLink, Loader2, LocateFixed, Train, X, Search } from 'lucide-react';
+import { MapPin, Navigation, ExternalLink, Loader2, LocateFixed, Train, X, Search, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
-// Координаты филиалов с информацией о метро
+// Координаты филиалов с информацией о метро и времени работы
 const BRANCH_COORDINATES: {
   id: string;
   name: string;
   address: string;
   metro: string;
+  workingHours: string;
   lat: number;
   lng: number;
   yandexOrgId?: string;
@@ -22,6 +23,7 @@ const BRANCH_COORDINATES: {
     name: 'Котельники',
     address: '2-й Покровский проезд, 14к2',
     metro: 'Котельники',
+    workingHours: 'Пн-Пт 9:00-21:00, Сб 10:00-18:00',
     lat: 55.6606,
     lng: 37.8593,
     yandexOrgId: '124903478543',
@@ -31,6 +33,7 @@ const BRANCH_COORDINATES: {
     name: 'Новокосино',
     address: 'Реутов, Юбилейный проспект, 60',
     metro: 'Новокосино',
+    workingHours: 'Пн-Пт 9:00-21:00, Сб 10:00-18:00',
     lat: 55.7453,
     lng: 37.8687,
     yandexOrgId: '92516357375',
@@ -40,6 +43,7 @@ const BRANCH_COORDINATES: {
     name: 'Окская',
     address: 'ул. Окская, д. 3, корп. 1',
     metro: 'Окская',
+    workingHours: 'Пн-Пт 9:00-21:00, Сб 10:00-18:00',
     lat: 55.7126,
     lng: 37.7544,
     yandexOrgId: '1276487501',
@@ -49,6 +53,7 @@ const BRANCH_COORDINATES: {
     name: 'Стахановская',
     address: '2-й Грайвороновский пр-д, 42к1',
     metro: 'Стахановская',
+    workingHours: 'Пн-Пт 9:00-21:00, Сб 10:00-18:00',
     lat: 55.7267,
     lng: 37.7474,
     yandexOrgId: '131325658206',
@@ -58,6 +63,7 @@ const BRANCH_COORDINATES: {
     name: 'Солнцево',
     address: 'ул. Богданова, 6к1',
     metro: 'Солнцево',
+    workingHours: 'Пн-Пт 9:00-21:00, Сб 10:00-18:00',
     lat: 55.6559,
     lng: 37.4010,
     yandexOrgId: '178121909150',
@@ -67,6 +73,7 @@ const BRANCH_COORDINATES: {
     name: 'Мытищи',
     address: 'ул. Борисовка, 16А',
     metro: 'Мытищи (МЦД)',
+    workingHours: 'Пн-Пт 9:00-21:00, Сб 10:00-18:00',
     lat: 55.9116,
     lng: 37.7363,
     yandexOrgId: '1124754951',
@@ -76,6 +83,7 @@ const BRANCH_COORDINATES: {
     name: 'Люберцы',
     address: '3 Почтовое отделение, 65к1',
     metro: 'Люберцы (МЦД)',
+    workingHours: 'Пн-Пт 9:00-21:00, Сб 10:00-18:00',
     lat: 55.6873,
     lng: 37.9009,
     yandexOrgId: '1159268195',
@@ -85,6 +93,7 @@ const BRANCH_COORDINATES: {
     name: 'Красная горка',
     address: 'проспект Гагарина, 3/8',
     metro: 'Люберцы (МЦД)',
+    workingHours: 'Пн-Пт 9:00-21:00, Сб 10:00-18:00',
     lat: 55.6777,
     lng: 37.8933,
     yandexOrgId: '97284619155',
@@ -417,6 +426,10 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
                   <div className="flex items-center gap-1 mt-1">
                     <Train className="h-3 w-3 text-muted-foreground" />
                     <span className="text-xs text-muted-foreground">{branch.metro}</span>
+                  </div>
+                  <div className="flex items-center gap-1 mt-1">
+                    <Clock className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">{branch.workingHours}</span>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-2">
                     <Link to={`/branches/${branch.id}`}>
