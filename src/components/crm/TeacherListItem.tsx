@@ -1,7 +1,29 @@
 import React from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Pin } from 'lucide-react';
 import { TeacherChatItem } from '@/hooks/useTeacherChats';
+
+// Get category badge styling
+const getCategoryBadge = (category: string): { label: string; className: string } => {
+  const categoryLower = category.toLowerCase();
+  if (categoryLower.includes('дет') || categoryLower.includes('child') || categoryLower.includes('kid')) {
+    return { label: 'Дети', className: 'bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950/50 dark:text-pink-300' };
+  }
+  if (categoryLower.includes('взросл') || categoryLower.includes('adult')) {
+    return { label: 'Взрослые', className: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300' };
+  }
+  if (categoryLower.includes('подрост') || categoryLower.includes('teen')) {
+    return { label: 'Подростки', className: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300' };
+  }
+  if (categoryLower.includes('индив') || categoryLower.includes('individual')) {
+    return { label: 'Индив', className: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300' };
+  }
+  if (categoryLower.includes('групп') || categoryLower.includes('group')) {
+    return { label: 'Группы', className: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/50 dark:text-green-300' };
+  }
+  return { label: category, className: 'bg-muted text-muted-foreground border-border' };
+};
 
 // Map subject names to country flag emojis
 const getSubjectFlag = (subject: string): string => {
@@ -68,6 +90,11 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
   const flags = getSubjectFlags(teacher.subjects);
   const messageTime = formatMessageTime(teacher.lastMessageTime);
   
+  // Get unique category badges (max 2 for space)
+  const categoryBadges = (teacher.categories || [])
+    .slice(0, 2)
+    .map(cat => getCategoryBadge(cat));
+  
   // Truncate preview text and remove "OKEY ENGLISH [Branch]" prefix
   let previewText = teacher.lastMessageText || '';
   previewText = previewText.replace(/^OKEY ENGLISH\s+[^\s]+\s*/i, '');
@@ -98,6 +125,20 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
               {flags && <span className="text-xs flex-shrink-0">{flags}</span>}
               {pinCount > 0 && <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />}
             </div>
+            
+            {categoryBadges.length > 0 && (
+              <div className="flex items-center gap-1 flex-wrap mb-0.5">
+                {categoryBadges.map((badge, idx) => (
+                  <Badge 
+                    key={idx} 
+                    variant="outline" 
+                    className={`text-[9px] h-3.5 px-1 py-0 ${badge.className}`}
+                  >
+                    {badge.label}
+                  </Badge>
+                ))}
+              </div>
+            )}
             
             <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
               {previewText || 'Нет сообщений'}
