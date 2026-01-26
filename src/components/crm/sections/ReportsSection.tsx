@@ -27,7 +27,7 @@ export default function ReportsSection() {
   const { selectedBranch, setSelectedBranch } = usePersistedBranch('all');
   const [reportType, setReportType] = useState<string>('overview');
   
-  const { allowedBranches } = useUserAllowedBranches();
+  const { branchesForDropdown } = useUserAllowedBranches();
 
   // Моковые данные для демонстрации
   const mockData = {
@@ -103,7 +103,7 @@ export default function ReportsSection() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Все филиалы</SelectItem>
-              {allowedBranches.map((branch) => (
+              {branchesForDropdown.map((branch) => (
                 <SelectItem key={branch} value={branch.toLowerCase().replace(/\s+/g, '-')}>
                   {branch}
                 </SelectItem>
