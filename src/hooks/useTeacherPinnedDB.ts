@@ -40,12 +40,11 @@ const saveCachedPinnedIds = (userId: string, pinnedIds: Set<string>) => {
 export const useTeacherPinnedDB = () => {
   const { user } = useAuth();
   
-  // Initialize from localStorage cache for instant display
-  const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => 
-    getCachedPinnedIds(user?.id)
-  );
+  // Initialize empty - will be populated from cache/DB in useEffect
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const initialLoadDone = useRef(false);
+  const lastUserId = useRef<string | null>(null);
 
   // Load pinned teachers from database
   const loadPinnedTeachers = useCallback(async () => {
@@ -83,13 +82,18 @@ export const useTeacherPinnedDB = () => {
     }
   }, [user]);
 
-  // Update from cache when user changes
+  // Load from cache immediately when user becomes available
   useEffect(() => {
-    if (user?.id) {
+    if (user?.id && user.id !== lastUserId.current) {
+      lastUserId.current = user.id;
+      // Load from cache SYNCHRONOUSLY for instant display
       const cached = getCachedPinnedIds(user.id);
       if (cached.size > 0) {
         setPinnedIds(cached);
       }
+    } else if (!user) {
+      lastUserId.current = null;
+      setPinnedIds(new Set());
     }
   }, [user?.id]);
 
