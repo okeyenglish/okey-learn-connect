@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Database, Zap, CheckCircle, XCircle, Clock, AlertTriangle, LayoutGrid } from "lucide-react";
+import { RefreshCw, Database, Zap, CheckCircle, XCircle, Clock, AlertTriangle, LayoutGrid, Phone } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { selfHostedPost } from "@/lib/selfHostedApi";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { EdgeFunctionsVisualization } from "@/components/admin/EdgeFunctionsVisualization";
+import { CallLogsTab } from "@/components/admin/CallLogsTab";
 
 interface Migration {
   id: number;
@@ -138,6 +139,10 @@ export default function SystemMonitor() {
           <TabsTrigger value="migrations" className="gap-2">
             <Database className="h-4 w-4" />
             Миграции
+          </TabsTrigger>
+          <TabsTrigger value="calls" className="gap-2">
+            <Phone className="h-4 w-4" />
+            Звонки
           </TabsTrigger>
         </TabsList>
 
@@ -441,6 +446,11 @@ export default function SystemMonitor() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Call Logs */}
+        <TabsContent value="calls" className="space-y-4">
+          <CallLogsTab />
         </TabsContent>
       </Tabs>
     </div>
