@@ -2926,7 +2926,8 @@ const CRMContent = () => {
                       <DropdownMenuItem onClick={() => setSelectedBranch("all")}>
                         <div className="flex items-center gap-2">
                           {selectedBranch === "all" && <Check className="h-3 w-3" />}
-                          <span className={selectedBranch !== "all" ? "ml-5" : ""}>Все филиалы</span>
+                          <MapPin className={`h-3 w-3 text-muted-foreground ${selectedBranch !== "all" ? "ml-5" : ""}`} />
+                          <span>Все филиалы</span>
                         </div>
                       </DropdownMenuItem>
                       {filterAllowedBranches(branches).map((branch) => {
@@ -2938,7 +2939,8 @@ const CRMContent = () => {
                           <DropdownMenuItem key={branch.id} onClick={() => setSelectedBranch(branchKey)}>
                             <div className="flex items-center gap-2">
                               {selectedBranch === branchKey && <Check className="h-3 w-3" />}
-                              <span className={selectedBranch !== branchKey ? "ml-5" : ""}>{branch.name}</span>
+                              <MapPin className={`h-3 w-3 text-muted-foreground ${selectedBranch !== branchKey ? "ml-5" : ""}`} />
+                              <span>{branch.name}</span>
                             </div>
                           </DropdownMenuItem>
                         );
@@ -3470,7 +3472,8 @@ const CRMContent = () => {
                       <DropdownMenuItem onClick={() => setSelectedBranch("all")}>
                         <div className="flex items-center gap-2">
                           {selectedBranch === "all" && <Check className="h-3 w-3" />}
-                          <span className={selectedBranch !== "all" ? "ml-5" : ""}>Все филиалы</span>
+                          <MapPin className={`h-3 w-3 text-muted-foreground ${selectedBranch !== "all" ? "ml-5" : ""}`} />
+                          <span>Все филиалы</span>
                         </div>
                       </DropdownMenuItem>
                       {filterAllowedBranches(branches).map((branch) => {
@@ -3482,7 +3485,8 @@ const CRMContent = () => {
                           <DropdownMenuItem key={branch.id} onClick={() => setSelectedBranch(branchKey)}>
                             <div className="flex items-center gap-2">
                               {selectedBranch === branchKey && <Check className="h-3 w-3" />}
-                              <span className={selectedBranch !== branchKey ? "ml-5" : ""}>{branch.name}</span>
+                              <MapPin className={`h-3 w-3 text-muted-foreground ${selectedBranch !== branchKey ? "ml-5" : ""}`} />
+                              <span>{branch.name}</span>
                             </div>
                           </DropdownMenuItem>
                         );
