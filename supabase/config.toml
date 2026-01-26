@@ -371,3 +371,12 @@ verify_jwt = true
 
 [functions.update-call-notes]
 verify_jwt = true
+
+[functions.messenger-settings-list]
+verify_jwt = true
+
+[functions.bulk-fetch-avatars]
+verify_jwt = true
+
+[functions.check-kpi]
+verify_jwt = false
