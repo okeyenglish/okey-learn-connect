@@ -1,10 +1,13 @@
 import { Check, CheckCheck } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-
-import { useMessageReadStatus } from "@/hooks/useMessageReadStatus";
-import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+
+interface MessageReadStatus {
+  user_id: string;
+  user_name: string;
+  read_at: string;
+}
 
 interface MessageReadIndicatorProps {
   messageId: string;
@@ -12,19 +15,26 @@ interface MessageReadIndicatorProps {
   authorName?: string;
   authorAvatar?: string;
   className?: string;
+  // Pre-fetched read statuses from batch query (for performance)
+  readStatuses?: MessageReadStatus[];
+  isLoadingStatus?: boolean;
 }
 
+/**
+ * Optimized MessageReadIndicator - receives read statuses from parent instead of fetching per-message.
+ * This eliminates N network requests by using batch-fetched data from ChatArea.
+ */
 export const MessageReadIndicator = ({ 
   messageId, 
   isOutgoing,
   authorName,
   authorAvatar,
-  className = "" 
+  className = "",
+  readStatuses,
+  isLoadingStatus = false,
 }: MessageReadIndicatorProps) => {
-  const { data: readStatuses, isLoading } = useMessageReadStatus(messageId);
-  
   // Only show read indicators for messages that have an ID
-  if (!messageId || isLoading) {
+  if (!messageId || isLoadingStatus) {
     return null;
   }
 
