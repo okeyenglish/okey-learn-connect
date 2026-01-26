@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, Search, X, CheckCheck } from "lucide-react";
+import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, Search, X, CheckCheck, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -19,6 +19,7 @@ interface CallHistoryProps {
 
 type StatusFilter = 'all' | 'answered' | 'missed';
 type DirectionFilter = 'all' | 'incoming' | 'outgoing';
+type SortOrder = 'newest' | 'oldest';
 
 export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
   const { data: calls = [], isLoading } = useCallHistory(clientId);
@@ -28,6 +29,7 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
   const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isMarkingAll, setIsMarkingAll] = useState(false);
+  const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   
   // Get unviewed missed calls from server
   const { data: unviewedData } = useUnviewedMissedCallsCount(clientId);
@@ -44,17 +46,24 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
   // Normalize phone for search (remove non-digits)
   const normalizePhone = (phone: string) => phone.replace(/\D/g, '');
 
-  // Filter calls by status, direction, and search query
+  // Filter and sort calls
   const filteredCalls = useMemo(() => {
     const normalizedSearch = normalizePhone(searchQuery);
     
-    return calls.filter(call => {
+    const filtered = calls.filter(call => {
       const statusMatch = statusFilter === 'all' || call.status === statusFilter;
       const directionMatch = directionFilter === 'all' || call.direction === directionFilter;
       const searchMatch = !normalizedSearch || normalizePhone(call.phone_number).includes(normalizedSearch);
       return statusMatch && directionMatch && searchMatch;
     });
-  }, [calls, statusFilter, directionFilter, searchQuery]);
+
+    // Sort by date
+    return filtered.sort((a, b) => {
+      const dateA = new Date(a.started_at).getTime();
+      const dateB = new Date(b.started_at).getTime();
+      return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+    });
+  }, [calls, statusFilter, directionFilter, searchQuery, sortOrder]);
 
   // Count calls by status and direction for badges
   const statusCounts = useMemo(() => ({
@@ -288,15 +297,37 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
   return (
     <Card className="w-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Phone className="h-4 w-4" />
-          История звонков ({calls.length})
-          {unviewedCalls.length > 0 && (
-            <Badge variant="destructive" className="ml-auto">
-              {unviewedCalls.length} новых
-            </Badge>
-          )}
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Phone className="h-4 w-4" />
+            История звонков ({calls.length})
+            {unviewedCalls.length > 0 && (
+              <Badge variant="destructive">
+                {unviewedCalls.length} новых
+              </Badge>
+            )}
+          </CardTitle>
+          
+          {/* Sort toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+            className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+          >
+            {sortOrder === 'newest' ? (
+              <>
+                <ArrowDown className="h-3 w-3" />
+                Новые
+              </>
+            ) : (
+              <>
+                <ArrowUp className="h-3 w-3" />
+                Старые
+              </>
+            )}
+          </Button>
+        </div>
 
         {/* Phone search */}
         <div className="relative mt-2">
