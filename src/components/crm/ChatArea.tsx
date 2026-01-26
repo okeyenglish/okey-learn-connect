@@ -45,6 +45,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getErrorMessage } from '@/lib/errorUtils';
 import { useClientAvatars } from '@/hooks/useClientAvatars';
 import { useMessengerIntegrationStatus, useAllIntegrationsStatus, MessengerType } from '@/hooks/useMessengerIntegrationStatus';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 interface ChatAreaProps {
   clientId: string;
@@ -692,12 +693,10 @@ export const ChatArea = ({
   useEffect(() => {
     if (activeMessengerTab === 'telegram' && clientId && !cachedAvatars.telegram) {
       fetchExternalAvatar('telegram', async () => {
-        const { data: avatarData, error } = await supabase.functions.invoke('telegram-get-avatar', {
-          body: { clientId }
-        });
+        const response = await selfHostedPost<{ success: boolean; avatarUrl?: string }>('telegram-get-avatar', { clientId });
         return {
-          success: !error && avatarData?.success,
-          avatarUrl: avatarData?.avatarUrl
+          success: response.success && response.data?.success,
+          avatarUrl: response.data?.avatarUrl
         };
       });
     }
@@ -1139,17 +1138,15 @@ export const ChatArea = ({
 
     setGptGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-gpt-response', {
-        body: { 
-          clientId: clientId,
-          currentMessage: message.trim()
-        }
+      const response = await selfHostedPost<{ generatedText?: string }>('generate-gpt-response', { 
+        clientId: clientId,
+        currentMessage: message.trim()
       });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error || 'Generation failed');
 
-      if (data?.generatedText) {
-        setMessage(data.generatedText);
+      if (response.data?.generatedText) {
+        setMessage(response.data.generatedText);
         onMessageChange?.(true);
         
         // Auto-resize textarea
@@ -1436,18 +1433,16 @@ export const ChatArea = ({
         throw new Error('Пользователь не авторизован');
       }
 
-      const { data, error } = await supabase.functions.invoke('onlinepbx-call', {
-        body: { 
-          to_number: clientPhone,
-          from_user: user.id
-        }
+      const response = await selfHostedPost<{ success?: boolean; error?: string }>('onlinepbx-call', { 
+        to_number: clientPhone,
+        from_user: user.id
       });
 
-      if (error) {
-        throw error;
+      if (!response.success) {
+        throw new Error(response.error || 'Не удалось совершить звонок');
       }
 
-      if (data?.success) {
+      if (response.data?.success) {
         toast({
           title: "Звонок совершён",
           description: "Звонок инициирован через OnlinePBX. Поднимите трубку.",
@@ -1456,7 +1451,7 @@ export const ChatArea = ({
         // Refresh call history to show the new call
         queryClient.invalidateQueries({ queryKey: ['call-logs', clientId] });
       } else {
-        throw new Error(data?.error || 'Не удалось совершить звонок');
+        throw new Error(response.data?.error || 'Не удалось совершить звонок');
       }
     } catch (error: unknown) {
       console.error('OnlinePBX call failed:', error);

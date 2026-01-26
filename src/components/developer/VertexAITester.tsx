@@ -4,19 +4,27 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Check, X } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { getErrorMessage } from '@/lib/errorUtils';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 type TestType = 'text' | 'image' | 'embedding';
 type Provider = 'gateway' | 'vertex';
+
+interface TestResult {
+  success: boolean;
+  provider?: string;
+  test_type?: string;
+  result?: string | number[] | unknown;
+  error?: string;
+}
 
 export const VertexAITester = () => {
   const [prompt, setPrompt] = useState('');
   const [testType, setTestType] = useState<TestType>('text');
   const [provider, setProvider] = useState<Provider>('gateway');
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<TestResult | null>(null);
 
   const handleTest = async () => {
     if (!prompt.trim()) {
@@ -32,21 +40,20 @@ export const VertexAITester = () => {
     setResult(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('test-vertex-ai', {
-        body: { 
-          prompt, 
-          test_type: testType,
-          provider 
-        }
+      const response = await selfHostedPost<TestResult>('test-vertex-ai', { 
+        prompt, 
+        test_type: testType,
+        provider 
       });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error || 'Test failed');
 
+      const data = response.data as TestResult;
       setResult(data);
       
       toast({
         title: 'Тест выполнен',
-        description: `Провайдер: ${data.provider}, Тип: ${data.test_type}`,
+        description: `Провайдер: ${data?.provider}, Тип: ${data?.test_type}`,
       });
     } catch (error: unknown) {
       console.error('Test error:', error);
@@ -178,7 +185,7 @@ export const VertexAITester = () => {
                   <div>
                     <h4 className="font-medium mb-2">Результат:</h4>
                     <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">
-                      {result.result}
+                      {typeof result.result === 'string' ? result.result : JSON.stringify(result.result)}
                     </p>
                   </div>
                 )}
@@ -187,7 +194,7 @@ export const VertexAITester = () => {
                   <div>
                     <h4 className="font-medium mb-2">Сгенерированное изображение:</h4>
                     <img 
-                      src={result.result} 
+                      src={typeof result.result === 'string' ? result.result : ''} 
                       alt="Generated" 
                       className="w-full rounded border"
                     />
@@ -201,7 +208,7 @@ export const VertexAITester = () => {
                       Размерность: {Array.isArray(result.result) ? result.result.length : 0}
                     </p>
                     <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-40">
-                      {JSON.stringify(result.result?.slice(0, 20), null, 2)}
+                      {JSON.stringify(Array.isArray(result.result) ? result.result.slice(0, 20) : result.result, null, 2)}
                       {Array.isArray(result.result) && result.result.length > 20 && '\n...'}
                     </pre>
                   </div>

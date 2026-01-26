@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabaseTyped as supabase } from "@/integrations/supabase/typedClient";
 import { Loader2, Video, RefreshCw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 
 export const BBBRoomsManager = () => {
   const [isCreating, setIsCreating] = useState(false);
@@ -27,15 +28,13 @@ export const BBBRoomsManager = () => {
   const handleCreateRooms = async () => {
     setIsCreating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-teacher-rooms', {
-        body: {},
-      });
+      const response = await selfHostedPost<{ message?: string; created_rooms?: number }>('create-teacher-rooms', {});
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error || 'Failed to create rooms');
 
       toast({
         title: "Успешно",
-        description: data.message || `Создано комнат: ${data.created_rooms}`,
+        description: response.data?.message || `Создано комнат: ${response.data?.created_rooms}`,
       });
 
       refetch();

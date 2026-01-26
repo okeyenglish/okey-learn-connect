@@ -6,12 +6,21 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, RefreshCw, Smartphone, QrCode, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 interface TokenData {
   token: string;
   qr_url: string;
   expires_at: string;
   ttl_seconds: number;
+}
+
+interface TokenCheckResponse {
+  status: 'pending' | 'confirmed' | 'expired' | 'used';
+  session?: {
+    access_token: string;
+    refresh_token: string;
+  };
 }
 
 type Status = 'loading' | 'ready' | 'polling' | 'confirmed' | 'expired' | 'error';
@@ -29,21 +38,23 @@ export default function QRLogin() {
     setError(null);
     
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('qr-login-generate', {
-        body: { browser_info: navigator.userAgent }
+      const response = await selfHostedPost<TokenData & { success?: boolean; error?: string }>('qr-login-generate', {
+        browser_info: navigator.userAgent
       });
 
-      if (fnError) throw fnError;
-      if (!data.success) throw new Error(data.error || 'Failed to generate token');
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'Failed to generate token');
+      }
 
-      setTokenData(data);
-      setRemainingTime(data.ttl_seconds || 120);
+      setTokenData(response.data);
+      setRemainingTime(response.data.ttl_seconds || 120);
       setStatus('ready');
       
-      console.log('QR token generated:', data.token.substring(0, 8) + '...');
-    } catch (err: any) {
+      console.log('QR token generated:', response.data.token.substring(0, 8) + '...');
+    } catch (err: unknown) {
       console.error('Error generating QR token:', err);
-      setError(err.message || 'Не удалось сгенерировать QR-код');
+      const errorMessage = err instanceof Error ? err.message : 'Не удалось сгенерировать QR-код';
+      setError(errorMessage);
       setStatus('error');
     }
   }, []);
@@ -53,12 +64,13 @@ export default function QRLogin() {
     if (!tokenData?.token) return;
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('qr-login-check', {
-        body: { token: tokenData.token }
+      const response = await selfHostedPost<TokenCheckResponse>('qr-login-check', {
+        token: tokenData.token
       });
 
-      if (fnError) throw fnError;
+      if (!response.success || !response.data) return;
 
+      const data = response.data;
       console.log('Token status:', data.status);
 
       if (data.status === 'confirmed' && data.session) {
@@ -91,7 +103,7 @@ export default function QRLogin() {
         setStatus('error');
       }
       // If still pending, continue polling
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error checking token:', err);
       // Don't set error state for network issues during polling
     }
