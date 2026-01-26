@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronUp, Search, Filter, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Search, Filter, X, MapPin } from "lucide-react";
 import { IndividualLessonFilters } from "@/hooks/useIndividualLessons";
 import { getBranchesForSelect } from "@/lib/branches";
 import {
@@ -122,10 +122,18 @@ export const IndividualLessonsFilters = ({ filters, onFiltersChange, onReset }: 
                 <SelectValue placeholder="Все филиалы" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Все филиалы</SelectItem>
+                <SelectItem value="all">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-3 w-3 text-muted-foreground" />
+                    <span>Все филиалы</span>
+                  </div>
+                </SelectItem>
                 {branches.map(branch => (
                   <SelectItem key={branch.value} value={branch.label}>
-                    {branch.label}
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-3 w-3 text-muted-foreground" />
+                      <span>{branch.label}</span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>

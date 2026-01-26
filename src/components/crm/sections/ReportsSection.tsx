@@ -15,7 +15,8 @@ import {
   Filter,
   FileText,
   PieChart,
-  Activity
+  Activity,
+  MapPin
 } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -102,10 +103,18 @@ export default function ReportsSection() {
               <SelectValue placeholder="Филиал" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Все филиалы</SelectItem>
+              <SelectItem value="all">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-3 w-3 text-muted-foreground" />
+                  <span>Все филиалы</span>
+                </div>
+              </SelectItem>
               {branchesForDropdown.map((branch) => (
                 <SelectItem key={branch} value={branch.toLowerCase().replace(/\s+/g, '-')}>
-                  {branch}
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-3 w-3 text-muted-foreground" />
+                    <span>{branch}</span>
+                  </div>
                 </SelectItem>
               ))}
             </SelectContent>

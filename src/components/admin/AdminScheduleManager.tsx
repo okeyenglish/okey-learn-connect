@@ -153,10 +153,18 @@ export function AdminScheduleManager() {
                 <SelectValue placeholder="Все филиалы" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Все филиалы</SelectItem>
+                <SelectItem value="">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-3 w-3 text-muted-foreground" />
+                    <span>Все филиалы</span>
+                  </div>
+                </SelectItem>
                 {branches.map(branch => (
                   <SelectItem key={branch.value} value={branch.label}>
-                    {branch.label}
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-3 w-3 text-muted-foreground" />
+                      <span>{branch.label}</span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
