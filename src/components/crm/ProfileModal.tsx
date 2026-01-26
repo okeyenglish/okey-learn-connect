@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Edit2, Mail, Phone, Building2, Settings, User } from "lucide-react";
+import { Edit2, Mail, Phone, Settings, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { SipSettings } from "../SipSettings";
 import { useUserAllowedBranches } from "@/hooks/useUserAllowedBranches";
 import { ProfileBranchesEditor } from "./ProfileBranchesEditor";
+import { NotificationSettingsCard } from "@/components/settings/NotificationSettingsCard";
 
 interface ProfileModalProps {
   open: boolean;
@@ -167,6 +168,9 @@ export const ProfileModal = ({ open, onOpenChange }: ProfileModalProps) => {
               )}
             </CardContent>
           </Card>
+
+          {/* Notification Settings */}
+          <NotificationSettingsCard />
 
           {/* SIP Settings */}
           <Card>

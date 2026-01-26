@@ -6,12 +6,14 @@ export interface NotificationSettings {
   soundEnabled: boolean;
   soundVolume: number; // 0-1
   vibrationEnabled: boolean;
+  missedCallNotificationsEnabled: boolean;
 }
 
 const DEFAULT_SETTINGS: NotificationSettings = {
   soundEnabled: true,
   soundVolume: 0.5,
   vibrationEnabled: true,
+  missedCallNotificationsEnabled: true,
 };
 
 /**
@@ -61,6 +63,10 @@ export const useNotificationSettings = () => {
     saveSettings({ vibrationEnabled: !settings.vibrationEnabled });
   }, [settings.vibrationEnabled, saveSettings]);
 
+  const toggleMissedCallNotifications = useCallback(() => {
+    saveSettings({ missedCallNotificationsEnabled: !settings.missedCallNotificationsEnabled });
+  }, [settings.missedCallNotificationsEnabled, saveSettings]);
+
   return {
     settings,
     isLoaded,
@@ -68,6 +74,7 @@ export const useNotificationSettings = () => {
     toggleSound,
     setVolume,
     toggleVibration,
+    toggleMissedCallNotifications,
   };
 };
 
