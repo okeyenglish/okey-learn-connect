@@ -587,6 +587,48 @@ export type Database = {
           },
         ]
       }
+      trial_lesson_requests: {
+        Row: {
+          branch_address: string | null
+          branch_name: string
+          comment: string | null
+          created_at: string
+          id: string
+          name: string
+          organization_id: string | null
+          phone: string
+          source: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          branch_address?: string | null
+          branch_name: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          organization_id?: string | null
+          phone: string
+          source?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          branch_address?: string | null
+          branch_name?: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string | null
+          phone?: string
+          source?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

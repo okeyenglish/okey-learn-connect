@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Phone, MessageCircle, Send, CheckCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TrialLessonModalProps {
   branchName: string;
@@ -59,18 +60,44 @@ export const TrialLessonModal = ({ branchName, branchAddress, children }: TrialL
 
     setIsSubmitting(true);
     
-    // Имитация отправки (в реальности здесь будет API call)
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setIsSubmitting(false);
-    setIsSuccess(true);
-    toast.success('Заявка отправлена! Мы свяжемся с вами в ближайшее время.');
-    
-    setTimeout(() => {
-      setOpen(false);
-      setIsSuccess(false);
-      setFormData({ name: '', phone: '', comment: '' });
-    }, 2000);
+    try {
+      const { data, error } = await supabase.functions.invoke('submit-trial-request', {
+        body: {
+          name: formData.name.trim(),
+          phone: formData.phone.trim(),
+          comment: formData.comment.trim() || undefined,
+          branch_name: branchName,
+          branch_address: branchAddress,
+        },
+      });
+
+      if (error) {
+        console.error('Error submitting trial request:', error);
+        toast.error('Ошибка отправки заявки. Попробуйте ещё раз.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (data?.error) {
+        toast.error(data.error);
+        setIsSubmitting(false);
+        return;
+      }
+
+      setIsSubmitting(false);
+      setIsSuccess(true);
+      toast.success('Заявка отправлена! Мы свяжемся с вами в ближайшее время.');
+      
+      setTimeout(() => {
+        setOpen(false);
+        setIsSuccess(false);
+        setFormData({ name: '', phone: '', comment: '' });
+      }, 2000);
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      toast.error('Ошибка отправки заявки. Попробуйте ещё раз.');
+      setIsSubmitting(false);
+    }
   };
 
   return (
