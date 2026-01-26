@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from '@/hooks/use-toast';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 interface GeneratorStage {
   stage: 'idle' | 'ask' | 'offer' | 'generate' | 'done';
@@ -49,11 +50,13 @@ export const useAppGenerator = (teacherId: string) => {
   const suggestOrGenerate = useMutation({
     mutationFn: async ({ brief, answers }: { brief: string; answers?: Record<string, unknown> }) => {
       const tid = await ensureTeacherId();
-      const { data, error } = await supabase.functions.invoke('suggest-or-generate', {
-        body: { teacher_id: tid, brief, answers }
+      const response = await selfHostedPost<GeneratorStage>('suggest-or-generate', { 
+        teacher_id: tid, 
+        brief, 
+        answers 
       });
-      if (error) throw error;
-      return data as GeneratorStage;
+      if (!response.success) throw new Error(response.error || 'Failed to suggest or generate');
+      return response.data as GeneratorStage;
     },
     onSuccess: (data) => {
       setStage(data);
@@ -68,11 +71,13 @@ export const useAppGenerator = (teacherId: string) => {
   const generateApp = useMutation({
     mutationFn: async ({ prompt, appId }: { prompt: Record<string, unknown>; appId?: string }) => {
       const tid = await ensureTeacherId();
-      const { data, error } = await supabase.functions.invoke('generate-app', {
-        body: { teacher_id: tid, prompt, app_id: appId }
+      const response = await selfHostedPost<GeneratorStage['result']>('generate-app', { 
+        teacher_id: tid, 
+        prompt, 
+        app_id: appId 
       });
-      if (error) throw error;
-      return data as GeneratorStage['result'];
+      if (!response.success) throw new Error(response.error || 'Failed to generate app');
+      return response.data as GeneratorStage['result'];
     },
     onSuccess: (data) => {
       setStage({ stage: 'done', result: data });
@@ -99,11 +104,13 @@ export const useAppGenerator = (teacherId: string) => {
   const improveApp = useMutation({
     mutationFn: async ({ appId, request }: { appId: string; request: string }) => {
       const tid = await ensureTeacherId();
-      const { data, error } = await supabase.functions.invoke('improve-app', {
-        body: { app_id: appId, improvement_request: request, teacher_id: tid }
+      const response = await selfHostedPost<GeneratorStage['result']>('improve-app', { 
+        app_id: appId, 
+        improvement_request: request, 
+        teacher_id: tid 
       });
-      if (error) throw error;
-      return data as GeneratorStage['result'];
+      if (!response.success) throw new Error(response.error || 'Failed to improve app');
+      return response.data as GeneratorStage['result'];
     },
     onSuccess: (data) => {
       setStage({ stage: 'done', result: data });
