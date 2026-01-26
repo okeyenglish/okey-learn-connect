@@ -73,17 +73,28 @@ export const validateWorkingHours = (hours: WorkingHours): { isValid: boolean; e
 };
 
 export const WorkingHoursEditor = ({ value, onChange }: WorkingHoursEditorProps) => {
+  // Защита от пустых или неполных данных
+  const safeValue: WorkingHours = {
+    monday: value?.monday || { ...DEFAULT_SCHEDULE },
+    tuesday: value?.tuesday || { ...DEFAULT_SCHEDULE },
+    wednesday: value?.wednesday || { ...DEFAULT_SCHEDULE },
+    thursday: value?.thursday || { ...DEFAULT_SCHEDULE },
+    friday: value?.friday || { ...DEFAULT_SCHEDULE },
+    saturday: value?.saturday || { isOpen: true, open: '10:00', close: '18:00' },
+    sunday: value?.sunday || { ...WEEKEND_SCHEDULE },
+  };
+
   const updateDay = (day: keyof WorkingHours, updates: Partial<DaySchedule>) => {
     onChange({
-      ...value,
-      [day]: { ...value[day], ...updates },
+      ...safeValue,
+      [day]: { ...safeValue[day], ...updates },
     });
   };
 
   const copyToAllWeekdays = () => {
-    const mondaySchedule = value.monday;
+    const mondaySchedule = safeValue.monday;
     onChange({
-      ...value,
+      ...safeValue,
       monday: { ...mondaySchedule },
       tuesday: { ...mondaySchedule },
       wednesday: { ...mondaySchedule },
@@ -129,7 +140,7 @@ export const WorkingHoursEditor = ({ value, onChange }: WorkingHoursEditorProps)
 
       <div className="space-y-2">
         {DAYS_OF_WEEK.map(({ key, label, shortLabel }) => {
-          const daySchedule = value[key];
+          const daySchedule = safeValue[key];
           
           return (
             <div
