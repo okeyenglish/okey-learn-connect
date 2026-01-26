@@ -107,6 +107,13 @@ const Install = lazy(() => import('./pages/Install'));
 const SystemMonitor = lazy(() => import('./pages/SystemMonitor'));
 const EmployeeOnboarding = lazy(() => import('./pages/employee/EmployeeOnboarding'));
 const DebugAccess = lazy(() => import('./pages/DebugAccess'));
+const OrgLayout = lazy(() => import('./pages/org/OrgLayout'));
+const OrgHome = lazy(() => import('./pages/org/OrgHome'));
+const OrgAbout = lazy(() => import('./pages/org/OrgAbout'));
+const OrgCourses = lazy(() => import('./pages/org/OrgCourses'));
+const OrgBranches = lazy(() => import('./pages/org/OrgBranches'));
+const OrgPricing = lazy(() => import('./pages/org/OrgPricing'));
+const OrgContacts = lazy(() => import('./pages/org/OrgContacts'));
 
 // Loading component for better UX
 const LoadingComponent = () => (
@@ -501,6 +508,19 @@ const AppContent = () => {
               <NotFound />
             </Suspense>
           } />
+          {/* Organization Public Pages - /:orgSlug/* */}
+          <Route path="/:orgSlug" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <OrgLayout />
+            </Suspense>
+          }>
+            <Route index element={<Suspense fallback={<LoadingComponent />}><OrgHome /></Suspense>} />
+            <Route path="about" element={<Suspense fallback={<LoadingComponent />}><OrgAbout /></Suspense>} />
+            <Route path="courses" element={<Suspense fallback={<LoadingComponent />}><OrgCourses /></Suspense>} />
+            <Route path="branches" element={<Suspense fallback={<LoadingComponent />}><OrgBranches /></Suspense>} />
+            <Route path="pricing" element={<Suspense fallback={<LoadingComponent />}><OrgPricing /></Suspense>} />
+            <Route path="contacts" element={<Suspense fallback={<LoadingComponent />}><OrgContacts /></Suspense>} />
+          </Route>
           <Route path="*" element={
             <Suspense fallback={<LoadingComponent />}>
               <NotFound />

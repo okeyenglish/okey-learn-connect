@@ -5,6 +5,7 @@ import okskayaImage from "@/assets/okskaya-branch.jpg";
 import lyubertsyImage from "@/assets/lyubertsy-branch.jpg";
 import stakhanovskayaImage from "@/assets/stakhanovskaya-branch.jpg";
 import krasnayaGorkaImage from "@/assets/krasnaya-gorka-branch.jpg";
+import { WorkingHours } from "@/components/settings/WorkingHoursEditor";
 
 // Placeholder URLs for deleted heavy images
 const SOLNTSEVO_PLACEHOLDER = "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&h=600&fit=crop";
@@ -14,12 +15,24 @@ const ONLINE_PLACEHOLDER = "https://images.unsplash.com/photo-1588196749597-9ff0
 // Центр Москвы для карты
 export const MOSCOW_CENTER = { lat: 55.7558, lng: 37.6173 };
 
+// Стандартный график работы
+const DEFAULT_WORKING_HOURS: WorkingHours = {
+  monday: { isOpen: true, open: '09:00', close: '21:00' },
+  tuesday: { isOpen: true, open: '09:00', close: '21:00' },
+  wednesday: { isOpen: true, open: '09:00', close: '21:00' },
+  thursday: { isOpen: true, open: '09:00', close: '21:00' },
+  friday: { isOpen: true, open: '09:00', close: '21:00' },
+  saturday: { isOpen: true, open: '10:00', close: '18:00' },
+  sunday: { isOpen: false, open: '10:00', close: '18:00' },
+};
+
 export interface Branch {
   id: string;
   name: string;
   address: string;
   metro: string;
   workingHours: string;
+  workingHoursData: WorkingHours;
   image: string;
   features: string[];
 }
@@ -50,6 +63,7 @@ export const branches: BranchWithCoordinates[] = [
     address: "2-й Покровский проезд, 14к2",
     metro: "Котельники",
     workingHours: "Пн-Пт 9:00-21:00, Сб 10:00-18:00",
+    workingHoursData: DEFAULT_WORKING_HOURS,
     image: kotelnikiImage,
     features: ["Современные классы", "Интерактивные доски", "Детская зона"],
     lat: 55.6606,
@@ -62,6 +76,7 @@ export const branches: BranchWithCoordinates[] = [
     address: "Реутов, Юбилейный проспект, 60",
     metro: "Новокосино",
     workingHours: "Пн-Пт 9:00-21:00, Сб 10:00-18:00",
+    workingHoursData: DEFAULT_WORKING_HOURS,
     image: novokosinoImage,
     features: ["Просторные классы", "Парковка", "Кафе рядом"],
     lat: 55.7453,
@@ -74,6 +89,7 @@ export const branches: BranchWithCoordinates[] = [
     address: "ул. Окская, д. 3, корп. 1",
     metro: "Окская",
     workingHours: "Пн-Пт 9:00-21:00, Сб 10:00-18:00",
+    workingHoursData: DEFAULT_WORKING_HOURS,
     image: okskayaImage,
     features: ["Уютная атмосфера", "Библиотека", "Игровая комната"],
     lat: 55.7126,
@@ -86,6 +102,7 @@ export const branches: BranchWithCoordinates[] = [
     address: "2-й Грайвороновский пр-д, 42к1",
     metro: "Стахановская",
     workingHours: "Пн-Пт 9:00-21:00, Сб 10:00-18:00",
+    workingHoursData: DEFAULT_WORKING_HOURS,
     image: stakhanovskayaImage,
     features: ["Новый ремонт", "Мультимедиа", "Удобный подъезд"],
     lat: 55.7267,
@@ -98,6 +115,7 @@ export const branches: BranchWithCoordinates[] = [
     address: "ул. Богданова, 6к1",
     metro: "Солнцево",
     workingHours: "Пн-Пт 9:00-21:00, Сб 10:00-18:00",
+    workingHoursData: DEFAULT_WORKING_HOURS,
     image: SOLNTSEVO_PLACEHOLDER,
     features: ["Новые классы", "Удобная парковка", "Детская площадка"],
     lat: 55.6559,
@@ -110,6 +128,7 @@ export const branches: BranchWithCoordinates[] = [
     address: "ул. Борисовка, 16А",
     metro: "Мытищи (МЦД)",
     workingHours: "Пн-Пт 9:00-21:00, Сб 10:00-18:00",
+    workingHoursData: DEFAULT_WORKING_HOURS,
     image: MYTISHCHI_PLACEHOLDER,
     features: ["Просторные аудитории", "Техническое оснащение", "Буфет"],
     lat: 55.9116,
@@ -122,6 +141,7 @@ export const branches: BranchWithCoordinates[] = [
     address: "3 Почтовое отделение, 65к1",
     metro: "Люберцы (МЦД)",
     workingHours: "Пн-Пт 9:00-21:00, Сб 10:00-18:00",
+    workingHoursData: DEFAULT_WORKING_HOURS,
     image: lyubertsyImage,
     features: ["Комфортная обстановка", "Методические материалы", "Зона отдыха"],
     lat: 55.6873,
@@ -134,6 +154,7 @@ export const branches: BranchWithCoordinates[] = [
     address: "проспект Гагарина, 3/8",
     metro: "Люберцы (МЦД)",
     workingHours: "Пн-Пт 9:00-21:00, Сб 10:00-18:00",
+    workingHoursData: DEFAULT_WORKING_HOURS,
     image: krasnayaGorkaImage,
     features: ["Центральное расположение", "Современное оборудование", "Библиотека"],
     lat: 55.6777,
@@ -146,6 +167,15 @@ export const branches: BranchWithCoordinates[] = [
     address: "Cambridge One платформа",
     metro: "По всей планете",
     workingHours: "24/7 доступ к материалам",
+    workingHoursData: {
+      monday: { isOpen: true, open: '00:00', close: '23:59' },
+      tuesday: { isOpen: true, open: '00:00', close: '23:59' },
+      wednesday: { isOpen: true, open: '00:00', close: '23:59' },
+      thursday: { isOpen: true, open: '00:00', close: '23:59' },
+      friday: { isOpen: true, open: '00:00', close: '23:59' },
+      saturday: { isOpen: true, open: '00:00', close: '23:59' },
+      sunday: { isOpen: true, open: '00:00', close: '23:59' },
+    },
     image: ONLINE_PLACEHOLDER,
     features: ["Cambridge One", "Интерактивные уроки", "Гибкое расписание"],
     lat: 0,

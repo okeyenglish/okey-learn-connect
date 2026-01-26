@@ -8,6 +8,8 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { physicalBranches, METRO_STATIONS, MOSCOW_CENTER } from '@/lib/branches';
 import { TrialLessonModal } from './TrialLessonModal';
+import { OpenClosedBadge } from './OpenClosedBadge';
+import { WorkingHours } from '@/components/settings/WorkingHoursEditor';
 
 // Формула Haversine для расчёта расстояния между двумя точками
 const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -315,8 +317,13 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
                   {index + 1}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="font-semibold text-sm truncate">{branch.name}</h4>
+                    <OpenClosedBadge 
+                      workingHours={branch.workingHoursData} 
+                      className="text-[10px] h-5"
+                      showTime={false}
+                    />
                     {branch.distance !== null && (
                       <Badge variant="secondary" className="text-xs shrink-0">
                         {formatDistance(branch.distance)}
