@@ -25,6 +25,7 @@ import { useWhatsApp } from '@/hooks/useWhatsApp';
 import { useMaxGreenApi } from '@/hooks/useMaxGreenApi';
 import { useMax } from '@/hooks/useMax';
 import { useTelegramWappi } from '@/hooks/useTelegramWappi';
+import { SendRetryIndicator } from '@/components/crm/SendRetryIndicator';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { AddTeacherModal } from '@/components/admin/AddTeacherModal';
 import { useTeacherChats, useEnsureTeacherClient, TeacherChatItem, useTeacherChatMessages } from '@/hooks/useTeacherChats';
@@ -202,10 +203,10 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const { updateTypingStatus, getTypingMessage, isOtherUserTyping } = useTypingStatus(clientId);
   
   // Messenger hooks
-  const { sendTextMessage: sendWhatsAppMessage, sendFileMessage: sendWhatsAppFile, loading: whatsappLoading, getAvatar: getWhatsAppAvatar } = useWhatsApp();
-  const { sendMessage: sendMaxMessage, loading: maxLoading } = useMaxGreenApi();
+  const { sendTextMessage: sendWhatsAppMessage, sendFileMessage: sendWhatsAppFile, loading: whatsappLoading, getAvatar: getWhatsAppAvatar, retryStatus: whatsappRetryStatus } = useWhatsApp();
+  const { sendMessage: sendMaxMessage, loading: maxLoading, retryStatus: maxRetryStatus } = useMaxGreenApi();
   const { getAvatar: getMaxAvatar } = useMax();
-  const { sendMessage: sendTelegramMessage } = useTelegramWappi();
+  const { sendMessage: sendTelegramMessage, retryStatus: telegramRetryStatus } = useTelegramWappi();
   
   // Get unread counts by messenger
   const { unreadCounts: unreadByMessenger } = useClientUnreadByMessenger(clientId);
@@ -673,8 +674,28 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const MessageInput = () => {
     if (activeMessengerTab === 'email' || activeMessengerTab === 'calls') return null;
     
+    // Get current retry status based on active messenger
+    const getCurrentRetryStatus = () => {
+      switch (activeMessengerTab) {
+        case 'whatsapp': return whatsappRetryStatus;
+        case 'telegram': return telegramRetryStatus;
+        case 'max': return maxRetryStatus;
+        default: return { status: 'idle' as const, currentAttempt: 0, maxAttempts: 3 };
+      }
+    };
+    const currentRetryStatus = getCurrentRetryStatus();
+    
     return (
       <div className="border-t p-3 pb-6 shrink-0">
+        {/* Retry indicator */}
+        {currentRetryStatus.status !== 'idle' && (
+          <SendRetryIndicator
+            status={currentRetryStatus.status}
+            currentAttempt={currentRetryStatus.currentAttempt}
+            maxAttempts={currentRetryStatus.maxAttempts}
+            className="mb-2"
+          />
+        )}
         {/* Attached files preview */}
         {attachedFiles.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-2">
