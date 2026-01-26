@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useCallHistory, CallLog } from "@/hooks/useCallHistory";
@@ -15,10 +16,13 @@ interface CallHistoryProps {
   clientId: string;
 }
 
+type StatusFilter = 'all' | 'answered' | 'missed';
+
 export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
   const { data: calls = [], isLoading } = useCallHistory(clientId);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   
   // Get unviewed missed calls from server
   const { data: unviewedData } = useUnviewedMissedCallsCount(clientId);
@@ -31,12 +35,25 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
     return unviewedCallIds.has(call.id);
   };
 
+  // Filter calls by status
+  const filteredCalls = useMemo(() => {
+    if (statusFilter === 'all') return calls;
+    return calls.filter(call => call.status === statusFilter);
+  }, [calls, statusFilter]);
+
+  // Count calls by status for badges
+  const statusCounts = useMemo(() => ({
+    all: calls.length,
+    answered: calls.filter(c => c.status === 'answered').length,
+    missed: calls.filter(c => c.status === 'missed').length,
+  }), [calls]);
+
   // Group calls: unviewed missed calls first, then the rest
   const { unviewedCalls, viewedCalls } = useMemo(() => {
     const unviewed: CallLog[] = [];
     const viewed: CallLog[] = [];
     
-    for (const call of calls) {
+    for (const call of filteredCalls) {
       if (isCallUnviewed(call)) {
         unviewed.push(call);
       } else {
@@ -45,7 +62,7 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
     }
     
     return { unviewedCalls: unviewed, viewedCalls: viewed };
-  }, [calls, unviewedCallIds]);
+  }, [filteredCalls, unviewedCallIds]);
 
   const getCallIcon = (call: CallLog) => {
     if (call.direction === 'incoming') {
@@ -249,7 +266,7 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
 
   return (
     <Card className="w-full">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-2">
         <CardTitle className="text-sm flex items-center gap-2">
           <Phone className="h-4 w-4" />
           История звонков ({calls.length})
@@ -259,8 +276,35 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
             </Badge>
           )}
         </CardTitle>
+        
+        {/* Status filter */}
+        <ToggleGroup 
+          type="single" 
+          value={statusFilter} 
+          onValueChange={(value) => value && setStatusFilter(value as StatusFilter)}
+          className="justify-start mt-2"
+        >
+          <ToggleGroupItem value="all" size="sm" className="text-xs h-7 px-2.5">
+            Все
+            <Badge variant="outline" className="ml-1.5 h-4 px-1 text-[10px]">
+              {statusCounts.all}
+            </Badge>
+          </ToggleGroupItem>
+          <ToggleGroupItem value="answered" size="sm" className="text-xs h-7 px-2.5">
+            Состоялись
+            <Badge variant="outline" className="ml-1.5 h-4 px-1 text-[10px] bg-green-50 text-green-700 border-green-200">
+              {statusCounts.answered}
+            </Badge>
+          </ToggleGroupItem>
+          <ToggleGroupItem value="missed" size="sm" className="text-xs h-7 px-2.5">
+            Пропущенные
+            <Badge variant="outline" className="ml-1.5 h-4 px-1 text-[10px] bg-red-50 text-red-700 border-red-200">
+              {statusCounts.missed}
+            </Badge>
+          </ToggleGroupItem>
+        </ToggleGroup>
       </CardHeader>
-      <CardContent className="px-0">
+      <CardContent className="px-0 pt-2">
         <ScrollArea className="h-64 px-4">
           <div className="space-y-3">
             {/* Unviewed missed calls section */}
