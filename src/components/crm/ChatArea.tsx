@@ -14,6 +14,7 @@ import { ru } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useTypingStatus } from "@/hooks/useTypingStatus";
 import { useClientUnreadByMessenger, type ChatMessage as ChatMessageRow } from "@/hooks/useChatMessages";
+import { useViewedMissedCalls } from "@/hooks/useViewedMissedCalls";
 import { useChatMessagesOptimized, useMessageStatusRealtime } from "@/hooks/useChatMessagesOptimized";
 import { useTeacherChatMessages } from "@/hooks/useTeacherChats";
 import { useAutoRetryMessages } from "@/hooks/useAutoRetryMessages";
@@ -410,6 +411,9 @@ export const ChatArea = ({
     isFetching: unreadFetching,
   } = useClientUnreadByMessenger(clientId);
   
+  // Hook for marking calls as viewed
+  const { markCallsAsViewed } = useViewedMissedCalls(clientId);
+  
   // Get integration statuses for all messengers (for tab indicators)
   const { data: integrationsStatus } = useAllIntegrationsStatus();
   
@@ -607,7 +611,7 @@ export const ChatArea = ({
   }, [messengerTabTimestamp]); // Only react to timestamp changes
 
   // Mark messages as read when switching tabs - только прокрутка, НЕ отметка прочитанности
-  const handleTabChange = (newTab: string) => {
+  const handleTabChange = async (newTab: string) => {
     if (newTab === activeMessengerTab) return;
     
     // Start transition animation
@@ -620,6 +624,30 @@ export const ChatArea = ({
       // End transition after scroll completes
       setIsTabTransitioning(false);
     }, 50);
+    
+    // При переходе на вкладку "Звонки" помечаем пропущенные звонки как просмотренные
+    if (newTab === 'calls') {
+      try {
+        const response = await selfHostedPost<{
+          success: boolean;
+          calls: Array<{ id: string; status: string }>;
+        }>('get-call-logs', { 
+          action: 'history', 
+          clientId,
+          limit: 50,
+          filters: { status: 'missed' }
+        });
+        
+        if (response.success && response.data?.calls) {
+          const missedCallIds = response.data.calls.map(c => c.id);
+          if (missedCallIds.length > 0) {
+            markCallsAsViewed(missedCallIds);
+          }
+        }
+      } catch (error) {
+        console.warn('[handleTabChange] Failed to mark calls as viewed:', error);
+      }
+    }
     
     // НЕ помечаем автоматически сообщения как прочитанные
     // Менеджер должен явно нажать "Не требует ответа" или отправить сообщение
