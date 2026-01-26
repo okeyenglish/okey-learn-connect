@@ -126,10 +126,30 @@ interface UserLocation {
   lng: number;
 }
 
+const LOCATION_STORAGE_KEY = 'branches-user-location';
+
 export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapProps) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hoveredBranch, setHoveredBranch] = useState<string | null>(null);
-  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(() => {
+    // Восстанавливаем сохранённое местоположение из localStorage
+    try {
+      const saved = localStorage.getItem(LOCATION_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.lat && parsed.lng && parsed.timestamp) {
+          // Проверяем, что данные не старше 24 часов
+          const age = Date.now() - parsed.timestamp;
+          if (age < 24 * 60 * 60 * 1000) {
+            return { lat: parsed.lat, lng: parsed.lng };
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Ошибка чтения геолокации из localStorage:', e);
+    }
+    return null;
+  });
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [selectedMetro, setSelectedMetro] = useState<string | null>(null);
@@ -169,10 +189,22 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setUserLocation({
+        const newLocation = {
           lat: position.coords.latitude,
           lng: position.coords.longitude
-        });
+        };
+        setUserLocation(newLocation);
+        
+        // Сохраняем в localStorage с временной меткой
+        try {
+          localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify({
+            ...newLocation,
+            timestamp: Date.now()
+          }));
+        } catch (e) {
+          console.error('Ошибка сохранения геолокации в localStorage:', e);
+        }
+        
         setIsLocating(false);
         toast.success('Местоположение определено! Филиалы отсортированы по расстоянию.');
       },
