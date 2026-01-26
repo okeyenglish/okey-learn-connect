@@ -204,81 +204,13 @@ interface TeacherUnreadCount {
   last_messenger_type: string | null;
 }
 
-// Interface for materialized view RPC response
-interface TeacherChatThreadMV {
-  teacher_id: string;
-  client_id: string;
-  client_name: string;
-  first_name: string | null;
-  last_name: string | null;
-  middle_name: string | null;
-  client_phone: string | null;
-  client_branch: string | null;
-  telegram_chat_id: string | null;
-  whatsapp_chat_id: string | null;
-  last_message: string | null;
-  last_messenger: string | null;
-  last_message_time: string | null;
-  unread_count: number;
-  unread_whatsapp: number;
-  unread_telegram: number;
-  unread_max: number;
-}
-
 /**
  * Hook to load all teachers from teachers table with their chat data
- * Uses materialized view for fast loading with fallback to legacy RPC
+ * NOTE: This hook is used by the CRM "Преподаватели" system chat and must show
+ * teacher roster (from `teachers`), not teacher→client threads.
  */
 export const useTeacherChats = (branch?: string | null) => {
   const queryClient = useQueryClient();
-
-  // Try to use materialized view first, fallback to legacy approach
-  const { data: mvThreads, isLoading: mvLoading, error: mvError } = useQuery({
-    queryKey: ['teacher-chats', 'threads-mv'],
-    queryFn: async () => {
-      const metricId = startMetric('teacher-chat-threads-mv');
-      
-      try {
-        // Try materialized view RPC first (super fast ~5-10ms)
-        const { data, error } = await supabase.rpc('get_teacher_chat_threads_fast', { 
-          p_limit: 200 
-        });
-
-        if (error) {
-          // If MV RPC doesn't exist yet, will fallback below
-          if (error.code === 'PGRST202' || error.message?.includes('does not exist')) {
-            console.warn('[useTeacherChats] MV RPC not available, will use legacy');
-            endMetric(metricId, 'completed', { fallback: true });
-            return null; // Signal to use fallback
-          }
-          throw error;
-        }
-
-        endMetric(metricId, 'completed', { count: (data || []).length });
-        return (data || []) as TeacherChatThreadMV[];
-      } catch (err) {
-        console.warn('[useTeacherChats] MV query failed:', err);
-        endMetric(metricId, 'failed');
-        return null;
-      }
-    },
-    staleTime: 60_000, // 60 seconds - MV caches data, no need for frequent refresh
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
-    retry: false, // Don't retry - fallback will handle it
-    refetchOnWindowFocus: false,
-  });
-
-  // Fallback: Fetch teachers + unread counts separately (legacy approach)
-  // IMPORTANT:
-  // MV/RPC may legitimately return an empty list (e.g. no linked threads yet),
-  // but the UI still expects to show teachers from `teachers` table.
-  // So we enable the legacy path when MV is unavailable OR returns 0 rows.
-  const useLegacy = !mvLoading && (
-    mvThreads === null ||
-    !!mvError ||
-    (Array.isArray(mvThreads) && mvThreads.length === 0) ||
-    typeof mvThreads === 'undefined'
-  );
 
   // Define teacher type for legacy query
   type TeacherRow = {
@@ -311,7 +243,7 @@ export const useTeacherChats = (branch?: string | null) => {
       return (data || []) as TeacherRow[];
     },
     staleTime: 30000,
-    enabled: useLegacy, // Only fetch if MV not available
+    enabled: true,
   });
 
   const { data: unreadCounts, isLoading: unreadLoading } = useQuery({
@@ -325,37 +257,12 @@ export const useTeacherChats = (branch?: string | null) => {
       return (data || []) as TeacherUnreadCount[];
     },
     staleTime: 10000,
-    enabled: useLegacy && !!(teachers?.length), // Only if using legacy
+    enabled: !!(teachers?.length),
   });
 
   // Combine data from MV or legacy approach
   const teacherChats = useMemo<TeacherChatItem[]>(() => {
-    // If using materialized view, map directly
-    if (mvThreads && mvThreads.length > 0) {
-      return mvThreads.map((thread) => ({
-        id: thread.teacher_id,
-        firstName: thread.first_name || '',
-        lastName: thread.last_name || '',
-        fullName: thread.client_name || `${thread.last_name || ''} ${thread.first_name || ''}`.trim() || 'Преподаватель',
-        phone: thread.client_phone,
-        email: null,
-        branch: thread.client_branch || '',
-        subjects: null,
-        categories: null,
-        isActive: true,
-        clientId: thread.client_id,
-        unreadMessages: thread.unread_count || 0,
-        lastMessageTime: thread.last_message_time,
-        lastMessageText: thread.last_message,
-        lastMessengerType: thread.last_messenger,
-        lastSeen: thread.last_message_time 
-          ? new Date(thread.last_message_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-          : 'нет сообщений',
-        isOnline: false,
-      }));
-    }
-
-    // Legacy approach: combine teachers with unread counts
+    // Combine teachers with unread counts
     if (!teachers) return [];
 
     const unreadMap = new Map<string, TeacherUnreadCount>();
@@ -393,7 +300,7 @@ export const useTeacherChats = (branch?: string | null) => {
         isOnline: false,
       };
     });
-  }, [mvThreads, teachers, unreadCounts]);
+  }, [teachers, unreadCounts]);
 
   // Sort: unread first, then by last message time
   const sortedTeachers = useMemo(() => {
@@ -445,13 +352,13 @@ export const useTeacherChats = (branch?: string | null) => {
   }, [teacherChats]);
 
   // Determine total teachers count from MV or legacy
-  const totalTeachersCount = mvThreads?.length || teachers?.length || 0;
+  const totalTeachersCount = teachers?.length || 0;
 
   return {
     teachers: sortedTeachers,
     totalTeachers: totalTeachersCount,
     totalUnread,
-    isLoading: mvLoading || (useLegacy && (teachersLoading || unreadLoading)),
+    isLoading: teachersLoading || unreadLoading,
     error: teachersError,
     refetch: () => {
       queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
