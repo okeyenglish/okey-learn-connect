@@ -365,3 +365,9 @@ verify_jwt = false
 
 [functions.check-user-access]
 verify_jwt = false
+
+[functions.get-call-logs]
+verify_jwt = true
+
+[functions.update-call-notes]
+verify_jwt = true

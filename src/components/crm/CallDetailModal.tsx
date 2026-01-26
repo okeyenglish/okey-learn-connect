@@ -61,14 +61,13 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({
     
     setLoading(true);
     try {
-      const { data: callData, error } = await supabase
-        .from('call_logs')
-        .select('*')
-        .eq('id', callId)
-        .maybeSingle();
+      const response = await selfHostedPost<{
+        success: boolean;
+        call: CallLog & { client_id?: string };
+      }>('get-call-logs', { action: 'get', callId });
 
-      if (error || !callData) {
-        console.error('Error fetching call details:', error);
+      if (!response.success || !response.data?.call) {
+        console.error('Error fetching call details:', response.error);
         toast({
           title: "Ошибка",
           description: "Не удалось загрузить детали звонка",
@@ -76,6 +75,8 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({
         });
         return;
       }
+
+      const callData = response.data.call;
 
       // Get client name separately if client_id exists
       let clientName = "Неизвестный клиент";
@@ -110,13 +111,13 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('call_logs')
-        .update({ notes })
-        .eq('id', callId);
+      const response = await selfHostedPost<{ success: boolean }>('update-call-notes', {
+        callId,
+        notes
+      });
 
-      if (error) {
-        console.error('Error saving notes:', error);
+      if (!response.success) {
+        console.error('Error saving notes:', response.error);
         toast({
           title: "Ошибка",
           description: "Не удалось сохранить комментарий",

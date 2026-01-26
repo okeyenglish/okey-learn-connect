@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export interface ChatMessage {
@@ -200,41 +201,26 @@ export const useChatThreads = () => {
         }))
       });
 
-      // Fetch call logs with safe fallback when clients join is blocked by RLS
+      // Fetch call logs from self-hosted API
       let callsData: CallLogRow[] = [];
-      {
-        const selectCallsWithJoin = `
-          client_id,
-          status,
-          direction,
-          started_at,
-          duration_seconds,
-          clients (
-            id,
-            name,
-            phone
-          )
-        `;
-        // Limit to last 200 calls to prevent huge fetches
-        const { data, error } = await supabase
-          .from('call_logs')
-          .select(selectCallsWithJoin)
-          .order('started_at', { ascending: false })
-          .limit(200);
+      try {
+        const callsResponse = await selfHostedPost<{
+          success: boolean;
+          calls: Array<{
+            client_id: string;
+            status: string;
+            direction: string;
+            started_at: string;
+            duration_seconds: number | null;
+            clients?: { id: string; name: string | null; phone: string | null } | null;
+          }>;
+        }>('get-call-logs', { action: 'list', limit: 200 });
 
-        if (error) {
-          console.warn('[useChatThreads] Calls join failed, falling back:', error.message);
-          const { data: noJoinCalls, error: noJoinCallsError } = await supabase
-            .from('call_logs')
-            .select('client_id, status, direction, started_at, duration_seconds')
-            .order('started_at', { ascending: false })
-            .limit(200);
-
-          if (noJoinCallsError) throw noJoinCallsError;
-          callsData = (noJoinCalls || []) as CallLogRow[];
-        } else {
-          callsData = (data || []) as unknown as CallLogRow[];
+        if (callsResponse.success && callsResponse.data?.calls) {
+          callsData = callsResponse.data.calls as CallLogRow[];
         }
+      } catch (callsError) {
+        console.warn('[useChatThreads] Failed to fetch calls from self-hosted:', callsError);
       }
 
       // Group interactions by client
@@ -458,24 +444,31 @@ export const useClientUnreadByMessenger = (clientId: string) => {
         }
       });
 
-      // Fetch missed calls
-      const { data: calls, error: callsError } = await supabase
-        .from('call_logs')
-        .select('id, started_at')
-        .eq('client_id', clientId)
-        .eq('status', 'missed')
-        .order('started_at', { ascending: false });
+      // Fetch missed calls from self-hosted API
+      try {
+        const callsResponse = await selfHostedPost<{
+          success: boolean;
+          calls: Array<{ id: string; started_at: string }>;
+        }>('get-call-logs', { 
+          action: 'history', 
+          clientId,
+          limit: 50,
+          filters: { status: 'missed' }
+        });
 
-      if (!callsError && calls) {
-        const callRows = calls as CallLogIdRow[];
-        counts.calls = callRows.length;
-        // Check if latest missed call is newer than latest unread message
-        if (callRows.length > 0) {
-          const latestCallTime = new Date(callRows[0].started_at);
-          if (!latestUnreadTime || latestCallTime > latestUnreadTime) {
-            lastUnreadMessenger = 'calls';
+        if (callsResponse.success && callsResponse.data?.calls) {
+          const callRows = callsResponse.data.calls;
+          counts.calls = callRows.length;
+          // Check if latest missed call is newer than latest unread message
+          if (callRows.length > 0) {
+            const latestCallTime = new Date(callRows[0].started_at);
+            if (!latestUnreadTime || latestCallTime > latestUnreadTime) {
+              lastUnreadMessenger = 'calls';
+            }
           }
         }
+      } catch (callsError) {
+        console.warn('[useUnreadByMessenger] Failed to fetch missed calls:', callsError);
       }
 
       return { counts, lastUnreadMessenger };

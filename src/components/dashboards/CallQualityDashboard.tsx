@@ -21,7 +21,7 @@ import {
   Minus,
   RefreshCw
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/typedClient";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -111,26 +111,22 @@ export const CallQualityDashboard = () => {
   const { data: callLogs, isLoading, refetch } = useQuery({
     queryKey: ['call-quality-dashboard', period],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('call_logs')
-        .select(`
-          id,
-          phone_number,
-          direction,
-          status,
-          duration_seconds,
-          started_at,
-          ai_evaluation,
-          manager_id,
-          manager_name
-        `)
-        .not('ai_evaluation', 'is', null)
-        .gte('started_at', dateRange.start.toISOString())
-        .lte('started_at', dateRange.end.toISOString())
-        .order('started_at', { ascending: false });
+      const response = await selfHostedPost<{
+        success: boolean;
+        calls: CallLogWithEvaluation[];
+      }>('get-call-logs', {
+        action: 'list',
+        limit: 500,
+        filters: {
+          dateFrom: dateRange.start.toISOString(),
+          dateTo: dateRange.end.toISOString()
+        }
+      });
 
-      if (error) throw error;
-      return (data || []) as unknown as CallLogWithEvaluation[];
+      if (!response.success) throw new Error(response.error);
+      
+      // Filter calls with AI evaluation
+      return (response.data?.calls || []).filter(c => c.ai_evaluation);
     }
   });
 
@@ -142,15 +138,20 @@ export const CallQualityDashboard = () => {
       const prevStart = subDays(dateRange.start, periodDays);
       const prevEnd = subDays(dateRange.end, periodDays);
 
-      const { data, error } = await supabase
-        .from('call_logs')
-        .select('ai_evaluation')
-        .not('ai_evaluation', 'is', null)
-        .gte('started_at', prevStart.toISOString())
-        .lte('started_at', prevEnd.toISOString());
+      const response = await selfHostedPost<{
+        success: boolean;
+        calls: Array<{ ai_evaluation: AiCallEvaluation | null }>;
+      }>('get-call-logs', {
+        action: 'list',
+        limit: 500,
+        filters: {
+          dateFrom: prevStart.toISOString(),
+          dateTo: prevEnd.toISOString()
+        }
+      });
 
-      if (error) throw error;
-      return data || [];
+      if (!response.success) throw new Error(response.error);
+      return (response.data?.calls || []).filter(c => c.ai_evaluation);
     }
   });
 
