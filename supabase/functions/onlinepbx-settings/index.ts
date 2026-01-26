@@ -98,15 +98,16 @@ serve(async (req) => {
       );
     }
 
-    // Check if user is admin (roles are stored in user_roles table, not profiles)
+    // Check if user is admin
     const { data: userRole } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
-      .in('role', ['admin', 'owner'])
+      .eq('role', 'admin')
       .maybeSingle();
 
     if (!userRole) {
+      console.log('[onlinepbx-settings] User not admin:', user.id);
       return new Response(
         JSON.stringify({ error: 'Insufficient permissions' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
