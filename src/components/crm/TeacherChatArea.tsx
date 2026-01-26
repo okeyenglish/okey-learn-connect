@@ -350,44 +350,10 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             </div>
           </div>
         ) : (
-          // Teacher chat with tabs
+          // Teacher chat with tabs for Schedule/Profile, direct ChatArea for messages
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-            {/* Header */}
-            <div className="p-3 border-b border-border bg-background shrink-0">
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center space-x-3 flex-1 min-w-0">
-                  <div className="relative shrink-0">
-                    <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                      <span className="text-primary font-medium text-xs">
-                        {isGroupChat ? 'ЧП' : `${currentTeacher?.firstName?.[0] || ''}${currentTeacher?.lastName?.[0] || ''}`}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-sm text-foreground truncate">
-                      {clientName}
-                    </h3>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {isGroupChat 
-                        ? 'Общий чат всех преподавателей' 
-                        : `${currentTeacher?.branch || ''} ${clientPhone ? '• ' + clientPhone : ''}`
-                      }
-                    </p>
-                  </div>
-                </div>
-                
-                {!isGroupChat && clientPhone && (
-                  <div className="flex items-center space-x-1 shrink-0">
-                    <Button size="sm" variant="outline" className="h-7 w-7 p-0">
-                      <Phone className="h-3 w-3" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Tabs */}
-            <div className="shrink-0 px-3 border-b">
+            {/* Tabs header */}
+            <div className="shrink-0 px-3 border-b bg-background">
               <TabsList className="grid w-full grid-cols-3 mt-2 mb-2 h-8">
                 <TabsTrigger value="диалог" className="text-xs">Диалог</TabsTrigger>
                 <TabsTrigger value="расписание" className="text-xs">Расписание</TabsTrigger>
