@@ -1,13 +1,20 @@
 import { Link } from "react-router-dom";
-import { Phone, Mail, MapPin, MessageCircle, Send } from "lucide-react";
+import { Phone, Mail, MapPin, MessageCircle, Send, Clock } from "lucide-react";
 import okeyLogo from "@/assets/okey-english-logo.jpg";
 import OptimizedImage from "@/components/OptimizedImage";
 import { getBranchesForFooter } from "@/lib/branches";
+import { usePublicBranches } from "@/hooks/usePublicBranches";
 
-const branches = getBranchesForFooter();
+const staticBranches = getBranchesForFooter();
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
+  const { data: publicBranches } = usePublicBranches();
+  
+  // Используем данные из БД если есть, иначе статические
+  const branches = publicBranches?.length 
+    ? publicBranches.map(b => ({ name: b.name, address: b.address || '', slug: b.id, workingHours: b.working_hours_short }))
+    : staticBranches.map(b => ({ ...b, workingHours: '' }));
 
   return (
     <footer className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
@@ -92,7 +99,14 @@ export default function Footer() {
                   className="block text-sm hover:text-accent transition-colors"
                 >
                   <div className="font-medium">{branch.name}</div>
-                  <div className="text-xs text-white/50">
+                  <div className="text-xs text-white/50 flex items-center gap-1">
+                    {branch.workingHours && (
+                      <>
+                        <Clock className="w-3 h-3" />
+                        <span>{branch.workingHours}</span>
+                        <span className="mx-1">•</span>
+                      </>
+                    )}
                     {branch.address}
                   </div>
                 </Link>

@@ -58,6 +58,20 @@ interface WorkingHoursEditorProps {
   onChange: (hours: WorkingHours) => void;
 }
 
+// Проверка валидности рабочих часов
+export const validateWorkingHours = (hours: WorkingHours): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+  
+  DAYS_OF_WEEK.forEach(({ key, label }) => {
+    const day = hours[key];
+    if (day.isOpen && day.open >= day.close) {
+      errors.push(`${label}: время закрытия должно быть позже открытия`);
+    }
+  });
+  
+  return { isValid: errors.length === 0, errors };
+};
+
 export const WorkingHoursEditor = ({ value, onChange }: WorkingHoursEditorProps) => {
   const updateDay = (day: keyof WorkingHours, updates: Partial<DaySchedule>) => {
     onChange({
@@ -141,15 +155,18 @@ export const WorkingHoursEditor = ({ value, onChange }: WorkingHoursEditorProps)
                     type="time"
                     value={daySchedule.open}
                     onChange={(e) => updateDay(key, { open: e.target.value })}
-                    className="w-28"
+                    className={`w-28 ${daySchedule.open >= daySchedule.close ? 'border-destructive' : ''}`}
                   />
                   <span className="text-muted-foreground">—</span>
                   <Input
                     type="time"
                     value={daySchedule.close}
                     onChange={(e) => updateDay(key, { close: e.target.value })}
-                    className="w-28"
+                    className={`w-28 ${daySchedule.open >= daySchedule.close ? 'border-destructive' : ''}`}
                   />
+                  {daySchedule.open >= daySchedule.close && (
+                    <span className="text-xs text-destructive whitespace-nowrap">Ошибка времени</span>
+                  )}
                 </div>
               ) : (
                 <span className="text-sm text-muted-foreground italic">Выходной</span>
