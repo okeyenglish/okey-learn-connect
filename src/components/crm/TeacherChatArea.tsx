@@ -34,6 +34,9 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   
+  // Cache for resolved client IDs to avoid repeated lookups
+  const clientIdCache = React.useRef<Map<string, string>>(new Map());
+  
   // Pinned teachers - persisted in DB per user
   const { 
     pinnedIds: pinnedTeacherIds, 
@@ -91,34 +94,58 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     return inserted?.id || null;
   };
 
+  // Resolve clientId for selected teacher - optimized with caching
   useEffect(() => {
     const resolve = async () => {
-      if (!selectedTeacherId) { setResolvedClientId(null); return; }
+      if (!selectedTeacherId) { 
+        setResolvedClientId(null); 
+        return; 
+      }
+      
+      // Check cache first for instant resolution
+      const cached = clientIdCache.current.get(selectedTeacherId);
+      if (cached) {
+        setResolvedClientId(cached);
+        return;
+      }
       
       if (selectedTeacherId === 'teachers-group') {
         // Group chat for the user's branch
-        const nameToFind = userBranch ? `Чат педагогов - ${userBranch}` : null;
-        const branchToUse = userBranch;
-        if (!nameToFind || !branchToUse) { setResolvedClientId(null); return; }
-        const id = await ensureClient(nameToFind, branchToUse);
-        setResolvedClientId(id);
+        if (!userBranch) { 
+          // Don't wait for branch - will resolve when branch loads
+          return; 
+        }
+        const nameToFind = `Чат педагогов - ${userBranch}`;
+        const id = await ensureClient(nameToFind, userBranch);
+        if (id) {
+          clientIdCache.current.set(selectedTeacherId, id);
+          setResolvedClientId(id);
+        }
         return;
       }
 
-      // Find teacher by id and get their clientId or create one
+      // Find teacher by id and get their clientId
       const teacher = dbTeachers.find(t => t.id === selectedTeacherId);
-      if (!teacher) { setResolvedClientId(null); return; }
+      if (!teacher) { 
+        // Teacher not loaded yet - will resolve when teachers load
+        return; 
+      }
 
-      // If teacher already has a linked client, use it
+      // If teacher already has a linked client, use it immediately
       if (teacher.clientId) {
+        clientIdCache.current.set(selectedTeacherId, teacher.clientId);
         setResolvedClientId(teacher.clientId);
         return;
       }
 
-      // Otherwise, find or create a client for this teacher
+      // Otherwise, find or create a client for this teacher (slower path)
       const clientId = await findOrCreateClient(teacher);
-      setResolvedClientId(clientId);
+      if (clientId) {
+        clientIdCache.current.set(selectedTeacherId, clientId);
+        setResolvedClientId(clientId);
+      }
     };
+    
     resolve();
   }, [selectedTeacherId, userBranch, dbTeachers, findOrCreateClient]);
 

@@ -242,10 +242,12 @@ export const useTeacherChats = (branch?: string | null) => {
       if (error) throw error;
       return (data || []) as TeacherRow[];
     },
-    staleTime: 30000,
+    staleTime: 60000, // 1 minute - teachers rarely change
+    gcTime: 10 * 60 * 1000,
     enabled: true,
   });
 
+  // Load unread counts in parallel (not dependent on teachers)
   const { data: unreadCounts, isLoading: unreadLoading } = useQuery({
     queryKey: ['teacher-chats', 'unread-counts'],
     queryFn: async () => {
@@ -257,7 +259,8 @@ export const useTeacherChats = (branch?: string | null) => {
       return (data || []) as TeacherUnreadCount[];
     },
     staleTime: 10000,
-    enabled: !!(teachers?.length),
+    gcTime: 60000,
+    enabled: true, // Load immediately, not dependent on teachers
   });
 
   // Combine data from MV or legacy approach
