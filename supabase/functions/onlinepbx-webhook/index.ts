@@ -506,8 +506,33 @@ Deno.serve(async (req) => {
             console.log('[onlinepbx-webhook] Found client via messenger ID:', clientId);
           }
         }
+        
+        // Log client search result to webhook_logs for debugging
+        const clientSearchLog = {
+          phone_searched: selectedPhone,
+          normalized_phone: normalizedPhone,
+          last_10_digits: last10,
+          phone_variants_tried: phoneVariants?.slice(0, 5) || [],
+          client_found: !!clientId,
+          client_id: clientId,
+          search_method: clientId ? 
+            (phoneVariants ? 'phone_variants' : 'messenger_id') : 
+            'not_found',
+          organization_id: organizationId
+        };
+        
+        await supabase.from('webhook_logs').insert({
+          messenger_type: 'onlinepbx',
+          event_type: 'client_search',
+          webhook_data: clientSearchLog,
+          processed: true,
+          organization_id: organizationId
+        }).then(() => {
+          console.log('[onlinepbx-webhook] Logged client search:', clientSearchLog.client_found ? 'FOUND' : 'NOT_FOUND');
+        }).catch(e => {
+          console.warn('[onlinepbx-webhook] Failed to log client search:', e);
+        });
 
-        // Find manager by OnlinePBX extension
         let managerId: string | null = null;
         let managerName: string | null = null;
         
