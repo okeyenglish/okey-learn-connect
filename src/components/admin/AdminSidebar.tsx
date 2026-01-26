@@ -24,7 +24,8 @@ import {
   Phone,
   Webhook,
   MonitorCheck,
-  CalendarPlus
+  CalendarPlus,
+  Target
 } from "lucide-react";
 import {
   Sidebar,
@@ -45,6 +46,7 @@ import { RoleSwitcher } from "./RoleSwitcher";
 const adminItems = [
   { title: "Dashboard", id: "dashboard", icon: BarChart3 },
   { title: "Заявки на уроки", id: "trial-requests", icon: CalendarPlus },
+  { title: "KPI менеджеров", id: "kpi-management", icon: Target },
   { title: "FAQ", id: "faq", icon: HelpCircle },
   { title: "Schedule", id: "schedule", icon: Calendar },
   { title: "Courses & Pricing", id: "pricing", icon: Settings },
