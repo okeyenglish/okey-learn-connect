@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, CreditCard, Link2, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import { getErrorMessage } from '@/lib/errorUtils';
 
 interface SendPaymentLinkModalProps {
@@ -41,16 +41,15 @@ export const SendPaymentLinkModal = ({
 
     setIsGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('tbank-init-client', {
-        body: {
-          client_id: clientId,
-          amount: parseFloat(amount),
-          description: description || `Оплата от ${clientName}`,
-        },
+      const response = await selfHostedPost<{ success: boolean; payment_url: string; error?: string }>('tbank-init-client', {
+        client_id: clientId,
+        amount: parseFloat(amount),
+        description: description || `Оплата от ${clientName}`,
       });
 
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
+      if (!response.success) throw new Error(response.error);
+      const data = response.data;
+      if (!data?.success) throw new Error(data?.error || 'Unknown error');
 
       // Сразу добавляем ссылку в поле ввода и закрываем модалку
       onPaymentLinkGenerated({

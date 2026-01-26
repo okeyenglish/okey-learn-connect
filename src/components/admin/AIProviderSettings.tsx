@@ -6,7 +6,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Check, AlertTriangle, Sparkles } from 'lucide-react';
-import { supabaseTyped as supabase } from '@/integrations/supabase/typedClient';
+import { selfHostedPost, selfHostedGet } from '@/lib/selfHostedApi';
 import { toast } from '@/hooks/use-toast';
 
 interface AIProviderOption {
@@ -31,9 +31,9 @@ export const AIProviderSettings = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: ['ai-provider'],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('get-ai-provider');
-      if (error) throw error;
-      return data as AIProviderData;
+      const response = await selfHostedGet<AIProviderData>('get-ai-provider');
+      if (!response.success) throw new Error(response.error);
+      return response.data as AIProviderData;
     }
   });
 
@@ -47,11 +47,9 @@ export const AIProviderSettings = () => {
   // Изменение провайдера
   const updateProvider = useMutation({
     mutationFn: async (provider: string) => {
-      const { data, error } = await supabase.functions.invoke('set-ai-provider', {
-        body: { provider }
-      });
-      if (error) throw error;
-      return data;
+      const response = await selfHostedPost<{ message: string }>('set-ai-provider', { provider });
+      if (!response.success) throw new Error(response.error);
+      return response.data;
     },
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['ai-provider'] });

@@ -17,7 +17,7 @@ import {
   CheckCircle
 } from "lucide-react";
 import { getBranchesForSelect } from "@/lib/branches";
-import { supabase } from "@/integrations/supabase/client";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 
 const courses = [
   "Super Safari (3-6 лет)",
@@ -42,26 +42,24 @@ export default function Contacts() {
     setIsLoading(true);
 
     try {
-      // Submit form data via Supabase Edge Function proxy
-      const { data, error } = await supabase.functions.invoke('webhook-proxy', {
-        body: {
-          source: "website",
-          page: window.location.pathname,
-          utm: new URLSearchParams(window.location.search).toString(),
-          name: formData.name,
-          phone: formData.phone,
-          branch: formData.branch,
-          age: formData.age
-        }
-      });
+      // Submit form data via self-hosted Edge Function proxy
+      const response = await selfHostedPost('webhook-proxy', {
+        source: "website",
+        page: window.location.pathname,
+        utm: new URLSearchParams(window.location.search).toString(),
+        name: formData.name,
+        phone: formData.phone,
+        branch: formData.branch,
+        age: formData.age
+      }, { requireAuth: false });
 
 
-      if (error) {
-        console.error('Webhook proxy error details:', error);
-        throw new Error(typeof error === 'string' ? error : (error.message || 'Webhook error'));
+      if (!response.success) {
+        console.error('Webhook proxy error details:', response.error);
+        throw new Error(response.error || 'Webhook error');
       }
 
-      console.log('Webhook proxy success:', data);
+      console.log('Webhook proxy success:', response.data);
       
       toast({
         title: "Заявка отправлена!",

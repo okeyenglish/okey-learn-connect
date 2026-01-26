@@ -25,7 +25,7 @@ import {
   Monitor
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import VoiceAssistant from '@/components/VoiceAssistant';
@@ -291,20 +291,19 @@ export const AIHub = ({
         };
         const systemPrompt = getSystemPrompt();
 
-        const { data, error } = await supabase.functions.invoke('ai-consultant', {
-          body: {
-            audio: base64Audio,
-            consultantType: activeConsultant,
-            systemPrompt
-          }
+        const response = await selfHostedPost<{ transcription?: string; response?: string }>('ai-consultant', {
+          audio: base64Audio,
+          consultantType: activeConsultant,
+          systemPrompt
         });
 
-        if (error) throw error;
+        if (!response.success) throw new Error(response.error);
+        const data = response.data;
 
         const userMessage: ChatMessage = {
           id: Date.now().toString(),
           type: 'user',
-          content: data.transcription || 'Голосовое сообщение',
+          content: data?.transcription || 'Голосовое сообщение',
           timestamp: new Date()
         };
 
@@ -375,20 +374,19 @@ export const AIHub = ({
         };
         const systemPrompt = getSystemPrompt();
 
-        const { data, error } = await supabase.functions.invoke('ai-consultant', {
-          body: {
-            message: message,
-            consultantType: activeConsultant,
-            systemPrompt
-          }
+        const response = await selfHostedPost<{ response?: string }>('ai-consultant', {
+          message: message,
+          consultantType: activeConsultant,
+          systemPrompt
         });
 
-        if (error) throw error;
+        if (!response.success) throw new Error(response.error);
+        const data = response.data;
 
         const aiMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           type: 'assistant',
-          content: data.response || 'Извините, не удалось получить ответ.',
+          content: data?.response || 'Извините, не удалось получить ответ.',
           timestamp: new Date()
         };
 

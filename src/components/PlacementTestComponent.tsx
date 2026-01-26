@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Clock, Users, GraduationCap, Phone, Mail } from "lucide-react";
 import { questionBank } from "@/lib/questionBank";
-import { supabase } from "@/integrations/supabase/typedClient";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 
 interface TestState {
   track: 'kids' | 'teens' | 'adults';
@@ -212,15 +212,13 @@ export default function PlacementTestComponent() {
 
     try {
       console.log('Sending webhook data:', webhookData);
-      const { data, error } = await supabase.functions.invoke('webhook-proxy', {
-        body: webhookData,
-      });
+      const response = await selfHostedPost('webhook-proxy', webhookData, { requireAuth: false });
 
-      if (error) {
-        throw new Error(typeof error === 'string' ? error : (error.message || 'Webhook error'));
+      if (!response.success) {
+        throw new Error(response.error || 'Webhook error');
       }
 
-      console.log('Test results sent successfully', data);
+      console.log('Test results sent successfully', response.data);
     } catch (error) {
       console.error('Webhook error:', error);
     }

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ExternalLink, RefreshCw } from "lucide-react";
 import { getErrorMessage } from '@/lib/errorUtils';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 const MAIN_PAGES = [
   { url: '/', title: 'Главная страница' },
@@ -55,11 +56,9 @@ export function SeoPages() {
     try {
       const organizationId = await getCurrentOrganizationId();
 
-      const { data, error } = await supabase.functions.invoke('seo-analyze-page', {
-        body: { url, organizationId }
-      });
+      const response = await selfHostedPost('seo-analyze-page', { url, organizationId });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
 
       toast({
         title: "Анализ завершен",
