@@ -3,6 +3,9 @@ project_id = "kbojujfwtvmsgudumown"
 [functions.submit-trial-request]
 verify_jwt = false
 
+[functions.analyze-call]
+verify_jwt = true
+
 [functions.telegram-channels]
 verify_jwt = true
 

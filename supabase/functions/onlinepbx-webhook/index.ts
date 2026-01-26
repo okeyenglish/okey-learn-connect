@@ -246,6 +246,14 @@ Deno.serve(async (req) => {
       if (callLog) {
         // Update existing call log
         console.log('Updating existing call log:', callLog.id);
+        
+        // Extract recording URL from webhook data
+        const recordingUrl = (webhookData as any).download_url || 
+                            (webhookData as any).record_url ||
+                            (webhookData as any).record ||
+                            (webhookData as any).recording_url ||
+                            (webhookData as any).recordingUrl || null;
+        
         const updateData: any = {
           status,
           updated_at: new Date().toISOString()
@@ -256,6 +264,9 @@ Deno.serve(async (req) => {
         }
         if (durationSeconds !== null) {
           updateData.duration_seconds = durationSeconds;
+        }
+        if (recordingUrl && !callLog.recording_url) {
+          updateData.recording_url = recordingUrl;
         }
 
         const { error: updateError } = await supabase
@@ -268,15 +279,21 @@ Deno.serve(async (req) => {
           throw updateError;
         }
 
-        console.log(`Updated call log ${callLog.id} with status: ${status}`);
+        console.log(`Updated call log ${callLog.id} with status: ${status}, recording: ${!!recordingUrl}`);
         
-        // Generate summary for calls > 60 seconds
-        if (durationSeconds && durationSeconds > 60 && status === 'answered' && !callLog.summary) {
-          console.log('Generating summary for call:', callLog.id);
+        // Trigger automatic call analysis for answered calls > 30 seconds with recording (if not already analyzed)
+        if (durationSeconds && durationSeconds > 30 && status === 'answered' && recordingUrl && !callLog.ai_evaluation) {
+          console.log('Triggering automatic call analysis for updated call:', callLog.id);
           try {
-            await supabase.functions.invoke('generate-call-summary', { body: { callId: callLog.id } });
+            const analyzePromise = supabase.functions.invoke('analyze-call', { 
+              body: { callId: callLog.id } 
+            }).catch(e => console.error('Auto-analysis error:', e));
+            
+            if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+              EdgeRuntime.waitUntil(analyzePromise);
+            }
           } catch (e) {
-            console.error('Error generating summary:', e);
+            console.error('Error triggering analysis:', e);
           }
         }
       } else {
@@ -426,6 +443,13 @@ Deno.serve(async (req) => {
           }
         }
 
+        // Extract recording URL from webhook data
+        const recordingUrl = (webhookData as any).download_url || 
+                            (webhookData as any).record_url ||
+                            (webhookData as any).record ||
+                            (webhookData as any).recording_url ||
+                            (webhookData as any).recordingUrl || null;
+
         const newCallData: any = {
           client_id: clientId,
           phone_number: selectedPhone,
@@ -435,7 +459,8 @@ Deno.serve(async (req) => {
           started_at: webhookData.start_time ? new Date(webhookData.start_time).toISOString() : new Date().toISOString(),
           external_call_id: externalCallId || null,
           updated_at: new Date().toISOString(),
-          organization_id: organizationId
+          organization_id: organizationId,
+          recording_url: recordingUrl
         };
 
         if (webhookData.end_time) {
@@ -453,14 +478,23 @@ Deno.serve(async (req) => {
           throw insertError;
         }
 
-        console.log('Created call log:', newCallLog.id, 'for org:', organizationId, 'status:', status);
+        console.log('Created call log:', newCallLog.id, 'for org:', organizationId, 'status:', status, 'recording:', !!recordingUrl);
         
-        // Generate summary for calls > 60 seconds
-        if (durationSeconds && durationSeconds > 60 && status === 'answered') {
+        // Trigger automatic call analysis for answered calls > 30 seconds with recording
+        if (durationSeconds && durationSeconds > 30 && status === 'answered' && recordingUrl) {
+          console.log('Triggering automatic call analysis for:', newCallLog.id);
           try {
-            await supabase.functions.invoke('generate-call-summary', { body: { callId: newCallLog.id } });
+            // Use EdgeRuntime.waitUntil for background processing if available
+            const analyzePromise = supabase.functions.invoke('analyze-call', { 
+              body: { callId: newCallLog.id } 
+            }).catch(e => console.error('Auto-analysis error:', e));
+            
+            // Don't await - let it run in background
+            if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+              EdgeRuntime.waitUntil(analyzePromise);
+            }
           } catch (e) {
-            console.error('Error generating summary:', e);
+            console.error('Error triggering analysis:', e);
           }
         }
         
