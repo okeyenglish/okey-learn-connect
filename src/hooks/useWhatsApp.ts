@@ -2,8 +2,9 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 import { getErrorMessage } from '@/lib/errorUtils';
-import { selfHostedPost, selfHostedGet } from '@/lib/selfHostedApi';
+import { selfHostedPost, selfHostedGet, RetryConfig } from '@/lib/selfHostedApi';
 import type { MessengerSettings as MessengerSettingsDB } from '@/integrations/supabase/database.types';
+import { useApiRetryStatus } from '@/hooks/useApiRetryStatus';
 
 interface SendMessageParams {
   clientId: string;
@@ -33,6 +34,12 @@ interface WhatsAppSettings {
 export const useWhatsApp = () => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  
+  // Track retry status for UI indicators
+  const retryStatus = useApiRetryStatus({
+    autoHideSuccessMs: 1500,
+    autoHideFailedMs: 5000,
+  });
 
   const getMessengerSettings = useCallback(async (): Promise<WhatsAppSettings | null> => {
     try {
@@ -77,6 +84,8 @@ export const useWhatsApp = () => {
 
   const sendMessage = useCallback(async (params: SendMessageParams) => {
     setLoading(true);
+    retryStatus.reset();
+    
     try {
       console.log('Sending WhatsApp message:', params);
 
@@ -85,7 +94,29 @@ export const useWhatsApp = () => {
       const provider = settings?.provider || 'greenapi';
       const functionName = provider === 'wpp' ? 'wpp-send' : provider === 'wappi' ? 'wappi-whatsapp-send' : 'whatsapp-send';
 
-      const response = await selfHostedPost<{ success: boolean; messageId?: string; error?: string }>(functionName, params);
+      // Create retry config with UI callbacks
+      const retryConfig: RetryConfig = {
+        onRetry: (attempt, maxAttempts, error) => {
+          retryStatus.setRetrying(attempt, maxAttempts);
+          console.log(`[WhatsApp] Retry attempt ${attempt}/${maxAttempts}: ${error}`);
+        },
+        onSuccess: (retryCount) => {
+          if (retryCount > 0) {
+            retryStatus.setSuccess(retryCount + 1);
+          } else {
+            retryStatus.reset();
+          }
+        },
+        onFailed: (retryCount, error) => {
+          retryStatus.setFailed(retryCount + 1, error);
+        },
+      };
+
+      const response = await selfHostedPost<{ success: boolean; messageId?: string; error?: string }>(
+        functionName, 
+        params,
+        { retry: retryConfig }
+      );
 
       if (!response.success || !response.data?.success) {
         throw new Error(response.error || response.data?.error || 'Failed to send message');
@@ -106,7 +137,7 @@ export const useWhatsApp = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast, getMessengerSettings]);
+  }, [toast, getMessengerSettings, retryStatus]);
 
   const sendTextMessage = useCallback(async (clientId: string, message: string, phoneNumber?: string) => {
     return sendMessage({ clientId, message, phoneNumber });
@@ -528,6 +559,9 @@ export const useWhatsApp = () => {
     downloadFile,
     checkAvailability,
     getAvatar,
-    sendTyping
+    sendTyping,
+    // Retry status for UI indicators
+    retryStatus: retryStatus.state,
+    isRetrying: retryStatus.isActive,
   };
 };

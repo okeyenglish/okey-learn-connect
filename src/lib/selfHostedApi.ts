@@ -22,6 +22,12 @@ export interface RetryConfig {
   retryableStatuses?: number[];
   /** Disable retry logic entirely */
   noRetry?: boolean;
+  /** Callback called on each retry attempt */
+  onRetry?: (attempt: number, maxAttempts: number, error: string) => void;
+  /** Callback called when request succeeds (with retry count) */
+  onSuccess?: (retryCount: number) => void;
+  /** Callback called when all retries failed */
+  onFailed?: (retryCount: number, error: string) => void;
 }
 
 export interface ApiResponse<T = unknown> {
@@ -29,8 +35,8 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
   status: number;
-  /** Number of retry attempts made */
-  retryCount?: number;
+  /** Number of retry attempts made (0 = succeeded first try) */
+  retryCount: number;
 }
 
 /**
@@ -161,9 +167,20 @@ export async function selfHostedFetch<T = unknown>(
         if (attempt < retryConfig.maxRetries && isRetryable(response.status, retryConfig.retryableStatuses)) {
           const delay = calculateBackoffDelay(attempt, retryConfig.baseDelayMs, retryConfig.maxDelayMs);
           console.log(`[selfHostedFetch] Retry ${attempt + 1}/${retryConfig.maxRetries} for ${endpoint} after ${Math.round(delay)}ms (status: ${response.status})`);
+          
+          // Notify retry callback
+          if (retry.onRetry) {
+            retry.onRetry(attempt + 1, retryConfig.maxRetries, lastError);
+          }
+          
           await sleep(delay);
           retryCount++;
           continue;
+        }
+
+        // Notify failed callback
+        if (retry.onFailed) {
+          retry.onFailed(retryCount, lastError);
         }
 
         return {
@@ -173,6 +190,11 @@ export async function selfHostedFetch<T = unknown>(
           status: response.status,
           retryCount
         };
+      }
+
+      // Notify success callback
+      if (retry.onSuccess) {
+        retry.onSuccess(retryCount);
       }
 
       return {
@@ -191,11 +213,22 @@ export async function selfHostedFetch<T = unknown>(
       if (attempt < retryConfig.maxRetries) {
         const delay = calculateBackoffDelay(attempt, retryConfig.baseDelayMs, retryConfig.maxDelayMs);
         console.log(`[selfHostedFetch] Retry ${attempt + 1}/${retryConfig.maxRetries} for ${endpoint} after ${Math.round(delay)}ms (network error)`);
+        
+        // Notify retry callback
+        if (retry.onRetry) {
+          retry.onRetry(attempt + 1, retryConfig.maxRetries, lastError);
+        }
+        
         await sleep(delay);
         retryCount++;
         continue;
       }
     }
+  }
+
+  // Notify failed callback for final failure
+  if (retry.onFailed) {
+    retry.onFailed(retryCount, lastError || 'Request failed after retries');
   }
 
   return {
