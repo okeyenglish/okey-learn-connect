@@ -3023,15 +3023,7 @@ export const ChatArea = ({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48 bg-background z-50">
-                        <DropdownMenuItem 
-                          onClick={() => setShowPaymentLinkModal(true)}
-                          disabled={!!pendingMessage}
-                          className="flex items-center gap-2"
-                        >
-                          <CreditCard className="h-4 w-4" />
-                          <span>Выставить счёт</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           onClick={() => message.trim() && setShowScheduleDialog(true)}
                           disabled={loading || !message.trim() || !!pendingMessage}
                           className="flex items-center gap-2"
