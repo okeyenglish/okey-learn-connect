@@ -12,7 +12,7 @@ import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, Users, User, BookOp
 import { cn } from '@/lib/utils';
 import { EditLessonModal } from '@/components/schedule/EditLessonModal';
 import { AddLessonModal } from '@/components/schedule/AddLessonModal';
-import { LessonConfirmDialog, CopyLessonDialog, ConfirmActionType } from '@/components/crm/LessonConfirmDialog';
+import { LessonConfirmDialog, CopyLessonDialog, ConfirmActionType, ConflictInfo } from '@/components/crm/LessonConfirmDialog';
 import { useToast } from '@/hooks/use-toast';
 import type { LessonSession } from '@/hooks/useLessonSessions';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, useDraggable, useDroppable, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -62,6 +62,7 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
   const [pendingLessonName, setPendingLessonName] = useState<string>('');
   const [pendingStatus, setPendingStatus] = useState<string>('');
   const [pendingMoveDate, setPendingMoveDate] = useState<string>('');
+  const [pendingConflict, setPendingConflict] = useState<ConflictInfo | undefined>(undefined);
   
   // Copy lesson dialog state
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
@@ -307,8 +308,8 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
     setCopyDialogOpen(true);
   };
 
-  // Execute copy
-  const handleCopyConfirm = (date: Date) => {
+  // Execute copy with conflict info
+  const handleCopyConfirm = (date: Date, hasConflict: boolean, conflictingLessons: ConflictInfo['conflictingLessons']) => {
     if (lessonToCopy) {
       copyLessonMutation.mutate({ 
         lesson: lessonToCopy, 
@@ -336,10 +337,26 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
       const newDate = targetDate.replace('day-', '');
       const lesson = lessons.find(l => l.id === lessonId);
       
+      // Check for conflicts on target date
+      const conflictingLessons = lessons.filter(l => 
+        l.lesson_date === newDate && l.id !== lessonId
+      ).map(l => ({
+        id: l.id,
+        group_name: l.group_name,
+        start_time: l.start_time,
+        end_time: l.end_time,
+      }));
+      
+      const conflict: ConflictInfo = {
+        hasConflict: conflictingLessons.length > 0,
+        conflictingLessons,
+      };
+      
       // Show confirmation for move
       setPendingLessonId(lessonId);
       setPendingLessonName(lesson?.group_name || lesson?.subject || 'занятие');
       setPendingMoveDate(newDate);
+      setPendingConflict(conflict);
       setConfirmAction('move');
       setConfirmOpen(true);
     }
@@ -358,6 +375,7 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
     setPendingLessonName('');
     setPendingStatus('');
     setPendingMoveDate('');
+    setPendingConflict(undefined);
   };
 
   const getLessonsForDay = (day: Date) => {
@@ -573,6 +591,7 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
         lessonName={pendingLessonName}
         newStatus={pendingStatus}
         targetDate={pendingMoveDate}
+        conflict={pendingConflict}
         onConfirm={handleConfirmAction}
       />
 
@@ -581,6 +600,14 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
         open={copyDialogOpen}
         onOpenChange={setCopyDialogOpen}
         lessonName={lessonToCopy?.group_name || lessonToCopy?.subject || undefined}
+        lessonTime={lessonToCopy?.start_time ? `${lessonToCopy.start_time.slice(0, 5)}${lessonToCopy.end_time ? ` - ${lessonToCopy.end_time.slice(0, 5)}` : ''}` : undefined}
+        existingLessons={lessons.map(l => ({
+          id: l.id,
+          lesson_date: l.lesson_date,
+          start_time: l.start_time,
+          end_time: l.end_time,
+          group_name: l.group_name,
+        }))}
         onCopy={handleCopyConfirm}
       />
     </div>
