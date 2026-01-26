@@ -38,7 +38,7 @@ last_messages AS (
   SELECT DISTINCT ON (cm.client_id)
     cm.client_id,
     cm.message_text as last_message,
-    cm.messenger_type as last_messenger,
+    cm.messenger_type::text as last_messenger,  -- Cast ENUM to text
     cm.created_at as msg_time
   FROM chat_messages cm
   WHERE cm.client_id IS NOT NULL
@@ -59,7 +59,7 @@ SELECT
   NULL::text as telegram_chat_id,
   NULL::text as whatsapp_chat_id,
   COALESCE(lm.last_message, '') as last_message,
-  COALESCE(lm.last_messenger, '') as last_messenger,
+  COALESCE(lm.last_messenger, '')::text as last_messenger,  -- Ensure text type
   COALESCE(cmsg.last_message_time, c.created_at) as last_message_time,
   COALESCE(cmsg.unread_count, 0)::int as unread_count,
   COALESCE(cmsg.unread_whatsapp, 0)::int as unread_whatsapp,
