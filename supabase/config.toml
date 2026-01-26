@@ -380,3 +380,6 @@ verify_jwt = true
 
 [functions.check-kpi]
 verify_jwt = false
+
+[functions.quick-responses]
+verify_jwt = true
