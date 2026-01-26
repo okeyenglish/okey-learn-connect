@@ -12,15 +12,13 @@ import { Loader2, Phone, Copy, CheckCircle, XCircle, RefreshCw, ExternalLink, Ey
 
 interface OnlinePBXConfig {
   pbxDomain: string;
-  apiKeyId: string;
-  apiKeySecret: string;
+  authKey: string;
   webhookKey?: string;
 }
 
 const defaultConfig: OnlinePBXConfig = {
   pbxDomain: "",
-  apiKeyId: "",
-  apiKeySecret: "",
+  authKey: "",
   webhookKey: ""
 };
 
@@ -34,8 +32,7 @@ export function OnlinePBXSettings() {
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'connected' | 'error'>('unknown');
   const [copied, setCopied] = useState(false);
   const [configured, setConfigured] = useState(false);
-  const [showApiKeyId, setShowApiKeyId] = useState(false);
-  const [showApiKeySecret, setShowApiKeySecret] = useState(false);
+  const [showAuthKey, setShowAuthKey] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState('');
 
   useEffect(() => {
@@ -57,8 +54,7 @@ export function OnlinePBXSettings() {
       if (data?.success) {
         setConfig({
           pbxDomain: data.settings?.pbxDomain || '',
-          apiKeyId: data.settings?.apiKeyId || '',
-          apiKeySecret: data.settings?.apiKeySecret || '',
+          authKey: data.settings?.authKey || '',
           webhookKey: data.settings?.webhookKey || ''
         });
         setIsEnabled(data.isEnabled || false);
@@ -83,12 +79,10 @@ export function OnlinePBXSettings() {
       return;
     }
 
-    // Only require new values if not already configured
-    if (!configured) {
-      if (!config.apiKeyId || !config.apiKeySecret) {
-        toast.error('Заполните все обязательные поля');
-        return;
-      }
+    // Only require auth key if not already configured
+    if (!configured && !config.authKey) {
+      toast.error('Введите Auth Key из личного кабинета OnlinePBX');
+      return;
     }
 
     try {
@@ -98,8 +92,7 @@ export function OnlinePBXSettings() {
         method: 'POST',
         body: {
           pbxDomain: config.pbxDomain,
-          apiKeyId: config.apiKeyId,
-          apiKeySecret: config.apiKeySecret,
+          authKey: config.authKey,
           isEnabled,
           regenerateWebhookKey: regenerateKey
         }
@@ -129,12 +122,12 @@ export function OnlinePBXSettings() {
 
   const handleTestConnection = async () => {
     // For testing, we need actual values, not masked ones
-    if (config.apiKeyId?.startsWith('••••') || config.apiKeySecret?.startsWith('••••')) {
-      toast.error('Введите новые API ключи для проверки подключения');
+    if (config.authKey?.startsWith('••••')) {
+      toast.error('Введите новый Auth Key для проверки подключения');
       return;
     }
 
-    if (!config.pbxDomain || !config.apiKeyId || !config.apiKeySecret) {
+    if (!config.pbxDomain || !config.authKey) {
       toast.error('Заполните все поля для проверки подключения');
       return;
     }
@@ -145,8 +138,7 @@ export function OnlinePBXSettings() {
       const { data, error } = await supabase.functions.invoke('test-onlinepbx', {
         body: {
           pbx_domain: config.pbxDomain,
-          api_key_id: config.apiKeyId,
-          api_key_secret: config.apiKeySecret
+          auth_key: config.authKey
         }
       });
 
@@ -180,10 +172,9 @@ export function OnlinePBXSettings() {
     }
   };
 
-  const handleClearAndEdit = (field: 'apiKeyId' | 'apiKeySecret') => {
-    setConfig(prev => ({ ...prev, [field]: '' }));
-    if (field === 'apiKeyId') setShowApiKeyId(true);
-    if (field === 'apiKeySecret') setShowApiKeySecret(true);
+  const handleClearAndEdit = () => {
+    setConfig(prev => ({ ...prev, authKey: '' }));
+    setShowAuthKey(true);
   };
 
   if (loading) {
@@ -276,12 +267,12 @@ export function OnlinePBXSettings() {
         <CardHeader>
           <CardTitle>Данные для подключения</CardTitle>
           <CardDescription>
-            Введите данные из личного кабинета OnlinePBX
+            Введите данные из личного кабинета OnlinePBX (раздел «Интеграция» → «API»)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="pbx_domain">Аккаунт в Online PBX (*.onpbx.ru)</Label>
+            <Label htmlFor="pbx_domain">Домен АТС (*.onpbx.ru)</Label>
             <Input
               id="pbx_domain"
               placeholder="pbx11034.onpbx.ru"
@@ -289,66 +280,40 @@ export function OnlinePBXSettings() {
               onChange={(e) => setConfig({ ...config, pbxDomain: e.target.value })}
             />
             <p className="text-xs text-muted-foreground">
-              Домен вашей АТС, например: pbx11034.onpbx.ru
+              Домен вашей АТС из адресной строки, например: pbx11034.onpbx.ru
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="api_key_id">API Key ID</Label>
+            <Label htmlFor="auth_key">Auth Key (API-ключ)</Label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Input
-                  id="api_key_id"
-                  type={showApiKeyId ? "text" : "password"}
-                  placeholder="Идентификатор API-ключа"
-                  value={config.apiKeyId}
-                  onChange={(e) => setConfig({ ...config, apiKeyId: e.target.value })}
+                  id="auth_key"
+                  type={showAuthKey ? "text" : "password"}
+                  placeholder="UjdNdHhkV2w3OUtUNzgzako3WUNUTDdnY1Z0WjdqTWs"
+                  value={config.authKey}
+                  onChange={(e) => setConfig({ ...config, authKey: e.target.value })}
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
                   className="absolute right-0 top-0 h-full px-3"
-                  onClick={() => setShowApiKeyId(!showApiKeyId)}
+                  onClick={() => setShowAuthKey(!showAuthKey)}
                 >
-                  {showApiKeyId ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showAuthKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </div>
-              {configured && config.apiKeyId?.startsWith('••••') && (
-                <Button variant="outline" size="sm" onClick={() => handleClearAndEdit('apiKeyId')}>
+              {configured && config.authKey?.startsWith('••••') && (
+                <Button variant="outline" size="sm" onClick={handleClearAndEdit}>
                   Изменить
                 </Button>
               )}
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="api_key_secret">API Key Secret</Label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Input
-                  id="api_key_secret"
-                  type={showApiKeySecret ? "text" : "password"}
-                  placeholder="Секретный ключ API"
-                  value={config.apiKeySecret}
-                  onChange={(e) => setConfig({ ...config, apiKeySecret: e.target.value })}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3"
-                  onClick={() => setShowApiKeySecret(!showApiKeySecret)}
-                >
-                  {showApiKeySecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-              {configured && config.apiKeySecret?.startsWith('••••') && (
-                <Button variant="outline" size="sm" onClick={() => handleClearAndEdit('apiKeySecret')}>
-                  Изменить
-                </Button>
-              )}
-            </div>
+            <p className="text-xs text-muted-foreground">
+              Скопируйте ключ из раздела «Интеграция» → «API» в личном кабинете OnlinePBX
+            </p>
           </div>
 
           <div className="flex items-center justify-between pt-2">
@@ -373,7 +338,7 @@ export function OnlinePBXSettings() {
             <Button 
               variant="outline" 
               onClick={handleTestConnection} 
-              disabled={testing || (config.apiKeyId?.startsWith('••••') || config.apiKeySecret?.startsWith('••••'))}
+              disabled={testing || config.authKey?.startsWith('••••')}
             >
               {testing ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -394,10 +359,10 @@ export function OnlinePBXSettings() {
         <CardContent className="space-y-3">
           <ol className="list-decimal list-inside space-y-2 text-sm">
             <li>Войдите в личный кабинет OnlinePBX по адресу <a href="https://my.onlinepbx.ru" target="_blank" rel="noopener noreferrer" className="text-primary underline inline-flex items-center gap-1">my.onlinepbx.ru <ExternalLink className="h-3 w-3" /></a></li>
-            <li>Перейдите в раздел «Настройки» → «Интеграции» → «API»</li>
-            <li>Создайте новый API-ключ или используйте существующий</li>
-            <li>Скопируйте Key ID и Secret Key в соответствующие поля выше</li>
-            <li>Нажмите «Сохранить» — будет сгенерирован уникальный URL для вебхука</li>
+            <li>Перейдите в раздел «Интеграция» → «API»</li>
+            <li>Скопируйте <strong>Auth Key</strong> (API-ключ) в поле выше</li>
+            <li>Скопируйте домен АТС из адресной строки (например: pbx11034.onpbx.ru)</li>
+            <li>Нажмите «Сохранить» — система автоматически получит ключи доступа</li>
             <li>В разделе «Webhooks» добавьте уникальный URL вебхука (см. выше)</li>
             <li>Нажмите «Проверить подключение» для проверки</li>
           </ol>

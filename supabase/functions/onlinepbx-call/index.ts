@@ -8,25 +8,6 @@ import {
   type OnlinePBXCallResponse,
 } from '../_shared/types.ts';
 
-// Generate HMAC-SHA256 signature for OnlinePBX API
-async function generateSignature(key: string, message: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(key);
-  const messageData = encoder.encode(message);
-  
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    keyData,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  
-  const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
-  const hashArray = Array.from(new Uint8Array(signature));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
 // Get OnlinePBX config from messenger_settings (with fallback to system_settings for migration)
 async function getOnlinePBXConfig(supabase: any, organizationId: string) {
   // First try messenger_settings (new approach)
@@ -41,6 +22,10 @@ async function getOnlinePBXConfig(supabase: any, organizationId: string) {
     const settings = messengerSettings.settings;
     return {
       pbx_domain: settings.pbxDomain || settings.pbx_domain,
+      // New format: keyId and keySecret from auth.json
+      key_id: settings.keyId || settings.key_id,
+      key_secret: settings.keySecret || settings.key_secret,
+      // Legacy format fallback
       api_key_id: settings.apiKeyId || settings.api_key_id,
       api_key_secret: settings.apiKeySecret || settings.api_key_secret,
       is_enabled: messengerSettings.is_enabled
@@ -103,7 +88,11 @@ Deno.serve(async (req) => {
       throw new Error('Интеграция с OnlinePBX отключена для вашей организации');
     }
 
-    if (!config.pbx_domain || !config.api_key_id || !config.api_key_secret) {
+    // Check for new format (keyId + keySecret) or legacy format (apiKeyId + apiKeySecret)
+    const keyId = config.key_id || config.api_key_id;
+    const keySecret = config.key_secret || config.api_key_secret;
+
+    if (!config.pbx_domain || !keyId || !keySecret) {
       throw new Error('OnlinePBX настроен неполностью. Проверьте настройки интеграции.');
     }
 
@@ -143,29 +132,19 @@ Deno.serve(async (req) => {
       console.error('Failed to create call log:', callLogError);
     }
 
-    // Use credentials from organization settings
+    // OnlinePBX API v3 - use key_id:key format for authentication
     const pbxDomain = config.pbx_domain;
-    const onlinePbxKeyId = config.api_key_id;
-    const onlinePbxKey = config.api_key_secret;
-
-    // OnlinePBX API v3 with HMAC-SHA256 authentication
     const apiPath = `/${pbxDomain}/call/now.json`;
-    const onlinePbxUrl = `https://api.onlinepbx.ru${apiPath}`;
+    const onlinePbxUrl = `https://api2.onlinepbx.ru${apiPath}`;
 
     const onlinePbxBody = {
       from: operatorExtension,
       to: to_number
     };
 
-    const bodyString = JSON.stringify(onlinePbxBody);
-    const timestamp = Math.floor(Date.now() / 1000).toString();
-    
-    // Generate signature: HMAC-SHA256(key, keyId + timestamp + bodyString)
-    const signatureMessage = onlinePbxKeyId + timestamp + bodyString;
-    const signature = await generateSignature(onlinePbxKey, signatureMessage);
-    
+    // Authentication header: key_id:key
     const onlinePbxHeaders = {
-      'x-pbx-authentication': `${onlinePbxKeyId}:${timestamp}:${signature}`,
+      'x-pbx-authentication': `${keyId}:${keySecret}`,
       'Content-Type': 'application/json'
     };
 
@@ -173,24 +152,23 @@ Deno.serve(async (req) => {
       url: onlinePbxUrl,
       from: operatorExtension,
       to: to_number,
-      timestamp: timestamp,
-      authHeader: `${onlinePbxKeyId}:${timestamp}:${signature.substring(0, 10)}...`
+      authHeader: `${keyId?.substring(0, 4)}...:****`
     });
 
     const response = await fetch(onlinePbxUrl, {
       method: 'POST',
       headers: onlinePbxHeaders,
-      body: bodyString
+      body: JSON.stringify(onlinePbxBody)
     });
 
     const responseData = await response.json();
     
-    console.log('OnlinePBX call successful:', responseData);
+    console.log('OnlinePBX call response:', responseData);
 
     // Update call log with result
     if (callLog) {
       let callStatus = 'failed';
-      if (response.ok && responseData.status === '1') {
+      if (response.ok && (responseData.status === '1' || responseData.status === 1)) {
         callStatus = 'answered';
       } else if (response.ok && responseData.status === '0') {
         callStatus = responseData.errorCode === 'API_KEY_CHECK_FAILED' ? 'failed' : 'busy';
@@ -205,9 +183,9 @@ Deno.serve(async (req) => {
         .eq('id', callLog.id);
     }
 
-    if (!response.ok) {
+    if (!response.ok || (responseData.status !== '1' && responseData.status !== 1)) {
       console.error('OnlinePBX API error:', responseData);
-      throw new Error(`OnlinePBX API error: ${responseData.message || 'Unknown error'}`);
+      throw new Error(`OnlinePBX API error: ${responseData.errorMessage || responseData.comment || 'Unknown error'}`);
     }
 
     // Log the call request in webhook_logs
@@ -232,7 +210,7 @@ Deno.serve(async (req) => {
       message: 'Звонок инициирован через OnlinePBX',
       from_extension: operatorExtension,
       to_number: to_number,
-      call_id: responseData.call_id || null,
+      call_id: responseData.call_id || responseData.data?.call_id || null,
       call_log_id: callLog?.id
     });
 

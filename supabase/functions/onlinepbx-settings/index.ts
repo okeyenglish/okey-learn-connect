@@ -23,6 +23,36 @@ function generateWebhookKey(): string {
   return key;
 }
 
+// Authenticate with OnlinePBX and get key_id + key
+async function authenticateOnlinePBX(pbxDomain: string, authKey: string): Promise<{ keyId: string; keySecret: string } | null> {
+  try {
+    const url = `https://api2.onlinepbx.ru/${pbxDomain}/auth.json`;
+    console.log('[onlinepbx-settings] Authenticating with OnlinePBX:', url);
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auth_key: authKey })
+    });
+    
+    const data = await response.json();
+    console.log('[onlinepbx-settings] Auth response:', JSON.stringify(data));
+    
+    if (data.status === '1' || data.status === 1) {
+      return {
+        keyId: data.data?.key_id || data.key_id,
+        keySecret: data.data?.key || data.key
+      };
+    }
+    
+    console.error('[onlinepbx-settings] Auth failed:', data);
+    return null;
+  } catch (error) {
+    console.error('[onlinepbx-settings] Auth error:', error);
+    return null;
+  }
+}
+
 serve(async (req) => {
   console.log('[onlinepbx-settings] Boot marker');
   
@@ -98,8 +128,7 @@ serve(async (req) => {
             success: true,
             settings: {
               pbxDomain: '',
-              apiKeyId: '',
-              apiKeySecret: '',
+              authKey: '',
               webhookKey: '',
             },
             isEnabled: false,
@@ -115,11 +144,10 @@ serve(async (req) => {
         ? `https://api.academyos.ru/functions/v1/onlinepbx-webhook?key=${webhookKey}`
         : 'https://api.academyos.ru/functions/v1/onlinepbx-webhook';
 
-      // Mask sensitive data
+      // Mask sensitive data - support both old and new format
       const maskedSettings = {
         pbxDomain: settings.settings?.pbxDomain || settings.settings?.pbx_domain || '',
-        apiKeyId: maskSecret(settings.settings?.apiKeyId || settings.settings?.api_key_id),
-        apiKeySecret: maskSecret(settings.settings?.apiKeySecret || settings.settings?.api_key_secret),
+        authKey: maskSecret(settings.settings?.authKey || settings.settings?.auth_key),
         webhookKey: webhookKey,
       };
 
@@ -138,7 +166,7 @@ serve(async (req) => {
 
     // POST - save settings
     if (req.method === 'POST') {
-      const { pbxDomain, apiKeyId, apiKeySecret, isEnabled, regenerateWebhookKey } = await req.json();
+      const { pbxDomain, authKey, isEnabled, regenerateWebhookKey } = await req.json();
 
       if (!pbxDomain) {
         return new Response(
@@ -155,13 +183,31 @@ serve(async (req) => {
         .eq('messenger_type', 'onlinepbx')
         .maybeSingle();
 
-      // Determine actual values (use existing if masked placeholder received)
-      const actualKeyId = apiKeyId?.startsWith('••••') 
-        ? (existing?.settings?.apiKeyId || existing?.settings?.api_key_id || '')
-        : apiKeyId;
-      const actualKeySecret = apiKeySecret?.startsWith('••••')
-        ? (existing?.settings?.apiKeySecret || existing?.settings?.api_key_secret || '')
-        : apiKeySecret;
+      // Determine actual auth key (use existing if masked placeholder received)
+      let actualAuthKey = authKey?.startsWith('••••') 
+        ? (existing?.settings?.authKey || existing?.settings?.auth_key || '')
+        : authKey;
+
+      // Get or reuse key_id and key
+      let keyId = existing?.settings?.keyId || existing?.settings?.key_id || '';
+      let keySecret = existing?.settings?.keySecret || existing?.settings?.key_secret || '';
+
+      // If we have a new auth key, authenticate to get key_id and key
+      if (actualAuthKey && !authKey?.startsWith('••••')) {
+        const authResult = await authenticateOnlinePBX(pbxDomain, actualAuthKey);
+        if (!authResult) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Не удалось авторизоваться в OnlinePBX. Проверьте Auth Key и домен.' 
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        keyId = authResult.keyId;
+        keySecret = authResult.keySecret;
+        console.log('[onlinepbx-settings] Got new keys from OnlinePBX');
+      }
 
       // Generate or keep webhook key
       let webhookKey = existing?.settings?.webhook_key || '';
@@ -172,8 +218,9 @@ serve(async (req) => {
 
       const settingsData = {
         pbxDomain,
-        apiKeyId: actualKeyId,
-        apiKeySecret: actualKeySecret,
+        authKey: actualAuthKey,
+        keyId,
+        keySecret,
         webhook_key: webhookKey,
       };
 
