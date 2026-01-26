@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import type { AppRole, RolePermission, UserRole } from '@/integrations/supabase/database.types';
 
 interface UserWithRoles {
@@ -83,13 +84,13 @@ export const useRoles = () => {
   // Получить пользователей с их ролями через edge-функцию (обходит RLS)
   const fetchUsersWithRoles = async (): Promise<UserWithRoles[]> => {
     try {
-      const { data, error } = await supabase.functions.invoke<GetEmployeesResponse>('get-employees', {
-        body: {}
-      });
+      const response = await selfHostedPost<GetEmployeesResponse>('get-employees', {});
 
-      if (error) throw error;
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch employees');
+      }
 
-      const employees = data?.employees || [];
+      const employees = response.data?.employees || [];
       const usersWithRoles: UserWithRoles[] = employees.map((e) => ({
         id: e.id,
         first_name: e.first_name ?? null,
