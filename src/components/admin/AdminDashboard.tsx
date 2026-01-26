@@ -29,6 +29,7 @@ import { BranchesSettings } from "@/components/settings/BranchesSettings";
 import { OnlinePBXSettings } from "./OnlinePBXSettings";
 import { WebhooksDirectory } from "./WebhooksDirectory";
 import { SystemMonitorPanel } from "./SystemMonitorPanel";
+import { TrialRequestsManager } from "./TrialRequestsManager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -45,6 +46,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
 
   const renderContent = () => {
     switch (currentSection) {
+      case "trial-requests":
+        return <TrialRequestsManager />;
       case "faq":
         return <AdminFAQManager />;
       case "schedule":
