@@ -55,8 +55,9 @@ SELECT
   c.middle_name,
   c.phone as client_phone,
   c.branch as client_branch,
-  c.telegram_user_id as telegram_chat_id,
-  c.whatsapp_id as whatsapp_chat_id,
+  -- Chat IDs stored in teacher_client_links or NULL
+  NULL::text as telegram_chat_id,
+  NULL::text as whatsapp_chat_id,
   COALESCE(lm.last_message, '') as last_message,
   COALESCE(lm.last_messenger, '') as last_messenger,
   COALESCE(cmsg.last_message_time, c.created_at) as last_message_time,
