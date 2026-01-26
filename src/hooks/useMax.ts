@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 import { getErrorMessage } from '@/lib/errorUtils';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import type {
   MaxSendResponse,
   MaxEditResponse,
@@ -69,14 +70,13 @@ export const useMax = () => {
   const sendMessage = useCallback(async (params: SendMessageParams): Promise<MaxSendResponse> => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke<MaxSendResponse>('max-send', {
-        body: params
-      });
+      const response = await selfHostedPost<MaxSendResponse>('max-send', params);
 
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'Failed to send message');
+      if (!response.success || !response.data?.success) {
+        throw new Error(response.error || response.data?.error || 'Failed to send message');
+      }
 
-      return { success: true, messageId: data.messageId };
+      return { success: true, messageId: response.data.messageId };
     } catch (error: unknown) {
       const message = getErrorMessage(error);
       console.error('Error sending MAX message:', error);
@@ -94,12 +94,11 @@ export const useMax = () => {
   const editMessage = useCallback(async (messageId: string, newMessage: string, clientId: string): Promise<MaxEditResponse> => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke<MaxEditResponse>('max-edit', {
-        body: { messageId, newMessage, clientId }
-      });
+      const response = await selfHostedPost<MaxEditResponse>('max-edit', { messageId, newMessage, clientId });
 
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'Failed to edit message');
+      if (!response.success || !response.data?.success) {
+        throw new Error(response.error || response.data?.error || 'Failed to edit message');
+      }
 
       return { success: true };
     } catch (error: unknown) {
@@ -119,12 +118,11 @@ export const useMax = () => {
   const deleteMessage = useCallback(async (messageId: string, clientId: string): Promise<MaxDeleteResponse> => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke<MaxDeleteResponse>('max-delete', {
-        body: { messageId, clientId }
-      });
+      const response = await selfHostedPost<MaxDeleteResponse>('max-delete', { messageId, clientId });
 
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'Failed to delete message');
+      if (!response.success || !response.data?.success) {
+        throw new Error(response.error || response.data?.error || 'Failed to delete message');
+      }
 
       return { success: true };
     } catch (error: unknown) {
@@ -143,11 +141,9 @@ export const useMax = () => {
 
   const sendTyping = useCallback(async (clientId: string): Promise<{ success: boolean }> => {
     try {
-      const { error } = await supabase.functions.invoke('max-typing', {
-        body: { clientId }
-      });
+      const response = await selfHostedPost('max-typing', { clientId });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
       return { success: true };
     } catch (error: unknown) {
       console.error('Error sending typing notification:', error);
@@ -158,15 +154,13 @@ export const useMax = () => {
   const checkAvailability = useCallback(async (phoneNumber: string): Promise<MaxCheckAvailabilityResponse> => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke<MaxCheckAvailabilityResponse>('max-check-availability', {
-        body: { phoneNumber }
-      });
+      const response = await selfHostedPost<MaxCheckAvailabilityResponse>('max-check-availability', { phoneNumber });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
       return { 
         success: true, 
-        existsWhatsapp: data?.existsWhatsapp,
-        chatId: data?.chatId 
+        existsWhatsapp: response.data?.existsWhatsapp,
+        chatId: response.data?.chatId 
       };
     } catch (error: unknown) {
       const message = getErrorMessage(error);
@@ -179,15 +173,13 @@ export const useMax = () => {
 
   const getAvatar = useCallback(async (clientId?: string, chatId?: string): Promise<MaxAvatarResponse> => {
     try {
-      const { data, error } = await supabase.functions.invoke<MaxAvatarResponse>('max-get-avatar', {
-        body: { clientId, chatId }
-      });
+      const response = await selfHostedPost<MaxAvatarResponse>('max-get-avatar', { clientId, chatId });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
       return { 
         success: true, 
-        urlAvatar: data?.urlAvatar,
-        available: data?.available
+        urlAvatar: response.data?.urlAvatar,
+        available: response.data?.available
       };
     } catch (error: unknown) {
       const message = getErrorMessage(error);
@@ -199,12 +191,10 @@ export const useMax = () => {
   const getContacts = useCallback(async (): Promise<MaxContactsResponse> => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke<MaxContactsResponse>('max-get-contacts', {
-        body: {}
-      });
+      const response = await selfHostedPost<MaxContactsResponse>('max-get-contacts', {});
 
-      if (error) throw error;
-      return { success: true, contacts: data?.contacts };
+      if (!response.success) throw new Error(response.error);
+      return { success: true, contacts: response.data?.contacts };
     } catch (error: unknown) {
       const message = getErrorMessage(error);
       console.error('Error getting MAX contacts:', error);
@@ -221,12 +211,10 @@ export const useMax = () => {
 
   const getContactInfo = useCallback(async (clientId?: string, chatId?: string): Promise<MaxContactInfoResponse> => {
     try {
-      const { data, error } = await supabase.functions.invoke<MaxContactInfoResponse>('max-get-contact-info', {
-        body: { clientId, chatId }
-      });
+      const response = await selfHostedPost<MaxContactInfoResponse>('max-get-contact-info', { clientId, chatId });
 
-      if (error) throw error;
-      return { success: true, ...data };
+      if (!response.success) throw new Error(response.error);
+      return { success: true, ...response.data };
     } catch (error: unknown) {
       const message = getErrorMessage(error);
       console.error('Error getting MAX contact info:', error);
