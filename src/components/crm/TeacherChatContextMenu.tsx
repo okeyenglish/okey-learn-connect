@@ -43,12 +43,32 @@ export const TeacherChatContextMenu = ({
     }
   };
 
-  const handleReadStatusToggle = () => {
+  const handleReadStatusToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
     if (isUnread && onMarkRead) {
       onMarkRead();
     } else {
       onMarkUnread();
     }
+  };
+
+  const handlePinClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onPinDialog();
+  };
+
+  const handleBlockClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onBlock?.();
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onDelete?.();
   };
 
   return (
@@ -75,7 +95,7 @@ export const TeacherChatContextMenu = ({
           )}
         </ContextMenuItem>
         
-        <ContextMenuItem onClick={onPinDialog} className="cursor-pointer">
+        <ContextMenuItem onClick={handlePinClick} className="cursor-pointer">
           <Pin className="mr-2 h-4 w-4" />
           {isPinned ? 'Открепить диалог' : 'Закрепить диалог'}
         </ContextMenuItem>
@@ -83,7 +103,7 @@ export const TeacherChatContextMenu = ({
         {onBlock && (
           <>
             <ContextMenuSeparator />
-            <ContextMenuItem onClick={onBlock} className="cursor-pointer">
+            <ContextMenuItem onClick={handleBlockClick} className="cursor-pointer">
               <Lock className="mr-2 h-4 w-4" />
               Заблокировать
             </ContextMenuItem>
@@ -93,7 +113,7 @@ export const TeacherChatContextMenu = ({
         {onDelete && (
           <>
             <ContextMenuSeparator />
-            <ContextMenuItem onClick={onDelete} className="cursor-pointer text-destructive">
+            <ContextMenuItem onClick={handleDeleteClick} className="cursor-pointer text-destructive">
               <Trash2 className="mr-2 h-4 w-4" />
               Удалить чат
             </ContextMenuItem>
