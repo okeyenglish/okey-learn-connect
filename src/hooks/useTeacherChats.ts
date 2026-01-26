@@ -30,22 +30,33 @@ export const useTeacherChatMessages = (clientId: string, enabled = true) => {
       }, TIMEOUT_MS);
 
       try {
-        // Try server-side limit/order when PostgREST supports it for this RPC
+        // Use optimized RPC with built-in limit parameter
+        // The RPC now accepts p_limit parameter directly for server-side limiting
+        const MESSAGE_LIMIT = 200;
+        
         try {
-          let rpc: any = supabase.rpc('get_teacher_chat_messages', { p_client_id: clientId });
-          if (typeof rpc.order === 'function') rpc = rpc.order('created_at', { ascending: false });
-          if (typeof rpc.limit === 'function') rpc = rpc.limit(200);
-          else if (typeof rpc.range === 'function') rpc = rpc.range(0, 199);
-          if (typeof rpc.abortSignal === 'function') rpc = rpc.abortSignal(controller.signal);
-
-          const { data, error } = await rpc;
+          // Call RPC with limit parameter (if optimized version is deployed)
+          const { data, error } = await supabase.rpc('get_teacher_chat_messages', { 
+            p_client_id: clientId,
+            p_limit: MESSAGE_LIMIT 
+          });
 
           if (error) {
-            console.error('[useTeacherChatMessages] Error:', error);
+            // If error is about unknown parameter, fallback to old signature
+            if (error.message?.includes('p_limit') || error.code === 'PGRST202') {
+              console.warn('[useTeacherChatMessages] Using legacy RPC without p_limit');
+              const { data: legacyData, error: legacyError } = await supabase.rpc(
+                'get_teacher_chat_messages', 
+                { p_client_id: clientId }
+              );
+              if (legacyError) throw legacyError;
+              endMetric(metricId, 'completed', { msgCount: (legacyData || []).length, method: 'rpc-legacy' });
+              return (legacyData || []).slice(-MESSAGE_LIMIT); // Client-side limit for legacy
+            }
             throw error;
           }
 
-          endMetric(metricId, 'completed', { msgCount: (data || []).length, method: 'rpc' });
+          endMetric(metricId, 'completed', { msgCount: (data || []).length, method: 'rpc-optimized' });
           return data || [];
         } catch (rpcErr) {
           // Fallback: try direct table select (fast) when RPC is hanging or unstable.
