@@ -21,7 +21,7 @@ WITH teacher_links AS (
 ),
 client_messages AS (
   -- Get last message and unread counts per client
-  -- Note: self-hosted uses message_text, not content
+  -- Note: self-hosted uses is_outgoing (false = incoming), not direction
   SELECT 
     cm.client_id,
     MAX(cm.created_at) as last_message_time,
