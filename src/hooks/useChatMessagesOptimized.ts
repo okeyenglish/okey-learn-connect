@@ -20,16 +20,16 @@ const CACHE_TTL = 60 * 1000; // 1 minute
  * 3. Selective field fetching (only needed fields)
  * 4. Smart stale time management
  */
-export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_PAGE) => {
+export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_PAGE, enabled: boolean = true) => {
   // Check in-memory cache for instant display
   const cachedData = React.useMemo(() => {
-    if (!clientId) return null;
+    if (!enabled || !clientId) return null;
     const cached = messageCache.get(clientId);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       return { messages: cached.messages, hasMore: false, totalCount: cached.messages.length };
     }
     return null;
-  }, [clientId]);
+  }, [clientId, enabled]);
 
   const query = useQuery({
     queryKey: ['chat-messages-optimized', clientId, limit],
@@ -90,7 +90,7 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
 
       return { messages: reversed, hasMore, totalCount: messages.length };
     },
-    enabled: !!clientId,
+    enabled: enabled && !!clientId,
     staleTime: 10 * 1000, // Reduced to 10 seconds for fresher data
     gcTime: 10 * 60 * 1000, // 10 minutes cache
     refetchOnWindowFocus: false, // Use realtime instead
