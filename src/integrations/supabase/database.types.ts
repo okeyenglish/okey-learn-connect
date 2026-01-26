@@ -885,6 +885,27 @@ export interface ContentIdea {
   created_at: string;
 }
 
+// Quick responses for message templates
+export interface QuickResponseCategory {
+  id: string;
+  name: string;
+  organization_id: string;
+  is_teacher_category: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QuickResponse {
+  id: string;
+  category_id: string;
+  text: string;
+  organization_id: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface App {
   id: string;
   title: string;

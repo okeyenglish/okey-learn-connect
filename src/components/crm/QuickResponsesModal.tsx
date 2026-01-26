@@ -1,268 +1,91 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Search, Plus, Edit2, MoreHorizontal, X, Zap } from "lucide-react";
+import { ArrowLeft, Search, Plus, Edit2, MoreHorizontal, Zap, Loader2, Trash2, Check, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-interface QuickResponse {
-  id: string;
-  text: string;
-  categoryId: string;
-}
-
-interface Category {
-  id: string;
-  name: string;
-  responses: QuickResponse[];
-}
+import { useQuickResponses, CategoryWithResponses, QuickResponse } from "@/hooks/useQuickResponses";
 
 interface QuickResponsesModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelectResponse: (text: string) => void;
-  isTeacher?: boolean; // Use teacher-specific templates
+  isTeacher?: boolean;
 }
 
-const defaultCategories: Category[] = [
+// Default templates for initial data seeding
+const defaultClientTemplates = [
   {
-    id: "1",
     name: "Фирменные курсы",
     responses: [
-      {
-        id: "1-1",
-        categoryId: "1",
-        text: "Speaking club - это занятие для практических упражнений в устной речи, где участники могут свободно общаться на английском языке в непринужденной атмосфере."
-      },
-      {
-        id: "1-2",
-        categoryId: "1",
-        text: "*Workshop - это имитация ситуаций,* которые возникают в поездках заграницей. За год мы проигрываем более 50 различных ситуаций."
-      },
-      {
-        id: "1-3",
-        categoryId: "1",
-        text: "*Watch&Play - это авторский курс нашей школы,* который позволяет детям погружаться в мир мультфильмов, изучая английский язык."
-      },
-      {
-        id: "1-4",
-        categoryId: "1",
-        text: "*Субботний мини-садик O'KEY ENGLISH*..."
-      }
+      "Speaking club - это занятие для практических упражнений в устной речи, где участники могут свободно общаться на английском языке в непринужденной атмосфере.",
+      "*Workshop - это имитация ситуаций,* которые возникают в поездках заграницей. За год мы проигрываем более 50 различных ситуаций.",
+      "*Watch&Play - это авторский курс нашей школы,* который позволяет детям погружаться в мир мультфильмов, изучая английский язык."
     ]
   },
   {
-    id: "2",
     name: "Стоимость",
     responses: [
-      {
-        id: "2-1",
-        categoryId: "2",
-        text: "Стоимость индивидуальных занятий составляет 2500 рублей за урок 60 минут."
-      },
-      {
-        id: "2-2",
-        categoryId: "2",
-        text: "Групповые занятия (2-4 человека) - 1800 рублей за урок на человека."
-      },
-      {
-        id: "2-3",
-        categoryId: "2",
-        text: "Мини-группы (5-8 человек) - 1200 рублей за урок на человека."
-      }
+      "Стоимость индивидуальных занятий составляет 2500 рублей за урок 60 минут.",
+      "Групповые занятия (2-4 человека) - 1800 рублей за урок на человека.",
+      "Мини-группы (5-8 человек) - 1200 рублей за урок на человека."
     ]
   },
   {
-    id: "3",
-    name: "Регистрация лица",
-    responses: [
-      {
-        id: "3-1",
-        categoryId: "3",
-        text: "Для записи на пробное занятие нам потребуется ваше имя, контактный телефон и возраст ученика."
-      },
-      {
-        id: "3-2",
-        categoryId: "3",
-        text: "Регистрация проходит через наш сайт или по телефону. Пробное занятие бесплатно!"
-      }
-    ]
-  },
-  {
-    id: "4",
     name: "Тестирование",
     responses: [
-      {
-        id: "4-1",
-        categoryId: "4",
-        text: "Перед началом обучения мы проводим бесплатное тестирование для определения уровня знаний."
-      },
-      {
-        id: "4-2",
-        categoryId: "4",
-        text: "Тестирование занимает около 30 минут и включает проверку грамматики, лексики и разговорных навыков."
-      }
-    ]
-  },
-  {
-    id: "5",
-    name: "Материнский капитал",
-    responses: [
-      {
-        id: "5-1",
-        categoryId: "5",
-        text: "Да, мы принимаем оплату материнским капиталом для детей от 3 лет."
-      },
-      {
-        id: "5-2",
-        categoryId: "5",
-        text: "Для оплаты материнским капиталом необходимо предоставить справку из ПФР и заключить договор."
-      }
-    ]
-  },
-  {
-    id: "6",
-    name: "Учебники",
-    responses: [
-      {
-        id: "6-1",
-        categoryId: "6",
-        text: "Мы используем современные британские учебники Cambridge и Oxford."
-      },
-      {
-        id: "6-2",
-        categoryId: "6",
-        text: "Все необходимые материалы предоставляются школой. Дополнительно покупать ничего не нужно."
-      }
+      "Перед началом обучения мы проводим бесплатное тестирование для определения уровня знаний.",
+      "Тестирование занимает около 30 минут и включает проверку грамматики, лексики и разговорных навыков."
     ]
   }
 ];
 
-// Teacher-specific quick response categories
-const teacherCategories: Category[] = [
+const defaultTeacherTemplates = [
   {
-    id: "t1",
     name: "Расписание",
     responses: [
-      {
-        id: "t1-1",
-        categoryId: "t1",
-        text: "Добрый день! Подтверждаю ваше расписание на эту неделю."
-      },
-      {
-        id: "t1-2",
-        categoryId: "t1",
-        text: "К сожалению, занятие придётся перенести. Предлагаю следующие варианты времени:"
-      },
-      {
-        id: "t1-3",
-        categoryId: "t1",
-        text: "Напоминаю о занятии завтра. Пожалуйста, подготовьте материалы."
-      }
+      "Добрый день! Подтверждаю ваше расписание на эту неделю.",
+      "К сожалению, занятие придётся перенести. Предлагаю следующие варианты времени:",
+      "Напоминаю о занятии завтра. Пожалуйста, подготовьте материалы."
     ]
   },
   {
-    id: "t2",
-    name: "Методика",
-    responses: [
-      {
-        id: "t2-1",
-        categoryId: "t2",
-        text: "Пожалуйста, заполните методический отчёт до конца недели."
-      },
-      {
-        id: "t2-2",
-        categoryId: "t2",
-        text: "Напоминаю о методическом совещании. Подготовьте материалы по вашим группам."
-      },
-      {
-        id: "t2-3",
-        categoryId: "t2",
-        text: "Просьба ознакомиться с новыми методическими рекомендациями."
-      }
-    ]
-  },
-  {
-    id: "t3",
-    name: "Оплата и документы",
-    responses: [
-      {
-        id: "t3-1",
-        categoryId: "t3",
-        text: "Зарплата будет перечислена в стандартные сроки."
-      },
-      {
-        id: "t3-2",
-        categoryId: "t3",
-        text: "Пожалуйста, проверьте табель учёта рабочего времени и подтвердите."
-      },
-      {
-        id: "t3-3",
-        categoryId: "t3",
-        text: "Необходимо предоставить документы для оформления. Список прилагаю."
-      }
-    ]
-  },
-  {
-    id: "t4",
-    name: "Ученики",
-    responses: [
-      {
-        id: "t4-1",
-        categoryId: "t4",
-        text: "К вам добавлен новый ученик. Подробная информация в карточке."
-      },
-      {
-        id: "t4-2",
-        categoryId: "t4",
-        text: "Прошу подготовить отчёт по успеваемости ваших учеников."
-      },
-      {
-        id: "t4-3",
-        categoryId: "t4",
-        text: "Родители ученика просят связаться для обсуждения прогресса."
-      }
-    ]
-  },
-  {
-    id: "t5",
     name: "Общее",
     responses: [
-      {
-        id: "t5-1",
-        categoryId: "t5",
-        text: "Спасибо за информацию! Приняла к сведению."
-      },
-      {
-        id: "t5-2",
-        categoryId: "t5",
-        text: "Хорошо, подтверждаю."
-      },
-      {
-        id: "t5-3",
-        categoryId: "t5",
-        text: "Пожалуйста, уточните детали."
-      }
+      "Спасибо за информацию! Приняла к сведению.",
+      "Хорошо, подтверждаю.",
+      "Пожалуйста, уточните детали."
     ]
   }
 ];
 
 export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTeacher = false }: QuickResponsesModalProps) => {
-  const initialCategories = isTeacher ? teacherCategories : defaultCategories;
-  const [categories, setCategories] = useState<Category[]>(initialCategories);
+  const {
+    categories,
+    isLoading,
+    addCategory,
+    deleteCategory,
+    addResponse,
+    updateResponse,
+    deleteResponse
+  } = useQuickResponses({ isTeacher });
+
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [showAddResponse, setShowAddResponse] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newResponseText, setNewResponseText] = useState("");
+  const [editingResponseId, setEditingResponseId] = useState<string | null>(null);
+  const [editingResponseText, setEditingResponseText] = useState("");
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [isAddingResponse, setIsAddingResponse] = useState(false);
 
   const selectedCategory = categories.find(cat => cat.id === selectedCategoryId);
   
@@ -270,53 +93,76 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
     category.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Reset state when modal opens/closes
+  useEffect(() => {
+    if (!open) {
+      setSelectedCategoryId(null);
+      setSearchQuery("");
+      setShowAddCategory(false);
+      setShowAddResponse(false);
+      setNewCategoryName("");
+      setNewResponseText("");
+      setEditingResponseId(null);
+    }
+  }, [open]);
+
   const handleSelectResponse = (response: QuickResponse) => {
     onSelectResponse(response.text);
     onOpenChange(false);
   };
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;
     
-    const newCategory: Category = {
-      id: Date.now().toString(),
-      name: newCategoryName.trim(),
-      responses: []
-    };
+    setIsAddingCategory(true);
+    const result = await addCategory(newCategoryName.trim());
+    setIsAddingCategory(false);
     
-    setCategories(prev => [...prev, newCategory]);
-    setNewCategoryName("");
-    setShowAddCategory(false);
+    if (result) {
+      setNewCategoryName("");
+      setShowAddCategory(false);
+    }
   };
 
-  const handleAddResponse = () => {
+  const handleAddResponse = async () => {
     if (!newResponseText.trim() || !selectedCategoryId) return;
     
-    const newResponse: QuickResponse = {
-      id: Date.now().toString(),
-      categoryId: selectedCategoryId,
-      text: newResponseText.trim()
-    };
+    setIsAddingResponse(true);
+    const result = await addResponse(selectedCategoryId, newResponseText.trim());
+    setIsAddingResponse(false);
     
-    setCategories(prev => prev.map(cat => 
-      cat.id === selectedCategoryId 
-        ? { ...cat, responses: [...cat.responses, newResponse] }
-        : cat
-    ));
-    
-    setNewResponseText("");
-    setShowAddResponse(false);
+    if (result) {
+      setNewResponseText("");
+      setShowAddResponse(false);
+    }
   };
 
-  const handleDeleteCategory = (categoryId: string) => {
-    setCategories(prev => prev.filter(cat => cat.id !== categoryId));
+  const handleDeleteCategory = async (categoryId: string) => {
+    await deleteCategory(categoryId);
   };
 
-  const handleDeleteResponse = (responseId: string) => {
-    setCategories(prev => prev.map(cat => ({
-      ...cat,
-      responses: cat.responses.filter(resp => resp.id !== responseId)
-    })));
+  const handleDeleteResponse = async (responseId: string) => {
+    await deleteResponse(responseId);
+  };
+
+  const handleStartEditResponse = (response: QuickResponse) => {
+    setEditingResponseId(response.id);
+    setEditingResponseText(response.text);
+  };
+
+  const handleSaveEditResponse = async () => {
+    if (!editingResponseId || !editingResponseText.trim()) return;
+    
+    const success = await updateResponse(editingResponseId, editingResponseText.trim());
+    if (success) {
+      setEditingResponseId(null);
+      setEditingResponseText("");
+    }
+  };
+
+  const handleCancelEditResponse = () => {
+    setEditingResponseId(null);
+    setEditingResponseText("");
   };
 
   const goBack = () => {
@@ -342,7 +188,11 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden flex flex-col">
-          {!selectedCategory ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : !selectedCategory ? (
             // Categories view
             <>
               <div className="flex-shrink-0 space-y-3 mb-4">
@@ -350,7 +200,7 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Разделы"
+                      placeholder="Поиск разделов..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10"
@@ -360,39 +210,58 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
               </div>
 
               <div className="flex-1 overflow-y-auto space-y-2">
-                {filteredCategories.map((category) => (
-                  <div
-                    key={category.id}
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer group"
-                    onClick={() => setSelectedCategoryId(category.id)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-muted rounded flex items-center justify-center">
-                        📁
-                      </div>
-                      <span className="font-medium">{category.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem onClick={() => handleDeleteCategory(category.id)}>
-                            Удалить раздел
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                {filteredCategories.length === 0 && !showAddCategory ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>Нет сохранённых шаблонов</p>
+                    <p className="text-sm mt-1">Создайте первый раздел для быстрых ответов</p>
                   </div>
-                ))}
+                ) : (
+                  filteredCategories.map((category) => (
+                    <div
+                      key={category.id}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer group"
+                      onClick={() => setSelectedCategoryId(category.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-muted rounded flex items-center justify-center">
+                          📁
+                        </div>
+                        <div>
+                          <span className="font-medium">{category.name}</span>
+                          <p className="text-xs text-muted-foreground">
+                            {category.responses.length} {category.responses.length === 1 ? 'шаблон' : 'шаблонов'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteCategory(category.id);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Удалить раздел
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  ))
+                )}
                 
                 {showAddCategory ? (
                   <div className="p-3 border rounded-lg space-y-2">
@@ -401,9 +270,11 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
                       value={newCategoryName}
                       onChange={(e) => setNewCategoryName(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && handleAddCategory()}
+                      autoFocus
                     />
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={handleAddCategory}>
+                      <Button size="sm" onClick={handleAddCategory} disabled={isAddingCategory}>
+                        {isAddingCategory && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                         Добавить
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => setShowAddCategory(false)}>
@@ -427,51 +298,95 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
             // Responses view
             <div className="flex-1 overflow-hidden flex flex-col">
               <div className="flex-shrink-0 mb-4">
-                <p className="text-sm text-muted-foreground">Сообщения</p>
+                <p className="text-sm text-muted-foreground">
+                  Нажмите на шаблон, чтобы вставить его в сообщение
+                </p>
               </div>
 
               <div className="flex-1 overflow-y-auto space-y-2">
-                {selectedCategory.responses.map((response) => (
-                  <div
-                    key={response.id}
-                    className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer group"
-                    onClick={() => handleSelectResponse(response)}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm flex-1">{response.text}</p>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // TODO: Edit functionality
-                          }}
-                        >
-                          <Edit2 className="h-3 w-3" />
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
+                {selectedCategory.responses.length === 0 && !showAddResponse ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>В этом разделе пока нет шаблонов</p>
+                  </div>
+                ) : (
+                  selectedCategory.responses.map((response) => (
+                    <div
+                      key={response.id}
+                      className={`p-3 border rounded-lg group ${
+                        editingResponseId === response.id 
+                          ? 'ring-2 ring-primary' 
+                          : 'hover:bg-muted/50 cursor-pointer'
+                      }`}
+                      onClick={() => {
+                        if (editingResponseId !== response.id) {
+                          handleSelectResponse(response);
+                        }
+                      }}
+                    >
+                      {editingResponseId === response.id ? (
+                        <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                          <Textarea
+                            value={editingResponseText}
+                            onChange={(e) => setEditingResponseText(e.target.value)}
+                            className="min-h-[80px]"
+                            autoFocus
+                          />
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={handleSaveEditResponse}>
+                              <Check className="h-4 w-4 mr-1" />
+                              Сохранить
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={handleCancelEditResponse}>
+                              <X className="h-4 w-4 mr-1" />
+                              Отмена
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm flex-1 whitespace-pre-wrap">{response.text}</p>
+                          <div className="flex items-center gap-1 flex-shrink-0">
                             <Button
                               variant="ghost"
                               size="sm"
                               className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-                              onClick={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStartEditResponse(response);
+                              }}
                             >
-                              <MoreHorizontal className="h-3 w-3" />
+                              <Edit2 className="h-3 w-3" />
                             </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => handleDeleteResponse(response.id)}>
-                              Удалить сообщение
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <MoreHorizontal className="h-3 w-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent>
+                                <DropdownMenuItem 
+                                  className="text-destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteResponse(response.id);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Удалить шаблон
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
 
                 {showAddResponse ? (
                   <div className="p-3 border rounded-lg space-y-2">
@@ -480,9 +395,11 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
                       value={newResponseText}
                       onChange={(e) => setNewResponseText(e.target.value)}
                       className="min-h-[80px]"
+                      autoFocus
                     />
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={handleAddResponse}>
+                      <Button size="sm" onClick={handleAddResponse} disabled={isAddingResponse}>
+                        {isAddingResponse && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                         Добавить
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => setShowAddResponse(false)}>
@@ -497,7 +414,7 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
                     onClick={() => setShowAddResponse(true)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Добавить быстрый ответ
+                    Добавить шаблон
                   </Button>
                 )}
               </div>
