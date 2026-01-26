@@ -508,6 +508,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         clientId={resolvedClientId}
         clientName={clientName}
         clientPhone={clientPhone}
+        messagesSource="teacher"
         onBackToList={() => onSelectTeacher(null)}
         managerName="Вы"
       />
@@ -561,6 +562,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                   clientId={resolvedClientId}
                   clientName={clientName}
                   clientPhone={clientPhone}
+                  messagesSource="teacher"
                   managerName="Вы"
                 />
               </TabsContent>

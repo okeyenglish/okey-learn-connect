@@ -12,8 +12,9 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useTypingStatus } from "@/hooks/useTypingStatus";
-import { useClientUnreadByMessenger } from "@/hooks/useChatMessages";
+import { useClientUnreadByMessenger, type ChatMessage as ChatMessageRow } from "@/hooks/useChatMessages";
 import { useChatMessagesOptimized, useMessageStatusRealtime } from "@/hooks/useChatMessagesOptimized";
+import { useTeacherChatMessages } from "@/hooks/useTeacherChats";
 import { useAutoRetryMessages } from "@/hooks/useAutoRetryMessages";
 import { ChatMessage } from "./ChatMessage";
 import { DateSeparator, shouldShowDateSeparator } from "./DateSeparator";
@@ -66,6 +67,7 @@ interface ChatAreaProps {
   messengerTabTimestamp?: number; // Timestamp to force tab switch
   initialSearchQuery?: string; // Search query to auto-open search and scroll to match
   highlightedMessageId?: string; // Message ID to highlight and scroll to
+  messagesSource?: 'default' | 'teacher'; // Teacher chats load history via SECURITY DEFINER RPC
 }
 
 interface ScheduledMessage {
@@ -94,7 +96,8 @@ export const ChatArea = ({
   initialMessengerTab,
   messengerTabTimestamp,
   initialSearchQuery,
-  highlightedMessageId
+  highlightedMessageId,
+  messagesSource = 'default'
 }: ChatAreaProps) => {
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -102,14 +105,61 @@ export const ChatArea = ({
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   
+  const isTeacherMessages = messagesSource === 'teacher';
+
   // React Query for messages - replaces useState + loadMessages for caching
   const [messageLimit, setMessageLimit] = useState(100);
-  const { 
-    data: messagesData, 
-    isLoading: loadingMessages, 
-    isFetching: fetchingMessages 
-  } = useChatMessagesOptimized(clientId, messageLimit);
-  
+
+  // Default (clients) source
+  const {
+    data: defaultMessagesData,
+    isLoading: defaultLoadingMessages,
+    isFetching: defaultFetchingMessages,
+  } = useChatMessagesOptimized(clientId, messageLimit, !isTeacherMessages);
+
+  // Teacher source (SECURITY DEFINER RPC). Disabled unless this chat explicitly requests it.
+  const teacherMessagesQuery = useTeacherChatMessages(clientId, isTeacherMessages);
+
+  const normalizedTeacherMessages = useMemo<ChatMessageRow[]>(() => {
+    if (!isTeacherMessages) return [];
+    const rows = (teacherMessagesQuery.messages || []) as Array<Record<string, unknown>>;
+    return rows.map((m) => {
+      const anyMsg = m as Record<string, any>;
+      const messageText = anyMsg.message_text ?? anyMsg.content ?? '';
+      const isOutgoing = anyMsg.is_outgoing ?? anyMsg.direction === 'outgoing';
+      const rawMessageType = anyMsg.message_type;
+      const messageType: ChatMessageRow['message_type'] =
+        rawMessageType === 'client' || rawMessageType === 'manager' || rawMessageType === 'system'
+          ? rawMessageType
+          : (isOutgoing ? 'manager' : 'client');
+
+      return {
+        id: String(anyMsg.id),
+        client_id: String(anyMsg.client_id ?? clientId),
+        message_text: String(messageText ?? ''),
+        message_type: messageType,
+        system_type: anyMsg.system_type ?? undefined,
+        is_read: Boolean(anyMsg.is_read ?? false),
+        created_at: String(anyMsg.created_at ?? new Date().toISOString()),
+        file_url: anyMsg.file_url ?? anyMsg.media_url ?? undefined,
+        file_name: anyMsg.file_name ?? undefined,
+        file_type: anyMsg.file_type ?? anyMsg.media_type ?? undefined,
+        external_message_id: anyMsg.external_message_id ?? anyMsg.external_id ?? undefined,
+        messenger_type: anyMsg.messenger_type ?? anyMsg.messenger ?? undefined,
+        message_status: anyMsg.message_status ?? anyMsg.status ?? undefined,
+        call_duration: anyMsg.call_duration ?? undefined,
+        metadata: anyMsg.metadata ?? undefined,
+      } satisfies ChatMessageRow;
+    });
+  }, [clientId, isTeacherMessages, teacherMessagesQuery.messages]);
+
+  const messagesData = isTeacherMessages
+    ? { messages: normalizedTeacherMessages, hasMore: false, totalCount: normalizedTeacherMessages.length }
+    : defaultMessagesData;
+
+  const loadingMessages = isTeacherMessages ? teacherMessagesQuery.isLoading : defaultLoadingMessages;
+  const fetchingMessages = isTeacherMessages ? teacherMessagesQuery.isFetching : defaultFetchingMessages;
+
   const hasMoreMessages = messagesData?.hasMore ?? false;
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   

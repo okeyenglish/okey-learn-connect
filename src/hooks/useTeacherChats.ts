@@ -7,7 +7,7 @@ import { normalizePhone } from '@/utils/phoneNormalization';
  * Hook to load teacher chat messages using SECURITY DEFINER RPC
  * This bypasses RLS org filter for teacher-linked clients
  */
-export const useTeacherChatMessages = (clientId: string) => {
+export const useTeacherChatMessages = (clientId: string, enabled = true) => {
   const { data: messages, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['teacher-chat-messages', clientId],
     queryFn: async () => {
@@ -28,7 +28,7 @@ export const useTeacherChatMessages = (clientId: string) => {
       console.log(`[useTeacherChatMessages] Fetched ${(data || []).length} messages in ${elapsed.toFixed(2)}ms`);
       return data || [];
     },
-    enabled: !!clientId,
+    enabled: enabled && !!clientId,
     staleTime: 30 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
