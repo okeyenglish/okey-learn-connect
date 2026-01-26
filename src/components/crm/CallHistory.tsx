@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle } from "lucide-react";
+import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -17,12 +17,14 @@ interface CallHistoryProps {
 }
 
 type StatusFilter = 'all' | 'answered' | 'missed';
+type DirectionFilter = 'all' | 'incoming' | 'outgoing';
 
 export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
   const { data: calls = [], isLoading } = useCallHistory(clientId);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('all');
   
   // Get unviewed missed calls from server
   const { data: unviewedData } = useUnviewedMissedCallsCount(clientId);
@@ -35,17 +37,26 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
     return unviewedCallIds.has(call.id);
   };
 
-  // Filter calls by status
+  // Filter calls by status and direction
   const filteredCalls = useMemo(() => {
-    if (statusFilter === 'all') return calls;
-    return calls.filter(call => call.status === statusFilter);
-  }, [calls, statusFilter]);
+    return calls.filter(call => {
+      const statusMatch = statusFilter === 'all' || call.status === statusFilter;
+      const directionMatch = directionFilter === 'all' || call.direction === directionFilter;
+      return statusMatch && directionMatch;
+    });
+  }, [calls, statusFilter, directionFilter]);
 
-  // Count calls by status for badges
+  // Count calls by status and direction for badges
   const statusCounts = useMemo(() => ({
     all: calls.length,
     answered: calls.filter(c => c.status === 'answered').length,
     missed: calls.filter(c => c.status === 'missed').length,
+  }), [calls]);
+
+  const directionCounts = useMemo(() => ({
+    all: calls.length,
+    incoming: calls.filter(c => c.direction === 'incoming').length,
+    outgoing: calls.filter(c => c.direction === 'outgoing').length,
   }), [calls]);
 
   // Group calls: unviewed missed calls first, then the rest
@@ -300,6 +311,32 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
             Пропущенные
             <Badge variant="outline" className="ml-1.5 h-4 px-1 text-[10px] bg-red-50 text-red-700 border-red-200">
               {statusCounts.missed}
+            </Badge>
+          </ToggleGroupItem>
+        </ToggleGroup>
+
+        {/* Direction filter */}
+        <ToggleGroup 
+          type="single" 
+          value={directionFilter} 
+          onValueChange={(value) => value && setDirectionFilter(value as DirectionFilter)}
+          className="justify-start"
+        >
+          <ToggleGroupItem value="all" size="sm" className="text-xs h-7 px-2.5">
+            Все
+          </ToggleGroupItem>
+          <ToggleGroupItem value="incoming" size="sm" className="text-xs h-7 px-2.5 gap-1">
+            <PhoneIncoming className="h-3 w-3" />
+            Входящие
+            <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px]">
+              {directionCounts.incoming}
+            </Badge>
+          </ToggleGroupItem>
+          <ToggleGroupItem value="outgoing" size="sm" className="text-xs h-7 px-2.5 gap-1">
+            <PhoneOutgoing className="h-3 w-3" />
+            Исходящие
+            <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px]">
+              {directionCounts.outgoing}
             </Badge>
           </ToggleGroupItem>
         </ToggleGroup>
