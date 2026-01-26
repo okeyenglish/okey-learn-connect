@@ -69,6 +69,7 @@ interface ChatAreaProps {
   initialSearchQuery?: string; // Search query to auto-open search and scroll to match
   highlightedMessageId?: string; // Message ID to highlight and scroll to
   messagesSource?: 'default' | 'teacher'; // Teacher chats load history via SECURITY DEFINER RPC
+  simplifiedToolbar?: boolean; // Show simplified toolbar with only basic icons and dropdown (for teacher chats)
 }
 
 interface ScheduledMessage {
@@ -98,7 +99,8 @@ export const ChatArea = ({
   messengerTabTimestamp,
   initialSearchQuery,
   highlightedMessageId,
-  messagesSource = 'default'
+  messagesSource = 'default',
+  simplifiedToolbar = false
 }: ChatAreaProps) => {
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -2751,217 +2753,322 @@ export const ChatArea = ({
                   <Mic className="h-4 w-4" />
                 </Button>
                 
-                {/* Desktop: show priority icon, hide rest in dropdown */}
-                {/* Priority badge button - allows setting message priority 1,2,3 */}
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      className="h-6 w-6 md:h-8 md:w-8 p-0"
-                      disabled={!!pendingMessage}
-                      title="Приоритет сообщения"
-                    >
-                      <span className="text-sm font-medium">1,2,3</span>
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-48 p-2" align="start">
-                    <div className="space-y-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => toast({ title: "Приоритет 1", description: "Срочно" })}
-                      >
-                        <span className="w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center mr-2">1</span>
-                        Срочно
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="w-full justify-start text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                        onClick={() => toast({ title: "Приоритет 2", description: "Важно" })}
-                      >
-                        <span className="w-5 h-5 rounded-full bg-orange-500 text-white text-xs flex items-center justify-center mr-2">2</span>
-                        Важно
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="w-full justify-start text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                        onClick={() => toast({ title: "Приоритет 3", description: "Обычный" })}
-                      >
-                        <span className="w-5 h-5 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center mr-2">3</span>
-                        Обычный
-                      </Button>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-                
-                {/* More actions dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      className="h-6 w-6 md:h-8 md:w-8 p-0"
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-52 bg-background z-50">
-                    {/* Schedule message */}
-                    <DropdownMenuItem 
-                      onClick={() => message.trim() && setShowScheduleDialog(true)}
-                      disabled={loading || !message.trim() || !!pendingMessage}
-                      className="flex items-center gap-2"
-                    >
-                      <Clock className="h-4 w-4" />
-                      <span>Запланировать</span>
-                    </DropdownMenuItem>
-                    
-                    {scheduledMessages.length > 0 && (
-                      <DropdownMenuItem 
-                        onClick={() => setShowScheduledMessagesDialog(true)}
-                        className="flex items-center gap-2"
-                      >
-                        <Calendar className="h-4 w-4" />
-                        <span>Запланированные ({scheduledMessages.length})</span>
-                      </DropdownMenuItem>
-                    )}
-                    
-                    {/* No response needed */}
-                    {isLastMessageIncoming && (
-                      <DropdownMenuItem 
-                        onClick={handleMarkAsNoResponseNeeded}
-                        disabled={!!pendingMessage}
-                        className="flex items-center gap-2 text-green-700"
-                      >
-                        <CheckCheck className="h-4 w-4" />
-                        <span>Не требует ответа</span>
-                      </DropdownMenuItem>
-                    )}
-                    
-                    {/* Create task */}
-                    <DropdownMenuItem 
-                      onClick={handleOpenTaskModalAndMarkRead}
-                      disabled={!!pendingMessage}
-                      className="flex items-center gap-2 text-blue-700"
-                    >
-                      <ListTodo className="h-4 w-4" />
-                      <span>Поставить задачу</span>
-                    </DropdownMenuItem>
-                    
-                    <DropdownMenuSeparator />
-                    
-                    {/* Payment link */}
-                    <DropdownMenuItem 
-                      onClick={() => setShowPaymentLinkModal(true)}
-                      disabled={!!pendingMessage}
-                      className="flex items-center gap-2"
-                    >
-                      <CreditCard className="h-4 w-4" />
-                      <span>Выставить счёт</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                
-                {/* Schedule dialog (hidden trigger, opened from dropdown) */}
-                <Dialog open={showScheduleDialog} onOpenChange={(open) => {
-                  setShowScheduleDialog(open);
-                  if (!open) {
-                    setEditingScheduledMessage(null);
-                    if (!message.trim()) {
-                      setScheduleDate("");
-                      setScheduleTime("");
-                    }
-                  }
-                }}>
-                  <DialogContent>
-                    <DialogHeader>
-                       <DialogTitle className="flex items-center gap-2">
-                         <Clock className="h-5 w-5" />
-                         <span>{editingScheduledMessage ? "Редактировать запланированное сообщение" : "Запланировать сообщение"}</span>
-                       </DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Дата</label>
-                        <Input
-                          type="date"
-                          value={scheduleDate}
-                          onChange={(e) => setScheduleDate(e.target.value)}
-                          min={new Date().toISOString().split('T')[0]}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Время</label>
-                        <Input
-                          type="time"
-                          value={scheduleTime}
-                          onChange={(e) => setScheduleTime(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Сообщение</label>
-                        <div className="p-3 bg-muted rounded-md text-sm">
-                          {message || "Сообщение не введено"}
-                        </div>
-                      </div>
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => setShowScheduleDialog(false)}>
-                          Отмена
+                {/* Simplified toolbar for teacher chats */}
+                {simplifiedToolbar ? (
+                  <>
+                    {/* Simple dropdown with Schedule and Task only */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-6 w-6 md:h-8 md:w-8 p-0"
+                        >
+                          <MoreVertical className="h-4 w-4" />
                         </Button>
-                        <Button onClick={editingScheduledMessage ? updateScheduledMessage : handleScheduleMessage}>
-                          {editingScheduledMessage ? "Обновить" : "Запланировать"}
-                        </Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-
-                {/* Scheduled messages dialog */}
-                {scheduledMessages.length > 0 && (
-                  <Dialog open={showScheduledMessagesDialog} onOpenChange={setShowScheduledMessagesDialog}>
-                    <DialogContent className="max-w-md">
-                      <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                          <Calendar className="h-5 w-5" />
-                          <span>Запланированные сообщения ({scheduledMessages.length})</span>
-                        </DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-3 max-h-96 overflow-y-auto">
-                        {scheduledMessages.map((scheduledMsg) => (
-                          <div key={scheduledMsg.id} className="border rounded-lg p-3 space-y-2">
-                            <div className="text-sm font-medium">
-                              {format(scheduledMsg.scheduledDate, "d MMMM yyyy 'в' HH:mm", { locale: ru })}
-                            </div>
-                            <div className="text-sm text-muted-foreground bg-muted p-2 rounded">
-                              {scheduledMsg.text}
-                            </div>
-                            <div className="flex justify-end gap-1">
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => editScheduledMessage(scheduledMsg)}
-                              >
-                                <Edit2 className="h-3 w-3 mr-1" />
-                                Изменить
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => cancelScheduledMessage(scheduledMsg.id)}
-                              >
-                                <Trash2 className="h-3 w-3 mr-1" />
-                                Отменить
-                              </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48 bg-background z-50">
+                        <DropdownMenuItem 
+                          onClick={() => message.trim() && setShowScheduleDialog(true)}
+                          disabled={loading || !message.trim() || !!pendingMessage}
+                          className="flex items-center gap-2"
+                        >
+                          <Clock className="h-4 w-4" />
+                          <span>Запланировать</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={handleOpenTaskModalAndMarkRead}
+                          disabled={!!pendingMessage}
+                          className="flex items-center gap-2 text-blue-700"
+                        >
+                          <ListTodo className="h-4 w-4" />
+                          <span>Поставить задачу</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    
+                    {/* Schedule dialog for simplified toolbar */}
+                    <Dialog open={showScheduleDialog} onOpenChange={(open) => {
+                      setShowScheduleDialog(open);
+                      if (!open) {
+                        setEditingScheduledMessage(null);
+                        if (!message.trim()) {
+                          setScheduleDate("");
+                          setScheduleTime("");
+                        }
+                      }
+                    }}>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle className="flex items-center gap-2">
+                            <Clock className="h-5 w-5" />
+                            <span>{editingScheduledMessage ? "Редактировать запланированное сообщение" : "Запланировать сообщение"}</span>
+                          </DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Дата</label>
+                            <Input
+                              type="date"
+                              value={scheduleDate}
+                              onChange={(e) => setScheduleDate(e.target.value)}
+                              min={new Date().toISOString().split('T')[0]}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Время</label>
+                            <Input
+                              type="time"
+                              value={scheduleTime}
+                              onChange={(e) => setScheduleTime(e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Сообщение</label>
+                            <div className="p-3 bg-muted rounded-md text-sm">
+                              {message || "Сообщение не введено"}
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => setShowScheduleDialog(false)}>
+                              Отмена
+                            </Button>
+                            <Button onClick={editingScheduledMessage ? updateScheduledMessage : handleScheduleMessage}>
+                              {editingScheduledMessage ? "Обновить" : "Запланировать"}
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </>
+                ) : (
+                  <>
+                    {/* Desktop: show all icons, Mobile: hide in dropdown */}
+                    {/* Payment link button - desktop only */}
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="hidden md:flex h-8 w-8 p-0"
+                      disabled={!!pendingMessage}
+                      onClick={() => setShowPaymentLinkModal(true)}
+                      title="Выставить счёт"
+                    >
+                      <CreditCard className="h-4 w-4" />
+                    </Button>
+                    
+                    {/* Schedule message button - desktop only */}
+                    <Dialog open={showScheduleDialog} onOpenChange={(open) => {
+                      setShowScheduleDialog(open);
+                      if (!open) {
+                        setEditingScheduledMessage(null);
+                        if (!message.trim()) {
+                          setScheduleDate("");
+                          setScheduleTime("");
+                        }
+                      }
+                    }}>
+                      <DialogTrigger asChild>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="hidden md:flex h-8 w-8 p-0"
+                          disabled={loading || !message.trim() || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
+                        >
+                          <Clock className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                           <DialogTitle className="flex items-center gap-2">
+                             <Clock className="h-5 w-5" />
+                             <span>{editingScheduledMessage ? "Редактировать запланированное сообщение" : "Запланировать сообщение"}</span>
+                           </DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Дата</label>
+                            <Input
+                              type="date"
+                              value={scheduleDate}
+                              onChange={(e) => setScheduleDate(e.target.value)}
+                              min={new Date().toISOString().split('T')[0]}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Время</label>
+                            <Input
+                              type="time"
+                              value={scheduleTime}
+                              onChange={(e) => setScheduleTime(e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Сообщение</label>
+                            <div className="p-3 bg-muted rounded-md text-sm">
+                              {message || "Сообщение не введено"}
+                            </div>
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => setShowScheduleDialog(false)}>
+                              Отмена
+                            </Button>
+                            <Button onClick={editingScheduledMessage ? updateScheduledMessage : handleScheduleMessage}>
+                              {editingScheduledMessage ? "Обновить" : "Запланировать"}
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+
+                    {/* Scheduled messages button - desktop only */}
+                    {scheduledMessages.length > 0 && (
+                      <Dialog open={showScheduledMessagesDialog} onOpenChange={setShowScheduledMessagesDialog}>
+                        <DialogTrigger asChild>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="hidden md:flex h-8 w-8 p-0 relative"
+                          >
+                            <Calendar className="h-4 w-4" />
+                            <Badge 
+                              variant="destructive" 
+                              className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center"
+                            >
+                              {scheduledMessages.length}
+                            </Badge>
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-md">
+                          <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                              <Calendar className="h-5 w-5" />
+                              <span>Запланированные сообщения ({scheduledMessages.length})</span>
+                            </DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-3 max-h-96 overflow-y-auto">
+                            {scheduledMessages.map((scheduledMsg) => (
+                              <div key={scheduledMsg.id} className="border rounded-lg p-3 space-y-2">
+                                <div className="text-sm font-medium">
+                                  {format(scheduledMsg.scheduledDate, "d MMMM yyyy 'в' HH:mm", { locale: ru })}
+                                </div>
+                                <div className="text-sm text-muted-foreground bg-muted p-2 rounded">
+                                  {scheduledMsg.text}
+                                </div>
+                                <div className="flex justify-end gap-1">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => editScheduledMessage(scheduledMsg)}
+                                  >
+                                    <Edit2 className="h-3 w-3 mr-1" />
+                                    Изменить
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => cancelScheduledMessage(scheduledMsg.id)}
+                                  >
+                                    <Trash2 className="h-3 w-3 mr-1" />
+                                    Отменить
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    )}
+                    
+                    {/* Разделитель и кнопка "Не требует ответа" - только на больших экранах (xl+) */}
+                    {isLastMessageIncoming && (
+                      <>
+                        <div className="h-6 w-px bg-border mx-1 hidden xl:block" />
+                        
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="hidden xl:flex h-8 px-3 text-sm gap-2 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                          onClick={handleMarkAsNoResponseNeeded}
+                          disabled={!!pendingMessage}
+                          title="Пометить как не требующий ответа"
+                        >
+                          <CheckCheck className="h-4 w-4 shrink-0" />
+                          <span>Не требует ответа</span>
+                        </Button>
+                      </>
+                    )}
+                    
+                    {/* Кнопка "Поставить задачу" - только на больших экранах (xl+) */}
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="hidden xl:flex h-8 px-3 text-sm gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+                      onClick={handleOpenTaskModalAndMarkRead}
+                      disabled={!!pendingMessage}
+                      title="Поставить задачу"
+                    >
+                      <ListTodo className="h-4 w-4 shrink-0" />
+                      <span>Поставить задачу</span>
+                    </Button>
+                    
+                    {/* Dropdown для действий - на md-lg экранах и мобильных */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-8 w-8 p-0 xl:hidden"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48 bg-background z-50">
+                        <DropdownMenuItem 
+                          onClick={() => setShowPaymentLinkModal(true)}
+                          disabled={!!pendingMessage}
+                          className="flex items-center gap-2"
+                        >
+                          <CreditCard className="h-4 w-4" />
+                          <span>Выставить счёт</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => message.trim() && setShowScheduleDialog(true)}
+                          disabled={loading || !message.trim() || !!pendingMessage}
+                          className="flex items-center gap-2"
+                        >
+                          <Clock className="h-4 w-4" />
+                          <span>Запланировать</span>
+                        </DropdownMenuItem>
+                        {scheduledMessages.length > 0 && (
+                          <DropdownMenuItem 
+                            onClick={() => setShowScheduledMessagesDialog(true)}
+                            className="flex items-center gap-2"
+                          >
+                            <Calendar className="h-4 w-4" />
+                            <span>Запланированные ({scheduledMessages.length})</span>
+                          </DropdownMenuItem>
+                        )}
+                        {isLastMessageIncoming && (
+                          <DropdownMenuItem 
+                            onClick={handleMarkAsNoResponseNeeded}
+                            disabled={!!pendingMessage}
+                            className="flex items-center gap-2 text-green-700"
+                          >
+                            <CheckCheck className="h-4 w-4" />
+                            <span>Не требует ответа</span>
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem 
+                          onClick={handleOpenTaskModalAndMarkRead}
+                          disabled={!!pendingMessage}
+                          className="flex items-center gap-2 text-blue-700"
+                        >
+                          <ListTodo className="h-4 w-4" />
+                          <span>Поставить задачу</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </>
                 )}
               
               {/* Send button - wider and taller for better tap target */}
