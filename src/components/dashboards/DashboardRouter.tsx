@@ -4,13 +4,23 @@ import { SalesManagerDashboard } from "./SalesManagerDashboard";
 import { BranchAdminDashboard } from "./BranchAdminDashboard";
 import { TeacherDashboard } from "./TeacherDashboard";
 import { StudentDashboard } from "./StudentDashboard";
+import { CallQualityDashboard } from "./CallQualityDashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BarChart3, Phone, Users } from "lucide-react";
+import { useState } from "react";
 
 export const DashboardRouter = () => {
-  const { roles, isRoleEmulation } = useAuth();
+  const { roles } = useAuth();
+  const [activeTab, setActiveTab] = useState('main');
+
+  // Check if user has admin/manager role to show call quality
+  const canSeeCallQuality = roles?.some(r => 
+    ['admin', 'manager', 'branch_manager', 'sales_manager'].includes(r)
+  );
 
   // Определяем, какой дашборд показать на основе роли пользователя
-  const getDashboard = () => {
+  const getMainDashboard = () => {
     if (!roles || roles.length === 0) {
       return (
         <Card>
@@ -76,5 +86,33 @@ export const DashboardRouter = () => {
     );
   };
 
-  return <div className="w-full">{getDashboard()}</div>;
+  // If user can see call quality, show tabs
+  if (canSeeCallQuality) {
+    return (
+      <div className="w-full space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="main" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Основной
+            </TabsTrigger>
+            <TabsTrigger value="calls" className="flex items-center gap-2">
+              <Phone className="h-4 w-4" />
+              Качество звонков
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="main" className="mt-4">
+            {getMainDashboard()}
+          </TabsContent>
+
+          <TabsContent value="calls" className="mt-4">
+            <CallQualityDashboard />
+          </TabsContent>
+        </Tabs>
+      </div>
+    );
+  }
+
+  return <div className="w-full">{getMainDashboard()}</div>;
 };

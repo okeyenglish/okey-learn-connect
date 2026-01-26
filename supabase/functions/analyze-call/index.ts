@@ -329,6 +329,68 @@ Deno.serve(async (req) => {
     console.log('[analyze-call] Analysis complete. Overall score:', evaluation.overall_score);
     console.log('[analyze-call] Action items:', evaluation.action_items.length);
     
+    // Step 4: Create notifications for action items
+    if (evaluation.action_items && evaluation.action_items.length > 0) {
+      console.log('[analyze-call] Creating notifications for action items');
+      
+      // Get call details for notification context
+      const { data: fullCallLog } = await supabase
+        .from('call_logs')
+        .select('phone_number, organization_id, employee_id')
+        .eq('id', callId)
+        .maybeSingle();
+      
+      if (fullCallLog?.organization_id) {
+        // Get managers to notify
+        const { data: managers } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('organization_id', fullCallLog.organization_id)
+          .limit(5);
+        
+        if (managers && managers.length > 0) {
+          const notifications = [];
+          
+          for (const actionItem of evaluation.action_items) {
+            const priorityEmoji = actionItem.priority === 'high' ? '🔴' : 
+                                  actionItem.priority === 'medium' ? '🟠' : '🔵';
+            
+            // If there's a specific employee, notify them; otherwise notify managers
+            const recipientId = fullCallLog.employee_id || managers[0].id;
+            
+            notifications.push({
+              recipient_id: recipientId,
+              recipient_type: 'employee',
+              title: `${priorityEmoji} Задача по звонку`,
+              message: `${actionItem.task}${actionItem.deadline ? ` (срок: ${actionItem.deadline})` : ''}`,
+              notification_type: 'call_action_item',
+              status: 'pending',
+              delivery_method: ['in_app', 'push'],
+              priority: actionItem.priority,
+              metadata: {
+                call_id: callId,
+                phone_number: fullCallLog.phone_number,
+                action_item: actionItem,
+                evaluation_summary: evaluation.summary
+              }
+            });
+          }
+          
+          if (notifications.length > 0) {
+            const { error: notifError } = await supabase
+              .from('notifications')
+              .insert(notifications);
+            
+            if (notifError) {
+              console.error('[analyze-call] Error creating notifications:', notifError);
+            } else {
+              console.log('[analyze-call] Created', notifications.length, 'notifications');
+            }
+          }
+        }
+      }
+    }
+    
     return successResponse({
       success: true,
       callId,
