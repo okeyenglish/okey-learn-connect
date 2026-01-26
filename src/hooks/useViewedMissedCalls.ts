@@ -1,101 +1,98 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
-const STORAGE_KEY = 'viewed_missed_calls';
-
-interface ViewedCallsState {
-  [clientId: string]: {
-    viewedAt: string; // ISO timestamp when calls tab was last viewed
-    callIds: string[]; // IDs of calls that were present when viewed
-  };
+interface MarkViewedResponse {
+  success: boolean;
+  markedCount?: number;
+  error?: string;
 }
 
-// Utility functions for non-hook usage
-export const getStoredViewedCalls = (): ViewedCallsState => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : {};
-  } catch {
-    return {};
-  }
-};
+interface UnviewedCountResponse {
+  success: boolean;
+  unviewedCount: number;
+  unviewedIds: string[];
+  error?: string;
+}
 
-export const getViewedCallIds = (clientId: string): string[] => {
-  const state = getStoredViewedCalls();
-  return state[clientId]?.callIds || [];
-};
-
-export const countUnviewedMissedCalls = (clientId: string, missedCallIds: string[]): number => {
-  const viewedCallIds = getViewedCallIds(clientId);
-  return missedCallIds.filter(id => !viewedCallIds.includes(id)).length;
-};
-
-const saveState = (state: ViewedCallsState) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (error) {
-    console.warn('[useViewedMissedCalls] Failed to save state:', error);
-  }
-};
-
+// Server-based hook for marking calls as viewed
 export const useViewedMissedCalls = (clientId: string) => {
   const queryClient = useQueryClient();
-  const [viewedState, setViewedState] = useState<ViewedCallsState>(getStoredViewedCalls);
 
-  // Mark all current missed calls as viewed for this client
-  const markCallsAsViewed = useCallback((callIds: string[]) => {
-    setViewedState(prev => {
-      const newState = {
-        ...prev,
-        [clientId]: {
-          viewedAt: new Date().toISOString(),
-          callIds: callIds,
-        },
-      };
-      saveState(newState);
-      return newState;
-    });
+  // Mark all current missed calls as viewed for this client (server-side)
+  const markCallsAsViewed = useCallback(async (callIds: string[]) => {
+    if (!callIds.length) return;
 
-    // Invalidate the unread counts query to trigger UI update
-    queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
-  }, [clientId, queryClient]);
+    try {
+      const response = await selfHostedPost<MarkViewedResponse>('mark-calls-viewed', {
+        action: 'mark',
+        clientId,
+        callIds,
+      });
 
-  // Check if a call has been viewed
-  const isCallViewed = useCallback((callId: string) => {
-    const clientState = viewedState[clientId];
-    if (!clientState) return false;
-    return clientState.callIds.includes(callId);
-  }, [clientId, viewedState]);
-
-  // Get the timestamp when calls were last viewed for this client
-  const getLastViewedAt = useCallback(() => {
-    return viewedState[clientId]?.viewedAt || null;
-  }, [clientId, viewedState]);
-
-  // Count unviewed missed calls
-  const countUnviewedCalls = useCallback((missedCallIds: string[]) => {
-    const clientState = viewedState[clientId];
-    if (!clientState) return missedCallIds.length;
-    
-    return missedCallIds.filter(id => !clientState.callIds.includes(id)).length;
-  }, [clientId, viewedState]);
-
-  // Sync with localStorage changes from other tabs
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) {
-        setViewedState(getStoredViewedCalls());
+      if (response.success) {
+        console.log(`[useViewedMissedCalls] Marked ${response.data?.markedCount || callIds.length} calls as viewed`);
+        
+        // Invalidate queries to update UI
+        queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
+        queryClient.invalidateQueries({ queryKey: ['unviewed-missed-calls', clientId] });
+      } else {
+        console.warn('[useViewedMissedCalls] Failed to mark calls:', response.error);
       }
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+    } catch (error) {
+      console.error('[useViewedMissedCalls] Error marking calls as viewed:', error);
+    }
+  }, [clientId, queryClient]);
 
   return {
     markCallsAsViewed,
-    isCallViewed,
-    getLastViewedAt,
-    countUnviewedCalls,
   };
+};
+
+// Hook to get unviewed missed calls count from server
+export const useUnviewedMissedCallsCount = (clientId: string) => {
+  return useQuery({
+    queryKey: ['unviewed-missed-calls', clientId],
+    queryFn: async (): Promise<{ count: number; ids: string[] }> => {
+      if (!clientId) {
+        return { count: 0, ids: [] };
+      }
+
+      const response = await selfHostedPost<UnviewedCountResponse>('mark-calls-viewed', {
+        action: 'get-unviewed-count',
+        clientId,
+      });
+
+      if (!response.success || !response.data) {
+        return { count: 0, ids: [] };
+      }
+
+      return {
+        count: response.data.unviewedCount,
+        ids: response.data.unviewedIds,
+      };
+    },
+    enabled: !!clientId,
+    staleTime: 30000, // 30 seconds
+  });
+};
+
+// Legacy compatibility - non-hook version for use in queryFn
+export const getUnviewedMissedCallsCount = async (clientId: string): Promise<number> => {
+  if (!clientId) return 0;
+
+  try {
+    const response = await selfHostedPost<UnviewedCountResponse>('mark-calls-viewed', {
+      action: 'get-unviewed-count',
+      clientId,
+    });
+
+    if (response.success && response.data) {
+      return response.data.unviewedCount;
+    }
+  } catch (error) {
+    console.warn('[getUnviewedMissedCallsCount] Error:', error);
+  }
+
+  return 0;
 };
