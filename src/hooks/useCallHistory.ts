@@ -16,6 +16,9 @@ interface CallLog {
   ai_evaluation: unknown | null;
   recording_url?: string | null;
   transcription?: string | null;
+  is_viewed?: boolean | null;
+  viewed_at?: string | null;
+  viewed_by?: string | null;
 }
 
 interface CallLogsResponse {

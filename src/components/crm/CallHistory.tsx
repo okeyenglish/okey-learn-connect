@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, Clock, Calendar, Eye, MessageSquare, Sparkles, User } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useCallHistory } from "@/hooks/useCallHistory";
 import { CallDetailModal } from "./CallDetailModal";
+import { useUnviewedMissedCallsCount } from "@/hooks/useViewedMissedCalls";
 
 interface CallHistoryProps {
   clientId: string;
@@ -18,6 +19,18 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
   const { data: calls = [], isLoading } = useCallHistory(clientId);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  
+  // Get unviewed missed calls from server
+  const { data: unviewedData } = useUnviewedMissedCallsCount(clientId);
+  const unviewedCallIds = useMemo(() => new Set(unviewedData?.ids || []), [unviewedData?.ids]);
+  
+  // Check if a call is unviewed (missed and not yet viewed)
+  const isCallUnviewed = (call: { id: string; status: string; is_viewed?: boolean | null }) => {
+    if (call.status !== 'missed') return false;
+    // Check server-side is_viewed flag first, then local unviewed set
+    if (call.is_viewed === true) return false;
+    return unviewedCallIds.has(call.id);
+  };
 
   const getCallIcon = (call: any) => {
     if (call.direction === 'incoming') {
@@ -126,11 +139,22 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
         <ScrollArea className="h-64 px-4">
           <div className="space-y-3">
             {calls.map((call, index) => (
-              <div key={call.id}>
+              <div key={call.id} className="relative">
+                {/* Unviewed indicator - red dot for missed calls not yet viewed */}
+                {isCallUnviewed(call) && (
+                  <span 
+                    className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-destructive rounded-full animate-pulse"
+                    title="Непросмотренный пропущенный звонок"
+                  />
+                )}
                 <div className="flex items-start justify-between space-x-3">
                   <div className="flex items-start space-x-3 flex-1 min-w-0">
-                    <div className="flex-shrink-0 pt-0.5">
+                    <div className="flex-shrink-0 pt-0.5 relative">
                       {getCallIcon(call)}
+                      {/* Alternative: small dot on the icon */}
+                      {isCallUnviewed(call) && (
+                        <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-destructive rounded-full" />
+                      )}
                     </div>
                     
                     <div className="flex-1 min-w-0 space-y-1">
@@ -140,6 +164,12 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
                             {getDirectionLabel(call.direction)}
                           </span>
                           {getCallStatusBadge(call)}
+                          {/* "New" badge for unviewed missed calls */}
+                          {isCallUnviewed(call) && (
+                            <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
+                              Новый
+                            </Badge>
+                          )}
                         </div>
                         
                         {call.duration_seconds !== null && call.status === 'answered' && (
