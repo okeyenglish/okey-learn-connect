@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getErrorMessage } from '@/lib/errorUtils';
 
+const SELF_HOSTED_API = "https://api.academyos.ru/functions/v1";
+
 export interface TelegramSettings {
   profileId: string;
   apiToken: string;
@@ -22,6 +24,11 @@ export interface TelegramSettingsResponse {
   instanceState: TelegramInstanceState | null;
 }
 
+const getAuthToken = async (): Promise<string | null> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token || null;
+};
+
 export const useTelegramWappi = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [settings, setSettings] = useState<TelegramSettings | null>(null);
@@ -31,11 +38,24 @@ export const useTelegramWappi = () => {
   const fetchSettings = useCallback(async (): Promise<TelegramSettingsResponse> => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('telegram-channels', {
-        method: 'GET'
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`${SELF_HOSTED_API}/telegram-channels`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to fetch settings');
+      }
 
       setSettings(data.settings || null);
       setInstanceState(data.instanceState || null);
@@ -64,12 +84,25 @@ export const useTelegramWappi = () => {
   ): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('telegram-channels', {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`${SELF_HOSTED_API}/telegram-channels`, {
         method: 'POST',
-        body: { profileId, apiToken, isEnabled }
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ profileId, apiToken, isEnabled })
       });
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to save settings');
+      }
 
       if (data.error) {
         throw new Error(data.error);
@@ -100,11 +133,24 @@ export const useTelegramWappi = () => {
   const deleteSettings = useCallback(async (): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('telegram-channels', {
-        method: 'DELETE'
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`${SELF_HOSTED_API}/telegram-channels`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to delete settings');
+      }
 
       setSettings(null);
       setInstanceState(null);
@@ -151,11 +197,25 @@ export const useTelegramWappi = () => {
     sendingRef.current.add(messageKey);
 
     try {
-      const { data, error } = await supabase.functions.invoke('telegram-send', {
-        body: { clientId, text, fileUrl, fileName, fileType }
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`${SELF_HOSTED_API}/telegram-send`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ clientId, text, fileUrl, fileName, fileType })
       });
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to send message');
+      }
 
       if (data.error) {
         throw new Error(data.error);

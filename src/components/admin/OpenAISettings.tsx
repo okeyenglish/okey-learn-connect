@@ -7,14 +7,21 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Key, Eye, EyeOff, CheckCircle, XCircle, ExternalLink, RefreshCw, Trash2 } from 'lucide-react';
-import { supabaseTyped as supabase } from '@/integrations/supabase/typedClient';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getErrorMessage } from '@/lib/errorUtils';
+
+const SELF_HOSTED_API = "https://api.academyos.ru/functions/v1";
 
 interface AISettings {
   openaiApiKey: string;
   isEnabled: boolean;
 }
+
+const getAuthToken = async (): Promise<string | null> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token || null;
+};
 
 export const OpenAISettings: React.FC = () => {
   const { toast } = useToast();
@@ -34,11 +41,24 @@ export const OpenAISettings: React.FC = () => {
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('ai-settings', {
-        method: 'GET'
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`${SELF_HOSTED_API}/ai-settings`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to fetch settings');
+      }
 
       if (data.settings) {
         setSettings(data.settings);
@@ -63,15 +83,28 @@ export const OpenAISettings: React.FC = () => {
 
     setIsSaving(true);
     try {
-      const { data, error } = await supabase.functions.invoke('ai-settings', {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`${SELF_HOSTED_API}/ai-settings`, {
         method: 'POST',
-        body: { 
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
           openaiApiKey: apiKey.trim() || undefined, 
           isEnabled 
-        }
+        })
       });
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to save settings');
+      }
 
       if (data.error) {
         throw new Error(data.error);
@@ -100,12 +133,21 @@ export const OpenAISettings: React.FC = () => {
     setIsTesting(true);
     setTestResult(null);
     try {
-      const { data, error } = await supabase.functions.invoke('ai-settings', {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`${SELF_HOSTED_API}/ai-settings`, {
         method: 'POST',
-        body: { action: 'test' }
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ action: 'test' })
       });
 
-      if (error) throw error;
+      const data = await response.json();
 
       if (data.success) {
         setTestResult('success');
@@ -140,11 +182,24 @@ export const OpenAISettings: React.FC = () => {
 
     setIsSaving(true);
     try {
-      const { data, error } = await supabase.functions.invoke('ai-settings', {
-        method: 'DELETE'
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`${SELF_HOSTED_API}/ai-settings`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to delete settings');
+      }
 
       toast({
         title: "Успешно",
