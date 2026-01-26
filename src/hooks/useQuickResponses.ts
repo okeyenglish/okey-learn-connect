@@ -279,6 +279,53 @@ export function useQuickResponses({ isTeacher = false }: UseQuickResponsesOption
     }
   }, [isTeacher, toast]);
 
+  const reorderCategories = useCallback(async (categoryIds: string[]) => {
+    try {
+      const response = await selfHostedPost<{ success: boolean }>(
+        'quick-responses/reorder-categories',
+        { category_ids: categoryIds }
+      );
+      
+      if (response.success) {
+        // Update local state with new order
+        setCategories(prev => {
+          const ordered = categoryIds.map(id => prev.find(c => c.id === id)).filter(Boolean) as CategoryWithResponses[];
+          return ordered;
+        });
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Error reordering categories:', err);
+      return false;
+    }
+  }, []);
+
+  const reorderResponses = useCallback(async (categoryId: string, responseIds: string[]) => {
+    try {
+      const response = await selfHostedPost<{ success: boolean }>(
+        'quick-responses/reorder-responses',
+        { response_ids: responseIds }
+      );
+      
+      if (response.success) {
+        // Update local state with new order
+        setCategories(prev => prev.map(cat => {
+          if (cat.id === categoryId) {
+            const ordered = responseIds.map(id => cat.responses.find(r => r.id === id)).filter(Boolean) as QuickResponse[];
+            return { ...cat, responses: ordered };
+          }
+          return cat;
+        }));
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Error reordering responses:', err);
+      return false;
+    }
+  }, []);
+
   return {
     categories,
     isLoading,
@@ -291,6 +338,8 @@ export function useQuickResponses({ isTeacher = false }: UseQuickResponsesOption
     addResponse,
     updateResponse,
     deleteResponse,
-    importDefaultTemplates
+    importDefaultTemplates,
+    reorderCategories,
+    reorderResponses
   };
 }

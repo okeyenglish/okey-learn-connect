@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Search, Plus, Edit2, MoreHorizontal, Zap, Loader2, Trash2, Check, X, Download } from "lucide-react";
+import { ArrowLeft, Search, Plus, Edit2, MoreHorizontal, Zap, Loader2, Trash2, Check, X, Download, Copy, GripVertical } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +11,24 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useQuickResponses, CategoryWithResponses, QuickResponse } from "@/hooks/useQuickResponses";
+import { useToast } from "@/hooks/use-toast";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface QuickResponsesModalProps {
   open: boolean;
@@ -18,6 +36,225 @@ interface QuickResponsesModalProps {
   onSelectResponse: (text: string) => void;
   isTeacher?: boolean;
 }
+
+// Sortable Category Item
+const SortableCategoryItem = ({ 
+  category, 
+  onSelect, 
+  onDelete 
+}: { 
+  category: CategoryWithResponses; 
+  onSelect: () => void;
+  onDelete: () => void;
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: category.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer group"
+    >
+      <div className="flex items-center gap-2 flex-1" onClick={onSelect}>
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab hover:text-foreground text-muted-foreground p-1 -ml-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <div className="w-8 h-8 bg-muted rounded flex items-center justify-center">
+          📁
+        </div>
+        <div>
+          <span className="font-medium">{category.name}</span>
+          <p className="text-xs text-muted-foreground">
+            {category.responses.length} {category.responses.length === 1 ? 'шаблон' : 'шаблонов'}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem 
+              className="text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Удалить раздел
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  );
+};
+
+// Sortable Response Item
+const SortableResponseItem = ({ 
+  response, 
+  isEditing,
+  editingText,
+  onSelect,
+  onEdit,
+  onSaveEdit,
+  onCancelEdit,
+  onEditTextChange,
+  onDelete,
+  onCopy
+}: { 
+  response: QuickResponse;
+  isEditing: boolean;
+  editingText: string;
+  onSelect: () => void;
+  onEdit: () => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onEditTextChange: (text: string) => void;
+  onDelete: () => void;
+  onCopy: () => void;
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: response.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`p-3 border rounded-lg group ${
+        isEditing 
+          ? 'ring-2 ring-primary' 
+          : 'hover:bg-muted/50 cursor-pointer'
+      }`}
+      onClick={() => {
+        if (!isEditing) {
+          onSelect();
+        }
+      }}
+    >
+      {isEditing ? (
+        <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+          <Textarea
+            value={editingText}
+            onChange={(e) => onEditTextChange(e.target.value)}
+            className="min-h-[80px]"
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <Button size="sm" onClick={onSaveEdit}>
+              <Check className="h-4 w-4 mr-1" />
+              Сохранить
+            </Button>
+            <Button size="sm" variant="outline" onClick={onCancelEdit}>
+              <X className="h-4 w-4 mr-1" />
+              Отмена
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-start gap-2">
+          <button
+            {...attributes}
+            {...listeners}
+            className="cursor-grab hover:text-foreground text-muted-foreground p-1 -ml-1 mt-0.5 flex-shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+          <p className="text-sm flex-1 whitespace-pre-wrap">{response.text}</p>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+              title="Копировать"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCopy();
+              }}
+            >
+              <Copy className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+            >
+              <Edit2 className="h-3 w-3" />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreHorizontal className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem 
+                  className="text-destructive"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete();
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Удалить шаблон
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTeacher = false }: QuickResponsesModalProps) => {
   const {
@@ -29,8 +266,12 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
     addResponse,
     updateResponse,
     deleteResponse,
-    importDefaultTemplates
+    importDefaultTemplates,
+    reorderCategories,
+    reorderResponses
   } = useQuickResponses({ isTeacher });
+
+  const { toast } = useToast();
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -43,6 +284,18 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
   const [editingResponseText, setEditingResponseText] = useState("");
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [isAddingResponse, setIsAddingResponse] = useState(false);
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const selectedCategory = categories.find(cat => cat.id === selectedCategoryId);
   
@@ -87,6 +340,22 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
     onSelectResponse(response.text);
     onOpenChange(false);
   };
+
+  const handleCopyToClipboard = useCallback(async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: "Скопировано",
+        description: "Текст скопирован в буфер обмена"
+      });
+    } catch (err) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось скопировать текст",
+        variant: "destructive"
+      });
+    }
+  }, [toast]);
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;
@@ -152,6 +421,36 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
     setResponseSearchQuery("");
   };
 
+  // Handle category drag end
+  const handleCategoryDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      const oldIndex = filteredCategories.findIndex(c => c.id === active.id);
+      const newIndex = filteredCategories.findIndex(c => c.id === over.id);
+      
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newOrder = arrayMove(filteredCategories, oldIndex, newIndex);
+        await reorderCategories(newOrder.map(c => c.id));
+      }
+    }
+  }, [filteredCategories, reorderCategories]);
+
+  // Handle response drag end
+  const handleResponseDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id && selectedCategoryId) {
+      const oldIndex = filteredResponses.findIndex(r => r.id === active.id);
+      const newIndex = filteredResponses.findIndex(r => r.id === over.id);
+      
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newOrder = arrayMove(filteredResponses, oldIndex, newIndex);
+        await reorderResponses(selectedCategoryId, newOrder.map(r => r.id));
+      }
+    }
+  }, [filteredResponses, selectedCategoryId, reorderResponses]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
@@ -205,6 +504,9 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
                     )}
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Перетащите раздел, чтобы изменить порядок
+                </p>
               </div>
 
               <div className="flex-1 overflow-y-auto space-y-2">
@@ -228,51 +530,25 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
                     </Button>
                   </div>
                 ) : (
-                  filteredCategories.map((category) => (
-                    <div
-                      key={category.id}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer group"
-                      onClick={() => setSelectedCategoryId(category.id)}
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleCategoryDragEnd}
+                  >
+                    <SortableContext
+                      items={filteredCategories.map(c => c.id)}
+                      strategy={verticalListSortingStrategy}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-muted rounded flex items-center justify-center">
-                          📁
-                        </div>
-                        <div>
-                          <span className="font-medium">{category.name}</span>
-                          <p className="text-xs text-muted-foreground">
-                            {category.responses.length} {category.responses.length === 1 ? 'шаблон' : 'шаблонов'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            <DropdownMenuItem 
-                              className="text-destructive"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteCategory(category.id);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Удалить раздел
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  ))
+                      {filteredCategories.map((category) => (
+                        <SortableCategoryItem
+                          key={category.id}
+                          category={category}
+                          onSelect={() => setSelectedCategoryId(category.id)}
+                          onDelete={() => handleDeleteCategory(category.id)}
+                        />
+                      ))}
+                    </SortableContext>
+                  </DndContext>
                 )}
                 
                 {showAddCategory ? (
@@ -320,7 +596,7 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Нажмите на шаблон, чтобы вставить его в сообщение
+                  Нажмите на шаблон, чтобы вставить его. Перетащите для изменения порядка.
                 </p>
               </div>
 
@@ -334,83 +610,32 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
                     )}
                   </div>
                 ) : (
-                  filteredResponses.map((response) => (
-                    <div
-                      key={response.id}
-                      className={`p-3 border rounded-lg group ${
-                        editingResponseId === response.id 
-                          ? 'ring-2 ring-primary' 
-                          : 'hover:bg-muted/50 cursor-pointer'
-                      }`}
-                      onClick={() => {
-                        if (editingResponseId !== response.id) {
-                          handleSelectResponse(response);
-                        }
-                      }}
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleResponseDragEnd}
+                  >
+                    <SortableContext
+                      items={filteredResponses.map(r => r.id)}
+                      strategy={verticalListSortingStrategy}
                     >
-                      {editingResponseId === response.id ? (
-                        <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-                          <Textarea
-                            value={editingResponseText}
-                            onChange={(e) => setEditingResponseText(e.target.value)}
-                            className="min-h-[80px]"
-                            autoFocus
-                          />
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={handleSaveEditResponse}>
-                              <Check className="h-4 w-4 mr-1" />
-                              Сохранить
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={handleCancelEditResponse}>
-                              <X className="h-4 w-4 mr-1" />
-                              Отмена
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm flex-1 whitespace-pre-wrap">{response.text}</p>
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStartEditResponse(response);
-                              }}
-                            >
-                              <Edit2 className="h-3 w-3" />
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <MoreHorizontal className="h-3 w-3" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent>
-                                <DropdownMenuItem 
-                                  className="text-destructive"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteResponse(response.id);
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Удалить шаблон
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))
+                      {filteredResponses.map((response) => (
+                        <SortableResponseItem
+                          key={response.id}
+                          response={response}
+                          isEditing={editingResponseId === response.id}
+                          editingText={editingResponseText}
+                          onSelect={() => handleSelectResponse(response)}
+                          onEdit={() => handleStartEditResponse(response)}
+                          onSaveEdit={handleSaveEditResponse}
+                          onCancelEdit={handleCancelEditResponse}
+                          onEditTextChange={setEditingResponseText}
+                          onDelete={() => handleDeleteResponse(response.id)}
+                          onCopy={() => handleCopyToClipboard(response.text)}
+                        />
+                      ))}
+                    </SortableContext>
+                  </DndContext>
                 )}
 
                 {showAddResponse ? (
