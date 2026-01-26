@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Navigation, ExternalLink, Loader2 } from 'lucide-react';
+import { MapPin, Navigation, ExternalLink, Loader2, LocateFixed } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 
 // Координаты филиалов
 const BRANCH_COORDINATES: {
@@ -83,15 +84,99 @@ const BRANCH_COORDINATES: {
 // Центр Москвы
 const MOSCOW_CENTER = { lat: 55.7558, lng: 37.6173 };
 
+// Формула Haversine для расчёта расстояния между двумя точками
+const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+  const R = 6371; // Радиус Земли в км
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+const formatDistance = (km: number): string => {
+  if (km < 1) {
+    return `${Math.round(km * 1000)} м`;
+  }
+  return `${km.toFixed(1)} км`;
+};
+
 interface BranchesMapProps {
   selectedBranchId?: string;
   onBranchSelect?: (branchId: string) => void;
 }
 
+interface UserLocation {
+  lat: number;
+  lng: number;
+}
+
 export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapProps) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hoveredBranch, setHoveredBranch] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
+
+  // Расчёт расстояний до всех филиалов
+  const branchesWithDistance = BRANCH_COORDINATES.map(branch => ({
+    ...branch,
+    distance: userLocation 
+      ? calculateDistance(userLocation.lat, userLocation.lng, branch.lat, branch.lng)
+      : null
+  })).sort((a, b) => {
+    if (a.distance === null) return 0;
+    if (b.distance === null) return 0;
+    return a.distance - b.distance;
+  });
+
+  const requestLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('Геолокация не поддерживается вашим браузером');
+      toast.error('Геолокация не поддерживается вашим браузером');
+      return;
+    }
+
+    setIsLocating(true);
+    setLocationError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
+        setIsLocating(false);
+        toast.success('Местоположение определено! Филиалы отсортированы по расстоянию.');
+      },
+      (error) => {
+        setIsLocating(false);
+        let errorMessage = 'Не удалось определить местоположение';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = 'Доступ к геолокации запрещён. Разрешите доступ в настройках браузера.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = 'Информация о местоположении недоступна';
+            break;
+          case error.TIMEOUT:
+            errorMessage = 'Время ожидания определения местоположения истекло';
+            break;
+        }
+        setLocationError(errorMessage);
+        toast.error(errorMessage);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000 // 5 минут кэш
+      }
+    );
+  };
 
   // Генерируем URL для Яндекс Карт с несколькими метками
   const generateMapUrl = () => {
@@ -109,6 +194,39 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
 
   return (
     <div className="space-y-6">
+      {/* Кнопка геолокации */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-5 w-5 text-primary" />
+          <span className="font-medium">8 филиалов в Москве и Подмосковье</span>
+        </div>
+        <Button
+          onClick={requestLocation}
+          disabled={isLocating}
+          variant={userLocation ? "outline" : "default"}
+          className="gap-2"
+        >
+          {isLocating ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Определение...
+            </>
+          ) : (
+            <>
+              <LocateFixed className="h-4 w-4" />
+              {userLocation ? 'Обновить местоположение' : 'Найти ближайший филиал'}
+            </>
+          )}
+        </Button>
+      </div>
+
+      {userLocation && (
+        <Badge variant="secondary" className="gap-2">
+          <LocateFixed className="h-3 w-3" />
+          Филиалы отсортированы по расстоянию от вас
+        </Badge>
+      )}
+
       {/* Карта */}
       <Card className="overflow-hidden">
         <CardContent className="p-0">
@@ -138,7 +256,7 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
 
       {/* Список филиалов под картой */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {BRANCH_COORDINATES.map((branch, index) => (
+        {branchesWithDistance.map((branch, index) => (
           <Card 
             key={branch.id}
             className={`cursor-pointer transition-all hover:shadow-md hover:border-primary/50 ${
@@ -152,11 +270,18 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
           >
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
                   {index + 1}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-semibold text-sm truncate">{branch.name}</h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-semibold text-sm truncate">{branch.name}</h4>
+                    {branch.distance !== null && (
+                      <Badge variant="secondary" className="text-xs shrink-0">
+                        {formatDistance(branch.distance)}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground truncate mt-0.5">
                     {branch.address}
                   </p>
@@ -167,7 +292,10 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
                       </Button>
                     </Link>
                     <a 
-                      href={`https://yandex.ru/maps/?rtext=~${branch.lat},${branch.lng}&rtt=auto`}
+                      href={userLocation 
+                        ? `https://yandex.ru/maps/?rtext=${userLocation.lat},${userLocation.lng}~${branch.lat},${branch.lng}&rtt=auto`
+                        : `https://yandex.ru/maps/?rtext=~${branch.lat},${branch.lng}&rtt=auto`
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
@@ -200,10 +328,6 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
 
       {/* Легенда */}
       <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-primary" />
-          <span>8 филиалов в Москве и Подмосковье</span>
-        </div>
         <Badge variant="outline" className="gap-1">
           <Navigation className="h-3 w-3" />
           Нажмите на филиал для подробностей
