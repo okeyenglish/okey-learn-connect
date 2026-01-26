@@ -20,7 +20,7 @@ import { ChatMessage } from "./ChatMessage";
 import { DateSeparator, shouldShowDateSeparator } from "./DateSeparator";
 import { SalebotCallbackMessage, isSalebotCallback, isHiddenSalebotMessage, isSuccessPayment } from "./SalebotCallbackMessage";
 import { ClientTasks } from "./ClientTasks";
-import { MessageSkeleton } from "./MessageSkeleton";
+import { MessageSkeleton, ChatSwitchIndicator } from "./MessageSkeleton";
 import { AddTaskModal } from "./AddTaskModal";
 import { CreateInvoiceModal } from "./CreateInvoiceModal";
 import { ForwardMessageModal } from "./ForwardMessageModal";
@@ -194,6 +194,7 @@ export const ChatArea = ({
   const [quotedText, setQuotedText] = useState<string | null>(null);
   const [activeMessengerTab, setActiveMessengerTab] = useState("whatsapp");
   const [isTabTransitioning, setIsTabTransitioning] = useState(false);
+  const [isChatSwitching, setIsChatSwitching] = useState(false);
   // State for highlighted message (from search navigation)
   const [currentHighlightedId, setCurrentHighlightedId] = useState<string | null>(null);
   
@@ -639,8 +640,15 @@ export const ChatArea = ({
     setTimeout(() => setLoadingOlderMessages(false), 500);
   }, [messageLimit]);
 
-  // Reset limit when client changes
+  // Reset limit and show switching indicator when client changes
+  const prevClientIdForSwitch = useRef<string | null>(null);
   useEffect(() => {
+    if (prevClientIdForSwitch.current && prevClientIdForSwitch.current !== clientId) {
+      // Show switching animation
+      setIsChatSwitching(true);
+      setTimeout(() => setIsChatSwitching(false), 200);
+    }
+    prevClientIdForSwitch.current = clientId;
     setMessageLimit(100);
   }, [clientId]);
 
@@ -2143,15 +2151,18 @@ export const ChatArea = ({
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="whatsapp" ref={whatsappScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-opacity duration-150 ${isTabTransitioning ? 'opacity-50' : 'opacity-100'}`}>
+          <TabsContent value="whatsapp" ref={whatsappScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-all duration-200 ${isTabTransitioning || isChatSwitching ? 'opacity-50 scale-[0.99]' : 'opacity-100 scale-100'}`}>
             <NewMessageIndicator
               scrollContainerRef={whatsappScrollRef}
               bottomRef={whatsappEndRef}
               newMessagesCount={whatsappMessages.length}
             />
             <div className="space-y-1">
+              {loadingMessages || isTabTransitioning || isChatSwitching ? (
+                <ChatSwitchIndicator visible={isChatSwitching && !loadingMessages} />
+              ) : null}
               {loadingMessages || isTabTransitioning ? (
-                <MessageSkeleton count={6} />
+                <MessageSkeleton count={6} animated />
               ) : whatsappMessages.length > 0 ? (
                 <>
                   {/* Load older messages button */}
@@ -2310,7 +2321,7 @@ export const ChatArea = ({
               <div ref={whatsappEndRef} />
             </TabsContent>
           
-          <TabsContent value="telegram" ref={telegramScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-opacity duration-150 ${isTabTransitioning ? 'opacity-50' : 'opacity-100'}`}>
+          <TabsContent value="telegram" ref={telegramScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-all duration-200 ${isTabTransitioning || isChatSwitching ? 'opacity-50 scale-[0.99]' : 'opacity-100 scale-100'}`}>
             <NewMessageIndicator
               scrollContainerRef={telegramScrollRef}
               bottomRef={telegramEndRef}
@@ -2318,7 +2329,7 @@ export const ChatArea = ({
             />
             <div className="space-y-1">
               {loadingMessages || isTabTransitioning ? (
-                <MessageSkeleton count={6} />
+                <MessageSkeleton count={6} animated />
               ) : telegramMessages.length > 0 ? (
                 <>
                   {telegramMessages.map((msg, index) => {
@@ -2408,7 +2419,7 @@ export const ChatArea = ({
             <div ref={telegramEndRef} />
           </TabsContent>
           
-          <TabsContent value="max" ref={maxScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-opacity duration-150 ${isTabTransitioning ? 'opacity-50' : 'opacity-100'}`}>
+          <TabsContent value="max" ref={maxScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-all duration-200 ${isTabTransitioning || isChatSwitching ? 'opacity-50 scale-[0.99]' : 'opacity-100 scale-100'}`}>
             <NewMessageIndicator
               scrollContainerRef={maxScrollRef}
               bottomRef={maxEndRef}
@@ -2416,7 +2427,7 @@ export const ChatArea = ({
             />
             <div className="space-y-1">
               {loadingMessages || isTabTransitioning ? (
-                <MessageSkeleton count={6} />
+                <MessageSkeleton count={6} animated />
               ) : maxMessages.length > 0 ? (
                 <>
                   {maxMessages.map((msg, index) => {
@@ -2524,7 +2535,7 @@ export const ChatArea = ({
             <div ref={maxEndRef} />
           </TabsContent>
           
-          <TabsContent value="email" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-opacity duration-150 ${isTabTransitioning ? 'opacity-50' : 'opacity-100'}`}>
+          <TabsContent value="email" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-all duration-200 ${isTabTransitioning || isChatSwitching ? 'opacity-50 scale-[0.99]' : 'opacity-100 scale-100'}`}>
             <div className="space-y-1">
               <div className="text-center text-muted-foreground text-sm py-4">
                 История переписки Email
@@ -2532,7 +2543,7 @@ export const ChatArea = ({
             </div>
           </TabsContent>
           
-          <TabsContent value="calls" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-opacity duration-150 ${isTabTransitioning ? 'opacity-50' : 'opacity-100'}`}>
+          <TabsContent value="calls" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 transition-all duration-200 ${isTabTransitioning || isChatSwitching ? 'opacity-50 scale-[0.99]' : 'opacity-100 scale-100'}`}>
             <CallHistory clientId={clientId} />
           </TabsContent>
         </Tabs>
