@@ -22,7 +22,7 @@ export default function LeadsSection() {
     assigned_to?: string;
   }>({});
 
-  const { allowedBranches } = useUserAllowedBranches();
+  const { branchesForDropdown } = useUserAllowedBranches();
   
   // Apply branch filter
   const effectiveFilters = {
@@ -56,7 +56,7 @@ export default function LeadsSection() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Все филиалы</SelectItem>
-              {allowedBranches.map((branch) => (
+              {branchesForDropdown.map((branch) => (
                 <SelectItem key={branch} value={branch}>
                   {branch}
                 </SelectItem>

@@ -24,7 +24,7 @@ export const LearningGroupsSection = () => {
   const [groupsModalOpen, setGroupsModalOpen] = useState(false);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   
-  const { allowedBranches } = useUserAllowedBranches();
+  const { branchesForDropdown } = useUserAllowedBranches();
 
   const filters = {
     search: searchQuery || undefined,
@@ -209,7 +209,7 @@ export const LearningGroupsSection = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Все филиалы</SelectItem>
-                    {allowedBranches.map((branch) => (
+                    {branchesForDropdown.map((branch) => (
                       <SelectItem key={branch} value={branch}>
                         {branch}
                       </SelectItem>

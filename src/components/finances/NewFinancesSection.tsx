@@ -61,7 +61,7 @@ export const NewFinancesSection = () => {
   const [activeTab, setActiveTab] = useState('invoices');
   const { selectedBranch, setSelectedBranch } = usePersistedBranch('all');
   
-  const { allowedBranches } = useUserAllowedBranches();
+  const { branchesForDropdown } = useUserAllowedBranches();
 
   const { data: currencies, isLoading: currenciesLoading } = useCurrencies();
   const { data: invoicesRaw, isLoading: invoicesLoading } = useInvoices();
@@ -117,7 +117,7 @@ export const NewFinancesSection = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Все филиалы</SelectItem>
-              {allowedBranches.map((branch) => (
+              {branchesForDropdown.map((branch) => (
                 <SelectItem key={branch} value={branch}>
                   {branch}
                 </SelectItem>
