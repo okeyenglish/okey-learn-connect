@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { AddCorporateChatModal } from './AddCorporateChatModal';
+import { useMessageDrafts } from '@/hooks/useMessageDrafts';
 
 interface CorporateChatAreaProps {
   onMessageChange?: (hasUnsaved: boolean) => void;
@@ -32,11 +33,15 @@ const branches = [
 ];
 
 export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, embedded = false }: CorporateChatAreaProps) => {
-  const [message, setMessage] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showSearchInput, setShowSearchInput] = useState(false);
+  // Determine chat ID for drafts (use branch or custom chat id)
   const [activeBranch, setActiveBranch] = useState<string | null>(selectedBranchId);
   const [selectedCustomChatId, setSelectedCustomChatId] = useState<string | null>(null);
+  const draftChatId = selectedCustomChatId || (activeBranch ? `corporate_${activeBranch}` : null);
+  
+  // Use persistent draft hook
+  const { draft: message, setDraft: setMessage, clearDraft } = useMessageDrafts(draftChatId);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchInput, setShowSearchInput] = useState(false);
   const [allowedBranches, setAllowedBranches] = useState<string[]>([]);
   const isMobile = useIsMobile();
   
@@ -302,7 +307,7 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
         messageText: message.trim(),
         messageType: 'manager'
       });
-      setMessage('');
+      clearDraft();
       updateTypingStatus(false);
       onMessageChange?.(false);
     } catch (error) {

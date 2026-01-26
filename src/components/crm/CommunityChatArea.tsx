@@ -12,6 +12,7 @@ import { useTypingStatus } from '@/hooks/useTypingStatus';
 import { toast } from "sonner";
 import { useCommunityChats, CommunityChat } from '@/hooks/useCommunityChats';
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useMessageDrafts } from '@/hooks/useMessageDrafts';
 
 // Messenger icons
 const TelegramIcon = () => (
@@ -40,10 +41,13 @@ interface CommunityChatAreaProps {
 }
 
 export const CommunityChatArea = ({ onMessageChange, selectedCommunityId = null, embedded = false }: CommunityChatAreaProps) => {
-  const [message, setMessage] = useState("");
+  const [activeCommunityId, setActiveCommunityId] = useState<string | null>(selectedCommunityId);
+  
+  // Use persistent draft hook
+  const draftChatId = activeCommunityId ? `community_${activeCommunityId}` : null;
+  const { draft: message, setDraft: setMessage, clearDraft } = useMessageDrafts(draftChatId);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
-  const [activeCommunityId, setActiveCommunityId] = useState<string | null>(selectedCommunityId);
   const isMobile = useIsMobile();
   
   const { communityChats, isLoading } = useCommunityChats();
@@ -83,7 +87,7 @@ export const CommunityChatArea = ({ onMessageChange, selectedCommunityId = null,
         messageText: message.trim(),
         messageType: 'manager'
       });
-      setMessage('');
+      clearDraft();
       updateTypingStatus(false);
       onMessageChange?.(false);
     } catch (error) {
