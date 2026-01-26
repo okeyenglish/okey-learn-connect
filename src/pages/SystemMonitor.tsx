@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { EdgeFunctionsVisualization } from "@/components/admin/EdgeFunctionsVisualization";
 import { CallLogsTab } from "@/components/admin/CallLogsTab";
+import { SelfHostedConnectionTest } from "@/components/admin/SelfHostedConnectionTest";
 
 interface Migration {
   id: number;
@@ -125,6 +126,9 @@ export default function SystemMonitor() {
           <p className="text-muted-foreground">Статус миграций и Edge Functions</p>
         </div>
       </div>
+
+      {/* Self-Hosted Connection Test */}
+      <SelfHostedConnectionTest />
 
       <Tabs defaultValue="catalog" className="space-y-4">
         <TabsList>
