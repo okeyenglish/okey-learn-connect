@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 export interface PaymentTerminal {
   id: string;
@@ -193,13 +194,17 @@ export const useInitOnlinePayment = () => {
       success_url?: string;
       fail_url?: string;
     }) => {
-      const { data, error } = await supabase.functions.invoke('tbank-init', {
-        body: params,
-      });
+      const response = await selfHostedPost<{ success: boolean; error?: string; payment_url?: string; payment_id?: string }>('tbank-init', params);
 
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
-      return data;
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to init payment');
+      }
+      
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || 'Payment initialization failed');
+      }
+      
+      return response.data;
     },
     onError: (error: Error) => {
       toast({
