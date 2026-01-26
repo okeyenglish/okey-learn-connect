@@ -25,22 +25,31 @@ async function findOrganizationByWebhookKey(supabase: ReturnType<typeof createCl
   
   console.log('[onlinepbx-webhook] Looking up organization by webhook key:', webhookKey.substring(0, 8) + '...');
   
-  const { data: setting, error } = await supabase
+  // Try both camelCase (webhookKey) and snake_case (webhook_key) formats
+  // Also try searching all enabled OnlinePBX settings and matching manually
+  const { data: settings, error } = await supabase
     .from('messenger_settings')
     .select('organization_id, settings')
     .eq('messenger_type', 'onlinepbx')
-    .eq('is_enabled', true)
-    .filter('settings->>webhook_key', 'eq', webhookKey)
-    .maybeSingle();
+    .eq('is_enabled', true);
   
   if (error) {
     console.error('[onlinepbx-webhook] Error searching by webhook key:', error);
     return null;
   }
   
-  if (setting?.organization_id) {
-    console.log('[onlinepbx-webhook] ✓ Found organization by webhook key:', setting.organization_id);
-    return setting.organization_id as string;
+  if (settings && settings.length > 0) {
+    for (const setting of settings) {
+      const settingsObj = setting.settings as Record<string, unknown> | null;
+      const storedKey = settingsObj?.webhookKey || settingsObj?.webhook_key;
+      
+      console.log('[onlinepbx-webhook] Checking org:', setting.organization_id, 'storedKey:', storedKey ? String(storedKey).substring(0, 8) + '...' : 'none');
+      
+      if (storedKey === webhookKey) {
+        console.log('[onlinepbx-webhook] ✓ Found organization by webhook key:', setting.organization_id);
+        return setting.organization_id as string;
+      }
+    }
   }
   
   console.log('[onlinepbx-webhook] No organization found for webhook key');
