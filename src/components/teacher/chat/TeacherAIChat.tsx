@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Bot, Send, User } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/typedClient';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import { Teacher } from '@/hooks/useTeachers';
 import { useToast } from '@/hooks/use-toast';
 import { getErrorMessage } from '@/lib/errorUtils';
@@ -61,19 +61,17 @@ export const TeacherAIChat = ({ teacher }: TeacherAIChatProps) => {
         content: msg.content
       }));
 
-      const { data, error } = await supabase.functions.invoke('ask', {
-        body: {
-          question: question,
-          history: conversationHistory,
-          context: 'teacher' // Специальный контекст для преподавателя
-        }
+      const response = await selfHostedPost<{ answer?: string }>('ask', {
+        question: question,
+        history: conversationHistory,
+        context: 'teacher' // Специальный контекст для преподавателя
       });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
 
       const assistantMessage: Message = {
         role: 'assistant',
-        content: data.answer || 'Извините, не могу ответить на этот вопрос.'
+        content: response.data?.answer || 'Извините, не могу ответить на этот вопрос.'
       };
 
       setMessages(prev => [...prev, assistantMessage]);

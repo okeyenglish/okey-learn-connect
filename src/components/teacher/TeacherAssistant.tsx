@@ -3,7 +3,7 @@ import { Bot, Send, Mic, MicOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { supabase } from '@/integrations/supabase/typedClient';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useToast } from '@/hooks/use-toast';
 
 interface Message {
@@ -50,19 +50,17 @@ export const TeacherAssistant = ({ teacher }: TeacherAssistantProps) => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('ask', {
-        body: {
-          question,
-          history: updatedMessages.slice(-10),
-          context: 'teacher'
-        }
+      const response = await selfHostedPost<{ answer?: string }>('ask', {
+        question,
+        history: updatedMessages.slice(-10),
+        context: 'teacher'
       });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
 
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: data.answer || 'Извините, не могу ответить на этот вопрос.'
+        content: response.data?.answer || 'Извините, не могу ответить на этот вопрос.'
       }]);
     } catch (error: unknown) {
       console.error('AI chat error:', error);

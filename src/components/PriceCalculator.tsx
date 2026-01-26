@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Gift, Phone, User, MapPin, BookOpen, Calendar, Check, Sparkles, MessageCircle, Clock } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { getBranchesForSelect } from "@/lib/branches";
-import { supabase } from "@/integrations/supabase/typedClient";
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 interface PriceCalculatorProps {
   preSelectedBranch?: string;
@@ -134,16 +134,14 @@ export default function PriceCalculator({ preSelectedBranch }: PriceCalculatorPr
         source: "Price Calculator",
       };
 
-      const { data, error } = await supabase.functions.invoke('webhook-proxy', {
-        body: webhookData,
-      });
+      const response = await selfHostedPost('webhook-proxy', webhookData);
 
-      if (error) {
-        console.error('Price calculator proxy error:', error);
-        throw new Error(typeof error === 'string' ? error : (error.message || 'Webhook error'));
+      if (!response.success) {
+        console.error('Price calculator proxy error:', response.error);
+        throw new Error(response.error || 'Webhook error');
       }
 
-      console.log('Price calculator proxy success:', data);
+      console.log('Price calculator proxy success:', response.data);
 
       toast({
         title: "Заявка отправлена!",

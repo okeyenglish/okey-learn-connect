@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Send, Wrench } from "lucide-react";
-import { supabase } from "@/integrations/supabase/typedClient";
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 interface WorkshopSignupModalProps {
   branchId: string;
@@ -28,27 +28,25 @@ export default function WorkshopSignupModal({ branchId, branchName, children }: 
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('webhook-proxy', {
-        body: {
-          source: "workshop_signup",
-          page: window.location.pathname,
-          utm: new URLSearchParams(window.location.search).toString(),
-          course: "Workshop",
-          branch: branchName,
-          branchId: branchId,
-          phone: formData.phone,
-          childName: formData.childName || "Не указано",
-          parentType: formData.parentType,
-          message: `Заявка на Workshop в филиале ${branchName}. Телефон ${formData.parentType}: ${formData.phone}${formData.childName ? `. Имя ребенка: ${formData.childName}` : ""}`
-        }
+      const response = await selfHostedPost('webhook-proxy', {
+        source: "workshop_signup",
+        page: window.location.pathname,
+        utm: new URLSearchParams(window.location.search).toString(),
+        course: "Workshop",
+        branch: branchName,
+        branchId: branchId,
+        phone: formData.phone,
+        childName: formData.childName || "Не указано",
+        parentType: formData.parentType,
+        message: `Заявка на Workshop в филиале ${branchName}. Телефон ${formData.parentType}: ${formData.phone}${formData.childName ? `. Имя ребенка: ${formData.childName}` : ""}`
       });
 
-      if (error) {
-        console.error('Workshop webhook proxy error:', error);
-        throw error;
+      if (!response.success) {
+        console.error('Workshop webhook proxy error:', response.error);
+        throw new Error(response.error);
       }
 
-      console.log('Workshop webhook proxy response:', data);
+      console.log('Workshop webhook proxy response:', response.data);
 
       
       toast({

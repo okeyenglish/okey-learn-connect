@@ -10,6 +10,7 @@ import { ru } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
 import { CallEvaluationCard, type AiCallEvaluation } from "./CallEvaluationCard";
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 interface CallDetailModalProps {
   callId: string | null;
@@ -143,12 +144,10 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({
     try {
       // Use analyze-call for full AI analysis if recording is available
       if (call.recording_url) {
-        const { data, error } = await supabase.functions.invoke('analyze-call', {
-          body: { callId }
-        });
+        const response = await selfHostedPost('analyze-call', { callId });
 
-        if (error) {
-          console.error('Error analyzing call:', error);
+        if (!response.success) {
+          console.error('Error analyzing call:', response.error);
           toast({
             title: "Ошибка",
             description: "Не удалось проанализировать звонок",
@@ -165,12 +164,13 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({
         });
       } else {
         // Fallback to simple summary
-        const { data, error } = await supabase.functions.invoke('generate-call-summary', {
-          body: { callId, callDetails: call }
+        const response = await selfHostedPost<{ summary?: string }>('generate-call-summary', {
+          callId,
+          callDetails: call
         });
 
-        if (error) {
-          console.error('Error generating summary:', error);
+        if (!response.success) {
+          console.error('Error generating summary:', response.error);
           toast({
             title: "Ошибка",
             description: "Не удалось создать резюме звонка",
@@ -179,7 +179,7 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({
           return;
         }
 
-        setCall(prev => prev ? { ...prev, summary: data.summary } : null);
+        setCall(prev => prev ? { ...prev, summary: response.data?.summary || null } : null);
         toast({
           title: "Успешно",
           description: "Резюме звонка создано",

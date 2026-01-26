@@ -12,6 +12,7 @@ import { AddClusterDialog } from "./AddClusterDialog";
 import { useWordstatData } from "@/hooks/useWordstatData";
 import { WordstatStats } from "./WordstatStats";
 import { Separator } from "@/components/ui/separator";
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 const SeoKeywordClusters = () => {
   const { toast } = useToast();
@@ -37,15 +38,16 @@ const SeoKeywordClusters = () => {
       setIsGenerating(clusterId);
       const orgId = await getCurrentOrganizationId();
 
-      const { data, error } = await supabase.functions.invoke("seo-suggest-ideas", {
-        body: { kwClusterId: clusterId, organizationId: orgId },
+      const response = await selfHostedPost<{ ideas?: unknown[] }>("seo-suggest-ideas", {
+        kwClusterId: clusterId,
+        organizationId: orgId
       });
 
-      if (error) throw error;
+      if (!response.success) throw new Error(response.error);
 
       toast({
         title: "Идеи сгенерированы",
-        description: `Создано ${data.ideas?.length || 0} идей контента`,
+        description: `Создано ${response.data?.ideas?.length || 0} идей контента`,
       });
 
       refetch();
