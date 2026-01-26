@@ -4,12 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, Clock, Calendar, User, MessageSquare, Sparkles, Save, Loader2 } from "lucide-react";
+import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, Clock, Calendar, User, MessageSquare, Sparkles, Save, Loader2, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
+import { CallEvaluationCard, type AiCallEvaluation } from "./CallEvaluationCard";
 
 interface CallDetailModalProps {
   callId: string | null;
@@ -27,12 +27,15 @@ interface CallLog {
   ended_at: string | null;
   summary: string | null;
   notes: string | null;
+  recording_url: string | null;
+  transcription: string | null;
+  ai_evaluation: AiCallEvaluation | null;
   clients?: {
     name?: string;
   } | null;
 }
 
-export const CallDetailModal: React.FC<CallDetailModalProps> = ({ 
+export const CallDetailModal: React.FC<CallDetailModalProps> = ({
   callId, 
   open, 
   onOpenChange 
@@ -136,27 +139,57 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({
 
     setGeneratingSummary(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-call-summary', {
-        body: { callId, callDetails: call }
-      });
-
-      if (error) {
-        console.error('Error generating summary:', error);
-        toast({
-          title: "Ошибка",
-          description: "Не удалось создать резюме звонка",
-          variant: "destructive",
+      // Use analyze-call for full AI analysis if recording is available
+      if (call.recording_url) {
+        const { data, error } = await supabase.functions.invoke('analyze-call', {
+          body: { callId }
         });
-        return;
-      }
 
-      setCall(prev => prev ? { ...prev, summary: data.summary } : null);
-      toast({
-        title: "Успешно",
-        description: "Резюме звонка создано",
-      });
+        if (error) {
+          console.error('Error analyzing call:', error);
+          toast({
+            title: "Ошибка",
+            description: "Не удалось проанализировать звонок",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Refetch call details to get updated evaluation
+        await fetchCallDetails();
+        toast({
+          title: "Успешно",
+          description: "Анализ звонка завершён",
+        });
+      } else {
+        // Fallback to simple summary
+        const { data, error } = await supabase.functions.invoke('generate-call-summary', {
+          body: { callId, callDetails: call }
+        });
+
+        if (error) {
+          console.error('Error generating summary:', error);
+          toast({
+            title: "Ошибка",
+            description: "Не удалось создать резюме звонка",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        setCall(prev => prev ? { ...prev, summary: data.summary } : null);
+        toast({
+          title: "Успешно",
+          description: "Резюме звонка создано",
+        });
+      }
     } catch (error) {
       console.error('Error:', error);
+      toast({
+        title: "Ошибка",
+        description: "Произошла ошибка при обработке",
+        variant: "destructive",
+      });
     } finally {
       setGeneratingSummary(false);
     }
@@ -285,50 +318,63 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({
             </CardContent>
           </Card>
 
-          {/* AI Summary */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5" />
-                  Резюме звонка
-                </div>
-                {!call.summary && (
-                  <Button
-                    onClick={generateSummary}
-                    disabled={generatingSummary}
-                    size="sm"
-                    variant="outline"
-                  >
-                    {generatingSummary ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Создается...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Создать резюме
-                      </>
-                    )}
-                  </Button>
+          {/* AI Evaluation */}
+          {call.ai_evaluation ? (
+            <CallEvaluationCard 
+              evaluation={call.ai_evaluation} 
+              transcription={call.transcription}
+            />
+          ) : (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5" />
+                    AI-анализ звонка
+                  </div>
+                  {call.recording_url && (
+                    <Button
+                      onClick={generateSummary}
+                      disabled={generatingSummary}
+                      size="sm"
+                      variant="outline"
+                    >
+                      {generatingSummary ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Анализируем...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Запустить анализ
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {call.summary ? (
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm leading-relaxed">{call.summary}</p>
+                  </div>
+                ) : call.recording_url ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Анализ звонка ещё не выполнен</p>
+                    <p className="text-xs">Нажмите кнопку выше для запуска AI-анализа</p>
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground">
+                    <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Запись звонка недоступна</p>
+                    <p className="text-xs">AI-анализ возможен только при наличии записи разговора</p>
+                  </div>
                 )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {call.summary ? (
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm leading-relaxed">{call.summary}</p>
-                </div>
-              ) : (
-                <div className="text-center py-4 text-muted-foreground">
-                  <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Резюме звонка пока не создано</p>
-                  <p className="text-xs">Нажмите кнопку выше, чтобы создать автоматическое резюме</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Notes */}
           <Card>
