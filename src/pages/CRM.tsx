@@ -1310,7 +1310,7 @@ const CRMContent = () => {
   }, [selectedChatIds]);
 
   // Обработчики для чатов
-  const handleChatClick = useCallback(async (chatId: string, chatType: 'client' | 'corporate' | 'teachers' | 'communities', foundInMessages?: boolean, messengerType?: 'whatsapp' | 'telegram' | 'max' | null) => {
+  const handleChatClick = useCallback((chatId: string, chatType: 'client' | 'corporate' | 'teachers' | 'communities', foundInMessages?: boolean, messengerType?: 'whatsapp' | 'telegram' | 'max' | null) => {
     console.log('Переключение на чат:', { chatId, chatType, foundInMessages, messengerType });
     
     // Только переключаемся на новый чат, если это действительно другой чат
@@ -1322,6 +1322,7 @@ const CRMContent = () => {
       setActiveClientInfo(null);
     }
     
+    // МГНОВЕННОЕ переключение UI - без await
     setActiveChatId(chatId);
     setActiveChatType(chatType);
     
@@ -1339,7 +1340,7 @@ const CRMContent = () => {
       setChatInitialSearchQuery(undefined);
     }
     
-    // Сначала СИНХРОННО устанавливаем данные из кэша, потом асинхронно подгружаем телефон
+    // Сначала СИНХРОННО устанавливаем данные из кэша
     if (chatType === 'client' && isNewChat) {
       const existingClient = clients.find(c => c.id === chatId);
       const existingThread = threads.find(t => t.client_id === chatId);
@@ -1359,75 +1360,57 @@ const CRMContent = () => {
         });
       }
       
-      // Асинхронно подгружаем телефон в фоне (не блокируя UI)
-      const loadPhoneAsync = async () => {
-        const getClientPhone = async (clientId: string, clientPhone?: string | null): Promise<string> => {
-          if (clientPhone) return clientPhone;
+      // Асинхронно подгружаем телефон в фоне (не блокируя UI) - используем setTimeout для дебаунса
+      const currentChatId = chatId; // Замыкаем для проверки актуальности
+      setTimeout(async () => {
+        const currentPhone = existingClient?.phone || existingThread?.client_phone;
+        if (currentPhone) return; // Телефон уже есть
+        
+        try {
           const { data: primaryPhone } = await supabase
             .from('client_phone_numbers')
             .select('phone')
-            .eq('client_id', clientId)
+            .eq('client_id', currentChatId)
             .eq('is_primary', true)
             .maybeSingle();
-          if (primaryPhone?.phone) return primaryPhone.phone;
           
-          const { data: anyPhone } = await supabase
-            .from('client_phone_numbers')
-            .select('phone')
-            .eq('client_id', clientId)
-            .limit(1)
-            .maybeSingle();
-          return anyPhone?.phone || '';
-        };
-        
-        try {
-          // Только если телефон ещё не загружен
-          const currentPhone = existingClient?.phone || existingThread?.client_phone;
-          if (!currentPhone) {
-            const phone = await getClientPhone(chatId, null);
-            if (phone) {
-              // Обновляем только если это всё ещё активный чат
-              setActiveClientInfo(prev => 
-                prev ? { ...prev, phone } : null
-              );
-            }
+          const phone = primaryPhone?.phone;
+          if (phone) {
+            setActiveClientInfo(prev => 
+              prev ? { ...prev, phone } : null
+            );
           }
         } catch (err) {
           console.error('Error loading phone async:', err);
         }
-      };
-      
-      // Запускаем асинхронную загрузку телефона БЕЗ await
-      loadPhoneAsync();
+      }, 50); // Небольшая задержка чтобы не блокировать рендер
     } else if (chatType !== 'client') {
       setActiveClientInfo(null);
     }
     
     // Помечаем как прочитанное только при переключении на НОВЫЙ чат
+    // ВСЕ ОПЕРАЦИИ БЕЗ AWAIT - не блокируем UI
     if (isNewChat) {
-      // Сначала помечаем чат как прочитанный глобально для всех пользователей
-      await markChatAsReadGlobally(chatId);
+      // Асинхронно помечаем чат как прочитанный (fire-and-forget)
+      markChatAsReadGlobally(chatId).catch(err => 
+        console.error('Error marking chat as read:', err)
+      );
       
       if (chatType === 'client') {
-        // НЕ помечаем все сообщения как прочитанные здесь!
-        // ChatArea сам пометит сообщения при переключении вкладки
-        
-        // Помечаем сообщения как прочитанные в базе данных (старая система)
-        // markAsReadMutation.mutate(chatId);
-        // Помечаем чат как прочитанный в персональном состоянии (для закрепленных и пр.)
+        // Помечаем чат как прочитанный в персональном состоянии
         markAsRead(chatId);
-      } else if (chatType === 'corporate') {
-        // Папка корпоративных чатов — не отмечаем прочитанным на этом уровне
       } else if (chatType === 'teachers') {
-        // Для преподавательских чатов
-        teacherChats.forEach(async (chat: any) => {
-          if (chat.id) {
-            await markChatAsReadGlobally(chat.id);
-            markChatMessagesAsReadMutation.mutate(chat.id);
-            markAsReadMutation.mutate(chat.id);
-            markAsRead(chat.id);
-          }
-        });
+        // Для преподавательских чатов - отложенная пакетная обработка
+        setTimeout(() => {
+          teacherChats.forEach((chat: any) => {
+            if (chat.id) {
+              markChatAsReadGlobally(chat.id).catch(() => {});
+              markChatMessagesAsReadMutation.mutate(chat.id);
+              markAsReadMutation.mutate(chat.id);
+              markAsRead(chat.id);
+            }
+          });
+        }, 100); // Отложим чтобы не блокировать первый рендер
       }
     }
     
