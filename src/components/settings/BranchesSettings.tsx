@@ -259,6 +259,14 @@ export const BranchesSettings = () => {
     working_hours: getDefaultWorkingHours(),
   });
 
+  const [formErrors, setFormErrors] = useState<{
+    name?: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+    working_hours?: string;
+  }>({});
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -278,7 +286,53 @@ export const BranchesSettings = () => {
       email: '',
       working_hours: getDefaultWorkingHours(),
     });
+    setFormErrors({});
     setEditingBranch(null);
+  };
+
+  const validateForm = (): boolean => {
+    const errors: typeof formErrors = {};
+    
+    // Название обязательно
+    if (!formData.name.trim()) {
+      errors.name = 'Название филиала обязательно';
+    } else if (formData.name.trim().length < 2) {
+      errors.name = 'Название должно быть не менее 2 символов';
+    } else if (formData.name.trim().length > 100) {
+      errors.name = 'Название должно быть не более 100 символов';
+    }
+    
+    // Телефон - проверка формата если заполнен
+    if (formData.phone.trim()) {
+      const phoneRegex = /^[\d\s\-\+\(\)]+$/;
+      if (!phoneRegex.test(formData.phone)) {
+        errors.phone = 'Некорректный формат телефона';
+      } else if (formData.phone.replace(/\D/g, '').length < 10) {
+        errors.phone = 'Телефон должен содержать минимум 10 цифр';
+      }
+    }
+    
+    // Email - проверка формата если заполнен
+    if (formData.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        errors.email = 'Некорректный формат email';
+      }
+    }
+    
+    // Адрес - максимальная длина
+    if (formData.address.trim().length > 500) {
+      errors.address = 'Адрес должен быть не более 500 символов';
+    }
+    
+    // Рабочие часы
+    const workingHoursValidation = validateWorkingHours(formData.working_hours);
+    if (!workingHoursValidation.isValid) {
+      errors.working_hours = workingHoursValidation.errors[0];
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleEdit = (branch: OrganizationBranch) => {
@@ -291,19 +345,15 @@ export const BranchesSettings = () => {
       email: branch.email || '',
       working_hours: workingHours || getDefaultWorkingHours(),
     });
+    setFormErrors({});
     setIsAddOpen(true);
   };
 
   const handleSave = async () => {
     if (!organization?.id) return;
-    if (!formData.name) {
-      toast.error('Укажите название филиала');
-      return;
-    }
-
-    const validation = validateWorkingHours(formData.working_hours);
-    if (!validation.isValid) {
-      toast.error(validation.errors[0]);
+    
+    if (!validateForm()) {
+      toast.error('Исправьте ошибки в форме');
       return;
     }
 
@@ -504,52 +554,94 @@ export const BranchesSettings = () => {
               <div className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="branch-name">Название филиала *</Label>
+                    <Label htmlFor="branch-name" className={formErrors.name ? 'text-destructive' : ''}>
+                      Название филиала *
+                    </Label>
                     <Input
                       id="branch-name"
                       value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, name: e.target.value });
+                        if (formErrors.name) setFormErrors({ ...formErrors, name: undefined });
+                      }}
                       placeholder="Центральный офис"
+                      className={formErrors.name ? 'border-destructive focus-visible:ring-destructive' : ''}
                     />
+                    {formErrors.name && (
+                      <p className="text-xs text-destructive">{formErrors.name}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="branch-phone">Телефон</Label>
+                    <Label htmlFor="branch-phone" className={formErrors.phone ? 'text-destructive' : ''}>
+                      Телефон
+                    </Label>
                     <Input
                       id="branch-phone"
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, phone: e.target.value });
+                        if (formErrors.phone) setFormErrors({ ...formErrors, phone: undefined });
+                      }}
                       placeholder="+7 (999) 123-45-67"
+                      className={formErrors.phone ? 'border-destructive focus-visible:ring-destructive' : ''}
                     />
+                    {formErrors.phone && (
+                      <p className="text-xs text-destructive">{formErrors.phone}</p>
+                    )}
                   </div>
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="branch-email">Email</Label>
+                    <Label htmlFor="branch-email" className={formErrors.email ? 'text-destructive' : ''}>
+                      Email
+                    </Label>
                     <Input
                       id="branch-email"
                       type="email"
                       value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, email: e.target.value });
+                        if (formErrors.email) setFormErrors({ ...formErrors, email: undefined });
+                      }}
                       placeholder="branch@example.com"
+                      className={formErrors.email ? 'border-destructive focus-visible:ring-destructive' : ''}
                     />
+                    {formErrors.email && (
+                      <p className="text-xs text-destructive">{formErrors.email}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="branch-address">Адрес</Label>
+                    <Label htmlFor="branch-address" className={formErrors.address ? 'text-destructive' : ''}>
+                      Адрес
+                    </Label>
                     <Textarea
                       id="branch-address"
                       value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, address: e.target.value });
+                        if (formErrors.address) setFormErrors({ ...formErrors, address: undefined });
+                      }}
                       placeholder="г. Москва, ул. Ленина, д. 1"
                       rows={2}
+                      className={formErrors.address ? 'border-destructive focus-visible:ring-destructive' : ''}
                     />
+                    {formErrors.address && (
+                      <p className="text-xs text-destructive">{formErrors.address}</p>
+                    )}
                   </div>
                 </div>
 
                 <div className="border-t pt-4">
+                  {formErrors.working_hours && (
+                    <p className="text-xs text-destructive mb-2">{formErrors.working_hours}</p>
+                  )}
                   <WorkingHoursEditor
                     value={formData.working_hours}
-                    onChange={(hours) => setFormData({ ...formData, working_hours: hours })}
+                    onChange={(hours) => {
+                      setFormData({ ...formData, working_hours: hours });
+                      if (formErrors.working_hours) setFormErrors({ ...formErrors, working_hours: undefined });
+                    }}
                   />
                 </div>
 
