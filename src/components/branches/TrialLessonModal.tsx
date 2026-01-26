@@ -28,6 +28,7 @@ export const TrialLessonModal = ({ branchName, branchAddress, children }: TrialL
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
+    childAge: '',
     comment: '',
   });
 
@@ -68,6 +69,7 @@ export const TrialLessonModal = ({ branchName, branchAddress, children }: TrialL
         body: JSON.stringify({
           name: formData.name.trim(),
           phone: formData.phone.trim(),
+          child_age: formData.childAge ? parseInt(formData.childAge, 10) : undefined,
           comment: formData.comment.trim() || undefined,
           branch_name: branchName,
           branch_address: branchAddress,
@@ -90,7 +92,7 @@ export const TrialLessonModal = ({ branchName, branchAddress, children }: TrialL
       setTimeout(() => {
         setOpen(false);
         setIsSuccess(false);
-        setFormData({ name: '', phone: '', comment: '' });
+        setFormData({ name: '', phone: '', childAge: '', comment: '' });
       }, 2000);
     } catch (err) {
       console.error('Unexpected error:', err);
@@ -195,13 +197,25 @@ export const TrialLessonModal = ({ branchName, branchAddress, children }: TrialL
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="childAge">Возраст ребёнка</Label>
+                <Input
+                  id="childAge"
+                  type="number"
+                  min="1"
+                  max="18"
+                  placeholder="Например: 7"
+                  value={formData.childAge}
+                  onChange={(e) => setFormData({ ...formData, childAge: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="comment">Комментарий</Label>
                 <Textarea
                   id="comment"
-                  placeholder="Возраст ребёнка, удобное время и т.д."
+                  placeholder="Удобное время, пожелания и т.д."
                   value={formData.comment}
                   onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
-                  rows={3}
+                  rows={2}
                 />
               </div>
               <Button 
