@@ -14,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients, useSearchClients, useCreateClient } from "@/hooks/useClients";
 import { useClientIdsByPhoneSearch } from "@/hooks/useClientIdsByPhoneSearch";
@@ -3003,19 +3004,64 @@ const CRMContent = () => {
                     <span className="text-sm text-muted-foreground ml-1">
                       {selectedChatIds.size} выбрано
                     </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2 ml-2"
-                      onClick={() => {
-                        const allChatIds = new Set(filteredChats.map(chat => chat.id));
-                        setSelectedChatIds(allChatIds);
-                      }}
-                      title="Выбрать все"
-                    >
-                      <ListChecks className="h-4 w-4 mr-1" />
-                      Выбрать все
-                    </Button>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 ml-2"
+                        >
+                          <ListChecks className="h-4 w-4 mr-1" />
+                          Выбрать все
+                          <ChevronDown className="h-3 w-3 ml-1" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-48 p-1" align="start">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start h-8 px-2"
+                          onClick={() => {
+                            const allChatIds = new Set(filteredChats.map(chat => chat.id));
+                            console.log('[CRM] Select all:', allChatIds.size, 'chats');
+                            setSelectedChatIds(allChatIds);
+                          }}
+                        >
+                          <Check className="h-4 w-4 mr-2" />
+                          Выбрать все ({filteredChats.length})
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start h-8 px-2"
+                          onClick={() => {
+                            setSelectedChatIds(new Set());
+                          }}
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Снять выбор
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start h-8 px-2"
+                          onClick={() => {
+                            // Инвертировать выбор
+                            const allIds = new Set(filteredChats.map(chat => chat.id));
+                            const newSelected = new Set<string>();
+                            allIds.forEach(id => {
+                              if (!selectedChatIds.has(id)) {
+                                newSelected.add(id);
+                              }
+                            });
+                            setSelectedChatIds(newSelected);
+                          }}
+                        >
+                          <ListChecks className="h-4 w-4 mr-2" />
+                          Инвертировать
+                        </Button>
+                      </PopoverContent>
+                    </Popover>
                     {selectedChatIds.size > 0 && (
                       <div className="flex gap-1 ml-auto">
                         <Button
@@ -3023,7 +3069,10 @@ const CRMContent = () => {
                           size="sm"
                           className="h-8 px-2"
                           onClick={() => {
-                            selectedChatIds.forEach(chatId => {
+                            // Convert Set to Array for reliable iteration
+                            const chatIdsArray = Array.from(selectedChatIds);
+                            console.log('[CRM] Bulk mark as read:', chatIdsArray.length, 'chats');
+                            chatIdsArray.forEach(chatId => {
                               markChatAsReadGlobally(chatId);
                               markChatMessagesAsReadMutation.mutate(chatId);
                               markAsReadMutation.mutate(chatId);
@@ -3041,7 +3090,9 @@ const CRMContent = () => {
                           size="sm"
                           className="h-8 px-2"
                           onClick={() => {
-                            selectedChatIds.forEach(chatId => togglePin(chatId));
+                            const chatIdsArray = Array.from(selectedChatIds);
+                            console.log('[CRM] Bulk pin:', chatIdsArray.length, 'chats');
+                            chatIdsArray.forEach(chatId => togglePin(chatId));
                             setBulkSelectMode(false);
                             setSelectedChatIds(new Set());
                           }}
@@ -3054,7 +3105,9 @@ const CRMContent = () => {
                           size="sm"
                           className="h-8 px-2"
                           onClick={() => {
-                            selectedChatIds.forEach(chatId => toggleArchive(chatId));
+                            const chatIdsArray = Array.from(selectedChatIds);
+                            console.log('[CRM] Bulk archive:', chatIdsArray.length, 'chats');
+                            chatIdsArray.forEach(chatId => toggleArchive(chatId));
                             setBulkSelectMode(false);
                             setSelectedChatIds(new Set());
                           }}
