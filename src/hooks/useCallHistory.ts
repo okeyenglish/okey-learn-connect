@@ -11,6 +11,9 @@ interface CallLog {
   ended_at: string | null;
   summary: string | null;
   notes: string | null;
+  manager_id: string | null;
+  manager_name: string | null;
+  ai_evaluation: unknown | null;
 }
 
 export const useCallHistory = (clientId: string) => {
