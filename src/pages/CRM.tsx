@@ -1261,6 +1261,10 @@ const CRMContent = () => {
     filteredChats
       .filter(chat => !getChatState(chat.id).isPinned)
       .filter(chat => {
+        // Системные папки всегда отображаются
+        if (chat.type === 'corporate' || chat.type === 'teachers' || chat.type === 'communities') {
+          return true;
+        }
         if (!showOnlyUnread) return true;
         const chatState = getChatState(chat.id);
         const showEye = !!chatState?.isUnread;
