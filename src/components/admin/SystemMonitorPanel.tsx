@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, Database, Zap, CheckCircle, XCircle, Clock, AlertTriangle } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { selfHostedPost } from "@/lib/selfHostedApi";
+import { selfHostedPost, SELF_HOSTED_URL, SELF_HOSTED_ANON_KEY } from "@/lib/selfHostedApi";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
@@ -55,11 +55,11 @@ export function SystemMonitorPanel() {
     queryKey: ['schema_migrations'],
     queryFn: async () => {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/schema_migrations?select=*&order=applied_at.desc`,
+        `${SELF_HOSTED_URL}/rest/v1/schema_migrations?select=*&order=applied_at.desc`,
         {
           headers: {
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'apikey': SELF_HOSTED_ANON_KEY,
+            'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}`,
           },
         }
       );
@@ -91,11 +91,11 @@ export function SystemMonitorPanel() {
     queryKey: ['health_logs'],
     queryFn: async () => {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/edge_function_health_logs?select=*&order=checked_at.desc&limit=20`,
+        `${SELF_HOSTED_URL}/rest/v1/edge_function_health_logs?select=*&order=checked_at.desc&limit=20`,
         {
           headers: {
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'apikey': SELF_HOSTED_ANON_KEY,
+            'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}`,
           },
         }
       );

@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { X, Camera, CheckCircle, Loader2, QrCode, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Html5Qrcode } from 'html5-qrcode';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 interface QRScannerProps {
   onClose: () => void;
@@ -97,57 +97,32 @@ export const QRScanner = ({ onClose }: QRScannerProps) => {
     }
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/qr-login-confirm`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-          },
-          body: JSON.stringify({
-            token,
-            session: {
-              access_token: session.access_token,
-              refresh_token: session.refresh_token,
-              expires_at: session.expires_at,
-              expires_in: session.expires_in,
-              token_type: session.token_type || 'bearer',
-            }
-          }),
-        }
-      );
-
       interface QRConfirmResponse {
         success?: boolean;
         error?: string;
         message?: string;
       }
-      
-      let data: QRConfirmResponse = {};
-      const responseText = await response.text();
-      
-      try {
-        data = JSON.parse(responseText) as QRConfirmResponse;
-      } catch {
-        console.error('Response is not JSON:', responseText);
-      }
 
-      console.log('QR confirm response:', { 
-        status: response.status, 
-        ok: response.ok, 
-        data, 
-        responseText: responseText.substring(0, 500) 
+      const response = await selfHostedPost<QRConfirmResponse>('qr-login-confirm', {
+        token,
+        session: {
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+          expires_at: session.expires_at,
+          expires_in: session.expires_in,
+          token_type: session.token_type || 'bearer',
+        }
       });
 
-      if (!response.ok) {
-        const serverError = data?.error || data?.message || responseText || `Ошибка сервера (HTTP ${response.status})`;
-        throw new Error(serverError);
+      console.log('QR confirm response:', response);
+
+      if (!response.success) {
+        throw new Error(response.error || 'Сервер вернул неуспешный ответ');
       }
 
-      if (!data.success) {
-        throw new Error(data.error || 'Сервер вернул неуспешный ответ');
+      const data = response.data;
+      if (!data?.success) {
+        throw new Error(data?.error || 'Сервер вернул неуспешный ответ');
       }
 
       setStatus('success');
