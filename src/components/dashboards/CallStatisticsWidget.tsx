@@ -1,58 +1,62 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Phone, PhoneMissed, Clock } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/typedClient";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 import { startOfDay } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export const CallStatisticsWidget = () => {
-  // Total calls count
-  const { data: totalCalls, isLoading: loadingTotal } = useQuery({
-    queryKey: ["call-stats-total"],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("call_logs")
-        .select("*", { count: "exact", head: true });
-      
-      if (error) throw error;
-      return count || 0;
-    },
-  });
+interface CallStats {
+  total: number;
+  missedToday: number;
+  avgDuration: number;
+}
 
-  // Missed calls today
-  const { data: missedToday, isLoading: loadingMissed } = useQuery({
-    queryKey: ["call-stats-missed-today"],
-    queryFn: async () => {
+export const CallStatisticsWidget = () => {
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ["call-stats"],
+    queryFn: async (): Promise<CallStats> => {
       const todayStart = startOfDay(new Date()).toISOString();
       
-      const { count, error } = await supabase
-        .from("call_logs")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "missed")
-        .gte("started_at", todayStart);
-      
-      if (error) throw error;
-      return count || 0;
-    },
-  });
+      // Fetch all calls stats in one request
+      const response = await selfHostedPost<{
+        success: boolean;
+        calls: Array<{
+          status: string;
+          started_at: string;
+          duration_seconds: number | null;
+        }>;
+        total: number;
+      }>('get-call-logs', { 
+        action: 'list',
+        limit: 1000
+      });
 
-  // Average call duration (in seconds)
-  const { data: avgDuration, isLoading: loadingAvg } = useQuery({
-    queryKey: ["call-stats-avg-duration"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("call_logs")
-        .select("duration_seconds")
-        .eq("status", "answered")
-        .not("duration_seconds", "is", null)
-        .gt("duration_seconds", 0);
+      if (!response.success || !response.data) {
+        return { total: 0, missedToday: 0, avgDuration: 0 };
+      }
+
+      const calls = response.data.calls || [];
+      const total = response.data.total || 0;
       
-      if (error) throw error;
-      if (!data || data.length === 0) return 0;
+      // Calculate missed today
+      const missedToday = calls.filter(
+        c => c.status === 'missed' && c.started_at >= todayStart
+      ).length;
       
-      const totalSeconds = data.reduce((sum, call) => sum + (call.duration_seconds || 0), 0);
-      return Math.round(totalSeconds / data.length);
+      // Calculate average duration
+      const answeredCalls = calls.filter(
+        c => c.status === 'answered' && c.duration_seconds && c.duration_seconds > 0
+      );
+      const avgDuration = answeredCalls.length > 0
+        ? Math.round(
+            answeredCalls.reduce((sum, c) => sum + (c.duration_seconds || 0), 0) / 
+            answeredCalls.length
+          )
+        : 0;
+
+      return { total, missedToday, avgDuration };
     },
+    staleTime: 30000, // Cache for 30 seconds
   });
 
   const formatDuration = (seconds: number) => {
@@ -61,8 +65,6 @@ export const CallStatisticsWidget = () => {
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
-
-  const isLoading = loadingTotal || loadingMissed || loadingAvg;
 
   return (
     <Card>
@@ -82,7 +84,7 @@ export const CallStatisticsWidget = () => {
             {isLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="text-2xl font-bold">{totalCalls?.toLocaleString("ru-RU")}</div>
+              <div className="text-2xl font-bold">{stats?.total.toLocaleString("ru-RU")}</div>
             )}
           </div>
 
@@ -94,7 +96,7 @@ export const CallStatisticsWidget = () => {
             {isLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="text-2xl font-bold text-destructive">{missedToday}</div>
+              <div className="text-2xl font-bold text-destructive">{stats?.missedToday}</div>
             )}
             <p className="text-xs text-muted-foreground">сегодня</p>
           </div>
@@ -107,7 +109,7 @@ export const CallStatisticsWidget = () => {
             {isLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="text-2xl font-bold">{formatDuration(avgDuration || 0)}</div>
+              <div className="text-2xl font-bold">{formatDuration(stats?.avgDuration || 0)}</div>
             )}
             <p className="text-xs text-muted-foreground">разговора</p>
           </div>

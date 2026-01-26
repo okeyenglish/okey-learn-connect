@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/typedClient";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 
 interface CallLog {
   id: string;
@@ -14,24 +14,31 @@ interface CallLog {
   manager_id: string | null;
   manager_name: string | null;
   ai_evaluation: unknown | null;
+  recording_url?: string | null;
+  transcription?: string | null;
+}
+
+interface CallLogsResponse {
+  success: boolean;
+  calls: CallLog[];
+  total: number;
 }
 
 export const useCallHistory = (clientId: string) => {
   return useQuery({
     queryKey: ['call-logs', clientId],
     queryFn: async (): Promise<CallLog[]> => {
-      const { data, error } = await supabase
-        .from('call_logs')
-        .select('*')
-        .eq('client_id', clientId)
-        .order('started_at', { ascending: false })
-        .limit(20);
+      const response = await selfHostedPost<CallLogsResponse>('get-call-logs', {
+        action: 'history',
+        clientId,
+        limit: 20
+      });
 
-      if (error) {
-        throw error;
+      if (!response.success) {
+        throw new Error(response.error || 'Ошибка загрузки звонков');
       }
 
-      return (data || []) as CallLog[];
+      return response.data?.calls || [];
     },
     enabled: !!clientId,
   });
