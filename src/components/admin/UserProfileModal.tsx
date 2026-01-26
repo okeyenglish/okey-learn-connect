@@ -3,11 +3,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Mail, Building2, User, Check, X, Loader2, Shield, Edit2 } from "lucide-react";
+import { Mail, Building2, User, Check, X, Loader2, Shield, Edit2, Phone } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -41,8 +42,10 @@ export const UserProfileModal = ({
 }: UserProfileModalProps) => {
   const [isEditingBranches, setIsEditingBranches] = useState(false);
   const [isEditingRole, setIsEditingRole] = useState(false);
+  const [isEditingExtension, setIsEditingExtension] = useState(false);
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
   const [selectedRole, setSelectedRole] = useState<AppRole>('manager');
+  const [onlinepbxExtension, setOnlinepbxExtension] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -85,6 +88,26 @@ export const UserProfileModal = ({
     enabled: open && !!userId,
   });
 
+  // Fetch user's OnlinePBX extension
+  const { data: profileData, isLoading: profileLoading } = useQuery({
+    queryKey: ['user-profile-extension', userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('onlinepbx_extension, onlinepbx_user_id')
+        .eq('id', userId)
+        .maybeSingle();
+        
+      if (error) {
+        console.warn('Error fetching profile extension:', error);
+        return null;
+      }
+      
+      return data;
+    },
+    enabled: open && !!userId,
+  });
+
   useEffect(() => {
     setSelectedBranches(userBranches);
   }, [userBranches]);
@@ -94,6 +117,12 @@ export const UserProfileModal = ({
       setSelectedRole(userRole);
     }
   }, [userRole]);
+
+  useEffect(() => {
+    if (profileData?.onlinepbx_extension) {
+      setOnlinepbxExtension(profileData.onlinepbx_extension);
+    }
+  }, [profileData]);
 
   const updateBranchesMutation = useMutation({
     mutationFn: async (branches: string[]) => {
@@ -175,6 +204,35 @@ export const UserProfileModal = ({
     },
   });
 
+  const updateExtensionMutation = useMutation({
+    mutationFn: async (extension: string) => {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          onlinepbx_extension: extension || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-profile-extension', userId] });
+      toast({
+        title: 'Трубка привязана',
+        description: 'Номер внутренней линии OnlinePBX сохранён',
+      });
+      setIsEditingExtension(false);
+    },
+    onError: () => {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось сохранить номер трубки',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const toggleBranch = (branch: string) => {
     setSelectedBranches(prev => 
       prev.includes(branch) 
@@ -191,6 +249,10 @@ export const UserProfileModal = ({
     updateRoleMutation.mutate(selectedRole);
   };
 
+  const handleSaveExtension = () => {
+    updateExtensionMutation.mutate(onlinepbxExtension);
+  };
+
   const handleCancelBranches = () => {
     setSelectedBranches(userBranches);
     setIsEditingBranches(false);
@@ -199,6 +261,11 @@ export const UserProfileModal = ({
   const handleCancelRole = () => {
     setSelectedRole(userRole || 'manager');
     setIsEditingRole(false);
+  };
+
+  const handleCancelExtension = () => {
+    setOnlinepbxExtension(profileData?.onlinepbx_extension || '');
+    setIsEditingExtension(false);
   };
 
   const selectAll = () => setSelectedBranches([...AVAILABLE_BRANCHES]);
@@ -321,6 +388,94 @@ export const UserProfileModal = ({
                   <Shield className="h-3 w-3" />
                   {getRoleLabel(userRole || null)}
                 </Badge>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* OnlinePBX Extension Section */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Phone className="h-5 w-5" />
+                    Трубка OnlinePBX
+                  </CardTitle>
+                  <CardDescription>
+                    Внутренний номер для идентификации звонков
+                  </CardDescription>
+                </div>
+                {!isEditingExtension && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setIsEditingExtension(true)}
+                  >
+                    <Edit2 className="h-4 w-4 mr-1" />
+                    Изменить
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {profileLoading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm text-muted-foreground">Загрузка...</span>
+                </div>
+              ) : isEditingExtension ? (
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="extension">Внутренний номер (extension)</Label>
+                    <Input
+                      id="extension"
+                      value={onlinepbxExtension}
+                      onChange={(e) => setOnlinepbxExtension(e.target.value)}
+                      placeholder="Например: 101 или user@domain"
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Укажите внутренний номер или SIP-аккаунт из OnlinePBX
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleCancelExtension}
+                      disabled={updateExtensionMutation.isPending}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Отмена
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      onClick={handleSaveExtension}
+                      disabled={updateExtensionMutation.isPending}
+                    >
+                      {updateExtensionMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4 mr-1" />
+                      )}
+                      Сохранить
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  {profileData?.onlinepbx_extension ? (
+                    <Badge variant="secondary" className="gap-1">
+                      <Phone className="h-3 w-3" />
+                      {profileData.onlinepbx_extension}
+                    </Badge>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">
+                      Не привязана
+                    </span>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>

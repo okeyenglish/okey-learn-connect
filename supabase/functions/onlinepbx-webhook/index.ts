@@ -401,6 +401,51 @@ Deno.serve(async (req) => {
           organizationId = defaultOrg?.id || '00000000-0000-0000-0000-000000000001';
           console.log('[onlinepbx-webhook] Using fallback organization:', organizationId);
         }
+
+        // Find manager by OnlinePBX extension
+        let managerId: string | null = null;
+        let managerName: string | null = null;
+        
+        // Get internal extension from webhook (dst for incoming, src for outgoing)
+        const internalExtension = direction === 'incoming' ? rawTo : rawFrom;
+        console.log('[onlinepbx-webhook] Looking for manager by extension:', internalExtension);
+        
+        if (internalExtension) {
+          // Try exact match first
+          const { data: managerByExt } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, onlinepbx_extension')
+            .eq('onlinepbx_extension', internalExtension)
+            .eq('organization_id', organizationId)
+            .maybeSingle();
+          
+          if (managerByExt) {
+            managerId = managerByExt.id;
+            managerName = [managerByExt.first_name, managerByExt.last_name].filter(Boolean).join(' ') || null;
+            console.log('[onlinepbx-webhook] Found manager:', managerName, managerId);
+          } else {
+            // Try partial match (extension might be part of SIP address)
+            const { data: managerByPartial } = await supabase
+              .from('profiles')
+              .select('id, first_name, last_name, onlinepbx_extension')
+              .eq('organization_id', organizationId)
+              .not('onlinepbx_extension', 'is', null)
+              .limit(50);
+            
+            if (managerByPartial) {
+              for (const m of managerByPartial) {
+                if (m.onlinepbx_extension && 
+                    (internalExtension.includes(m.onlinepbx_extension) || 
+                     m.onlinepbx_extension.includes(internalExtension))) {
+                  managerId = m.id;
+                  managerName = [m.first_name, m.last_name].filter(Boolean).join(' ') || null;
+                  console.log('[onlinepbx-webhook] Found manager by partial match:', managerName);
+                  break;
+                }
+              }
+            }
+          }
+        }
         
         // Create client if not found
         if (!clientId && direction === 'incoming') {
@@ -460,7 +505,9 @@ Deno.serve(async (req) => {
           external_call_id: externalCallId || null,
           updated_at: new Date().toISOString(),
           organization_id: organizationId,
-          recording_url: recordingUrl
+          recording_url: recordingUrl,
+          manager_id: managerId,
+          manager_name: managerName
         };
 
         if (webhookData.end_time) {
