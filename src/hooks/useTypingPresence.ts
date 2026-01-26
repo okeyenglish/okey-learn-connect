@@ -7,7 +7,7 @@ export interface TypingPresence {
   names: string[];
 }
 
-interface TypingStatusWithName extends TypingStatus {
+interface TypingStatusWithName extends Omit<TypingStatus, 'manager_name'> {
   manager_name?: string;
 }
 
