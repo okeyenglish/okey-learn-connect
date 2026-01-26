@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useOrganization } from '@/hooks/useOrganization';
 import { useClassrooms } from '@/hooks/useReferences';
 import { supabase } from '@/integrations/supabase/typedClient';
@@ -16,6 +17,7 @@ import { OrganizationBranch } from '@/hooks/useOrganization';
 import { ClassroomModal } from '@/components/references/ClassroomModal';
 
 export const BranchesSettings = () => {
+  const queryClient = useQueryClient();
   const { organization, branches, isLoading } = useOrganization();
   const { data: classrooms } = useClassrooms();
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -94,7 +96,8 @@ export const BranchesSettings = () => {
 
       setIsAddOpen(false);
       resetForm();
-      window.location.reload();
+      queryClient.invalidateQueries({ queryKey: ['organization-branches'] });
+      queryClient.invalidateQueries({ queryKey: ['all-organization-branches'] });
     } catch (error) {
       console.error('Error saving branch:', error);
       toast.error('Ошибка при сохранении филиала');
@@ -114,7 +117,8 @@ export const BranchesSettings = () => {
 
       if (error) throw error;
       toast.success('Филиал удален');
-      window.location.reload();
+      queryClient.invalidateQueries({ queryKey: ['organization-branches'] });
+      queryClient.invalidateQueries({ queryKey: ['all-organization-branches'] });
     } catch (error) {
       console.error('Error deleting branch:', error);
       toast.error('Ошибка при удалении филиала');
@@ -159,7 +163,7 @@ export const BranchesSettings = () => {
 
       if (error) throw error;
       toast.success('Аудитория удалена');
-      window.location.reload();
+      queryClient.invalidateQueries({ queryKey: ['classrooms'] });
     } catch (error) {
       console.error('Error deleting classroom:', error);
       toast.error('Ошибка при удалении аудитории');
