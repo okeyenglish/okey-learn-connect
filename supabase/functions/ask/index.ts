@@ -1,11 +1,11 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { 
+  corsHeaders, 
+  getOpenAIApiKey, 
+  getOrganizationIdFromUser 
+} from '../_shared/types.ts';
 
 // Input validation limits
 const MAX_QUESTION_LENGTH = 2000;
@@ -108,11 +108,11 @@ serve(async (req) => {
       return new Response(JSON.stringify(response), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 
-    if (!OPENAI_API_KEY || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
       console.error('Missing required environment variables');
       return new Response(
         JSON.stringify({ error: "Service configuration error" }), 
@@ -120,8 +120,26 @@ serve(async (req) => {
       );
     }
 
-    // Create Supabase client
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Create Supabase client with service role for DB access
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+    
+    // Get organization ID from auth header to fetch org-specific API key
+    const authHeader = req.headers.get('Authorization');
+    const organizationId = await getOrganizationIdFromUser(supabase, authHeader);
+    
+    // Get OpenAI API key (from DB or env fallback)
+    const OPENAI_API_KEY = await getOpenAIApiKey(supabase, organizationId || undefined);
+    
+    if (!OPENAI_API_KEY) {
+      console.error('OpenAI API key not configured');
+      return new Response(
+        JSON.stringify({ error: "AI service not configured. Please set up OpenAI API key in settings." }), 
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Create anon client for vector search
+    const supabaseAnon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY || SUPABASE_SERVICE_KEY);
 
     // 1) Get embedding for the question
     console.log('Getting embedding for question...');
@@ -154,7 +172,7 @@ serve(async (req) => {
     const matchCount = 6;
     console.log('Performing vector search for:', question);
     
-    const { data: contexts, error: searchError } = await supabase.rpc('match_docs', {
+    const { data: contexts, error: searchError } = await supabaseAnon.rpc('match_docs', {
       query_embedding: queryEmbedding,
       match_count: matchCount
     });
