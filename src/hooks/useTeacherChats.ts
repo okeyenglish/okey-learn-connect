@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useEffect, useMemo } from 'react';
 import { normalizePhone } from '@/utils/phoneNormalization';
+import { startMetric, endMetric } from '@/lib/performanceMetrics';
 
 // Cache normalized phone -> clientId to avoid repeated lookups (huge perf win on large clients table)
 const teacherClientIdByPhoneCache = new Map<string, string>();
@@ -16,15 +17,17 @@ export const useTeacherChatMessages = (clientId: string, enabled = true) => {
     queryFn: async ({ signal }) => {
       if (!clientId) return [];
       
-      console.log('[useTeacherChatMessages] Fetching for client:', clientId);
-      const startTime = performance.now();
+      const metricId = startMetric('teacher-chat-messages', { clientId });
 
       // Abort hanging requests (Network shows long Pending for teacher chats)
       const TIMEOUT_MS = 12_000;
       const controller = new AbortController();
       const onAbort = () => controller.abort();
       signal?.addEventListener('abort', onAbort);
-      const timeoutId = window.setTimeout(() => controller.abort(), TIMEOUT_MS);
+      const timeoutId = window.setTimeout(() => {
+        controller.abort();
+        endMetric(metricId, 'timeout');
+      }, TIMEOUT_MS);
 
       try {
         // Try server-side limit/order when PostgREST supports it for this RPC
@@ -36,18 +39,16 @@ export const useTeacherChatMessages = (clientId: string, enabled = true) => {
           if (typeof rpc.abortSignal === 'function') rpc = rpc.abortSignal(controller.signal);
 
           const { data, error } = await rpc;
-          const elapsed = performance.now() - startTime;
 
           if (error) {
             console.error('[useTeacherChatMessages] Error:', error);
             throw error;
           }
 
-          console.log(`[useTeacherChatMessages] Fetched ${(data || []).length} messages in ${elapsed.toFixed(2)}ms`);
+          endMetric(metricId, 'completed', { msgCount: (data || []).length, method: 'rpc' });
           return data || [];
         } catch (rpcErr) {
           // Fallback: try direct table select (fast) when RPC is hanging or unstable.
-          // If RLS blocks it, we'll rethrow the original error.
           console.warn('[useTeacherChatMessages] RPC failed/hung, trying direct chat_messages select...');
 
           const { data: directData, error: directError } = await (supabase as any)
@@ -61,13 +62,12 @@ export const useTeacherChatMessages = (clientId: string, enabled = true) => {
             .abortSignal(controller.signal);
 
           if (!directError) {
-            const elapsed = performance.now() - startTime;
-            console.log(`[useTeacherChatMessages] ✅ Direct select ${(directData || []).length} messages in ${elapsed.toFixed(2)}ms`);
-            // Return in the same format as RPC (array of objects)
+            endMetric(metricId, 'completed', { msgCount: (directData || []).length, method: 'direct' });
             return directData || [];
           }
 
           console.error('[useTeacherChatMessages] Direct select failed:', directError);
+          endMetric(metricId, 'failed', { error: String(rpcErr) });
           throw rpcErr;
         }
       } finally {
