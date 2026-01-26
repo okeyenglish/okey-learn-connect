@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { MapPin } from "lucide-react";
 
 interface LeadFiltersProps {
   filters: {
@@ -101,9 +102,24 @@ export const LeadFilters = ({ filters, onFiltersChange }: LeadFiltersProps) => {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Все филиалы</SelectItem>
-            <SelectItem value="Окская">Окская</SelectItem>
-            <SelectItem value="Сормовская">Сормовская</SelectItem>
+            <SelectItem value="all">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-3 w-3 text-muted-foreground" />
+                <span>Все филиалы</span>
+              </div>
+            </SelectItem>
+            <SelectItem value="Окская">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-3 w-3 text-muted-foreground" />
+                <span>Окская</span>
+              </div>
+            </SelectItem>
+            <SelectItem value="Сормовская">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-3 w-3 text-muted-foreground" />
+                <span>Сормовская</span>
+              </div>
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>

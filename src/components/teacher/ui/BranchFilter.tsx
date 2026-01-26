@@ -7,7 +7,7 @@ import {
   SelectGroup,
   SelectLabel,
 } from '@/components/ui/select';
-import { Building2 } from 'lucide-react';
+import { Building2, MapPin } from 'lucide-react';
 import { Branch } from '@/hooks/useTeacherBranches';
 
 interface BranchFilterProps {
@@ -45,7 +45,10 @@ export const BranchFilter = ({
         <SelectContent>
           <SelectItem value="all">
             <div className="flex items-center justify-between gap-3 w-full">
-              <span className="font-medium">Все филиалы</span>
+              <div className="flex items-center gap-2">
+                <MapPin className="h-3 w-3 text-muted-foreground" />
+                <span className="font-medium">Все филиалы</span>
+              </div>
               {branches.some(b => b.lessonsCount !== undefined) && (
                 <span className="text-xs text-muted-foreground">
                   {branches.reduce((sum, b) => sum + (b.lessonsCount || 0), 0)} занятий
@@ -62,7 +65,10 @@ export const BranchFilter = ({
                 {orgBranches.map((branch) => (
                   <SelectItem key={branch.id} value={branch.id}>
                     <div className="flex items-center justify-between gap-3 w-full">
-                      <span>{branch.name}</span>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-3 w-3 text-muted-foreground" />
+                        <span>{branch.name}</span>
+                      </div>
                       {branch.lessonsCount !== undefined && (
                         <span className="text-xs text-muted-foreground">
                           {branch.lessonsCount} занятий
@@ -78,7 +84,10 @@ export const BranchFilter = ({
             branches.map((branch) => (
               <SelectItem key={branch.id} value={branch.id}>
                 <div className="flex items-center justify-between gap-3 w-full">
-                  <span>{branch.name}</span>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-3 w-3 text-muted-foreground" />
+                    <span>{branch.name}</span>
+                  </div>
                   {branch.lessonsCount !== undefined && (
                     <span className="text-xs text-muted-foreground">
                       {branch.lessonsCount} занятий

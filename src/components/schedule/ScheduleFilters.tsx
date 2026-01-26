@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Search, RotateCcw, ChevronUp, ChevronDown } from "lucide-react";
+import { Search, RotateCcw, ChevronUp, ChevronDown, MapPin } from "lucide-react";
 import { SessionFilters } from "@/hooks/useLessonSessions";
 import { useTeachers } from "@/hooks/useTeachers";
 import { getBranchesForSelect } from "@/lib/branches";
@@ -84,10 +84,18 @@ export const ScheduleFilters = ({ filters, onFiltersChange, onReset }: ScheduleF
                     <SelectValue placeholder="Все филиалы" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Все филиалы</SelectItem>
+                    <SelectItem value="">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-3 w-3 text-muted-foreground" />
+                        <span>Все филиалы</span>
+                      </div>
+                    </SelectItem>
                     {filteredBranches.map((branch) => (
                       <SelectItem key={branch.value} value={branch.label}>
-                        {branch.label}
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-3 w-3 text-muted-foreground" />
+                          <span>{branch.label}</span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
