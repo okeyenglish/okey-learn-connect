@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
-import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle } from "lucide-react";
+import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, Search, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -25,6 +26,7 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Get unviewed missed calls from server
   const { data: unviewedData } = useUnviewedMissedCallsCount(clientId);
@@ -37,14 +39,20 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
     return unviewedCallIds.has(call.id);
   };
 
-  // Filter calls by status and direction
+  // Normalize phone for search (remove non-digits)
+  const normalizePhone = (phone: string) => phone.replace(/\D/g, '');
+
+  // Filter calls by status, direction, and search query
   const filteredCalls = useMemo(() => {
+    const normalizedSearch = normalizePhone(searchQuery);
+    
     return calls.filter(call => {
       const statusMatch = statusFilter === 'all' || call.status === statusFilter;
       const directionMatch = directionFilter === 'all' || call.direction === directionFilter;
-      return statusMatch && directionMatch;
+      const searchMatch = !normalizedSearch || normalizePhone(call.phone_number).includes(normalizedSearch);
+      return statusMatch && directionMatch && searchMatch;
     });
-  }, [calls, statusFilter, directionFilter]);
+  }, [calls, statusFilter, directionFilter, searchQuery]);
 
   // Count calls by status and direction for badges
   const statusCounts = useMemo(() => ({
@@ -287,6 +295,27 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
             </Badge>
           )}
         </CardTitle>
+
+        {/* Phone search */}
+        <div className="relative mt-2">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Поиск по номеру..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-8 pl-8 pr-8 text-xs"
+          />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
         
         {/* Status filter */}
         <ToggleGroup 
