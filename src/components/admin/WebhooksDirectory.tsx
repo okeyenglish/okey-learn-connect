@@ -184,49 +184,70 @@ export function WebhooksDirectory() {
   const [activeTab, setActiveTab] = useState('all');
   const [dynamicKeys, setDynamicKeys] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   // Load dynamic webhook keys from messenger_settings
-  useEffect(() => {
-    const loadWebhookKeys = async () => {
-      try {
-        const response = await selfHostedGet<{
-          success: boolean;
-          settings?: Array<{
-            messenger_type: string;
-            settings: Record<string, unknown>;
-          }>;
-        }>('messenger-settings-list');
+  const loadWebhookKeys = async (showToast = false) => {
+    if (showToast) setRefreshing(true);
+    
+    try {
+      const response = await selfHostedGet<{
+        success: boolean;
+        settings?: Array<{
+          messenger_type: string;
+          settings: Record<string, unknown>;
+        }>;
+      }>('messenger-settings-list');
+      
+      const data = response as unknown as {
+        success: boolean;
+        settings?: Array<{
+          messenger_type: string;
+          settings: Record<string, unknown>;
+        }>;
+      };
+      
+      if (data.success && data.settings) {
+        const keys: Record<string, string> = {};
         
-        const data = response as unknown as {
-          success: boolean;
-          settings?: Array<{
-            messenger_type: string;
-            settings: Record<string, unknown>;
-          }>;
-        };
-        
-        if (data.success && data.settings) {
-          const keys: Record<string, string> = {};
-          
-          for (const setting of data.settings) {
-            if (setting.messenger_type === 'onlinepbx') {
-              const webhookKey = (setting.settings as { webhookKey?: string; webhook_key?: string })?.webhookKey 
-                || (setting.settings as { webhookKey?: string; webhook_key?: string })?.webhook_key;
-              if (webhookKey) {
-                keys.onlinepbx_key = webhookKey;
-              }
+        for (const setting of data.settings) {
+          if (setting.messenger_type === 'onlinepbx') {
+            const webhookKey = (setting.settings as { webhookKey?: string; webhook_key?: string })?.webhookKey 
+              || (setting.settings as { webhookKey?: string; webhook_key?: string })?.webhook_key;
+            if (webhookKey) {
+              keys.onlinepbx_key = webhookKey;
             }
           }
-          
-          setDynamicKeys(keys);
         }
-      } catch (error) {
-        console.error('Failed to load webhook keys:', error);
-      } finally {
-        setLoading(false);
+        
+        setDynamicKeys(keys);
+        setLastUpdated(new Date());
+        
+        if (showToast) {
+          toast({
+            title: "✅ Обновлено",
+            description: "Webhook URL обновлены",
+          });
+        }
       }
-    };
-    
+    } catch (error) {
+      console.error('Failed to load webhook keys:', error);
+      if (showToast) {
+        toast({
+          title: "Ошибка",
+          description: "Не удалось загрузить настройки",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Load on mount
+  useEffect(() => {
     loadWebhookKeys();
   }, []);
 
@@ -309,12 +330,31 @@ export function WebhooksDirectory() {
           <h1 className="text-3xl font-bold">Справочник Webhooks</h1>
           <p className="text-muted-foreground">
             Все URL для интеграций с внешними сервисами
+            {lastUpdated && (
+              <span className="ml-2 text-xs">
+                (обновлено {lastUpdated.toLocaleTimeString('ru-RU')})
+              </span>
+            )}
           </p>
         </div>
-        <Button onClick={testAllWebhooks} variant="outline">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Проверить все
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => loadWebhookKeys(true)} 
+            variant="outline"
+            disabled={refreshing}
+          >
+            {refreshing ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            Обновить URL
+          </Button>
+          <Button onClick={testAllWebhooks} variant="outline">
+            <CheckCircle className="h-4 w-4 mr-2" />
+            Проверить все
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
