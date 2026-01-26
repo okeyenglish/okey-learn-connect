@@ -3134,6 +3134,7 @@ export const ChatArea = ({
           open={showQuickResponsesModal}
           onOpenChange={setShowQuickResponsesModal}
           onSelectResponse={handleQuickResponseSelect}
+          isTeacher={simplifiedToolbar}
         />
       )}
 
