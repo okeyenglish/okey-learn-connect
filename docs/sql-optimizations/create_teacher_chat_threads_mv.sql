@@ -21,26 +21,24 @@ WITH teacher_links AS (
 ),
 client_messages AS (
   -- Get last message and unread counts per client
+  -- Note: self-hosted uses message_text, not content
   SELECT 
     cm.client_id,
     MAX(cm.created_at) as last_message_time,
-    MAX(cm.content) FILTER (WHERE cm.created_at = (
-      SELECT MAX(cm2.created_at) FROM chat_messages cm2 WHERE cm2.client_id = cm.client_id
-    )) as last_message_text,
-    COUNT(*) FILTER (WHERE cm.is_read = false AND cm.direction = 'incoming') as unread_count,
-    COUNT(*) FILTER (WHERE cm.is_read = false AND cm.direction = 'incoming' AND cm.messenger = 'whatsapp') as unread_whatsapp,
-    COUNT(*) FILTER (WHERE cm.is_read = false AND cm.direction = 'incoming' AND cm.messenger = 'telegram') as unread_telegram,
-    COUNT(*) FILTER (WHERE cm.is_read = false AND cm.direction = 'incoming' AND cm.messenger = 'max') as unread_max
+    COUNT(*) FILTER (WHERE cm.is_read = false AND cm.is_outgoing = false) as unread_count,
+    COUNT(*) FILTER (WHERE cm.is_read = false AND cm.is_outgoing = false AND cm.messenger_type = 'whatsapp') as unread_whatsapp,
+    COUNT(*) FILTER (WHERE cm.is_read = false AND cm.is_outgoing = false AND cm.messenger_type = 'telegram') as unread_telegram,
+    COUNT(*) FILTER (WHERE cm.is_read = false AND cm.is_outgoing = false AND cm.messenger_type = 'max') as unread_max
   FROM chat_messages cm
   WHERE cm.client_id IS NOT NULL
   GROUP BY cm.client_id
 ),
 last_messages AS (
-  -- Get actual last message content
+  -- Get actual last message content (using message_text for self-hosted)
   SELECT DISTINCT ON (cm.client_id)
     cm.client_id,
-    cm.content as last_message,
-    cm.messenger as last_messenger,
+    cm.message_text as last_message,
+    cm.messenger_type as last_messenger,
     cm.created_at as msg_time
   FROM chat_messages cm
   WHERE cm.client_id IS NOT NULL
