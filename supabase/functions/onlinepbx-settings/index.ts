@@ -13,6 +13,16 @@ function maskSecret(value: string | undefined): string {
   return '••••' + value.slice(-4);
 }
 
+// Generate a unique webhook key
+function generateWebhookKey(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let key = '';
+  for (let i = 0; i < 24; i++) {
+    key += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return key;
+}
+
 serve(async (req) => {
   console.log('[onlinepbx-settings] Boot marker');
   
@@ -90,19 +100,27 @@ serve(async (req) => {
               pbxDomain: '',
               apiKeyId: '',
               apiKeySecret: '',
+              webhookKey: '',
             },
             isEnabled: false,
-            configured: false
+            configured: false,
+            webhookUrl: ''
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+
+      const webhookKey = settings.settings?.webhook_key || '';
+      const webhookUrl = webhookKey 
+        ? `https://api.academyos.ru/functions/v1/onlinepbx-webhook?key=${webhookKey}`
+        : 'https://api.academyos.ru/functions/v1/onlinepbx-webhook';
 
       // Mask sensitive data
       const maskedSettings = {
         pbxDomain: settings.settings?.pbxDomain || settings.settings?.pbx_domain || '',
         apiKeyId: maskSecret(settings.settings?.apiKeyId || settings.settings?.api_key_id),
         apiKeySecret: maskSecret(settings.settings?.apiKeySecret || settings.settings?.api_key_secret),
+        webhookKey: webhookKey,
       };
 
       return new Response(
@@ -111,7 +129,8 @@ serve(async (req) => {
           settings: maskedSettings,
           isEnabled: settings.is_enabled,
           configured: true,
-          updatedAt: settings.updated_at
+          updatedAt: settings.updated_at,
+          webhookUrl
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -119,7 +138,7 @@ serve(async (req) => {
 
     // POST - save settings
     if (req.method === 'POST') {
-      const { pbxDomain, apiKeyId, apiKeySecret, isEnabled } = await req.json();
+      const { pbxDomain, apiKeyId, apiKeySecret, isEnabled, regenerateWebhookKey } = await req.json();
 
       if (!pbxDomain) {
         return new Response(
@@ -144,13 +163,21 @@ serve(async (req) => {
         ? (existing?.settings?.apiKeySecret || existing?.settings?.api_key_secret || '')
         : apiKeySecret;
 
+      // Generate or keep webhook key
+      let webhookKey = existing?.settings?.webhook_key || '';
+      if (!webhookKey || regenerateWebhookKey) {
+        webhookKey = generateWebhookKey();
+        console.log('[onlinepbx-settings] Generated new webhook key for org:', organizationId);
+      }
+
       const settingsData = {
         pbxDomain,
         apiKeyId: actualKeyId,
         apiKeySecret: actualKeySecret,
+        webhook_key: webhookKey,
       };
 
-      const webhookUrl = 'https://api.academyos.ru/functions/v1/onlinepbx-webhook';
+      const webhookUrl = `https://api.academyos.ru/functions/v1/onlinepbx-webhook?key=${webhookKey}`;
 
       if (existing) {
         const { error } = await supabase
@@ -183,7 +210,8 @@ serve(async (req) => {
         JSON.stringify({
           success: true,
           message: 'Настройки сохранены',
-          webhookUrl
+          webhookUrl,
+          webhookKey
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
