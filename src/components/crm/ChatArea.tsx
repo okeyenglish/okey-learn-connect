@@ -32,6 +32,7 @@ import { CallHistory } from "./CallHistory";
 import { NewMessageIndicator } from "./NewMessageIndicator";
 import { ChatSearchBar } from "./ChatSearchBar";
 import { SendPaymentLinkModal } from "./SendPaymentLinkModal";
+import { SendRetryIndicator } from "./SendRetryIndicator";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useMaxGreenApi } from "@/hooks/useMaxGreenApi";
 import { useMax } from "@/hooks/useMax";
@@ -183,7 +184,7 @@ export const ChatArea = ({
 
   const MAX_MESSAGE_LENGTH = 4000;
 
-  const { sendTextMessage, sendFileMessage, loading, deleteMessage, editMessage, checkAvailability: checkWhatsAppAvailability, getAvatar: getWhatsAppAvatar, sendTyping: sendWhatsAppTyping } = useWhatsApp();
+  const { sendTextMessage, sendFileMessage, loading, deleteMessage, editMessage, checkAvailability: checkWhatsAppAvailability, getAvatar: getWhatsAppAvatar, sendTyping: sendWhatsAppTyping, retryStatus: whatsappRetryStatus, isRetrying: isWhatsappRetrying } = useWhatsApp();
   const { sendMessage: sendMaxMessage, loading: maxLoading } = useMaxGreenApi();
   const { editMessage: editMaxMessage, deleteMessage: deleteMaxMessage, sendTyping: sendMaxTyping, checkAvailability: checkMaxAvailability, getAvatar: getMaxAvatar } = useMax();
   const { sendMessage: sendTelegramMessage } = useTelegramWappi();
@@ -2592,6 +2593,16 @@ export const ChatArea = ({
               messengerType={activeMessengerTab === 'max' ? 'max' : activeMessengerTab === 'telegram' ? 'telegram' : 'whatsapp'}
               disabled={loading || !!pendingMessage || isOtherUserTyping || commentMode}
             />
+            
+            
+            {/* Retry indicator - shows when WhatsApp send is being retried */}
+            {activeMessengerTab === 'whatsapp' && (
+              <SendRetryIndicator
+                status={whatsappRetryStatus?.status || 'idle'}
+                currentAttempt={whatsappRetryStatus?.currentAttempt}
+                maxAttempts={whatsappRetryStatus?.maxAttempts}
+              />
+            )}
             
             {/* Textarea */}
             <Textarea
