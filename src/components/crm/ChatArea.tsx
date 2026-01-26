@@ -123,7 +123,7 @@ export const ChatArea = ({
   const normalizedTeacherMessages = useMemo<ChatMessageRow[]>(() => {
     if (!isTeacherMessages) return [];
     const rows = (teacherMessagesQuery.messages || []) as Array<Record<string, unknown>>;
-    return rows.map((m) => {
+    const mapped = rows.map((m) => {
       const anyMsg = m as Record<string, any>;
       const messageText = anyMsg.message_text ?? anyMsg.content ?? '';
       const isOutgoing = anyMsg.is_outgoing ?? anyMsg.direction === 'outgoing';
@@ -150,6 +150,16 @@ export const ChatArea = ({
         call_duration: anyMsg.call_duration ?? undefined,
         metadata: anyMsg.metadata ?? undefined,
       } satisfies ChatMessageRow;
+    });
+
+    // Teacher RPC/direct queries typically return DESC (latest first).
+    // ChatArea expects chronological order (ASC) so the newest messages appear at the bottom.
+    return mapped.sort((a, b) => {
+      const at = new Date(a.created_at).getTime();
+      const bt = new Date(b.created_at).getTime();
+      if (at !== bt) return at - bt;
+      // Deterministic tie-breaker when created_at is equal
+      return String(a.id).localeCompare(String(b.id));
     });
   }, [clientId, isTeacherMessages, teacherMessagesQuery.messages]);
 
