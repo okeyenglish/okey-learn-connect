@@ -348,9 +348,122 @@ cd supabase/functions
 deno run --allow-net --allow-env telegram-webhook/index.ts
 ```
 
+## Имена сервисов Docker Compose
+
+> ⚠️ **Важно**: Имя **docker-compose сервиса** и **имя контейнера** — это разные вещи!
+
+| Тип | Значение | Использование |
+|-----|----------|---------------|
+| **Service name** | `functions` | `docker compose restart functions` |
+| **Container name** | `supabase-edge-functions` | `docker logs supabase-edge-functions` |
+
+### Полный список сервисов
+
+Вывод `docker compose config --services`:
+
+| Сервис | Описание |
+|--------|----------|
+| `functions` | Edge Functions runtime |
+| `db` | PostgreSQL база данных |
+| `auth` | GoTrue authentication |
+| `rest` | PostgREST API |
+| `realtime` | Realtime subscriptions |
+| `storage` | S3-compatible storage |
+| `kong` | API Gateway |
+| `studio` | Dashboard UI |
+| `analytics` | Logflare analytics |
+| `meta` | Metadata service |
+| `supavisor` | Connection pooler |
+| `vector` | Log aggregation |
+| `imgproxy` | Image processing |
+| `traefik` | Reverse proxy (optional) |
+
+## Cheat Sheet команд
+
+```bash
+# Определите директорию проекта (измените под ваш сервер)
+export SUPABASE_DIR=/home/automation/supabase-project
+# Альтернатива: /opt/supabase
+
+# Всегда начинайте с перехода в директорию проекта!
+cd $SUPABASE_DIR
+
+# Список всех сервисов
+docker compose config --services
+
+# Статус сервисов
+docker compose ps
+
+# Перезапуск Edge Functions
+docker compose restart functions
+
+# Логи Edge Functions (follow mode)
+docker compose logs -f functions --tail=100
+
+# Логи конкретной функции
+docker compose logs functions 2>&1 | grep "salebot-webhook"
+
+# Обновление из Git (если есть .git)
+git pull origin main && docker compose restart functions
+```
+
 ## Типичные ошибки и решения
 
-### 1. InvalidWorkerResponse
+### 1. `no such service: supabase-edge-functions`
+
+**Причина**: Путаем имя контейнера (`supabase-edge-functions`) и имя compose-сервиса (`functions`)
+
+```bash
+# ❌ Неправильно
+docker compose restart supabase-edge-functions
+
+# ✅ Правильно
+docker compose restart functions
+
+# Проверить доступные сервисы
+docker compose config --services
+```
+
+### 2. `no configuration file provided: not found`
+
+**Причина**: Команда `docker compose ...` выполнена не из директории с `docker-compose.yml`
+
+```bash
+# ❌ Неправильно (запуск из ~)
+cd ~
+docker compose restart functions  # Ошибка!
+
+# ✅ Правильно
+cd /home/automation/supabase-project  # или ваш путь
+docker compose restart functions
+```
+
+### 3. `fatal: not a git repository`
+
+**Причина**: Команда `git pull` выполнена не из директории с `.git`
+
+```bash
+# ❌ Неправильно
+cd ~
+git pull origin main  # Ошибка!
+
+# ✅ Правильно
+cd /home/automation/supabase-project
+git pull origin main
+```
+
+> **Примечание**: Если на сервере нет `.git` (деплой через rsync/GitHub Actions), то `git pull` не используется — файлы обновляются автоматически через CI/CD.
+
+### 4. `detected dubious ownership in repository`
+
+**Причина**: Git не доверяет директории (разные владельцы)
+
+```bash
+# Решение: добавить директорию в safe.directory
+git config --global --add safe.directory /home/automation/supabase-project
+```
+
+### 5. InvalidWorkerResponse
 
 **Причина**: Несовместимая версия `supabase-js`
 
@@ -362,7 +475,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
 ```
 
-### 2. Failed to bootstrap runtime
+### 6. Failed to bootstrap runtime
 
 **Причина**: Ошибка в deno.lock или зависимостях
 
@@ -372,20 +485,20 @@ rm supabase/functions/deno.lock
 docker compose restart functions
 ```
 
-### 3. Function not found
+### 7. Function not found
 
 **Причина**: Неправильная структура директорий
 
 ```bash
 # Проверить структуру
-ls -la /opt/supabase/functions/
+ls -la /home/automation/supabase-project/functions/
 
 # Должно быть:
-# /opt/supabase/functions/main/index.ts
-# /opt/supabase/functions/my-function/index.ts
+# .../functions/main/index.ts
+# .../functions/my-function/index.ts
 ```
 
-### 4. CORS errors
+### 8. CORS errors
 
 **Причина**: Отсутствует обработка OPTIONS
 
@@ -400,7 +513,7 @@ Deno.serve(async (req) => {
 });
 ```
 
-### 5. Environment variable undefined
+### 9. Environment variable undefined
 
 **Причина**: Секрет не добавлен в docker-compose.yml
 
