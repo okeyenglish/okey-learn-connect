@@ -25,6 +25,7 @@ import { RoutingRulesSettings } from "./RoutingRulesSettings";
 import { MessengersSettings } from "./MessengersSettings";
 import { SyncDashboard } from "./SyncDashboard";
 import { PaymentTerminalsSettings } from "@/components/settings/PaymentTerminalsSettings";
+import { BranchesSettings } from "@/components/settings/BranchesSettings";
 import { OnlinePBXSettings } from "./OnlinePBXSettings";
 import { WebhooksDirectory } from "./WebhooksDirectory";
 import { SystemMonitorPanel } from "./SystemMonitorPanel";
@@ -98,6 +99,16 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <UserPermissionsManager />;
       case "user-branches":
         return <UserBranchesManager />;
+      case "branches":
+        return (
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-3xl font-bold">Филиалы организации</h1>
+              <p className="text-muted-foreground">Управление филиалами и аудиториями</p>
+            </div>
+            <BranchesSettings />
+          </div>
+        );
       case "settings":
         return (
           <Card>
