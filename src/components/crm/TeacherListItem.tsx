@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Pin } from 'lucide-react';
 import { TeacherChatItem } from '@/hooks/useTeacherChats';
 import { TeacherChatContextMenu } from './TeacherChatContextMenu';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 // Get category badge styling
 const getCategoryBadge = (category: string): { label: string; className: string } => {
@@ -84,6 +86,7 @@ interface TeacherListItemProps {
   onPinDialog?: () => void;
   onBlock?: () => void;
   onDelete?: () => void;
+  onPrefetch?: (teacherId: string, clientId: string | null) => void;
 }
 
 export const TeacherListItem: React.FC<TeacherListItemProps> = ({
@@ -95,13 +98,63 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
   onMarkRead,
   onPinDialog,
   onBlock,
-  onDelete
+  onDelete,
+  onPrefetch
 }) => {
+  const queryClient = useQueryClient();
+  const prefetchTimeout = useRef<NodeJS.Timeout | null>(null);
+  const hasPrefetched = useRef(false);
+
   const initials = `${teacher.lastName?.[0] || ''}${teacher.firstName?.[0] || ''}`.toUpperCase() || '•';
   const flags = getSubjectFlags(teacher.subjects);
   const messageTime = formatMessageTime(teacher.lastMessageTime);
   const isPinned = pinCount > 0;
   const isUnread = teacher.unreadMessages > 0;
+  
+  // Prefetch chat messages on hover with delay
+  const handleMouseEnter = useCallback(() => {
+    // Don't prefetch if already selected or no clientId
+    if (isSelected || hasPrefetched.current) return;
+    
+    // Delay prefetch to avoid unnecessary requests on quick mouse movements
+    prefetchTimeout.current = setTimeout(() => {
+      if (teacher.clientId) {
+        // Prefetch messages for this teacher
+        queryClient.prefetchQuery({
+          queryKey: ['teacher-chat-messages', teacher.clientId],
+          queryFn: async () => {
+            const { data, error } = await supabase.rpc('get_teacher_chat_messages', { 
+              p_client_id: teacher.clientId,
+              p_limit: 50 // Prefetch fewer messages for speed
+            });
+            if (error) {
+              // Try direct select as fallback
+              const { data: directData } = await supabase
+                .from('chat_messages')
+                .select('id, client_id, message_text, content, message_type, is_read, is_outgoing, created_at, file_url, media_url, messenger, status')
+                .eq('client_id', teacher.clientId!)
+                .order('created_at', { ascending: false })
+                .limit(50);
+              return directData || [];
+            }
+            return data || [];
+          },
+          staleTime: 30000,
+        });
+        hasPrefetched.current = true;
+      }
+      
+      // Notify parent for additional prefetch if needed
+      onPrefetch?.(teacher.id, teacher.clientId);
+    }, 150); // 150ms delay before prefetch
+  }, [teacher.id, teacher.clientId, isSelected, queryClient, onPrefetch]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (prefetchTimeout.current) {
+      clearTimeout(prefetchTimeout.current);
+      prefetchTimeout.current = null;
+    }
+  }, []);
   
   // Get unique category badges (max 2 for space)
   const categoryBadges = (teacher.categories || [])
@@ -116,6 +169,8 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
   const content = (
     <button
       onClick={onClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       className={`w-full p-2 text-left rounded-lg transition-all duration-200 relative mb-0.5 border select-none touch-manipulation ${
         isPinned
           ? `border-orange-200 bg-gradient-to-r ${
