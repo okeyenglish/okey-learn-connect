@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from '@/hooks/use-toast';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 export interface App {
   id: string;
@@ -112,11 +113,13 @@ export const useApps = (teacherId?: string) => {
   // Install app mutation
   const installApp = useMutation({
     mutationFn: async ({ appId, teacherId }: { appId: string; teacherId: string }) => {
-      const { data, error } = await supabase.functions.invoke('manage-app', {
-        body: { action: 'install', app_id: appId, teacher_id: teacherId }
+      const response = await selfHostedPost('manage-app', { 
+        action: 'install', 
+        app_id: appId, 
+        teacher_id: teacherId 
       });
-      if (error) throw error;
-      return data;
+      if (!response.success) throw new Error(response.error || 'Failed to install app');
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['apps', 'installed'] });
@@ -130,11 +133,13 @@ export const useApps = (teacherId?: string) => {
   // Uninstall app mutation
   const uninstallApp = useMutation({
     mutationFn: async ({ appId, teacherId }: { appId: string; teacherId: string }) => {
-      const { data, error } = await supabase.functions.invoke('manage-app', {
-        body: { action: 'uninstall', app_id: appId, teacher_id: teacherId }
+      const response = await selfHostedPost('manage-app', { 
+        action: 'uninstall', 
+        app_id: appId, 
+        teacher_id: teacherId 
       });
-      if (error) throw error;
-      return data;
+      if (!response.success) throw new Error(response.error || 'Failed to uninstall app');
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['apps', 'installed'] });
@@ -158,11 +163,15 @@ export const useApps = (teacherId?: string) => {
       rating: number; 
       comment?: string 
     }) => {
-      const { data, error } = await supabase.functions.invoke('manage-app', {
-        body: { action: 'rate', app_id: appId, teacher_id: teacherId, rating, comment }
+      const response = await selfHostedPost('manage-app', { 
+        action: 'rate', 
+        app_id: appId, 
+        teacher_id: teacherId, 
+        rating, 
+        comment 
       });
-      if (error) throw error;
-      return data;
+      if (!response.success) throw new Error(response.error || 'Failed to rate app');
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['apps', 'catalog'] });
@@ -176,14 +185,12 @@ export const useApps = (teacherId?: string) => {
   // Publish app mutation
   const publishApp = useMutation({
     mutationFn: async (appId: string) => {
-      const { data, error } = await supabase.functions.invoke('publish-app', {
-        body: { app_id: appId }
-      });
-      if (error) throw error;
-      return data;
+      const response = await selfHostedPost<{ duplicate?: boolean; message?: string }>('publish-app', { app_id: appId });
+      if (!response.success) throw new Error(response.error || 'Failed to publish app');
+      return response.data;
     },
     onSuccess: (data) => {
-      if (data.duplicate) {
+      if (data?.duplicate) {
         toast({ 
           title: 'Найден дубликат', 
           description: data.message, 

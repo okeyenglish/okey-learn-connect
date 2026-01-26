@@ -1,8 +1,8 @@
 import { useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 interface ActionResult {
   type?: 'task_created' | 'multiple_tasks_created' | 'message_sent' | string;
@@ -95,22 +95,29 @@ export const useVoiceAssistant = () => {
       const arrayBuffer = await audioBlob.arrayBuffer();
       const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
       
-      const { data, error } = await supabase.functions.invoke('voice-assistant', {
-        body: {
-          audio: base64Audio,
-          userId: user?.id
-        }
+      const response = await selfHostedPost<{
+        success: boolean;
+        transcription?: string;
+        response?: string;
+        actionResult?: ActionResult;
+        audioResponse?: string;
+        error?: string;
+      }>('voice-assistant', {
+        audio: base64Audio,
+        userId: user?.id
       });
       
-      if (error) {
-        throw error;
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to process audio');
       }
       
-      if (data.success) {
+      const data = response.data;
+      
+      if (data?.success) {
         updateState({
-          lastCommand: data.transcription,
-          lastResponse: data.response,
-          actionResult: data.actionResult
+          lastCommand: data.transcription || '',
+          lastResponse: data.response || '',
+          actionResult: data.actionResult || null
         });
         
         toast.success(`Команда выполнена: ${data.response}`);
@@ -133,7 +140,7 @@ export const useVoiceAssistant = () => {
           await playAudioResponse(data.audioResponse);
         }
       } else {
-        throw new Error(data.error);
+        throw new Error(data?.error || 'Unknown error');
       }
       
     } catch (error) {
@@ -199,22 +206,28 @@ export const useVoiceAssistant = () => {
     try {
       updateState({ isProcessing: true });
       
-      const { data, error } = await supabase.functions.invoke('voice-assistant', {
-        body: {
-          command: command,
-          userId: user?.id
-        }
+      const response = await selfHostedPost<{
+        success: boolean;
+        response?: string;
+        actionResult?: ActionResult;
+        audioResponse?: string;
+        error?: string;
+      }>('voice-assistant', {
+        command: command,
+        userId: user?.id
       });
       
-      if (error) {
-        throw error;
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to process command');
       }
       
-      if (data.success) {
+      const data = response.data;
+      
+      if (data?.success) {
         updateState({
           lastCommand: command,
-          lastResponse: data.response,
-          actionResult: data.actionResult
+          lastResponse: data.response || '',
+          actionResult: data.actionResult || null
         });
         
         toast.success(`Команда выполнена: ${data.response}`);
@@ -236,7 +249,7 @@ export const useVoiceAssistant = () => {
           await playAudioResponse(data.audioResponse);
         }
       } else {
-        throw new Error(data.error);
+        throw new Error(data?.error || 'Unknown error');
       }
       
     } catch (error) {
@@ -245,7 +258,7 @@ export const useVoiceAssistant = () => {
     } finally {
       updateState({ isProcessing: false });
     }
-  }, [updateState, user?.id]);
+  }, [updateState, user?.id, queryClient]);
 
   return {
     ...state,
