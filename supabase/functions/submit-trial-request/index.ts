@@ -8,6 +8,7 @@ const corsHeaders = {
 interface TrialRequestBody {
   name: string;
   phone: string;
+  child_age?: number;
   comment?: string;
   branch_name: string;
   branch_address?: string;
@@ -81,10 +82,13 @@ Deno.serve(async (req: Request) => {
     const organizationId = org?.id || null;
     const normalizedPhone = normalizePhone(body.phone.trim());
     
+    const childAge = body.child_age && body.child_age >= 1 && body.child_age <= 18 ? body.child_age : null;
+    
     console.log("Processing trial request:", {
       name: body.name,
       phone: body.phone,
       normalizedPhone,
+      childAge,
       branch: body.branch_name,
       organizationId
     });
@@ -203,6 +207,7 @@ Deno.serve(async (req: Request) => {
             first_name: firstName,
             last_name: lastName,
             phone: normalizedPhone,
+            age: childAge,
             branch: body.branch_name.trim(),
             status: "trial",
             notes: body.comment?.trim() ? `Пробный урок: ${body.comment.trim()}` : "Записан на пробный урок",
@@ -226,6 +231,7 @@ Deno.serve(async (req: Request) => {
       .insert({
         name: body.name.trim(),
         phone: body.phone.trim(),
+        child_age: childAge,
         comment: body.comment?.trim() || null,
         branch_name: body.branch_name.trim(),
         branch_address: body.branch_address?.trim() || null,
