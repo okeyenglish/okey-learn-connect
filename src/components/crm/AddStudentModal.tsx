@@ -130,21 +130,45 @@ export const AddStudentModal = ({ familyGroupId, parentLastName, onStudentAdded,
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Prevent double submission
+    if (isLoading) return;
     setIsLoading(true);
 
     try {
+      const trimmedName = formData.name.trim();
+      const trimmedLastName = formData.lastName.trim();
+      
+      // Check for duplicate student in the same family group
+      const { data: existingStudent } = await supabase
+        .from('students')
+        .select('id, first_name, last_name')
+        .eq('family_group_id', familyGroupId)
+        .ilike('first_name', trimmedName)
+        .maybeSingle();
+      
+      if (existingStudent) {
+        toast({
+          title: "Ученик уже существует",
+          description: `В этой семье уже есть ученик "${existingStudent.first_name}${existingStudent.last_name ? ' ' + existingStudent.last_name : ''}". Проверьте данные.`,
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+
       // Create the student
       const { data: studentData, error: studentError } = await supabase
         .from('students')
         .insert({
           family_group_id: familyGroupId,
-          name: `${formData.name} ${formData.lastName}`.trim(),
-          first_name: formData.name,
-          last_name: formData.lastName,
-          age: parseInt(formData.age),
+          name: `${trimmedName} ${trimmedLastName}`.trim(),
+          first_name: trimmedName,
+          last_name: trimmedLastName,
+          age: parseInt(formData.age) || 0,
           date_of_birth: formData.dateOfBirth || null,
           status: formData.status,
-          notes: formData.notes || null
+          notes: formData.notes?.trim() || null
         })
         .select()
         .single();
