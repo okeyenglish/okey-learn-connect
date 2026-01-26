@@ -4,13 +4,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Database, Zap, CheckCircle, XCircle, Clock, AlertTriangle } from "lucide-react";
+import { RefreshCw, Database, Zap, CheckCircle, XCircle, Clock, AlertTriangle, Activity } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { selfHostedPost, SELF_HOSTED_URL, SELF_HOSTED_ANON_KEY } from "@/lib/selfHostedApi";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { PerformanceAnalyticsDashboard } from "./PerformanceAnalyticsDashboard";
 
 interface Migration {
   id: number;
@@ -120,8 +121,12 @@ export function SystemMonitorPanel() {
         <p className="text-muted-foreground">Статус миграций и Edge Functions</p>
       </div>
 
-      <Tabs defaultValue="health" className="space-y-4">
+      <Tabs defaultValue="performance" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="performance" className="gap-2">
+            <Activity className="h-4 w-4" />
+            Performance
+          </TabsTrigger>
           <TabsTrigger value="health" className="gap-2">
             <Zap className="h-4 w-4" />
             Edge Functions
@@ -131,6 +136,11 @@ export function SystemMonitorPanel() {
             Миграции
           </TabsTrigger>
         </TabsList>
+
+        {/* Performance Analytics */}
+        <TabsContent value="performance">
+          <PerformanceAnalyticsDashboard />
+        </TabsContent>
 
         {/* Edge Functions Health */}
         <TabsContent value="health" className="space-y-4">

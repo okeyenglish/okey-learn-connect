@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import type { TypingStatus } from '@/integrations/supabase/database.types';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { performanceAnalytics } from '@/utils/performanceAnalytics';
 
 export interface TypingPresence {
   count: number;
@@ -19,6 +20,7 @@ export const useTypingPresence = () => {
 
   // Initial fetch on mount
   const fetchInitial = useCallback(async () => {
+    const start = performance.now();
     const { data, error } = await supabase
       .from('typing_status')
       .select('*');
@@ -27,6 +29,15 @@ export const useTypingPresence = () => {
       console.error('[useTypingPresence] Initial fetch error:', error);
       return;
     }
+    
+    // Track query for analytics
+    performanceAnalytics.trackQuery({
+      table: 'typing_status',
+      operation: 'SELECT',
+      duration: performance.now() - start,
+      source: 'useTypingPresence',
+      rowCount: data?.length,
+    });
     
     const map: Record<string, TypingPresence> = {};
     (data || []).forEach((r: TypingStatusWithName) => {
@@ -97,19 +108,26 @@ export const useTypingPresence = () => {
     fetchInitial();
     
     // Single subscription with event: '*' - handles INSERT, UPDATE, DELETE
+    const channelName = 'typing-status-list-optimized';
     const channel = supabase
-      .channel('typing-status-list-optimized')
+      .channel(channelName)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'typing_status' },
         (payload) => {
+          // Track realtime event
+          performanceAnalytics.trackRealtimeEvent(channelName);
           // Use payload directly instead of refresh() to avoid SELECT queries
           handleRealtimePayload(payload as RealtimePostgresChangesPayload<TypingStatusWithName>);
         }
       )
       .subscribe();
     
+    // Track subscription
+    performanceAnalytics.trackRealtimeSubscription(channelName, 'typing_status');
+    
     return () => {
+      performanceAnalytics.untrackRealtimeSubscription(channelName);
       supabase.removeChannel(channel);
     };
   }, [fetchInitial, handleRealtimePayload]);
