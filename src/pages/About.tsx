@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { BookOpen, Globe, Users, Laptop, GraduationCap, Star, BookMarked, Heart, MessageCircle, Calendar, Phone, Send, Video } from "lucide-react";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 
 export default function About() {
   const { toast } = useToast();
@@ -20,16 +20,14 @@ export default function About() {
         triggered_from: window.location.origin,
       };
 
-      const { data, error } = await supabase.functions.invoke('webhook-proxy', {
-        body: payload,
-      });
+      const response = await selfHostedPost('webhook-proxy', payload, { requireAuth: false });
 
-      if (error) {
-        console.error('About page proxy error:', error);
-        throw new Error(typeof error === 'string' ? error : (error.message || 'Webhook error'));
+      if (!response.success) {
+        console.error('About page proxy error:', response.error);
+        throw new Error(response.error || 'Webhook error');
       }
 
-      console.log('About page webhook response:', data);
+      console.log('About page webhook response:', response.data);
 
       toast({
         title: "Заявка отправлена",

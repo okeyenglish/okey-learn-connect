@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 /**
  * Интерфейс данных Wordstat
@@ -21,19 +21,17 @@ export async function getWordstatData(
   regionIds?: number[]
 ): Promise<WordstatData | null> {
   try {
-    const { data, error } = await supabase.functions.invoke('seo-wordstat', {
-      body: { 
-        keyword,
-        regionIds: regionIds || [225] // 225 = Россия по умолчанию
-      }
+    const response = await selfHostedPost<WordstatData>('seo-wordstat', { 
+      keyword,
+      regionIds: regionIds || [225] // 225 = Россия по умолчанию
     });
 
-    if (error) {
-      console.error('Wordstat error:', error);
+    if (!response.success) {
+      console.error('Wordstat error:', response.error);
       return null;
     }
 
-    return data;
+    return response.data || null;
   } catch (error) {
     console.error('Failed to fetch wordstat data:', error);
     return null;
@@ -55,15 +53,13 @@ export async function getWordstatBatch(
   for (let i = 0; i < keywords.length; i += batchSize) {
     const batch = keywords.slice(i, i + batchSize);
     
-    const { data, error } = await supabase.functions.invoke('seo-wordstat', {
-      body: { 
-        keywords: batch,
-        regionIds: regionIds || [225]
-      }
+    const response = await selfHostedPost<Record<string, WordstatData>>('seo-wordstat', { 
+      keywords: batch,
+      regionIds: regionIds || [225]
     });
 
-    if (!error && data) {
-      Object.entries(data).forEach(([kw, stats]) => {
+    if (response.success && response.data) {
+      Object.entries(response.data).forEach(([kw, stats]) => {
         results.set(kw, stats as WordstatData);
       });
     }
