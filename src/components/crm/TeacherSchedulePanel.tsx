@@ -8,10 +8,11 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu';
-import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, Users, User, BookOpen, Plus, Pencil, CheckCircle, XCircle, ArrowRightLeft, GripVertical } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, Users, User, BookOpen, Plus, Pencil, CheckCircle, XCircle, ArrowRightLeft, GripVertical, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EditLessonModal } from '@/components/schedule/EditLessonModal';
 import { AddLessonModal } from '@/components/schedule/AddLessonModal';
+import { LessonConfirmDialog, CopyLessonDialog, ConfirmActionType } from '@/components/crm/LessonConfirmDialog';
 import { useToast } from '@/hooks/use-toast';
 import type { LessonSession } from '@/hooks/useLessonSessions';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, useDraggable, useDroppable, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -53,6 +54,18 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<LessonSession | null>(null);
   const [draggedLesson, setDraggedLesson] = useState<ScheduleLesson | null>(null);
+  
+  // Confirmation dialog state
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<ConfirmActionType>('status');
+  const [pendingLessonId, setPendingLessonId] = useState<string | null>(null);
+  const [pendingLessonName, setPendingLessonName] = useState<string>('');
+  const [pendingStatus, setPendingStatus] = useState<string>('');
+  const [pendingMoveDate, setPendingMoveDate] = useState<string>('');
+  
+  // Copy lesson dialog state
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [lessonToCopy, setLessonToCopy] = useState<ScheduleLesson | null>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -101,6 +114,35 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
     },
     onError: () => {
       toast({ title: 'Ошибка', description: 'Не удалось перенести занятие', variant: 'destructive' });
+    },
+  });
+
+  // Mutation for copying lesson to another day
+  const copyLessonMutation = useMutation({
+    mutationFn: async ({ lesson, newDate }: { lesson: ScheduleLesson; newDate: string }) => {
+      const { error } = await supabase
+        .from('lesson_sessions')
+        .insert({
+          lesson_date: newDate,
+          start_time: lesson.start_time,
+          end_time: lesson.end_time,
+          status: 'scheduled',
+          classroom: lesson.classroom,
+          group_id: lesson.group_id,
+          teacher_id: lesson.teacher_id || teacherId,
+          teacher_name: lesson.teacher_name || teacherName,
+          branch: lesson.branch,
+          notes: lesson.notes,
+        });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ['teacher-chat-schedule'] });
+      toast({ title: 'Занятие скопировано' });
+    },
+    onError: () => {
+      toast({ title: 'Ошибка', description: 'Не удалось скопировать занятие', variant: 'destructive' });
     },
   });
 
@@ -250,10 +292,32 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
     queryClient.invalidateQueries({ queryKey: ['teacher-chat-schedule'] });
   };
 
-  const handleStatusChange = (lessonId: string, status: string) => {
-    updateStatusMutation.mutate({ lessonId, status });
+  // Request status change with confirmation
+  const handleStatusChangeRequest = (lesson: ScheduleLesson, status: string) => {
+    setPendingLessonId(lesson.id);
+    setPendingLessonName(lesson.group_name || lesson.subject || 'занятие');
+    setPendingStatus(status);
+    setConfirmAction('status');
+    setConfirmOpen(true);
   };
 
+  // Request copy lesson
+  const handleCopyRequest = (lesson: ScheduleLesson) => {
+    setLessonToCopy(lesson);
+    setCopyDialogOpen(true);
+  };
+
+  // Execute copy
+  const handleCopyConfirm = (date: Date) => {
+    if (lessonToCopy) {
+      copyLessonMutation.mutate({ 
+        lesson: lessonToCopy, 
+        newDate: format(date, 'yyyy-MM-dd') 
+      });
+    }
+  };
+
+  // Handle drag and drop with confirmation
   const handleDragStart = (event: DragStartEvent) => {
     const lesson = lessons.find(l => l.id === event.active.id);
     setDraggedLesson(lesson || null);
@@ -270,8 +334,30 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
     
     if (targetDate.startsWith('day-')) {
       const newDate = targetDate.replace('day-', '');
-      moveLessonMutation.mutate({ lessonId, newDate });
+      const lesson = lessons.find(l => l.id === lessonId);
+      
+      // Show confirmation for move
+      setPendingLessonId(lessonId);
+      setPendingLessonName(lesson?.group_name || lesson?.subject || 'занятие');
+      setPendingMoveDate(newDate);
+      setConfirmAction('move');
+      setConfirmOpen(true);
     }
+  };
+
+  // Confirm action handler
+  const handleConfirmAction = () => {
+    if (confirmAction === 'status' && pendingLessonId && pendingStatus) {
+      updateStatusMutation.mutate({ lessonId: pendingLessonId, status: pendingStatus });
+    } else if (confirmAction === 'move' && pendingLessonId && pendingMoveDate) {
+      moveLessonMutation.mutate({ lessonId: pendingLessonId, newDate: pendingMoveDate });
+    }
+    // Reset state
+    setConfirmOpen(false);
+    setPendingLessonId(null);
+    setPendingLessonName('');
+    setPendingStatus('');
+    setPendingMoveDate('');
   };
 
   const getLessonsForDay = (day: Date) => {
@@ -421,7 +507,8 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
                             key={lesson.id} 
                             lesson={lesson} 
                             onEdit={() => handleEditLesson(lesson)}
-                            onStatusChange={handleStatusChange}
+                            onStatusChange={(status) => handleStatusChangeRequest(lesson, status)}
+                            onCopy={() => handleCopyRequest(lesson)}
                           />
                         ))}
                       </div>
@@ -476,6 +563,25 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
             queryClient.invalidateQueries({ queryKey: ['teacher-chat-schedule'] });
           }
         }}
+      />
+
+      {/* Confirmation Dialog */}
+      <LessonConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        actionType={confirmAction}
+        lessonName={pendingLessonName}
+        newStatus={pendingStatus}
+        targetDate={pendingMoveDate}
+        onConfirm={handleConfirmAction}
+      />
+
+      {/* Copy Lesson Dialog */}
+      <CopyLessonDialog
+        open={copyDialogOpen}
+        onOpenChange={setCopyDialogOpen}
+        lessonName={lessonToCopy?.group_name || lessonToCopy?.subject || undefined}
+        onCopy={handleCopyConfirm}
       />
     </div>
   );
@@ -556,8 +662,9 @@ const LessonCardContent: React.FC<{ lesson: ScheduleLesson }> = ({ lesson }) => 
 const DraggableLessonCard: React.FC<{ 
   lesson: ScheduleLesson; 
   onEdit: () => void;
-  onStatusChange: (lessonId: string, status: string) => void;
-}> = ({ lesson, onEdit, onStatusChange }) => {
+  onStatusChange: (status: string) => void;
+  onCopy: () => void;
+}> = ({ lesson, onEdit, onStatusChange, onCopy }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: lesson.id,
   });
@@ -623,9 +730,13 @@ const DraggableLessonCard: React.FC<{
           <Pencil className="h-3.5 w-3.5" />
           Редактировать
         </ContextMenuItem>
+        <ContextMenuItem onClick={onCopy} className="gap-2">
+          <Copy className="h-3.5 w-3.5" />
+          Копировать на другую дату
+        </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem 
-          onClick={() => onStatusChange(lesson.id, 'completed')}
+          onClick={() => onStatusChange('completed')}
           className="gap-2 text-green-600"
           disabled={lesson.status === 'completed'}
         >
@@ -633,7 +744,7 @@ const DraggableLessonCard: React.FC<{
           Провести занятие
         </ContextMenuItem>
         <ContextMenuItem 
-          onClick={() => onStatusChange(lesson.id, 'cancelled')}
+          onClick={() => onStatusChange('cancelled')}
           className="gap-2 text-red-600"
           disabled={lesson.status === 'cancelled'}
         >
@@ -641,7 +752,7 @@ const DraggableLessonCard: React.FC<{
           Отменить занятие
         </ContextMenuItem>
         <ContextMenuItem 
-          onClick={() => onStatusChange(lesson.id, 'rescheduled')}
+          onClick={() => onStatusChange('rescheduled')}
           className="gap-2 text-yellow-600"
           disabled={lesson.status === 'rescheduled'}
         >
@@ -650,7 +761,7 @@ const DraggableLessonCard: React.FC<{
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem 
-          onClick={() => onStatusChange(lesson.id, 'scheduled')}
+          onClick={() => onStatusChange('scheduled')}
           className="gap-2"
           disabled={lesson.status === 'scheduled'}
         >
