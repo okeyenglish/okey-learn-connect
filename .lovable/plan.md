@@ -1,174 +1,200 @@
 
-
-# Анимация отправки сообщений и плавное переключение чатов
+# Показ имени сотрудника и текста черновика в реальном времени
 
 ## Обзор
 
-Добавим две анимации для улучшения UX в чате:
-1. **Анимация отправки нового сообщения** — появление снизу с лёгкой подсветкой
-2. **Плавный fade-переход при переключении между чатами**
+Реализуем отображение имени конкретного сотрудника (вместо "Менеджер печатает...") и текста его черновика в реальном времени с throttle 500ms.
 
 ---
 
-## Задача 1: Анимация отправки нового сообщения
+## Текущее состояние
 
-### Текущее состояние
-
-Сейчас все сообщения используют `animate-fade-in` с `animationIndex` для staggered-эффекта при загрузке. Новые отправленные сообщения появляются мгновенно без специального эффекта.
-
-### Решение
-
-1. Отслеживать ID только что отправленных сообщений (последние 5 секунд)
-2. Применять к ним специальную анимацию `animate-message-send` — появление снизу (`translateY(16px)`) с пульсирующей подсветкой
-3. Автоматически снимать флаг анимации через 1 секунду
-
-### Изменения
-
-#### tailwind.config.ts — новые keyframes и animation
-
+### Таблица `typing_status`
 ```text
-keyframes: {
-  "message-send": {
-    "0%": { 
-      opacity: "0", 
-      transform: "translateY(16px) scale(0.95)",
-      boxShadow: "0 0 0 0 hsl(217 72% 48% / 0.4)"
-    },
-    "50%": { 
-      opacity: "1", 
-      transform: "translateY(0) scale(1)",
-      boxShadow: "0 0 0 8px hsl(217 72% 48% / 0)"
-    },
-    "100%": { 
-      opacity: "1", 
-      transform: "translateY(0) scale(1)",
-      boxShadow: "0 0 0 0 hsl(217 72% 48% / 0)"
-    }
-  }
-}
-
-animation: {
-  "message-send": "message-send 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards"
-}
+| Колонка    | Тип       |
+|------------|-----------|
+| id         | uuid      |
+| user_id    | uuid      |
+| client_id  | uuid      |
+| is_typing  | boolean   |
+| updated_at | timestamp |
 ```
 
-#### ChatArea.tsx — отслеживание отправленных сообщений
-
-```typescript
-// Новый state для ID отправленных сообщений
-const [recentlySentIds, setRecentlySentIds] = useState<Set<string>>(new Set());
-
-// В handleSendMessage после успешной отправки:
-// Добавляем временный ID или получаем реальный ID после вставки
-// Через 1 секунду убираем из Set
-```
-
-#### ChatMessage.tsx — применение анимации
-
-```typescript
-// Новый prop
-isJustSent?: boolean;
-
-// В className контейнера:
-className={`... ${isJustSent ? 'animate-message-send' : 'animate-fade-in'}`}
-```
+### Хук `useTypingStatus`
+- Подписывается на изменения в `typing_status` по `client_id`
+- Возвращает `getTypingMessage()` — всегда "Менеджер печатает..."
+- Нет информации о имени и тексте черновика
 
 ---
 
-## Задача 2: Плавный fade-переход при переключении чатов
+## Изменения
 
-### Текущее состояние
+### 1. Миграция БД — добавление колонок
 
-Уже есть базовая логика:
-- `isChatSwitching` — флаг переключения чата (200ms)
-- `isTabTransitioning` — флаг переключения вкладки
-- Применяется `opacity-50 scale-[0.99]` к контенту
+```sql
+ALTER TABLE public.typing_status
+ADD COLUMN IF NOT EXISTS draft_text TEXT,
+ADD COLUMN IF NOT EXISTS manager_name TEXT;
+```
 
-### Улучшение
+### 2. Обновление типов — `database.types.ts`
 
-Сделать переход более плавным:
-1. Увеличить длительность анимации до 250ms
-2. Добавить CSS-класс `chat-transition` с `will-change: opacity, transform`
-3. Использовать `ease-out` для естественного затухания
-
-### Изменения
-
-#### index.css или crm.css — новый класс
-
-```css
-.chat-transition-enter {
-  opacity: 0;
-  transform: scale(0.98) translateY(4px);
-}
-
-.chat-transition-active {
-  opacity: 1;
-  transform: scale(1) translateY(0);
-  transition: opacity 250ms ease-out, transform 250ms ease-out;
-  will-change: opacity, transform;
-}
-
-.chat-transition-exit {
-  opacity: 0.5;
-  transform: scale(0.99);
-  transition: opacity 150ms ease-in, transform 150ms ease-in;
+```typescript
+export interface TypingStatus {
+  id: string;
+  user_id: string;
+  client_id: string;
+  is_typing: boolean;
+  updated_at: string;
+  draft_text: string | null;    // NEW
+  manager_name: string | null;  // NEW
 }
 ```
 
-#### ChatArea.tsx — улучшение логики переключения
+### 3. Переработка хука `useTypingStatus`
+
+#### Ключевые изменения:
+
+1. **Throttling 500ms** — при вводе текста обновления отправляются не чаще раза в 500ms
+2. **Передача `draft_text`** — текст черновика (первые 100 символов)
+3. **Передача `manager_name`** — имя сотрудника из профиля
+4. **Расширенный `getTypingMessage()`** — возвращает имя и текст
 
 ```typescript
-// Увеличить timeout с 200ms до 250ms
-setIsChatSwitching(true);
-setTimeout(() => setIsChatSwitching(false), 250);
+// Новый интерфейс для возврата
+interface TypingInfo {
+  managerName: string;
+  draftText: string | null;
+}
 
-// Обновить классы TabsContent:
-className={`... ${isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}
+// updateTypingStatus с draft_text
+const updateTypingStatus = useCallback(
+  throttle(async (isTyping: boolean, draftText?: string) => {
+    // ... payload includes draft_text and manager_name
+  }, 500),
+  [clientId]
+);
+
+// getTypingInfo возвращает детальную информацию
+const getTypingInfo = useCallback((): TypingInfo | null => {
+  const typingUser = typingUsers.find(t => t.is_typing);
+  if (!typingUser) return null;
+  return {
+    managerName: typingUser.manager_name || 'Менеджер',
+    draftText: typingUser.draft_text || null,
+  };
+}, [typingUsers]);
+```
+
+### 4. Обновление `ChatArea.tsx`
+
+#### Изменения в поле ввода:
+```typescript
+// При изменении текста передаём draft
+const handleMessageChange = (value: string) => {
+  setMessage(value);
+  updateTypingStatus(true, value.slice(0, 100)); // первые 100 символов
+};
+```
+
+#### Изменения в индикаторе:
+```tsx
+// В заголовке чата
+{getTypingInfo() && (
+  <div className="text-xs text-orange-600 italic animate-pulse">
+    <span className="font-medium">{getTypingInfo()?.managerName}</span>
+    {' печатает: '}
+    <span className="text-orange-500">"{getTypingInfo()?.draftText}"</span>
+  </div>
+)}
+
+// В заблокированном поле ввода
+placeholder={
+  isOtherUserTyping 
+    ? `${getTypingInfo()?.managerName} печатает...` 
+    : "Введите сообщение..."
+}
 ```
 
 ---
 
 ## Технические детали
 
+### Throttle реализация
+
+```typescript
+import { useCallback, useRef } from 'react';
+
+function useThrottle<T extends (...args: any[]) => void>(
+  fn: T,
+  delay: number
+): T {
+  const lastCall = useRef(0);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  return useCallback((...args: Parameters<T>) => {
+    const now = Date.now();
+    if (now - lastCall.current >= delay) {
+      lastCall.current = now;
+      fn(...args);
+    } else {
+      // Schedule trailing call
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        lastCall.current = Date.now();
+        fn(...args);
+      }, delay - (now - lastCall.current));
+    }
+  }, [fn, delay]) as T;
+}
+```
+
+### Ограничение текста черновика
+
+- Максимум 100 символов для экономии трафика
+- Обрезка с "..." при превышении
+
 ### Файлы для изменения
 
 | Файл | Изменения |
 |------|-----------|
-| `tailwind.config.ts` | Добавить `message-send` keyframe и animation |
-| `src/components/crm/ChatMessage.tsx` | Новый prop `isJustSent`, условная анимация |
-| `src/components/crm/ChatArea.tsx` | State `recentlySentIds`, передача prop в ChatMessage, улучшение transition timing |
-| `src/styles/crm.css` | CSS-классы для chat-transition |
+| SQL миграция | Добавить `draft_text` и `manager_name` колонки |
+| `src/integrations/supabase/database.types.ts` | Обновить интерфейс `TypingStatus` |
+| `src/hooks/useTypingStatus.ts` | Добавить throttle, draft_text, manager_name |
+| `src/components/crm/ChatArea.tsx` | Передавать текст в `updateTypingStatus`, обновить UI |
+| `src/components/crm/CommunityChatArea.tsx` | Аналогичные изменения UI |
+| `src/components/crm/CorporateChatArea.tsx` | Аналогичные изменения UI |
 
-### Паттерн отслеживания отправленных сообщений
+### Оценка нагрузки
 
-```typescript
-// В ChatArea.tsx
-const recentlySentIds = useRef<Set<string>>(new Set());
-
-const markAsSent = useCallback((messageId: string) => {
-  recentlySentIds.current.add(messageId);
-  // Удалить через 1.5 секунды (после завершения анимации)
-  setTimeout(() => {
-    recentlySentIds.current.delete(messageId);
-  }, 1500);
-}, []);
-
-// При рендере сообщений проверяем:
-isJustSent={recentlySentIds.current.has(msg.id)}
-```
-
-### Важные моменты
-
-1. **Производительность** — использование `will-change` только на активных transitions
-2. **Совместимость** — анимации работают с существующими `animate-fade-in` для загрузки
-3. **Subtle эффект** — подсветка мягкая (brand color с opacity 0.4), не отвлекает
+- **С throttle 500ms**: ~2 запроса/сек на активного печатающего
+- **20 одновременных менеджеров**: ~40 req/s (приемлемо для Supabase Realtime)
+- **Размер payload**: ~200 байт (user_id + client_id + 100 chars + name)
 
 ---
 
-## Результат
+## Визуальный результат
 
-После реализации:
-- Новые отправленные сообщения появляются снизу с мягким "пульсом" подсветки
-- Переключение между чатами происходит плавно с fade-эффектом
-- Анимации согласованы с общим стилем design system (calm, reliable)
+### Заголовок чата (когда другой сотрудник печатает):
+```text
+Иван Петров
++7 999 123-45-67
+┌─────────────────────────────────────┐
+│ Анна Сидорова печатает: "Добрый... │
+└─────────────────────────────────────┘
+```
 
+### Заблокированное поле ввода:
+```text
+┌─────────────────────────────────────┐
+│ 🔒 Анна Сидорова печатает...       │
+└─────────────────────────────────────┘
+```
+
+---
+
+## Безопасность и приватность
+
+1. **RLS политики** — пользователи видят только typing_status для клиентов своей организации
+2. **Краткий текст** — только первые 100 символов, не полное сообщение
+3. **Автоочистка** — draft_text очищается при `is_typing = false`
