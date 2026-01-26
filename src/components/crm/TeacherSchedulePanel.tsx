@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, isSameDay, isToday } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -7,11 +7,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, Users, User, BookOpen, Plus, Pencil } from 'lucide-react';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu';
+import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, Users, User, BookOpen, Plus, Pencil, CheckCircle, XCircle, ArrowRightLeft, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EditLessonModal } from '@/components/schedule/EditLessonModal';
 import { AddLessonModal } from '@/components/schedule/AddLessonModal';
+import { useToast } from '@/hooks/use-toast';
 import type { LessonSession } from '@/hooks/useLessonSessions';
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, useDraggable, useDroppable, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 
 interface TeacherSchedulePanelProps {
   teacherId: string;
@@ -49,8 +52,57 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<LessonSession | null>(null);
+  const [draggedLesson, setDraggedLesson] = useState<ScheduleLesson | null>(null);
   
+  const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Drag sensors with activation constraint
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  // Mutation for updating lesson status
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ lessonId, status }: { lessonId: string; status: string }) => {
+      const { error } = await supabase
+        .from('lesson_sessions')
+        .update({ status })
+        .eq('id', lessonId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ['teacher-chat-schedule'] });
+      toast({ title: 'Статус обновлён' });
+    },
+    onError: () => {
+      toast({ title: 'Ошибка', description: 'Не удалось обновить статус', variant: 'destructive' });
+    },
+  });
+
+  // Mutation for moving lesson to another day
+  const moveLessonMutation = useMutation({
+    mutationFn: async ({ lessonId, newDate }: { lessonId: string; newDate: string }) => {
+      const { error } = await supabase
+        .from('lesson_sessions')
+        .update({ lesson_date: newDate })
+        .eq('id', lessonId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ['teacher-chat-schedule'] });
+      toast({ title: 'Занятие перенесено' });
+    },
+    onError: () => {
+      toast({ title: 'Ошибка', description: 'Не удалось перенести занятие', variant: 'destructive' });
+    },
+  });
 
   const startDate = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const endDate = endOfWeek(currentWeek, { weekStartsOn: 1 });
@@ -198,6 +250,30 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
     queryClient.invalidateQueries({ queryKey: ['teacher-chat-schedule'] });
   };
 
+  const handleStatusChange = (lessonId: string, status: string) => {
+    updateStatusMutation.mutate({ lessonId, status });
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const lesson = lessons.find(l => l.id === event.active.id);
+    setDraggedLesson(lesson || null);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setDraggedLesson(null);
+    const { active, over } = event;
+    
+    if (!over || active.id === over.id) return;
+    
+    const lessonId = active.id as string;
+    const targetDate = over.id as string; // format: 'day-YYYY-MM-DD'
+    
+    if (targetDate.startsWith('day-')) {
+      const newDate = targetDate.replace('day-', '');
+      moveLessonMutation.mutate({ lessonId, newDate });
+    }
+  };
+
   const getLessonsForDay = (day: Date) => {
     return lessons.filter(lesson => isSameDay(new Date(lesson.lesson_date), day));
   };
@@ -295,60 +371,75 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
             ))}
           </div>
 
-          {/* Lessons grid */}
-          <div className="grid grid-cols-7 gap-1">
-            {daysInWeek.map(day => {
-              const dayLessons = getLessonsForDay(day);
-              const isPast = day < new Date() && !isToday(day);
-              
-              return (
-                <div 
-                  key={day.toISOString()} 
-                  className={cn(
-                    "min-h-[100px] rounded-lg border p-1.5 group relative",
-                    isToday(day) && "border-primary/50 bg-primary/5",
-                    isPast && "opacity-60 bg-muted/30",
-                    !isToday(day) && !isPast && "border-border bg-card"
-                  )}
-                >
-                  {/* Add button on hover */}
-                  {!isPast && (
-                    <button
-                      onClick={() => handleAddLesson()}
-                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity h-5 w-5 rounded bg-primary/10 hover:bg-primary/20 flex items-center justify-center"
-                    >
-                      <Plus className="h-3 w-3 text-primary" />
-                    </button>
-                  )}
-                  
-                  {dayLessons.length === 0 ? (
-                    <div 
-                      className="h-full flex items-center justify-center cursor-pointer hover:bg-accent/50 rounded transition-colors"
-                      onClick={() => !isPast && handleAddLesson()}
-                    >
-                      <span className="text-[10px] text-muted-foreground group-hover:hidden">—</span>
-                      {!isPast && (
-                        <span className="text-[10px] text-primary hidden group-hover:flex items-center gap-0.5">
-                          <Plus className="h-2.5 w-2.5" />
-                          Добавить
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {dayLessons.map(lesson => (
-                        <LessonCard 
-                          key={lesson.id} 
-                          lesson={lesson} 
-                          onEdit={() => handleEditLesson(lesson)}
-                        />
-                      ))}
-                    </div>
-                  )}
+          {/* Lessons grid with drag-and-drop */}
+          <DndContext 
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="grid grid-cols-7 gap-1">
+              {daysInWeek.map(day => {
+                const dayLessons = getLessonsForDay(day);
+                const isPast = day < new Date() && !isToday(day);
+                const dayId = `day-${format(day, 'yyyy-MM-dd')}`;
+                
+                return (
+                  <DroppableDay 
+                    key={day.toISOString()} 
+                    id={dayId}
+                    day={day}
+                    isPast={isPast}
+                  >
+                    {/* Add button on hover */}
+                    {!isPast && (
+                      <button
+                        onClick={() => handleAddLesson()}
+                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity h-5 w-5 rounded bg-primary/10 hover:bg-primary/20 flex items-center justify-center z-10"
+                      >
+                        <Plus className="h-3 w-3 text-primary" />
+                      </button>
+                    )}
+                    
+                    {dayLessons.length === 0 ? (
+                      <div 
+                        className="h-full flex items-center justify-center cursor-pointer hover:bg-accent/50 rounded transition-colors"
+                        onClick={() => !isPast && handleAddLesson()}
+                      >
+                        <span className="text-[10px] text-muted-foreground group-hover:hidden">—</span>
+                        {!isPast && (
+                          <span className="text-[10px] text-primary hidden group-hover:flex items-center gap-0.5">
+                            <Plus className="h-2.5 w-2.5" />
+                            Добавить
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        {dayLessons.map(lesson => (
+                          <DraggableLessonCard 
+                            key={lesson.id} 
+                            lesson={lesson} 
+                            onEdit={() => handleEditLesson(lesson)}
+                            onStatusChange={handleStatusChange}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </DroppableDay>
+                );
+              })}
+            </div>
+
+            {/* Drag Overlay */}
+            <DragOverlay>
+              {draggedLesson && (
+                <div className="opacity-80">
+                  <LessonCardContent lesson={draggedLesson} />
                 </div>
-              );
-            })}
-          </div>
+              )}
+            </DragOverlay>
+          </DndContext>
 
           {/* Legend */}
           <div className="mt-4 flex flex-wrap gap-2 text-[10px]">
@@ -358,6 +449,10 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
                 <span className="text-muted-foreground">{config.label}</span>
               </div>
             ))}
+            <div className="flex items-center gap-1 ml-2">
+              <GripVertical className="h-2.5 w-2.5 text-muted-foreground" />
+              <span className="text-muted-foreground">Перетаскивание</span>
+            </div>
           </div>
         </div>
       </ScrollArea>
@@ -386,19 +481,44 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
   );
 };
 
-// Compact lesson card component
-const LessonCard: React.FC<{ lesson: ScheduleLesson; onEdit: () => void }> = ({ lesson, onEdit }) => {
+// Droppable Day Container
+const DroppableDay: React.FC<{ 
+  id: string; 
+  day: Date; 
+  isPast: boolean; 
+  children: React.ReactNode 
+}> = ({ id, day, isPast, children }) => {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  
+  return (
+    <div 
+      ref={setNodeRef}
+      className={cn(
+        "min-h-[100px] rounded-lg border p-1.5 group relative transition-colors",
+        isToday(day) && "border-primary/50 bg-primary/5",
+        isPast && "opacity-60 bg-muted/30",
+        !isToday(day) && !isPast && "border-border bg-card",
+        isOver && "border-primary bg-primary/10 ring-2 ring-primary/30"
+      )}
+    >
+      {children}
+    </div>
+  );
+};
+
+// Lesson Card Content (reusable for drag overlay)
+const LessonCardContent: React.FC<{ lesson: ScheduleLesson }> = ({ lesson }) => {
   const status = statusConfig[lesson.status || 'scheduled'] || statusConfig.scheduled;
   
   return (
-    <button 
-      onClick={onEdit}
+    <div 
       className={cn(
-        "rounded p-1.5 text-[10px] leading-tight w-full text-left transition-all hover:ring-2 hover:ring-primary/30 cursor-pointer group/card",
+        "rounded p-1.5 text-[10px] leading-tight w-full text-left",
         status.className
       )}
     >
-      <div className="flex items-start justify-between gap-0.5">
+      <div className="flex items-start gap-0.5">
+        <GripVertical className="h-2.5 w-2.5 opacity-40 flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           {lesson.start_time && (
             <div className="font-medium flex items-center gap-0.5 mb-0.5">
@@ -427,9 +547,118 @@ const LessonCard: React.FC<{ lesson: ScheduleLesson; onEdit: () => void }> = ({ 
             </div>
           )}
         </div>
-        <Pencil className="h-2.5 w-2.5 opacity-0 group-hover/card:opacity-60 flex-shrink-0 mt-0.5" />
       </div>
-    </button>
+    </div>
+  );
+};
+
+// Draggable Lesson Card with Context Menu
+const DraggableLessonCard: React.FC<{ 
+  lesson: ScheduleLesson; 
+  onEdit: () => void;
+  onStatusChange: (lessonId: string, status: string) => void;
+}> = ({ lesson, onEdit, onStatusChange }) => {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: lesson.id,
+  });
+  
+  const status = statusConfig[lesson.status || 'scheduled'] || statusConfig.scheduled;
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+  } : undefined;
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div 
+          ref={setNodeRef}
+          style={style}
+          className={cn(
+            "rounded p-1.5 text-[10px] leading-tight w-full text-left transition-all cursor-grab active:cursor-grabbing group/card",
+            status.className,
+            isDragging && "opacity-50 ring-2 ring-primary"
+          )}
+          {...listeners}
+          {...attributes}
+        >
+          <div className="flex items-start justify-between gap-0.5">
+            <div className="flex items-start gap-0.5 flex-1 min-w-0">
+              <GripVertical className="h-2.5 w-2.5 opacity-40 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                {lesson.start_time && (
+                  <div className="font-medium flex items-center gap-0.5 mb-0.5">
+                    <Clock className="h-2.5 w-2.5" />
+                    {lesson.start_time.slice(0, 5)}
+                    {lesson.end_time && ` - ${lesson.end_time.slice(0, 5)}`}
+                  </div>
+                )}
+                
+                {lesson.group_name && (
+                  <div className="truncate font-medium">
+                    {lesson.group_name}
+                  </div>
+                )}
+                
+                {lesson.subject && !lesson.group_name && (
+                  <div className="truncate">
+                    {lesson.subject}
+                  </div>
+                )}
+                
+                {lesson.classroom && (
+                  <div className="truncate opacity-75 flex items-center gap-0.5">
+                    <MapPin className="h-2 w-2" />
+                    {lesson.classroom}
+                  </div>
+                )}
+              </div>
+            </div>
+            <Pencil className="h-2.5 w-2.5 opacity-0 group-hover/card:opacity-60 flex-shrink-0 mt-0.5" />
+          </div>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-48">
+        <ContextMenuItem onClick={onEdit} className="gap-2">
+          <Pencil className="h-3.5 w-3.5" />
+          Редактировать
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem 
+          onClick={() => onStatusChange(lesson.id, 'completed')}
+          className="gap-2 text-green-600"
+          disabled={lesson.status === 'completed'}
+        >
+          <CheckCircle className="h-3.5 w-3.5" />
+          Провести занятие
+        </ContextMenuItem>
+        <ContextMenuItem 
+          onClick={() => onStatusChange(lesson.id, 'cancelled')}
+          className="gap-2 text-red-600"
+          disabled={lesson.status === 'cancelled'}
+        >
+          <XCircle className="h-3.5 w-3.5" />
+          Отменить занятие
+        </ContextMenuItem>
+        <ContextMenuItem 
+          onClick={() => onStatusChange(lesson.id, 'rescheduled')}
+          className="gap-2 text-yellow-600"
+          disabled={lesson.status === 'rescheduled'}
+        >
+          <ArrowRightLeft className="h-3.5 w-3.5" />
+          Перенести
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem 
+          onClick={() => onStatusChange(lesson.id, 'scheduled')}
+          className="gap-2"
+          disabled={lesson.status === 'scheduled'}
+        >
+          <Calendar className="h-3.5 w-3.5" />
+          Вернуть в план
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 };
 
