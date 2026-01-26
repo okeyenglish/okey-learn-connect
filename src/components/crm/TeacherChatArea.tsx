@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Filter, Users, Calendar, Pin, ArrowLeft, Phone, MoreVertical, MessageSquare } from 'lucide-react';
+import { Search, Filter, Users, Calendar, Pin, ArrowLeft, Phone, MoreVertical, MessageSquare, X, Building2, BookOpen } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -28,6 +30,9 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const [pinCounts, setPinCounts] = useState<Record<string, number>>({});
   const [resolvedClientId, setResolvedClientId] = useState<string | null>(null);
   const [userBranch, setUserBranch] = useState<string | null>(null);
+  const [filterBranch, setFilterBranch] = useState<string>('all');
+  const [filterSubject, setFilterSubject] = useState<string>('all');
+  const [showFilters, setShowFilters] = useState(false);
   
   const isMobile = useIsMobile();
 
@@ -107,11 +112,43 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   }, [selectedTeacherId, userBranch, dbTeachers, findOrCreateClient]);
 
   const teachers = dbTeachers || [];
-  const filteredTeachers = teachers.filter((teacher) => {
-    const q = searchQuery.toLowerCase();
-    return (teacher.fullName || '').toLowerCase().includes(q) ||
-           ((teacher.branch || '').toLowerCase().includes(q));
-  });
+  
+  // Extract unique branches and subjects for filters
+  const uniqueBranches = useMemo(() => {
+    const branches = new Set<string>();
+    teachers.forEach(t => {
+      if (t.branch) branches.add(t.branch);
+    });
+    return Array.from(branches).sort();
+  }, [teachers]);
+
+  const uniqueSubjects = useMemo(() => {
+    const subjects = new Set<string>();
+    teachers.forEach(t => {
+      t.subjects?.forEach(s => subjects.add(s));
+    });
+    return Array.from(subjects).sort();
+  }, [teachers]);
+
+  const activeFiltersCount = (filterBranch !== 'all' ? 1 : 0) + (filterSubject !== 'all' ? 1 : 0);
+
+  const filteredTeachers = useMemo(() => {
+    return teachers.filter((teacher) => {
+      // Search filter
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = (teacher.fullName || '').toLowerCase().includes(q) ||
+             ((teacher.branch || '').toLowerCase().includes(q));
+      if (!matchesSearch) return false;
+
+      // Branch filter
+      if (filterBranch !== 'all' && teacher.branch !== filterBranch) return false;
+
+      // Subject filter
+      if (filterSubject !== 'all' && !teacher.subjects?.includes(filterSubject)) return false;
+
+      return true;
+    });
+  }, [teachers, searchQuery, filterBranch, filterSubject]);
 
   const selectedTeacher = selectedTeacherId ? teachers.find((t) => t.id === selectedTeacherId) : null;
   const isGroupChat = selectedTeacherId === 'teachers-group';
@@ -123,10 +160,15 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     : currentTeacher?.fullName || 'Преподаватель';
   const clientPhone = currentTeacher?.phone || '';
 
+  const clearFilters = () => {
+    setFilterBranch('all');
+    setFilterSubject('all');
+  };
+
   // Teacher List Component
   const TeacherList = ({ className = '' }: { className?: string }) => (
     <div className={`flex flex-col overflow-hidden ${className}`}>
-      <div className="p-2 border-b border-border shrink-0">
+      <div className="p-2 border-b border-border shrink-0 space-y-2">
         <div className="flex gap-1">
           <div className="flex-1 relative">
             <Input
@@ -137,14 +179,106 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             />
             <Search className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="h-8 w-8 px-0 rounded-lg border border-muted text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <Filter className="h-4 w-4" />
-          </Button>
+          <Popover open={showFilters} onOpenChange={setShowFilters}>
+            <PopoverTrigger asChild>
+              <Button 
+                variant={activeFiltersCount > 0 ? "default" : "ghost"}
+                size="sm" 
+                className={`h-8 w-8 px-0 rounded-lg border ${
+                  activeFiltersCount > 0 
+                    ? 'border-primary' 
+                    : 'border-muted text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+              >
+                <Filter className="h-4 w-4" />
+                {activeFiltersCount > 0 && (
+                  <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] text-primary-foreground flex items-center justify-center">
+                    {activeFiltersCount}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-3" align="end">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium">Фильтры</h4>
+                  {activeFiltersCount > 0 && (
+                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={clearFilters}>
+                      <X className="h-3 w-3 mr-1" />
+                      Сбросить
+                    </Button>
+                  )}
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Building2 className="h-3 w-3" />
+                    Филиал
+                  </label>
+                  <Select value={filterBranch} onValueChange={setFilterBranch}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Все филиалы" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Все филиалы</SelectItem>
+                      {uniqueBranches.map((branch) => (
+                        <SelectItem key={branch} value={branch}>{branch}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <BookOpen className="h-3 w-3" />
+                    Предмет
+                  </label>
+                  <Select value={filterSubject} onValueChange={setFilterSubject}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Все предметы" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Все предметы</SelectItem>
+                      {uniqueSubjects.map((subject) => (
+                        <SelectItem key={subject} value={subject}>{subject}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
+
+        {/* Active filters badges */}
+        {activeFiltersCount > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {filterBranch !== 'all' && (
+              <Badge variant="secondary" className="text-xs h-5 gap-1 pr-1">
+                <Building2 className="h-3 w-3" />
+                {filterBranch}
+                <button 
+                  onClick={() => setFilterBranch('all')}
+                  className="ml-0.5 hover:bg-muted rounded-full p-0.5"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </Badge>
+            )}
+            {filterSubject !== 'all' && (
+              <Badge variant="secondary" className="text-xs h-5 gap-1 pr-1">
+                <BookOpen className="h-3 w-3" />
+                {filterSubject}
+                <button 
+                  onClick={() => setFilterSubject('all')}
+                  className="ml-0.5 hover:bg-muted rounded-full p-0.5"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </Badge>
+            )}
+          </div>
+        )}
       </div>
 
       <ScrollArea className="flex-1 overflow-hidden">
