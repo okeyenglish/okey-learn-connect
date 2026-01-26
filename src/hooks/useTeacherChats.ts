@@ -18,81 +18,106 @@ export const useTeacherChatMessages = (clientId: string, enabled = true) => {
       if (!clientId) return [];
       
       const metricId = startMetric('teacher-chat-messages', { clientId });
+      const MESSAGE_LIMIT = 200;
 
-      // Abort hanging requests - reduced from 12s to 6s for faster fallback
-      const TIMEOUT_MS = 6_000;
-      const controller = new AbortController();
-      const onAbort = () => controller.abort();
-      signal?.addEventListener('abort', onAbort);
-      const timeoutId = window.setTimeout(() => {
-        console.warn('[useTeacherChatMessages] Timeout reached, aborting RPC for clientId:', clientId);
-        controller.abort();
-        endMetric(metricId, 'timeout');
-      }, TIMEOUT_MS);
+      // Strategy: Try RPC first with short timeout, then fallback to direct SELECT
+      const TIMEOUT_MS = 5_000; // 5 seconds max for RPC
+      
+      const rpcWithTimeout = async (): Promise<{ data: unknown[] | null; error: Error | null }> => {
+        return new Promise((resolve) => {
+          const timeoutId = setTimeout(() => {
+            console.warn('[useTeacherChatMessages] RPC timeout, falling back to direct query');
+            resolve({ data: null, error: new Error('RPC timeout') });
+          }, TIMEOUT_MS);
+
+          // Try RPC
+          (async () => {
+            try {
+              const { data, error } = await supabase.rpc('get_teacher_chat_messages', { 
+                p_client_id: clientId,
+                p_limit: MESSAGE_LIMIT 
+              });
+              
+              clearTimeout(timeoutId);
+              
+              if (error) {
+                // Fallback to legacy signature if p_limit not supported
+                if (error.message?.includes('p_limit') || error.code === 'PGRST202') {
+                  const { data: legacyData, error: legacyError } = await supabase.rpc(
+                    'get_teacher_chat_messages', 
+                    { p_client_id: clientId }
+                  );
+                  if (legacyError) {
+                    resolve({ data: null, error: legacyError });
+                  } else {
+                    resolve({ data: (legacyData || []).slice(-MESSAGE_LIMIT), error: null });
+                  }
+                  return;
+                }
+                resolve({ data: null, error });
+              } else {
+                resolve({ data: data || [], error: null });
+              }
+            } catch (err) {
+              clearTimeout(timeoutId);
+              resolve({ data: null, error: err as Error });
+            }
+          })();
+        });
+      };
 
       try {
-        // Use optimized RPC with built-in limit parameter
-        // The RPC now accepts p_limit parameter directly for server-side limiting
-        const MESSAGE_LIMIT = 200;
+        // First attempt: RPC with timeout
+        const rpcResult = await rpcWithTimeout();
         
-        try {
-          // Call RPC with limit parameter (if optimized version is deployed)
-          const { data, error } = await supabase.rpc('get_teacher_chat_messages', { 
-            p_client_id: clientId,
-            p_limit: MESSAGE_LIMIT 
-          });
-
-          if (error) {
-            // If error is about unknown parameter, fallback to old signature
-            if (error.message?.includes('p_limit') || error.code === 'PGRST202') {
-              console.warn('[useTeacherChatMessages] Using legacy RPC without p_limit');
-              const { data: legacyData, error: legacyError } = await supabase.rpc(
-                'get_teacher_chat_messages', 
-                { p_client_id: clientId }
-              );
-              if (legacyError) throw legacyError;
-              endMetric(metricId, 'completed', { msgCount: (legacyData || []).length, method: 'rpc-legacy' });
-              return (legacyData || []).slice(-MESSAGE_LIMIT); // Client-side limit for legacy
-            }
-            throw error;
-          }
-
-          endMetric(metricId, 'completed', { msgCount: (data || []).length, method: 'rpc-optimized' });
-          return data || [];
-        } catch (rpcErr) {
-          // Fallback: try direct table select (fast) when RPC is hanging or unstable.
-          console.warn('[useTeacherChatMessages] RPC failed/hung, trying direct chat_messages select...');
-
-          const { data: directData, error: directError } = await (supabase as any)
-            .from('chat_messages')
-            .select(
-              'id, client_id, message_text, message_type, system_type, is_read, created_at, file_url, file_name, file_type, external_message_id, messenger_type, call_duration, message_status, metadata'
-            )
-            .eq('client_id', clientId)
-            .order('created_at', { ascending: false })
-            .limit(200)
-            .abortSignal(controller.signal);
-
-          if (!directError) {
-            endMetric(metricId, 'completed', { msgCount: (directData || []).length, method: 'direct' });
-            return directData || [];
-          }
-
-          console.error('[useTeacherChatMessages] Direct select failed:', directError);
-          endMetric(metricId, 'failed', { error: String(rpcErr) });
-          throw rpcErr;
+        if (rpcResult.data) {
+          endMetric(metricId, 'completed', { msgCount: rpcResult.data.length, method: 'rpc' });
+          return rpcResult.data;
         }
-      } finally {
-        window.clearTimeout(timeoutId);
-        signal?.removeEventListener('abort', onAbort);
+
+        // Second attempt: Direct SELECT (faster for teacher chats, bypasses complex RPC)
+        console.log('[useTeacherChatMessages] Trying direct chat_messages select for:', clientId);
+        
+        const { data: directData, error: directError } = await supabase
+          .from('chat_messages')
+          .select(
+            'id, client_id, message_text, content, message_type, system_type, is_read, is_outgoing, created_at, file_url, media_url, file_name, file_type, media_type, external_message_id, external_id, messenger_type, messenger, call_duration, message_status, status, metadata'
+          )
+          .eq('client_id', clientId)
+          .order('created_at', { ascending: false })
+          .limit(MESSAGE_LIMIT);
+
+        if (!directError && directData) {
+          console.log('[useTeacherChatMessages] Direct query succeeded:', directData.length, 'messages');
+          endMetric(metricId, 'completed', { msgCount: directData.length, method: 'direct' });
+          // Normalize field names for compatibility
+          return directData.map((m: Record<string, unknown>) => ({
+            ...m,
+            message_text: m.message_text || m.content || '',
+            file_url: m.file_url || m.media_url,
+            file_type: m.file_type || m.media_type,
+            external_message_id: m.external_message_id || m.external_id,
+            messenger_type: m.messenger_type || m.messenger,
+            message_status: m.message_status || m.status,
+          }));
+        }
+
+        console.error('[useTeacherChatMessages] Direct select also failed:', directError);
+        endMetric(metricId, 'failed', { error: String(directError || rpcResult.error) });
+        
+        // Return empty array instead of throwing to prevent UI error state
+        return [];
+      } catch (err) {
+        console.error('[useTeacherChatMessages] All methods failed:', err);
+        endMetric(metricId, 'failed', { error: String(err) });
+        return [];
       }
     },
     enabled: enabled && !!clientId,
     staleTime: 30 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
-    retry: 1,
-    retryDelay: 800,
+    retry: 0, // Don't retry - we already have fallback logic
   });
 
   return { messages: messages || [], isLoading, isFetching, error, refetch };
