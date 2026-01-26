@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ChatArea } from './ChatArea';
 import { TeacherSchedulePanel } from './TeacherSchedulePanel';
 import { TeacherChatList } from './TeacherChatList';
+import { TeacherChatSkeleton } from './TeacherChatSkeleton';
 
 interface TeacherChatAreaProps {
   selectedTeacherId?: string | null;
@@ -460,27 +461,13 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       );
     }
 
-    // Show chat (mobile) - use standard ChatArea
+    // Show chat loading skeleton (mobile)
     if (!resolvedClientId) {
       return (
-        <div className="flex flex-col h-full min-h-0 bg-background">
-          <div className="border-b shrink-0 bg-background p-2">
-            <div className="flex items-center gap-2">
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                className="h-8 w-8 p-0"
-                onClick={() => onSelectTeacher(null)}
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-sm">Загрузка...</span>
-            </div>
-          </div>
-          <div className="flex-1 flex items-center justify-center">
-            <Skeleton className="h-8 w-32" />
-          </div>
-        </div>
+        <TeacherChatSkeleton 
+          showBackButton={true} 
+          onBack={() => onSelectTeacher(null)} 
+        />
       );
     }
 
@@ -520,14 +507,8 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             </div>
           </div>
         ) : !resolvedClientId ? (
-          // Loading state
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <Skeleton className="h-12 w-12 rounded-full mx-auto mb-4" />
-              <Skeleton className="h-4 w-32 mx-auto mb-2" />
-              <Skeleton className="h-3 w-24 mx-auto" />
-            </div>
-          </div>
+          // Full chat skeleton loading state
+          <TeacherChatSkeleton />
         ) : (
           // Teacher chat with tabs for Schedule/Profile, direct ChatArea for messages
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
