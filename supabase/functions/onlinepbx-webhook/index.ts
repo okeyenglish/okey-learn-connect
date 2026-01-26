@@ -19,8 +19,13 @@ function generateWebhookKey(): string {
   return key;
 }
 
+type OrgLookup = { organizationId: string; isEnabled: boolean };
+
 // Find organization by webhook key from query params (PRIMARY method)
-async function findOrganizationByWebhookKey(supabase: ReturnType<typeof createClient>, webhookKey: string): Promise<string | null> {
+async function findOrganizationByWebhookKey(
+  supabase: ReturnType<typeof createClient>,
+  webhookKey: string
+): Promise<OrgLookup | null> {
   if (!webhookKey) return null;
   
   console.log('[onlinepbx-webhook] Looking up organization by webhook key:', webhookKey.substring(0, 8) + '...');
@@ -29,9 +34,9 @@ async function findOrganizationByWebhookKey(supabase: ReturnType<typeof createCl
   // Also try searching all enabled OnlinePBX settings and matching manually
   const { data: settings, error } = await supabase
     .from('messenger_settings')
-    .select('organization_id, settings')
+    .select('organization_id, is_enabled, settings')
     .eq('messenger_type', 'onlinepbx')
-    .eq('is_enabled', true);
+    .limit(200);
   
   if (error) {
     console.error('[onlinepbx-webhook] Error searching by webhook key:', error);
@@ -47,7 +52,10 @@ async function findOrganizationByWebhookKey(supabase: ReturnType<typeof createCl
       
       if (storedKey === webhookKey) {
         console.log('[onlinepbx-webhook] ✓ Found organization by webhook key:', setting.organization_id);
-        return setting.organization_id as string;
+        return {
+          organizationId: setting.organization_id as string,
+          isEnabled: !!(setting as any).is_enabled,
+        };
       }
     }
   }
@@ -57,7 +65,10 @@ async function findOrganizationByWebhookKey(supabase: ReturnType<typeof createCl
 }
 
 // Find organization by PBX domain from messenger_settings (FALLBACK method)
-async function findOrganizationByPbxDomain(supabase: ReturnType<typeof createClient>, pbxDomain: string): Promise<string | null> {
+async function findOrganizationByPbxDomain(
+  supabase: ReturnType<typeof createClient>,
+  pbxDomain: string
+): Promise<OrgLookup | null> {
   if (!pbxDomain) return null;
   
   console.log('[onlinepbx-webhook] Looking up organization by PBX domain:', pbxDomain);
@@ -65,9 +76,9 @@ async function findOrganizationByPbxDomain(supabase: ReturnType<typeof createCli
   // Search in messenger_settings where messenger_type = 'onlinepbx'
   const { data: settings, error } = await supabase
     .from('messenger_settings')
-    .select('organization_id, settings')
+    .select('organization_id, is_enabled, settings')
     .eq('messenger_type', 'onlinepbx')
-    .eq('is_enabled', true);
+    .limit(200);
   
   if (error) {
     console.error('[onlinepbx-webhook] Error searching messenger_settings:', error);
@@ -86,7 +97,10 @@ async function findOrganizationByPbxDomain(supabase: ReturnType<typeof createCli
       
       if (normalizedSettingDomain === normalizedDomain || settingDomain === pbxDomain.toLowerCase()) {
         console.log('[onlinepbx-webhook] Found organization:', setting.organization_id, 'for domain:', pbxDomain);
-        return setting.organization_id as string;
+        return {
+          organizationId: setting.organization_id as string,
+          isEnabled: !!(setting as any).is_enabled,
+        };
       }
     }
   }
@@ -171,10 +185,16 @@ Deno.serve(async (req) => {
       // STEP 1: Try to get organization from webhook key in URL (PRIMARY method)
       const url = new URL(req.url);
       const webhookKey = url.searchParams.get('key') || url.searchParams.get('webhook_key') || '';
+
       let organizationId: string | null = null;
+      let integrationEnabled: boolean | null = null;
       
       if (webhookKey) {
-        organizationId = await findOrganizationByWebhookKey(supabase, webhookKey);
+        const org = await findOrganizationByWebhookKey(supabase, webhookKey);
+        if (org) {
+          organizationId = org.organizationId;
+          integrationEnabled = org.isEnabled;
+        }
       }
 
       // STEP 2: Fallback - try PBX domain from webhook data
@@ -184,7 +204,11 @@ Deno.serve(async (req) => {
         console.log('[onlinepbx-webhook] PBX domain from webhook:', pbxDomain);
         
         if (pbxDomain) {
-          organizationId = await findOrganizationByPbxDomain(supabase, pbxDomain);
+          const org = await findOrganizationByPbxDomain(supabase, pbxDomain);
+          if (org) {
+            organizationId = org.organizationId;
+            integrationEnabled = org.isEnabled;
+          }
         }
       }
       
@@ -212,6 +236,15 @@ Deno.serve(async (req) => {
       }
       
       console.log('[onlinepbx-webhook] Using organization:', organizationId);
+
+      // If integration is disabled, acknowledge webhook (OnlinePBX test expects 2xx) but do not process.
+      if (integrationEnabled === false) {
+        console.log('[onlinepbx-webhook] Integration disabled for org, acknowledging without processing');
+        return new Response(
+          JSON.stringify({ success: true, message: 'Integration disabled' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
 
       // Map OnlinePBX event/status to our status
       const mapStatus = (event: string | undefined, hangupCause: string | undefined, pbxStatus: string | undefined): string => {
