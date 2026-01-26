@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, Search, X } from "lucide-react";
+import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, Search, X, CheckCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -11,7 +11,7 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useCallHistory, CallLog } from "@/hooks/useCallHistory";
 import { CallDetailModal } from "./CallDetailModal";
-import { useUnviewedMissedCallsCount } from "@/hooks/useViewedMissedCalls";
+import { useUnviewedMissedCallsCount, useViewedMissedCalls } from "@/hooks/useViewedMissedCalls";
 
 interface CallHistoryProps {
   clientId: string;
@@ -27,9 +27,11 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isMarkingAll, setIsMarkingAll] = useState(false);
   
   // Get unviewed missed calls from server
   const { data: unviewedData } = useUnviewedMissedCallsCount(clientId);
+  const { markCallsAsViewed } = useViewedMissedCalls(clientId);
   const unviewedCallIds = useMemo(() => new Set(unviewedData?.ids || []), [unviewedData?.ids]);
   
   // Check if a call is unviewed (missed and not yet viewed)
@@ -376,11 +378,28 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
             {/* Unviewed missed calls section */}
             {unviewedCalls.length > 0 && (
               <>
-                <div className="flex items-center gap-2 pb-2">
-                  <AlertCircle className="h-4 w-4 text-destructive" />
-                  <span className="text-xs font-medium text-destructive">
-                    Непросмотренные пропущенные ({unviewedCalls.length})
-                  </span>
+                <div className="flex items-center justify-between pb-2">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-destructive" />
+                    <span className="text-xs font-medium text-destructive">
+                      Непросмотренные пропущенные ({unviewedCalls.length})
+                    </span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                    disabled={isMarkingAll}
+                    onClick={async () => {
+                      setIsMarkingAll(true);
+                      const allIds = unviewedCalls.map(c => c.id);
+                      await markCallsAsViewed(allIds);
+                      setIsMarkingAll(false);
+                    }}
+                  >
+                    <CheckCheck className="h-3 w-3" />
+                    {isMarkingAll ? 'Отмечаем...' : 'Отметить все'}
+                  </Button>
                 </div>
                 <div className="space-y-3 pl-1 border-l-2 border-destructive/30">
                   {unviewedCalls.map((call) => renderCallItem(call, true))}
