@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle, Wifi, RefreshCw, Database, Zap, HardDrive } from 'lucide-react';
 import { SELF_HOSTED_URL, SELF_HOSTED_ANON_KEY, selfHostedGet } from '@/lib/selfHostedApi';
+import { useToast } from '@/hooks/use-toast';
 
 interface TestResult {
   name: string;
@@ -12,12 +13,18 @@ interface TestResult {
   error?: string;
 }
 
-export const SelfHostedConnectionTest = () => {
+interface SelfHostedConnectionTestProps {
+  autoRun?: boolean;
+}
+
+export const SelfHostedConnectionTest = ({ autoRun = true }: SelfHostedConnectionTestProps) => {
   const [isRunning, setIsRunning] = useState(false);
   const [results, setResults] = useState<TestResult[]>([]);
   const [lastRun, setLastRun] = useState<Date | null>(null);
+  const [hasNotified, setHasNotified] = useState(false);
+  const { toast } = useToast();
 
-  const runTests = async () => {
+  const runTests = useCallback(async (showNotifications = true) => {
     setIsRunning(true);
     const newResults: TestResult[] = [];
 
@@ -122,7 +129,29 @@ export const SelfHostedConnectionTest = () => {
 
     setLastRun(new Date());
     setIsRunning(false);
-  };
+
+    // Show notifications for errors
+    if (showNotifications) {
+      const errors = newResults.filter(r => r.status === 'error');
+      const allSuccess = newResults.every(r => r.status === 'success');
+      
+      if (errors.length > 0 && !hasNotified) {
+        toast({
+          title: '⚠️ Проблемы с подключением',
+          description: `Недоступны: ${errors.map(e => e.name).join(', ')}`,
+          variant: 'destructive',
+          duration: 10000,
+        });
+        setHasNotified(true);
+      } else if (allSuccess && hasNotified) {
+        toast({
+          title: '✅ Подключение восстановлено',
+          description: 'Все сервисы self-hosted API доступны',
+        });
+        setHasNotified(false);
+      }
+    }
+  }, [toast, hasNotified]);
 
   const getIcon = (name: string) => {
     switch (name) {
@@ -133,6 +162,13 @@ export const SelfHostedConnectionTest = () => {
       default: return <Wifi className="h-4 w-4" />;
     }
   };
+
+  // Auto-run on mount
+  useEffect(() => {
+    if (autoRun && results.length === 0 && !isRunning) {
+      runTests(true);
+    }
+  }, [autoRun, results.length, isRunning, runTests]);
 
   const allSuccess = results.length === 4 && results.every(r => r.status === 'success');
   const hasErrors = results.some(r => r.status === 'error');
@@ -153,7 +189,7 @@ export const SelfHostedConnectionTest = () => {
             </div>
           </div>
           <Button 
-            onClick={runTests} 
+            onClick={() => runTests(true)} 
             disabled={isRunning}
             size="sm"
             variant={results.length === 0 ? 'default' : 'outline'}
