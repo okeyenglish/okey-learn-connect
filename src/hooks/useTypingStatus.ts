@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import type { TypingStatus } from '@/integrations/supabase/database.types';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { useThrottle } from './useThrottle';
 
 export interface TypingInfo {
@@ -11,6 +12,7 @@ export interface TypingInfo {
 // Extended type for internal use - Supabase returns these fields directly
 type TypingStatusWithName = TypingStatus;
 
+// OPTIMIZED: Uses payload directly instead of refresh() SELECT queries
 export const useTypingStatus = (clientId: string) => {
   const [typingUsers, setTypingUsers] = useState<TypingStatusWithName[]>([]);
   const [isCurrentUserTyping, setIsCurrentUserTyping] = useState(false);
@@ -53,41 +55,61 @@ export const useTypingStatus = (clientId: string) => {
     return () => { isMounted = false; };
   }, [clientId]);
 
+  // Handle realtime payload directly - NO additional SELECT queries
+  const handleRealtimePayload = useCallback((
+    payload: RealtimePostgresChangesPayload<TypingStatusWithName>
+  ) => {
+    const eventType = payload.eventType;
+    const record = (payload.new || payload.old) as TypingStatusWithName | undefined;
+    
+    if (!record) return;
+    
+    // Skip own typing status
+    if (record.user_id === currentUserIdRef.current) return;
+    
+    setTypingUsers(prev => {
+      if (eventType === 'DELETE') {
+        return prev.filter(t => t.user_id !== record.user_id);
+      }
+      
+      // INSERT or UPDATE
+      if (!record.is_typing) {
+        // User stopped typing
+        return prev.filter(t => t.user_id !== record.user_id);
+      }
+      
+      // User is typing - add or update
+      const existingIdx = prev.findIndex(t => t.user_id === record.user_id);
+      if (existingIdx >= 0) {
+        const updated = [...prev];
+        updated[existingIdx] = record;
+        return updated;
+      }
+      return [...prev, record];
+    });
+  }, []);
+
   // Subscribe to realtime typing updates for this client
+  // OPTIMIZED: Single subscription with event: '*' instead of 3 separate subscriptions
   useEffect(() => {
     if (!clientId) return;
+    
     const channel = supabase
-      .channel(`typing_status_${clientId}`)
+      .channel(`typing_status_${clientId}_optimized`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'typing_status', filter: `client_id=eq.${clientId}` },
-        () => refreshTyping()
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'typing_status', filter: `client_id=eq.${clientId}` },
-        () => refreshTyping()
-      )
-      .on(
-        'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'typing_status', filter: `client_id=eq.${clientId}` },
-        () => refreshTyping()
+        { event: '*', schema: 'public', table: 'typing_status', filter: `client_id=eq.${clientId}` },
+        (payload) => {
+          // Use payload directly instead of refreshTyping() SELECT
+          handleRealtimePayload(payload as RealtimePostgresChangesPayload<TypingStatusWithName>);
+        }
       )
       .subscribe();
-
-    async function refreshTyping() {
-      const { data } = await supabase
-        .from('typing_status')
-        .select('user_id, client_id, is_typing, manager_name, draft_text')
-        .eq('client_id', clientId)
-        .eq('is_typing', true);
-      setTypingUsers((data || []).filter((t) => t.user_id !== currentUserIdRef.current) as TypingStatusWithName[]);
-    }
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [clientId]);
+  }, [clientId, handleRealtimePayload]);
 
   // Core update function (will be throttled)
   const doUpdateTypingStatus = useCallback(async (isTyping: boolean, draftText?: string) => {

@@ -142,6 +142,6 @@ export const useEventStats = () => {
 
       return stats;
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 60000, // OPTIMIZED: 30s → 60s to reduce DB load
   });
 };

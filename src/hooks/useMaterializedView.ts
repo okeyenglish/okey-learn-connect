@@ -197,18 +197,24 @@ export function useRefreshMaterializedViews() {
 
 /**
  * Hook для автоматического обновления материализованных представлений по расписанию
+ * OPTIMIZED: 5 мин → 15 мин + проверка visibilityState
  */
-export function useAutoRefreshMaterializedViews(intervalMinutes: number = 5) {
+export function useAutoRefreshMaterializedViews(intervalMinutes: number = 15) {
   const { mutate: refresh } = useRefreshMaterializedViews();
   
   useEffect(() => {
+    const doRefresh = () => {
+      // Обновляем только если вкладка активна - избегаем лишней нагрузки в фоне
+      if (document.visibilityState === 'visible') {
+        refresh();
+      }
+    };
+    
     // Обновляем при монтировании
-    refresh();
+    doRefresh();
     
     // Затем обновляем по расписанию
-    const interval = setInterval(() => {
-      refresh();
-    }, intervalMinutes * 60 * 1000);
+    const interval = setInterval(doRefresh, intervalMinutes * 60 * 1000);
     
     return () => clearInterval(interval);
   }, [refresh, intervalMinutes]);
