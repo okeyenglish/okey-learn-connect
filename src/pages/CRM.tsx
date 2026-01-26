@@ -136,6 +136,7 @@ import { AnimatedLogo } from "@/components/AnimatedLogo";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import { toast } from "sonner";
+import { useBulkActionUndo, BulkActionState } from "@/hooks/useBulkActionUndo";
 import VoiceAssistant from '@/components/VoiceAssistant';
 import { TeacherMessagesPanel } from "@/components/crm/TeacherMessagesPanel";
 import { UserPermissionsManager } from "@/components/admin/UserPermissionsManager";
@@ -1502,13 +1503,59 @@ const CRMContent = () => {
     }
   }, [queryClient, activeChatId, linkChatModal.chatId, setActiveChatId]);
 
+  // Undo handler for bulk actions
+  const handleBulkUndo = useCallback((actionState: BulkActionState) => {
+    console.log('[CRM] Undoing bulk action:', actionState.action, 'for', actionState.chatIds.length, 'chats');
+    
+    actionState.chatIds.forEach(chatId => {
+      const prevState = actionState.previousStates.get(chatId);
+      
+      if (actionState.action === 'read' && prevState) {
+        // Restore unread state
+        if (!prevState.isRead) {
+          markAsUnread(chatId);
+          markAsUnreadMutation.mutate(chatId);
+        }
+      } else if (actionState.action === 'pin' && prevState) {
+        // Restore previous pin state
+        if (!prevState.isPinned) {
+          togglePin(chatId); // Toggle back to unpinned
+        }
+      } else if (actionState.action === 'archive' && prevState) {
+        // Restore previous archive state  
+        if (!prevState.isArchived) {
+          toggleArchive(chatId); // Toggle back to unarchived
+        }
+      }
+    });
+  }, [markAsUnread, markAsUnreadMutation, togglePin, toggleArchive]);
+
+  const { startUndoTimer } = useBulkActionUndo({
+    onUndo: handleBulkUndo,
+    timeoutMs: 10000, // 10 seconds
+  });
+
   // Bulk action confirmation handler
   const confirmBulkAction = useCallback(() => {
     const chatIdsArray = Array.from(selectedChatIds);
     const action = bulkActionConfirm.action;
     
+    if (!action) return;
+    
     console.log('[CRM] Bulk action confirmed:', action, 'for', chatIdsArray.length, 'chats');
     
+    // Save previous states for undo
+    const previousStates = new Map<string, { isRead?: boolean; isPinned?: boolean; isArchived?: boolean }>();
+    chatIdsArray.forEach(chatId => {
+      const state = getChatState(chatId);
+      previousStates.set(chatId, {
+        isRead: isChatReadGlobally(chatId),
+        isPinned: state?.isPinned || false,
+        isArchived: state?.isArchived || false,
+      });
+    });
+    
+    // Execute action
     if (action === 'read') {
       chatIdsArray.forEach(chatId => {
         markChatAsReadGlobally(chatId);
@@ -1516,19 +1563,24 @@ const CRMContent = () => {
         markAsReadMutation.mutate(chatId);
         markAsRead(chatId);
       });
-      toast.success(`${chatIdsArray.length} чатов отмечены прочитанными`);
     } else if (action === 'pin') {
       chatIdsArray.forEach(chatId => togglePin(chatId));
-      toast.success(`${chatIdsArray.length} чатов закреплено`);
     } else if (action === 'archive') {
       chatIdsArray.forEach(chatId => toggleArchive(chatId));
-      toast.success(`${chatIdsArray.length} чатов архивировано`);
     }
+    
+    // Start undo timer with toast
+    startUndoTimer({
+      action,
+      chatIds: chatIdsArray,
+      previousStates,
+      timestamp: Date.now(),
+    });
     
     setBulkSelectMode(false);
     setSelectedChatIds(new Set());
     setBulkActionConfirm({ open: false, action: null, count: 0 });
-  }, [selectedChatIds, bulkActionConfirm.action, markChatAsReadGlobally, markChatMessagesAsReadMutation, markAsReadMutation, markAsRead, togglePin, toggleArchive, setBulkSelectMode, setSelectedChatIds]);
+  }, [selectedChatIds, bulkActionConfirm.action, markChatAsReadGlobally, markChatMessagesAsReadMutation, markAsReadMutation, markAsRead, togglePin, toggleArchive, setBulkSelectMode, setSelectedChatIds, getChatState, isChatReadGlobally, startUndoTimer]);
 
   const [activeFamilyMemberId, setActiveFamilyMemberId] = useState('550e8400-e29b-41d4-a716-446655440001');
 
@@ -4376,7 +4428,7 @@ const CRMContent = () => {
               {bulkActionConfirm.action === 'archive' && 'Архивировать чаты?'}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {bulkActionConfirm.action === 'read' && `Вы уверены, что хотите отметить ${bulkActionConfirm.count} чатов как прочитанные? Это действие нельзя отменить.`}
+              {bulkActionConfirm.action === 'read' && `Вы уверены, что хотите отметить ${bulkActionConfirm.count} чатов как прочитанные? Действие можно отменить в течение 10 секунд.`}
               {bulkActionConfirm.action === 'pin' && `Вы уверены, что хотите закрепить ${bulkActionConfirm.count} чатов?`}
               {bulkActionConfirm.action === 'archive' && `Вы уверены, что хотите архивировать ${bulkActionConfirm.count} чатов?`}
             </AlertDialogDescription>
