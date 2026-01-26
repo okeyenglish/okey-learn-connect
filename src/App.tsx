@@ -105,6 +105,7 @@ const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess'));
 const PaymentFail = lazy(() => import('./pages/PaymentFail'));
 const Install = lazy(() => import('./pages/Install'));
 const SystemMonitor = lazy(() => import('./pages/SystemMonitor'));
+const WebhookTest = lazy(() => import('./pages/WebhookTest'));
 const EmployeeOnboarding = lazy(() => import('./pages/employee/EmployeeOnboarding'));
 const DebugAccess = lazy(() => import('./pages/DebugAccess'));
 const OrgLayout = lazy(() => import('./pages/org/OrgLayout'));
@@ -490,6 +491,13 @@ const AppContent = () => {
             <ProtectedRoute allowedRoles={['admin']}>
               <Suspense fallback={<LoadingComponent />}>
                 <SystemMonitor />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/webhook-test" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Suspense fallback={<LoadingComponent />}>
+                <WebhookTest />
               </Suspense>
             </ProtectedRoute>
           } />
