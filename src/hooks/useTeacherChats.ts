@@ -3,6 +3,9 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { useEffect, useMemo } from 'react';
 import { normalizePhone } from '@/utils/phoneNormalization';
 
+// Cache normalized phone -> clientId to avoid repeated lookups (huge perf win on large clients table)
+const teacherClientIdByPhoneCache = new Map<string, string>();
+
 /**
  * Hook to load teacher chat messages using SECURITY DEFINER RPC
  * This bypasses RLS org filter for teacher-linked clients
@@ -228,15 +231,29 @@ export const useEnsureTeacherClient = () => {
     const normalized = normalizePhone(teacher.phone);
     if (!normalized) return null;
 
-    // Try to find existing client by normalized phone
-    const { data: existingClients } = await supabase
+    // Fast path: in-memory cache
+    const cached = teacherClientIdByPhoneCache.get(normalized);
+    if (cached) return cached;
+
+    // Try to find existing client by phone WITHOUT scanning the entire clients table
+    // Strategy: search candidates by the last 10 digits (stable for RU numbers)
+    const digits = normalized.replace(/\D/g, '');
+    const last10 = digits.slice(-10);
+
+    // If we don't have enough digits, fallback to a small contains search
+    const likePattern = last10.length >= 8 ? `%${last10}%` : `%${digits}%`;
+
+    const { data: candidates, error: candidatesError } = await supabase
       .from('clients')
       .select('id, phone')
-      .not('phone', 'is', null);
+      .not('phone', 'is', null)
+      .ilike('phone', likePattern)
+      .limit(50);
 
-    if (existingClients) {
-      for (const client of existingClients) {
-        if (normalizePhone(client.phone) === normalized) {
+    if (!candidatesError && candidates?.length) {
+      for (const client of candidates) {
+        if (client.phone && normalizePhone(client.phone) === normalized) {
+          teacherClientIdByPhoneCache.set(normalized, client.id);
           return client.id;
         }
       }
@@ -251,14 +268,16 @@ export const useEnsureTeacherClient = () => {
         phone: teacher.phone,
       })
       .select('id')
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error creating client for teacher:', error);
       return null;
     }
 
-    return newClient?.id || null;
+    const createdId = newClient?.id || null;
+    if (createdId) teacherClientIdByPhoneCache.set(normalized, createdId);
+    return createdId;
   };
 
   return { findOrCreateClient };
