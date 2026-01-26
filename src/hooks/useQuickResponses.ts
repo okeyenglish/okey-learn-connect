@@ -37,6 +37,7 @@ interface UseQuickResponsesOptions {
 export function useQuickResponses({ isTeacher = false }: UseQuickResponsesOptions = {}) {
   const [categories, setCategories] = useState<CategoryWithResponses[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -242,9 +243,46 @@ export function useQuickResponses({ isTeacher = false }: UseQuickResponsesOption
     }
   }, [toast]);
 
+  const importDefaultTemplates = useCallback(async () => {
+    setIsImporting(true);
+    try {
+      const response = await selfHostedPost<QuickResponsesResponse>(
+        'quick-responses/import-defaults',
+        { is_teacher: isTeacher }
+      );
+      
+      if (response.success && response.data) {
+        setCategories(response.data.categories || []);
+        toast({
+          title: 'Шаблоны импортированы',
+          description: `Добавлены стандартные шаблоны ${isTeacher ? 'для преподавателей' : 'для клиентов'}`
+        });
+        return true;
+      } else {
+        toast({
+          title: 'Ошибка',
+          description: response.error || 'Не удалось импортировать шаблоны',
+          variant: 'destructive'
+        });
+        return false;
+      }
+    } catch (err) {
+      console.error('Error importing default templates:', err);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось импортировать шаблоны',
+        variant: 'destructive'
+      });
+      return false;
+    } finally {
+      setIsImporting(false);
+    }
+  }, [isTeacher, toast]);
+
   return {
     categories,
     isLoading,
+    isImporting,
     error,
     refetch: fetchCategories,
     addCategory,
@@ -252,6 +290,7 @@ export function useQuickResponses({ isTeacher = false }: UseQuickResponsesOption
     deleteCategory,
     addResponse,
     updateResponse,
-    deleteResponse
+    deleteResponse,
+    importDefaultTemplates
   };
 }
