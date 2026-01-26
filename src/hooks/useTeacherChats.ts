@@ -13,30 +13,74 @@ const teacherClientIdByPhoneCache = new Map<string, string>();
 export const useTeacherChatMessages = (clientId: string, enabled = true) => {
   const { data: messages, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['teacher-chat-messages', clientId],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       if (!clientId) return [];
       
       console.log('[useTeacherChatMessages] Fetching for client:', clientId);
       const startTime = performance.now();
-      const { data, error } = await supabase.rpc('get_teacher_chat_messages', {
-        p_client_id: clientId
-      });
-      const elapsed = performance.now() - startTime;
-      
-      if (error) {
-        console.error('[useTeacherChatMessages] Error:', error);
-        throw error;
+
+      // Abort hanging requests (Network shows long Pending for teacher chats)
+      const TIMEOUT_MS = 12_000;
+      const controller = new AbortController();
+      const onAbort = () => controller.abort();
+      signal?.addEventListener('abort', onAbort);
+      const timeoutId = window.setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+      try {
+        // Try server-side limit/order when PostgREST supports it for this RPC
+        try {
+          let rpc: any = supabase.rpc('get_teacher_chat_messages', { p_client_id: clientId });
+          if (typeof rpc.order === 'function') rpc = rpc.order('created_at', { ascending: false });
+          if (typeof rpc.limit === 'function') rpc = rpc.limit(200);
+          else if (typeof rpc.range === 'function') rpc = rpc.range(0, 199);
+          if (typeof rpc.abortSignal === 'function') rpc = rpc.abortSignal(controller.signal);
+
+          const { data, error } = await rpc;
+          const elapsed = performance.now() - startTime;
+
+          if (error) {
+            console.error('[useTeacherChatMessages] Error:', error);
+            throw error;
+          }
+
+          console.log(`[useTeacherChatMessages] Fetched ${(data || []).length} messages in ${elapsed.toFixed(2)}ms`);
+          return data || [];
+        } catch (rpcErr) {
+          // Fallback: try direct table select (fast) when RPC is hanging or unstable.
+          // If RLS blocks it, we'll rethrow the original error.
+          console.warn('[useTeacherChatMessages] RPC failed/hung, trying direct chat_messages select...');
+
+          const { data: directData, error: directError } = await (supabase as any)
+            .from('chat_messages')
+            .select(
+              'id, client_id, message_text, message_type, system_type, is_read, created_at, file_url, file_name, file_type, external_message_id, messenger_type, call_duration, message_status, metadata'
+            )
+            .eq('client_id', clientId)
+            .order('created_at', { ascending: false })
+            .limit(200)
+            .abortSignal(controller.signal);
+
+          if (!directError) {
+            const elapsed = performance.now() - startTime;
+            console.log(`[useTeacherChatMessages] ✅ Direct select ${(directData || []).length} messages in ${elapsed.toFixed(2)}ms`);
+            // Return in the same format as RPC (array of objects)
+            return directData || [];
+          }
+
+          console.error('[useTeacherChatMessages] Direct select failed:', directError);
+          throw rpcErr;
+        }
+      } finally {
+        window.clearTimeout(timeoutId);
+        signal?.removeEventListener('abort', onAbort);
       }
-      
-      console.log(`[useTeacherChatMessages] Fetched ${(data || []).length} messages in ${elapsed.toFixed(2)}ms`);
-      return data || [];
     },
     enabled: enabled && !!clientId,
     staleTime: 30 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
-    retry: 5,
-    retryDelay: (attemptIndex) => Math.min(500 * 2 ** attemptIndex, 8000),
+    retry: 1,
+    retryDelay: 800,
   });
 
   return { messages: messages || [], isLoading, isFetching, error, refetch };
