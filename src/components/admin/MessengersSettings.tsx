@@ -27,6 +27,7 @@ import { TelegramWappiSettings } from './TelegramWappiSettings';
 import { SalebotSettings } from './SalebotSettings';
 import { OpenAISettings } from './OpenAISettings';
 import { OnlinePBXSettings } from './OnlinePBXSettings';
+import { HoliHopeSettings } from './HoliHopeSettings';
 import { WebhookUrlReset } from './WebhookUrlReset';
 import { supabaseTyped as supabase } from '@/integrations/supabase/typedClient';
 import { useOrganization } from '@/hooks/useOrganization';
@@ -106,6 +107,15 @@ export const MessengersSettings: React.FC = () => {
       bgColor: 'bg-emerald-50 dark:bg-emerald-950/30',
       description: 'GPT / Whisper API',
       tabValue: 'openai'
+    },
+    {
+      id: 'holihope',
+      name: 'HoliHope',
+      icon: Settings,
+      iconColor: 'text-indigo-500',
+      bgColor: 'bg-indigo-50 dark:bg-indigo-950/30',
+      description: 'CRM для школ',
+      tabValue: 'holihope'
     }
   ];
 
@@ -150,6 +160,9 @@ export const MessengersSettings: React.FC = () => {
             break;
           case 'openai':
             messengerTypes.push('openai');
+            break;
+          case 'holihope':
+            messengerTypes.push('holihope');
             break;
         }
 
@@ -249,6 +262,7 @@ export const MessengersSettings: React.FC = () => {
         {activeTab === 'salebot' && <SalebotSettings />}
         {activeTab === 'onlinepbx' && <OnlinePBXSettings />}
         {activeTab === 'openai' && <OpenAISettings />}
+        {activeTab === 'holihope' && <HoliHopeSettings />}
       </div>
     );
   }

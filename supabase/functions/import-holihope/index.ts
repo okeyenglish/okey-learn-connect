@@ -5,8 +5,35 @@ import {
 } from '../_shared/types.ts';
 
 const HOLIHOPE_DOMAIN = 'https://okeyenglish.t8s.ru/Api/V2';
-// API key is now loaded from Supabase secrets
-const HOLIHOPE_API_KEY = Deno.env.get('HOLIHOPE_API_KEY') || '';
+
+// Helper function to get HoliHope API key from database
+async function getHoliHopeApiKey(supabase: any, organizationId: string): Promise<string | null> {
+  try {
+    const { data: settings } = await supabase
+      .from('messenger_settings')
+      .select('settings')
+      .eq('organization_id', organizationId)
+      .eq('messenger_type', 'holihope')
+      .maybeSingle();
+    
+    if (settings?.settings) {
+      return (settings.settings as Record<string, string>).apiKey || null;
+    }
+    
+    // Fallback to env variable for backward compatibility
+    const envKey = Deno.env.get('HOLIHOPE_API_KEY');
+    if (envKey) {
+      console.log('⚠️ Using HOLIHOPE_API_KEY from env (deprecated, migrate to database)');
+      return envKey;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error fetching HoliHope API key:', error);
+    // Fallback to env variable
+    return Deno.env.get('HOLIHOPE_API_KEY') || null;
+  }
+}
 
 interface ImportProgress {
   step: string;
@@ -175,6 +202,19 @@ Deno.serve(async (req) => {
         .eq('id', user.id)
         .single();
       orgId = profile?.organization_id || null;
+    }
+    
+    // Get HoliHope API key from database (or fallback to env)
+    const HOLIHOPE_API_KEY = orgId ? await getHoliHopeApiKey(supabase, orgId) : Deno.env.get('HOLIHOPE_API_KEY') || '';
+    
+    if (!HOLIHOPE_API_KEY && !['delete_all_data', 'delete_ed_units_and_schedule'].includes(action)) {
+      console.error('❌ HoliHope API key not configured');
+      return new Response(JSON.stringify({ 
+        error: 'HoliHope API key not configured. Please set it in Admin → Integrations → HoliHope.' 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      });
     }
     
     const progress: ImportProgress[] = [];
