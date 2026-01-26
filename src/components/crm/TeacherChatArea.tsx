@@ -344,14 +344,18 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
           {isLoadingTeachers ? (
             <>
               {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="p-2 rounded-lg mb-0.5 border bg-card">
+                <div 
+                  key={i} 
+                  className="p-2 rounded-lg mb-0.5 border bg-card animate-fade-in"
+                  style={{ animationDelay: `${i * 50}ms`, animationFillMode: 'backwards' }}
+                >
                   <div className="flex items-start gap-2">
-                    <Skeleton className="w-9 h-9 rounded-full" />
+                    <Skeleton className="w-9 h-9 rounded-full animate-pulse" />
                     <div className="flex-1 space-y-2">
-                      <Skeleton className="h-3 w-24" />
-                      <Skeleton className="h-3 w-16" />
+                      <Skeleton className="h-3 w-24 animate-pulse" />
+                      <Skeleton className="h-3 w-16 animate-pulse" />
                     </div>
-                    <Skeleton className="h-4 w-4 rounded" />
+                    <Skeleton className="h-4 w-4 rounded animate-pulse" />
                   </div>
                 </div>
               ))}

@@ -1,14 +1,17 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 interface MessageSkeletonProps {
   count?: number;
+  /** Show animated entrance */
+  animated?: boolean;
 }
 
 /**
  * Skeleton loading state for chat messages
- * Shows realistic message bubbles while loading
+ * Shows realistic message bubbles while loading with staggered animation
  */
-export const MessageSkeleton = ({ count = 6 }: MessageSkeletonProps) => {
+export const MessageSkeleton = ({ count = 6, animated = true }: MessageSkeletonProps) => {
   // Alternate between left and right aligned messages
   const skeletons = Array.from({ length: count }, (_, i) => ({
     id: i,
@@ -17,27 +20,38 @@ export const MessageSkeleton = ({ count = 6 }: MessageSkeletonProps) => {
   }));
 
   return (
-    <div className="flex flex-col gap-3 p-4 animate-pulse">
+    <div className="flex flex-col gap-3 p-4">
       {skeletons.map(({ id, isOutgoing, width }) => (
         <div
           key={id}
-          className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}
+          className={cn(
+            "flex transition-all duration-300",
+            isOutgoing ? 'justify-end' : 'justify-start',
+            animated && "animate-fade-in"
+          )}
+          style={animated ? { animationDelay: `${id * 50}ms`, animationFillMode: 'backwards' } : undefined}
         >
-          <div className={`flex gap-2 max-w-[70%] ${isOutgoing ? 'flex-row-reverse' : 'flex-row'}`}>
+          <div className={cn(
+            "flex gap-2 max-w-[70%]",
+            isOutgoing ? 'flex-row-reverse' : 'flex-row'
+          )}>
             {/* Avatar for incoming messages */}
             {!isOutgoing && (
-              <Skeleton className="h-8 w-8 rounded-full flex-shrink-0" />
+              <Skeleton className="h-8 w-8 rounded-full flex-shrink-0 animate-pulse" />
             )}
             
             {/* Message bubble */}
             <div className="flex flex-col gap-1">
               <Skeleton 
-                className={`h-10 rounded-2xl ${isOutgoing ? 'rounded-br-sm' : 'rounded-bl-sm'}`}
+                className={cn(
+                  "h-10 animate-pulse",
+                  isOutgoing ? 'rounded-2xl rounded-br-sm bg-primary/20' : 'rounded-2xl rounded-bl-sm'
+                )}
                 style={{ width: `${width * 2}px`, minWidth: '80px', maxWidth: '300px' }}
               />
               {/* Timestamp */}
               <div className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
-                <Skeleton className="h-3 w-10" />
+                <Skeleton className="h-3 w-10 animate-pulse" />
               </div>
             </div>
           </div>
@@ -48,31 +62,74 @@ export const MessageSkeleton = ({ count = 6 }: MessageSkeletonProps) => {
 };
 
 /**
+ * Full-screen chat loading overlay with pulsing indicator
+ */
+export const ChatLoadingOverlay = ({ visible }: { visible: boolean }) => {
+  if (!visible) return null;
+  
+  return (
+    <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center z-20 animate-fade-in">
+      <div className="flex flex-col items-center gap-3">
+        <div className="relative">
+          <div className="h-10 w-10 rounded-full border-3 border-primary/30 border-t-primary animate-spin" />
+          <div className="absolute inset-0 h-10 w-10 rounded-full border-3 border-transparent border-b-primary/50 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '0.8s' }} />
+        </div>
+        <span className="text-sm text-muted-foreground animate-pulse">Загрузка сообщений...</span>
+      </div>
+    </div>
+  );
+};
+
+/**
  * Chat list skeleton for initial loading
  */
 export const ChatListSkeleton = ({ count = 8 }: { count?: number }) => {
   return (
-    <div className="flex flex-col animate-pulse">
+    <div className="flex flex-col">
       {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="flex items-center gap-3 p-3 border-b border-border/50">
+        <div 
+          key={i} 
+          className="flex items-center gap-3 p-3 border-b border-border/50 animate-fade-in"
+          style={{ animationDelay: `${i * 30}ms`, animationFillMode: 'backwards' }}
+        >
           {/* Avatar */}
-          <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
+          <Skeleton className="h-10 w-10 rounded-full flex-shrink-0 animate-pulse" />
           
           {/* Content */}
           <div className="flex-1 min-w-0 space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-3 w-10" />
+              <Skeleton className="h-4 w-24 animate-pulse" />
+              <Skeleton className="h-3 w-10 animate-pulse" />
             </div>
-            <Skeleton className="h-3 w-full max-w-[200px]" />
+            <Skeleton className="h-3 w-full max-w-[200px] animate-pulse" />
           </div>
           
           {/* Unread badge (occasionally) */}
           {i % 3 === 0 && (
-            <Skeleton className="h-5 w-5 rounded-full flex-shrink-0" />
+            <Skeleton className="h-5 w-5 rounded-full flex-shrink-0 animate-pulse" />
           )}
         </div>
       ))}
+    </div>
+  );
+};
+
+/**
+ * Compact inline loading indicator for chat switching
+ */
+export const ChatSwitchIndicator = ({ visible }: { visible: boolean }) => {
+  if (!visible) return null;
+  
+  return (
+    <div className="flex items-center justify-center py-8 animate-fade-in">
+      <div className="flex items-center gap-2 px-4 py-2 bg-muted/50 rounded-full">
+        <div className="flex gap-1">
+          <div className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
+          <div className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
+          <div className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
+        </div>
+        <span className="text-xs text-muted-foreground ml-1">Загрузка...</span>
+      </div>
     </div>
   );
 };
