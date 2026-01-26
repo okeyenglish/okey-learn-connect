@@ -12,9 +12,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Phone, Mail, Edit, Trash2, Loader2, ChevronDown, ChevronRight, Building, DoorOpen, Users, GripVertical } from 'lucide-react';
+import { Plus, Phone, Mail, Edit, Trash2, Loader2, ChevronDown, ChevronRight, Building, DoorOpen, Users, GripVertical, Clock } from 'lucide-react';
 import { OrganizationBranch } from '@/hooks/useOrganization';
 import { ClassroomModal } from '@/components/references/ClassroomModal';
+import { WorkingHoursEditor, WorkingHours, getDefaultWorkingHours, formatWorkingHoursShort } from './WorkingHoursEditor';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   DndContext,
   closestCenter,
@@ -104,6 +106,12 @@ const SortableBranchCard = ({
                 </CollapsibleTrigger>
               </div>
               <div className="flex items-center gap-2">
+                {branch.working_hours && (
+                  <Badge variant="outline" className="gap-1">
+                    <Clock className="h-3 w-3" />
+                    {formatWorkingHoursShort(branch.working_hours as unknown as WorkingHours)}
+                  </Badge>
+                )}
                 <Badge variant="secondary" className="gap-1">
                   <DoorOpen className="h-3 w-3" />
                   {classrooms.length} аудиторий
@@ -237,11 +245,18 @@ export const BranchesSettings = () => {
   const [classroomModalOpen, setClassroomModalOpen] = useState(false);
   const [editingClassroom, setEditingClassroom] = useState<any>(null);
   const [selectedBranchForClassroom, setSelectedBranchForClassroom] = useState<string>('');
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    address: string;
+    phone: string;
+    email: string;
+    working_hours: WorkingHours;
+  }>({
     name: '',
     address: '',
     phone: '',
     email: '',
+    working_hours: getDefaultWorkingHours(),
   });
 
   const sensors = useSensors(
@@ -261,17 +276,20 @@ export const BranchesSettings = () => {
       address: '',
       phone: '',
       email: '',
+      working_hours: getDefaultWorkingHours(),
     });
     setEditingBranch(null);
   };
 
   const handleEdit = (branch: OrganizationBranch) => {
     setEditingBranch(branch);
+    const workingHours = branch.working_hours as unknown as WorkingHours | null;
     setFormData({
       name: branch.name,
       address: branch.address || '',
       phone: branch.phone || '',
       email: branch.email || '',
+      working_hours: workingHours || getDefaultWorkingHours(),
     });
     setIsAddOpen(true);
   };
@@ -293,6 +311,7 @@ export const BranchesSettings = () => {
             address: formData.address || null,
             phone: formData.phone || null,
             email: formData.email || null,
+            working_hours: formData.working_hours,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingBranch.id);
@@ -308,6 +327,7 @@ export const BranchesSettings = () => {
             address: formData.address || null,
             phone: formData.phone || null,
             email: formData.email || null,
+            working_hours: formData.working_hours,
             sort_order: branches.length,
           });
 
@@ -468,61 +488,76 @@ export const BranchesSettings = () => {
               Добавить филиал
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-2xl max-h-[90vh]">
             <DialogHeader>
               <DialogTitle>
                 {editingBranch ? 'Редактировать филиал' : 'Добавить филиал'}
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="branch-name">Название филиала *</Label>
-                <Input
-                  id="branch-name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Центральный офис"
-                />
+            <ScrollArea className="max-h-[70vh] pr-4">
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="branch-name">Название филиала *</Label>
+                    <Input
+                      id="branch-name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Центральный офис"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="branch-phone">Телефон</Label>
+                    <Input
+                      id="branch-phone"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="+7 (999) 123-45-67"
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="branch-email">Email</Label>
+                    <Input
+                      id="branch-email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      placeholder="branch@example.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="branch-address">Адрес</Label>
+                    <Textarea
+                      id="branch-address"
+                      value={formData.address}
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      placeholder="г. Москва, ул. Ленина, д. 1"
+                      rows={2}
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <WorkingHoursEditor
+                    value={formData.working_hours}
+                    onChange={(hours) => setFormData({ ...formData, working_hours: hours })}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <Button variant="outline" onClick={() => setIsAddOpen(false)}>
+                    Отмена
+                  </Button>
+                  <Button onClick={handleSave} disabled={isSaving}>
+                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {editingBranch ? 'Сохранить' : 'Добавить'}
+                  </Button>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="branch-address">Адрес</Label>
-                <Textarea
-                  id="branch-address"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="г. Москва, ул. Ленина, д. 1"
-                  rows={2}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="branch-phone">Телефон</Label>
-                <Input
-                  id="branch-phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="+7 (999) 123-45-67"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="branch-email">Email</Label>
-                <Input
-                  id="branch-email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="branch@example.com"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsAddOpen(false)}>
-                  Отмена
-                </Button>
-                <Button onClick={handleSave} disabled={isSaving}>
-                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {editingBranch ? 'Сохранить' : 'Добавить'}
-                </Button>
-              </div>
-            </div>
+            </ScrollArea>
           </DialogContent>
         </Dialog>
       </div>
