@@ -83,15 +83,59 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Combined list: group chat at index 0, then teachers
+  // Sort teachers: pinned first, then by lastMessageAt
+  const sortedTeachers = useMemo(() => {
+    return [...filteredTeachers].sort((a, b) => {
+      const aPinned = (pinCounts[a.id] || 0) > 0;
+      const bPinned = (pinCounts[b.id] || 0) > 0;
+      
+      // Pinned items first
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+      
+      // Within same pin status, sort by lastMessageTime (newest first)
+      const aTime = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+      const bTime = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+      return bTime - aTime;
+    });
+  }, [filteredTeachers, pinCounts]);
+
+  // Check if group chat is pinned
+  const isGroupChatPinned = (pinCounts['teachers-group'] || 0) > 0;
+
+  // Combined list: group chat at index 0 (or after pinned teachers), then teachers
   const items = useMemo(() => {
-    return [{ type: 'group' as const }, ...filteredTeachers.map(t => ({ type: 'teacher' as const, teacher: t }))];
-  }, [filteredTeachers]);
+    // Find where to insert group chat
+    // If group chat is pinned, it goes first
+    // Otherwise, it goes after pinned teachers
+    if (isGroupChatPinned) {
+      return [{ type: 'group' as const }, ...sortedTeachers.map(t => ({ type: 'teacher' as const, teacher: t }))];
+    }
+    
+    // Find the first non-pinned teacher index
+    const firstNonPinnedIndex = sortedTeachers.findIndex(t => (pinCounts[t.id] || 0) === 0);
+    
+    if (firstNonPinnedIndex === -1) {
+      // All teachers are pinned, put group chat at the end of pinned
+      return [...sortedTeachers.map(t => ({ type: 'teacher' as const, teacher: t })), { type: 'group' as const }];
+    }
+    
+    if (firstNonPinnedIndex === 0) {
+      // No pinned teachers, put group chat first
+      return [{ type: 'group' as const }, ...sortedTeachers.map(t => ({ type: 'teacher' as const, teacher: t }))];
+    }
+    
+    // Insert group chat after pinned teachers
+    const pinnedTeachers = sortedTeachers.slice(0, firstNonPinnedIndex).map(t => ({ type: 'teacher' as const, teacher: t }));
+    const nonPinnedTeachers = sortedTeachers.slice(firstNonPinnedIndex).map(t => ({ type: 'teacher' as const, teacher: t }));
+    
+    return [...pinnedTeachers, { type: 'group' as const }, ...nonPinnedTeachers];
+  }, [sortedTeachers, isGroupChatPinned, pinCounts]);
 
   const rowVirtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => scrollContainerRef.current,
-    estimateSize: (index) => index === 0 ? GROUP_CHAT_HEIGHT : ITEM_HEIGHT,
+    estimateSize: (index) => items[index]?.type === 'group' ? GROUP_CHAT_HEIGHT : ITEM_HEIGHT,
     overscan: 10,
   });
 

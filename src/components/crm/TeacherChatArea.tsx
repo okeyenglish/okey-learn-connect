@@ -26,13 +26,44 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('диалог');
-  const [pinCounts, setPinCounts] = useState<Record<string, number>>({});
   const [resolvedClientId, setResolvedClientId] = useState<string | null>(null);
   const [userBranch, setUserBranch] = useState<string | null>(null);
   const [filterBranch, setFilterBranch] = useState<string>('all');
   const [filterSubject, setFilterSubject] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+  
+  // Pinned teachers - persisted in localStorage
+  const [pinnedTeacherIds, setPinnedTeacherIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('pinned-teacher-chats');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return new Set(Array.isArray(parsed) ? parsed : []);
+      }
+    } catch (e) {
+      console.error('Error loading pinned teachers:', e);
+    }
+    return new Set();
+  });
+  
+  // Persist pinned teachers to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('pinned-teacher-chats', JSON.stringify([...pinnedTeacherIds]));
+    } catch (e) {
+      console.error('Error saving pinned teachers:', e);
+    }
+  }, [pinnedTeacherIds]);
+  
+  // Convert to pinCounts format for compatibility with TeacherChatList
+  const pinCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    pinnedTeacherIds.forEach(id => {
+      counts[id] = 1;
+    });
+    return counts;
+  }, [pinnedTeacherIds]);
   
   const isMobile = useIsMobile();
 
@@ -299,16 +330,23 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   }, [teachers, toast, refetchTeachers]);
 
   const handlePinDialog = useCallback((teacherId: string) => {
-    setPinCounts(prev => ({
-      ...prev,
-      [teacherId]: (prev[teacherId] || 0) > 0 ? 0 : 1
-    }));
-    const isPinned = (pinCounts[teacherId] || 0) > 0;
+    const isPinned = pinnedTeacherIds.has(teacherId);
+    
+    setPinnedTeacherIds(prev => {
+      const newSet = new Set(prev);
+      if (isPinned) {
+        newSet.delete(teacherId);
+      } else {
+        newSet.add(teacherId);
+      }
+      return newSet;
+    });
+    
     toast({
       title: isPinned ? "Диалог откреплён" : "Диалог закреплён",
       description: isPinned ? "Чат убран из закреплённых" : "Чат добавлен в закреплённые",
     });
-  }, [pinCounts, toast]);
+  }, [pinnedTeacherIds, toast]);
 
   const handleDeleteChat = useCallback((teacherId: string) => {
     toast({
