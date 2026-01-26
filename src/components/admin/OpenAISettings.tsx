@@ -7,21 +7,18 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Key, Eye, EyeOff, CheckCircle, XCircle, ExternalLink, RefreshCw, Trash2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getErrorMessage } from '@/lib/errorUtils';
-
-const SELF_HOSTED_API = "https://api.academyos.ru/functions/v1";
+import { selfHostedGet, selfHostedPost, selfHostedDelete } from '@/lib/selfHostedApi';
 
 interface AISettings {
   openaiApiKey: string;
   isEnabled: boolean;
 }
 
-const getAuthToken = async (): Promise<string | null> => {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token || null;
-};
+interface AISettingsResponse {
+  settings: AISettings | null;
+}
 
 export const OpenAISettings: React.FC = () => {
   const { toast } = useToast();
@@ -41,28 +38,15 @@ export const OpenAISettings: React.FC = () => {
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      const token = await getAuthToken();
-      if (!token) {
-        throw new Error('Not authenticated');
+      const response = await selfHostedGet<AISettingsResponse>('ai-settings');
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch settings');
       }
 
-      const response = await fetch(`${SELF_HOSTED_API}/ai-settings`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Failed to fetch settings');
-      }
-
-      if (data.settings) {
-        setSettings(data.settings);
-        setIsEnabled(data.settings.isEnabled || false);
+      if (response.data?.settings) {
+        setSettings(response.data.settings);
+        setIsEnabled(response.data.settings.isEnabled || false);
       }
     } catch (error: unknown) {
       console.error('Error fetching AI settings:', error);
@@ -83,31 +67,17 @@ export const OpenAISettings: React.FC = () => {
 
     setIsSaving(true);
     try {
-      const token = await getAuthToken();
-      if (!token) {
-        throw new Error('Not authenticated');
-      }
-
-      const response = await fetch(`${SELF_HOSTED_API}/ai-settings`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ 
-          openaiApiKey: apiKey.trim() || undefined, 
-          isEnabled 
-        })
+      const response = await selfHostedPost<{ error?: string }>('ai-settings', { 
+        openaiApiKey: apiKey.trim() || undefined, 
+        isEnabled 
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Failed to save settings');
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to save settings');
       }
 
-      if (data.error) {
-        throw new Error(data.error);
+      if (response.data?.error) {
+        throw new Error(response.data.error);
       }
 
       toast({
@@ -133,23 +103,9 @@ export const OpenAISettings: React.FC = () => {
     setIsTesting(true);
     setTestResult(null);
     try {
-      const token = await getAuthToken();
-      if (!token) {
-        throw new Error('Not authenticated');
-      }
+      const response = await selfHostedPost<{ success: boolean; error?: string }>('ai-settings', { action: 'test' });
 
-      const response = await fetch(`${SELF_HOSTED_API}/ai-settings`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ action: 'test' })
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
+      if (response.data?.success) {
         setTestResult('success');
         toast({
           title: "Подключение успешно",
@@ -159,7 +115,7 @@ export const OpenAISettings: React.FC = () => {
         setTestResult('error');
         toast({
           title: "Ошибка подключения",
-          description: data.error || "Не удалось подключиться к OpenAI",
+          description: response.data?.error || response.error || "Не удалось подключиться к OpenAI",
           variant: "destructive"
         });
       }
@@ -182,23 +138,10 @@ export const OpenAISettings: React.FC = () => {
 
     setIsSaving(true);
     try {
-      const token = await getAuthToken();
-      if (!token) {
-        throw new Error('Not authenticated');
-      }
+      const response = await selfHostedDelete('ai-settings');
 
-      const response = await fetch(`${SELF_HOSTED_API}/ai-settings`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Failed to delete settings');
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to delete settings');
       }
 
       toast({
