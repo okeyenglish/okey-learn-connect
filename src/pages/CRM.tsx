@@ -10,6 +10,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -312,6 +313,12 @@ const CRMContent = () => {
   const [chatInitialSearchQuery, setChatInitialSearchQuery] = useState<string | undefined>(undefined);
   // Message ID to highlight and scroll to when navigating from search
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | undefined>(undefined);
+  // Bulk action confirmation dialog
+  const [bulkActionConfirm, setBulkActionConfirm] = useState<{ 
+    open: boolean; 
+    action: 'read' | 'pin' | 'archive' | null;
+    count: number;
+  }>({ open: false, action: null, count: 0 });
   
   // Критичные данные - загружаем ТОЛЬКО threads с infinite scroll (50 за раз)
   // useClients убран из критического пути - 27К клиентов тормозили загрузку
@@ -1494,6 +1501,34 @@ const CRMContent = () => {
       setActiveChatId(null);
     }
   }, [queryClient, activeChatId, linkChatModal.chatId, setActiveChatId]);
+
+  // Bulk action confirmation handler
+  const confirmBulkAction = useCallback(() => {
+    const chatIdsArray = Array.from(selectedChatIds);
+    const action = bulkActionConfirm.action;
+    
+    console.log('[CRM] Bulk action confirmed:', action, 'for', chatIdsArray.length, 'chats');
+    
+    if (action === 'read') {
+      chatIdsArray.forEach(chatId => {
+        markChatAsReadGlobally(chatId);
+        markChatMessagesAsReadMutation.mutate(chatId);
+        markAsReadMutation.mutate(chatId);
+        markAsRead(chatId);
+      });
+      toast.success(`${chatIdsArray.length} чатов отмечены прочитанными`);
+    } else if (action === 'pin') {
+      chatIdsArray.forEach(chatId => togglePin(chatId));
+      toast.success(`${chatIdsArray.length} чатов закреплено`);
+    } else if (action === 'archive') {
+      chatIdsArray.forEach(chatId => toggleArchive(chatId));
+      toast.success(`${chatIdsArray.length} чатов архивировано`);
+    }
+    
+    setBulkSelectMode(false);
+    setSelectedChatIds(new Set());
+    setBulkActionConfirm({ open: false, action: null, count: 0 });
+  }, [selectedChatIds, bulkActionConfirm.action, markChatAsReadGlobally, markChatMessagesAsReadMutation, markAsReadMutation, markAsRead, togglePin, toggleArchive, setBulkSelectMode, setSelectedChatIds]);
 
   const [activeFamilyMemberId, setActiveFamilyMemberId] = useState('550e8400-e29b-41d4-a716-446655440001');
 
@@ -3069,17 +3104,11 @@ const CRMContent = () => {
                           size="sm"
                           className="h-8 px-2"
                           onClick={() => {
-                            // Convert Set to Array for reliable iteration
-                            const chatIdsArray = Array.from(selectedChatIds);
-                            console.log('[CRM] Bulk mark as read:', chatIdsArray.length, 'chats');
-                            chatIdsArray.forEach(chatId => {
-                              markChatAsReadGlobally(chatId);
-                              markChatMessagesAsReadMutation.mutate(chatId);
-                              markAsReadMutation.mutate(chatId);
-                              markAsRead(chatId);
+                            setBulkActionConfirm({ 
+                              open: true, 
+                              action: 'read', 
+                              count: selectedChatIds.size 
                             });
-                            setBulkSelectMode(false);
-                            setSelectedChatIds(new Set());
                           }}
                           title="Прочитать все"
                         >
@@ -3090,11 +3119,11 @@ const CRMContent = () => {
                           size="sm"
                           className="h-8 px-2"
                           onClick={() => {
-                            const chatIdsArray = Array.from(selectedChatIds);
-                            console.log('[CRM] Bulk pin:', chatIdsArray.length, 'chats');
-                            chatIdsArray.forEach(chatId => togglePin(chatId));
-                            setBulkSelectMode(false);
-                            setSelectedChatIds(new Set());
+                            setBulkActionConfirm({ 
+                              open: true, 
+                              action: 'pin', 
+                              count: selectedChatIds.size 
+                            });
                           }}
                           title="Закрепить"
                         >
@@ -3105,11 +3134,11 @@ const CRMContent = () => {
                           size="sm"
                           className="h-8 px-2"
                           onClick={() => {
-                            const chatIdsArray = Array.from(selectedChatIds);
-                            console.log('[CRM] Bulk archive:', chatIdsArray.length, 'chats');
-                            chatIdsArray.forEach(chatId => toggleArchive(chatId));
-                            setBulkSelectMode(false);
-                            setSelectedChatIds(new Set());
+                            setBulkActionConfirm({ 
+                              open: true, 
+                              action: 'archive', 
+                              count: selectedChatIds.size 
+                            });
                           }}
                           title="Архивировать"
                         >
@@ -4336,6 +4365,32 @@ const CRMContent = () => {
         chatClientName={linkChatModal.chatName}
         onSuccess={handleLinkChatSuccess}
       />
+
+      {/* Bulk Action Confirmation Dialog */}
+      <AlertDialog open={bulkActionConfirm.open} onOpenChange={(open) => setBulkActionConfirm(prev => ({ ...prev, open }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {bulkActionConfirm.action === 'read' && 'Отметить как прочитанные?'}
+              {bulkActionConfirm.action === 'pin' && 'Закрепить чаты?'}
+              {bulkActionConfirm.action === 'archive' && 'Архивировать чаты?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {bulkActionConfirm.action === 'read' && `Вы уверены, что хотите отметить ${bulkActionConfirm.count} чатов как прочитанные? Это действие нельзя отменить.`}
+              {bulkActionConfirm.action === 'pin' && `Вы уверены, что хотите закрепить ${bulkActionConfirm.count} чатов?`}
+              {bulkActionConfirm.action === 'archive' && `Вы уверены, что хотите архивировать ${bulkActionConfirm.count} чатов?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkAction}>
+              {bulkActionConfirm.action === 'read' && 'Прочитать'}
+              {bulkActionConfirm.action === 'pin' && 'Закрепить'}
+              {bulkActionConfirm.action === 'archive' && 'Архивировать'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Модальные окна для голосового ассистента */}
       <AddClientModal 
