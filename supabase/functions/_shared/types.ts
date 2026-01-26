@@ -1688,3 +1688,88 @@ export function getErrorMessage(error: unknown): string {
   }
   return 'Unknown error';
 }
+
+/**
+ * Get OpenAI API key from messenger_settings table for organization
+ * Falls back to OPENAI_API_KEY env variable if not found in DB
+ */
+export async function getOpenAIApiKey(
+  supabase: any,
+  organizationId?: string
+): Promise<string | null> {
+  // First try environment variable (backward compatibility)
+  const envKey = Deno.env.get('OPENAI_API_KEY');
+  
+  // If no org ID provided, use env only
+  if (!organizationId) {
+    return envKey || null;
+  }
+  
+  try {
+    // Try to get from messenger_settings
+    const { data, error } = await supabase
+      .from('messenger_settings')
+      .select('settings, is_enabled')
+      .eq('organization_id', organizationId)
+      .eq('messenger_type', 'openai')
+      .maybeSingle();
+    
+    if (error) {
+      console.warn('[getOpenAIApiKey] DB error, falling back to env:', error.message);
+      return envKey || null;
+    }
+    
+    if (data?.is_enabled && data?.settings?.openaiApiKey) {
+      console.log('[getOpenAIApiKey] Using API key from messenger_settings');
+      return data.settings.openaiApiKey;
+    }
+    
+    // Fall back to env variable
+    if (envKey) {
+      console.log('[getOpenAIApiKey] Using API key from environment');
+      return envKey;
+    }
+    
+    console.warn('[getOpenAIApiKey] No API key found in DB or environment');
+    return null;
+  } catch (err) {
+    console.error('[getOpenAIApiKey] Error:', err);
+    return envKey || null;
+  }
+}
+
+/**
+ * Get organization ID from user's profile
+ */
+export async function getOrganizationIdFromUser(
+  supabase: any,
+  authHeader: string | null
+): Promise<string | null> {
+  if (!authHeader) return null;
+  
+  try {
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      console.warn('[getOrganizationIdFromUser] Auth error:', authError?.message);
+      return null;
+    }
+    
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', user.id)
+      .single();
+    
+    if (profileError || !profile?.organization_id) {
+      console.warn('[getOrganizationIdFromUser] Profile error:', profileError?.message);
+      return null;
+    }
+    
+    return profile.organization_id;
+  } catch (err) {
+    console.error('[getOrganizationIdFromUser] Error:', err);
+    return null;
+  }
+}

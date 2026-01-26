@@ -6,6 +6,7 @@ import {
   errorResponse,
   getErrorMessage,
   handleCors,
+  getOpenAIApiKey,
   type VoiceAssistantRequest,
   type VoiceAssistantResponse 
 } from '../_shared/types.ts';
@@ -70,14 +71,26 @@ Deno.serve(async (req) => {
     const body = await req.json() as VoiceAssistantExtendedRequest;
     const { audio, text, command, userId, context } = body;
     
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      return errorResponse('OPENAI_API_KEY is not set', 500);
-    }
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get user's organization ID to fetch org-specific API key
+    let organizationId: string | undefined;
+    if (userId) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', userId)
+        .single();
+      organizationId = profile?.organization_id;
+    }
+    
+    // Get OpenAI API key (from DB or env fallback)
+    const openAIApiKey = await getOpenAIApiKey(supabase, organizationId);
+    if (!openAIApiKey) {
+      return errorResponse('OpenAI API key not configured. Please set up in AI settings.', 500);
+    }
 
     let userCommand = '';
 
