@@ -87,7 +87,7 @@ serve(async (req) => {
     // Get user's organization
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('organization_id, role')
+      .select('organization_id')
       .eq('id', user.id)
       .single();
 
@@ -98,8 +98,15 @@ serve(async (req) => {
       );
     }
 
-    // Only admins and owners can manage settings
-    if (!['admin', 'owner'].includes(profile.role || '')) {
+    // Check if user is admin (roles are stored in user_roles table, not profiles)
+    const { data: userRole } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .in('role', ['admin', 'owner'])
+      .maybeSingle();
+
+    if (!userRole) {
       return new Response(
         JSON.stringify({ error: 'Insufficient permissions' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
