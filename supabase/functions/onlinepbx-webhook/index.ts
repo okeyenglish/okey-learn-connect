@@ -119,7 +119,11 @@ async function findOrganizationByPbxDomain(
       
       if (normalizedSettingDomain === normalizedDomain || settingDomain === pbxDomain.toLowerCase()) {
         console.log('[onlinepbx-webhook] Found organization (legacy):', setting.organization_id, 'for domain:', pbxDomain);
-        return setting.organization_id as string;
+        return {
+          organizationId: setting.organization_id as string,
+          // Legacy configs don't have an explicit enabled flag; if a legacy domain matches, allow processing.
+          isEnabled: true,
+        };
       }
     }
   }
@@ -437,6 +441,7 @@ Deno.serve(async (req) => {
         // Find client by phone - IMPROVED: support multiple phone formats
         // Filter by organization to ensure proper matching
         let clientId: string | null = null;
+        let searchMethod: 'client_phone_numbers' | 'clients_phone' | 'messenger_id' | 'not_found' = 'not_found';
         const last10 = normalizedPhone.length >= 10 ? normalizedPhone.slice(-10) : normalizedPhone;
         
         // Generate multiple search variants for different formats
@@ -470,6 +475,7 @@ Deno.serve(async (req) => {
           
           if (phoneRecords && phoneRecords.length > 0) {
             clientId = phoneRecords[0].client_id;
+            searchMethod = 'client_phone_numbers';
             console.log('[onlinepbx-webhook] Found client via client_phone_numbers:', clientId);
           }
         }
@@ -487,6 +493,7 @@ Deno.serve(async (req) => {
           
           if (clients && clients.length > 0) {
             clientId = clients[0].id;
+            searchMethod = 'clients_phone';
             console.log('[onlinepbx-webhook] Found client via clients table:', clientId);
           }
         }
@@ -503,6 +510,7 @@ Deno.serve(async (req) => {
           
           if (waClients && waClients.length > 0) {
             clientId = waClients[0].id;
+            searchMethod = 'messenger_id';
             console.log('[onlinepbx-webhook] Found client via messenger ID:', clientId);
           }
         }
@@ -515,24 +523,39 @@ Deno.serve(async (req) => {
           phone_variants_tried: phoneVariants?.slice(0, 5) || [],
           client_found: !!clientId,
           client_id: clientId,
-          search_method: clientId ? 
-            (phoneVariants ? 'phone_variants' : 'messenger_id') : 
-            'not_found',
+          search_method: searchMethod,
           organization_id: organizationId
         };
         
-        // Fire-and-forget logging - don't await to not block main flow
-        supabase.from('webhook_logs').insert({
-          messenger_type: 'onlinepbx',
-          event_type: 'client_search',
-          webhook_data: clientSearchLog,
-          processed: true,
-          organization_id: organizationId
-        }).then(() => {
-          console.log('[onlinepbx-webhook] Logged client search:', clientSearchLog.client_found ? 'FOUND' : 'NOT_FOUND');
-        }).catch(e => {
-          console.warn('[onlinepbx-webhook] Failed to log client search:', e);
-        });
+        // Fire-and-forget logging - must not block or break webhook processing.
+        // IMPORTANT: webhook_logs schema may not include organization_id column, so we only store it inside webhook_data.
+        try {
+          const logPromise = supabase.from('webhook_logs').insert({
+            messenger_type: 'onlinepbx',
+            event_type: 'client_search',
+            webhook_data: clientSearchLog,
+            processed: true,
+          });
+
+          if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+            // @ts-ignore
+            EdgeRuntime.waitUntil(
+              logPromise.then(() => {
+                console.log('[onlinepbx-webhook] Logged client search:', clientSearchLog.client_found ? 'FOUND' : 'NOT_FOUND');
+              }).catch((e) => {
+                console.warn('[onlinepbx-webhook] Failed to log client search:', e);
+              })
+            );
+          } else {
+            logPromise.then(() => {
+              console.log('[onlinepbx-webhook] Logged client search:', clientSearchLog.client_found ? 'FOUND' : 'NOT_FOUND');
+            }).catch((e) => {
+              console.warn('[onlinepbx-webhook] Failed to log client search:', e);
+            });
+          }
+        } catch (e) {
+          console.warn('[onlinepbx-webhook] Failed to schedule client search logging:', e);
+        }
 
         let managerId: string | null = null;
         let managerName: string | null = null;
