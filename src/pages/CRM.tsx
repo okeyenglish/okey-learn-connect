@@ -1362,27 +1362,28 @@ const CRMContent = () => {
       
       // Асинхронно подгружаем телефон в фоне (не блокируя UI) - используем setTimeout для дебаунса
       const currentChatId = chatId; // Замыкаем для проверки актуальности
-      setTimeout(async () => {
-        const currentPhone = existingClient?.phone || existingThread?.client_phone;
-        if (currentPhone) return; // Телефон уже есть
-        
-        try {
-          const { data: primaryPhone } = await supabase
-            .from('client_phone_numbers')
-            .select('phone')
-            .eq('client_id', currentChatId)
-            .eq('is_primary', true)
-            .maybeSingle();
-          
-          const phone = primaryPhone?.phone;
-          if (phone) {
-            setActiveClientInfo(prev => 
-              prev ? { ...prev, phone } : null
-            );
+      setTimeout(() => {
+        // NOTE: don't make the setTimeout handler itself `async` (can break TS typings in some builds)
+        void (async () => {
+          const currentPhone = existingClient?.phone || existingThread?.client_phone;
+          if (currentPhone) return; // Телефон уже есть
+
+          try {
+            const { data: primaryPhone } = await supabase
+              .from('client_phone_numbers')
+              .select('phone')
+              .eq('client_id', currentChatId)
+              .eq('is_primary', true)
+              .maybeSingle();
+
+            const phone = primaryPhone?.phone;
+            if (phone) {
+              setActiveClientInfo(prev => (prev ? { ...prev, phone } : null));
+            }
+          } catch (err) {
+            console.error('Error loading phone async:', err);
           }
-        } catch (err) {
-          console.error('Error loading phone async:', err);
-        }
+        })();
       }, 50); // Небольшая задержка чтобы не блокировать рендер
     } else if (chatType !== 'client') {
       setActiveClientInfo(null);
