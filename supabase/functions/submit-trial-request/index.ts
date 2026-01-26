@@ -173,7 +173,54 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Insert the trial lesson request with client_id
+    // Create student and link to client
+    let studentId: string | null = null;
+    let studentCreated = false;
+
+    if (organizationId && clientId) {
+      // Parse name for student
+      const nameParts = body.name.trim().split(/\s+/);
+      const firstName = nameParts[0] || body.name.trim();
+      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : null;
+
+      // Check if student already exists for this client
+      const { data: existingStudents } = await supabase
+        .from("students")
+        .select("id")
+        .eq("client_id", clientId)
+        .limit(1);
+
+      if (existingStudents && existingStudents.length > 0) {
+        studentId = existingStudents[0].id;
+        console.log("Found existing student for client:", studentId);
+      } else {
+        // Create new student linked to client
+        const { data: newStudent, error: studentError } = await supabase
+          .from("students")
+          .insert({
+            organization_id: organizationId,
+            client_id: clientId,
+            first_name: firstName,
+            last_name: lastName,
+            phone: normalizedPhone,
+            branch: body.branch_name.trim(),
+            status: "trial",
+            notes: body.comment?.trim() ? `Пробный урок: ${body.comment.trim()}` : "Записан на пробный урок",
+          })
+          .select("id")
+          .single();
+
+        if (studentError) {
+          console.error("Error creating student:", studentError);
+        } else if (newStudent) {
+          studentId = newStudent.id;
+          studentCreated = true;
+          console.log("Created new student:", studentId);
+        }
+      }
+    }
+
+    // Insert the trial lesson request with client_id and student_id
     const { data, error } = await supabase
       .from("trial_lesson_requests")
       .insert({
@@ -186,6 +233,7 @@ Deno.serve(async (req: Request) => {
         status: "new",
         organization_id: organizationId,
         client_id: clientId,
+        student_id: studentId,
       })
       .select()
       .single();
@@ -198,7 +246,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log("Trial request created:", { id: data.id, clientId });
+    console.log("Trial request created:", { id: data.id, clientId, studentId, studentCreated });
 
     return new Response(
       JSON.stringify({ 
@@ -206,7 +254,8 @@ Deno.serve(async (req: Request) => {
         message: "Заявка успешно отправлена",
         id: data.id,
         client_id: clientId,
-        client_created: clientId && !clientId ? false : !!clientId
+        student_id: studentId,
+        student_created: studentCreated
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
