@@ -1,4 +1,5 @@
-import React, { useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useMemo } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Search, Filter, Pin, X, Building2, BookOpen, UserCheck } from 'lucide-react';
 
 import { Input } from '@/components/ui/input';
@@ -6,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { TeacherChatItem } from '@/hooks/useTeacherChats';
 
@@ -14,6 +14,10 @@ import { TeacherListItem } from './TeacherListItem';
 
 // Keep scroll position across re-renders / remounts (desktop teacher list)
 let teacherChatListScrollTop = 0;
+
+// Row height for virtualization (matches TeacherListItem compact height ~68px)
+const ITEM_HEIGHT = 68;
+const GROUP_CHAT_HEIGHT = 68;
 
 export interface TeacherChatListProps {
   className?: string;
@@ -67,11 +71,24 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
   uniqueCategories,
   clearFilters,
 }) => {
-  const rootRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Combined list: group chat at index 0, then teachers
+  const items = useMemo(() => {
+    return [{ type: 'group' as const }, ...filteredTeachers.map(t => ({ type: 'teacher' as const, teacher: t }))];
+  }, [filteredTeachers]);
+
+  const rowVirtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: (index) => index === 0 ? GROUP_CHAT_HEIGHT : ITEM_HEIGHT,
+    overscan: 10,
+  });
 
   const captureScroll = () => {
-    const vp = rootRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
-    if (vp) teacherChatListScrollTop = vp.scrollTop;
+    if (scrollContainerRef.current) {
+      teacherChatListScrollTop = scrollContainerRef.current.scrollTop;
+    }
   };
 
   const selectWithScroll = (teacherId: string | null) => {
@@ -81,33 +98,32 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
 
   // Restore scroll on mount (covers remount cases)
   useLayoutEffect(() => {
-    const vp = rootRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
-    if (!vp) return;
-    vp.scrollTop = teacherChatListScrollTop;
+    if (!scrollContainerRef.current) return;
+    scrollContainerRef.current.scrollTop = teacherChatListScrollTop;
   }, []);
 
   // Track scrolling
   useEffect(() => {
-    const vp = rootRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
-    if (!vp) return;
+    const el = scrollContainerRef.current;
+    if (!el) return;
 
     const onScroll = () => {
-      teacherChatListScrollTop = vp.scrollTop;
+      teacherChatListScrollTop = el.scrollTop;
     };
 
-    vp.addEventListener('scroll', onScroll, { passive: true });
-    return () => vp.removeEventListener('scroll', onScroll);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Also restore after selection changes (covers “jump to top on click”)
+  // Restore after selection changes (covers "jump to top on click")
   useLayoutEffect(() => {
-    const vp = rootRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
-    if (!vp) return;
-    vp.scrollTop = teacherChatListScrollTop;
+    if (!scrollContainerRef.current) return;
+    scrollContainerRef.current.scrollTop = teacherChatListScrollTop;
   }, [selectedTeacherId]);
 
   return (
     <div className={`flex flex-col overflow-hidden ${className}`.trim()}>
+      {/* Search & Filters Header */}
       <div className="p-2 border-b border-border shrink-0 space-y-2">
         <div className="flex gap-1">
           <div className="flex-1 relative">
@@ -271,75 +287,113 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
         )}
       </div>
 
-      <ScrollArea ref={rootRef} className="flex-1 overflow-hidden">
-        <div className="overflow-hidden">
-          {isLoading ? (
-            <>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div
-                  key={i}
-                  className="p-2 rounded-lg mb-0.5 border bg-card animate-fade-in"
-                  style={{ animationDelay: `${i * 50}ms`, animationFillMode: 'backwards' }}
-                >
-                  <div className="flex items-start gap-2">
-                    <Skeleton className="w-9 h-9 rounded-full animate-pulse" />
-                    <div className="flex-1 space-y-2">
-                      <Skeleton className="h-3 w-24 animate-pulse" />
-                      <Skeleton className="h-3 w-16 animate-pulse" />
-                    </div>
-                    <Skeleton className="h-4 w-4 rounded animate-pulse" />
-                  </div>
-                </div>
-              ))}
-            </>
-          ) : (
-            <>
-              {/* Group Chat for All Teachers */}
-              <button
-                onClick={() => selectWithScroll('teachers-group')}
-                className={`w-full text-left p-2 rounded-lg transition-all duration-200 relative mb-0.5 border ${
-                  selectedTeacherId === 'teachers-group'
-                    ? 'bg-accent/50 shadow-sm border-accent'
-                    : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
-                }`}
+      {/* Virtualized List */}
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-auto"
+      >
+        {isLoading ? (
+          <div className="p-1">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className="p-2 rounded-lg mb-0.5 border bg-card animate-fade-in"
+                style={{ animationDelay: `${i * 50}ms`, animationFillMode: 'backwards' }}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-start gap-2 flex-1 min-w-0">
-                    <div className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium text-primary">
-                      ЧП
-                    </div>
-
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                      <div className="flex items-center gap-1.5 mb-0">
-                        <p className="text-sm font-medium truncate">Чат педагогов</p>
-                        {pinCounts['teachers-group'] > 0 && (
-                          <Pin className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                        )}
-                      </div>
-
-                      <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
-                        Общий чат всех преподавателей
-                      </p>
-                    </div>
+                <div className="flex items-start gap-2">
+                  <Skeleton className="w-9 h-9 rounded-full animate-pulse" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-3 w-24 animate-pulse" />
+                    <Skeleton className="h-3 w-16 animate-pulse" />
                   </div>
+                  <Skeleton className="h-4 w-4 rounded animate-pulse" />
                 </div>
-              </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const item = items[virtualRow.index];
 
-              {/* Individual Teachers */}
-              {filteredTeachers.map((teacher) => (
-                <TeacherListItem
+              if (item.type === 'group') {
+                return (
+                  <div
+                    key="teachers-group"
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: `${virtualRow.size}px`,
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    <button
+                      onClick={() => selectWithScroll('teachers-group')}
+                      className={`w-full text-left p-2 rounded-lg transition-all duration-200 relative mb-0.5 border ${
+                        selectedTeacherId === 'teachers-group'
+                          ? 'bg-accent/50 shadow-sm border-accent'
+                          : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2 flex-1 min-w-0">
+                          <div className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium text-primary">
+                            ЧП
+                          </div>
+
+                          <div className="flex-1 min-w-0 overflow-hidden">
+                            <div className="flex items-center gap-1.5 mb-0">
+                              <p className="text-sm font-medium truncate">Чат педагогов</p>
+                              {pinCounts['teachers-group'] > 0 && (
+                                <Pin className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                              )}
+                            </div>
+
+                            <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
+                              Общий чат всех преподавателей
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                );
+              }
+
+              const teacher = item.teacher;
+              return (
+                <div
                   key={teacher.id}
-                  teacher={teacher}
-                  isSelected={selectedTeacherId === teacher.id}
-                  pinCount={pinCounts[teacher.id] || 0}
-                  onClick={() => selectWithScroll(teacher.id)}
-                  compact={true}
-                />
-              ))}
-            </>
-          )}
-        </div>
-      </ScrollArea>
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: `${virtualRow.size}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <TeacherListItem
+                    teacher={teacher}
+                    isSelected={selectedTeacherId === teacher.id}
+                    pinCount={pinCounts[teacher.id] || 0}
+                    onClick={() => selectWithScroll(teacher.id)}
+                    compact={true}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
