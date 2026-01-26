@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Search, Filter, Users, Calendar, Pin, ArrowLeft, Phone, MoreVertical, MessageSquare, X, Building2, BookOpen, UserCheck } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -35,7 +35,34 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   
+  // Ref to preserve scroll position when selecting a teacher
+  const listContainerRef = useRef<HTMLDivElement>(null);
+  const savedScrollTop = useRef<number>(0);
+  
   const isMobile = useIsMobile();
+  
+  // Get the actual scrollable viewport inside ScrollArea
+  const getScrollViewport = useCallback((): HTMLElement | null => {
+    if (!listContainerRef.current) return null;
+    return listContainerRef.current.querySelector('[data-radix-scroll-area-viewport]');
+  }, []);
+  
+  // Handler that saves scroll position before selecting
+  const handleSelectTeacher = useCallback((teacherId: string | null) => {
+    // Save current scroll position from the viewport
+    const viewport = getScrollViewport();
+    if (viewport) {
+      savedScrollTop.current = viewport.scrollTop;
+    }
+    onSelectTeacher(teacherId);
+    // Restore scroll position after React re-renders
+    requestAnimationFrame(() => {
+      const vp = getScrollViewport();
+      if (vp) {
+        vp.scrollTop = savedScrollTop.current;
+      }
+    });
+  }, [onSelectTeacher, getScrollViewport]);
 
   // Load current user's branch once
   useEffect(() => {
@@ -339,7 +366,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         )}
       </div>
 
-      <ScrollArea className="flex-1 overflow-hidden">
+      <ScrollArea className="flex-1 overflow-hidden" ref={listContainerRef}>
         <div className="overflow-hidden">
           {isLoadingTeachers ? (
             <>
@@ -364,7 +391,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             <>
               {/* Group Chat for All Teachers */}
               <button
-                onClick={() => onSelectTeacher('teachers-group')}
+                onClick={() => handleSelectTeacher('teachers-group')}
                 className={`w-full text-left p-2 rounded-lg transition-all duration-200 relative mb-0.5 border ${
                   selectedTeacherId === 'teachers-group'
                     ? 'bg-accent/50 shadow-sm border-accent'
@@ -402,7 +429,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                   teacher={teacher}
                   isSelected={selectedTeacherId === teacher.id}
                   pinCount={pinCounts[teacher.id] || 0}
-                  onClick={() => onSelectTeacher(teacher.id)}
+                  onClick={() => handleSelectTeacher(teacher.id)}
                   compact={true}
                 />
               ))}
