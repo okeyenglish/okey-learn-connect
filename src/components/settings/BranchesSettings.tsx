@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Phone, Mail, Edit, Trash2, Loader2, ChevronDown, ChevronRight, Building, DoorOpen, Users, GripVertical, Clock } from 'lucide-react';
+import { Plus, Phone, Mail, Edit, Trash2, Loader2, ChevronDown, ChevronRight, Building, DoorOpen, Users, GripVertical, Clock, Copy } from 'lucide-react';
 import { OrganizationBranch } from '@/hooks/useOrganization';
 import { ClassroomModal } from '@/components/references/ClassroomModal';
 import { WorkingHoursEditor, WorkingHours, getDefaultWorkingHours, formatWorkingHoursShort, validateWorkingHours } from './WorkingHoursEditor';
@@ -41,10 +41,12 @@ interface SortableBranchCardProps {
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onDuplicate: () => void;
   classrooms: any[];
   onAddClassroom: () => void;
   onEditClassroom: (classroom: any) => void;
   onDeleteClassroom: (id: string) => void;
+  isDuplicating?: boolean;
 }
 
 const SortableBranchCard = ({
@@ -53,10 +55,12 @@ const SortableBranchCard = ({
   onToggle,
   onEdit,
   onDelete,
+  onDuplicate,
   classrooms,
   onAddClassroom,
   onEditClassroom,
   onDeleteClassroom,
+  isDuplicating,
 }: SortableBranchCardProps) => {
   const {
     attributes,
@@ -119,7 +123,17 @@ const SortableBranchCard = ({
                 <Button
                   size="sm"
                   variant="ghost"
+                  onClick={onDuplicate}
+                  disabled={isDuplicating}
+                  title="Дублировать филиал"
+                >
+                  {isDuplicating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
                   onClick={onEdit}
+                  title="Редактировать"
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
@@ -127,6 +141,7 @@ const SortableBranchCard = ({
                   size="sm"
                   variant="ghost"
                   onClick={onDelete}
+                  title="Удалить"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -241,6 +256,7 @@ export const BranchesSettings = () => {
   const [editingBranch, setEditingBranch] = useState<OrganizationBranch | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
+  const [duplicatingBranchId, setDuplicatingBranchId] = useState<string | null>(null);
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(new Set());
   const [classroomModalOpen, setClassroomModalOpen] = useState(false);
   const [editingClassroom, setEditingClassroom] = useState<any>(null);
@@ -400,6 +416,64 @@ export const BranchesSettings = () => {
       toast.error('Ошибка при сохранении филиала');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDuplicate = async (branch: OrganizationBranch) => {
+    if (!organization?.id) return;
+    
+    setDuplicatingBranchId(branch.id);
+    try {
+      // 1. Создаём копию филиала
+      const branchClassrooms = getClassroomsForBranch(branch.name);
+      const newBranchName = `${branch.name} (копия)`;
+      
+      const { data: newBranch, error: branchError } = await supabase
+        .from('organization_branches')
+        .insert({
+          organization_id: organization.id,
+          name: newBranchName,
+          address: branch.address,
+          phone: branch.phone,
+          email: branch.email,
+          working_hours: branch.working_hours,
+          sort_order: branches.length,
+        })
+        .select()
+        .single();
+
+      if (branchError) throw branchError;
+
+      // 2. Копируем все аудитории филиала
+      if (branchClassrooms.length > 0) {
+        const classroomInserts = branchClassrooms.map((classroom) => ({
+          organization_id: organization.id,
+          branch: newBranchName,
+          name: classroom.name,
+          capacity: classroom.capacity,
+          is_online: classroom.is_online,
+          is_active: true,
+        }));
+
+        const { error: classroomsError } = await supabase
+          .from('classrooms')
+          .insert(classroomInserts);
+
+        if (classroomsError) {
+          console.error('Error copying classrooms:', classroomsError);
+          toast.warning('Филиал создан, но некоторые аудитории не скопированы');
+        }
+      }
+
+      toast.success(`Филиал "${newBranchName}" создан с ${branchClassrooms.length} аудиториями`);
+      queryClient.invalidateQueries({ queryKey: ['organization-branches'] });
+      queryClient.invalidateQueries({ queryKey: ['all-organization-branches'] });
+      queryClient.invalidateQueries({ queryKey: ['classrooms'] });
+    } catch (error) {
+      console.error('Error duplicating branch:', error);
+      toast.error('Ошибка при дублировании филиала');
+    } finally {
+      setDuplicatingBranchId(null);
     }
   };
 
@@ -689,6 +763,8 @@ export const BranchesSettings = () => {
                   onToggle={() => toggleBranch(branch.id)}
                   onEdit={() => handleEdit(branch)}
                   onDelete={() => handleDelete(branch.id)}
+                  onDuplicate={() => handleDuplicate(branch)}
+                  isDuplicating={duplicatingBranchId === branch.id}
                   classrooms={branchClassrooms}
                   onAddClassroom={() => handleAddClassroom(branch.name)}
                   onEditClassroom={handleEditClassroom}
