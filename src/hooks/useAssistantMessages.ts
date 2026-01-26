@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { AssistantMessage, AssistantMessageRole } from '@/integrations/supabase/database.types';
+import { performanceAnalytics } from '@/utils/performanceAnalytics';
 
 export type { AssistantMessage } from '@/integrations/supabase/database.types';
 
@@ -16,6 +17,8 @@ export const useAssistantMessages = () => {
     queryFn: async () => {
       if (!user?.id) return [];
       
+      const start = performance.now();
+      
       const { data, error } = await supabase
         .from('assistant_messages')
         .select('*')
@@ -27,6 +30,14 @@ export const useAssistantMessages = () => {
         console.error('[useAssistantMessages] Error fetching messages:', error);
         throw error;
       }
+      
+      performanceAnalytics.trackQuery({
+        table: 'assistant_messages',
+        operation: 'SELECT',
+        duration: performance.now() - start,
+        source: 'useAssistantMessages',
+        rowCount: data?.length,
+      });
       
       return (data || []) as AssistantMessage[];
     },
@@ -40,6 +51,8 @@ export const useAssistantMessages = () => {
     queryFn: async () => {
       if (!user?.id) return 0;
       
+      const start = performance.now();
+      
       const { count, error } = await supabase
         .from('assistant_messages')
         .select('*', { count: 'exact', head: true })
@@ -51,6 +64,13 @@ export const useAssistantMessages = () => {
         console.error('[useAssistantMessages] Error fetching unread count:', error);
         return 0;
       }
+      
+      performanceAnalytics.trackQuery({
+        table: 'assistant_messages',
+        operation: 'SELECT',
+        duration: performance.now() - start,
+        source: 'useAssistantMessages.unreadCount',
+      });
       
       return count || 0;
     },

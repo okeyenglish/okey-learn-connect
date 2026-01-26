@@ -5,6 +5,7 @@ import { ChatMessage } from './useChatMessages';
 import { chatQueryConfig } from '@/lib/queryConfig';
 import { startMetric, endMetric } from '@/lib/performanceMetrics';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { performanceAnalytics } from '@/utils/performanceAnalytics';
 
 const MESSAGES_PER_PAGE = 100;
 
@@ -38,6 +39,7 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
       if (!clientId) return { messages: [], hasMore: false, totalCount: 0 };
 
       const metricId = startMetric('chat-messages', { clientId, limit });
+      const analyticsStart = performance.now();
       
       try {
         // Self-hosted schema uses: message_text, message_type, messenger_type, file_url, etc.
@@ -76,6 +78,15 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
           // Update in-memory cache
           messageCache.set(clientId, { messages: reversed, timestamp: Date.now() });
 
+          // Track for performance analytics
+          performanceAnalytics.trackQuery({
+            table: 'chat_messages',
+            operation: 'SELECT',
+            duration: performance.now() - analyticsStart,
+            source: 'useChatMessagesOptimized.fallback',
+            rowCount: messages.length,
+          });
+
           endMetric(metricId, 'completed', { msgCount: messages.length, fallback: true });
           return { messages: reversed, hasMore, totalCount: messages.length };
         }
@@ -87,6 +98,15 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
 
         // Update in-memory cache
         messageCache.set(clientId, { messages: reversed, timestamp: Date.now() });
+
+        // Track for performance analytics
+        performanceAnalytics.trackQuery({
+          table: 'chat_messages',
+          operation: 'SELECT',
+          duration: performance.now() - analyticsStart,
+          source: 'useChatMessagesOptimized',
+          rowCount: messages.length,
+        });
 
         endMetric(metricId, 'completed', { msgCount: messages.length });
         return { messages: reversed, hasMore, totalCount: messages.length };
@@ -123,8 +143,9 @@ export const useMessageStatusRealtime = (clientId: string, onDeliveryFailed?: (m
     // Reset notified set when client changes
     notifiedFailedRef.current = new Set();
 
+    const channelName = `message-status-${clientId}`;
     const channel = supabase
-      .channel(`message-status-${clientId}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -134,6 +155,9 @@ export const useMessageStatusRealtime = (clientId: string, onDeliveryFailed?: (m
           filter: `client_id=eq.${clientId}`,
         },
         (payload: RealtimePostgresChangesPayload<{ status?: string; id?: string; message_text?: string }>) => {
+          // Track realtime event
+          performanceAnalytics.trackRealtimeEvent(channelName);
+          
           const newRecord = payload.new as { status?: string; id?: string; message_text?: string };
           const oldRecord = payload.old as { status?: string };
           
@@ -180,8 +204,12 @@ export const useMessageStatusRealtime = (clientId: string, onDeliveryFailed?: (m
         }
       )
       .subscribe();
+    
+    // Track subscription
+    performanceAnalytics.trackRealtimeSubscription(channelName, 'chat_messages');
 
     return () => {
+      performanceAnalytics.untrackRealtimeSubscription(channelName);
       supabase.removeChannel(channel);
     };
   }, [clientId, queryClient, onDeliveryFailed]);
@@ -216,6 +244,8 @@ export const useUnreadCountOptimized = (clientId: string) => {
     queryFn: async () => {
       if (!clientId) return { total: 0, byMessenger: {} };
 
+      const start = performance.now();
+
       // Uses partial index idx_chat_messages_client_unread for fast unread counts
       // Self-hosted schema: message_type='client' for incoming messages
       const { data, error } = await supabase
@@ -237,6 +267,14 @@ export const useUnreadCountOptimized = (clientId: string) => {
       (data || []).forEach((msg: any) => {
         const type = msg.messenger_type || 'whatsapp';
         byMessenger[type] = (byMessenger[type] || 0) + 1;
+      });
+
+      performanceAnalytics.trackQuery({
+        table: 'chat_messages',
+        operation: 'SELECT',
+        duration: performance.now() - start,
+        source: 'useUnreadCountOptimized',
+        rowCount: data?.length,
       });
 
       return {

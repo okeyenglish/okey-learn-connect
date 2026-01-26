@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import type { TypingStatus } from '@/integrations/supabase/database.types';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { useThrottle } from './useThrottle';
+import { performanceAnalytics } from '@/utils/performanceAnalytics';
 
 export interface TypingInfo {
   managerName: string;
@@ -43,12 +44,20 @@ export const useTypingStatus = (clientId: string) => {
     if (!clientId) return;
     let isMounted = true;
     (async () => {
+      const start = performance.now();
       const { data, error } = await supabase
         .from('typing_status')
         .select('user_id, client_id, is_typing, manager_name, draft_text')
         .eq('client_id', clientId)
         .eq('is_typing', true);
       if (!error && isMounted) {
+        performanceAnalytics.trackQuery({
+          table: 'typing_status',
+          operation: 'SELECT',
+          duration: performance.now() - start,
+          source: 'useTypingStatus',
+          rowCount: data?.length,
+        });
         setTypingUsers((data || []).filter((t) => t.user_id !== currentUserIdRef.current) as TypingStatusWithName[]);
       }
     })();
@@ -94,19 +103,26 @@ export const useTypingStatus = (clientId: string) => {
   useEffect(() => {
     if (!clientId) return;
     
+    const channelName = `typing_status_${clientId}_optimized`;
     const channel = supabase
-      .channel(`typing_status_${clientId}_optimized`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'typing_status', filter: `client_id=eq.${clientId}` },
         (payload) => {
+          // Track realtime event
+          performanceAnalytics.trackRealtimeEvent(channelName);
           // Use payload directly instead of refreshTyping() SELECT
           handleRealtimePayload(payload as RealtimePostgresChangesPayload<TypingStatusWithName>);
         }
       )
       .subscribe();
+    
+    // Track subscription
+    performanceAnalytics.trackRealtimeSubscription(channelName, 'typing_status');
 
     return () => {
+      performanceAnalytics.untrackRealtimeSubscription(channelName);
       supabase.removeChannel(channel);
     };
   }, [clientId, handleRealtimePayload]);
