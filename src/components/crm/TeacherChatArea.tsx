@@ -12,6 +12,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useTeacherChats, useEnsureTeacherClient, TeacherChatItem } from '@/hooks/useTeacherChats';
 import { TeacherListItem } from './TeacherListItem';
 import { ChatArea } from './ChatArea';
+import { TeacherSchedulePanel } from './TeacherSchedulePanel';
 
 interface TeacherChatAreaProps {
   selectedTeacherId?: string | null;
@@ -372,15 +373,20 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                 />
               </TabsContent>
 
-              <TabsContent value="расписание" className="h-full m-0">
-                <ScrollArea className="h-full p-3">
-                  <div className="text-center py-8 text-sm text-muted-foreground">
-                    {isGroupChat 
-                      ? 'Общее расписание всех преподавателей'
-                      : 'Расписание преподавателя будет доступно позже'
-                    }
-                  </div>
-                </ScrollArea>
+              <TabsContent value="расписание" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col">
+                {isGroupChat ? (
+                  <ScrollArea className="h-full p-3">
+                    <div className="text-center py-8">
+                      <Calendar className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-sm text-muted-foreground">Общее расписание всех преподавателей</p>
+                    </div>
+                  </ScrollArea>
+                ) : currentTeacher ? (
+                  <TeacherSchedulePanel 
+                    teacherId={currentTeacher.id} 
+                    teacherName={currentTeacher.fullName}
+                  />
+                ) : null}
               </TabsContent>
 
               <TabsContent value="профиль" className="h-full m-0">
