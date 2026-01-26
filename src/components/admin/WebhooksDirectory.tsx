@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ElementType } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,11 +14,13 @@ import {
   Phone,
   CreditCard,
   Bot,
-  Send
+  Send,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { selfHostedGet } from "@/lib/selfHostedApi";
 
 interface WebhookConfig {
   name: string;
@@ -29,11 +31,12 @@ interface WebhookConfig {
   icon: ElementType;
   requiresAuth: boolean;
   testable: boolean;
+  settingsKey?: string; // Key in messenger_settings to fetch dynamic URL params
 }
 
 const BASE_URL = 'https://api.academyos.ru/functions/v1';
 
-const WEBHOOKS: WebhookConfig[] = [
+const getWebhooks = (dynamicKeys: Record<string, string>): WebhookConfig[] => [
   // Messengers
   {
     name: 'WhatsApp Webhook (Wappi)',
@@ -90,12 +93,15 @@ const WEBHOOKS: WebhookConfig[] = [
   {
     name: 'OnlinePBX Webhook',
     description: 'События звонков от виртуальной АТС',
-    url: `${BASE_URL}/onlinepbx-webhook`,
+    url: dynamicKeys.onlinepbx_key 
+      ? `${BASE_URL}/onlinepbx-webhook?key=${dynamicKeys.onlinepbx_key}`
+      : `${BASE_URL}/onlinepbx-webhook`,
     method: 'POST',
     category: 'telephony',
     icon: Phone,
     requiresAuth: false,
     testable: true,
+    settingsKey: 'onlinepbx',
   },
   
   // Payments
@@ -176,6 +182,55 @@ export function WebhooksDirectory() {
   const [testingWebhook, setTestingWebhook] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { status: number; time: number }>>({});
   const [activeTab, setActiveTab] = useState('all');
+  const [dynamicKeys, setDynamicKeys] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+
+  // Load dynamic webhook keys from messenger_settings
+  useEffect(() => {
+    const loadWebhookKeys = async () => {
+      try {
+        const response = await selfHostedGet<{
+          success: boolean;
+          settings?: Array<{
+            messenger_type: string;
+            settings: Record<string, unknown>;
+          }>;
+        }>('messenger-settings-list');
+        
+        const data = response as unknown as {
+          success: boolean;
+          settings?: Array<{
+            messenger_type: string;
+            settings: Record<string, unknown>;
+          }>;
+        };
+        
+        if (data.success && data.settings) {
+          const keys: Record<string, string> = {};
+          
+          for (const setting of data.settings) {
+            if (setting.messenger_type === 'onlinepbx') {
+              const webhookKey = (setting.settings as { webhookKey?: string; webhook_key?: string })?.webhookKey 
+                || (setting.settings as { webhookKey?: string; webhook_key?: string })?.webhook_key;
+              if (webhookKey) {
+                keys.onlinepbx_key = webhookKey;
+              }
+            }
+          }
+          
+          setDynamicKeys(keys);
+        }
+      } catch (error) {
+        console.error('Failed to load webhook keys:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadWebhookKeys();
+  }, []);
+
+  const webhooks = getWebhooks(dynamicKeys);
 
   const copyToClipboard = (url: string, name: string) => {
     navigator.clipboard.writeText(url);
@@ -226,8 +281,8 @@ export function WebhooksDirectory() {
 
   const testAllWebhooks = async () => {
     const webhooksToTest = activeTab === 'all' 
-      ? WEBHOOKS 
-      : WEBHOOKS.filter(w => w.category === activeTab);
+      ? webhooks 
+      : webhooks.filter(w => w.category === activeTab);
     
     for (const webhook of webhooksToTest) {
       await testWebhook(webhook);
@@ -236,8 +291,16 @@ export function WebhooksDirectory() {
   };
 
   const filteredWebhooks = activeTab === 'all' 
-    ? WEBHOOKS 
-    : WEBHOOKS.filter(w => w.category === activeTab);
+    ? webhooks 
+    : webhooks.filter(w => w.category === activeTab);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -256,18 +319,18 @@ export function WebhooksDirectory() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="all">Все ({WEBHOOKS.length})</TabsTrigger>
+          <TabsTrigger value="all">Все ({webhooks.length})</TabsTrigger>
           <TabsTrigger value="messenger">
-            Мессенджеры ({WEBHOOKS.filter(w => w.category === 'messenger').length})
+            Мессенджеры ({webhooks.filter(w => w.category === 'messenger').length})
           </TabsTrigger>
           <TabsTrigger value="telephony">
-            Телефония ({WEBHOOKS.filter(w => w.category === 'telephony').length})
+            Телефония ({webhooks.filter(w => w.category === 'telephony').length})
           </TabsTrigger>
           <TabsTrigger value="payment">
-            Платежи ({WEBHOOKS.filter(w => w.category === 'payment').length})
+            Платежи ({webhooks.filter(w => w.category === 'payment').length})
           </TabsTrigger>
           <TabsTrigger value="system">
-            Система ({WEBHOOKS.filter(w => w.category === 'system').length})
+            Система ({webhooks.filter(w => w.category === 'system').length})
           </TabsTrigger>
         </TabsList>
 
@@ -362,7 +425,7 @@ export function WebhooksDirectory() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <p><strong>Базовый URL:</strong> <code className="bg-background px-2 py-1 rounded">{BASE_URL}</code></p>
-          <p><strong>Всего эндпоинтов:</strong> {WEBHOOKS.length}</p>
+          <p><strong>Всего эндпоинтов:</strong> {webhooks.length}</p>
           <p><strong>Документация:</strong> Все вебхуки принимают POST-запросы с JSON-телом (кроме sitemap)</p>
         </CardContent>
       </Card>
