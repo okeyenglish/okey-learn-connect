@@ -5,25 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Generate HMAC-SHA256 signature for OnlinePBX API
-async function generateSignature(key: string, message: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(key);
-  const messageData = encoder.encode(message);
-  
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    keyData,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  
-  const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
-  const hashArray = Array.from(new Uint8Array(signature));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -31,47 +12,31 @@ serve(async (req) => {
   }
 
   try {
-    const { pbx_domain, api_key_id, api_key_secret } = await req.json();
+    const { pbx_domain, auth_key } = await req.json();
 
     console.log('Testing OnlinePBX connection for domain:', pbx_domain);
 
-    if (!pbx_domain || !api_key_id || !api_key_secret) {
+    if (!pbx_domain || !auth_key) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Missing required parameters' }),
+        JSON.stringify({ success: false, error: 'Укажите домен и Auth Key' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
-    // Test connection by getting PBX info
-    const apiPath = `/${pbx_domain}/info.json`;
-    const onlinePbxUrl = `https://api.onlinepbx.ru${apiPath}`;
-
-    const bodyString = JSON.stringify({});
-    const timestamp = Math.floor(Date.now() / 1000).toString();
+    // Authenticate using auth.json endpoint
+    const authUrl = `https://api2.onlinepbx.ru/${pbx_domain}/auth.json`;
     
-    // Generate signature: HMAC-SHA256(key, keyId + timestamp + bodyString)
-    const signatureMessage = api_key_id + timestamp + bodyString;
-    const signature = await generateSignature(api_key_secret, signatureMessage);
-    
-    const headers = {
-      'x-pbx-authentication': `${api_key_id}:${timestamp}:${signature}`,
-      'Content-Type': 'application/json'
-    };
+    console.log('Making OnlinePBX auth request:', authUrl);
 
-    console.log('Making OnlinePBX API test call:', {
-      url: onlinePbxUrl,
-      timestamp: timestamp
-    });
-
-    const response = await fetch(onlinePbxUrl, {
+    const response = await fetch(authUrl, {
       method: 'POST',
-      headers: headers,
-      body: bodyString
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auth_key })
     });
 
     const responseData = await response.json();
     
-    console.log('OnlinePBX test response:', responseData);
+    console.log('OnlinePBX auth response:', responseData);
 
     // Check if the response indicates success
     // OnlinePBX API returns status: "1" for success
@@ -79,19 +44,22 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'Connection successful',
-          pbx_info: responseData.data || responseData
+          message: 'Подключение успешно! Ключи получены.',
+          pbx_info: {
+            key_id: responseData.data?.key_id || responseData.key_id,
+            domain: pbx_domain
+          }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // Check for specific error codes
-    if (responseData.errorCode === 'API_KEY_CHECK_FAILED') {
+    if (responseData.errorCode === 'API_KEY_CHECK_FAILED' || responseData.errorCode === 'AUTH_FAILED') {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Неверные API-ключи. Проверьте Key ID и Secret Key.'
+          error: 'Неверный Auth Key. Проверьте ключ в разделе «Интеграция» → «API».'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
