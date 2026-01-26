@@ -2739,23 +2739,42 @@ export const ChatArea = ({
                 >
                   <MessageCircle className="h-4 w-4" />
                 </Button>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  className={`h-6 w-6 md:h-8 md:w-8 p-0 ${gptGenerating ? "bg-blue-100 text-blue-700" : ""}`}
-                  disabled={!!pendingMessage || gptGenerating}
-                  onClick={generateGPTResponse}
-                  title="Генерировать ответ с помощью GPT"
-                >
-                  <Bot className={`h-4 w-4 ${gptGenerating ? "animate-pulse" : ""}`} />
-                </Button>
-                <Button size="sm" variant="ghost" className="h-6 w-6 md:h-8 md:w-8 p-0" disabled={!!pendingMessage}>
-                  <Mic className="h-4 w-4" />
-                </Button>
+                {/* Bot and Mic only for client chats */}
+                {!simplifiedToolbar && (
+                  <>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className={`h-6 w-6 md:h-8 md:w-8 p-0 ${gptGenerating ? "bg-blue-100 text-blue-700" : ""}`}
+                      disabled={!!pendingMessage || gptGenerating}
+                      onClick={generateGPTResponse}
+                      title="Генерировать ответ с помощью GPT"
+                    >
+                      <Bot className={`h-4 w-4 ${gptGenerating ? "animate-pulse" : ""}`} />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-6 w-6 md:h-8 md:w-8 p-0" disabled={!!pendingMessage}>
+                      <Mic className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
                 
                 {/* Simplified toolbar for teacher chats */}
                 {simplifiedToolbar ? (
                   <>
+                    {/* Show "No response needed" button if there's an unread incoming message */}
+                    {isLastMessageIncoming && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 md:h-8 px-2 text-green-700 hover:text-green-800 hover:bg-green-50"
+                        disabled={!!pendingMessage}
+                        onClick={handleMarkAsNoResponseNeeded}
+                        title="Не требует ответа"
+                      >
+                        <CheckCheck className="h-4 w-4 mr-1" />
+                        <span className="text-xs hidden sm:inline">Не требует ответа</span>
+                      </Button>
+                    )}
                     {/* Simple dropdown with Schedule and Task only */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
