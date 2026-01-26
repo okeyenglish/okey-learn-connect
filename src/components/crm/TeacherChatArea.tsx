@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Filter, Users, Calendar, Pin, ArrowLeft, Phone, MoreVertical, MessageSquare, X, Building2, BookOpen } from 'lucide-react';
+import { Search, Filter, Users, Calendar, Pin, ArrowLeft, Phone, MoreVertical, MessageSquare, X, Building2, BookOpen, UserCheck } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const [userBranch, setUserBranch] = useState<string | null>(null);
   const [filterBranch, setFilterBranch] = useState<string>('all');
   const [filterSubject, setFilterSubject] = useState<string>('all');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   
   const isMobile = useIsMobile();
@@ -130,7 +131,15 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     return Array.from(subjects).sort();
   }, [teachers]);
 
-  const activeFiltersCount = (filterBranch !== 'all' ? 1 : 0) + (filterSubject !== 'all' ? 1 : 0);
+  const uniqueCategories = useMemo(() => {
+    const categories = new Set<string>();
+    teachers.forEach(t => {
+      t.categories?.forEach(c => categories.add(c));
+    });
+    return Array.from(categories).sort();
+  }, [teachers]);
+
+  const activeFiltersCount = (filterBranch !== 'all' ? 1 : 0) + (filterSubject !== 'all' ? 1 : 0) + (filterCategory !== 'all' ? 1 : 0);
 
   const filteredTeachers = useMemo(() => {
     return teachers.filter((teacher) => {
@@ -146,9 +155,12 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       // Subject filter
       if (filterSubject !== 'all' && !teacher.subjects?.includes(filterSubject)) return false;
 
+      // Category filter
+      if (filterCategory !== 'all' && !teacher.categories?.includes(filterCategory)) return false;
+
       return true;
     });
-  }, [teachers, searchQuery, filterBranch, filterSubject]);
+  }, [teachers, searchQuery, filterBranch, filterSubject, filterCategory]);
 
   const selectedTeacher = selectedTeacherId ? teachers.find((t) => t.id === selectedTeacherId) : null;
   const isGroupChat = selectedTeacherId === 'teachers-group';
@@ -163,6 +175,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const clearFilters = () => {
     setFilterBranch('all');
     setFilterSubject('all');
+    setFilterCategory('all');
   };
 
   // Teacher List Component
@@ -245,6 +258,24 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <UserCheck className="h-3 w-3" />
+                    Категория
+                  </label>
+                  <Select value={filterCategory} onValueChange={setFilterCategory}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Все категории" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Все категории</SelectItem>
+                      {uniqueCategories.map((category) => (
+                        <SelectItem key={category} value={category}>{category}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </PopoverContent>
           </Popover>
@@ -271,6 +302,18 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                 {filterSubject}
                 <button 
                   onClick={() => setFilterSubject('all')}
+                  className="ml-0.5 hover:bg-muted rounded-full p-0.5"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </Badge>
+            )}
+            {filterCategory !== 'all' && (
+              <Badge variant="secondary" className="text-xs h-5 gap-1 pr-1">
+                <UserCheck className="h-3 w-3" />
+                {filterCategory}
+                <button 
+                  onClick={() => setFilterCategory('all')}
                   className="ml-0.5 hover:bg-muted rounded-full p-0.5"
                 >
                   <X className="h-2.5 w-2.5" />
