@@ -4,13 +4,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Database, Zap, CheckCircle, XCircle, Clock, AlertTriangle } from "lucide-react";
+import { RefreshCw, Database, Zap, CheckCircle, XCircle, Clock, AlertTriangle, LayoutGrid } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { selfHostedPost } from "@/lib/selfHostedApi";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { EdgeFunctionsVisualization } from "@/components/admin/EdgeFunctionsVisualization";
 
 interface Migration {
   id: number;
@@ -124,17 +125,26 @@ export default function SystemMonitor() {
         </div>
       </div>
 
-      <Tabs defaultValue="health" className="space-y-4">
+      <Tabs defaultValue="catalog" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="catalog" className="gap-2">
+            <LayoutGrid className="h-4 w-4" />
+            Каталог
+          </TabsTrigger>
           <TabsTrigger value="health" className="gap-2">
             <Zap className="h-4 w-4" />
-            Edge Functions
+            Мониторинг
           </TabsTrigger>
           <TabsTrigger value="migrations" className="gap-2">
             <Database className="h-4 w-4" />
             Миграции
           </TabsTrigger>
         </TabsList>
+
+        {/* Edge Functions Catalog */}
+        <TabsContent value="catalog">
+          <EdgeFunctionsVisualization healthResults={healthCheck.data?.all_results} />
+        </TabsContent>
 
         {/* Edge Functions Health */}
         <TabsContent value="health" className="space-y-4">
