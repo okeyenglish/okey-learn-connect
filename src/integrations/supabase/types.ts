@@ -372,6 +372,44 @@ export type Database = {
           },
         ]
       }
+      messenger_settings: {
+        Row: {
+          created_at: string
+          id: string
+          is_enabled: boolean
+          messenger_type: string
+          organization_id: string
+          settings: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          messenger_type: string
+          organization_id: string
+          settings?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          messenger_type?: string
+          organization_id?: string
+          settings?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messenger_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           created_at: string
