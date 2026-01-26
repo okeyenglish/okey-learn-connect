@@ -106,14 +106,13 @@ Deno.serve(async (req) => {
 
   try {
     // servicePath resolution differs between self-hosted setups.
-    // We'll try a small set of known-good candidates to avoid
-    // "failed to bootstrap runtime: could not find an appropriate entrypoint".
+    // The absolute path /home/deno/functions/${name} is the only one that works reliably.
+    // Put it first to avoid boot errors with relative paths.
     const servicePathCandidates = [
+      `/home/deno/functions/${functionName}`,
       `${functionName}`,
       `./${functionName}`,
       `../${functionName}`,
-      `/home/deno/functions/${functionName}`,
-      `/home/deno/functions/${functionName}/index.ts`,
     ];
     const envVarsObj = Deno.env.toObject();
     const envVars = Object.entries(envVarsObj);
