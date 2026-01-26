@@ -4,19 +4,21 @@
 -- ============================================================
 
 -- Step 1: Create optimized indexes for chat_messages table
--- These indexes will significantly speed up the query
+-- NOTE: Removed CONCURRENTLY to run inside transaction block
+-- If you want non-blocking index creation, run each CREATE INDEX
+-- separately outside of a transaction
 
 -- Index for client_id + created_at (most important for this RPC)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_chat_messages_client_id_created_at 
+CREATE INDEX IF NOT EXISTS idx_chat_messages_client_id_created_at 
 ON chat_messages (client_id, created_at DESC);
 
 -- Partial index for unread messages (helps with unread counts)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_chat_messages_unread 
+CREATE INDEX IF NOT EXISTS idx_chat_messages_unread 
 ON chat_messages (client_id, created_at DESC) 
 WHERE is_read = false;
 
 -- Index for messenger_type filtering
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_chat_messages_client_messenger 
+CREATE INDEX IF NOT EXISTS idx_chat_messages_client_messenger 
 ON chat_messages (client_id, messenger_type, created_at DESC);
 
 
