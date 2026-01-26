@@ -120,6 +120,18 @@ Deno.serve(async (req) => {
       return await importDefaultTemplates(supabase, organizationId, body.is_teacher === true);
     }
 
+    if (req.method === 'POST' && action === 'reorder-categories') {
+      // POST /quick-responses/reorder-categories - Reorder categories
+      const body = await req.json();
+      return await reorderCategories(supabase, organizationId, body);
+    }
+
+    if (req.method === 'POST' && action === 'reorder-responses') {
+      // POST /quick-responses/reorder-responses - Reorder responses
+      const body = await req.json();
+      return await reorderResponses(supabase, organizationId, body);
+    }
+
     if (req.method === 'POST' && action === 'response') {
       // POST /quick-responses/response - Create response
       const body = await req.json();
@@ -405,6 +417,72 @@ async function deleteResponse(supabase: any, organizationId: string, responseId:
     JSON.stringify({ success: true }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
+}
+
+async function reorderCategories(supabase: any, organizationId: string, body: any) {
+  const { category_ids } = body;
+
+  if (!Array.isArray(category_ids)) {
+    return new Response(
+      JSON.stringify({ error: 'category_ids array is required' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  try {
+    // Update sort_order for each category
+    for (let i = 0; i < category_ids.length; i++) {
+      await supabase
+        .from('quick_response_categories')
+        .update({ sort_order: i + 1, updated_at: new Date().toISOString() })
+        .eq('id', category_ids[i])
+        .eq('organization_id', organizationId);
+    }
+
+    return new Response(
+      JSON.stringify({ success: true }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('[quick-responses] Error reordering categories:', error);
+    return new Response(
+      JSON.stringify({ error: error.message || 'Failed to reorder categories' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+}
+
+async function reorderResponses(supabase: any, organizationId: string, body: any) {
+  const { response_ids } = body;
+
+  if (!Array.isArray(response_ids)) {
+    return new Response(
+      JSON.stringify({ error: 'response_ids array is required' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  try {
+    // Update sort_order for each response
+    for (let i = 0; i < response_ids.length; i++) {
+      await supabase
+        .from('quick_responses')
+        .update({ sort_order: i + 1, updated_at: new Date().toISOString() })
+        .eq('id', response_ids[i])
+        .eq('organization_id', organizationId);
+    }
+
+    return new Response(
+      JSON.stringify({ success: true }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('[quick-responses] Error reordering responses:', error);
+    return new Response(
+      JSON.stringify({ error: error.message || 'Failed to reorder responses' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
 }
 
 // Default templates for clients
