@@ -2159,14 +2159,36 @@ export function SyncDashboard() {
                     Остановить
                   </Button>
                 ) : (
-                  <Button onClick={handleResumeImport} disabled={isImporting || (apiUsage?.remaining || 0) < 11}>
-                    {isImporting ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Play className="mr-2 h-4 w-4" />
+                  <>
+                    {/* Resume button - visible when import was started but not completed and not running */}
+                    {(importProgress?.currentOffset || 0) > 0 && !importProgress?.isCompleted && (
+                      <Button 
+                        variant="default"
+                        className="bg-green-600 hover:bg-green-700"
+                        onClick={handleResumeChain} 
+                        disabled={isResumingChain || (apiUsage?.remaining || 0) < 11}
+                      >
+                        {isResumingChain ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Play className="mr-2 h-4 w-4" />
+                        )}
+                        Продолжить с {importProgress?.currentOffset || 0}
+                      </Button>
                     )}
-                    Запустить импорт
-                  </Button>
+                    <Button 
+                      variant={(importProgress?.currentOffset || 0) > 0 && !importProgress?.isCompleted ? 'outline' : 'default'}
+                      onClick={handleResumeImport} 
+                      disabled={isImporting || (apiUsage?.remaining || 0) < 11}
+                    >
+                      {isImporting ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                      )}
+                      Импорт с начала
+                    </Button>
+                  </>
                 )}
                 <Button 
                   variant="secondary" 
