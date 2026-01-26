@@ -314,7 +314,7 @@ export const CallEvaluationCard: React.FC<CallEvaluationCardProps> = ({
 
       {/* Analysis Metadata */}
       <div className="text-xs text-muted-foreground text-center">
-        Проанализировано {new Date(evaluation.analyzed_at).toLocaleString('ru-RU')} • {evaluation.model_used}
+        Проанализировано {new Date(evaluation.analyzed_at).toLocaleString('ru-RU')} · {evaluation.model_used}
       </div>
     </div>
   );
