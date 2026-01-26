@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 interface BulkFetchResponse {
   success: boolean;
@@ -31,16 +31,11 @@ export const useBulkAvatarFetch = () => {
     newClientIds.forEach(id => attemptedClients.add(id));
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
       console.log(`[BulkAvatar] Triggering fetch for ${newClientIds.length} clients`);
 
-      const response = await supabase.functions.invoke<BulkFetchResponse>('bulk-fetch-avatars', {
-        body: { clientIds: newClientIds },
-      });
+      const response = await selfHostedPost<BulkFetchResponse>('bulk-fetch-avatars', { clientIds: newClientIds });
 
-      if (response.error) {
+      if (!response.success) {
         console.error('[BulkAvatar] Error:', response.error);
         return;
       }

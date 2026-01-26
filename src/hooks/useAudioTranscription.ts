@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from './use-toast';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 export const useAudioTranscription = () => {
   const [loading, setLoading] = useState(false);
@@ -9,12 +9,10 @@ export const useAudioTranscription = () => {
   const transcribeAudio = async (audioUrl: string): Promise<string | null> => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('transcribe-audio', {
-        body: { audioUrl }
-      });
+      const response = await selfHostedPost<{ text?: string }>('transcribe-audio', { audioUrl });
 
-      if (error) {
-        console.error('Transcription error:', error);
+      if (!response.success) {
+        console.error('Transcription error:', response.error);
         toast({
           title: "Ошибка транскрибации",
           description: "Не удалось распознать речь",
@@ -23,8 +21,8 @@ export const useAudioTranscription = () => {
         return null;
       }
 
-      if (data?.text) {
-        return data.text;
+      if (response.data?.text) {
+        return response.data.text;
       }
 
       return null;

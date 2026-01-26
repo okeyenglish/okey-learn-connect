@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
 import { useEffect } from 'react';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 export interface PendingGPTResponse {
   id: string;
@@ -127,24 +128,22 @@ export const useApprovePendingResponse = () => {
       const messageToSend = customMessage || pendingResponse.suggested_response;
 
       // Send the message via WhatsApp
-      const { data: sendResult, error: sendError } = await supabase.functions.invoke('whatsapp-send', {
-        body: {
-          clientId: pendingResponse.client_id,
-          message: messageToSend
-        }
+      const sendResult = await selfHostedPost<{ success: boolean; messageId?: string; error?: string }>('whatsapp-send', {
+        clientId: pendingResponse.client_id,
+        message: messageToSend
       });
 
-      console.log('WhatsApp send result:', { sendResult, sendError });
+      console.log('WhatsApp send result:', sendResult);
       
       // Check both function error and result success status
-      if (sendError) {
-        console.error('Function invocation error:', sendError);
-        throw sendError;
+      if (!sendResult.success) {
+        console.error('Function invocation error:', sendResult.error);
+        throw new Error(sendResult.error || 'Failed to send WhatsApp message');
       }
       
-      if (sendResult && !sendResult.success) {
-        console.error('WhatsApp send failed:', sendResult.error);
-        throw new Error(sendResult.error || 'Failed to send WhatsApp message');
+      if (sendResult.data && !sendResult.data.success) {
+        console.error('WhatsApp send failed:', sendResult.data.error);
+        throw new Error(sendResult.data.error || 'Failed to send WhatsApp message');
       }
 
       // Update the pending response status
@@ -165,7 +164,7 @@ export const useApprovePendingResponse = () => {
         throw updateError;
       }
 
-      return { success: true, messageId: sendResult?.messageId, clientId: pendingResponse.client_id, responseId };
+      return { success: true, messageId: sendResult.data?.messageId, clientId: pendingResponse.client_id, responseId };
     },
     onSuccess: (data) => {
       toast({
@@ -330,12 +329,13 @@ export const useTriggerDelayedGPTResponse = () => {
 
   return useMutation({
     mutationFn: async (clientId: string) => {
-      const { data, error } = await supabase.functions.invoke('generate-delayed-gpt-response', {
-        body: { clientId, maxWaitTimeMs: 30000 }
+      const response = await selfHostedPost<{ success: boolean; error?: string }>('generate-delayed-gpt-response', { 
+        clientId, 
+        maxWaitTimeMs: 30000 
       });
 
-      if (error) throw error;
-      return data;
+      if (!response.success) throw new Error(response.error || 'Failed to trigger delayed response');
+      return response.data;
     },
     onError: (error: Error) => {
       console.error('Error triggering delayed GPT response:', error);
