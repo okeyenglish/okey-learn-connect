@@ -28,6 +28,12 @@ export interface TeacherChatListProps {
   pinCounts: Record<string, number>;
   onSelectTeacher: (teacherId: string | null) => void;
 
+  // Context menu handlers
+  onMarkUnread?: (teacherId: string) => void;
+  onMarkRead?: (teacherId: string) => void;
+  onPinDialog?: (teacherId: string) => void;
+  onDelete?: (teacherId: string) => void;
+
   // Search / filters
   searchQuery: string;
   setSearchQuery: (value: string) => void;
@@ -55,6 +61,10 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
   selectedTeacherId,
   pinCounts,
   onSelectTeacher,
+  onMarkUnread,
+  onMarkRead,
+  onPinDialog,
+  onDelete,
   searchQuery,
   setSearchQuery,
   showFilters,
@@ -387,6 +397,10 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
                     pinCount={pinCounts[teacher.id] || 0}
                     onClick={() => selectWithScroll(teacher.id)}
                     compact={true}
+                    onMarkUnread={onMarkUnread ? () => onMarkUnread(teacher.id) : undefined}
+                    onMarkRead={onMarkRead ? () => onMarkRead(teacher.id) : undefined}
+                    onPinDialog={onPinDialog ? () => onPinDialog(teacher.id) : undefined}
+                    onDelete={onDelete ? () => onDelete(teacher.id) : undefined}
                   />
                 </div>
               );

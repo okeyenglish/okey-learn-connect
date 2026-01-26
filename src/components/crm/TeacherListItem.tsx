@@ -1,8 +1,9 @@
 import React from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Pin } from 'lucide-react';
 import { TeacherChatItem } from '@/hooks/useTeacherChats';
+import { TeacherChatContextMenu } from './TeacherChatContextMenu';
 
 // Get category badge styling
 const getCategoryBadge = (category: string): { label: string; className: string } => {
@@ -78,17 +79,29 @@ interface TeacherListItemProps {
   pinCount: number;
   onClick: () => void;
   compact?: boolean;
+  onMarkUnread?: () => void;
+  onMarkRead?: () => void;
+  onPinDialog?: () => void;
+  onBlock?: () => void;
+  onDelete?: () => void;
 }
 
 export const TeacherListItem: React.FC<TeacherListItemProps> = ({
   teacher,
   isSelected,
   pinCount,
-  onClick
+  onClick,
+  onMarkUnread,
+  onMarkRead,
+  onPinDialog,
+  onBlock,
+  onDelete
 }) => {
   const initials = `${teacher.lastName?.[0] || ''}${teacher.firstName?.[0] || ''}`.toUpperCase() || '•';
   const flags = getSubjectFlags(teacher.subjects);
   const messageTime = formatMessageTime(teacher.lastMessageTime);
+  const isPinned = pinCount > 0;
+  const isUnread = teacher.unreadMessages > 0;
   
   // Get unique category badges (max 2 for space)
   const categoryBadges = (teacher.categories || [])
@@ -99,46 +112,63 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
   let previewText = teacher.lastMessageText || '';
   previewText = previewText.replace(/^OKEY ENGLISH\s+[^\s]+\s*/i, '');
   previewText = previewText.slice(0, 50) + (previewText.length > 50 ? '...' : '');
-  
-  return (
+
+  const content = (
     <button
       onClick={onClick}
       className={`w-full p-2 text-left rounded-lg transition-all duration-200 relative mb-0.5 border select-none touch-manipulation ${
-        isSelected
-          ? 'bg-accent/50 shadow-sm border-accent'
-          : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
+        isPinned
+          ? `border-orange-200 bg-gradient-to-r ${
+              isSelected 
+                ? 'from-orange-50 to-orange-100/50 shadow-sm dark:from-orange-950 dark:to-orange-900/50' 
+                : 'from-white to-orange-50/30 hover:to-orange-50 dark:from-background dark:to-orange-950/30 hover:shadow-sm'
+            }`
+          : isSelected
+            ? 'bg-accent/50 shadow-sm border-accent'
+            : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
       }`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2 flex-1 min-w-0">
-          <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30">
-            <AvatarFallback className="bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))]">
+          <Avatar className={`h-9 w-9 flex-shrink-0 ring-2 transition-all ${
+            isPinned 
+              ? 'ring-orange-200 shadow-sm' 
+              : 'ring-border/30'
+          }`}>
+            <AvatarFallback className={`text-sm font-medium ${
+              isPinned 
+                ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white' 
+                : 'bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))]'
+            }`}>
               {initials}
             </AvatarFallback>
           </Avatar>
           
           <div className="flex-1 min-w-0 overflow-hidden">
             <div className="flex items-center gap-1.5 mb-0">
-              <span className="text-sm font-medium truncate max-w-[60%]">
+              <span className={`text-sm truncate max-w-[60%] ${isUnread ? 'font-semibold' : 'font-medium'}`}>
                 {teacher.fullName}
               </span>
               {flags && <span className="text-xs flex-shrink-0">{flags}</span>}
-              {pinCount > 0 && <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />}
+              {isPinned && <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />}
             </div>
             
-            {categoryBadges.length > 0 && (
-              <div className="flex items-center gap-1 flex-wrap mb-0.5">
-                {categoryBadges.map((badge, idx) => (
-                  <Badge 
-                    key={idx} 
-                    variant="outline" 
-                    className={`text-[9px] h-3.5 px-1 py-0 ${badge.className}`}
-                  >
-                    {badge.label}
-                  </Badge>
-                ))}
-              </div>
-            )}
+            <div className="flex items-center gap-1 flex-wrap mb-0.5">
+              {isPinned && (
+                <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/50">
+                  В работе
+                </Badge>
+              )}
+              {categoryBadges.map((badge, idx) => (
+                <Badge 
+                  key={idx} 
+                  variant="outline" 
+                  className={`text-[9px] h-3.5 px-1 py-0 ${badge.className}`}
+                >
+                  {badge.label}
+                </Badge>
+              ))}
+            </div>
             
             <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
               {previewText || 'Нет сообщений'}
@@ -148,8 +178,10 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
         
         <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
           <span className="text-[10px] text-muted-foreground font-medium">{messageTime}</span>
-          {teacher.unreadMessages > 0 && (
-            <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1">
+          {isUnread && (
+            <span className={`${
+              isPinned ? 'bg-gradient-to-r from-orange-500 to-orange-600' : 'bg-gradient-to-r from-primary to-primary/90'
+            } text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1`}>
               <span className="font-semibold">{teacher.unreadMessages}</span>
             </span>
           )}
@@ -157,6 +189,25 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
       </div>
     </button>
   );
+
+  // If context menu handlers are provided, wrap with context menu
+  if (onMarkUnread && onPinDialog) {
+    return (
+      <TeacherChatContextMenu
+        onMarkUnread={onMarkUnread}
+        onMarkRead={onMarkRead}
+        onPinDialog={onPinDialog}
+        onBlock={onBlock}
+        onDelete={onDelete}
+        isPinned={isPinned}
+        isUnread={isUnread}
+      >
+        {content}
+      </TeacherChatContextMenu>
+    );
+  }
+
+  return content;
 };
 
 export default TeacherListItem;

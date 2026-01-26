@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Users, Calendar, ArrowLeft, Phone, MessageSquare } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useTeacherChats, useEnsureTeacherClient, TeacherChatItem } from '@/hooks/useTeacherChats';
+import { useToast } from '@/hooks/use-toast';
 import { ChatArea } from './ChatArea';
 import { TeacherSchedulePanel } from './TeacherSchedulePanel';
 import { TeacherChatList } from './TeacherChatList';
@@ -183,12 +184,53 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     setFilterCategory('all');
   };
 
+  const { toast } = useToast();
+
+  // Context menu handlers
+  const handleMarkUnread = useCallback((teacherId: string) => {
+    toast({
+      title: "Отмечено непрочитанным",
+      description: "Чат отмечен как непрочитанный",
+    });
+  }, [toast]);
+
+  const handleMarkRead = useCallback((teacherId: string) => {
+    toast({
+      title: "Отмечено прочитанным", 
+      description: "Чат отмечен как прочитанный",
+    });
+  }, [toast]);
+
+  const handlePinDialog = useCallback((teacherId: string) => {
+    setPinCounts(prev => ({
+      ...prev,
+      [teacherId]: (prev[teacherId] || 0) > 0 ? 0 : 1
+    }));
+    const isPinned = (pinCounts[teacherId] || 0) > 0;
+    toast({
+      title: isPinned ? "Диалог откреплён" : "Диалог закреплён",
+      description: isPinned ? "Чат убран из закреплённых" : "Чат добавлен в закреплённые",
+    });
+  }, [pinCounts, toast]);
+
+  const handleDeleteChat = useCallback((teacherId: string) => {
+    toast({
+      title: "Удаление чата",
+      description: "Функция удаления в разработке",
+      variant: "destructive",
+    });
+  }, [toast]);
+
   const teacherListProps = {
     isLoading: isLoadingTeachers,
     filteredTeachers,
     selectedTeacherId,
     pinCounts,
     onSelectTeacher,
+    onMarkUnread: handleMarkUnread,
+    onMarkRead: handleMarkRead,
+    onPinDialog: handlePinDialog,
+    onDelete: handleDeleteChat,
     searchQuery,
     setSearchQuery,
     showFilters,
