@@ -160,12 +160,23 @@ export const BranchesMap = ({ selectedBranchId, onBranchSelect }: BranchesMapPro
                   <p className="text-xs text-muted-foreground truncate mt-0.5">
                     {branch.address}
                   </p>
-                  <div className="flex gap-2 mt-2">
+                  <div className="flex flex-wrap gap-2 mt-2">
                     <Link to={`/branches/${branch.id}`}>
                       <Button size="sm" variant="outline" className="h-7 text-xs">
                         Подробнее
                       </Button>
                     </Link>
+                    <a 
+                      href={`https://yandex.ru/maps/?rtext=~${branch.lat},${branch.lng}&rtt=auto`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Button size="sm" variant="default" className="h-7 text-xs gap-1">
+                        <Navigation className="h-3 w-3" />
+                        Маршрут
+                      </Button>
+                    </a>
                     {branch.yandexOrgId && (
                       <a 
                         href={`https://yandex.ru/maps/org/${branch.yandexOrgId}`}
