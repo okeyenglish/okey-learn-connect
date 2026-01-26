@@ -1,8 +1,9 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { playNotificationSound } from '@/hooks/useNotificationSound';
 import { showBrowserNotification } from '@/hooks/useBrowserNotifications';
 import { useMissedCallListener } from '@/hooks/useCallLogsRealtime';
+import { getNotificationSettings } from '@/hooks/useNotificationSettings';
 
 /**
  * Hook that shows notifications (toast, sound, browser notification) 
@@ -16,6 +17,13 @@ export const useMissedCallNotifications = () => {
     clientId: string | null; 
     phoneNumber: string 
   }) => {
+    // Check if missed call notifications are enabled
+    const settings = getNotificationSettings();
+    if (!settings.missedCallNotificationsEnabled) {
+      console.log('[useMissedCallNotifications] Notifications disabled, skipping');
+      return;
+    }
+
     console.log('[useMissedCallNotifications] Missed call received:', detail);
 
     // Play notification sound
