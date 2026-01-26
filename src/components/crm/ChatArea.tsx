@@ -18,6 +18,7 @@ import { useViewedMissedCalls } from "@/hooks/useViewedMissedCalls";
 import { useChatMessagesOptimized, useMessageStatusRealtime } from "@/hooks/useChatMessagesOptimized";
 import { useTeacherChatMessages } from "@/hooks/useTeacherChats";
 import { useAutoRetryMessages } from "@/hooks/useAutoRetryMessages";
+import { useCallLogsRealtime } from "@/hooks/useCallLogsRealtime";
 import { ChatMessage } from "./ChatMessage";
 import { DateSeparator, shouldShowDateSeparator } from "./DateSeparator";
 import { SalebotCallbackMessage, isSalebotCallback, isHiddenSalebotMessage, isSuccessPayment } from "./SalebotCallbackMessage";
@@ -413,6 +414,9 @@ export const ChatArea = ({
   
   // Hook for marking calls as viewed
   const { markCallsAsViewed } = useViewedMissedCalls(clientId);
+  
+  // Realtime subscription for call logs updates
+  useCallLogsRealtime(clientId);
   
   // Get integration statuses for all messengers (for tab indicators)
   const { data: integrationsStatus } = useAllIntegrationsStatus();
