@@ -9,7 +9,45 @@ import {
   type OnlinePBXWebhookResponse,
 } from '../_shared/types.ts';
 
-// Find organization by PBX domain from messenger_settings
+// Generate a unique webhook key
+function generateWebhookKey(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let key = '';
+  for (let i = 0; i < 24; i++) {
+    key += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return key;
+}
+
+// Find organization by webhook key from query params (PRIMARY method)
+async function findOrganizationByWebhookKey(supabase: ReturnType<typeof createClient>, webhookKey: string): Promise<string | null> {
+  if (!webhookKey) return null;
+  
+  console.log('[onlinepbx-webhook] Looking up organization by webhook key:', webhookKey.substring(0, 8) + '...');
+  
+  const { data: setting, error } = await supabase
+    .from('messenger_settings')
+    .select('organization_id, settings')
+    .eq('messenger_type', 'onlinepbx')
+    .eq('is_enabled', true)
+    .filter('settings->>webhook_key', 'eq', webhookKey)
+    .maybeSingle();
+  
+  if (error) {
+    console.error('[onlinepbx-webhook] Error searching by webhook key:', error);
+    return null;
+  }
+  
+  if (setting?.organization_id) {
+    console.log('[onlinepbx-webhook] ✓ Found organization by webhook key:', setting.organization_id);
+    return setting.organization_id as string;
+  }
+  
+  console.log('[onlinepbx-webhook] No organization found for webhook key');
+  return null;
+}
+
+// Find organization by PBX domain from messenger_settings (FALLBACK method)
 async function findOrganizationByPbxDomain(supabase: ReturnType<typeof createClient>, pbxDomain: string): Promise<string | null> {
   if (!pbxDomain) return null;
   
@@ -121,15 +159,27 @@ Deno.serve(async (req) => {
       console.log('Content-Type:', contentType);
       console.log('Webhook data received:', JSON.stringify(webhookData, null, 2));
 
-      // Extract PBX domain from webhook data
-      const pbxDomain = webhookData.domain || webhookData.pbx_domain || webhookData.account || 
-                        (webhookData as any).pbx || (webhookData as any).Domain || '';
-      console.log('[onlinepbx-webhook] PBX domain from webhook:', pbxDomain);
-
-      // Determine organization by PBX domain
-      let organizationId = await findOrganizationByPbxDomain(supabase, pbxDomain);
+      // STEP 1: Try to get organization from webhook key in URL (PRIMARY method)
+      const url = new URL(req.url);
+      const webhookKey = url.searchParams.get('key') || url.searchParams.get('webhook_key') || '';
+      let organizationId: string | null = null;
       
-      // If no org found by domain, use first active OnlinePBX config as fallback
+      if (webhookKey) {
+        organizationId = await findOrganizationByWebhookKey(supabase, webhookKey);
+      }
+
+      // STEP 2: Fallback - try PBX domain from webhook data
+      if (!organizationId) {
+        const pbxDomain = webhookData.domain || webhookData.pbx_domain || webhookData.account || 
+                          (webhookData as any).pbx || (webhookData as any).Domain || '';
+        console.log('[onlinepbx-webhook] PBX domain from webhook:', pbxDomain);
+        
+        if (pbxDomain) {
+          organizationId = await findOrganizationByPbxDomain(supabase, pbxDomain);
+        }
+      }
+      
+      // STEP 3: Final fallback - first active OnlinePBX config
       if (!organizationId) {
         console.log('[onlinepbx-webhook] Trying fallback: first enabled OnlinePBX config');
         const { data: anyConfig } = await supabase
@@ -145,6 +195,14 @@ Deno.serve(async (req) => {
           console.log('[onlinepbx-webhook] Using fallback organization:', organizationId);
         }
       }
+      
+      // If still no organization - reject the webhook
+      if (!organizationId) {
+        console.error('[onlinepbx-webhook] CRITICAL: Could not determine organization!');
+        return errorResponse('Organization not found. Please configure webhook with correct key.', 400);
+      }
+      
+      console.log('[onlinepbx-webhook] Using organization:', organizationId);
 
       // Map OnlinePBX event/status to our status
       const mapStatus = (event: string | undefined, hangupCause: string | undefined, pbxStatus: string | undefined): string => {
@@ -335,26 +393,23 @@ Deno.serve(async (req) => {
         console.log('Creating new call log for phone:', normalizedPhone);
         
         // Find client by phone - IMPROVED: use ilike for fuzzy matching
+        // Filter by organization to ensure proper matching
         let clientId: string | null = null;
         const last10 = normalizedPhone.length >= 10 ? normalizedPhone.slice(-10) : normalizedPhone;
-        console.log('[onlinepbx-webhook] Searching for client with phone variants, last10:', last10);
+        console.log('[onlinepbx-webhook] Searching for client in org:', organizationId, 'last10:', last10);
         
         // First try client_phone_numbers with ilike (most reliable - normalized phones)
-        if (!clientId && last10.length >= 10) {
+        if (last10.length >= 10) {
           const { data: phoneRecords } = await supabase
             .from('client_phone_numbers')
             .select('client_id, phone, clients!inner(id, organization_id)')
+            .eq('clients.organization_id', organizationId)
             .ilike('phone', `%${last10}%`)
             .limit(5);
           
           if (phoneRecords && phoneRecords.length > 0) {
-            const firstMatch = phoneRecords[0];
-            clientId = firstMatch.client_id;
-            const clientData = firstMatch.clients as unknown as { id: string; organization_id: string };
-            if (!organizationId && clientData?.organization_id) {
-              organizationId = clientData.organization_id;
-              console.log('[onlinepbx-webhook] Found client via client_phone_numbers:', clientId, 'org:', organizationId);
-            }
+            clientId = phoneRecords[0].client_id;
+            console.log('[onlinepbx-webhook] Found client via client_phone_numbers:', clientId);
           }
         }
         
@@ -362,49 +417,14 @@ Deno.serve(async (req) => {
         if (!clientId && last10.length >= 10) {
           const { data: clients } = await supabase
             .from('clients')
-            .select('id, organization_id, phone')
+            .select('id, phone')
+            .eq('organization_id', organizationId)
             .or(`phone.ilike.%${last10}%,phone.ilike.%${normalizedPhone}%`)
             .limit(5);
           
           if (clients && clients.length > 0) {
             clientId = clients[0].id;
-            if (!organizationId && clients[0].organization_id) {
-              organizationId = clients[0].organization_id;
-              console.log('[onlinepbx-webhook] Found client via clients table:', clientId, 'org:', organizationId);
-            }
-          }
-        }
-        
-        // If still no organization, try to get from messenger_settings for any active OnlinePBX
-        if (!organizationId) {
-          const { data: anyConfig } = await supabase
-            .from('messenger_settings')
-            .select('organization_id')
-            .eq('messenger_type', 'onlinepbx')
-            .eq('is_enabled', true)
-            .limit(1)
-            .maybeSingle();
-          
-          if (anyConfig?.organization_id) {
-            organizationId = anyConfig.organization_id;
-            console.log('[onlinepbx-webhook] Using first active OnlinePBX config organization:', organizationId);
-          }
-        }
-        
-        // Final fallback - get first real organization (not the fake one)
-        if (!organizationId) {
-          const { data: defaultOrg } = await supabase
-            .from('organizations')
-            .select('id')
-            .neq('id', '00000000-0000-0000-0000-000000000001')
-            .limit(1)
-            .maybeSingle();
-          
-          organizationId = defaultOrg?.id || null;
-          if (organizationId) {
-            console.log('[onlinepbx-webhook] Using first real organization:', organizationId);
-          } else {
-            console.error('[onlinepbx-webhook] CRITICAL: No organization found for call!');
+            console.log('[onlinepbx-webhook] Found client via clients table:', clientId);
           }
         }
 

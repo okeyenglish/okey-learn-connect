@@ -8,18 +8,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Phone, Copy, CheckCircle, XCircle, RefreshCw, ExternalLink, Eye, EyeOff } from "lucide-react";
+import { Loader2, Phone, Copy, CheckCircle, XCircle, RefreshCw, ExternalLink, Eye, EyeOff, KeyRound } from "lucide-react";
 
 interface OnlinePBXConfig {
   pbxDomain: string;
   apiKeyId: string;
   apiKeySecret: string;
+  webhookKey?: string;
 }
 
 const defaultConfig: OnlinePBXConfig = {
   pbxDomain: "",
   apiKeyId: "",
-  apiKeySecret: ""
+  apiKeySecret: "",
+  webhookKey: ""
 };
 
 export function OnlinePBXSettings() {
@@ -34,8 +36,7 @@ export function OnlinePBXSettings() {
   const [configured, setConfigured] = useState(false);
   const [showApiKeyId, setShowApiKeyId] = useState(false);
   const [showApiKeySecret, setShowApiKeySecret] = useState(false);
-
-  const webhookUrl = `https://api.academyos.ru/functions/v1/onlinepbx-webhook`;
+  const [webhookUrl, setWebhookUrl] = useState('');
 
   useEffect(() => {
     if (profile?.organization_id) {
@@ -57,10 +58,12 @@ export function OnlinePBXSettings() {
         setConfig({
           pbxDomain: data.settings?.pbxDomain || '',
           apiKeyId: data.settings?.apiKeyId || '',
-          apiKeySecret: data.settings?.apiKeySecret || ''
+          apiKeySecret: data.settings?.apiKeySecret || '',
+          webhookKey: data.settings?.webhookKey || ''
         });
         setIsEnabled(data.isEnabled || false);
         setConfigured(data.configured || false);
+        setWebhookUrl(data.webhookUrl || '');
         
         if (data.configured && data.isEnabled) {
           setConnectionStatus('connected');
@@ -74,7 +77,7 @@ export function OnlinePBXSettings() {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (regenerateKey: boolean = false) => {
     if (!config.pbxDomain) {
       toast.error('Введите домен PBX');
       return;
@@ -97,16 +100,20 @@ export function OnlinePBXSettings() {
           pbxDomain: config.pbxDomain,
           apiKeyId: config.apiKeyId,
           apiKeySecret: config.apiKeySecret,
-          isEnabled
+          isEnabled,
+          regenerateWebhookKey: regenerateKey
         }
       });
 
       if (error) throw error;
 
       if (data?.success) {
-        toast.success('Настройки сохранены');
+        toast.success(regenerateKey ? 'Webhook ключ обновлён' : 'Настройки сохранены');
         setConfigured(true);
         setConnectionStatus(isEnabled ? 'connected' : 'unknown');
+        if (data.webhookUrl) {
+          setWebhookUrl(data.webhookUrl);
+        }
         // Reload to get masked values
         await loadSettings();
       } else {
@@ -162,8 +169,9 @@ export function OnlinePBXSettings() {
   };
 
   const copyWebhookUrl = async () => {
+    const urlToCopy = webhookUrl || `https://api.academyos.ru/functions/v1/onlinepbx-webhook`;
     try {
-      await navigator.clipboard.writeText(webhookUrl);
+      await navigator.clipboard.writeText(urlToCopy);
       setCopied(true);
       toast.success('URL скопирован');
       setTimeout(() => setCopied(false), 2000);
@@ -217,6 +225,50 @@ export function OnlinePBXSettings() {
             </Badge>
           </div>
         </CardHeader>
+      </Card>
+
+      {/* Webhook URL - IMPORTANT: Show unique URL per organization */}
+      <Card className="border-primary/50 bg-primary/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <KeyRound className="h-5 w-5" />
+            Уникальный URL для вебхука
+          </CardTitle>
+          <CardDescription>
+            Этот URL уникален для вашей организации. Скопируйте его и вставьте в настройках OnlinePBX.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Input
+              value={webhookUrl || 'Сохраните настройки для генерации URL'}
+              readOnly
+              className="font-mono text-sm"
+            />
+            <Button variant="outline" size="icon" onClick={copyWebhookUrl} disabled={!webhookUrl}>
+              {copied ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+            </Button>
+          </div>
+          {webhookUrl && (
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleSave(true)}
+                disabled={saving}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Сгенерировать новый ключ
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                (Старый URL перестанет работать)
+              </span>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            В личном кабинете OnlinePBX: «Интеграции» → «Webhooks» → добавьте этот URL
+          </p>
+        </CardContent>
       </Card>
 
       {/* Main Settings */}
@@ -314,7 +366,7 @@ export function OnlinePBXSettings() {
           </div>
 
           <div className="flex gap-2 pt-4">
-            <Button onClick={handleSave} disabled={saving}>
+            <Button onClick={() => handleSave(false)} disabled={saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Сохранить
             </Button>
@@ -334,31 +386,6 @@ export function OnlinePBXSettings() {
         </CardContent>
       </Card>
 
-      {/* Webhook URL */}
-      <Card>
-        <CardHeader>
-          <CardTitle>URL для вебхука</CardTitle>
-          <CardDescription>
-            Скопируйте этот URL и вставьте в настройках OnlinePBX для получения уведомлений о звонках
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2">
-            <Input
-              value={webhookUrl}
-              readOnly
-              className="font-mono text-sm"
-            />
-            <Button variant="outline" size="icon" onClick={copyWebhookUrl}>
-              {copied ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            В личном кабинете OnlinePBX перейдите в раздел «Интеграции» → «Webhooks» и добавьте этот URL
-          </p>
-        </CardContent>
-      </Card>
-
       {/* Instructions */}
       <Card>
         <CardHeader>
@@ -370,8 +397,9 @@ export function OnlinePBXSettings() {
             <li>Перейдите в раздел «Настройки» → «Интеграции» → «API»</li>
             <li>Создайте новый API-ключ или используйте существующий</li>
             <li>Скопируйте Key ID и Secret Key в соответствующие поля выше</li>
-            <li>В разделе «Webhooks» добавьте URL вебхука (см. выше)</li>
-            <li>Нажмите «Сохранить» и «Проверить подключение»</li>
+            <li>Нажмите «Сохранить» — будет сгенерирован уникальный URL для вебхука</li>
+            <li>В разделе «Webhooks» добавьте уникальный URL вебхука (см. выше)</li>
+            <li>Нажмите «Проверить подключение» для проверки</li>
           </ol>
         </CardContent>
       </Card>
