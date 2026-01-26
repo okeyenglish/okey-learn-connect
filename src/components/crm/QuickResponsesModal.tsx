@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Search, Plus, Edit2, MoreHorizontal, Zap, Loader2, Trash2, Check, X } from "lucide-react";
+import { ArrowLeft, Search, Plus, Edit2, MoreHorizontal, Zap, Loader2, Trash2, Check, X, Download } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,65 +19,22 @@ interface QuickResponsesModalProps {
   isTeacher?: boolean;
 }
 
-// Default templates for initial data seeding
-const defaultClientTemplates = [
-  {
-    name: "Фирменные курсы",
-    responses: [
-      "Speaking club - это занятие для практических упражнений в устной речи, где участники могут свободно общаться на английском языке в непринужденной атмосфере.",
-      "*Workshop - это имитация ситуаций,* которые возникают в поездках заграницей. За год мы проигрываем более 50 различных ситуаций.",
-      "*Watch&Play - это авторский курс нашей школы,* который позволяет детям погружаться в мир мультфильмов, изучая английский язык."
-    ]
-  },
-  {
-    name: "Стоимость",
-    responses: [
-      "Стоимость индивидуальных занятий составляет 2500 рублей за урок 60 минут.",
-      "Групповые занятия (2-4 человека) - 1800 рублей за урок на человека.",
-      "Мини-группы (5-8 человек) - 1200 рублей за урок на человека."
-    ]
-  },
-  {
-    name: "Тестирование",
-    responses: [
-      "Перед началом обучения мы проводим бесплатное тестирование для определения уровня знаний.",
-      "Тестирование занимает около 30 минут и включает проверку грамматики, лексики и разговорных навыков."
-    ]
-  }
-];
-
-const defaultTeacherTemplates = [
-  {
-    name: "Расписание",
-    responses: [
-      "Добрый день! Подтверждаю ваше расписание на эту неделю.",
-      "К сожалению, занятие придётся перенести. Предлагаю следующие варианты времени:",
-      "Напоминаю о занятии завтра. Пожалуйста, подготовьте материалы."
-    ]
-  },
-  {
-    name: "Общее",
-    responses: [
-      "Спасибо за информацию! Приняла к сведению.",
-      "Хорошо, подтверждаю.",
-      "Пожалуйста, уточните детали."
-    ]
-  }
-];
-
 export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTeacher = false }: QuickResponsesModalProps) => {
   const {
     categories,
     isLoading,
+    isImporting,
     addCategory,
     deleteCategory,
     addResponse,
     updateResponse,
-    deleteResponse
+    deleteResponse,
+    importDefaultTemplates
   } = useQuickResponses({ isTeacher });
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [responseSearchQuery, setResponseSearchQuery] = useState("");
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [showAddResponse, setShowAddResponse] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -89,15 +46,30 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
 
   const selectedCategory = categories.find(cat => cat.id === selectedCategoryId);
   
-  const filteredCategories = categories.filter(category =>
-    category.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredCategories = useMemo(() => 
+    categories.filter(category =>
+      category.name.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+    [categories, searchQuery]
   );
+
+  // Filter responses within selected category
+  const filteredResponses = useMemo(() => {
+    if (!selectedCategory) return [];
+    if (!responseSearchQuery.trim()) return selectedCategory.responses;
+    
+    const query = responseSearchQuery.toLowerCase();
+    return selectedCategory.responses.filter(response =>
+      response.text.toLowerCase().includes(query)
+    );
+  }, [selectedCategory, responseSearchQuery]);
 
   // Reset state when modal opens/closes
   useEffect(() => {
     if (!open) {
       setSelectedCategoryId(null);
       setSearchQuery("");
+      setResponseSearchQuery("");
       setShowAddCategory(false);
       setShowAddResponse(false);
       setNewCategoryName("");
@@ -105,6 +77,11 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
       setEditingResponseId(null);
     }
   }, [open]);
+
+  // Reset response search when changing category
+  useEffect(() => {
+    setResponseSearchQuery("");
+  }, [selectedCategoryId]);
 
   const handleSelectResponse = (response: QuickResponse) => {
     onSelectResponse(response.text);
@@ -165,9 +142,14 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
     setEditingResponseText("");
   };
 
+  const handleImportDefaults = async () => {
+    await importDefaultTemplates();
+  };
+
   const goBack = () => {
     setSelectedCategoryId(null);
     setShowAddResponse(false);
+    setResponseSearchQuery("");
   };
 
   return (
@@ -183,6 +165,9 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
             <DialogTitle className="flex items-center gap-2">
               <Zap className="h-5 w-5" />
               <span>{selectedCategory ? selectedCategory.name : "Быстрые ответы"}</span>
+              {isTeacher && (
+                <span className="text-xs text-muted-foreground font-normal">(для преподавателей)</span>
+              )}
             </DialogTitle>
           </div>
         </DialogHeader>
@@ -206,6 +191,19 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
                       className="pl-10"
                     />
                   </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleImportDefaults}
+                    disabled={isImporting}
+                    title="Импортировать стандартные шаблоны"
+                  >
+                    {isImporting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
               </div>
 
@@ -213,7 +211,21 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
                 {filteredCategories.length === 0 && !showAddCategory ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <p>Нет сохранённых шаблонов</p>
-                    <p className="text-sm mt-1">Создайте первый раздел для быстрых ответов</p>
+                    <p className="text-sm mt-1">Создайте первый раздел или импортируйте стандартные</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-3"
+                      onClick={handleImportDefaults}
+                      disabled={isImporting}
+                    >
+                      {isImporting ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4 mr-2" />
+                      )}
+                      Импортировать стандартные
+                    </Button>
                   </div>
                 ) : (
                   filteredCategories.map((category) => (
@@ -297,19 +309,32 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
           ) : (
             // Responses view
             <div className="flex-1 overflow-hidden flex flex-col">
-              <div className="flex-shrink-0 mb-4">
-                <p className="text-sm text-muted-foreground">
+              <div className="flex-shrink-0 mb-4 space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Поиск шаблонов..."
+                    value={responseSearchQuery}
+                    onChange={(e) => setResponseSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
                   Нажмите на шаблон, чтобы вставить его в сообщение
                 </p>
               </div>
 
               <div className="flex-1 overflow-y-auto space-y-2">
-                {selectedCategory.responses.length === 0 && !showAddResponse ? (
+                {filteredResponses.length === 0 && !showAddResponse ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    <p>В этом разделе пока нет шаблонов</p>
+                    {responseSearchQuery ? (
+                      <p>Ничего не найдено по запросу "{responseSearchQuery}"</p>
+                    ) : (
+                      <p>В этом разделе пока нет шаблонов</p>
+                    )}
                   </div>
                 ) : (
-                  selectedCategory.responses.map((response) => (
+                  filteredResponses.map((response) => (
                     <div
                       key={response.id}
                       className={`p-3 border rounded-lg group ${
