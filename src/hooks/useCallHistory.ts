@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { selfHostedPost } from "@/lib/selfHostedApi";
 
-interface CallLog {
+export interface CallLog {
   id: string;
   phone_number: string;
   direction: 'incoming' | 'outgoing';
