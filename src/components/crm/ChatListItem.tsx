@@ -4,6 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { Pin, MessageSquare } from "lucide-react";
 import { ChatContextMenu } from "./ChatContextMenu";
 
+interface TypingInfo {
+  count: number;
+  names: string[];
+}
+
 interface ChatListItemProps {
   chat: {
     id: string;
@@ -28,6 +33,7 @@ interface ChatListItemProps {
   isSelected: boolean;
   foundInMessages?: boolean;
   searchQuery?: string;
+  typingInfo?: TypingInfo | null;
   onChatClick: () => void;
   onMarkUnread: () => void;
   onMarkRead?: () => void;
@@ -78,6 +84,7 @@ export const ChatListItem = React.memo(({
   isSelected,
   foundInMessages,
   searchQuery,
+  typingInfo,
   onChatClick,
   onMarkUnread,
   onMarkRead,
@@ -88,6 +95,8 @@ export const ChatListItem = React.memo(({
   onLinkToClient,
   onBulkSelect
 }: ChatListItemProps) => {
+  const isTyping = typingInfo && typingInfo.count > 0;
+  
   return (
     <ChatContextMenu
       onMarkUnread={onMarkUnread}
@@ -190,9 +199,20 @@ export const ChatListItem = React.memo(({
                 )}
               </div>
               
-              <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
-                {chat.lastMessage || "Нет сообщений"}
-              </p>
+              {isTyping ? (
+                <p className="text-xs text-orange-600 italic line-clamp-1 leading-relaxed flex items-center gap-1">
+                  <span className="inline-flex gap-0.5">
+                    <span className="w-1 h-1 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
+                    <span className="w-1 h-1 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
+                    <span className="w-1 h-1 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
+                  </span>
+                  <span className="truncate">{typingInfo?.names?.[0] || 'Менеджер'} печатает...</span>
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
+                  {chat.lastMessage || "Нет сообщений"}
+                </p>
+              )}
             </div>
           </div>
           
@@ -222,6 +242,11 @@ export const ChatListItem = React.memo(({
   );
 }, (prevProps, nextProps) => {
   // Оптимизация: ре-рендерить только если изменились критичные пропсы
+  const prevTypingCount = prevProps.typingInfo?.count ?? 0;
+  const nextTypingCount = nextProps.typingInfo?.count ?? 0;
+  const prevTypingName = prevProps.typingInfo?.names?.[0] ?? '';
+  const nextTypingName = nextProps.typingInfo?.names?.[0] ?? '';
+  
   return (
     prevProps.chat.id === nextProps.chat.id &&
     prevProps.chat.name === nextProps.chat.name && // ВАЖНО: обновлять при изменении имени
@@ -236,7 +261,9 @@ export const ChatListItem = React.memo(({
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isInWorkByOthers === nextProps.isInWorkByOthers &&
     prevProps.foundInMessages === nextProps.foundInMessages &&
-    prevProps.searchQuery === nextProps.searchQuery
+    prevProps.searchQuery === nextProps.searchQuery &&
+    prevTypingCount === nextTypingCount &&
+    prevTypingName === nextTypingName
   );
 });
 
