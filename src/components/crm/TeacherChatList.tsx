@@ -15,9 +15,9 @@ import { TeacherListItem } from './TeacherListItem';
 // Keep scroll position across re-renders / remounts (desktop teacher list)
 let teacherChatListScrollTop = 0;
 
-// Row height for virtualization (matches TeacherListItem compact height ~68px)
-const ITEM_HEIGHT = 68;
-const GROUP_CHAT_HEIGHT = 68;
+// Row height for virtualization (matches client chat list ~60px)
+const ITEM_HEIGHT = 60;
+const GROUP_CHAT_HEIGHT = 60;
 
 export interface TeacherChatListProps {
   className?: string;
@@ -351,11 +351,11 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
             {[1, 2, 3, 4, 5].map((i) => (
               <div
                 key={i}
-                className="p-2 rounded-lg mb-0.5 border bg-card animate-fade-in"
+                className="p-1.5 md:p-2 rounded-lg border bg-card animate-fade-in"
                 style={{ animationDelay: `${i * 50}ms`, animationFillMode: 'backwards' }}
               >
                 <div className="flex items-start gap-2">
-                  <Skeleton className="w-9 h-9 rounded-full animate-pulse" />
+                  <Skeleton className="w-8 h-8 md:w-9 md:h-9 rounded-full animate-pulse" />
                   <div className="flex-1 space-y-2">
                     <Skeleton className="h-3 w-24 animate-pulse" />
                     <Skeleton className="h-3 w-16 animate-pulse" />
@@ -391,7 +391,7 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
                   >
                     <button
                       onClick={() => selectWithScroll('teachers-group')}
-                      className={`w-full text-left p-2 rounded-lg transition-all duration-200 relative mb-0.5 border ${
+                      className={`w-full text-left p-1.5 md:p-2 rounded-lg transition-all duration-200 relative border ${
                         selectedTeacherId === 'teachers-group'
                           ? 'bg-accent/50 shadow-sm border-accent'
                           : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
@@ -399,7 +399,7 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-start gap-2 flex-1 min-w-0">
-                          <div className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium text-primary">
+                          <div className="h-8 w-8 md:h-9 md:w-9 flex-shrink-0 ring-2 ring-border/30 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium text-primary">
                             ЧП
                           </div>
 
