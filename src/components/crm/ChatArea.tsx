@@ -53,6 +53,7 @@ import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useMessageDrafts } from '@/hooks/useMessageDrafts';
 import { useChatTakeover } from '@/hooks/useChatTakeover';
 import { TakeoverRequestDialog } from './TakeoverRequestDialog';
+import { useChatOSMessages, useSendChatOSMessage } from '@/hooks/useChatOSMessages';
 
 interface ChatAreaProps {
   clientId: string;
@@ -266,9 +267,11 @@ export const ChatArea = ({
   const whatsappEndRef = useRef<HTMLDivElement>(null);
   const maxEndRef = useRef<HTMLDivElement>(null);
   const telegramEndRef = useRef<HTMLDivElement>(null);
+  const chatosEndRef = useRef<HTMLDivElement>(null);
   const whatsappScrollRef = useRef<HTMLDivElement>(null);
   const telegramScrollRef = useRef<HTMLDivElement>(null);
   const maxScrollRef = useRef<HTMLDivElement>(null);
+  const chatosScrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -1149,6 +1152,63 @@ export const ChatArea = ({
             return;
           }
         }
+      } else if (activeMessengerTab === 'chatos') {
+        // Send via ChatOS (internal chat)
+        try {
+          const { data: orgId } = await supabase.rpc('get_user_organization_id');
+          
+          // Get sender name from profile
+          const { data: { user } } = await supabase.auth.getUser();
+          let senderName = 'Компания';
+          if (user) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('first_name, last_name')
+              .eq('id', user.id)
+              .single();
+            if (profile) {
+              senderName = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Компания';
+            }
+          }
+
+          const { error: insertError } = await supabase
+            .from('chat_messages')
+            .insert({
+              client_id: clientId,
+              content: messageText,
+              messenger: 'chatos',
+              message_type: filesToSend.length > 0 ? 'file' : 'text',
+              direction: 'outgoing',
+              sender_id: user?.id,
+              sender_name: senderName,
+              media_url: filesToSend[0]?.url,
+              file_name: filesToSend[0]?.name,
+              media_type: filesToSend[0]?.type,
+              is_read: true,
+              status: 'sent',
+              organization_id: orgId as string,
+            });
+
+          if (insertError) {
+            toast({
+              title: "Ошибка отправки в ChatOS",
+              description: insertError.message,
+              variant: "destructive",
+            });
+            return;
+          }
+          
+          // Invalidate cache
+          queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
+          queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
+        } catch (chatosError) {
+          toast({
+            title: "Ошибка отправки в ChatOS",
+            description: getErrorMessage(chatosError),
+            variant: "destructive",
+          });
+          return;
+        }
       } else {
         // Send via WhatsApp (default)
         if (filesToSend.length > 0) {
@@ -1870,6 +1930,10 @@ export const ChatArea = ({
     msg.messengerType === 'telegram'
   );
 
+  const chatosMessages = messages.filter(msg => 
+    msg.messengerType === 'chatos'
+  );
+
   // Проверяем, является ли последнее сообщение входящим (от клиента)
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
   const isLastMessageIncoming = lastMessage ? lastMessage.type === 'client' : false;
@@ -2142,7 +2206,7 @@ export const ChatArea = ({
       {/* Chat Messages with Tabs */}
       <div className="flex-1 overflow-hidden min-h-0">
         <Tabs value={activeMessengerTab} onValueChange={handleTabChange} className="h-full flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-5 rounded-none bg-muted/30 border-b shrink-0">
+          <TabsList className="grid w-full grid-cols-6 rounded-none bg-muted/30 border-b shrink-0">
             <TabsTrigger 
               value="whatsapp" 
               className="text-xs relative data-[state=active]:bg-green-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
@@ -2216,6 +2280,23 @@ export const ChatArea = ({
               {unreadByMessenger.max > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                   {unreadByMessenger.max > 99 ? '99+' : unreadByMessenger.max}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="chatos" 
+              className="text-xs relative data-[state=active]:bg-teal-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+            >
+              <span className="flex items-center gap-1.5">
+                <span 
+                  className="w-1.5 h-1.5 rounded-full bg-green-400 data-[state=active]:bg-white transition-colors"
+                  title="Внутренний чат"
+                />
+                ChatOS
+              </span>
+              {unreadByMessenger.chatos > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {unreadByMessenger.chatos > 99 ? '99+' : unreadByMessenger.chatos}
                 </span>
               )}
             </TabsTrigger>
@@ -2628,6 +2709,105 @@ export const ChatArea = ({
             </div>
             {/* Элемент для прокрутки к концу Max */}
             <div ref={maxEndRef} />
+          </TabsContent>
+          
+          <TabsContent value="chatos" ref={chatosScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
+            <NewMessageIndicator
+              scrollContainerRef={chatosScrollRef}
+              bottomRef={chatosEndRef}
+              newMessagesCount={chatosMessages.length}
+            />
+            <div className="space-y-1">
+              {loadingMessages || isTabTransitioning ? (
+                <MessageSkeleton count={6} animated />
+              ) : chatosMessages.length > 0 ? (
+                <>
+                  {chatosMessages.map((msg, index) => {
+                    const prevMessage = chatosMessages[index - 1];
+                    const nextMessage = chatosMessages[index + 1];
+                    
+                    const showDateSeparator = shouldShowDateSeparator(
+                      msg.createdAt,
+                      prevMessage?.createdAt
+                    );
+                    
+                    const showAvatar = !prevMessage || 
+                      prevMessage.type !== msg.type || 
+                      msg.type === 'system' || 
+                      msg.type === 'comment' ||
+                      showDateSeparator;
+                      
+                    const showName = showAvatar;
+                    
+                    const isLastInGroup = !nextMessage || 
+                      nextMessage.type !== msg.type || 
+                      nextMessage.type === 'system' || 
+                      nextMessage.type === 'comment';
+                    
+                    if (isHiddenSalebotMessage(msg.message)) {
+                      return null;
+                    }
+                    
+                    const isCallback = isSalebotCallback(msg.message) || isSuccessPayment(msg.message);
+                    
+                    return (
+                      <div key={msg.id || index} id={`message-${msg.id}`}>
+                        {showDateSeparator && msg.createdAt && (
+                          <DateSeparator date={msg.createdAt} />
+                        )}
+                        {isCallback ? (
+                          <SalebotCallbackMessage message={msg.message} time={msg.time} />
+                        ) : (
+                          <ChatMessage
+                            messageId={msg.id}
+                            type={msg.type}
+                            message={msg.message}
+                            time={msg.time}
+                            systemType={msg.systemType}
+                            callDuration={msg.callDuration}
+                            isSelectionMode={isSelectionMode}
+                            isSelected={selectedMessages.has(msg.id)}
+                            onSelectionChange={(selected) => handleMessageSelectionChange(msg.id, selected)}
+                            isForwarded={msg.isForwarded}
+                            forwardedFrom={msg.forwardedFrom}
+                            forwardedFromType={msg.forwardedFromType}
+                            onMessageEdit={msg.type === 'manager' ? handleEditMessage : undefined}
+                            onMessageDelete={msg.type === 'manager' ? handleDeleteMessage : undefined}
+                            onResendMessage={msg.type === 'manager' && msg.messageStatus === 'failed' ? handleResendMessage : undefined}
+                            onCancelRetry={msg.type === 'manager' && msg.messageStatus === 'failed' ? handleCancelRetry : undefined}
+                            messageStatus={msg.messageStatus}
+                            clientAvatar={msg.clientAvatar}
+                            managerName={msg.managerName}
+                            fileUrl={msg.fileUrl}
+                            fileName={msg.fileName}
+                            fileType={msg.fileType}
+                            externalMessageId={msg.externalMessageId}
+                            showAvatar={showAvatar}
+                            showName={showName}
+                            isLastInGroup={isLastInGroup}
+                            onForwardMessage={handleForwardSingleMessage}
+                            onEnterSelectionMode={handleEnterSelectionMode}
+                            onQuoteMessage={handleQuoteMessage}
+                            isHighlighted={msg.id === currentHighlightedId}
+                            searchQuery={searchQuery}
+                            isJustSent={isMessageJustSent(msg)}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
+              ) : (
+                <div className="text-center text-muted-foreground text-sm py-4">
+                  <div className="flex flex-col items-center gap-2">
+                    <MessageCircle className="h-8 w-8 opacity-50" />
+                    <p>Нет сообщений во внутреннем чате</p>
+                    <p className="text-xs">Начните общение с клиентом через ChatOS</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div ref={chatosEndRef} />
           </TabsContent>
           
           <TabsContent value="email" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
