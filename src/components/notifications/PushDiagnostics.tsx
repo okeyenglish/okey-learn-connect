@@ -14,12 +14,15 @@ import {
   Server,
   Wifi,
   Key,
-  Cloud
+  Cloud,
+  Trash2,
+  Info
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { usePWAUpdate, BUILD_VERSION, SW_VERSION } from '@/hooks/usePWAUpdate';
 import { selfHostedPost } from '@/lib/selfHostedApi';
-import { pushApiWithFallback, type PushApiSource } from '@/lib/pushApiWithFallback';
+import { pushApiWithFallback, getLastPushApiSource, type PushApiSource } from '@/lib/pushApiWithFallback';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -52,9 +55,11 @@ const initialState: DiagnosticState = {
 export function PushDiagnostics({ className }: { className?: string }) {
   const { user } = useAuth();
   const { isSupported, permission, isSubscribed, subscribe } = usePushNotifications();
+  const { resetPWACache, isUpdating: isResetting, updateAvailable, swScope } = usePWAUpdate();
   const [diagnostics, setDiagnostics] = useState<DiagnosticState>(initialState);
   const [isRunning, setIsRunning] = useState(false);
   const [testPushLoading, setTestPushLoading] = useState(false);
+  const [showVersionInfo, setShowVersionInfo] = useState(false);
 
   const updateDiagnostic = useCallback((key: keyof DiagnosticState, result: Partial<DiagnosticResult>) => {
     setDiagnostics(prev => ({
@@ -394,18 +399,57 @@ export function PushDiagnostics({ className }: { className?: string }) {
   const allSuccess = Object.values(diagnostics).every(d => d.status === 'success');
   const hasErrors = Object.values(diagnostics).some(d => d.status === 'error');
 
+  const lastApiSource = getLastPushApiSource();
+
   return (
     <Card className={className}>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <RefreshCw className="h-4 w-4" />
-          Диагностика Push
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <RefreshCw className="h-4 w-4" />
+            Диагностика Push
+          </CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowVersionInfo(!showVersionInfo)}
+            className="h-7 px-2"
+          >
+            <Info className="h-3.5 w-3.5" />
+          </Button>
+        </div>
         <CardDescription>
           Проверка всех компонентов push-уведомлений
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Version info (collapsible) */}
+        {showVersionInfo && (
+          <div className="p-3 bg-muted/50 rounded-md text-xs space-y-1">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Версия сборки:</span>
+              <code className="font-mono">{BUILD_VERSION}</code>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Версия SW:</span>
+              <code className="font-mono">{SW_VERSION}</code>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Scope SW:</span>
+              <code className="font-mono">{swScope || 'н/д'}</code>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Последний API:</span>
+              <code className="font-mono">{lastApiSource || 'н/д'}</code>
+            </div>
+            {updateAvailable && (
+              <div className="flex justify-between text-amber-600">
+                <span>⚠️ Доступно обновление</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Diagnostic items */}
         <div className="space-y-2">
           {(Object.keys(diagnostics) as Array<keyof DiagnosticState>).map((key) => {
@@ -504,6 +548,27 @@ export function PushDiagnostics({ className }: { className?: string }) {
               Переподписаться
             </Button>
           )}
+        </div>
+
+        {/* Reset PWA Cache button */}
+        <div className="pt-2 border-t">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={resetPWACache}
+            disabled={isResetting}
+            className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+          >
+            {isResetting ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4 mr-2" />
+            )}
+            Сбросить кеш PWA
+          </Button>
+          <p className="text-xs text-muted-foreground mt-1.5 text-center">
+            Очистит все кеши и перезагрузит приложение
+          </p>
         </div>
       </CardContent>
     </Card>

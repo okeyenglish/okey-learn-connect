@@ -14,6 +14,7 @@ import ScrollToTop from "@/components/ScrollToTop";
 import { lazy, Suspense, useEffect } from "react";
 import { PushSubscriptionPrompt } from "@/components/notifications/PushSubscriptionPrompt";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { PWAUpdateBanner } from "@/components/pwa/PWAUpdateBanner";
 
 // Disable pinch-to-zoom and double-tap zoom on iOS Safari
 const useDisableMobileZoom = () => {
@@ -653,6 +654,7 @@ const App = () => {
                 <ScrollToTop />
                 <AppContent />
                 <PushSubscriptionPrompt />
+                <PWAUpdateBanner />
               </BrowserRouter>
             </TooltipProvider>
           </LanguageProvider>
