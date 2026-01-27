@@ -87,9 +87,9 @@ export function PushSubscriptionPrompt() {
   return (
     <div
       className={cn(
-        'fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-sm z-50',
+        'fixed bottom-20 left-4 right-4 md:bottom-4 md:left-auto md:right-4 md:max-w-sm z-[60]',
         'bg-background border border-border rounded-lg shadow-lg',
-        'transition-all duration-300 ease-out',
+        'transition-all duration-300 ease-out pointer-events-auto',
         isExiting
           ? 'opacity-0 translate-y-full'
           : 'opacity-100 translate-y-0 animate-slide-in-bottom'
