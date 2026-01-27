@@ -320,84 +320,128 @@ async function sendWebPush(
 }
 
 Deno.serve(async (req) => {
-  console.log('=== SEND PUSH NOTIFICATION ===');
+  const startTime = Date.now();
+  const requestId = crypto.randomUUID().slice(0, 8);
+  
+  console.log(`\n========================================`);
+  console.log(`[${requestId}] 🔔 SEND PUSH NOTIFICATION`);
+  console.log(`[${requestId}] Timestamp: ${new Date().toISOString()}`);
+  console.log(`========================================`);
 
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
   try {
+    // === STEP 1: Environment validation ===
+    console.log(`[${requestId}] Step 1: Checking environment...`);
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
     const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
 
+    console.log(`[${requestId}] ENV Check:`);
+    console.log(`[${requestId}]   - SUPABASE_URL: ${supabaseUrl ? '✅ set' : '❌ MISSING'}`);
+    console.log(`[${requestId}]   - SUPABASE_SERVICE_ROLE_KEY: ${supabaseServiceKey ? '✅ set (' + supabaseServiceKey.length + ' chars)' : '❌ MISSING'}`);
+    console.log(`[${requestId}]   - VAPID_PUBLIC_KEY: ${vapidPublicKey ? '✅ set (' + vapidPublicKey.length + ' chars)' : '❌ MISSING'}`);
+    console.log(`[${requestId}]   - VAPID_PRIVATE_KEY: ${vapidPrivateKey ? '✅ set (' + vapidPrivateKey.length + ' chars)' : '❌ MISSING'}`);
+
     if (!supabaseUrl || !supabaseServiceKey) {
+      console.error(`[${requestId}] ❌ FATAL: Missing Supabase configuration`);
       throw new Error('Missing Supabase configuration');
     }
 
     if (!vapidPublicKey || !vapidPrivateKey) {
+      console.error(`[${requestId}] ❌ FATAL: Missing VAPID keys`);
       throw new Error('Missing VAPID keys - please configure VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY secrets');
     }
 
-    // Diagnostic logging for VAPID key matching
-    console.log(`[VAPID-DIAG] Public key prefix: ${vapidPublicKey.substring(0, 12)}...`);
-    console.log(`[VAPID-DIAG] Public key length: ${vapidPublicKey.length}`);
-    console.log(`[VAPID-DIAG] Private key length: ${vapidPrivateKey.length}`);
+    // VAPID diagnostic logging
+    console.log(`[${requestId}] VAPID Keys:`);
+    console.log(`[${requestId}]   - Public key prefix: ${vapidPublicKey.substring(0, 20)}...`);
+    console.log(`[${requestId}]   - Private key prefix: ${vapidPrivateKey.substring(0, 8)}...`);
 
+    // === STEP 2: Parse request body ===
+    console.log(`[${requestId}] Step 2: Parsing request body...`);
+    
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
     const body: SendPushRequest = await req.json();
-    console.log('Push request:', JSON.stringify(body, null, 2));
+    
+    console.log(`[${requestId}] Request body:`);
+    console.log(`[${requestId}]   - userId: ${body.userId || 'not set'}`);
+    console.log(`[${requestId}]   - userIds: ${body.userIds ? JSON.stringify(body.userIds) : 'not set'}`);
+    console.log(`[${requestId}]   - payload.title: ${body.payload?.title || 'not set'}`);
+    console.log(`[${requestId}]   - payload.body: ${body.payload?.body?.substring(0, 50) || 'not set'}...`);
+    console.log(`[${requestId}]   - payload.tag: ${body.payload?.tag || 'not set'}`);
+    console.log(`[${requestId}]   - payload.url: ${body.payload?.url || 'not set'}`);
 
     const { userId, userIds, payload } = body;
 
-    // Server-side unique tag enforcement: if client sends static "test-push", make it unique
-    // This prevents iOS from silently collapsing notifications even if client code is outdated
+    // Server-side unique tag enforcement
     if (payload.tag === 'test-push') {
+      const oldTag = payload.tag;
       payload.tag = `test-push-${Date.now()}`;
-      console.log(`[TAG-FIX] Replaced static "test-push" with unique tag: ${payload.tag}`);
+      console.log(`[${requestId}] 🏷️ Tag fixed: "${oldTag}" → "${payload.tag}"`);
     }
 
     if (!payload || !payload.title) {
+      console.error(`[${requestId}] ❌ Missing required payload with title`);
       return new Response(
         JSON.stringify({ error: 'Missing required payload with title' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
+    // === STEP 3: Resolve target users ===
+    console.log(`[${requestId}] Step 3: Resolving target users...`);
+    
     const targetUserIds = userIds || (userId ? [userId] : []);
-    // Remove duplicates
     const uniqueUserIds = [...new Set(targetUserIds)];
 
+    console.log(`[${requestId}] Target users: ${uniqueUserIds.length}`);
+    uniqueUserIds.forEach((id, i) => {
+      console.log(`[${requestId}]   [${i + 1}] ${id}`);
+    });
+
     if (uniqueUserIds.length === 0) {
+      console.error(`[${requestId}] ❌ No target users specified`);
       return new Response(
         JSON.stringify({ error: 'No target users specified' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
-    console.log(`Fetching subscriptions for ${uniqueUserIds.length} unique users`);
-
+    // === STEP 4: Fetch subscriptions ===
+    console.log(`[${requestId}] Step 4: Fetching subscriptions from database...`);
+    
     const { data: subscriptions, error: fetchError } = await supabase
       .from('push_subscriptions')
       .select('*')
       .in('user_id', uniqueUserIds);
 
     if (fetchError) {
-      console.error('Error fetching subscriptions:', fetchError);
+      console.error(`[${requestId}] ❌ Database error fetching subscriptions:`, fetchError);
       throw fetchError;
     }
 
+    console.log(`[${requestId}] Database query result:`);
+    console.log(`[${requestId}]   - Subscriptions found: ${subscriptions?.length || 0}`);
+
     if (!subscriptions || subscriptions.length === 0) {
-      console.log('No active subscriptions found for users:', uniqueUserIds);
+      console.warn(`[${requestId}] ⚠️ No active subscriptions found for users: ${uniqueUserIds.join(', ')}`);
+      console.log(`[${requestId}] Duration: ${Date.now() - startTime}ms`);
       return new Response(
         JSON.stringify({ success: true, sent: 0, message: 'No active subscriptions' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
 
+    // === STEP 5: Filter subscriptions for test pushes ===
+    console.log(`[${requestId}] Step 5: Filtering subscriptions...`);
+    
     // For test pushes, sending to multiple stale subscriptions on the same device can result
     // in notifications being immediately replaced (same tag) or delivered to an old/broken SW.
     // To make the "Test push" button reliable, send only to the latest subscription per user.
@@ -408,7 +452,6 @@ Deno.serve(async (req) => {
           for (const sub of subscriptions) {
             const userKey = String(sub.user_id);
             const prev = latestByUser.get(userKey);
-            // Use updated_at instead of created_at - upsert updates updated_at, not created_at
             const subTime = sub.updated_at ? Date.parse(String(sub.updated_at)) : 0;
             const prevTime = prev?.updated_at ? Date.parse(String(prev.updated_at)) : 0;
             if (!prev || subTime >= prevTime) latestByUser.set(userKey, sub);
@@ -417,23 +460,38 @@ Deno.serve(async (req) => {
         })()
       : subscriptions;
 
-    console.log(
-      isTestPush
-        ? `Found ${subscriptions.length} active subscriptions; using ${subscriptionsToNotify.length} latest for test push`
-        : `Found ${subscriptions.length} subscriptions to notify`
-    );
+    console.log(`[${requestId}] Subscriptions to notify: ${subscriptionsToNotify.length} (isTestPush: ${isTestPush})`);
     
-    // Log subscription VAPID info for debugging mismatch
+    // Log detailed subscription info
     subscriptionsToNotify.forEach((sub, idx) => {
-      const deviceInfo = sub.device_info as Record<string, unknown> | null;
-      const subVapidPrefix = deviceInfo?.vapidPublicKeyPrefix || 'N/A';
-      console.log(`[SUB-${idx}] endpoint: ${sub.endpoint.substring(0, 60)}... vapidPrefix: ${subVapidPrefix}`);
+      const keys = sub.keys as { p256dh: string; auth: string } | null;
+      const endpointHost = new URL(sub.endpoint).hostname;
+      console.log(`[${requestId}] 📱 Subscription #${idx + 1}:`);
+      console.log(`[${requestId}]     - ID: ${sub.id}`);
+      console.log(`[${requestId}]     - User: ${sub.user_id}`);
+      console.log(`[${requestId}]     - Endpoint host: ${endpointHost}`);
+      console.log(`[${requestId}]     - Endpoint: ${sub.endpoint.substring(0, 80)}...`);
+      console.log(`[${requestId}]     - Keys present: p256dh=${!!keys?.p256dh}, auth=${!!keys?.auth}`);
+      console.log(`[${requestId}]     - User agent: ${sub.user_agent?.substring(0, 60) || 'N/A'}...`);
+      console.log(`[${requestId}]     - Updated at: ${sub.updated_at}`);
     });
 
+    // === STEP 6: Send push notifications ===
+    console.log(`[${requestId}] Step 6: Sending push notifications...`);
+
     const results = await Promise.all(
-      subscriptionsToNotify.map(async (sub) => {
+      subscriptionsToNotify.map(async (sub, idx) => {
+        const subStartTime = Date.now();
+        console.log(`[${requestId}] 📤 Sending to subscription #${idx + 1}...`);
+        
         // Keys stored as JSONB object { p256dh, auth }
         const keys = sub.keys as { p256dh: string; auth: string };
+        
+        if (!keys?.p256dh || !keys?.auth) {
+          console.error(`[${requestId}] ❌ Subscription #${idx + 1} has invalid keys`);
+          return { subscriptionId: sub.id, userId: sub.user_id, success: false, error: 'Invalid keys' };
+        }
+        
         const result = await sendWebPush(
           { endpoint: sub.endpoint, p256dh: keys.p256dh, auth: keys.auth },
           payload,
@@ -441,40 +499,67 @@ Deno.serve(async (req) => {
           vapidPrivateKey
         );
 
-        if (result.error === 'subscription_expired') {
-          console.log('Subscription expired, deleting:', sub.id);
-          await supabase
-            .from('push_subscriptions')
-            .delete()
-            .eq('id', sub.id);
+        const subDuration = Date.now() - subStartTime;
+        
+        if (result.success) {
+          console.log(`[${requestId}] ✅ Subscription #${idx + 1}: SUCCESS (${result.statusCode}) in ${subDuration}ms`);
+        } else {
+          console.error(`[${requestId}] ❌ Subscription #${idx + 1}: FAILED - ${result.error} (${result.statusCode}) in ${subDuration}ms`);
+          
+          if (result.error === 'subscription_expired') {
+            console.log(`[${requestId}] 🗑️ Deleting expired subscription: ${sub.id}`);
+            await supabase
+              .from('push_subscriptions')
+              .delete()
+              .eq('id', sub.id);
+          }
         }
 
         return { subscriptionId: sub.id, userId: sub.user_id, ...result };
       })
     );
 
+    // === STEP 7: Compile results ===
     const successful = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success);
+    const totalDuration = Date.now() - startTime;
 
-    console.log(`Push results: ${successful} successful, ${failed.length} failed`);
+    console.log(`\n[${requestId}] ========== RESULTS ==========`);
+    console.log(`[${requestId}] ✅ Successful: ${successful}`);
+    console.log(`[${requestId}] ❌ Failed: ${failed.length}`);
+    console.log(`[${requestId}] ⏱️ Total duration: ${totalDuration}ms`);
+    
     if (failed.length > 0) {
-      console.log('Failed details:', JSON.stringify(failed));
+      console.log(`[${requestId}] Failed details:`);
+      failed.forEach((f, i) => {
+        console.log(`[${requestId}]   [${i + 1}] User: ${f.userId}, Error: ${f.error}, Status: ${f.statusCode}`);
+      });
     }
+    
+    console.log(`[${requestId}] ==============================\n`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         sent: successful, 
         failed: failed.length,
-        details: results 
+        details: results,
+        duration: totalDuration
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
 
   } catch (error) {
-    console.error('Push notification error:', error);
+    const totalDuration = Date.now() - startTime;
+    console.error(`[${requestId}] ❌ FATAL ERROR after ${totalDuration}ms:`, error);
+    console.error(`[${requestId}] Stack:`, error instanceof Error ? error.stack : 'N/A');
+    
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        requestId,
+        duration: totalDuration
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
