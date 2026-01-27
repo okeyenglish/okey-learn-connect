@@ -701,7 +701,56 @@ Deno.serve(async (req) => {
         
         // Notify about missed calls
         if (status === 'missed' && direction === 'incoming') {
-          console.log('Missed incoming call, creating notification');
+          console.log('Missed incoming call, creating notification and push');
+          
+          // Format time for notification
+          const callTime = webhookData.start_time 
+            ? new Date(webhookData.start_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+            : new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+          
+          // Get client name if available
+          let clientName = formattedPhone;
+          if (clientId) {
+            const { data: clientData } = await supabase
+              .from('clients')
+              .select('first_name, last_name, name, avatar_url')
+              .eq('id', clientId)
+              .single();
+            
+            if (clientData) {
+              clientName = [clientData.first_name, clientData.last_name].filter(Boolean).join(' ') 
+                || clientData.name 
+                || formattedPhone;
+            }
+          }
+          
+          // Send push notification to all managers/admins
+          try {
+            const { data: chatUsers } = await supabase
+              .from('user_roles')
+              .select('user_id')
+              .in('role', ['admin', 'manager']);
+            
+            if (chatUsers && chatUsers.length > 0) {
+              const userIds = chatUsers.map((u: { user_id: string }) => u.user_id);
+              
+              await supabase.functions.invoke('send-push-notification', {
+                body: {
+                  userIds,
+                  payload: {
+                    title: '📞 Пропущенный звонок',
+                    body: `${clientName} звонил в ${callTime}`,
+                    icon: '/pwa-192x192.png',
+                    url: clientId ? `/crm?clientId=${clientId}&tab=calls` : '/crm?tab=calls',
+                    tag: `missed-call-${newCallLog.id}`,
+                  },
+                },
+              });
+              console.log('Push notification sent for missed call');
+            }
+          } catch (pushErr) {
+            console.error('Error sending push notification for missed call:', pushErr);
+          }
           
           let responsibleEmployeeId: string | null = null;
           if (rawTo) {
@@ -713,8 +762,6 @@ Deno.serve(async (req) => {
               .maybeSingle();
             responsibleEmployeeId = employee?.id || null;
           }
-          
-          const clientName = formattedPhone;
           
           if (responsibleEmployeeId) {
             await supabase.from('notifications').insert({
