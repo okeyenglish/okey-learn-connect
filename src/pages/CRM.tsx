@@ -429,7 +429,7 @@ const CRMContent = () => {
     getChatState
   } = useChatStatesDB(visibleChatIds);
 
-  const { isInWorkByOthers, isPinnedByCurrentUser, isPinnedByAnyone, getPinnedByUserName, isLoading: sharedStatesLoading } = useSharedChatStates(visibleChatIds);
+  const { isInWorkByOthers, isPinnedByCurrentUser, isPinnedByAnyone, getPinnedByUserName, getPinnedByUserId, isLoading: sharedStatesLoading } = useSharedChatStates(visibleChatIds);
   const { markChatAsReadGlobally, isChatReadGlobally } = useGlobalChatReadStatus();
   const completeTask = useCompleteTask();
   const cancelTask = useCancelTask();
@@ -1956,7 +1956,15 @@ const CRMContent = () => {
     handleChatClick(clientId, 'client'); // Открываем чат с клиентом
   };
 
-  // Check if user is admin or methodist
+  // Обработчик для написания сообщения пользователю через ChatOS
+  const handleMessageUser = useCallback((userId: string, userName: string) => {
+    // Переключаемся на ChatOS
+    setActiveChatType('chatos');
+    setActiveTab('chats');
+    // TODO: можно добавить передачу userId в AIHubInline для автоматического открытия чата
+    toast.info(`Откройте чат с ${userName} в ChatOS`);
+  }, [setActiveTab, setActiveChatType]);
+
   const isAdmin = role === 'admin' || roles?.includes?.('admin');
   const isMethodist = role === 'methodist' || roles?.includes?.('methodist');
   const canAccessAdmin = isAdmin || isMethodist;
@@ -3561,6 +3569,8 @@ const CRMContent = () => {
                           isChatReadGlobally={isChatReadGlobally}
                           isInWorkByOthers={isInWorkByOthers}
                           getPinnedByUserName={getPinnedByUserName}
+                          getPinnedByUserId={getPinnedByUserId}
+                          onMessageUser={handleMessageUser}
                           messageSearchClientIds={messageSearchClientIds}
                           getMessengerType={getMessengerType}
                           searchQuery={chatSearchQuery}
@@ -3607,6 +3617,8 @@ const CRMContent = () => {
                         isChatReadGlobally={isChatReadGlobally}
                         isInWorkByOthers={isInWorkByOthers}
                         getPinnedByUserName={getPinnedByUserName}
+                        getPinnedByUserId={getPinnedByUserId}
+                        onMessageUser={handleMessageUser}
                         messageSearchClientIds={messageSearchClientIds}
                         getMessengerType={getMessengerType}
                         searchQuery={chatSearchQuery}
@@ -3989,6 +4001,8 @@ const CRMContent = () => {
                           isChatReadGlobally={isChatReadGlobally}
                           isInWorkByOthers={isInWorkByOthers}
                           getPinnedByUserName={getPinnedByUserName}
+                          getPinnedByUserId={getPinnedByUserId}
+                          onMessageUser={handleMessageUser}
                           messageSearchClientIds={messageSearchClientIds}
                           getMessengerType={getMessengerType}
                           searchQuery={chatSearchQuery}
@@ -4037,6 +4051,8 @@ const CRMContent = () => {
                         isChatReadGlobally={isChatReadGlobally}
                         isInWorkByOthers={isInWorkByOthers}
                         getPinnedByUserName={getPinnedByUserName}
+                        getPinnedByUserId={getPinnedByUserId}
+                        onMessageUser={handleMessageUser}
                         messageSearchClientIds={messageSearchClientIds}
                         getMessengerType={getMessengerType}
                         searchQuery={chatSearchQuery}

@@ -24,6 +24,8 @@ interface VirtualizedChatListProps {
   isChatReadGlobally: (chatId: string) => boolean;
   isInWorkByOthers: (chatId: string) => boolean;
   getPinnedByUserName: (chatId: string) => string;
+  getPinnedByUserId?: (chatId: string) => string | undefined;
+  onMessageUser?: (userId: string, userName: string) => void;
   messageSearchClientIds?: string[];
   getMessengerType?: (clientId: string) => 'whatsapp' | 'telegram' | 'max' | null;
   searchQuery?: string;
@@ -56,6 +58,8 @@ export const VirtualizedChatList = React.memo(({
   isChatReadGlobally,
   isInWorkByOthers,
   getPinnedByUserName,
+  getPinnedByUserId,
+  onMessageUser,
   messageSearchClientIds = [],
   getMessengerType,
   searchQuery = '',
@@ -224,6 +228,8 @@ export const VirtualizedChatList = React.memo(({
                   showEye={showEye}
                   isInWorkByOthers={isInWorkByOthers(chat.id)}
                   pinnedByUserName={getPinnedByUserName(chat.id)}
+                  pinnedByUserId={getPinnedByUserId ? getPinnedByUserId(chat.id) : undefined}
+                  onMessageUser={onMessageUser}
                   profile={profile}
                   bulkSelectMode={bulkSelectMode}
                   isSelected={selectedChatIds.has(chat.id)}
