@@ -213,7 +213,7 @@ export const ChatListItem = React.memo(({
                       }
                     }}
                   >
-                    У {pinnedByUserName.split(' ')[0]}
+                    В работе: {pinnedByUserName.split(' ')[0]}
                   </Badge>
                 )}
                 {foundInMessages && (
