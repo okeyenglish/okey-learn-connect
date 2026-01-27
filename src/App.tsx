@@ -123,6 +123,7 @@ const OrgContacts = lazy(() => import('./pages/org/OrgContacts'));
 // Portal pages
 const ClientOnboarding = lazy(() => import('./pages/ClientOnboarding'));
 const StudentOnboarding = lazy(() => import('./pages/StudentOnboarding'));
+const PortalLogin = lazy(() => import('./pages/PortalLogin'));
 const ParentPortalLayout = lazy(() => import('./pages/portal/ParentPortalLayout'));
 const ParentPortalHome = lazy(() => import('./pages/portal/ParentPortalHome'));
 const ParentSchedule = lazy(() => import('./pages/portal/ParentSchedule'));
@@ -155,8 +156,8 @@ const AppContent = () => {
   const isProgramsPage = location.pathname === '/programs' || location.pathname.startsWith('/programs/');
   const isMainLandingPage = location.pathname === '/main';
   const isAuthPage = location.pathname.startsWith('/auth') || location.pathname.startsWith('/register/');
-  const isOnboardingPage = location.pathname.startsWith('/client-onboarding') || location.pathname.startsWith('/student-onboarding');
-  const isOrgPage = location.pathname.match(/^\/[a-zA-Z0-9_-]+/) && !['main', 'branches', 'test', 'about', 'teachers', 'reviews', 'pricing', 'faq', 'contacts', 'contact-method', 'admin', 'newcrm', 'crm', 'leads', 'student', 'student-portal', 'teacher-portal', 'parent-portal', 'course', 'online-lesson', 'auth', 'diag', 'test-user', 'holihope-import', 'seo', 'callsforteachers', 'payment', 'balance-test', 'teacher-test', 'sessions', 'install', 'monitor', 'webhook-test', 'employee', 'debug-access', '5000', 'programs', 'register', 'course-details', 'client-onboarding', 'student-onboarding'].some(path => location.pathname.startsWith('/' + path));
+  const isOnboardingPage = location.pathname.startsWith('/client-onboarding') || location.pathname.startsWith('/student-onboarding') || location.pathname.startsWith('/portal-login');
+  const isOrgPage = location.pathname.match(/^\/[a-zA-Z0-9_-]+/) && !['main', 'branches', 'test', 'about', 'teachers', 'reviews', 'pricing', 'faq', 'contacts', 'contact-method', 'admin', 'newcrm', 'crm', 'leads', 'student', 'student-portal', 'teacher-portal', 'parent-portal', 'course', 'online-lesson', 'auth', 'diag', 'test-user', 'holihope-import', 'seo', 'callsforteachers', 'payment', 'balance-test', 'teacher-test', 'sessions', 'install', 'monitor', 'webhook-test', 'employee', 'debug-access', '5000', 'programs', 'register', 'course-details', 'client-onboarding', 'student-onboarding', 'portal-login'].some(path => location.pathname.startsWith('/' + path));
 
   if (isCRMPage) {
     return (
@@ -195,6 +196,7 @@ const AppContent = () => {
         <Routes>
           <Route path="/client-onboarding" element={<ClientOnboarding />} />
           <Route path="/student-onboarding" element={<StudentOnboarding />} />
+          <Route path="/portal-login" element={<PortalLogin />} />
         </Routes>
       </Suspense>
     );
