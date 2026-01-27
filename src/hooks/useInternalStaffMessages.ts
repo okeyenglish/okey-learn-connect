@@ -272,8 +272,8 @@ export const useStaffUnreadCount = () => {
             if (lastNotifiedRef.current !== newMessage.id) {
               lastNotifiedRef.current = newMessage.id;
               
-              // Play notification sound
-              playNotificationSound(0.5);
+              // Play chat notification sound
+              playNotificationSound(0.5, 'chat');
               
               // Show browser notification if tab is not focused
               if (document.hidden) {

@@ -140,7 +140,7 @@ export const useOrganizationRealtimeMessages = () => {
         const incomingMessages = newMessages.filter(m => m.message_type === 'client');
         
         if (incomingMessages.length > 0) {
-          playNotificationSound(0.5);
+          playNotificationSound(0.5, 'chat');
           
           const latestIncoming = incomingMessages[0];
           const messagePreview = latestIncoming.message_text || 'Новое сообщение';
@@ -271,7 +271,7 @@ export const useOrganizationRealtimeMessages = () => {
 
           // Use helper to check both schemas
           if (isIncomingMessage(newMsg)) {
-            playNotificationSound(0.5);
+            playNotificationSound(0.5, 'chat');
             
             showBrowserNotification({
               title: 'Новое сообщение',
