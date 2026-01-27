@@ -1485,6 +1485,7 @@ const CRMContent = () => {
       queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
       queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
+      queryClient.invalidateQueries({ queryKey: ['deleted-client-ids'] });
       
       if (activeChatId === deleteChatDialog.chatId) {
         setActiveChatId(null);
