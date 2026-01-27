@@ -28,9 +28,15 @@ import { toast } from 'sonner';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
-import { useInternalChats, useChatMessages, useSendInternalMessage, InternalChat } from '@/hooks/useInternalChats';
-import { useTeacherChats, TeacherChatItem, useEnsureTeacherClient, useTeacherChatMessages } from '@/hooks/useTeacherChats';
+import { useInternalChats, InternalChat } from '@/hooks/useInternalChats';
+import { useTeacherChats, TeacherChatItem, useEnsureTeacherClient } from '@/hooks/useTeacherChats';
 import { useAssistantMessages } from '@/hooks/useAssistantMessages';
+import { 
+  useStaffDirectMessages, 
+  useStaffGroupMessages, 
+  useSendStaffMessage, 
+  useStaffMembers 
+} from '@/hooks/useInternalStaffMessages';
 import VoiceAssistant from '@/components/VoiceAssistant';
 
 interface AIHubProps {
@@ -98,9 +104,19 @@ export const AIHub = ({
   // Data hooks
   const { data: internalChats, isLoading: chatsLoading } = useInternalChats();
   const { teachers, totalUnread: teachersUnread, isLoading: teachersLoading } = useTeacherChats(null);
-  const { messages: teacherMessages, isLoading: teacherMessagesLoading } = useTeacherChatMessages(teacherClientId || '', !!teacherClientId);
-  const { data: groupMessages, isLoading: groupMessagesLoading } = useChatMessages(activeChat?.type === 'group' ? activeChat.id : '');
-  const sendInternalMessage = useSendInternalMessage();
+  const { data: staffMembers } = useStaffMembers();
+  
+  // Staff messaging hooks - for staff direct messages using new internal_staff_messages table
+  // Note: For teachers, we use the teacher.id but will need profile_id for direct messaging
+  // For now, we'll use staffMembers to find staff profiles for direct messaging
+  const selectedStaffId = activeChat?.type === 'teacher' 
+    ? (activeChat.data as TeacherChatItem)?.id || ''
+    : '';
+  const { data: staffDirectMessages, isLoading: staffDirectLoading } = useStaffDirectMessages(selectedStaffId);
+  const { data: staffGroupMessages, isLoading: staffGroupLoading } = useStaffGroupMessages(
+    activeChat?.type === 'group' ? activeChat.id : ''
+  );
+  const sendStaffMessage = useSendStaffMessage();
   const { findOrCreateClient } = useEnsureTeacherClient();
   const { unreadCount: assistantUnread } = useAssistantMessages();
 
@@ -244,7 +260,7 @@ export const AIHub = ({
         }
       }, 100);
     }
-  }, [messages, activeChat, teacherMessages, groupMessages]);
+  }, [messages, activeChat, staffDirectMessages, staffGroupMessages]);
 
   const getSystemPrompt = (consultantType: ConsultantType) => {
     const prompts: Record<ConsultantType, string> = {
@@ -308,11 +324,11 @@ export const AIHub = ({
         setIsProcessing(false);
       }
     } 
-    // For group chats
+    // For group chats - use new internal_staff_messages table
     else if (activeChat.type === 'group') {
       try {
-        await sendInternalMessage.mutateAsync({
-          chat_id: activeChat.id,
+        await sendStaffMessage.mutateAsync({
+          group_chat_id: activeChat.id,
           message_text: message.trim(),
           message_type: 'text'
         });
@@ -321,11 +337,13 @@ export const AIHub = ({
         toast.error('Ошибка отправки сообщения');
       }
     }
-    // For teacher chats
-    else if (activeChat.type === 'teacher' && teacherClientId) {
+    // For teacher/staff direct chats - use new internal_staff_messages table
+    else if (activeChat.type === 'teacher' && activeChat.data) {
+      const teacher = activeChat.data as TeacherChatItem;
       try {
-        await sendInternalMessage.mutateAsync({
-          chat_id: teacherClientId,
+        // Use teacher.id as recipient - this will be matched against staff profiles
+        await sendStaffMessage.mutateAsync({
+          recipient_user_id: teacher.id,
           message_text: message.trim(),
           message_type: 'text'
         });
@@ -356,23 +374,30 @@ export const AIHub = ({
 
   const getCurrentMessages = (): ChatMessage[] => {
     if (!activeChat) return [];
+    
+    // For teacher direct messages - use staff messages
     if (activeChat.type === 'teacher') {
-      return (teacherMessages || []).map((m: any) => ({
+      return (staffDirectMessages || []).map((m) => ({
         id: m.id,
-        type: m.is_outgoing ? 'user' : 'assistant',
-        content: m.message_text || m.content || '',
-        timestamp: new Date(m.created_at)
-      })) as ChatMessage[];
-    }
-    if (activeChat.type === 'group') {
-      return (groupMessages || []).map((m: any) => ({
-        id: m.id,
-        type: m.is_outgoing ? 'user' : 'assistant',
+        type: m.sender_id === user?.id ? 'user' : 'assistant',
         content: m.message_text || '',
         timestamp: new Date(m.created_at),
         sender: m.sender?.first_name
       })) as ChatMessage[];
     }
+    
+    // For group chats - use staff group messages
+    if (activeChat.type === 'group') {
+      return (staffGroupMessages || []).map((m) => ({
+        id: m.id,
+        type: m.sender_id === user?.id ? 'user' : 'assistant',
+        content: m.message_text || '',
+        timestamp: new Date(m.created_at),
+        sender: m.sender?.first_name
+      })) as ChatMessage[];
+    }
+    
+    // For AI consultants - use local messages state
     return messages[activeChat.id] || [];
   };
 
@@ -434,8 +459,8 @@ export const AIHub = ({
 
   // Render chat content (for consultants, groups, teachers)
   if (activeChat) {
-    const isLoading = activeChat.type === 'teacher' ? teacherMessagesLoading : 
-                      activeChat.type === 'group' ? groupMessagesLoading : false;
+    const isLoading = activeChat.type === 'teacher' ? staffDirectLoading : 
+                      activeChat.type === 'group' ? staffGroupLoading : false;
     const currentMessages = getCurrentMessages();
 
     return (
@@ -529,16 +554,16 @@ export const AIHub = ({
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                 placeholder={getCurrentPlaceholder()}
-                disabled={isProcessing || isRecording || sendInternalMessage.isPending}
+                disabled={isProcessing || isRecording || sendStaffMessage.isPending}
                 className="flex-1 h-9"
               />
               <Button 
                 onClick={handleSendMessage}
-                disabled={!message.trim() || isProcessing || isRecording || sendInternalMessage.isPending}
+                disabled={!message.trim() || isProcessing || isRecording || sendStaffMessage.isPending}
                 size="icon"
                 className="shrink-0 h-9 w-9"
               >
-                {isProcessing || sendInternalMessage.isPending ? (
+                {isProcessing || sendStaffMessage.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Send className="h-4 w-4" />
@@ -546,7 +571,7 @@ export const AIHub = ({
               </Button>
               <Button
                 onClick={() => setIsRecording(!isRecording)}
-                disabled={isProcessing || sendInternalMessage.isPending}
+                disabled={isProcessing || sendStaffMessage.isPending}
                 size="icon"
                 variant={isRecording ? "destructive" : "outline"}
                 className="shrink-0 h-9 w-9"

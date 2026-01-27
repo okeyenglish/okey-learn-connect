@@ -129,6 +129,22 @@ export interface AssistantMessage {
   created_at: string;
 }
 
+// Внутренние сообщения сотрудников (изолированы от CRM-уведомлений)
+export interface InternalStaffMessage {
+  id: string;
+  organization_id: string;
+  sender_id: string;
+  recipient_user_id: string | null;
+  group_chat_id: string | null;
+  message_text: string;
+  message_type: string;
+  is_read: boolean;
+  created_at: string;
+  updated_at: string;
+  // Joined relations
+  sender?: Profile;
+}
+
 export interface FAQ {
   id: string;
   question: string;
