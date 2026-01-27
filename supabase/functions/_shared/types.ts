@@ -1808,10 +1808,20 @@ export interface SendPushParams {
  * because push subscriptions are stored in self-hosted database
  */
 export async function sendPushNotification(params: SendPushParams): Promise<{ success: boolean; sent?: number; failed?: number; error?: string }> {
+  const startTime = Date.now();
+  const targetCount = params.userIds?.length || (params.userId ? 1 : 0);
+  const targetIds = params.userIds || (params.userId ? [params.userId] : []);
+  
+  console.log('[sendPushNotification] ===== PUSH START =====');
+  console.log('[sendPushNotification] Target:', {
+    count: targetCount,
+    userIds: targetIds.slice(0, 5), // Log first 5 for privacy
+    title: params.payload.title,
+    body: params.payload.body?.slice(0, 50),
+    url: params.payload.url,
+  });
+  
   try {
-    console.log('[sendPushNotification] Calling self-hosted API...');
-    console.log('[sendPushNotification] Target users:', params.userIds?.length || (params.userId ? 1 : 0));
-    
     const response = await fetch(`${SELF_HOSTED_URL}/functions/v1/send-push-notification`, {
       method: 'POST',
       headers: {
@@ -1821,22 +1831,56 @@ export async function sendPushNotification(params: SendPushParams): Promise<{ su
       body: JSON.stringify(params),
     });
 
-    const data = await response.json();
+    const responseText = await response.text();
+    let data: Record<string, unknown>;
     
-    console.log('[sendPushNotification] Response:', { status: response.status, data });
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      console.error('[sendPushNotification] Invalid JSON response:', responseText.slice(0, 200));
+      return { success: false, error: `Invalid response: ${responseText.slice(0, 100)}` };
+    }
+    
+    const elapsed = Date.now() - startTime;
+    
+    console.log('[sendPushNotification] Response:', {
+      status: response.status,
+      ok: response.ok,
+      sent: data.sent,
+      failed: data.failed,
+      subscriptions: data.subscriptions,
+      elapsed: `${elapsed}ms`,
+    });
     
     if (!response.ok) {
-      console.error('[sendPushNotification] Failed:', data.error || response.statusText);
-      return { success: false, error: data.error || `HTTP ${response.status}` };
+      console.error('[sendPushNotification] ❌ FAILED:', {
+        error: data.error || response.statusText,
+        details: data.details,
+        status: response.status,
+      });
+      return { success: false, error: String(data.error || `HTTP ${response.status}`) };
     }
 
-    return {
-      success: true,
-      sent: data.sent || 0,
-      failed: data.failed || 0,
-    };
+    const sent = typeof data.sent === 'number' ? data.sent : 0;
+    const failed = typeof data.failed === 'number' ? data.failed : 0;
+    
+    if (sent > 0) {
+      console.log('[sendPushNotification] ✅ SUCCESS:', { sent, failed, elapsed: `${elapsed}ms` });
+    } else {
+      console.log('[sendPushNotification] ⚠️ NO SUBSCRIPTIONS:', { targetIds, elapsed: `${elapsed}ms` });
+    }
+    
+    console.log('[sendPushNotification] ===== PUSH END =====');
+    
+    return { success: true, sent, failed };
   } catch (error) {
-    console.error('[sendPushNotification] Error:', error);
+    const elapsed = Date.now() - startTime;
+    console.error('[sendPushNotification] ❌ EXCEPTION:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      elapsed: `${elapsed}ms`,
+    });
+    console.log('[sendPushNotification] ===== PUSH END (ERROR) =====');
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
