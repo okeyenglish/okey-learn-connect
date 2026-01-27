@@ -64,14 +64,27 @@ export const useTypingStatus = (clientId: string) => {
     return () => { isMounted = false; };
   }, [clientId]);
 
-  // Handle realtime payload directly - NO additional SELECT queries
+  // Handle realtime payload directly - with proper field extraction
   const handleRealtimePayload = useCallback((
     payload: RealtimePostgresChangesPayload<TypingStatusWithName>
   ) => {
     const eventType = payload.eventType;
-    const record = (payload.new || payload.old) as TypingStatusWithName | undefined;
+    // For UPDATE events, always use 'new' record which contains updated values
+    const record = eventType === 'DELETE' 
+      ? (payload.old as TypingStatusWithName | undefined)
+      : (payload.new as TypingStatusWithName | undefined);
     
-    if (!record) return;
+    if (!record) {
+      console.log('🔴 Typing: No record in payload', payload);
+      return;
+    }
+    
+    console.log('🟢 Typing realtime:', eventType, {
+      user_id: record.user_id,
+      is_typing: record.is_typing,
+      draft_text: record.draft_text,
+      manager_name: record.manager_name
+    });
     
     // Skip own typing status
     if (record.user_id === currentUserIdRef.current) return;
@@ -87,14 +100,15 @@ export const useTypingStatus = (clientId: string) => {
         return prev.filter(t => t.user_id !== record.user_id);
       }
       
-      // User is typing - add or update
+      // User is typing - add or update with FULL record replacement
       const existingIdx = prev.findIndex(t => t.user_id === record.user_id);
       if (existingIdx >= 0) {
+        // Create new array with updated record to ensure React detects change
         const updated = [...prev];
-        updated[existingIdx] = record;
+        updated[existingIdx] = { ...record };
         return updated;
       }
-      return [...prev, record];
+      return [...prev, { ...record }];
     });
   }, []);
 
