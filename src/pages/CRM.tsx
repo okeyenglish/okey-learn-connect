@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, lazy, Suspense, useRef } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -177,6 +177,7 @@ import { isClientChat } from "@/pages/crm/types";
 const CRMContent = () => {
   const { user, profile, role, roles, signOut } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   
   // Single organization-wide realtime subscription for all chat messages
@@ -537,6 +538,9 @@ const CRMContent = () => {
       });
     }
   }, [pinnedLoading, pinnedModals, isManualModalOpen]);
+
+  // Deep link URL parameter ref - processed once after handleChatClick is available
+  const deepLinkProcessedRef = useRef(false);
 
   // Получаем активных студентов по занятиям (для расчета лидов) - загружаем отложенно
   const { data: activeGroupStudents = [], isLoading: groupStudentsLoading } = useQuery({
@@ -1485,6 +1489,32 @@ const CRMContent = () => {
     }
     console.log(`${action} для чата:`, chatId);
   }, [markAsUnread, markAsUnreadMutation, markAsRead, markAsReadMutation, togglePin, toggleArchive]);
+
+  // Handle URL parameter for deep linking from push notifications
+  // This effect runs after handleChatClick is defined
+  useEffect(() => {
+    if (deepLinkProcessedRef.current) return;
+    
+    const clientIdFromUrl = searchParams.get('clientId');
+    const tabFromUrl = searchParams.get('tab');
+    
+    if (clientIdFromUrl) {
+      console.log('[CRM] Deep link detected: clientId =', clientIdFromUrl, 'tab =', tabFromUrl);
+      deepLinkProcessedRef.current = true;
+      
+      // Open the chat with this client
+      handleChatClick(clientIdFromUrl, 'client');
+      setActiveTab('chats');
+      
+      // If tab=calls specified, switch to calls tab
+      if (tabFromUrl === 'calls') {
+        setActiveTab('calls');
+      }
+      
+      // Clear URL params after processing to avoid re-triggering
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams, handleChatClick, setActiveTab]);
 
   // Delete chat handler
   const handleDeleteChat = useCallback(async (chatId: string, chatName: string) => {
