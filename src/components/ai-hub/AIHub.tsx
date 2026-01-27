@@ -37,6 +37,8 @@ import {
   useSendStaffMessage, 
   useStaffMembers 
 } from '@/hooks/useInternalStaffMessages';
+import { useStaffTypingIndicator } from '@/hooks/useStaffTypingIndicator';
+import { StaffTypingIndicator } from '@/components/ai-hub/StaffTypingIndicator';
 import VoiceAssistant from '@/components/VoiceAssistant';
 
 interface AIHubProps {
@@ -118,6 +120,18 @@ export const AIHub = ({
   const sendStaffMessage = useSendStaffMessage();
   const { findOrCreateClient } = useEnsureTeacherClient();
   const { unreadCount: assistantUnread } = useAssistantMessages();
+
+  // Staff typing indicator
+  const typingChatId = activeChat?.type === 'teacher' 
+    ? selectedStaffProfileId 
+    : activeChat?.type === 'group' 
+      ? activeChat.id 
+      : '';
+  const typingChatType = activeChat?.type === 'group' ? 'group' : 'direct';
+  const { typingUsers, setTyping, stopTyping } = useStaffTypingIndicator({
+    chatId: typingChatId,
+    chatType: typingChatType as 'direct' | 'group',
+  });
 
   // Consultants config
   const consultants: Array<{
@@ -332,6 +346,7 @@ export const AIHub = ({
           message_type: 'text'
         });
         setMessage('');
+        stopTyping(); // Stop typing indicator after sending
       } catch (error) {
         toast.error('Ошибка отправки сообщения');
       }
@@ -351,6 +366,7 @@ export const AIHub = ({
           message_type: 'text'
         });
         setMessage('');
+        stopTyping(); // Stop typing indicator after sending
       } catch (error) {
         toast.error('Ошибка отправки сообщения');
       }
@@ -546,6 +562,11 @@ export const AIHub = ({
                   </div>
                 </div>
               )}
+              
+              {/* Staff typing indicator for teacher/group chats */}
+              {(activeChat.type === 'teacher' || activeChat.type === 'group') && typingUsers.length > 0 && (
+                <StaffTypingIndicator typingUsers={typingUsers} />
+              )}
             </div>
           </ScrollArea>
 
@@ -554,8 +575,24 @@ export const AIHub = ({
             <div className="flex gap-2 items-center">
               <Input
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={(e) => {
+                  setMessage(e.target.value);
+                  // Trigger typing indicator for staff chats
+                  if (activeChat.type === 'teacher' || activeChat.type === 'group') {
+                    if (e.target.value.trim()) {
+                      setTyping(true, e.target.value);
+                    } else {
+                      stopTyping();
+                    }
+                  }
+                }}
                 onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                onBlur={() => {
+                  // Stop typing when input loses focus
+                  if (activeChat.type === 'teacher' || activeChat.type === 'group') {
+                    stopTyping();
+                  }
+                }}
                 placeholder={getCurrentPlaceholder()}
                 disabled={isProcessing || isRecording || sendStaffMessage.isPending}
                 className="flex-1 h-9"
