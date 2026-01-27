@@ -5,14 +5,34 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface UnreadMessage {
-  client_id: string;
-  client_name: string;
-  client_phone: string;
-  unread_count: number;
-  last_message: string;
-  last_message_at: string;
+interface PortalSettings {
+  notification_frequency?: 'instant' | '15min' | 'hourly' | 'daily' | 'disabled';
+  whatsapp_notifications?: boolean;
+  email_notifications?: boolean;
+  push_notifications?: boolean;
+}
+
+interface ClientWithSettings {
+  id: string;
+  name: string | null;
+  first_name: string | null;
+  phone: string | null;
   organization_id: string;
+  portal_enabled: boolean;
+  portal_settings: PortalSettings | null;
+  last_notification_at: string | null;
+}
+
+// Get notification interval in minutes based on frequency setting
+function getIntervalMinutes(frequency: string | undefined): number {
+  switch (frequency) {
+    case 'instant': return 5; // 5 min anti-spam
+    case '15min': return 15;
+    case 'hourly': return 60;
+    case 'daily': return 1440; // 24 hours
+    case 'disabled': return -1; // Never
+    default: return 15;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -28,149 +48,153 @@ Deno.serve(async (req) => {
 
     console.log('[notify-portal-users] Starting notification check...');
 
-    // Get clients with portal enabled who have unread outgoing messages (from school)
-    // and haven't been notified in the last 30 minutes
-    const { data: unreadData, error: queryError } = await supabase.rpc(
-      'get_portal_unread_notifications'
-    );
+    // Get clients with portal enabled
+    const { data: clients, error: clientsError } = await supabase
+      .from('clients')
+      .select(`
+        id,
+        name,
+        first_name,
+        phone,
+        organization_id,
+        portal_enabled,
+        portal_settings,
+        last_notification_at
+      `)
+      .eq('portal_enabled', true)
+      .not('phone', 'is', null);
 
-    if (queryError) {
-      // If RPC doesn't exist, fallback to direct query
-      console.log('[notify-portal-users] RPC not found, using direct query');
-      
-      const { data: clients, error: clientsError } = await supabase
-        .from('clients')
-        .select(`
-          id,
-          name,
-          phone,
-          organization_id,
-          portal_enabled,
-          last_notification_at
-        `)
-        .eq('portal_enabled', true)
-        .not('phone', 'is', null);
-
-      if (clientsError) {
-        throw clientsError;
-      }
-
-      const notificationsToSend: UnreadMessage[] = [];
-
-      for (const client of clients || []) {
-        // Check if we've notified recently (within 30 min)
-        if (client.last_notification_at) {
-          const lastNotif = new Date(client.last_notification_at);
-          const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
-          if (lastNotif > thirtyMinAgo) {
-            continue;
-          }
-        }
-
-        // Get unread messages count (outgoing messages from school that are unread)
-        const { data: unreadMessages, error: msgError } = await supabase
-          .from('chat_messages')
-          .select('id, content, created_at')
-          .eq('client_id', client.id)
-          .eq('direction', 'outgoing')
-          .eq('is_read', false)
-          .order('created_at', { ascending: false })
-          .limit(5);
-
-        if (msgError || !unreadMessages?.length) {
-          continue;
-        }
-
-        notificationsToSend.push({
-          client_id: client.id,
-          client_name: client.name || 'Клиент',
-          client_phone: client.phone,
-          unread_count: unreadMessages.length,
-          last_message: unreadMessages[0]?.content || '',
-          last_message_at: unreadMessages[0]?.created_at,
-          organization_id: client.organization_id
-        });
-      }
-
-      console.log(`[notify-portal-users] Found ${notificationsToSend.length} clients to notify`);
-
-      let sentCount = 0;
-      let failedCount = 0;
-
-      for (const notification of notificationsToSend) {
-        try {
-          // Get organization name
-          const { data: org } = await supabase
-            .from('organizations')
-            .select('name')
-            .eq('id', notification.organization_id)
-            .single();
-
-          const schoolName = org?.name || 'школы';
-          const messagePreview = notification.last_message.length > 100 
-            ? notification.last_message.substring(0, 100) + '...'
-            : notification.last_message;
-
-          const notificationText = notification.unread_count === 1
-            ? `📬 Новое сообщение от ${schoolName}:\n\n"${messagePreview}"\n\nОткройте личный кабинет для просмотра.`
-            : `📬 У вас ${notification.unread_count} новых сообщений от ${schoolName}.\n\nПоследнее: "${messagePreview}"\n\nОткройте личный кабинет для просмотра.`;
-
-          // Try to send via WhatsApp
-          const wppResponse = await fetch(`${supabaseUrl}/functions/v1/whatsapp-send`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${supabaseServiceKey}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              phone: notification.client_phone,
-              message: notificationText,
-              organization_id: notification.organization_id
-            })
-          });
-
-          const wppResult = await wppResponse.json();
-
-          if (wppResult.success) {
-            // Update last notification time
-            await supabase
-              .from('clients')
-              .update({ last_notification_at: new Date().toISOString() })
-              .eq('id', notification.client_id);
-
-            sentCount++;
-            console.log(`[notify-portal-users] Sent notification to ${notification.client_phone}`);
-          } else {
-            failedCount++;
-            console.error(`[notify-portal-users] Failed to send to ${notification.client_phone}:`, wppResult);
-          }
-        } catch (sendError) {
-          failedCount++;
-          console.error(`[notify-portal-users] Error sending notification:`, sendError);
-        }
-      }
-
-      console.log(`[notify-portal-users] Completed: ${sentCount} sent, ${failedCount} failed`);
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          checked: clients?.length || 0,
-          notifications_sent: sentCount,
-          failed: failedCount
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (clientsError) {
+      throw clientsError;
     }
 
-    // If RPC exists, use its results
-    const notifications = unreadData || [];
-    console.log(`[notify-portal-users] RPC returned ${notifications.length} notifications`);
+    console.log(`[notify-portal-users] Found ${clients?.length || 0} portal users`);
+
+    const notificationsToSend: ClientWithSettings[] = [];
+    const now = new Date();
+
+    for (const client of (clients as ClientWithSettings[]) || []) {
+      const settings = client.portal_settings || {};
+      const frequency = settings.notification_frequency || '15min';
+      
+      // Skip if notifications disabled
+      if (frequency === 'disabled') {
+        continue;
+      }
+
+      // Skip if WhatsApp notifications are disabled
+      if (settings.whatsapp_notifications === false) {
+        continue;
+      }
+
+      const intervalMinutes = getIntervalMinutes(frequency);
+      
+      // Check if enough time has passed since last notification
+      if (client.last_notification_at) {
+        const lastNotif = new Date(client.last_notification_at);
+        const minutesSinceLastNotif = (now.getTime() - lastNotif.getTime()) / (1000 * 60);
+        
+        if (minutesSinceLastNotif < intervalMinutes) {
+          continue;
+        }
+      }
+
+      // Get unread messages count (outgoing messages from school that are unread)
+      const { data: unreadMessages, error: msgError } = await supabase
+        .from('chat_messages')
+        .select('id, content, created_at')
+        .eq('client_id', client.id)
+        .eq('direction', 'outgoing')
+        .eq('is_read', false)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (msgError || !unreadMessages?.length) {
+        continue;
+      }
+
+      notificationsToSend.push({
+        ...client,
+        // @ts-ignore - adding dynamic field
+        unread_count: unreadMessages.length,
+        // @ts-ignore
+        last_message: unreadMessages[0]?.content || '',
+        // @ts-ignore
+        last_message_at: unreadMessages[0]?.created_at
+      });
+    }
+
+    console.log(`[notify-portal-users] ${notificationsToSend.length} clients need notifications`);
+
+    let sentCount = 0;
+    let failedCount = 0;
+
+    for (const notification of notificationsToSend) {
+      try {
+        // Get organization name
+        const { data: org } = await supabase
+          .from('organizations')
+          .select('name')
+          .eq('id', notification.organization_id)
+          .single();
+
+        const schoolName = org?.name || 'школы';
+        // @ts-ignore
+        const unreadCount = notification.unread_count;
+        // @ts-ignore
+        const lastMessage = notification.last_message;
+        
+        const messagePreview = lastMessage.length > 100 
+          ? lastMessage.substring(0, 100) + '...'
+          : lastMessage;
+
+        const notificationText = unreadCount === 1
+          ? `📬 Новое сообщение от ${schoolName}:\n\n"${messagePreview}"\n\nОткройте личный кабинет для просмотра.`
+          : `📬 У вас ${unreadCount} новых сообщений от ${schoolName}.\n\nПоследнее: "${messagePreview}"\n\nОткройте личный кабинет для просмотра.`;
+
+        // Send via WhatsApp
+        const wppResponse = await fetch(`${supabaseUrl}/functions/v1/whatsapp-send`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            phone: notification.phone,
+            message: notificationText,
+            organization_id: notification.organization_id
+          })
+        });
+
+        const wppResult = await wppResponse.json();
+
+        if (wppResult.success) {
+          // Update last notification time
+          await supabase
+            .from('clients')
+            .update({ last_notification_at: now.toISOString() })
+            .eq('id', notification.id);
+
+          sentCount++;
+          console.log(`[notify-portal-users] Sent to ${notification.phone}`);
+        } else {
+          failedCount++;
+          console.error(`[notify-portal-users] Failed: ${notification.phone}`, wppResult);
+        }
+      } catch (sendError) {
+        failedCount++;
+        console.error(`[notify-portal-users] Error:`, sendError);
+      }
+    }
+
+    console.log(`[notify-portal-users] Done: ${sentCount} sent, ${failedCount} failed`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        notifications_count: notifications.length
+        checked: clients?.length || 0,
+        notifications_sent: sentCount,
+        failed: failedCount
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

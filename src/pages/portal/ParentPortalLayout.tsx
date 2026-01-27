@@ -14,7 +14,8 @@ import {
   Menu,
   X,
   GraduationCap,
-  ChevronDown
+  ChevronDown,
+  Settings
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -105,6 +106,10 @@ export default function ParentPortalLayout() {
     { name: "Чат", href: "/parent-portal/chat", icon: MessageCircle },
   ];
 
+  const secondaryNavigation = [
+    { name: "Настройки", href: "/parent-portal/settings", icon: User },
+  ];
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -178,6 +183,10 @@ export default function ParentPortalLayout() {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem className="font-medium">
                   {client?.first_name} {client?.last_name}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/parent-portal/settings')}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Настройки
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="h-4 w-4 mr-2" />
