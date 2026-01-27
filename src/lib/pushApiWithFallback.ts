@@ -41,29 +41,24 @@ export function getLastPushApiSource(): PushApiSource | null {
 
 /**
  * Call Lovable Cloud edge function
+ * 
+ * NOTE: We do NOT send JWT tokens from self-hosted Supabase to Lovable Cloud
+ * because they have different JWT secrets. Instead, we rely on API key auth
+ * and pass user_id in the request body.
  */
 async function callLovableCloud<T>(
   endpoint: string,
   body?: unknown,
-  options: { requireAuth?: boolean } = {}
+  _options: { requireAuth?: boolean } = {}
 ): Promise<{ success: boolean; data?: T; error?: string; status?: number }> {
-  const { requireAuth = true } = options;
-  
   try {
     const url = `${LOVABLE_CLOUD_URL}/functions/v1/${endpoint}`;
     
+    // Only use API key - JWT from self-hosted won't validate in Lovable Cloud
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'apikey': LOVABLE_CLOUD_ANON_KEY,
     };
-
-    // Get auth token from current session if required
-    if (requireAuth) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-      }
-    }
 
     const response = await fetch(url, {
       method: 'POST',

@@ -22,37 +22,20 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Validate authorization
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      console.error("[push-subscription-save] Missing or invalid Authorization header");
+    // Check for API key (anon key) - basic authorization check
+    // Note: We don't validate JWT because users authenticate via self-hosted Supabase
+    // which has a different JWT secret. The user_id comes from the client after
+    // successful self-hosted authentication.
+    const apiKey = req.headers.get("apikey");
+    const expectedAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    
+    if (!apiKey || apiKey !== expectedAnonKey) {
+      console.error("[push-subscription-save] Invalid or missing API key");
       return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
+        JSON.stringify({ error: "Unauthorized - invalid API key" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    // Create Supabase client with user's token
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    
-    const supabaseAuth = createClient(supabaseUrl, supabaseServiceKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    // Verify the JWT token
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claims, error: claimsError } = await supabaseAuth.auth.getUser(token);
-    
-    if (claimsError || !claims?.user) {
-      console.error("[push-subscription-save] Invalid token:", claimsError?.message);
-      return new Response(
-        JSON.stringify({ error: "Invalid token" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const authenticatedUserId = claims.user.id;
 
     // Parse request body
     const body: SaveRequest = await req.json();
@@ -60,23 +43,30 @@ Deno.serve(async (req) => {
 
     // Validate required fields
     if (!user_id || !endpoint || !keys?.p256dh || !keys?.auth) {
-      console.error("[push-subscription-save] Missing required fields:", { user_id: !!user_id, endpoint: !!endpoint, keys: !!keys });
+      console.error("[push-subscription-save] Missing required fields:", { 
+        user_id: !!user_id, 
+        endpoint: !!endpoint, 
+        keys: !!keys 
+      });
       return new Response(
         JSON.stringify({ error: "Missing required fields: user_id, endpoint, keys.p256dh, keys.auth" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Ensure user can only save their own subscription
-    if (user_id !== authenticatedUserId) {
-      console.error("[push-subscription-save] User ID mismatch:", { provided: user_id, authenticated: authenticatedUserId });
+    // Validate user_id format (UUID)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(user_id)) {
+      console.error("[push-subscription-save] Invalid user_id format:", user_id);
       return new Response(
-        JSON.stringify({ error: "Cannot save subscription for another user" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Invalid user_id format" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // Use service role client for database operations
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     console.log("[push-subscription-save] Saving subscription for user:", user_id);
@@ -114,7 +104,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log("[push-subscription-save] Successfully saved subscription for user:", user_id);
+    console.log("[push-subscription-save] ✅ Successfully saved subscription for user:", user_id);
 
     return new Response(
       JSON.stringify({ success: true }),
