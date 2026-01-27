@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Building2, MapPin, Palette, CreditCard, Users, Banknote, Phone } from 'lucide-react';
+import { ArrowLeft, Building2, MapPin, Palette, CreditCard, Users, Banknote, Phone, Bell } from 'lucide-react';
+import { PushNotificationToggle } from '@/components/notifications/PushNotificationToggle';
 import { SipSettings } from '@/components/SipSettings';
 import { OrganizationSettings } from '@/components/settings/OrganizationSettings';
 import { BranchesSettings } from '@/components/settings/BranchesSettings';
@@ -49,7 +50,7 @@ const Settings = () => {
       {/* Content */}
       <main className="container max-w-7xl mx-auto p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:inline-grid">
             <TabsTrigger value="organization" className="gap-2">
               <Building2 className="h-4 w-4" />
               <span className="hidden sm:inline">Организация</span>
@@ -69,6 +70,10 @@ const Settings = () => {
             <TabsTrigger value="telephony" className="gap-2">
               <Phone className="h-4 w-4" />
               <span className="hidden sm:inline">Телефония</span>
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="gap-2">
+              <Bell className="h-4 w-4" />
+              <span className="hidden sm:inline">Уведомления</span>
             </TabsTrigger>
             <TabsTrigger value="subscription" className="gap-2">
               <CreditCard className="h-4 w-4" />
@@ -138,6 +143,14 @@ const Settings = () => {
                 <SipSettings />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="notifications" className="space-y-4">
+            <PushNotificationToggle 
+              variant="card" 
+              showDiagnostics={true} 
+              showFocusWarning={true} 
+            />
           </TabsContent>
 
           <TabsContent value="subscription" className="space-y-4">
