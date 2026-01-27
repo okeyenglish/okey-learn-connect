@@ -10,6 +10,10 @@ interface PortalSettings {
   whatsapp_notifications?: boolean;
   email_notifications?: boolean;
   push_notifications?: boolean;
+  push_subscription?: {
+    endpoint: string;
+    keys: { p256dh: string; auth: string };
+  };
 }
 
 interface ClientWithSettings {
@@ -61,8 +65,7 @@ Deno.serve(async (req) => {
         portal_settings,
         last_notification_at
       `)
-      .eq('portal_enabled', true)
-      .not('phone', 'is', null);
+      .eq('portal_enabled', true);
 
     if (clientsError) {
       throw clientsError;
@@ -70,7 +73,7 @@ Deno.serve(async (req) => {
 
     console.log(`[notify-portal-users] Found ${clients?.length || 0} portal users`);
 
-    const notificationsToSend: ClientWithSettings[] = [];
+    const notificationsToSend: (ClientWithSettings & { unread_count: number; last_message: string })[] = [];
     const now = new Date();
 
     for (const client of (clients as ClientWithSettings[]) || []) {
@@ -82,8 +85,11 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Skip if WhatsApp notifications are disabled
-      if (settings.whatsapp_notifications === false) {
+      // Skip if no notification channels enabled
+      const hasWhatsApp = settings.whatsapp_notifications !== false && client.phone;
+      const hasPush = settings.push_notifications && settings.push_subscription?.endpoint;
+      
+      if (!hasWhatsApp && !hasPush) {
         continue;
       }
 
@@ -115,18 +121,15 @@ Deno.serve(async (req) => {
 
       notificationsToSend.push({
         ...client,
-        // @ts-ignore - adding dynamic field
         unread_count: unreadMessages.length,
-        // @ts-ignore
         last_message: unreadMessages[0]?.content || '',
-        // @ts-ignore
-        last_message_at: unreadMessages[0]?.created_at
       });
     }
 
     console.log(`[notify-portal-users] ${notificationsToSend.length} clients need notifications`);
 
-    let sentCount = 0;
+    let whatsappSent = 0;
+    let pushSent = 0;
     let failedCount = 0;
 
     for (const notification of notificationsToSend) {
@@ -139,47 +142,91 @@ Deno.serve(async (req) => {
           .single();
 
         const schoolName = org?.name || 'школы';
-        // @ts-ignore
         const unreadCount = notification.unread_count;
-        // @ts-ignore
         const lastMessage = notification.last_message;
         
         const messagePreview = lastMessage.length > 100 
           ? lastMessage.substring(0, 100) + '...'
           : lastMessage;
 
+        const notificationTitle = unreadCount === 1
+          ? `Новое сообщение от ${schoolName}`
+          : `${unreadCount} новых сообщений`;
+
+        const notificationBody = unreadCount === 1
+          ? messagePreview
+          : `Последнее: "${messagePreview}"`;
+
         const notificationText = unreadCount === 1
           ? `📬 Новое сообщение от ${schoolName}:\n\n"${messagePreview}"\n\nОткройте личный кабинет для просмотра.`
           : `📬 У вас ${unreadCount} новых сообщений от ${schoolName}.\n\nПоследнее: "${messagePreview}"\n\nОткройте личный кабинет для просмотра.`;
 
-        // Send via WhatsApp
-        const wppResponse = await fetch(`${supabaseUrl}/functions/v1/whatsapp-send`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            phone: notification.phone,
-            message: notificationText,
-            organization_id: notification.organization_id
-          })
-        });
+        const settings = notification.portal_settings || {};
+        let notificationSent = false;
 
-        const wppResult = await wppResponse.json();
+        // Send Push notification if enabled
+        if (settings.push_notifications && settings.push_subscription?.endpoint) {
+          try {
+            const pushResponse = await fetch(`${supabaseUrl}/functions/v1/portal-push-send`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${supabaseServiceKey}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                client_id: notification.id,
+                title: notificationTitle,
+                body: notificationBody,
+                url: '/parent-portal',
+              })
+            });
 
-        if (wppResult.success) {
-          // Update last notification time
+            const pushResult = await pushResponse.json();
+            if (pushResult.success) {
+              pushSent++;
+              notificationSent = true;
+              console.log(`[notify-portal-users] Push sent to ${notification.id}`);
+            }
+          } catch (pushError) {
+            console.error(`[notify-portal-users] Push failed:`, pushError);
+          }
+        }
+
+        // Send via WhatsApp if enabled
+        if (settings.whatsapp_notifications !== false && notification.phone) {
+          try {
+            const wppResponse = await fetch(`${supabaseUrl}/functions/v1/whatsapp-send`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${supabaseServiceKey}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                phone: notification.phone,
+                message: notificationText,
+                organization_id: notification.organization_id
+              })
+            });
+
+            const wppResult = await wppResponse.json();
+            if (wppResult.success) {
+              whatsappSent++;
+              notificationSent = true;
+              console.log(`[notify-portal-users] WhatsApp sent to ${notification.phone}`);
+            }
+          } catch (wppError) {
+            console.error(`[notify-portal-users] WhatsApp failed:`, wppError);
+          }
+        }
+
+        // Update last notification time if any notification was sent
+        if (notificationSent) {
           await supabase
             .from('clients')
             .update({ last_notification_at: now.toISOString() })
             .eq('id', notification.id);
-
-          sentCount++;
-          console.log(`[notify-portal-users] Sent to ${notification.phone}`);
         } else {
           failedCount++;
-          console.error(`[notify-portal-users] Failed: ${notification.phone}`, wppResult);
         }
       } catch (sendError) {
         failedCount++;
@@ -187,13 +234,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`[notify-portal-users] Done: ${sentCount} sent, ${failedCount} failed`);
+    console.log(`[notify-portal-users] Done: WhatsApp=${whatsappSent}, Push=${pushSent}, Failed=${failedCount}`);
 
     return new Response(
       JSON.stringify({
         success: true,
         checked: clients?.length || 0,
-        notifications_sent: sentCount,
+        whatsapp_sent: whatsappSent,
+        push_sent: pushSent,
         failed: failedCount
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
