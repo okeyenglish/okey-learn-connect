@@ -148,7 +148,7 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
       onClick={onClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`w-full p-2 text-left rounded-lg transition-all duration-200 relative mb-0.5 border select-none touch-manipulation ${
+      className={`w-full p-2.5 text-left rounded-lg transition-all duration-200 relative mb-1 border select-none touch-manipulation ${
         isPinned
           ? `border-orange-200 bg-gradient-to-r ${
               isSelected 

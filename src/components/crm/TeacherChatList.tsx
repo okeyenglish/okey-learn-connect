@@ -350,10 +350,10 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
       {/* Virtualized List */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-auto"
+        className="flex-1 overflow-auto px-1.5"
       >
         {isLoading ? (
-          <div className="p-1">
+          <div className="py-1">
             {[1, 2, 3, 4, 5].map((i) => (
               <div
                 key={i}
@@ -397,7 +397,7 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
                   >
                     <button
                       onClick={() => selectWithScroll('teachers-group')}
-                      className={`w-full text-left p-2 rounded-lg transition-all duration-200 relative mb-0.5 border ${
+                      className={`w-full text-left p-2.5 rounded-lg transition-all duration-200 relative mb-1 border ${
                         selectedTeacherId === 'teachers-group'
                           ? 'bg-accent/50 shadow-sm border-accent'
                           : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
