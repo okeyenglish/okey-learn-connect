@@ -293,7 +293,8 @@ export const ChatArea = ({
   const [checkingWhatsAppAvailability, setCheckingWhatsAppAvailability] = useState(false);
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const { updateTypingStatus, getTypingMessage, getTypingInfo, isOtherUserTyping } = useTypingStatus(clientId);
+  const { updateTypingStatus, getTypingInfo, isOtherUserTyping } = useTypingStatus(clientId);
+  const typingInfo = getTypingInfo();
   const markChatMessagesAsReadByMessengerMutation = useMarkChatMessagesAsReadByMessenger();
   const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
   const queryClient = useQueryClient();
@@ -1895,9 +1896,9 @@ export const ChatArea = ({
               <div className="flex-1 min-w-0">
                 <h2 className="font-semibold text-sm text-foreground truncate">{displayName}</h2>
                 <p className="text-xs text-muted-foreground truncate">{clientPhone}</p>
-                {getTypingMessage() && (
+                {isOtherUserTyping && typingInfo && (
                   <p className="text-xs text-orange-600 italic animate-pulse">
-                    {getTypingMessage()}
+                    {typingInfo.managerName} печатает...
                   </p>
                 )}
               </div>
@@ -2745,7 +2746,7 @@ export const ChatArea = ({
             )}
             
             {/* Typing indicator above textarea */}
-            {isOtherUserTyping && getTypingInfo() && (
+            {isOtherUserTyping && typingInfo && (
               <div className="px-2 py-1.5 bg-orange-50 border border-orange-200 rounded-md mb-1">
                 <div className="text-xs text-orange-700 flex items-center gap-1.5">
                   <span className="inline-flex gap-0.5">
@@ -2753,11 +2754,11 @@ export const ChatArea = ({
                     <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
                     <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
                   </span>
-                  <span className="font-medium">{getTypingInfo()?.managerName}</span>
+                  <span className="font-medium">{typingInfo.managerName}</span>
                   <span>печатает:</span>
-                  {getTypingInfo()?.draftText && (
+                  {typingInfo.draftText && (
                     <span className="text-orange-600 italic truncate max-w-[200px]">
-                      "{getTypingInfo()?.draftText}"
+                      "{typingInfo.draftText}"
                     </span>
                   )}
                 </div>
@@ -2769,7 +2770,7 @@ export const ChatArea = ({
               ref={textareaRef}
               placeholder={
                 isOtherUserTyping 
-                  ? `🔒 ${getTypingInfo()?.managerName || 'Менеджер'} печатает...`
+                  ? `🔒 ${typingInfo?.managerName || 'Менеджер'} печатает...`
                   : commentMode 
                     ? "Введите комментарий..." 
                     : "Введите сообщение..."
