@@ -142,6 +142,7 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
         whatsapp: 0,
         telegram: 0,
         max: 0,
+        chatos: 0,
         email: 0,
         calls: 0,
       };

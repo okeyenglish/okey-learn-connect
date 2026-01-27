@@ -19,7 +19,7 @@ export interface ChatMessage {
   file_type?: string;
   external_message_id?: string;
   whatsapp_chat_id?: string;
-  messenger_type?: 'whatsapp' | 'telegram' | 'max' | null;
+  messenger_type?: 'whatsapp' | 'telegram' | 'max' | 'chatos' | null;
   message_status?: 'sent' | 'delivered' | 'read' | 'queued' | null;
   metadata?: Record<string, unknown> | null;
 }
@@ -28,6 +28,7 @@ export interface UnreadByMessenger {
   whatsapp: number;
   telegram: number;
   max: number;
+  chatos: number;
   email: number;
   calls: number;
 }
@@ -232,6 +233,7 @@ export const useChatThreads = () => {
         whatsapp: 0,
         telegram: 0,
         max: 0,
+        chatos: 0,
         email: 0,
         calls: 0,
       });
@@ -402,7 +404,7 @@ export const useClientUnreadByMessenger = (clientId: string) => {
     queryKey: ['client-unread-by-messenger', clientId],
     queryFn: async (): Promise<{ counts: UnreadByMessenger; lastUnreadMessenger: string | null }> => {
       if (!clientId) {
-        return { counts: { whatsapp: 0, telegram: 0, max: 0, email: 0, calls: 0 }, lastUnreadMessenger: null };
+        return { counts: { whatsapp: 0, telegram: 0, max: 0, chatos: 0, email: 0, calls: 0 }, lastUnreadMessenger: null };
       }
 
       // Fetch unread messages by messenger type with created_at to find the latest
@@ -419,7 +421,7 @@ export const useClientUnreadByMessenger = (clientId: string) => {
         throw msgError;
       }
 
-      const counts: UnreadByMessenger = { whatsapp: 0, telegram: 0, max: 0, email: 0, calls: 0 };
+      const counts: UnreadByMessenger = { whatsapp: 0, telegram: 0, max: 0, chatos: 0, email: 0, calls: 0 };
       let lastUnreadMessenger: string | null = null;
       let latestUnreadTime: Date | null = null;
 
@@ -440,6 +442,8 @@ export const useClientUnreadByMessenger = (clientId: string) => {
           counts.telegram++;
         } else if (messengerType === 'max') {
           counts.max++;
+        } else if (messengerType === 'chatos') {
+          counts.chatos++;
         } else if (messengerType === 'email') {
           counts.email++;
         }
@@ -481,7 +485,7 @@ export const useClientUnreadByMessenger = (clientId: string) => {
   });
 
   return {
-    unreadCounts: data?.counts || { whatsapp: 0, telegram: 0, max: 0, email: 0, calls: 0 },
+    unreadCounts: data?.counts || { whatsapp: 0, telegram: 0, max: 0, chatos: 0, email: 0, calls: 0 },
     lastUnreadMessenger: data?.lastUnreadMessenger || null,
     isLoading,
     isFetching,
