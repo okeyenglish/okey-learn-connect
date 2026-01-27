@@ -194,7 +194,7 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
           payload: {
             title: clientFullName,
             body: msgText.slice(0, 100) + (msgText.length > 100 ? '...' : ''),
-            icon: '/pwa-192x192.png',
+            icon: client.avatar_url || '/pwa-192x192.png',
             url: `/crm?clientId=${client.id}`,
             tag: `max-chat-${client.id}`,
           },

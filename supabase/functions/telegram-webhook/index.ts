@@ -215,7 +215,7 @@ async function handleIncomingMessage(
           payload: {
             title: clientFullName,
             body: messageText.slice(0, 100) + (messageText.length > 100 ? '...' : ''),
-            icon: '/pwa-192x192.png',
+            icon: client.avatar_url || '/pwa-192x192.png',
             url: `/crm?clientId=${client.id}`,
             tag: `telegram-chat-${client.id}`,
           },
