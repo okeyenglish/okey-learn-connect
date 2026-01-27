@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { User, Settings, Key, LogOut, ChevronDown, Shield, Bell, BellOff, Send, AlertTriangle } from "lucide-react";
+import { User, Settings, Key, LogOut, ChevronDown, Shield, Bell, BellOff, Send, AlertTriangle, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -270,6 +270,26 @@ export const ManagerMenu = ({
                 >
                   <Send className="h-4 w-4 text-muted-foreground" />
                   <span>{testPushLoading ? 'Отправка...' : 'Тест push'}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    try {
+                      const regs = await navigator.serviceWorker.getRegistrations();
+                      for (const reg of regs) {
+                        await reg.unregister();
+                      }
+                      const cacheKeys = await caches.keys();
+                      await Promise.all(cacheKeys.map(k => caches.delete(k)));
+                      toast.success('Кэш сброшен. Перезагрузка...');
+                      setTimeout(() => window.location.reload(), 500);
+                    } catch (e) {
+                      toast.error('Ошибка: ' + String(e));
+                    }
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted text-amber-600"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span>Сбросить кэш</span>
                 </DropdownMenuItem>
                 <FocusModeIndicator />
               </>
