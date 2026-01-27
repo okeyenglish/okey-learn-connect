@@ -1,5 +1,4 @@
-import { useState } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
+import React, { useState } from "react";
 import { User, Settings, Key, LogOut, ChevronDown, Shield, Bell, BellOff, Send } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -54,7 +53,7 @@ export const ManagerMenu = ({
   console.log('🔐 ManagerMenu roles check:', { role, roles, isAdmin, isMethodist, canAccessAdmin });
 
 
-  const handleTestPush = async (e: ReactMouseEvent) => {
+  const handleTestPush = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!user) return;
