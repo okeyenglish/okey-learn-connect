@@ -1,39 +1,39 @@
 import { useState } from "react";
-import { Building2, GraduationCap, Plus, Users, MessageCircle, CreditCard, ListTodo, UserPlus, Briefcase, QrCode } from "lucide-react";
+import { MessageSquare, GraduationCap, Plus, Users, BarChart3, CreditCard, ListTodo, UserPlus, Briefcase, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { QRScanner } from "@/components/mobile/QRScanner";
 
 interface MobileChatNavigationProps {
-  onCorporateClick: () => void;
+  onChatOSClick: () => void;
   onTeachersClick: () => void;
   onClientsClick: () => void;
-  onCommunitiesClick: () => void;
+  onKPIClick: () => void;
   onNewChatClick: () => void;
   onPaymentClick?: () => void;
   onTaskClick?: () => void;
   onEmployeeClick?: () => void;
-  corporateUnreadCount?: number;
+  chatOSUnreadCount?: number;
   teachersUnreadCount?: number;
   clientsUnreadCount?: number;
-  communitiesUnreadCount?: number;
-  activeChatType?: 'client' | 'corporate' | 'teachers' | 'communities';
+  kpiHasAlerts?: boolean;
+  activeChatType?: 'client' | 'corporate' | 'teachers' | 'communities' | 'chatos' | 'kpi';
 }
 
 export const MobileChatNavigation = ({
-  onCorporateClick,
+  onChatOSClick,
   onTeachersClick,
   onClientsClick,
-  onCommunitiesClick,
+  onKPIClick,
   onNewChatClick,
   onPaymentClick,
   onTaskClick,
   onEmployeeClick,
-  corporateUnreadCount = 0,
+  chatOSUnreadCount = 0,
   teachersUnreadCount = 0,
   clientsUnreadCount = 0,
-  communitiesUnreadCount = 0,
+  kpiHasAlerts = false,
   activeChatType
 }: MobileChatNavigationProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -155,11 +155,11 @@ export const MobileChatNavigation = ({
 
         <div className="flex items-center justify-around h-16 px-1">
           <NavButton
-            icon={Building2}
-            label="Корпчаты"
-            onClick={onCorporateClick}
-            unreadCount={corporateUnreadCount}
-            isActive={activeChatType === 'corporate'}
+            icon={MessageSquare}
+            label="ChatOS"
+            onClick={onChatOSClick}
+            unreadCount={chatOSUnreadCount}
+            isActive={activeChatType === 'chatos' || activeChatType === 'corporate'}
           />
           <NavButton
             icon={GraduationCap}
@@ -188,11 +188,11 @@ export const MobileChatNavigation = ({
             isActive={activeChatType === 'client'}
           />
           <NavButton
-            icon={MessageCircle}
-            label="Сообщества"
-            onClick={onCommunitiesClick}
-            unreadCount={communitiesUnreadCount}
-            isActive={activeChatType === 'communities'}
+            icon={BarChart3}
+            label="KPI"
+            onClick={onKPIClick}
+            unreadCount={kpiHasAlerts ? 1 : 0}
+            isActive={activeChatType === 'kpi' || activeChatType === 'communities'}
           />
         </div>
       </div>

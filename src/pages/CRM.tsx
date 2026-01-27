@@ -161,6 +161,7 @@ const ScheduleSection = lazy(() => import("@/components/crm/sections/ScheduleSec
 const DocumentsSection = lazy(() => import("@/components/documents/DocumentsSection").then(m => ({ default: m.DocumentsSection })));
 const AnalyticsSection = lazy(() => import("@/components/analytics/AnalyticsSection").then(m => ({ default: m.AnalyticsSection })));
 const CommunicationsSection = lazy(() => import("@/components/communications/CommunicationsSection").then(m => ({ default: m.CommunicationsSection })));
+const EmployeeKPISection = lazy(() => import("@/components/crm/EmployeeKPISection").then(m => ({ default: m.EmployeeKPISection })));
 const Sheets = lazy(() => import("./Sheets"));
 
 import { OrganizationSettings } from "@/components/settings/OrganizationSettings";
@@ -1804,13 +1805,9 @@ const CRMContent = () => {
   };
 
   // Обработчики для мобильной навигации
-  const handleMobileCorporateClick = () => {
-    setActiveChatType('corporate');
-    setActiveChatId(null);
-    if (isMobile) {
-      setLeftSidebarOpen(false);
-      setRightSidebarOpen(false);
-    }
+  const handleMobileChatOSClick = () => {
+    // ChatOS opens the AI Hub
+    setVoiceAssistantOpen(true);
   };
 
   const handleMobileTeachersClick = () => {
@@ -1831,8 +1828,9 @@ const CRMContent = () => {
     }
   };
 
-  const handleMobileCommunitiesClick = () => {
-    setActiveChatType('communities');
+  const handleMobileKPIClick = () => {
+    // KPI opens employee dashboard
+    setActiveChatType('communities'); // Reuse communities type for now, will show KPI content
     setActiveChatId(null);
     if (isMobile) {
       setLeftSidebarOpen(false);
@@ -4093,9 +4091,13 @@ const CRMContent = () => {
               />
             </div>
           ) : activeChatType === 'communities' ? (
-            <CommunityChatArea 
-              onMessageChange={setHasUnsavedChat}
-            />
+            isMobile ? (
+              <EmployeeKPISection className="flex-1" />
+            ) : (
+              <CommunityChatArea 
+                onMessageChange={setHasUnsavedChat}
+              />
+            )
           ) : (
             <div className="flex-1 bg-background flex items-center justify-center p-4">
               <div className="text-center text-muted-foreground max-w-sm mx-auto">
@@ -4323,18 +4325,18 @@ const CRMContent = () => {
       {/* Мобильная нижняя навигация чатов - показываем только в списке (не в диалоге) */}
       {isMobile && activeTab === 'chats' && !activeChatId && (
         <MobileChatNavigation
-          onCorporateClick={handleMobileCorporateClick}
+          onChatOSClick={handleMobileChatOSClick}
           onTeachersClick={handleMobileTeachersClick}
           onClientsClick={handleMobileClientsClick}
-          onCommunitiesClick={handleMobileCommunitiesClick}
+          onKPIClick={handleMobileKPIClick}
           onNewChatClick={handleMobileNewChatClick}
           onPaymentClick={() => setShowInvoiceModal(true)}
           onTaskClick={() => setShowAddTaskModal(true)}
           onEmployeeClick={handleMobileEmployeeClick}
-          corporateUnreadCount={corporateChats?.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0) || 0}
+          chatOSUnreadCount={(corporateChats?.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0) || 0) + (teacherChats?.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0) || 0)}
           teachersUnreadCount={teacherChats?.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0) || 0}
           clientsUnreadCount={threads?.filter((t: any) => t.unread_count > 0).length || 0}
-          communitiesUnreadCount={communityUnread || 0}
+          kpiHasAlerts={false}
           activeChatType={activeChatType}
         />
       )}
