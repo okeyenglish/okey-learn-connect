@@ -404,3 +404,6 @@ verify_jwt = true
 
 [functions.notify-portal-users]
 verify_jwt = false
+
+[functions.send-portal-login]
+verify_jwt = true
