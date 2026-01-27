@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNotificationSettings, invalidateSettingsCache } from '@/hooks/useNotificationSettings';
-import { playNotificationSound } from '@/hooks/useNotificationSound';
+import { playNotificationSound, type NotificationSoundType } from '@/hooks/useNotificationSound';
 import { useBrowserNotifications } from '@/hooks/useBrowserNotifications';
 import { toast } from 'sonner';
 
@@ -48,10 +48,16 @@ export const NotificationSettings = () => {
     }
   };
 
-  const testSound = () => {
+  const testSound = (type: NotificationSoundType = 'default') => {
     if (settings.soundEnabled) {
-      playNotificationSound(settings.soundVolume);
-      toast.success('Тестовый звук воспроизведён');
+      playNotificationSound(settings.soundVolume, type);
+      const labels: Record<NotificationSoundType, string> = {
+        chat: 'Звук чата',
+        lesson: 'Звук урока',
+        missed_call: 'Звук звонка',
+        default: 'Звук по умолчанию',
+      };
+      toast.success(labels[type] + ' воспроизведён');
     } else {
       toast.info('Звуковые уведомления отключены');
     }
@@ -142,9 +148,23 @@ export const NotificationSettings = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={testSound}
+                onClick={() => testSound('chat')}
               >
-                Тест
+                💬 Чат
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => testSound('lesson')}
+              >
+                🎓 Урок
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => testSound('missed_call')}
+              >
+                📞 Звонок
               </Button>
             </div>
           </div>

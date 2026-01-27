@@ -26,8 +26,8 @@ export const useMissedCallNotifications = () => {
 
     console.log('[useMissedCallNotifications] Missed call received:', detail);
 
-    // Play notification sound
-    playNotificationSound(0.6);
+    // Play missed call notification sound
+    playNotificationSound(0.6, 'missed_call');
 
     // Show toast notification
     toast({
