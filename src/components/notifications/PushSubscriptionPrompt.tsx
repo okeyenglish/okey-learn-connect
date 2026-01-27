@@ -91,8 +91,8 @@ export function PushSubscriptionPrompt() {
         'bg-background border border-border rounded-lg shadow-lg',
         'transition-all duration-300 ease-out',
         isExiting
-          ? 'opacity-0 translate-y-4'
-          : 'opacity-100 translate-y-0 animate-fade-in'
+          ? 'opacity-0 translate-y-full'
+          : 'opacity-100 translate-y-0 animate-slide-in-bottom'
       )}
     >
       {/* Close button */}
