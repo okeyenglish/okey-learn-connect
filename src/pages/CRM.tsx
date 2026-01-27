@@ -130,7 +130,8 @@ import {
   CreditCard,
   MapPin,
   HardDrive,
-  Sparkles
+  Sparkles,
+  Trash2
 } from "lucide-react";
 import { AnimatedLogo } from "@/components/AnimatedLogo";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
@@ -143,7 +144,8 @@ import { UserPermissionsManager } from "@/components/admin/UserPermissionsManage
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { useMissedCallNotifications } from "@/hooks/useMissedCallNotifications";
-
+import { TrashDialog } from "@/components/crm/TrashDialog";
+import { useDeletedChats } from "@/hooks/useDeletedChats";
 // Lazy load тяжелых компонентов модальных окон для быстрого открытия
 const LeadsModalContent = lazy(() => import("@/components/leads/LeadsModalContent").then(m => ({ default: m.LeadsModalContent })));
 const StudentsModal = lazy(() => import("@/components/crm/StudentsModal").then(m => ({ default: m.StudentsModal })));
@@ -324,6 +326,10 @@ const CRMContent = () => {
     action: 'read' | 'pin' | 'archive' | null;
     count: number;
   }>({ open: false, action: null, count: 0 });
+  
+  // Trash dialog state
+  const [trashDialogOpen, setTrashDialogOpen] = useState(false);
+  const { data: deletedChats = [] } = useDeletedChats();
   
   // Критичные данные - загружаем ТОЛЬКО threads с infinite scroll (50 за раз)
   // useClients убран из критического пути - 27К клиентов тормозили загрузку
@@ -1486,6 +1492,7 @@ const CRMContent = () => {
       queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
       queryClient.invalidateQueries({ queryKey: ['deleted-client-ids'] });
+      queryClient.invalidateQueries({ queryKey: ['deleted-chats'] });
       
       if (activeChatId === deleteChatDialog.chatId) {
         setActiveChatId(null);
@@ -3083,6 +3090,23 @@ const CRMContent = () => {
                   >
                     <ListChecks className="h-4 w-4" />
                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      "h-8 w-8 p-0 rounded-lg border border-muted text-muted-foreground hover:bg-muted hover:text-foreground relative",
+                      deletedChats.length > 0 && "text-destructive border-destructive/30"
+                    )}
+                    onClick={() => setTrashDialogOpen(true)}
+                    title="Корзина"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {deletedChats.length > 0 && (
+                      <span className="absolute -top-1 -right-1 h-4 min-w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] font-medium flex items-center justify-center px-1">
+                        {deletedChats.length > 99 ? '99+' : deletedChats.length}
+                      </span>
+                    )}
+                  </Button>
                 </>
                 )}
                 {bulkSelectMode && (
@@ -3663,6 +3687,23 @@ const CRMContent = () => {
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      "h-8 w-8 p-0 rounded-lg border border-muted text-muted-foreground hover:bg-muted hover:text-foreground relative",
+                      deletedChats.length > 0 && "text-destructive border-destructive/30"
+                    )}
+                    onClick={() => setTrashDialogOpen(true)}
+                    title="Корзина"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {deletedChats.length > 0 && (
+                      <span className="absolute -top-1 -right-1 h-4 min-w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] font-medium flex items-center justify-center px-1">
+                        {deletedChats.length > 99 ? '99+' : deletedChats.length}
+                      </span>
+                    )}
+                  </Button>
                 </div>
               </div>
               <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
@@ -4417,6 +4458,12 @@ const CRMContent = () => {
         chatName={deleteChatDialog.chatName}
         onConfirm={confirmDeleteChat}
         isDeleting={isDeletingChat}
+      />
+
+      {/* Trash Dialog */}
+      <TrashDialog
+        open={trashDialogOpen}
+        onOpenChange={setTrashDialogOpen}
       />
 
       {/* Link Chat to Client Modal */}
