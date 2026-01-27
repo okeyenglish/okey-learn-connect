@@ -60,27 +60,36 @@ export const ManagerMenu = ({
     
     setTestPushLoading(true);
     try {
-      const response = await selfHostedPost<{ sent?: number }>('send-push-notification', {
+      console.log('[TestPush] Starting test for user:', user.id);
+      
+      const response = await selfHostedPost<{ sent?: number; failed?: number; details?: unknown }>('send-push-notification', {
         userId: user.id,
         payload: {
           title: 'Тестовое уведомление 🔔',
           body: `Push работает! ${new Date().toLocaleTimeString('ru-RU')}`,
           icon: '/pwa-192x192.png',
-          tag: 'test-push',
+          tag: `test-push-${Date.now()}`,
           url: '/crm',
         },
       });
 
-      if (!response.success) throw new Error(response.error);
+      console.log('[TestPush] Response:', response);
+
+      if (!response.success) {
+        console.error('[TestPush] API error:', response.error, 'Status:', response.status);
+        throw new Error(response.error || `Ошибка ${response.status}`);
+      }
       
       if (response.data?.sent && response.data.sent > 0) {
-        toast.success(`Push отправлен`);
+        toast.success(`Push отправлен (${response.data.sent})`);
+      } else if (response.data?.failed && response.data.failed > 0) {
+        toast.warning(`Все подписки истекли (${response.data.failed})`);
       } else {
-        toast.warning('Нет активных подписок');
+        toast.warning('Нет активных подписок. Переподключите уведомления.');
       }
     } catch (err) {
-      console.error('Test push error:', err);
-      toast.error('Ошибка отправки');
+      console.error('[TestPush] Error:', err);
+      toast.error(err instanceof Error ? err.message : 'Ошибка отправки');
     } finally {
       setTestPushLoading(false);
     }
