@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { selfHostedPost } from "@/lib/selfHostedApi";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
+import { toast } from "sonner";
 import type { CallLog } from "./useCallHistory";
 
 interface CallLogsResponse {
@@ -93,6 +94,59 @@ const cleanupOldCaches = (force = false) => {
 
 export const useInfiniteCallHistory = (clientId: string) => {
   const queryClient = useQueryClient();
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const wasOfflineRef = useRef(!navigator.onLine);
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Track online/offline status
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('[CallHistory] Connection restored');
+      setIsOnline(true);
+      
+      // If we were offline, trigger sync after a short delay
+      if (wasOfflineRef.current && clientId) {
+        wasOfflineRef.current = false;
+        
+        // Debounce sync to avoid multiple rapid calls
+        if (syncTimeoutRef.current) {
+          clearTimeout(syncTimeoutRef.current);
+        }
+        
+        syncTimeoutRef.current = setTimeout(() => {
+          setIsSyncing(true);
+          queryClient.invalidateQueries({ queryKey: ['call-logs-infinite', clientId] })
+            .then(() => {
+              toast.success('История звонков синхронизирована');
+            })
+            .catch(() => {
+              toast.error('Не удалось синхронизировать звонки');
+            })
+            .finally(() => {
+              setIsSyncing(false);
+            });
+        }, 1000);
+      }
+    };
+    
+    const handleOffline = () => {
+      console.log('[CallHistory] Connection lost');
+      setIsOnline(false);
+      wasOfflineRef.current = true;
+    };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, [clientId, queryClient]);
   
   // Initialize with cached data if available
   useEffect(() => {
@@ -135,10 +189,11 @@ export const useInfiniteCallHistory = (clientId: string) => {
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextOffset,
-    enabled: !!clientId,
+    enabled: !!clientId && isOnline, // Only fetch when online
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes (formerly cacheTime)
     refetchOnWindowFocus: false,
+    refetchOnReconnect: true, // Refetch when reconnecting
     retry: 2,
     // Use cached data while fetching
     placeholderData: (previousData) => previousData,
@@ -155,12 +210,33 @@ export const useInfiniteCallHistory = (clientId: string) => {
   const isOfflineData = useCallback(() => {
     if (!query.data) return false;
     const cached = getCachedData(clientId);
-    return cached !== null && query.isError;
-  }, [clientId, query.data, query.isError]);
+    return (cached !== null && query.isError) || !isOnline;
+  }, [clientId, query.data, query.isError, isOnline]);
+
+  // Manual sync function
+  const syncNow = useCallback(async () => {
+    if (!isOnline) {
+      toast.error('Нет подключения к интернету');
+      return;
+    }
+    
+    setIsSyncing(true);
+    try {
+      await queryClient.invalidateQueries({ queryKey: ['call-logs-infinite', clientId] });
+      toast.success('История звонков синхронизирована');
+    } catch {
+      toast.error('Не удалось синхронизировать звонки');
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [clientId, isOnline, queryClient]);
 
   return {
     ...query,
     isOfflineData: isOfflineData(),
+    isOnline,
+    isSyncing,
+    syncNow,
   };
 };
 
