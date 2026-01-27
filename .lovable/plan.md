@@ -1,220 +1,96 @@
 
+# План исправления Push-уведомлений с Lovable Cloud Fallback
 
-# План: Lovable Cloud как Fallback для Push-уведомлений
+## Выявленные проблемы
 
-## Текущая архитектура
+### Проблема 1: Нет таблицы push_subscriptions в Lovable Cloud
+Edge functions `push-subscription-save` и `push-subscription-delete` пытаются работать с таблицей, которой не существует.
 
-```text
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                              FRONTEND                                        │
-│                                                                              │
-│  usePushNotifications.ts                                                     │
-│  ├── selfHostedPost('portal-push-config')  → VAPID ключ                     │
-│  ├── selfHostedPost('push-subscription-save')  → сохранение подписки        │
-│  └── selfHostedPost('push-subscription-delete') → удаление подписки         │
-│                                                                              │
-│  Текущий flow: ТОЛЬКО self-hosted (api.academyos.ru)                        │
-│  Если self-hosted недоступен → ошибка                                        │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                     SELF-HOSTED (api.academyos.ru)                          │
-│                                                                             │
-│  Edge Functions:                                                            │
-│  ├── portal-push-config                                                     │
-│  ├── push-subscription-save                                                 │
-│  ├── push-subscription-delete                                               │
-│  └── send-push-notification                                                 │
-│                                                                             │
-│  Database: push_subscriptions                                               │
-│  Secrets: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY                               │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+### Проблема 2: portal-push-send не шифрует payload
+Web Push API требует шифрование RFC 8291 (ECDH + AES-GCM). Текущая реализация отправляет plaintext, что игнорируется push-сервисами.
 
-## Новая архитектура с Fallback
-
-```text
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                              FRONTEND                                        │
-│                                                                              │
-│  usePushNotifications.ts                                                     │
-│  ├── TRY: selfHostedPost('portal-push-config')                              │
-│  │   └── FALLBACK: supabase.functions.invoke('portal-push-config')          │
-│  ├── TRY: selfHostedPost('push-subscription-save')                          │
-│  │   └── FALLBACK: supabase.functions.invoke('push-subscription-save')      │
-│  └── ...                                                                     │
-│                                                                              │
-│  selfHostedApi.ts: Добавить pushApiWithFallback helper                      │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                    ┌───────────────┴───────────────┐
-                    ▼                               ▼
-┌─────────────────────────────┐     ┌─────────────────────────────┐
-│   SELF-HOSTED (PRIMARY)     │     │   LOVABLE CLOUD (FALLBACK)  │
-│   api.academyos.ru          │     │   igqdjqmohwsgyeuhitqg      │
-│                             │     │                             │
-│   ✅ Основной бэкенд        │     │   📦 Резервный бэкенд       │
-│   ✅ База данных            │     │   📦 Те же Edge Functions   │
-│   ✅ VAPID ключи            │     │   📦 Свои VAPID ключи       │
-└─────────────────────────────┘     └─────────────────────────────┘
-```
-
-## Важное ограничение
-
-VAPID ключи на self-hosted и Lovable Cloud **разные**:
-- Self-hosted: `BNCGXWZNici...`
-- Lovable Cloud: `BCqgfbaK1qd...` (или другой)
-
-**Это означает**: подписка, созданная с ключом self-hosted, не будет работать через Lovable Cloud и наоборот.
-
-### Варианты решения:
-
-1. **Синхронизировать VAPID ключи** — установить одинаковые ключи на обоих серверах
-2. **Dual-subscription** — создавать подписку для обоих серверов (сложно, не рекомендуется)
-3. **Fallback только для конфигурации** — использовать Cloud только для получения VAPID ключа, остальное через self-hosted
+### Проблема 3: Отправка push не имеет fallback
+Вебхуки и триггеры вызывают self-hosted напрямую без fallback на Lovable Cloud.
 
 ---
 
-## План реализации
+## План исправления
 
-### Шаг 1: Синхронизировать VAPID ключи
+### Шаг 1: Создать таблицу push_subscriptions в Lovable Cloud
 
-Для полноценного fallback необходимо, чтобы VAPID ключи совпадали.
+```sql
+CREATE TABLE IF NOT EXISTS public.push_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL,
+  keys JSONB NOT NULL,
+  user_agent TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, endpoint)
+);
 
-**Обновить в Lovable Cloud Secrets:**
+-- RLS policies
+ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage own subscriptions"
+ON public.push_subscriptions
+FOR ALL
+TO authenticated
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Service role can manage all"
+ON public.push_subscriptions
+FOR ALL
+TO service_role
+USING (true);
 ```
-VAPID_PUBLIC_KEY = BNCGXWZNiciyztYDIZPXM_smN8mBxrfFPIG_ohpea-9H5B0Gl-zjfWkh7XJOemAh2iDQR87V3f54LQ12DRJfl6s
-VAPID_PRIVATE_KEY = Ag3ubLQIi1HUDfzr9F3zdttibP6svYoMp1VQjBdRZ04
-```
 
-### Шаг 2: Создать helper для API с fallback
+### Шаг 2: Исправить portal-push-send с полным шифрованием RFC 8291
 
-**Новый файл: `src/lib/pushApiWithFallback.ts`**
+Скопировать логику шифрования из `send-push-notification/index.ts`:
+
+**Файл: `supabase/functions/portal-push-send/index.ts`**
+
+Добавить функции:
+- `base64UrlToUint8Array()` - декодирование base64url
+- `uint8ArrayToBase64Url()` - кодирование base64url  
+- `generateVapidJwt()` - генерация VAPID JWT с ES256
+- `hkdf()` - HKDF для деривации ключей
+- `encryptPayload()` - шифрование ECDH + AES-GCM
+- `buildEncryptedBody()` - построение aes128gcm body
+- `sendWebPush()` - полноценная отправка с шифрованием
+
+### Шаг 3: Создать send-push-notification в Lovable Cloud
+
+Для CRM managers нужна отдельная функция `send-push-notification` в Lovable Cloud, которая:
+- Читает подписки из `push_subscriptions` таблицы
+- Отправляет push с шифрованием
+- Поддерживает отправку нескольким пользователям
+
+**Файл: `supabase/functions/send-push-notification/index.ts`**
+
+### Шаг 4: Добавить fallback в вебхуки для отправки push
+
+Обновить helper `sendPushNotification` чтобы использовать fallback:
+
+**Файл: `src/lib/pushApiWithFallback.ts`**
+
+Добавить функцию для отправки push с fallback:
 
 ```typescript
-import { selfHostedPost } from './selfHostedApi';
-import { supabase } from '@/integrations/supabase/client';
-
-interface FallbackOptions {
-  maxRetries?: number;
-  fallbackEnabled?: boolean;
-}
-
-export async function pushApiWithFallback<T>(
-  endpoint: string,
-  body?: unknown,
-  options: FallbackOptions = {}
-): Promise<{ success: boolean; data?: T; error?: string; source: 'self-hosted' | 'lovable-cloud' }> {
-  const { maxRetries = 2, fallbackEnabled = true } = options;
-  
+export async function sendPushWithFallback(
+  userId: string,
+  payload: { title: string; body: string; url?: string; tag?: string }
+): Promise<PushApiResponse> {
   // Try self-hosted first
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const res = await selfHostedPost<T>(endpoint, body, {
-        retry: { noRetry: true } // Disable internal retry for faster fallback
-      });
-      
-      if (res.success) {
-        return { success: true, data: res.data, source: 'self-hosted' };
-      }
-      
-      // Non-retryable error
-      if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
-        return { success: false, error: res.error, source: 'self-hosted' };
-      }
-    } catch (e) {
-      console.warn(`[Push] Self-hosted attempt ${attempt + 1} failed:`, e);
-    }
-  }
-  
-  // Fallback to Lovable Cloud
-  if (fallbackEnabled) {
-    console.log('[Push] Falling back to Lovable Cloud for:', endpoint);
-    
-    try {
-      const { data, error } = await supabase.functions.invoke(endpoint, {
-        body: body as Record<string, unknown>
-      });
-      
-      if (error) {
-        return { success: false, error: error.message, source: 'lovable-cloud' };
-      }
-      
-      return { success: true, data: data as T, source: 'lovable-cloud' };
-    } catch (e) {
-      console.error('[Push] Lovable Cloud fallback failed:', e);
-      return { 
-        success: false, 
-        error: e instanceof Error ? e.message : 'Fallback failed',
-        source: 'lovable-cloud' 
-      };
-    }
-  }
-  
-  return { success: false, error: 'All attempts failed', source: 'self-hosted' };
+  const response = await pushApiWithFallback('send-push-notification', {
+    userId,
+    payload,
+  });
+  return response;
 }
 ```
-
-### Шаг 3: Обновить usePushNotifications.ts
-
-Заменить прямые вызовы `selfHostedPost` на `pushApiWithFallback`:
-
-```typescript
-// Было:
-const saveResponse = await selfHostedPost<{ success: boolean }>('push-subscription-save', {...});
-
-// Станет:
-const saveResponse = await pushApiWithFallback<{ success: boolean }>('push-subscription-save', {...});
-
-// Логирование источника:
-if (saveResponse.success) {
-  console.log(`[Push] Subscription saved via ${saveResponse.source}`);
-}
-```
-
-### Шаг 4: Обновить fetchVapidPublicKey с fallback
-
-```typescript
-async function fetchVapidPublicKey(): Promise<string> {
-  // Try self-hosted first
-  try {
-    const res = await selfHostedPost<{ vapidPublicKey?: string }>('portal-push-config', undefined, {
-      retry: { noRetry: true }
-    });
-    
-    if (res.success && res.data?.vapidPublicKey) {
-      console.log('[Push] VAPID from self-hosted');
-      return res.data.vapidPublicKey;
-    }
-  } catch (e) {
-    console.warn('[Push] Self-hosted VAPID fetch failed:', e);
-  }
-  
-  // Fallback to Lovable Cloud
-  try {
-    const { data, error } = await supabase.functions.invoke('portal-push-config');
-    if (!error && data?.vapidPublicKey) {
-      console.log('[Push] VAPID from Lovable Cloud (fallback)');
-      return data.vapidPublicKey;
-    }
-  } catch (e) {
-    console.warn('[Push] Lovable Cloud VAPID fetch failed:', e);
-  }
-  
-  // Ultimate fallback to hardcoded
-  console.warn('[Push] Using hardcoded VAPID fallback');
-  return VAPID_PUBLIC_KEY;
-}
-```
-
-### Шаг 5: Добавить индикатор источника в диагностику
-
-**Файл: `src/components/notifications/PushDiagnostics.tsx`**
-
-Добавить отображение какой сервер используется:
-- 🟢 Self-hosted (основной)
-- 🟡 Lovable Cloud (fallback)
 
 ---
 
@@ -222,31 +98,38 @@ async function fetchVapidPublicKey(): Promise<string> {
 
 | Файл | Изменения |
 |------|-----------|
-| `src/lib/pushApiWithFallback.ts` | Новый файл — helper с fallback логикой |
-| `src/hooks/usePushNotifications.ts` | Использовать fallback для всех push операций |
-| `src/hooks/usePortalPushNotifications.ts` | Использовать fallback для portal операций |
-| `src/components/notifications/PushDiagnostics.tsx` | Показывать источник (self-hosted/cloud) |
+| `supabase/functions/portal-push-send/index.ts` | Полная реализация Web Push с шифрованием RFC 8291 |
+| `supabase/functions/send-push-notification/index.ts` | Скопировать с self-hosted для CRM fallback |
+| SQL миграция | Создать таблицу `push_subscriptions` |
+| `src/lib/pushApiWithFallback.ts` | Добавить `sendPushWithFallback()` helper |
 
 ---
 
-## Предварительные действия (для пользователя)
+## Технические детали шифрования RFC 8291
 
-Чтобы fallback работал корректно, необходимо синхронизировать VAPID ключи:
-
-Обновить в Lovable Cloud secrets (через UI настроек):
-
-```
-VAPID_PUBLIC_KEY = BNCGXWZNiciyztYDIZPXM_smN8mBxrfFPIG_ohpea-9H5B0Gl-zjfWkh7XJOemAh2iDQR87V3f54LQ12DRJfl6s
-VAPID_PRIVATE_KEY = Ag3ubLQIi1HUDfzr9F3zdttibP6svYoMp1VQjBdRZ04
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                    Web Push Encryption Flow                     │
+├─────────────────────────────────────────────────────────────────┤
+│  1. Generate ephemeral ECDH key pair (P-256)                   │
+│  2. Import client public key (p256dh from subscription)        │
+│  3. Derive shared secret via ECDH                              │
+│  4. Generate random salt (16 bytes)                            │
+│  5. Derive IKM using HKDF(auth_secret, shared_secret, info)    │
+│  6. Derive CEK and Nonce using HKDF(salt, ikm, ...)           │
+│  7. Pad payload + delimiter (0x02)                             │
+│  8. Encrypt with AES-128-GCM                                   │
+│  9. Build aes128gcm body: salt | rs | idlen | keyid | ciphertext│
+│ 10. Generate VAPID JWT (ES256 signature)                       │
+│ 11. POST to endpoint with proper headers                       │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Ожидаемый результат
 
-1. **Основной режим**: Push работает через self-hosted (api.academyos.ru)
-2. **При недоступности self-hosted**: автоматический переход на Lovable Cloud
-3. **Логирование**: в консоли видно какой сервер обработал запрос
-4. **Диагностика**: показывает текущий источник
-5. **Единые VAPID ключи**: подписки работают через оба сервера
-
+1. Push-подписки сохраняются в Lovable Cloud когда self-hosted недоступен
+2. Push-уведомления отправляются через Lovable Cloud как fallback
+3. Payload правильно шифруется по RFC 8291
+4. Push приходят на устройства пользователей
