@@ -401,3 +401,6 @@ verify_jwt = false
 
 [functions.send-portal-invitation]
 verify_jwt = true
+
+[functions.notify-portal-users]
+verify_jwt = false
