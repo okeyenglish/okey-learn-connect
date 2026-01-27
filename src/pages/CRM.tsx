@@ -3492,6 +3492,7 @@ const CRMContent = () => {
                           messageSearchClientIds={messageSearchClientIds}
                           getMessengerType={getMessengerType}
                           searchQuery={chatSearchQuery}
+                          typingByClient={typingByClient}
                           onChatClick={handleChatClick}
                           onChatAction={handleChatAction}
                           onBulkSelect={handleBulkSelectToggle}
@@ -3536,6 +3537,7 @@ const CRMContent = () => {
                         messageSearchClientIds={messageSearchClientIds}
                         getMessengerType={getMessengerType}
                         searchQuery={chatSearchQuery}
+                        typingByClient={typingByClient}
                         onChatClick={handleChatClick}
                         onChatAction={handleChatAction}
                         onBulkSelect={handleBulkSelectToggle}
@@ -3912,6 +3914,7 @@ const CRMContent = () => {
                           messageSearchClientIds={messageSearchClientIds}
                           getMessengerType={getMessengerType}
                           searchQuery={chatSearchQuery}
+                          typingByClient={typingByClient}
                           onChatClick={handleChatClick}
                           onChatAction={handleChatAction}
                           onBulkSelect={handleBulkSelectToggle}
@@ -3958,6 +3961,7 @@ const CRMContent = () => {
                         messageSearchClientIds={messageSearchClientIds}
                         getMessengerType={getMessengerType}
                         searchQuery={chatSearchQuery}
+                        typingByClient={typingByClient}
                         onChatClick={handleChatClick}
                         onChatAction={handleChatAction}
                         onBulkSelect={handleBulkSelectToggle}

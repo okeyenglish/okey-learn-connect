@@ -7,6 +7,11 @@ import { usePrefetchMessages } from '@/hooks/useChatMessagesOptimized';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Loader2 } from 'lucide-react';
 
+interface TypingInfo {
+  count: number;
+  names: string[];
+}
+
 interface VirtualizedChatListProps {
   chats: any[];
   activeChatId: string | null;
@@ -20,6 +25,7 @@ interface VirtualizedChatListProps {
   messageSearchClientIds?: string[];
   getMessengerType?: (clientId: string) => 'whatsapp' | 'telegram' | 'max' | null;
   searchQuery?: string;
+  typingByClient?: Record<string, TypingInfo>;
   onChatClick: (chatId: string, type: string, foundInMessages?: boolean, messengerType?: 'whatsapp' | 'telegram' | 'max' | null) => void;
   onChatAction: (chatId: string, action: string) => void;
   onBulkSelect: (chatId: string) => void;
@@ -50,6 +56,7 @@ export const VirtualizedChatList = React.memo(({
   messageSearchClientIds = [],
   getMessengerType,
   searchQuery = '',
+  typingByClient = {},
   onChatClick,
   onChatAction,
   onBulkSelect,
@@ -218,6 +225,7 @@ export const VirtualizedChatList = React.memo(({
                   isSelected={selectedChatIds.has(chat.id)}
                   foundInMessages={chat.foundInMessages || messageSearchClientIds.includes(chat.id)}
                   searchQuery={searchQuery}
+                  typingInfo={typingByClient[chat.id] || null}
                   onChatClick={() => {
                     const foundInMessages = chat.foundInMessages || messageSearchClientIds.includes(chat.id);
                     const messengerType = foundInMessages && getMessengerType ? getMessengerType(chat.id) : null;
