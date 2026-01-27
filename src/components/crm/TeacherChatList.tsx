@@ -350,14 +350,14 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
       {/* Virtualized List */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-auto px-1.5"
+        className="flex-1 overflow-auto px-2"
       >
         {isLoading ? (
           <div className="py-1">
             {[1, 2, 3, 4, 5].map((i) => (
               <div
                 key={i}
-                className="p-1.5 md:p-2 rounded-lg border bg-card animate-fade-in"
+                className="p-2 rounded-lg border bg-card animate-fade-in mb-1"
                 style={{ animationDelay: `${i * 50}ms`, animationFillMode: 'backwards' }}
               >
                 <div className="flex items-start gap-2">
