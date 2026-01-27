@@ -347,3 +347,70 @@ export const useStaffMembers = () => {
     enabled: !!profile?.organization_id
   });
 };
+
+// Hook for getting last message previews for staff conversations
+export interface StaffConversationPreview {
+  recipientUserId: string;
+  lastMessage: string | null;
+  lastMessageTime: string | null;
+  unreadCount: number;
+}
+
+export const useStaffConversationPreviews = (profileIds: string[]) => {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['staff-conversation-previews', profileIds],
+    queryFn: async () => {
+      if (!user?.id || profileIds.length === 0) return {} as Record<string, StaffConversationPreview>;
+
+      const previews: Record<string, StaffConversationPreview> = {};
+
+      // Initialize all profiles with empty previews
+      profileIds.forEach(id => {
+        previews[id] = {
+          recipientUserId: id,
+          lastMessage: null,
+          lastMessageTime: null,
+          unreadCount: 0,
+        };
+      });
+
+      // Fetch last messages for each conversation in parallel
+      const promises = profileIds.map(async (recipientId) => {
+        // Get last message
+        const { data: messages } = await supabase
+          .from('internal_staff_messages')
+          .select('message_text, created_at')
+          .or(`and(sender_id.eq.${user.id},recipient_user_id.eq.${recipientId}),and(sender_id.eq.${recipientId},recipient_user_id.eq.${user.id})`)
+          .is('group_chat_id', null)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        // Get unread count
+        const { count } = await supabase
+          .from('internal_staff_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('sender_id', recipientId)
+          .eq('recipient_user_id', user.id)
+          .eq('is_read', false);
+
+        if (messages && messages.length > 0) {
+          previews[recipientId] = {
+            recipientUserId: recipientId,
+            lastMessage: messages[0].message_text,
+            lastMessageTime: messages[0].created_at,
+            unreadCount: count || 0,
+          };
+        } else {
+          previews[recipientId].unreadCount = count || 0;
+        }
+      });
+
+      await Promise.all(promises);
+      return previews;
+    },
+    enabled: !!user?.id && profileIds.length > 0,
+    staleTime: 30000,
+  });
+};
