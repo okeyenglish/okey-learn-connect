@@ -87,8 +87,6 @@ export const AIHub = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showTeachers, setShowTeachers] = useState(false);
-  const [showGroups, setShowGroups] = useState(false);
   const [teacherClientId, setTeacherClientId] = useState<string | null>(null);
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -165,8 +163,8 @@ export const AIHub = ({
     }
   ];
 
-  // Build chat list items
-  const chatItems: ChatItem[] = [
+  // Build unified chat list - AI chats, groups, and teachers all together
+  const aiChats: ChatItem[] = [
     // AI Assistant
     {
       id: 'assistant',
@@ -176,7 +174,7 @@ export const AIHub = ({
       icon: Bot,
       iconBg: 'bg-primary/10',
       iconColor: 'text-primary',
-      badge: 'Голосовой',
+      badge: 'AI',
       unreadCount: assistantUnread,
     },
     // Consultants
@@ -188,10 +186,39 @@ export const AIHub = ({
       icon: c.icon,
       iconBg: 'bg-primary/10',
       iconColor: 'text-primary',
-      badge: 'AI-консультант',
+      badge: 'AI',
       lastMessage: messages[c.id]?.slice(-1)[0]?.content,
     })),
   ];
+
+  // Group chats from internal_chats
+  const groupChatItems: ChatItem[] = (internalChats || []).map(group => ({
+    id: group.id,
+    type: 'group' as ChatType,
+    name: group.name,
+    description: group.description || group.branch || 'Групповой чат',
+    icon: Users,
+    iconBg: 'bg-blue-500/10',
+    iconColor: 'text-blue-600',
+    data: group,
+  }));
+
+  // Teacher chats
+  const teacherChatItems: ChatItem[] = teachers.map(teacher => ({
+    id: teacher.id,
+    type: 'teacher' as ChatType,
+    name: teacher.fullName,
+    description: teacher.branch || teacher.email || 'Преподаватель',
+    icon: GraduationCap,
+    iconBg: 'bg-green-500/10',
+    iconColor: 'text-green-600',
+    unreadCount: teacher.unreadMessages,
+    lastMessage: teacher.lastMessageText || undefined,
+    data: teacher,
+  }));
+
+  // Combined flat list
+  const allChats = [...aiChats, ...groupChatItems, ...teacherChatItems];
 
   // Initialize greeting messages for consultants
   useEffect(() => {
@@ -320,26 +347,11 @@ export const AIHub = ({
       }
     }
     setActiveChat(item);
-    setShowTeachers(false);
-    setShowGroups(false);
   };
 
   const handleBack = () => {
-    if (activeChat) {
-      if (activeChat.type === 'teacher') {
-        setActiveChat(null);
-        setTeacherClientId(null);
-        setShowTeachers(true);
-      } else if (activeChat.type === 'group') {
-        setActiveChat(null);
-        setShowGroups(true);
-      } else {
-        setActiveChat(null);
-      }
-    } else if (showTeachers || showGroups) {
-      setShowTeachers(false);
-      setShowGroups(false);
-    }
+    setActiveChat(null);
+    setTeacherClientId(null);
   };
 
   const getCurrentMessages = (): ChatMessage[] => {
@@ -370,23 +382,19 @@ export const AIHub = ({
     return consultant?.placeholder || 'Введите сообщение...';
   };
 
-  // Filter chats based on search
-  const filteredChats = chatItems.filter(item =>
+  // Filter all chats based on search
+  const filteredChats = allChats.filter(item =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredTeachers = teachers.filter(t =>
-    t.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  // Separate into AI and corporate
+  const aiChatsList = filteredChats.filter(item => 
+    item.type === 'assistant' || ['lawyer', 'accountant', 'marketer', 'hr', 'methodist', 'it'].includes(item.type)
   );
-
-  const filteredGroups = (internalChats || []).filter(g =>
-    g.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const corporateChatsList = filteredChats.filter(item => 
+    item.type === 'group' || item.type === 'teacher'
   );
-
-  // Group chats count
-  const groupChatsUnread = 0; // Could calculate from data
 
   // Render chat content (for AI assistant - show VoiceAssistant)
   if (activeChat?.type === 'assistant') {
@@ -552,185 +560,18 @@ export const AIHub = ({
     );
   }
 
-  // Render teachers list
-  if (showTeachers) {
-    return (
-      <Sheet open={isOpen} onOpenChange={onToggle}>
-        <SheetContent side="right" className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
-            <Button variant="ghost" size="icon" onClick={handleBack} className="h-8 w-8">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold">Чаты педагогов</p>
-              <p className="text-xs text-muted-foreground">{teachers.length} преподавателей</p>
-            </div>
-          </div>
-
-          {/* Search */}
-          <div className="px-4 py-2 border-b">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Поиск..."
-                className="pl-9 h-9"
-              />
-            </div>
-          </div>
-
-          <ScrollArea className="flex-1">
-            <div className="p-2 space-y-1">
-              {teachersLoading ? (
-                <div className="text-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-                </div>
-              ) : filteredTeachers.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  {searchQuery ? 'Не найдено' : 'Нет преподавателей'}
-                </div>
-              ) : (
-                filteredTeachers.map((teacher) => (
-                  <button
-                    key={teacher.id}
-                    onClick={() => handleSelectChat({
-                      id: teacher.id,
-                      type: 'teacher',
-                      name: teacher.fullName,
-                      description: teacher.branch || 'Преподаватель',
-                      icon: GraduationCap,
-                      iconBg: 'bg-green-500/10',
-                      iconColor: 'text-green-600',
-                      unreadCount: teacher.unreadMessages,
-                      lastMessage: teacher.lastMessageText || undefined,
-                      data: teacher
-                    })}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left"
-                  >
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-green-500/10 text-green-600">
-                        {teacher.firstName?.[0]}{teacher.lastName?.[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <p className="font-medium text-sm truncate">{teacher.fullName}</p>
-                        {teacher.unreadMessages > 0 && (
-                          <Badge variant="destructive" className="ml-2 text-xs">
-                            {teacher.unreadMessages}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {teacher.lastMessageText || teacher.email || 'Нет сообщений'}
-                      </p>
-                      {teacher.branch && (
-                        <Badge variant="outline" className="mt-1 text-xs">{teacher.branch}</Badge>
-                      )}
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          </ScrollArea>
-        </SheetContent>
-      </Sheet>
-    );
-  }
-
-  // Render groups list
-  if (showGroups) {
-    return (
-      <Sheet open={isOpen} onOpenChange={onToggle}>
-        <SheetContent side="right" className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
-            <Button variant="ghost" size="icon" onClick={handleBack} className="h-8 w-8">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold">Групповые чаты</p>
-              <p className="text-xs text-muted-foreground">{internalChats?.length || 0} чатов</p>
-            </div>
-          </div>
-
-          {/* Search */}
-          <div className="px-4 py-2 border-b">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Поиск..."
-                className="pl-9 h-9"
-              />
-            </div>
-          </div>
-
-          <ScrollArea className="flex-1">
-            <div className="p-2 space-y-1">
-              {chatsLoading ? (
-                <div className="text-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-                </div>
-              ) : filteredGroups.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  {searchQuery ? 'Не найдено' : 'Нет групповых чатов'}
-                </div>
-              ) : (
-                filteredGroups.map((group) => (
-                  <button
-                    key={group.id}
-                    onClick={() => handleSelectChat({
-                      id: group.id,
-                      type: 'group',
-                      name: group.name,
-                      description: group.branch || 'Групповой чат',
-                      icon: Building2,
-                      iconBg: 'bg-primary/10',
-                      iconColor: 'text-primary',
-                      data: group
-                    })}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left"
-                  >
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-primary/10">
-                        <Building2 className="h-5 w-5 text-primary" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{group.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {group.description || 'Групповой чат'}
-                      </p>
-                      {group.branch && (
-                        <Badge variant="outline" className="mt-1 text-xs">{group.branch}</Badge>
-                      )}
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          </ScrollArea>
-        </SheetContent>
-      </Sheet>
-    );
-  }
-
-  // Main chat list
+  // Main chat list (flat, no folders)
   return (
     <Sheet open={isOpen} onOpenChange={onToggle}>
       <SheetContent side="right" className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
           <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-            <Bot className="h-5 w-5 text-primary" />
+            <MessageCircle className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="font-semibold">AI Центр</h2>
-            <p className="text-xs text-muted-foreground">Чаты и помощники</p>
+            <h2 className="font-semibold">Мессенджер</h2>
+            <p className="text-xs text-muted-foreground">Чаты и AI-помощники</p>
           </div>
         </div>
 
@@ -749,97 +590,110 @@ export const AIHub = ({
 
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-1">
-            {/* AI Chats */}
-            {filteredChats.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => handleSelectChat(item)}
-                className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left"
-              >
-                <Avatar className="h-12 w-12">
-                  <AvatarFallback className={item.iconBg}>
-                    <item.icon className={`h-6 w-6 ${item.iconColor}`} />
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <p className="font-semibold truncate">{item.name}</p>
-                    {(item.unreadCount || 0) > 0 && (
-                      <Badge variant="destructive" className="ml-2">
-                        {item.unreadCount}
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {item.lastMessage || item.description}
+            {/* Loading state */}
+            {(chatsLoading || teachersLoading) && (
+              <div className="text-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
+              </div>
+            )}
+
+            {/* AI Chats Section */}
+            {aiChatsList.length > 0 && (
+              <>
+                <div className="px-3 py-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    AI Помощники
                   </p>
-                  {item.badge && (
-                    <Badge variant="outline" className="mt-1.5 text-xs">
-                      {item.badge} • Всегда онлайн
-                    </Badge>
-                  )}
                 </div>
-              </button>
-            ))}
+                {aiChatsList.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleSelectChat(item)}
+                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left"
+                  >
+                    <Avatar className="h-11 w-11">
+                      <AvatarFallback className={item.iconBg}>
+                        <item.icon className={`h-5 w-5 ${item.iconColor}`} />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium text-sm truncate">{item.name}</p>
+                        {(item.unreadCount || 0) > 0 && (
+                          <Badge variant="destructive" className="ml-2 text-xs">
+                            {item.unreadCount}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {item.lastMessage || item.description}
+                      </p>
+                      {item.badge && (
+                        <Badge variant="secondary" className="mt-1 text-xs">
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </>
+            )}
 
-            {/* Separator */}
-            <div className="my-3 px-3">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Корпоративные чаты
-              </p>
-            </div>
-
-            {/* Group Chats */}
-            <button
-              onClick={() => { setShowGroups(true); setSearchQuery(''); }}
-              className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left"
-            >
-              <Avatar className="h-12 w-12">
-                <AvatarFallback className="bg-primary/10">
-                  <Building2 className="h-6 w-6 text-primary" />
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <p className="font-semibold">Групповые чаты</p>
-                  {groupChatsUnread > 0 && (
-                    <Badge variant="destructive">{groupChatsUnread}</Badge>
-                  )}
+            {/* Corporate Chats Section (Groups + Teachers) */}
+            {corporateChatsList.length > 0 && (
+              <>
+                <div className="px-3 py-2 mt-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Сотрудники и группы
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Корпоративные и филиальные чаты
-                </p>
-                <Badge variant="outline" className="mt-1.5 text-xs">
-                  {internalChats?.length || 0} чатов
-                </Badge>
+                {corporateChatsList.map((item) => {
+                  // For teachers, show initials
+                  const isTeacher = item.type === 'teacher';
+                  const teacher = isTeacher ? (item.data as TeacherChatItem) : null;
+                  
+                  return (
+                    <button
+                      key={`${item.type}-${item.id}`}
+                      onClick={() => handleSelectChat(item)}
+                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left"
+                    >
+                      <Avatar className="h-11 w-11">
+                        <AvatarFallback className={item.iconBg}>
+                          {isTeacher && teacher ? (
+                            <span className="text-sm font-medium text-green-600">
+                              {teacher.firstName?.[0]}{teacher.lastName?.[0]}
+                            </span>
+                          ) : (
+                            <item.icon className={`h-5 w-5 ${item.iconColor}`} />
+                          )}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="font-medium text-sm truncate">{item.name}</p>
+                          {(item.unreadCount || 0) > 0 && (
+                            <Badge variant="destructive" className="ml-2 text-xs">
+                              {item.unreadCount}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {item.lastMessage || item.description}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </>
+            )}
+
+            {/* Empty state */}
+            {filteredChats.length === 0 && !chatsLoading && !teachersLoading && (
+              <div className="text-center py-8 text-muted-foreground">
+                {searchQuery ? 'Ничего не найдено' : 'Нет доступных чатов'}
               </div>
-            </button>
-
-            {/* Teacher Chats */}
-            <button
-              onClick={() => { setShowTeachers(true); setSearchQuery(''); }}
-              className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left"
-            >
-              <Avatar className="h-12 w-12">
-                <AvatarFallback className="bg-green-500/10">
-                  <GraduationCap className="h-6 w-6 text-green-600" />
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <p className="font-semibold">Чаты педагогов</p>
-                  {teachersUnread > 0 && (
-                    <Badge variant="destructive">{teachersUnread}</Badge>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Личные чаты с преподавателями
-                </p>
-                <Badge variant="outline" className="mt-1.5 text-xs">
-                  {teachers.length} преподавателей
-                </Badge>
-              </div>
-            </button>
+            )}
           </div>
         </ScrollArea>
       </SheetContent>
