@@ -12,7 +12,8 @@ import {
   Bell,
   Smartphone,
   Server,
-  Wifi
+  Wifi,
+  Key
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
@@ -32,6 +33,7 @@ interface DiagnosticState {
   permission: DiagnosticResult;
   subscription: DiagnosticResult;
   server: DiagnosticResult;
+  vapidMatch: DiagnosticResult;
 }
 
 const initialState: DiagnosticState = {
@@ -40,6 +42,7 @@ const initialState: DiagnosticState = {
   permission: { status: 'pending', message: 'Разрешение на уведомления' },
   subscription: { status: 'pending', message: 'Push подписка' },
   server: { status: 'pending', message: 'Связь с сервером' },
+  vapidMatch: { status: 'pending', message: 'VAPID ключи' },
 };
 
 export function PushDiagnostics({ className }: { className?: string }) {
@@ -226,6 +229,61 @@ export function PushDiagnostics({ className }: { className?: string }) {
       });
     }
 
+    // 6. Check VAPID key match
+    updateDiagnostic('vapidMatch', { status: 'checking' });
+    
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      
+      if (!subscription) {
+        updateDiagnostic('vapidMatch', {
+          status: 'warning',
+          message: 'Нет подписки для проверки',
+        });
+      } else {
+        // Get server VAPID key
+        const serverResponse = await selfHostedPost<{ vapidPublicKey?: string }>('portal-push-config');
+        const serverVapidKey = serverResponse.data?.vapidPublicKey;
+        
+        if (!serverVapidKey) {
+          updateDiagnostic('vapidMatch', {
+            status: 'warning',
+            message: 'Сервер не вернул VAPID ключ',
+          });
+        } else {
+          // Compare subscription's applicationServerKey with server key
+          const subKey = subscription.options?.applicationServerKey;
+          if (subKey) {
+            const subKeyArray = new Uint8Array(subKey as ArrayBuffer);
+            const subKeyB64 = btoa(String.fromCharCode(...subKeyArray))
+              .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+            
+            const keyMatch = subKeyB64 === serverVapidKey;
+            
+            updateDiagnostic('vapidMatch', {
+              status: keyMatch ? 'success' : 'error',
+              message: keyMatch ? 'Ключи совпадают' : 'Ключи НЕ совпадают!',
+              details: keyMatch 
+                ? `Сервер: ${serverVapidKey.substring(0, 15)}...`
+                : `Сервер: ${serverVapidKey.substring(0, 15)}... ≠ Подписка: ${subKeyB64.substring(0, 15)}...`,
+            });
+          } else {
+            updateDiagnostic('vapidMatch', {
+              status: 'warning',
+              message: 'Ключ подписки недоступен',
+            });
+          }
+        }
+      }
+    } catch (err) {
+      updateDiagnostic('vapidMatch', {
+        status: 'error',
+        message: 'Ошибка проверки VAPID',
+        details: err instanceof Error ? err.message : 'Unknown',
+      });
+    }
+
     setIsRunning(false);
   }, [user, updateDiagnostic]);
 
@@ -296,6 +354,8 @@ export function PushDiagnostics({ className }: { className?: string }) {
         return <RefreshCw className="h-4 w-4" />;
       case 'server':
         return <Server className="h-4 w-4" />;
+      case 'vapidMatch':
+        return <Key className="h-4 w-4" />;
     }
   };
 
