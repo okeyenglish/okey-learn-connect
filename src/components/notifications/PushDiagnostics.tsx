@@ -580,6 +580,31 @@ export function PushDiagnostics({ className }: { className?: string }) {
                 <span>⚠️ Доступно обновление</span>
               </div>
             )}
+            <div className="pt-2 border-t mt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs"
+                onClick={async () => {
+                  try {
+                    const regs = await navigator.serviceWorker.getRegistrations();
+                    for (const reg of regs) {
+                      await reg.unregister();
+                    }
+                    // Clear caches
+                    const cacheKeys = await caches.keys();
+                    await Promise.all(cacheKeys.map(k => caches.delete(k)));
+                    toast.success('SW и кэш сброшены. Перезагрузка...');
+                    setTimeout(() => window.location.reload(), 500);
+                  } catch (e) {
+                    toast.error('Ошибка сброса: ' + String(e));
+                  }
+                }}
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                Сбросить SW и кэш
+              </Button>
+            </div>
           </div>
         )}
 
