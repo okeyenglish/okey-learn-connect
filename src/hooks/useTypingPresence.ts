@@ -17,10 +17,53 @@ type TypingStatusRow = Pick<TypingStatus, 'user_id' | 'client_id' | 'is_typing' 
   draft_text?: string | null;
 };
 
+// Soft typing sound (shorter/quieter than message notification)
+const TYPING_SOUND_BASE64 = 
+  'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYb/////////////////////////////////';
+
+let typingSoundAudio: HTMLAudioElement | null = null;
+let lastTypingSoundTime = 0;
+const TYPING_SOUND_INTERVAL = 3000; // Play at most once per 3 seconds
+
+const playTypingSound = () => {
+  // Check if typing sound is enabled in settings
+  try {
+    const stored = localStorage.getItem('notification_settings');
+    if (stored) {
+      const settings = JSON.parse(stored);
+      if (settings.soundEnabled === false) {
+        return; // Sound is disabled globally
+      }
+    }
+  } catch {
+    // Ignore parsing errors
+  }
+
+  const now = Date.now();
+  if (now - lastTypingSoundTime < TYPING_SOUND_INTERVAL) {
+    return; // Throttle
+  }
+
+  try {
+    if (!typingSoundAudio) {
+      typingSoundAudio = new Audio(TYPING_SOUND_BASE64);
+    }
+    typingSoundAudio.volume = 0.2; // Quieter than message sounds
+    lastTypingSoundTime = now;
+    typingSoundAudio.currentTime = 0;
+    typingSoundAudio.play().catch(() => {
+      // Silently fail if autoplay is blocked
+    });
+  } catch {
+    // Audio not supported
+  }
+};
+
 // Tracks typing presence across all clients for chat lists
 // OPTIMIZED: Uses payload directly instead of refresh() SELECT queries
 export const useTypingPresence = () => {
   const [typingByClient, setTypingByClient] = useState<Record<string, TypingPresence>>({});
+  const prevTypingCountRef = useRef<number>(0);
 
   // Fallback polling: keep list accurate if realtime is unstable
   const realtimeWorkingRef = useRef(false);
@@ -109,6 +152,7 @@ export const useTypingPresence = () => {
 
       const current = updated[clientId] || { count: 0, names: [], users: {}, draftText: null };
       const users = { ...(current.users || {}) };
+      const wasUserTyping = !!users[userId];
 
       if (shouldRemove) {
         delete users[userId];
@@ -118,6 +162,11 @@ export const useTypingPresence = () => {
 
       const names = Array.from(new Set(Object.values(users)));
       const count = Object.keys(users).length;
+
+      // Play sound when a NEW user starts typing (not on draft updates)
+      if (!shouldRemove && !wasUserTyping && isTyping) {
+        playTypingSound();
+      }
 
       if (count <= 0) {
         delete updated[clientId];
