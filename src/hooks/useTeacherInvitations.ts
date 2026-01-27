@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { useOrganization } from './useOrganization';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/errorUtils';
+import { useEffect, useCallback } from 'react';
 
 export interface TeacherInvitation {
   id: string;
@@ -22,9 +23,45 @@ export interface TeacherInvitation {
   profile_id: string | null;
 }
 
+// Функция обновления просроченных приглашений
+async function updateExpiredInvitations(organizationId: string): Promise<number> {
+  const now = new Date().toISOString();
+  
+  const { data, error } = await (supabase
+    .from('teacher_invitations' as any)
+    .update({ status: 'expired' })
+    .eq('organization_id', organizationId)
+    .eq('status', 'pending')
+    .lt('token_expires_at', now)
+    .select('id') as any);
+
+  if (error) {
+    console.error('Error updating expired invitations:', error);
+    return 0;
+  }
+  
+  return data?.length || 0;
+}
+
 export const useTeacherInvitations = () => {
   const { organizationId } = useOrganization();
   const queryClient = useQueryClient();
+
+  // Обновление просроченных приглашений при загрузке
+  const updateExpired = useCallback(async () => {
+    if (!organizationId) return;
+    
+    const count = await updateExpiredInvitations(organizationId);
+    if (count > 0) {
+      console.log(`Updated ${count} expired teacher invitations`);
+      queryClient.invalidateQueries({ queryKey: ['teacher-invitations'] });
+    }
+  }, [organizationId, queryClient]);
+
+  // Автоматическое обновление при монтировании
+  useEffect(() => {
+    updateExpired();
+  }, [updateExpired]);
 
   const query = useQuery({
     queryKey: ['teacher-invitations', organizationId],
@@ -100,6 +137,7 @@ export const useTeacherInvitations = () => {
     refetch: query.refetch,
     cancelInvitation,
     resendInvitation,
+    updateExpired,
   };
 };
 
