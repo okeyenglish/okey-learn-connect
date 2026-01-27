@@ -63,6 +63,7 @@ export const CommunityChatArea = ({ onMessageChange, selectedCommunityId = null,
   const sendMessage = useSendMessage();
   const markAsRead = useMarkAsRead();
   const { updateTypingStatus, getTypingMessage, getTypingInfo, isOtherUserTyping } = useTypingStatus(clientId);
+  const typingInfo = getTypingInfo();
   
   useRealtimeMessages(clientId);
   
@@ -298,12 +299,12 @@ export const CommunityChatArea = ({ onMessageChange, selectedCommunityId = null,
               type={msg.message_type === 'system' ? 'manager' : msg.message_type}
             />
           ))}
-          {isOtherUserTyping && getTypingInfo() && (
+          {isOtherUserTyping && typingInfo && (
             <div className="text-sm text-orange-600 italic flex items-center gap-1.5">
-              <span className="font-medium">{getTypingInfo()?.managerName}</span>
+              <span className="font-medium">{typingInfo.managerName}</span>
               <span>печатает</span>
-              {getTypingInfo()?.draftText && (
-                <span className="text-orange-500 truncate max-w-[150px]">: "{getTypingInfo()?.draftText}"</span>
+              {typingInfo.draftText && (
+                <span className="text-orange-500 truncate max-w-[150px]">: "{typingInfo.draftText}"</span>
               )}
             </div>
           )}
