@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { pushApiWithFallback, type PushApiSource } from '@/lib/pushApiWithFallback';
 
-// VAPID public key - must match the VAPID_PUBLIC_KEY in both servers
+// VAPID public key - synchronized across Lovable Cloud (primary) and self-hosted (fallback)
 const VAPID_PUBLIC_KEY = 'BNCGXWZNiciyztYDIZPXM_smN8mBxrfFPIG_ohpea-9H5B0Gl-zjfWkh7XJOemAh2iDQR87V3f54LQ12DRJfl6s';
-
 interface PushSubscriptionState {
   isSupported: boolean;
   isSubscribed: boolean;
