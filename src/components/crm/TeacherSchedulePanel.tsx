@@ -8,13 +8,15 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu';
-import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, Users, User, BookOpen, Plus, Pencil, CheckCircle, XCircle, ArrowRightLeft, GripVertical, Copy } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, Users, User, BookOpen, Plus, Pencil, CheckCircle, XCircle, ArrowRightLeft, GripVertical, Copy, Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EditLessonModal } from '@/components/schedule/EditLessonModal';
 import { AddLessonModal } from '@/components/schedule/AddLessonModal';
 import { LessonConfirmDialog, CopyLessonDialog, ConfirmActionType, ConflictInfo } from '@/components/crm/LessonConfirmDialog';
 import { useToast } from '@/hooks/use-toast';
 import type { LessonSession } from '@/hooks/useLessonSessions';
+import { useScheduleNotifications } from '@/hooks/useScheduleNotifications';
+import { ScheduleNotificationToggle } from '@/components/schedule/ScheduleNotificationToggle';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, useDraggable, useDroppable, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 
 interface TeacherSchedulePanelProps {
@@ -70,6 +72,7 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { notifyTeacherScheduleChange, checkNotificationSettings } = useScheduleNotifications();
 
   // Drag sensors with activation constraint
   const sensors = useSensors(
@@ -80,14 +83,40 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
     })
   );
 
-  // Mutation for updating lesson status
+  // Mutation for updating lesson status with notifications
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ lessonId, status }: { lessonId: string; status: string }) => {
+    mutationFn: async ({ lessonId, status, lesson }: { lessonId: string; status: string; lesson?: ScheduleLesson }) => {
+      // Get old values first
+      const { data: oldSession } = await supabase
+        .from('lesson_sessions')
+        .select('lesson_date, start_time, classroom, status')
+        .eq('id', lessonId)
+        .single();
+
       const { error } = await supabase
         .from('lesson_sessions')
         .update({ status })
         .eq('id', lessonId);
       if (error) throw error;
+
+      // Send notification if status is cancelled
+      if (status === 'cancelled' && oldSession) {
+        const notificationsEnabled = await checkNotificationSettings();
+        if (notificationsEnabled) {
+          notifyTeacherScheduleChange({
+            teacherId,
+            teacherName,
+            sessionId: lessonId,
+            groupName: lesson?.group_name || undefined,
+            changeType: 'cancelled',
+            oldValues: {
+              lesson_date: oldSession.lesson_date,
+              start_time: oldSession.start_time,
+              classroom: oldSession.classroom
+            }
+          }).catch(console.error);
+        }
+      }
     },
     onSuccess: () => {
       refetch();
@@ -99,26 +128,57 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
     },
   });
 
-  // Mutation for moving lesson to another day
+  // Mutation for moving lesson to another day with notifications
   const moveLessonMutation = useMutation({
-    mutationFn: async ({ lessonId, newDate }: { lessonId: string; newDate: string }) => {
+    mutationFn: async ({ lessonId, newDate, lesson }: { lessonId: string; newDate: string; lesson?: ScheduleLesson }) => {
+      // Get old values first
+      const { data: oldSession } = await supabase
+        .from('lesson_sessions')
+        .select('lesson_date, start_time, classroom')
+        .eq('id', lessonId)
+        .single();
+
       const { error } = await supabase
         .from('lesson_sessions')
         .update({ lesson_date: newDate })
         .eq('id', lessonId);
       if (error) throw error;
+
+      // Send notification
+      if (oldSession && oldSession.lesson_date !== newDate) {
+        const notificationsEnabled = await checkNotificationSettings();
+        if (notificationsEnabled) {
+          notifyTeacherScheduleChange({
+            teacherId,
+            teacherName,
+            sessionId: lessonId,
+            groupName: lesson?.group_name || undefined,
+            changeType: 'rescheduled',
+            oldValues: {
+              lesson_date: oldSession.lesson_date,
+              start_time: oldSession.start_time,
+              classroom: oldSession.classroom
+            },
+            newValues: {
+              lesson_date: newDate,
+              start_time: oldSession.start_time,
+              classroom: oldSession.classroom
+            }
+          }).catch(console.error);
+        }
+      }
     },
     onSuccess: () => {
       refetch();
       queryClient.invalidateQueries({ queryKey: ['teacher-chat-schedule'] });
-      toast({ title: 'Занятие перенесено' });
+      toast({ title: 'Занятие перенесено', description: 'Уведомление отправлено преподавателю' });
     },
     onError: () => {
       toast({ title: 'Ошибка', description: 'Не удалось перенести занятие', variant: 'destructive' });
     },
   });
 
-  // Mutation for copying lesson to another day
+  // Mutation for copying lesson to another day with notifications
   const copyLessonMutation = useMutation({
     mutationFn: async ({ lesson, newDate }: { lesson: ScheduleLesson; newDate: string }) => {
       const { error } = await supabase
@@ -136,11 +196,28 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
           notes: lesson.notes,
         });
       if (error) throw error;
+
+      // Send notification about new lesson
+      const notificationsEnabled = await checkNotificationSettings();
+      if (notificationsEnabled) {
+        notifyTeacherScheduleChange({
+          teacherId,
+          teacherName,
+          sessionId: '', // New lesson doesn't have ID yet
+          groupName: lesson.group_name || undefined,
+          changeType: 'created',
+          newValues: {
+            lesson_date: newDate,
+            start_time: lesson.start_time || undefined,
+            classroom: lesson.classroom || undefined
+          }
+        }).catch(console.error);
+      }
     },
     onSuccess: () => {
       refetch();
       queryClient.invalidateQueries({ queryKey: ['teacher-chat-schedule'] });
-      toast({ title: 'Занятие скопировано' });
+      toast({ title: 'Занятие скопировано', description: 'Уведомление отправлено преподавателю' });
     },
     onError: () => {
       toast({ title: 'Ошибка', description: 'Не удалось скопировать занятие', variant: 'destructive' });
@@ -365,9 +442,11 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
   // Confirm action handler
   const handleConfirmAction = () => {
     if (confirmAction === 'status' && pendingLessonId && pendingStatus) {
-      updateStatusMutation.mutate({ lessonId: pendingLessonId, status: pendingStatus });
+      const lesson = lessons.find(l => l.id === pendingLessonId);
+      updateStatusMutation.mutate({ lessonId: pendingLessonId, status: pendingStatus, lesson });
     } else if (confirmAction === 'move' && pendingLessonId && pendingMoveDate) {
-      moveLessonMutation.mutate({ lessonId: pendingLessonId, newDate: pendingMoveDate });
+      const lesson = lessons.find(l => l.id === pendingLessonId);
+      moveLessonMutation.mutate({ lessonId: pendingLessonId, newDate: pendingMoveDate, lesson });
     }
     // Reset state
     setConfirmOpen(false);
@@ -447,11 +526,14 @@ export const TeacherSchedulePanel: React.FC<TeacherSchedulePanelProps> = ({ teac
           </div>
         </div>
         
-        {/* Stats */}
-        <div className="flex gap-3 text-xs text-muted-foreground">
-          <span>Всего: <strong className="text-foreground">{totalLessons}</strong></span>
-          <span>Проведено: <strong className="text-green-600">{completedLessons}</strong></span>
-          <span>Запланировано: <strong className="text-blue-600">{scheduledLessons}</strong></span>
+        {/* Stats and Notification Toggle */}
+        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+          <div className="flex gap-3">
+            <span>Всего: <strong className="text-foreground">{totalLessons}</strong></span>
+            <span>Проведено: <strong className="text-green-600">{completedLessons}</strong></span>
+            <span>Запланировано: <strong className="text-blue-600">{scheduledLessons}</strong></span>
+          </div>
+          <ScheduleNotificationToggle className="hidden sm:flex" />
         </div>
       </div>
 

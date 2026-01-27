@@ -28,8 +28,10 @@ import {
   Loader2,
   AlertCircle,
   CalendarDays,
+  Bell,
 } from 'lucide-react';
 import { EditTeacherModal } from '@/components/admin/EditTeacherModal';
+import { ScheduleNotificationToggle } from '@/components/schedule/ScheduleNotificationToggle';
 import type { Teacher } from '@/integrations/supabase/database.types';
 
 const TeacherProfilePage: React.FC = () => {
@@ -252,20 +254,31 @@ const TeacherProfilePage: React.FC = () => {
 
       {/* Табы с группами, уроками и расписанием */}
       <Tabs defaultValue="schedule" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="schedule" className="gap-2">
-            <CalendarDays className="h-4 w-4" />
-            Расписание
-          </TabsTrigger>
-          <TabsTrigger value="groups" className="gap-2">
-            <Users className="h-4 w-4" />
-            Группы ({profile.groups.length})
-          </TabsTrigger>
-          <TabsTrigger value="lessons" className="gap-2">
-            <Clock className="h-4 w-4" />
-            История уроков
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="schedule" className="gap-2">
+              <CalendarDays className="h-4 w-4" />
+              Расписание
+            </TabsTrigger>
+            <TabsTrigger value="groups" className="gap-2">
+              <Users className="h-4 w-4" />
+              Группы ({profile.groups.length})
+            </TabsTrigger>
+            <TabsTrigger value="lessons" className="gap-2">
+              <Clock className="h-4 w-4" />
+              История уроков
+            </TabsTrigger>
+          </TabsList>
+          
+          {/* Notification settings indicator */}
+          <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-lg bg-muted/50">
+            <Bell className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">
+              WhatsApp уведомления при изменениях расписания
+            </span>
+            <ScheduleNotificationToggle />
+          </div>
+        </div>
 
         {/* Расписание */}
         <TabsContent value="schedule">
