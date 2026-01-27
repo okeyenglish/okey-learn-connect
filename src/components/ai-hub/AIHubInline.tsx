@@ -44,6 +44,7 @@ import { CreateStaffGroupModal } from '@/components/ai-hub/CreateStaffGroupModal
 import { LinkTeacherProfileModal } from '@/components/ai-hub/LinkTeacherProfileModal';
 import VoiceAssistant from '@/components/VoiceAssistant';
 import { usePersistedSections } from '@/hooks/usePersistedSections';
+import { useStaffOnlinePresence, type OnlineUser } from '@/hooks/useStaffOnlinePresence';
 import { useUserAllowedBranches } from '@/hooks/useUserAllowedBranches';
 import {
   Select,
@@ -125,6 +126,7 @@ export const AIHubInline = ({
   
   const { aiSectionExpanded, toggleAiSection } = usePersistedSections();
   const { branchesForDropdown } = useUserAllowedBranches();
+  const { onlineUsers, isUserOnline, onlineCount } = useStaffOnlinePresence();
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
@@ -665,6 +667,61 @@ export const AIHubInline = ({
             </div>
           )}
 
+          {/* Online Staff Section */}
+          {onlineCount > 0 && (
+            <div className="space-y-1">
+              <div className="px-3 py-2 flex items-center gap-2">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                <span className="text-sm font-medium text-muted-foreground">Сейчас онлайн</span>
+                <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full bg-green-50 text-green-700 border-green-200">
+                  {onlineCount}
+                </Badge>
+              </div>
+              
+              <div className="flex flex-wrap gap-1.5 px-3 pb-2">
+                {onlineUsers.map((onlineUser) => {
+                  // Find matching chat item for this online user
+                  const matchingChat = corporateChatsList.find(item => {
+                    if (item.type === 'teacher') {
+                      return (item.data as TeacherChatItem)?.profileId === onlineUser.id;
+                    }
+                    if (item.type === 'staff') {
+                      return (item.data as StaffMember)?.id === onlineUser.id;
+                    }
+                    return false;
+                  });
+                  
+                  const initials = onlineUser.name
+                    .split(' ')
+                    .map(n => n[0])
+                    .join('')
+                    .toUpperCase()
+                    .slice(0, 2) || '•';
+                  
+                  return (
+                    <button
+                      key={onlineUser.id}
+                      onClick={() => matchingChat && handleSelectChat(matchingChat)}
+                      disabled={!matchingChat}
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-50 hover:bg-green-100 border border-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={matchingChat ? `Написать ${onlineUser.name}` : onlineUser.name}
+                    >
+                      <Avatar className="h-5 w-5">
+                        <AvatarFallback className="text-[10px] bg-green-100 text-green-700">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-xs font-medium text-green-700 max-w-[80px] truncate">
+                        {onlineUser.name.split(' ')[0]}
+                      </span>
+                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Staff & Groups Section */}
           {corporateChatsList.length > 0 && (
             <div className="space-y-1">
@@ -688,6 +745,10 @@ export const AIHubInline = ({
                 const lastMsgTime = item.lastMessageTime || undefined;
                 const hasUnread = (item.unreadCount || 0) > 0;
                 
+                // Check if user is online
+                const userProfileId = isTeacher ? teacher?.profileId : isStaff ? staff?.id : null;
+                const isOnline = userProfileId ? isUserOnline(userProfileId) : false;
+                
                 // Calculate initials for teachers and staff
                 let initials = '';
                 if (isTeacher && teacher) {
@@ -704,11 +765,16 @@ export const AIHubInline = ({
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-start gap-2 flex-1 min-w-0">
-                        <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30">
-                          <AvatarFallback className="bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))] text-sm font-medium">
-                            {isTeacher || isStaff ? initials : <item.icon className="h-4 w-4" />}
-                          </AvatarFallback>
-                        </Avatar>
+                        <div className="relative">
+                          <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30">
+                            <AvatarFallback className="bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))] text-sm font-medium">
+                              {isTeacher || isStaff ? initials : <item.icon className="h-4 w-4" />}
+                            </AvatarFallback>
+                          </Avatar>
+                          {isOnline && (
+                            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
+                          )}
+                        </div>
                         <div className="flex-1 min-w-0 overflow-hidden">
                           <div className="flex items-center gap-1.5 mb-0">
                             <p className={`text-sm ${hasUnread ? 'font-semibold' : 'font-medium'} truncate`}>
