@@ -13,11 +13,13 @@ import {
   Smartphone,
   Server,
   Wifi,
-  Key
+  Key,
+  Cloud
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { selfHostedPost } from '@/lib/selfHostedApi';
+import { pushApiWithFallback, type PushApiSource } from '@/lib/pushApiWithFallback';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -34,6 +36,7 @@ interface DiagnosticState {
   subscription: DiagnosticResult;
   server: DiagnosticResult;
   vapidMatch: DiagnosticResult;
+  apiSource: DiagnosticResult;
 }
 
 const initialState: DiagnosticState = {
@@ -43,6 +46,7 @@ const initialState: DiagnosticState = {
   subscription: { status: 'pending', message: 'Push подписка' },
   server: { status: 'pending', message: 'Связь с сервером' },
   vapidMatch: { status: 'pending', message: 'VAPID ключи' },
+  apiSource: { status: 'pending', message: 'Источник API' },
 };
 
 export function PushDiagnostics({ className }: { className?: string }) {
@@ -202,17 +206,37 @@ export function PushDiagnostics({ className }: { className?: string }) {
       });
     }
 
-    // 5. Check server connection
+    // 5. Check server connection with fallback
     updateDiagnostic('server', { status: 'checking' });
+    updateDiagnostic('apiSource', { status: 'checking' });
+    
+    let serverVapidKey: string | undefined;
+    let currentApiSource: PushApiSource = 'self-hosted';
     
     try {
-      const response = await selfHostedPost<{ vapidPublicKey?: string }>('portal-push-config');
+      const response = await pushApiWithFallback<{ vapidPublicKey?: string }>(
+        'portal-push-config',
+        undefined,
+        { requireAuth: false }
+      );
+      
+      currentApiSource = response.source;
       
       if (response.success && response.data?.vapidPublicKey) {
+        serverVapidKey = response.data.vapidPublicKey;
+        
         updateDiagnostic('server', { 
           status: 'success', 
           message: 'Сервер доступен',
-          details: 'VAPID ключ получен'
+          details: `VAPID ключ получен от ${response.source === 'self-hosted' ? 'Self-hosted' : 'Lovable Cloud'}`
+        });
+        
+        updateDiagnostic('apiSource', {
+          status: response.source === 'self-hosted' ? 'success' : 'warning',
+          message: response.source === 'self-hosted' ? 'Self-hosted (основной)' : 'Lovable Cloud (fallback)',
+          details: response.source === 'self-hosted' 
+            ? 'api.academyos.ru' 
+            : 'Резервный сервер активен'
         });
       } else {
         updateDiagnostic('server', { 
@@ -220,16 +244,28 @@ export function PushDiagnostics({ className }: { className?: string }) {
           message: 'Сервер отвечает, но конфиг неполный',
           details: response.error || 'Проверьте настройки сервера'
         });
+        
+        updateDiagnostic('apiSource', {
+          status: 'warning',
+          message: `${response.source === 'self-hosted' ? 'Self-hosted' : 'Lovable Cloud'}`,
+          details: 'Конфигурация неполная'
+        });
       }
     } catch (err) {
       updateDiagnostic('server', { 
         status: 'error', 
-        message: 'Сервер недоступен',
+        message: 'Оба сервера недоступны',
         details: err instanceof Error ? err.message : 'Проверьте соединение'
+      });
+      
+      updateDiagnostic('apiSource', {
+        status: 'error',
+        message: 'Нет доступных серверов',
+        details: 'Self-hosted и Lovable Cloud недоступны'
       });
     }
 
-    // 6. Check VAPID key match
+    // 6. Check VAPID key match (using already fetched server key)
     updateDiagnostic('vapidMatch', { status: 'checking' });
     
     try {
@@ -241,39 +277,33 @@ export function PushDiagnostics({ className }: { className?: string }) {
           status: 'warning',
           message: 'Нет подписки для проверки',
         });
+      } else if (!serverVapidKey) {
+        updateDiagnostic('vapidMatch', {
+          status: 'warning',
+          message: 'Сервер не вернул VAPID ключ',
+        });
       } else {
-        // Get server VAPID key
-        const serverResponse = await selfHostedPost<{ vapidPublicKey?: string }>('portal-push-config');
-        const serverVapidKey = serverResponse.data?.vapidPublicKey;
-        
-        if (!serverVapidKey) {
+        // Compare subscription's applicationServerKey with server key
+        const subKey = subscription.options?.applicationServerKey;
+        if (subKey) {
+          const subKeyArray = new Uint8Array(subKey as ArrayBuffer);
+          const subKeyB64 = btoa(String.fromCharCode(...subKeyArray))
+            .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+          
+          const keyMatch = subKeyB64 === serverVapidKey;
+          
           updateDiagnostic('vapidMatch', {
-            status: 'warning',
-            message: 'Сервер не вернул VAPID ключ',
+            status: keyMatch ? 'success' : 'error',
+            message: keyMatch ? 'Ключи совпадают' : 'Ключи НЕ совпадают!',
+            details: keyMatch 
+              ? `Сервер (${currentApiSource}): ${serverVapidKey.substring(0, 15)}...`
+              : `Сервер: ${serverVapidKey.substring(0, 15)}... ≠ Подписка: ${subKeyB64.substring(0, 15)}...`,
           });
         } else {
-          // Compare subscription's applicationServerKey with server key
-          const subKey = subscription.options?.applicationServerKey;
-          if (subKey) {
-            const subKeyArray = new Uint8Array(subKey as ArrayBuffer);
-            const subKeyB64 = btoa(String.fromCharCode(...subKeyArray))
-              .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-            
-            const keyMatch = subKeyB64 === serverVapidKey;
-            
-            updateDiagnostic('vapidMatch', {
-              status: keyMatch ? 'success' : 'error',
-              message: keyMatch ? 'Ключи совпадают' : 'Ключи НЕ совпадают!',
-              details: keyMatch 
-                ? `Сервер: ${serverVapidKey.substring(0, 15)}...`
-                : `Сервер: ${serverVapidKey.substring(0, 15)}... ≠ Подписка: ${subKeyB64.substring(0, 15)}...`,
-            });
-          } else {
-            updateDiagnostic('vapidMatch', {
-              status: 'warning',
-              message: 'Ключ подписки недоступен',
-            });
-          }
+          updateDiagnostic('vapidMatch', {
+            status: 'warning',
+            message: 'Ключ подписки недоступен',
+          });
         }
       }
     } catch (err) {
@@ -356,6 +386,8 @@ export function PushDiagnostics({ className }: { className?: string }) {
         return <Server className="h-4 w-4" />;
       case 'vapidMatch':
         return <Key className="h-4 w-4" />;
+      case 'apiSource':
+        return <Cloud className="h-4 w-4" />;
     }
   };
 

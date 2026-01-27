@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/typedClient';
-import { selfHostedPost } from '@/lib/selfHostedApi';
+import { pushApiWithFallback, type PushApiSource } from '@/lib/pushApiWithFallback';
 
-// VAPID public key from self-hosted environment
+// VAPID public key - must match the VAPID_PUBLIC_KEY in both servers
 const VAPID_PUBLIC_KEY = 'BNCGXWZNiciyztYDIZPXM_smN8mBxrfFPIG_ohpea-9H5B0Gl-zjfWkh7XJOemAh2iDQR87V3f54LQ12DRJfl6s';
 
 interface PushSubscriptionState {
@@ -10,6 +9,7 @@ interface PushSubscriptionState {
   isSubscribed: boolean;
   isLoading: boolean;
   error: string | null;
+  apiSource: PushApiSource | null;
 }
 
 // Convert VAPID key from base64 to Uint8Array
@@ -34,6 +34,7 @@ export function usePortalPushNotifications(clientId: string | undefined) {
     isSubscribed: false,
     isLoading: true,
     error: null,
+    apiSource: null,
   });
 
   // Check if push notifications are supported
@@ -90,9 +91,14 @@ export function usePortalPushNotifications(clientId: string | undefined) {
         return false;
       }
 
-      // Get VAPID key from edge function
-      const vapidResponse = await selfHostedPost<{ vapidPublicKey: string }>('portal-push-config');
+      // Get VAPID key from edge function (with fallback)
+      const vapidResponse = await pushApiWithFallback<{ vapidPublicKey: string }>(
+        'portal-push-config',
+        undefined,
+        { requireAuth: false }
+      );
       const vapidKey = vapidResponse.data?.vapidPublicKey || VAPID_PUBLIC_KEY;
+      console.log(`[PortalPush] VAPID from ${vapidResponse.source}:`, vapidKey.substring(0, 20) + '...');
 
       // Get service worker registration
       const registration = await navigator.serviceWorker.ready;
@@ -104,8 +110,8 @@ export function usePortalPushNotifications(clientId: string | undefined) {
         applicationServerKey: applicationServerKey as BufferSource,
       });
 
-      // Send subscription to server
-      const response = await selfHostedPost('portal-push-subscribe', {
+      // Send subscription to server (with fallback)
+      const response = await pushApiWithFallback('portal-push-subscribe', {
         client_id: clientId,
         subscription: subscription.toJSON(),
       });
@@ -114,10 +120,13 @@ export function usePortalPushNotifications(clientId: string | undefined) {
         throw new Error(response.error || 'Failed to save subscription');
       }
 
+      console.log(`[PortalPush] Subscription saved via ${response.source}`);
+
       setState(prev => ({
         ...prev,
         isSubscribed: true,
         isLoading: false,
+        apiSource: response.source,
       }));
 
       return true;
@@ -146,15 +155,18 @@ export function usePortalPushNotifications(clientId: string | undefined) {
         await subscription.unsubscribe();
       }
 
-      // Remove from server
-      await selfHostedPost('portal-push-unsubscribe', {
+      // Remove from server (with fallback)
+      const response = await pushApiWithFallback('portal-push-unsubscribe', {
         client_id: clientId,
       });
+
+      console.log(`[PortalPush] Unsubscribed via ${response.source}`);
 
       setState(prev => ({
         ...prev,
         isSubscribed: false,
         isLoading: false,
+        apiSource: response.source,
       }));
 
       return true;
