@@ -459,27 +459,38 @@ export const AIHubInline = ({
                 <button 
                   key={item.id} 
                   onClick={() => handleSelectChat(item)} 
-                  className="w-full flex items-center gap-2 p-2.5 hover:bg-accent/30 hover:shadow-sm transition-all text-left rounded-lg border border-border/50 bg-card"
+                  className="w-full p-2.5 text-left rounded-lg transition-all duration-200 mb-1 border select-none bg-card hover:bg-accent/30 hover:shadow-sm border-border/50"
                 >
-                  <Avatar className="h-9 w-9 shrink-0 ring-2 ring-border/30">
-                    <AvatarFallback className={item.iconBg}>
-                      <item.icon className={`h-4 w-4 ${item.iconColor}`} />
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0 overflow-hidden">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-medium text-sm truncate">{item.name}</p>
-                      <span className="text-[10px] text-muted-foreground shrink-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2 flex-1 min-w-0">
+                      <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30">
+                        <AvatarFallback className="bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))]">
+                          <item.icon className="h-4 w-4" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <div className="flex items-center gap-1.5 mb-0">
+                          <p className={`text-sm ${(item.unreadCount || 0) > 0 ? 'font-semibold' : 'font-medium'} truncate`}>
+                            {item.name}
+                          </p>
+                          <Badge variant="secondary" className="text-[10px] h-4 px-1 shrink-0">AI</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
+                          {item.lastMessage || item.description}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                      <span className="text-[10px] text-muted-foreground font-medium">
                         {item.lastMessage ? 'Сейчас' : ''}
                       </span>
+                      {(item.unreadCount || 0) > 0 && (
+                        <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm">
+                          <span className="font-semibold">{item.unreadCount}</span>
+                        </span>
+                      )}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate line-clamp-1">{item.lastMessage || item.description}</p>
                   </div>
-                  {(item.unreadCount || 0) > 0 && (
-                    <Badge variant="default" className="h-5 min-w-[20px] px-1.5 text-xs rounded-full shrink-0 bg-primary">
-                      {item.unreadCount}
-                    </Badge>
-                  )}
                 </button>
               ))}
             </div>
@@ -504,42 +515,45 @@ export const AIHubInline = ({
                 const teacher = isTeacher ? (item.data as TeacherChatItem) : null;
                 const lastMsgTime = teacher?.lastMessageTime;
                 const hasUnread = (item.unreadCount || 0) > 0;
+                const initials = isTeacher && teacher 
+                  ? `${teacher.lastName?.[0] || ''}${teacher.firstName?.[0] || ''}`.toUpperCase() || '•'
+                  : '';
                 
                 return (
                   <button 
                     key={`${item.type}-${item.id}`} 
                     onClick={() => handleSelectChat(item)} 
-                    className="w-full flex items-center gap-2 p-2.5 hover:bg-accent/30 hover:shadow-sm transition-all text-left rounded-lg border border-border/50 bg-card"
+                    className="w-full p-2.5 text-left rounded-lg transition-all duration-200 mb-1 border select-none bg-card hover:bg-accent/30 hover:shadow-sm border-border/50"
                   >
-                    <Avatar className="h-9 w-9 shrink-0 ring-2 ring-border/30">
-                      <AvatarFallback className={item.iconBg}>
-                        {isTeacher && teacher ? (
-                          <span className="text-xs font-semibold text-green-600">
-                            {teacher.firstName?.[0]}{teacher.lastName?.[0]}
-                          </span>
-                        ) : (
-                          <item.icon className={`h-4 w-4 ${item.iconColor}`} />
-                        )}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className={`text-sm truncate ${hasUnread ? 'font-semibold' : 'font-medium'}`}>
-                          {item.name}
-                        </p>
-                        <span className="text-[10px] text-muted-foreground shrink-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2 flex-1 min-w-0">
+                        <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30">
+                          <AvatarFallback className="bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))] text-sm font-medium">
+                            {isTeacher ? initials : <item.icon className="h-4 w-4" />}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <div className="flex items-center gap-1.5 mb-0">
+                            <p className={`text-sm ${hasUnread ? 'font-semibold' : 'font-medium'} truncate`}>
+                              {item.name}
+                            </p>
+                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
+                            {item.lastMessage || item.description}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                        <span className="text-[10px] text-muted-foreground font-medium">
                           {formatTime(lastMsgTime)}
                         </span>
+                        {hasUnread && (
+                          <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm">
+                            <span className="font-semibold">{item.unreadCount}</span>
+                          </span>
+                        )}
                       </div>
-                      <p className="text-xs text-muted-foreground truncate line-clamp-1">
-                        {item.lastMessage || item.description}
-                      </p>
                     </div>
-                    {hasUnread && (
-                      <Badge variant="default" className="h-5 min-w-[20px] px-1.5 text-xs rounded-full shrink-0 bg-primary">
-                        {item.unreadCount}
-                      </Badge>
-                    )}
                   </button>
                 );
               })}
