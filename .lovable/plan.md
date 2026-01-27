@@ -1,111 +1,132 @@
 
-# План: Lovable Cloud как основной источник для Push-уведомлений
+Цель: устранить ошибку подписки Push в PWA (“Unauthorized - invalid API key”) и сделать диагностику/обновление PWA предсказуемыми, чтобы подобные “залипания” на старом коде больше не ломали push.
 
-## Текущая ситуация
+---
 
-Сейчас архитектура push-уведомлений работает так:
+## 1) Что именно сейчас ломается (диагностика по фактам)
 
-1. **Основной**: self-hosted (api.academyos.ru)
-2. **Fallback**: Lovable Cloud (igqdjqmohwsgyeuhitqg.supabase.co)
+### 1.1. Ошибка приходит из backend-функции Lovable Cloud `push-subscription-save`
+По логам функции `push-subscription-save` видно:
 
-Self-hosted не работает стабильно, поэтому нужно инвертировать приоритет.
+- `expectedAnonKey: "sb_publishable_…(len:46)"`  
+  Это “publishable key” нового формата (`sb_publishable_*`), который функция ожидает как API key.
 
-## Что уже готово в Lovable Cloud
+- При этом запрос приносит:
+  - `apikey` длиной **208** (JWT-подобный ключ старого формата)
+  - `Authorization Bearer` длиной **817** (похоже на access token от self-hosted авторизации)
 
-Все необходимые Edge Functions уже созданы и работают:
-- `portal-push-config` - возвращает VAPID ключ
-- `push-subscription-save` - сохраняет подписки
-- `push-subscription-delete` - удаляет подписки  
-- `send-push-notification` - отправляет push с полным RFC 8291 шифрованием
-- `portal-push-send` - отправка для родительского портала
-- `portal-push-subscribe` / `portal-push-unsubscribe` - для клиентов портала
+Итог: `isAnonKeyAuth: false` → функция возвращает **401 Unauthorized - invalid API key**.
 
-Таблица `push_subscriptions` также создана в Lovable Cloud.
+### 1.2. Почему “фикс” не проявляется в PWA
+По логам видно, что `Authorization` в запросе — **817 символов**, хотя в текущем `src/lib/pushApiWithFallback.ts` “cloud-вызов” должен отправлять `Authorization: Bearer <cloud anon>` (короткий 208).  
+Это сильный сигнал, что установленная PWA работает на **закэшированном старом JS-бандле** (и/или старом Service Worker), и поэтому ваши последние изменения:
+- fallback-логика,
+- добавление `apikey` в self-hosted запросы,
+- и любые правки `pushApiWithFallback`
+в PWA просто **не применяются**.
 
-## План изменений
+Это типичный сценарий для iOS PWA: приложение продолжает работать на старом Service Worker и “app shell” до тех пор, пока пользователь явно не обновит/переустановит PWA или пока приложение не реализует корректный UX обновления.
 
-### Файл: `src/lib/pushApiWithFallback.ts`
+---
 
-Инвертировать логику - сначала Lovable Cloud, потом self-hosted:
+## 2) Что нужно сделать, чтобы точно воспроизвести и подтвердить причину
 
-```typescript
-// БЫЛО: self-hosted → Lovable Cloud
-// СТАНЕТ: Lovable Cloud → self-hosted
+### 2.1. Минимальная проверка “устаревшей PWA”
+Добавим в интерфейс (в настройки/профиль) небольшой блок:
+- “Версия приложения” (например, build timestamp/commit hash)
+- “Версия Service Worker” (строка-маркер уже есть в `src/sw.ts`: `push-support-v5`)
+- “Последний источник push API: Lovable Cloud / self-hosted” (у вас уже есть `getLastPushApiSource()`)
 
-export async function pushApiWithFallback<T = unknown>(
-  endpoint: string,
-  body?: unknown,
-  options: FallbackOptions = {}
-): Promise<PushApiResponse<T>> {
-  
-  // 1. Сначала пробуем Lovable Cloud (основной)
-  const cloudResponse = await callLovableCloud<T>(endpoint, body, options);
-  if (cloudResponse.success) {
-    return { ...cloudResponse, source: 'lovable-cloud' };
-  }
-  
-  // 2. Fallback на self-hosted при ошибке Cloud
-  if (options.fallbackEnabled !== false) {
-    const selfHostedResponse = await callSelfHosted<T>(endpoint, body, options);
-    return { ...selfHostedResponse, source: 'self-hosted' };
-  }
-  
-  return cloudResponse;
-}
-```
+Если PWA показывает старую версию/не видит маркер — значит точно живёт на старом кешe.
 
-### Изменения в деталях
+### 2.2. Включим видимый сигнал о том, какой источник реально используется
+В `usePushNotifications.subscribe()` после `pushApiWithFallback(...)` показывать (в debug-режиме или в диагностике):
+- через какой источник сохранилась подписка
+- если ошибка — от какого источника ошибка пришла
 
-1. **Удалить цикл retry для self-hosted в начале** - он больше не нужен как primary
-2. **Переместить логику Lovable Cloud в начало** - она становится primary
-3. **Добавить self-hosted как fallback** - при ошибках Cloud
-4. **Обновить логирование** - отражать новый порядок
+Это позволит отличить:
+- “Cloud 401, но self-hosted спас”
+от
+- “Cloud 401 и self-hosted тоже 401”.
 
-### Файл: `src/hooks/usePushNotifications.ts`
+---
 
-Обновить комментарии и fallback VAPID ключ (без изменений в логике - она уже использует `pushApiWithFallback`).
+## 3) Исправление “по-настоящему”: обновления PWA + гарантированный сброс кеша
 
-### Файл: `src/hooks/usePortalPushNotifications.ts`
+### 3.1. Реализовать штатный механизм обновления PWA (без переустановки)
+Так как используется `vite-plugin-pwa` (injectManifest) и `src/sw.ts`, добавим клиентскую регистрацию SW с обработкой обновлений:
+- при наличии нового SW показываем toast/баннер:
+  - “Доступно обновление”
+  - кнопка “Обновить” → `postMessage({ type: 'SKIP_WAITING' })` и перезагрузка страницы
+- на `controllerchange` автоматически перезагружаем страницу один раз
 
-Аналогично - логика уже использует `pushApiWithFallback`, обновить только комментарии.
+Это критично для iOS PWA: иначе люди неделями сидят на старом бандле.
 
-## Технические детали
+### 3.2. Кнопка “Сбросить кеш PWA” в настройках (must-have для поддержки)
+Добавим кнопку в меню “Настройки”:
+- `navigator.serviceWorker.getRegistrations()` → `unregister()`
+- `caches.keys()` → `caches.delete(key)` для всех
+- очистить ключи, связанные с push (например, `push:last_endpoint:*`, `push:debug_until`)
+- затем `location.reload()`
 
-```text
-┌───────────────────────────────────────────────────────────────┐
-│                    НОВАЯ АРХИТЕКТУРА                          │
-├───────────────────────────────────────────────────────────────┤
-│                                                               │
-│    Frontend (CRM / Parent Portal)                             │
-│         │                                                     │
-│         ▼                                                     │
-│  pushApiWithFallback()                                        │
-│         │                                                     │
-│         ├──────────────────┐                                  │
-│         │                  │                                  │
-│         ▼ PRIMARY          ▼ FALLBACK                         │
-│  ┌──────────────┐   ┌─────────────────┐                       │
-│  │Lovable Cloud │   │  Self-Hosted    │                       │
-│  │(supabase.co) │   │(api.academyos.ru)│                       │
-│  └──────────────┘   └─────────────────┘                       │
-│         │                  │                                  │
-│         ▼                  ▼                                  │
-│  push_subscriptions   push_subscriptions                      │
-│  (Lovable Cloud DB)   (Self-Hosted DB)                        │
-│                                                               │
-└───────────────────────────────────────────────────────────────┘
-```
+Эта кнопка — самый быстрый способ “вылечить” PWA без удаления приложения с экрана.
 
-## Важно: Синхронизация подписок
+---
 
-После переключения:
-- Новые подписки будут сохраняться в Lovable Cloud
-- Старые подписки на self-hosted останутся там
-- При отправке push, если подписка не найдена в Cloud - fallback найдет её в self-hosted
+## 4) Устранение причины 401 в подписке (архитектурно безопасно)
 
-## Ожидаемый результат
+Есть две стратегии. Рекомендую начать с A (самая надёжная при вашей текущей связке self-hosted auth), а B можно сделать позже, если Cloud снова станет “основным”.
 
-1. Push-уведомления будут отправляться через стабильный Lovable Cloud
-2. Self-hosted останется как резервный вариант
-3. Существующие подписки на self-hosted продолжат работать через fallback
-4. Новые подписки будут сохраняться в Lovable Cloud
+### A) Для `push-subscription-save/delete` сделать self-hosted “первичным”
+Сейчас эти операции не выигрывают от Cloud-первичности, но страдают от несовместимости ключей/подписных ключей между окружениями.
+
+План изменения:
+- В `pushApiWithFallback()` добавить правило:
+  - если endpoint `push-subscription-save` или `push-subscription-delete` → сначала вызвать self-hosted
+  - при сетевой ошибке/5xx → падать назад на Cloud
+- Таким образом:
+  - подписка будет сохраняться там, где у пользователя валидная авторизация
+  - а Cloud останется “основным” для отправки push (где это действительно важно)
+
+Важно: у вас уже есть self-hosted push engine, и вы уже добавили `apikey` в self-hosted gateway — нужно лишь убедиться, что PWA реально получила этот код (см. пункты 3.1–3.2).
+
+### B) (Опционально) Починить Cloud auth на publishable key нового формата
+Проблема: Cloud функция ожидает `sb_publishable_*`, а фронт отправляет ключ другого формата.  
+Решения:
+- перестать хардкодить Cloud ключ и получать его из корректного источника (конфигурация сборки/переменные окружения)
+- или сделать публичный “config endpoint” (без auth), который возвращает publishable key, и кэшировать его на фронте перед вызовами Cloud
+
+Но стратегически A проще и безопаснее: не нужно “подгонять” ключи между разными системами авторизации.
+
+---
+
+## 5) План проверки после внедрения
+
+1) В PWA открыть “Настройки” → нажать “Сбросить кеш PWA” → приложение перезагрузится
+2) Убедиться, что версия UI и маркер SW соответствуют актуальным (например, `push-support-v5`)
+3) Включить “Уведомления”:
+   - ожидаем: Cloud может вернуть 401, но self-hosted сохранит подписку успешно
+   - в UI диагностики должно быть видно: “сохранено через self-hosted”
+4) Нажать “Тестовый push” → получить уведомление (или хотя бы увидеть “sent: 1”)
+
+---
+
+## 6) Технические файлы, которые будем менять (в default mode)
+
+Frontend:
+- `src/lib/pushApiWithFallback.ts` — правило приоритета источника для subscription endpoints + улучшенная диагностика
+- `src/main.tsx` или `src/App.tsx` (где у вас входная точка) — регистрация SW и UI-обновления (toast/баннер)
+- `src/components/notifications/PushDiagnostics.tsx` (или экран настроек) — кнопка “Сбросить кеш PWA” + показ версий/источника
+- (возможно) `src/components/.../Settings` — добавить UI-элементы
+
+Backend functions (опционально):
+- ничего не трогаем, если выбираем стратегию A
+- если стратегию B — добавляем/правим функцию конфигурации ключа
+
+---
+
+## 7) Почему это закроет проблему именно в PWA
+- Сейчас PWA, судя по симптомам, “залипла” на старом бандле → любые фиксы не доходят.
+- Добавив управляемое обновление SW и кнопку сброса кеша, мы гарантируем доставку актуального кода.
+- Переключив subscription endpoints на self-hosted-first, убираем зависимость от Cloud ключей и несовместимости форматов `sb_publishable_*` vs JWT.
+
