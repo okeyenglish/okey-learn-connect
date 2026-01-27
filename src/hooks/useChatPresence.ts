@@ -33,12 +33,14 @@ const STALE_THRESHOLD_MS = 60_000;
  */
 export const useChatPresenceTracker = (clientId: string | null) => {
   const currentUserIdRef = useRef<string | null>(null);
-  const managerNameRef = useRef<string>('Менеджер');
+  const managerNameRef = useRef<string | null>(null);
   const avatarUrlRef = useRef<string | null>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastClientIdRef = useRef<string | null>(null);
+  const profileLoadedRef = useRef<boolean>(false);
+  const pendingClientIdRef = useRef<string | null>(null);
 
-  // Load current user info once
+  // Load current user info once and update presence immediately after
   useEffect(() => {
     (async () => {
       const { data: userData } = await supabase.auth.getUser();
@@ -52,8 +54,26 @@ export const useChatPresenceTracker = (clientId: string | null) => {
           .maybeSingle();
         
         const name = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ');
-        if (name) managerNameRef.current = name;
+        managerNameRef.current = name || null;
         avatarUrlRef.current = profile?.avatar_url || null;
+        profileLoadedRef.current = true;
+
+        // If there was a pending presence update, do it now with correct name
+        if (pendingClientIdRef.current) {
+          const targetClientId = pendingClientIdRef.current;
+          pendingClientIdRef.current = null;
+          // Re-upsert with correct name
+          await supabase
+            .from('chat_presence')
+            .upsert({
+              user_id: currentUserIdRef.current,
+              client_id: targetClientId,
+              presence_type: 'viewing',
+              manager_name: managerNameRef.current,
+              manager_avatar_url: avatarUrlRef.current,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'user_id,client_id' });
+        }
       }
     })();
   }, []);
@@ -111,7 +131,10 @@ export const useChatPresenceTracker = (clientId: string | null) => {
     if (lastClientIdRef.current && lastClientIdRef.current !== clientId) {
       clearPresence(lastClientIdRef.current);
     }
-    lastClientIdRef.current = clientId;
+    // If profile is not loaded yet, mark as pending for re-update
+    if (!profileLoadedRef.current) {
+      pendingClientIdRef.current = clientId;
+    }
 
     // Initial presence update
     updatePresence(clientId);
