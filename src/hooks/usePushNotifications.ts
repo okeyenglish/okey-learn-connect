@@ -720,29 +720,84 @@ export function usePushNotifications() {
             }
           }
         } else {
-          // Subscription exists - verify it's still valid on server
-          const storedEndpoint = safeLocalStorageGet(getLastEndpointStorageKey(user.id));
+          // Subscription exists - check VAPID key match
+          const serverVapidKey = await fetchVapidPublicKey();
+          const subKey = subscription.options?.applicationServerKey;
           
-          if (storedEndpoint && storedEndpoint !== subscription.endpoint) {
-            // Endpoint changed - update server
-            console.log('[Push] Health check: Endpoint changed, updating server...');
-            
-            const subscriptionJson = subscription.toJSON();
-            if (subscriptionJson.keys?.p256dh && subscriptionJson.keys?.auth) {
-              await selfHostedPost<{ success: boolean }>('push-subscription-save', {
-                user_id: user.id,
-                endpoint: subscription.endpoint,
-                keys: {
-                  p256dh: subscriptionJson.keys.p256dh,
-                  auth: subscriptionJson.keys.auth,
-                },
-                user_agent: navigator.userAgent,
-              });
-              safeLocalStorageSet(getLastEndpointStorageKey(user.id), subscription.endpoint);
+          let vapidMismatch = false;
+          if (subKey && serverVapidKey) {
+            try {
+              const subKeyArray = new Uint8Array(subKey as ArrayBuffer);
+              const subKeyB64 = btoa(String.fromCharCode(...subKeyArray))
+                .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+              vapidMismatch = subKeyB64 !== serverVapidKey;
+            } catch {
+              console.warn('[Push] Health check: Could not compare VAPID keys');
             }
           }
           
-          console.log('[Push] Health check: Subscription valid');
+          if (vapidMismatch) {
+            // VAPID key mismatch - need to resubscribe with correct key
+            console.warn('[Push] Health check: VAPID key mismatch detected! Re-subscribing with correct key...');
+            
+            try {
+              // Unsubscribe old
+              await subscription.unsubscribe();
+              
+              // Subscribe with correct key
+              const newSubscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(serverVapidKey) as BufferSource,
+              });
+              
+              const subscriptionJson = newSubscription.toJSON();
+              
+              if (subscriptionJson.endpoint && subscriptionJson.keys?.p256dh && subscriptionJson.keys?.auth) {
+                const saveResponse = await selfHostedPost<{ success: boolean; error?: string }>('push-subscription-save', {
+                  user_id: user.id,
+                  endpoint: subscriptionJson.endpoint,
+                  keys: {
+                    p256dh: subscriptionJson.keys.p256dh,
+                    auth: subscriptionJson.keys.auth,
+                  },
+                  user_agent: navigator.userAgent,
+                });
+                
+                if (saveResponse.success) {
+                  console.log('[Push] Health check: Re-subscribed with correct VAPID key');
+                  safeLocalStorageSet(getLastEndpointStorageKey(user.id), subscriptionJson.endpoint);
+                } else {
+                  console.error('[Push] Health check: Failed to save corrected subscription:', saveResponse.error);
+                }
+              }
+            } catch (resubError) {
+              console.error('[Push] Health check: Failed to resubscribe after VAPID mismatch:', resubError);
+            }
+          } else {
+            // VAPID matches - verify endpoint is up to date on server
+            const storedEndpoint = safeLocalStorageGet(getLastEndpointStorageKey(user.id));
+            
+            if (storedEndpoint && storedEndpoint !== subscription.endpoint) {
+              // Endpoint changed - update server
+              console.log('[Push] Health check: Endpoint changed, updating server...');
+              
+              const subscriptionJson = subscription.toJSON();
+              if (subscriptionJson.keys?.p256dh && subscriptionJson.keys?.auth) {
+                await selfHostedPost<{ success: boolean }>('push-subscription-save', {
+                  user_id: user.id,
+                  endpoint: subscription.endpoint,
+                  keys: {
+                    p256dh: subscriptionJson.keys.p256dh,
+                    auth: subscriptionJson.keys.auth,
+                  },
+                  user_agent: navigator.userAgent,
+                });
+                safeLocalStorageSet(getLastEndpointStorageKey(user.id), subscription.endpoint);
+              }
+            }
+            
+            console.log('[Push] Health check: Subscription valid, VAPID keys match');
+          }
         }
 
         // Update last check time
