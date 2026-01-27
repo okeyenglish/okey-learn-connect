@@ -8,6 +8,7 @@ export interface ScheduleChangeNotification {
   teacherId: string;
   teacherName: string;
   teacherPhone?: string;
+  teacherEmail?: string;
   sessionId: string;
   groupName?: string;
   changeType: 'created' | 'updated' | 'cancelled' | 'rescheduled';
@@ -20,19 +21,67 @@ export interface ScheduleChangeNotification {
   notes?: string;
 }
 
+export interface TeacherNotificationPreferences {
+  whatsapp_enabled: boolean;
+  email_enabled: boolean;
+  push_enabled: boolean;
+  schedule_changes: boolean;
+  notification_phone: string | null;
+  notification_email: string | null;
+}
+
 export const useScheduleNotifications = () => {
+  /**
+   * Get teacher notification settings
+   */
+  const getTeacherNotificationSettings = useCallback(async (
+    teacherId: string
+  ): Promise<TeacherNotificationPreferences> => {
+    const defaults: TeacherNotificationPreferences = {
+      whatsapp_enabled: true,
+      email_enabled: false,
+      push_enabled: true,
+      schedule_changes: true,
+      notification_phone: null,
+      notification_email: null,
+    };
+
+    try {
+      const { data } = await supabase
+        .from('teacher_notification_settings')
+        .select('whatsapp_enabled, email_enabled, push_enabled, schedule_changes, notification_phone, notification_email')
+        .eq('teacher_id', teacherId)
+        .maybeSingle();
+
+      if (data) {
+        return {
+          whatsapp_enabled: data.whatsapp_enabled ?? defaults.whatsapp_enabled,
+          email_enabled: data.email_enabled ?? defaults.email_enabled,
+          push_enabled: data.push_enabled ?? defaults.push_enabled,
+          schedule_changes: data.schedule_changes ?? defaults.schedule_changes,
+          notification_phone: data.notification_phone,
+          notification_email: data.notification_email,
+        };
+      }
+    } catch (error) {
+      console.error('Error getting teacher notification settings:', error);
+    }
+
+    return defaults;
+  }, []);
+
   /**
    * Get teacher contact info by teacher_id or teacher_name
    */
   const getTeacherContact = useCallback(async (
     teacherId?: string | null,
     teacherName?: string | null
-  ): Promise<{ id: string; name: string; phone: string | null } | null> => {
+  ): Promise<{ id: string; name: string; phone: string | null; email: string | null; profileId: string | null } | null> => {
     try {
       if (teacherId) {
         const { data } = await supabase
           .from('teachers')
-          .select('id, first_name, last_name, phone')
+          .select('id, first_name, last_name, phone, email, profile_id')
           .eq('id', teacherId)
           .maybeSingle();
         
@@ -40,20 +89,21 @@ export const useScheduleNotifications = () => {
           return {
             id: data.id,
             name: `${data.first_name} ${data.last_name || ''}`.trim(),
-            phone: data.phone
+            phone: data.phone,
+            email: data.email,
+            profileId: data.profile_id,
           };
         }
       }
 
       if (teacherName) {
-        // Try to find by name match
         const nameParts = teacherName.split(' ');
         const firstName = nameParts[0];
         const lastName = nameParts.slice(1).join(' ');
 
         let query = supabase
           .from('teachers')
-          .select('id, first_name, last_name, phone');
+          .select('id, first_name, last_name, phone, email, profile_id');
 
         if (lastName) {
           query = query.eq('first_name', firstName).eq('last_name', lastName);
@@ -67,7 +117,9 @@ export const useScheduleNotifications = () => {
           return {
             id: data.id,
             name: `${data.first_name} ${data.last_name || ''}`.trim(),
-            phone: data.phone
+            phone: data.phone,
+            email: data.email,
+            profileId: data.profile_id,
           };
         }
       }
@@ -174,14 +226,11 @@ export const useScheduleNotifications = () => {
     message: string
   ): Promise<boolean> => {
     try {
-      // Normalize phone number
       const normalizedPhone = phone.replace(/\D/g, '');
       
-      // Call WhatsApp send edge function
       const response = await selfHostedPost<{ success: boolean }>('whatsapp-send', {
         phoneNumber: normalizedPhone,
         message,
-        // We don't have a clientId for direct teacher notifications
         skipClientLookup: true
       });
 
@@ -193,7 +242,33 @@ export const useScheduleNotifications = () => {
   }, []);
 
   /**
-   * Notify teacher about schedule change
+   * Send push notification to teacher
+   */
+  const sendPushNotification = useCallback(async (
+    profileId: string,
+    title: string,
+    body: string
+  ): Promise<boolean> => {
+    try {
+      const response = await selfHostedPost<{ success: boolean }>('send-push-notification', {
+        userId: profileId,
+        payload: {
+          title,
+          body,
+          icon: '/pwa-192x192.png',
+          url: '/teacher-portal?tab=schedule',
+        }
+      });
+
+      return response.success && response.data?.success === true;
+    } catch (error) {
+      console.error('Error sending push notification:', error);
+      return false;
+    }
+  }, []);
+
+  /**
+   * Notify teacher about schedule change using their preferences
    */
   const notifyTeacherScheduleChange = useCallback(async (
     params: {
@@ -214,25 +289,30 @@ export const useScheduleNotifications = () => {
       };
       notes?: string;
     }
-  ): Promise<{ success: boolean; sent: boolean; reason?: string }> => {
+  ): Promise<{ success: boolean; sent: boolean; channels: string[]; reason?: string }> => {
     const { teacherId, teacherName, sessionId, groupName, changeType, oldValues, newValues, notes } = params;
 
     // Get teacher contact
     const teacher = await getTeacherContact(teacherId, teacherName);
     
     if (!teacher) {
-      return { success: true, sent: false, reason: 'Преподаватель не найден' };
+      return { success: true, sent: false, channels: [], reason: 'Преподаватель не найден' };
     }
 
-    if (!teacher.phone) {
-      return { success: true, sent: false, reason: 'У преподавателя не указан телефон' };
+    // Get teacher notification settings
+    const settings = await getTeacherNotificationSettings(teacher.id);
+
+    // Check if schedule changes are enabled
+    if (!settings.schedule_changes) {
+      return { success: true, sent: false, channels: [], reason: 'Уведомления об изменениях расписания отключены' };
     }
 
     // Format the notification
     const notification: ScheduleChangeNotification = {
       teacherId: teacher.id,
       teacherName: teacher.name,
-      teacherPhone: teacher.phone,
+      teacherPhone: settings.notification_phone || teacher.phone || undefined,
+      teacherEmail: settings.notification_email || teacher.email || undefined,
       sessionId,
       groupName,
       changeType,
@@ -246,23 +326,37 @@ export const useScheduleNotifications = () => {
     };
 
     const message = formatNotificationMessage(notification);
+    const channelsSent: string[] = [];
 
     // Send WhatsApp notification
-    const sent = await sendWhatsAppNotification(teacher.phone, message);
+    if (settings.whatsapp_enabled && notification.teacherPhone) {
+      const sent = await sendWhatsAppNotification(notification.teacherPhone, message);
+      if (sent) channelsSent.push('whatsapp');
+    }
+
+    // Send Push notification
+    if (settings.push_enabled && teacher.profileId) {
+      const title = changeType === 'cancelled' ? '❌ Занятие отменено' : '🔔 Изменение в расписании';
+      const body = groupName ? `${groupName}: ${changeType === 'cancelled' ? 'отменено' : 'изменено'}` : 'Проверьте расписание';
+      const sent = await sendPushNotification(teacher.profileId, title, body);
+      if (sent) channelsSent.push('push');
+    }
+
+    // TODO: Email notifications can be added here when needed
 
     return { 
       success: true, 
-      sent, 
-      reason: sent ? undefined : 'Не удалось отправить WhatsApp сообщение'
+      sent: channelsSent.length > 0,
+      channels: channelsSent,
+      reason: channelsSent.length === 0 ? 'Не удалось отправить уведомления' : undefined
     };
-  }, [getTeacherContact, formatNotificationMessage, sendWhatsAppNotification]);
+  }, [getTeacherContact, getTeacherNotificationSettings, formatNotificationMessage, sendWhatsAppNotification, sendPushNotification]);
 
   /**
-   * Check if notification settings allow sending
+   * Check if global notification settings allow sending
    */
   const checkNotificationSettings = useCallback(async (): Promise<boolean> => {
     try {
-      // Check if WhatsApp is enabled
       const { data } = await supabase
         .from('messenger_settings')
         .select('is_enabled')
@@ -278,6 +372,7 @@ export const useScheduleNotifications = () => {
   return {
     notifyTeacherScheduleChange,
     getTeacherContact,
+    getTeacherNotificationSettings,
     formatNotificationMessage,
     checkNotificationSettings
   };

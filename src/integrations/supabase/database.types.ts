@@ -1330,6 +1330,23 @@ export interface StudentDiscountSurcharge {
   updated_at: string;
 }
 
+// Teacher notification settings
+export interface TeacherNotificationSettings {
+  id: string;
+  teacher_id: string;
+  organization_id: string;
+  whatsapp_enabled: boolean;
+  email_enabled: boolean;
+  push_enabled: boolean;
+  schedule_changes: boolean;
+  lesson_reminders: boolean;
+  reminder_minutes_before: number;
+  notification_phone: string | null;
+  notification_email: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ============ RPC функции ============
 
 export interface GetPublicScheduleResult {
@@ -2095,6 +2112,15 @@ export interface CustomDatabase {
         Update: Partial<StudentParent>;
         Relationships: [
           { foreignKeyName: "student_parents_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] }
+        ];
+      };
+      teacher_notification_settings: {
+        Row: TeacherNotificationSettings;
+        Insert: Partial<TeacherNotificationSettings>;
+        Update: Partial<TeacherNotificationSettings>;
+        Relationships: [
+          { foreignKeyName: "teacher_notification_settings_teacher_id_fkey"; columns: ["teacher_id"]; isOneToOne: true; referencedRelation: "teachers"; referencedColumns: ["id"] },
+          { foreignKeyName: "teacher_notification_settings_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
         ];
       };
     };

@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Separator } from '@/components/ui/separator';
 import { useTeacherProfile } from '@/hooks/useTeacherProfile';
 import { TeacherSchedulePanel } from '@/components/crm/TeacherSchedulePanel';
+import { TeacherNotificationSettingsCard } from '@/components/teachers/TeacherNotificationSettingsCard';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import {
@@ -29,6 +30,7 @@ import {
   AlertCircle,
   CalendarDays,
   Bell,
+  Settings,
 } from 'lucide-react';
 import { EditTeacherModal } from '@/components/admin/EditTeacherModal';
 import { ScheduleNotificationToggle } from '@/components/schedule/ScheduleNotificationToggle';
@@ -268,6 +270,10 @@ const TeacherProfilePage: React.FC = () => {
               <Clock className="h-4 w-4" />
               История уроков
             </TabsTrigger>
+            <TabsTrigger value="notifications" className="gap-2">
+              <Bell className="h-4 w-4" />
+              Уведомления
+            </TabsTrigger>
           </TabsList>
           
           {/* Notification settings indicator */}
@@ -405,6 +411,15 @@ const TeacherProfilePage: React.FC = () => {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Уведомления */}
+        <TabsContent value="notifications">
+          <TeacherNotificationSettingsCard
+            teacherId={teacherId!}
+            teacherPhone={profile.phone}
+            teacherEmail={profile.email}
+          />
         </TabsContent>
       </Tabs>
 
