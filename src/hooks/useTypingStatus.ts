@@ -6,6 +6,7 @@ import { useThrottle } from './useThrottle';
 import { performanceAnalytics } from '@/utils/performanceAnalytics';
 
 export interface TypingInfo {
+  managerId: string;
   managerName: string;
   draftText: string | null;
 }
@@ -242,11 +243,12 @@ export const useTypingStatus = (clientId: string) => {
     }
   }, [throttledUpdate]);
 
-  // Get detailed typing info (name + draft text)
+  // Get detailed typing info (name + draft text + id)
   const getTypingInfo = useCallback((): TypingInfo | null => {
     const typingUser = typingUsers.find(t => t.is_typing);
     if (!typingUser) return null;
     return {
+      managerId: typingUser.user_id,
       managerName: typingUser.manager_name || 'Менеджер',
       draftText: typingUser.draft_text || null,
     };
