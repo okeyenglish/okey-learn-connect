@@ -7,12 +7,14 @@ import { performanceAnalytics } from '@/utils/performanceAnalytics';
 export interface TypingPresence {
   count: number;
   names: string[];
+  draftText?: string | null;
   /** internal helper: map of user_id -> manager_name */
   users?: Record<string, string>;
 }
 
 type TypingStatusRow = Pick<TypingStatus, 'user_id' | 'client_id' | 'is_typing' | 'updated_at'> & {
   manager_name?: string | null;
+  draft_text?: string | null;
 };
 
 // Tracks typing presence across all clients for chat lists
@@ -51,25 +53,33 @@ export const useTypingPresence = () => {
       rowCount: data?.length,
     });
     
-    const map: Record<string, TypingPresence> = {};
+    const map: Record<string, TypingPresence & { drafts?: Record<string, string> }> = {};
     (data || []).forEach((r: TypingStatusRow) => {
       if (!r.is_typing) return;
       const key = r.client_id;
       const name = r.manager_name || 'Менеджер';
-      if (!map[key]) map[key] = { count: 0, names: [], users: {} };
+      if (!map[key]) map[key] = { count: 0, names: [], users: {}, drafts: {} };
       const users = map[key].users || {};
+      const drafts = map[key].drafts || {};
       users[r.user_id] = name;
+      if (r.draft_text) {
+        drafts[r.user_id] = r.draft_text;
+      }
       map[key].users = users;
+      map[key].drafts = drafts;
     });
 
-    // Finalize count + names per client
     Object.keys(map).forEach((clientId) => {
       const users = map[clientId].users || {};
+      const drafts = map[clientId].drafts || {};
       const names = Array.from(new Set(Object.values(users)));
+      // Get the first draft text (most recent typing user)
+      const draftText = Object.values(drafts)[0] || null;
       map[clientId] = {
         ...map[clientId],
         count: Object.keys(users).length,
         names,
+        draftText,
       };
     });
     setTypingByClient(map);
@@ -88,6 +98,7 @@ export const useTypingPresence = () => {
     const userId = record.user_id;
     const isTyping = record.is_typing;
     const managerName = record.manager_name || 'Менеджер';
+    const draftText = record.draft_text || null;
 
     // Drop stale typing
     const isFresh = !!record.updated_at && (Date.now() - new Date(record.updated_at).getTime() <= TYPING_TTL_MS);
@@ -96,7 +107,7 @@ export const useTypingPresence = () => {
     setTypingByClient(prev => {
       const updated = { ...prev };
 
-      const current = updated[clientId] || { count: 0, names: [], users: {} };
+      const current = updated[clientId] || { count: 0, names: [], users: {}, draftText: null };
       const users = { ...(current.users || {}) };
 
       if (shouldRemove) {
@@ -111,7 +122,13 @@ export const useTypingPresence = () => {
       if (count <= 0) {
         delete updated[clientId];
       } else {
-        updated[clientId] = { count, names, users };
+        // Use the latest draft text from the updating user
+        updated[clientId] = { 
+          count, 
+          names, 
+          users, 
+          draftText: shouldRemove ? (current.draftText || null) : (draftText || current.draftText || null),
+        };
       }
       
       return updated;

@@ -10,6 +10,7 @@ import { Loader2 } from 'lucide-react';
 interface TypingInfo {
   count: number;
   names: string[];
+  draftText?: string | null;
 }
 
 interface VirtualizedChatListProps {
