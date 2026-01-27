@@ -1331,18 +1331,25 @@ export interface StudentDiscountSurcharge {
 }
 
 // Teacher notification settings
+export type NotificationChannel = 'whatsapp' | 'telegram' | 'max' | 'internal_chat' | 'email' | 'push';
+
 export interface TeacherNotificationSettings {
   id: string;
   teacher_id: string;
   organization_id: string;
   whatsapp_enabled: boolean;
+  telegram_enabled: boolean;
+  max_enabled: boolean;
+  internal_chat_enabled: boolean;
   email_enabled: boolean;
   push_enabled: boolean;
+  preferred_channel: NotificationChannel;
   schedule_changes: boolean;
   lesson_reminders: boolean;
   reminder_minutes_before: number;
   notification_phone: string | null;
   notification_email: string | null;
+  notification_telegram_id: string | null;
   created_at: string;
   updated_at: string;
 }

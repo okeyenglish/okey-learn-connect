@@ -6,11 +6,17 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Bell, Mail, Smartphone, Save, MessageCircle, Clock } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { 
+  Loader2, Bell, Mail, Smartphone, Save, MessageCircle, Clock, 
+  Send, Building2, Star
+} from 'lucide-react';
 import {
   useEffectiveTeacherNotificationSettings,
   useUpsertTeacherNotificationSettings,
   TeacherNotificationSettingsInput,
+  NotificationChannel,
+  getChannelDisplayName,
 } from '@/hooks/useTeacherNotificationSettings';
 import { useOrganization } from '@/hooks/useOrganization';
 
@@ -18,6 +24,7 @@ interface TeacherNotificationSettingsCardProps {
   teacherId: string;
   teacherPhone?: string | null;
   teacherEmail?: string | null;
+  teacherTelegramId?: string | null;
 }
 
 const REMINDER_PRESETS = [
@@ -27,10 +34,63 @@ const REMINDER_PRESETS = [
   { value: 120, label: '2 часа' },
 ];
 
+// Channel configuration
+const MESSENGER_CHANNELS: Array<{
+  key: keyof TeacherNotificationSettingsInput;
+  channel: NotificationChannel;
+  icon: React.ReactNode;
+  color: string;
+  description: string;
+}> = [
+  {
+    key: 'internal_chat_enabled',
+    channel: 'internal_chat',
+    icon: <Building2 className="h-5 w-5" />,
+    color: 'text-indigo-600',
+    description: 'Внутренний чат с организацией',
+  },
+  {
+    key: 'whatsapp_enabled',
+    channel: 'whatsapp',
+    icon: <MessageCircle className="h-5 w-5" />,
+    color: 'text-green-600',
+    description: 'WhatsApp',
+  },
+  {
+    key: 'telegram_enabled',
+    channel: 'telegram',
+    icon: <Send className="h-5 w-5" />,
+    color: 'text-blue-500',
+    description: 'Telegram',
+  },
+  {
+    key: 'max_enabled',
+    channel: 'max',
+    icon: <MessageCircle className="h-5 w-5" />,
+    color: 'text-purple-600',
+    description: 'MAX',
+  },
+  {
+    key: 'email_enabled',
+    channel: 'email',
+    icon: <Mail className="h-5 w-5" />,
+    color: 'text-orange-600',
+    description: 'Email',
+  },
+  {
+    key: 'push_enabled',
+    channel: 'push',
+    icon: <Smartphone className="h-5 w-5" />,
+    color: 'text-pink-600',
+    description: 'Push-уведомления (браузер/мобильное)',
+  },
+];
+
 export const TeacherNotificationSettingsCard: React.FC<TeacherNotificationSettingsCardProps> = ({
   teacherId,
   teacherPhone,
   teacherEmail,
+  teacherTelegramId,
 }) => {
   const { organization } = useOrganization();
   const { settings, isLoading, hasCustomSettings } = useEffectiveTeacherNotificationSettings(teacherId);
@@ -44,13 +104,18 @@ export const TeacherNotificationSettingsCard: React.FC<TeacherNotificationSettin
     if (!isLoading) {
       setLocalSettings({
         whatsapp_enabled: settings.whatsapp_enabled,
+        telegram_enabled: settings.telegram_enabled,
+        max_enabled: settings.max_enabled,
+        internal_chat_enabled: settings.internal_chat_enabled,
         email_enabled: settings.email_enabled,
         push_enabled: settings.push_enabled,
+        preferred_channel: settings.preferred_channel,
         schedule_changes: settings.schedule_changes,
         lesson_reminders: settings.lesson_reminders,
         reminder_minutes_before: settings.reminder_minutes_before,
         notification_phone: settings.notification_phone,
         notification_email: settings.notification_email,
+        notification_telegram_id: settings.notification_telegram_id,
       });
     }
   }, [isLoading, settings]);
@@ -74,6 +139,18 @@ export const TeacherNotificationSettingsCard: React.FC<TeacherNotificationSettin
     setHasChanges(false);
   };
 
+  // Get enabled channels for preferred channel selection
+  const getEnabledChannelsForSelection = (): NotificationChannel[] => {
+    const channels: NotificationChannel[] = [];
+    if (localSettings.internal_chat_enabled) channels.push('internal_chat');
+    if (localSettings.whatsapp_enabled) channels.push('whatsapp');
+    if (localSettings.telegram_enabled) channels.push('telegram');
+    if (localSettings.max_enabled) channels.push('max');
+    if (localSettings.email_enabled) channels.push('email');
+    if (localSettings.push_enabled) channels.push('push');
+    return channels;
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -85,6 +162,7 @@ export const TeacherNotificationSettingsCard: React.FC<TeacherNotificationSettin
   }
 
   const reminderMinutes = localSettings.reminder_minutes_before ?? 60;
+  const enabledChannels = getEnabledChannelsForSelection();
 
   const formatReminderTime = (minutes: number) => {
     if (minutes < 60) return `${minutes} мин`;
@@ -93,6 +171,25 @@ export const TeacherNotificationSettingsCard: React.FC<TeacherNotificationSettin
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return mins > 0 ? `${hours} ч ${mins} мин` : `${hours} часа`;
+  };
+
+  const getContactInfo = (channel: NotificationChannel): string => {
+    switch (channel) {
+      case 'whatsapp':
+        return teacherPhone || localSettings.notification_phone || 'Телефон не указан';
+      case 'telegram':
+        return teacherTelegramId || localSettings.notification_telegram_id || 'Telegram ID не указан';
+      case 'max':
+        return teacherPhone || localSettings.notification_phone || 'Телефон не указан';
+      case 'email':
+        return teacherEmail || localSettings.notification_email || 'Email не указан';
+      case 'internal_chat':
+        return organization?.name || 'Чат с организацией';
+      case 'push':
+        return 'Браузерные и мобильные уведомления';
+      default:
+        return '';
+    }
   };
 
   return (
@@ -122,59 +219,86 @@ export const TeacherNotificationSettingsCard: React.FC<TeacherNotificationSettin
             Каналы уведомлений
           </h4>
 
-          <div className="grid gap-4">
-            {/* WhatsApp */}
-            <div className="flex items-center justify-between rounded-lg border p-4">
-              <div className="flex items-center gap-3">
-                <MessageCircle className="h-5 w-5 text-green-600" />
-                <div>
-                  <Label className="font-medium">WhatsApp</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {teacherPhone || localSettings.notification_phone || 'Телефон не указан'}
-                  </p>
+          <div className="grid gap-3">
+            {MESSENGER_CHANNELS.map((channelConfig) => {
+              const isEnabled = localSettings[channelConfig.key] as boolean ?? false;
+              const isPreferred = localSettings.preferred_channel === channelConfig.channel;
+              
+              return (
+                <div 
+                  key={channelConfig.channel}
+                  className={`flex items-center justify-between rounded-lg border p-4 transition-colors ${
+                    isPreferred ? 'border-primary bg-primary/5' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={channelConfig.color}>
+                      {channelConfig.icon}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Label className="font-medium">{channelConfig.description}</Label>
+                        {isPreferred && (
+                          <Badge variant="default" className="text-xs gap-1">
+                            <Star className="h-3 w-3" />
+                            Основной
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {getContactInfo(channelConfig.channel)}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={isEnabled}
+                    onCheckedChange={(checked) => {
+                      updateSetting(channelConfig.key as keyof TeacherNotificationSettingsInput, checked);
+                      // If disabling the preferred channel, switch to another enabled one
+                      if (!checked && isPreferred) {
+                        const otherEnabled = MESSENGER_CHANNELS.find(
+                          c => c.channel !== channelConfig.channel && 
+                               localSettings[c.key as keyof TeacherNotificationSettingsInput]
+                        );
+                        if (otherEnabled) {
+                          updateSetting('preferred_channel', otherEnabled.channel);
+                        }
+                      }
+                    }}
+                  />
                 </div>
-              </div>
-              <Switch
-                checked={localSettings.whatsapp_enabled ?? false}
-                onCheckedChange={(checked) => updateSetting('whatsapp_enabled', checked)}
-              />
-            </div>
-
-            {/* Email */}
-            <div className="flex items-center justify-between rounded-lg border p-4">
-              <div className="flex items-center gap-3">
-                <Mail className="h-5 w-5 text-blue-600" />
-                <div>
-                  <Label className="font-medium">Email</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {teacherEmail || localSettings.notification_email || 'Email не указан'}
-                  </p>
-                </div>
-              </div>
-              <Switch
-                checked={localSettings.email_enabled ?? false}
-                onCheckedChange={(checked) => updateSetting('email_enabled', checked)}
-              />
-            </div>
-
-            {/* Push */}
-            <div className="flex items-center justify-between rounded-lg border p-4">
-              <div className="flex items-center gap-3">
-                <Smartphone className="h-5 w-5 text-purple-600" />
-                <div>
-                  <Label className="font-medium">Push-уведомления</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Браузерные и мобильные уведомления
-                  </p>
-                </div>
-              </div>
-              <Switch
-                checked={localSettings.push_enabled ?? false}
-                onCheckedChange={(checked) => updateSetting('push_enabled', checked)}
-              />
-            </div>
+              );
+            })}
           </div>
         </div>
+
+        {/* Предпочтительный канал */}
+        {enabledChannels.length > 1 && (
+          <div className="space-y-4">
+            <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+              <Star className="h-4 w-4" />
+              Основной канал уведомлений
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              Уведомления будут отправляться в первую очередь через выбранный канал
+            </p>
+            
+            <RadioGroup
+              value={localSettings.preferred_channel}
+              onValueChange={(value) => updateSetting('preferred_channel', value as NotificationChannel)}
+              className="grid gap-2"
+            >
+              {enabledChannels.map((channel) => (
+                <div key={channel} className="flex items-center space-x-2">
+                  <RadioGroupItem value={channel} id={`channel-${channel}`} />
+                  <Label htmlFor={`channel-${channel}`} className="cursor-pointer">
+                    {getChannelDisplayName(channel)}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+        )}
 
         {/* Типы уведомлений */}
         <div className="space-y-4">
@@ -260,7 +384,7 @@ export const TeacherNotificationSettingsCard: React.FC<TeacherNotificationSettin
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="notification_phone">Телефон для уведомлений</Label>
+              <Label htmlFor="notification_phone">Телефон (WhatsApp/MAX)</Label>
               <Input
                 id="notification_phone"
                 placeholder="+7 (xxx) xxx-xx-xx"
@@ -269,6 +393,15 @@ export const TeacherNotificationSettingsCard: React.FC<TeacherNotificationSettin
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="notification_telegram_id">Telegram ID</Label>
+              <Input
+                id="notification_telegram_id"
+                placeholder="@username или ID"
+                value={localSettings.notification_telegram_id || ''}
+                onChange={(e) => updateSetting('notification_telegram_id', e.target.value || null)}
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="notification_email">Email для уведомлений</Label>
               <Input
                 id="notification_email"
