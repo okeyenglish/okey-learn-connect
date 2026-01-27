@@ -284,7 +284,7 @@ export const AIHubInline = ({
   // Render AI Assistant inline
   if (activeChat?.type === 'assistant') {
     return (
-      <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
+      <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-background">
         <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
           <Button variant="ghost" size="icon" onClick={handleBack} className="h-8 w-8">
             <ArrowLeft className="h-4 w-4" />
@@ -319,7 +319,7 @@ export const AIHubInline = ({
     const currentMessages = getCurrentMessages();
 
     return (
-      <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
+      <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-background">
         <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
           <Button variant="ghost" size="icon" onClick={handleBack} className="h-8 w-8">
             <ArrowLeft className="h-4 w-4" />
@@ -405,7 +405,7 @@ export const AIHubInline = ({
 
   // Main chat list
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
+    <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-background">
       <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
           <MessageCircle className="h-5 w-5 text-primary" />
