@@ -7,9 +7,23 @@ const corsHeaders = {
 
 interface SendInvitationRequest {
   client_id: string;
-  phone: string;
+  phone?: string;
   first_name?: string;
-  messenger?: 'whatsapp' | 'telegram' | 'sms';
+  messenger?: 'whatsapp' | 'telegram' | 'max' | 'sms';
+  telegram_user_id?: string;
+}
+
+// Simple URL shortener - creates a hash-like short code
+function createShortUrl(fullUrl: string, baseUrl: string): { shortUrl: string; displayUrl: string } {
+  // Extract token from URL
+  const url = new URL(fullUrl);
+  const token = url.searchParams.get('token') || '';
+  // Use first 8 characters of token as short code
+  const shortCode = token.slice(0, 8);
+  const shortUrl = `${baseUrl}/i/${shortCode}`;
+  // Display version shows masked URL
+  const displayUrl = `${baseUrl.replace('https://', '')}/i/${shortCode}...`;
+  return { shortUrl: fullUrl, displayUrl }; // For now, use full URL but show masked version
 }
 
 Deno.serve(async (req) => {
@@ -60,11 +74,18 @@ Deno.serve(async (req) => {
     }
 
     const body: SendInvitationRequest = await req.json();
-    const { client_id, phone, first_name, messenger = 'whatsapp' } = body;
+    const { client_id, phone, first_name, messenger = 'whatsapp', telegram_user_id } = body;
 
-    if (!client_id || !phone) {
+    if (!client_id) {
       return new Response(
-        JSON.stringify({ error: 'client_id and phone are required' }),
+        JSON.stringify({ error: 'client_id is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!phone && messenger !== 'telegram') {
+      return new Response(
+        JSON.stringify({ error: 'phone is required for non-telegram messengers' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -107,7 +128,7 @@ Deno.serve(async (req) => {
           organization_id: profile.organization_id,
           client_id,
           invite_token: inviteToken,
-          phone,
+          phone: phone || client.phone,
           first_name: first_name || client.first_name || client.name,
           created_by: user.id
         });
@@ -124,6 +145,7 @@ Deno.serve(async (req) => {
     // Generate invitation URL
     const baseUrl = req.headers.get('origin') || 'https://newacademcrm.lovable.app';
     const inviteUrl = `${baseUrl}/client-onboarding?token=${inviteToken}`;
+    const { displayUrl } = createShortUrl(inviteUrl, baseUrl);
 
     // Get organization name
     const { data: org } = await adminSupabase
@@ -132,13 +154,15 @@ Deno.serve(async (req) => {
       .eq('id', profile.organization_id)
       .single();
 
-    const message = `Здравствуйте${first_name ? `, ${first_name}` : ''}!\n\nВас приглашают в личный кабинет ${org?.name || 'школы'}.\n\nПерейдите по ссылке для регистрации:\n${inviteUrl}\n\nСсылка действительна 7 дней.`;
+    const clientFirstName = first_name || client.first_name || client.name?.split(' ')[0] || '';
+    const message = `${clientFirstName ? `${clientFirstName}, н` : 'Н'}аправляю Вам ссылку для входа в личный кабинет ${org?.name || 'школы'}.\n\nСсылка для регистрации:\n${inviteUrl}\n\nСсылка действительна 7 дней.`;
 
     // Send via messenger
     let sendResult = null;
+    const targetPhone = phone || client.phone;
+    const targetTelegramId = telegram_user_id || client.telegram_user_id;
     
-    if (messenger === 'whatsapp') {
-      // Try to send via WhatsApp
+    if (messenger === 'whatsapp' && targetPhone) {
       try {
         const wppResponse = await fetch(`${supabaseUrl}/functions/v1/whatsapp-send`, {
           method: 'POST',
@@ -147,7 +171,7 @@ Deno.serve(async (req) => {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            phone,
+            phone: targetPhone,
             message,
             organization_id: profile.organization_id
           })
@@ -156,13 +180,50 @@ Deno.serve(async (req) => {
       } catch (e) {
         console.error('WhatsApp send failed:', e);
       }
+    } else if (messenger === 'telegram' && targetTelegramId) {
+      try {
+        const tgResponse = await fetch(`${supabaseUrl}/functions/v1/telegram-send`, {
+          method: 'POST',
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            chat_id: targetTelegramId,
+            text: message,
+            organization_id: profile.organization_id
+          })
+        });
+        sendResult = await tgResponse.json();
+      } catch (e) {
+        console.error('Telegram send failed:', e);
+      }
+    } else if (messenger === 'max' && targetPhone) {
+      try {
+        const maxResponse = await fetch(`${supabaseUrl}/functions/v1/max-send`, {
+          method: 'POST',
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            phone: targetPhone,
+            message,
+            organization_id: profile.organization_id
+          })
+        });
+        sendResult = await maxResponse.json();
+      } catch (e) {
+        console.error('MAX send failed:', e);
+      }
     }
 
     console.log('Portal invitation sent:', {
       client_id,
-      phone,
+      phone: targetPhone,
       messenger,
-      inviteUrl
+      inviteUrl: displayUrl,
+      sendResult
     });
 
     return new Response(
@@ -170,6 +231,7 @@ Deno.serve(async (req) => {
         success: true,
         invite_token: inviteToken,
         invite_url: inviteUrl,
+        short_url: displayUrl,
         message_sent: !!sendResult?.success,
         send_result: sendResult
       }),

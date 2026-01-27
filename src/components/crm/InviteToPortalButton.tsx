@@ -9,17 +9,26 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { UserPlus, Send, Loader2, CheckCircle, KeyRound, Clock, UserCheck } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { UserPlus, Send, Loader2, CheckCircle, KeyRound, Clock, UserCheck, MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { toast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 
 interface InviteToPortalButtonProps {
   clientId: string;
   clientName: string;
   phone?: string | null;
   firstName?: string | null;
+  telegramUserId?: string | null;
 }
 
 interface InvitationStatus {
@@ -28,19 +37,38 @@ interface InvitationStatus {
   registeredAt?: string;
 }
 
+type MessengerType = 'whatsapp' | 'telegram' | 'max' | 'sms';
+
+const messengerLabels: Record<MessengerType, string> = {
+  whatsapp: 'WhatsApp',
+  telegram: 'Telegram',
+  max: 'MAX',
+  sms: 'SMS (скоро)'
+};
+
+const messengerColors: Record<MessengerType, string> = {
+  whatsapp: 'bg-green-600 hover:bg-green-700',
+  telegram: 'bg-blue-500 hover:bg-blue-600',
+  max: 'bg-purple-600 hover:bg-purple-700',
+  sms: 'bg-gray-400 cursor-not-allowed'
+};
+
 export const InviteToPortalButton = ({ 
   clientId, 
   clientName,
   phone,
-  firstName
+  firstName,
+  telegramUserId
 }: InviteToPortalButtonProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [invitationStatus, setInvitationStatus] = useState<InvitationStatus>({ status: 'not_invited' });
   const [isCheckingStatus, setIsCheckingStatus] = useState(true);
+  const [selectedMessenger, setSelectedMessenger] = useState<MessengerType>('whatsapp');
   const [actionResult, setActionResult] = useState<{
     success: boolean;
     message_sent?: boolean;
+    short_url?: string;
   } | null>(null);
 
   // Check invitation status on mount
@@ -102,10 +130,27 @@ export const InviteToPortalButton = ({
   };
 
   const handleInvite = async () => {
-    if (!phone) {
+    if (selectedMessenger === 'sms') {
+      toast({
+        title: "SMS",
+        description: "Интеграция SMS скоро будет добавлена",
+      });
+      return;
+    }
+
+    if (!phone && selectedMessenger !== 'telegram') {
       toast({
         title: "Ошибка",
         description: "У клиента нет номера телефона",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (selectedMessenger === 'telegram' && !telegramUserId && !phone) {
+      toast({
+        title: "Ошибка",
+        description: "У клиента нет Telegram ID или телефона",
         variant: "destructive"
       });
       return;
@@ -115,22 +160,27 @@ export const InviteToPortalButton = ({
     setActionResult(null);
 
     try {
-      const response = await supabase.functions.invoke('send-portal-invitation', {
-        body: {
-          client_id: clientId,
-          phone: phone,
-          first_name: firstName || clientName.split(' ')[0],
-          messenger: 'whatsapp'
-        }
+      const response = await selfHostedPost<{
+        success: boolean;
+        message_sent?: boolean;
+        short_url?: string;
+        invite_url?: string;
+      }>('send-portal-invitation', {
+        client_id: clientId,
+        phone: phone,
+        first_name: firstName || clientName.split(' ')[0],
+        messenger: selectedMessenger,
+        telegram_user_id: telegramUserId
       });
 
-      if (response.error) {
-        throw new Error(response.error.message);
+      if (!response.success) {
+        throw new Error(response.error || 'Ошибка отправки');
       }
 
       setActionResult({
         success: true,
-        message_sent: response.data.message_sent
+        message_sent: response.data?.message_sent,
+        short_url: response.data?.short_url
       });
 
       // Refresh status
@@ -138,8 +188,8 @@ export const InviteToPortalButton = ({
 
       toast({
         title: "Приглашение отправлено",
-        description: response.data.message_sent 
-          ? "Сообщение успешно отправлено в WhatsApp"
+        description: response.data?.message_sent 
+          ? `Сообщение успешно отправлено в ${messengerLabels[selectedMessenger]}`
           : "Приглашение создано"
       });
     } catch (error) {
@@ -155,7 +205,15 @@ export const InviteToPortalButton = ({
   };
 
   const handleSendLoginLink = async () => {
-    if (!phone) {
+    if (selectedMessenger === 'sms') {
+      toast({
+        title: "SMS",
+        description: "Интеграция SMS скоро будет добавлена",
+      });
+      return;
+    }
+
+    if (!phone && selectedMessenger !== 'telegram') {
       toast({
         title: "Ошибка",
         description: "У клиента нет номера телефона",
@@ -168,29 +226,34 @@ export const InviteToPortalButton = ({
     setActionResult(null);
 
     try {
-      const response = await supabase.functions.invoke('send-portal-login', {
-        body: {
-          client_id: clientId,
-          phone: phone,
-          first_name: firstName || clientName.split(' ')[0]
-        }
+      const response = await selfHostedPost<{
+        success: boolean;
+        message_sent?: boolean;
+        short_url?: string;
+      }>('send-portal-login', {
+        client_id: clientId,
+        phone: phone,
+        first_name: firstName || clientName.split(' ')[0],
+        messenger: selectedMessenger,
+        telegram_user_id: telegramUserId
       });
 
-      if (response.error) {
-        throw new Error(response.error.message);
+      if (!response.success) {
+        throw new Error(response.error || 'Ошибка отправки');
       }
 
       setActionResult({
         success: true,
-        message_sent: response.data.message_sent
+        message_sent: response.data?.message_sent,
+        short_url: response.data?.short_url
       });
 
       toast({
-        title: response.data.message_sent ? "Ссылка отправлена" : "Ошибка отправки",
-        description: response.data.message_sent 
-          ? "Ссылка для входа отправлена клиенту в WhatsApp"
+        title: response.data?.message_sent ? "Ссылка отправлена" : "Ошибка отправки",
+        description: response.data?.message_sent 
+          ? `Ссылка для входа отправлена клиенту в ${messengerLabels[selectedMessenger]}`
           : "Не удалось отправить сообщение, попробуйте позже",
-        variant: response.data.message_sent ? "default" : "destructive"
+        variant: response.data?.message_sent ? "default" : "destructive"
       });
     } catch (error) {
       console.error('Error sending login link:', error);
@@ -203,6 +266,43 @@ export const InviteToPortalButton = ({
       setIsLoading(false);
     }
   };
+
+  const MessengerSelector = () => (
+    <div className="space-y-2">
+      <label className="text-sm font-medium">Канал отправки</label>
+      <Select value={selectedMessenger} onValueChange={(v) => setSelectedMessenger(v as MessengerType)}>
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="whatsapp">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-green-500" />
+              WhatsApp
+            </div>
+          </SelectItem>
+          <SelectItem value="telegram">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-blue-500" />
+              Telegram
+            </div>
+          </SelectItem>
+          <SelectItem value="max">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-purple-500" />
+              MAX
+            </div>
+          </SelectItem>
+          <SelectItem value="sms" disabled>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-gray-400" />
+              SMS (скоро)
+            </div>
+          </SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
 
   if (isCheckingStatus) {
     return (
@@ -227,7 +327,10 @@ export const InviteToPortalButton = ({
           <span>Зарегистрирован в портале</span>
         </div>
         
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <Dialog open={isOpen} onOpenChange={(open) => {
+          setIsOpen(open);
+          if (!open) setActionResult(null);
+        }}>
           <DialogTrigger asChild>
             <Button
               variant="outline"
@@ -242,7 +345,7 @@ export const InviteToPortalButton = ({
             <DialogHeader>
               <DialogTitle>Отправить ссылку для входа</DialogTitle>
               <DialogDescription>
-                Клиент {clientName} получит ссылку для входа в личный кабинет через WhatsApp.
+                Клиент {clientName} получит ссылку для входа в личный кабинет.
                 Ссылка будет действительна 24 часа.
               </DialogDescription>
             </DialogHeader>
@@ -250,6 +353,8 @@ export const InviteToPortalButton = ({
             <div className="space-y-4 pt-4">
               {!actionResult ? (
                 <>
+                  <MessengerSelector />
+
                   <div className="bg-muted/50 rounded-lg p-3 text-sm">
                     <p className="font-medium mb-1">Телефон для отправки:</p>
                     <p className="text-muted-foreground">{phone || 'Не указан'}</p>
@@ -257,20 +362,20 @@ export const InviteToPortalButton = ({
 
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
                     <p className="font-medium mb-1">🔒 Безопасность</p>
-                    <p>Ссылка будет отправлена напрямую клиенту. Вы не увидите полную ссылку.</p>
+                    <p>Ссылка будет отправлена напрямую клиенту. Вы увидите только сокращённую ссылку.</p>
                   </div>
 
                   <Button
                     onClick={handleSendLoginLink}
-                    disabled={isLoading || !phone}
-                    className="w-full bg-green-600 hover:bg-green-700"
+                    disabled={isLoading || (!phone && selectedMessenger !== 'telegram') || selectedMessenger === 'sms'}
+                    className={`w-full ${messengerColors[selectedMessenger]}`}
                   >
                     {isLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     ) : (
                       <Send className="h-4 w-4 mr-2" />
                     )}
-                    Отправить в WhatsApp
+                    Отправить в {messengerLabels[selectedMessenger]}
                   </Button>
                 </>
               ) : (
@@ -285,9 +390,16 @@ export const InviteToPortalButton = ({
                     </span>
                   </div>
 
+                  {actionResult.message_sent && actionResult.short_url && (
+                    <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                      <p className="font-medium mb-1">Сокращённая ссылка:</p>
+                      <p className="text-muted-foreground font-mono text-xs">{actionResult.short_url}</p>
+                    </div>
+                  )}
+
                   {actionResult.message_sent && (
                     <p className="text-sm text-muted-foreground">
-                      Клиент получил ссылку для входа в WhatsApp. Ссылка действительна 24 часа.
+                      Клиент получил ссылку для входа. Ссылка действительна 24 часа.
                     </p>
                   )}
 
@@ -323,7 +435,10 @@ export const InviteToPortalButton = ({
           <span>Приглашён {timeAgo}</span>
         </div>
         
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <Dialog open={isOpen} onOpenChange={(open) => {
+          setIsOpen(open);
+          if (!open) setActionResult(null);
+        }}>
           <DialogTrigger asChild>
             <Button
               variant="outline"
@@ -346,6 +461,8 @@ export const InviteToPortalButton = ({
             <div className="space-y-4 pt-4">
               {!actionResult ? (
                 <>
+                  <MessengerSelector />
+
                   <div className="bg-muted/50 rounded-lg p-3 text-sm">
                     <p className="font-medium mb-1">Телефон для отправки:</p>
                     <p className="text-muted-foreground">{phone || 'Не указан'}</p>
@@ -353,15 +470,15 @@ export const InviteToPortalButton = ({
 
                   <Button
                     onClick={handleInvite}
-                    disabled={isLoading || !phone}
-                    className="w-full bg-green-600 hover:bg-green-700"
+                    disabled={isLoading || (!phone && selectedMessenger !== 'telegram') || selectedMessenger === 'sms'}
+                    className={`w-full ${messengerColors[selectedMessenger]}`}
                   >
                     {isLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     ) : (
                       <Send className="h-4 w-4 mr-2" />
                     )}
-                    Отправить в WhatsApp
+                    Отправить в {messengerLabels[selectedMessenger]}
                   </Button>
                 </>
               ) : (
@@ -375,6 +492,13 @@ export const InviteToPortalButton = ({
                       }
                     </span>
                   </div>
+
+                  {actionResult.short_url && (
+                    <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                      <p className="font-medium mb-1">Сокращённая ссылка:</p>
+                      <p className="text-muted-foreground font-mono text-xs">{actionResult.short_url}</p>
+                    </div>
+                  )}
 
                   <Button
                     variant="outline"
@@ -397,7 +521,10 @@ export const InviteToPortalButton = ({
 
   // Not invited - show invite button
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      setIsOpen(open);
+      if (!open) setActionResult(null);
+    }}>
       <DialogTrigger asChild>
         <Button
           variant="outline"
@@ -419,6 +546,8 @@ export const InviteToPortalButton = ({
         <div className="space-y-4 pt-4">
           {!actionResult ? (
             <>
+              <MessengerSelector />
+
               <div className="bg-muted/50 rounded-lg p-3 text-sm">
                 <p className="font-medium mb-1">Телефон для отправки:</p>
                 <p className="text-muted-foreground">{phone || 'Не указан'}</p>
@@ -426,15 +555,15 @@ export const InviteToPortalButton = ({
 
               <Button
                 onClick={handleInvite}
-                disabled={isLoading || !phone}
-                className="w-full bg-green-600 hover:bg-green-700"
+                disabled={isLoading || (!phone && selectedMessenger !== 'telegram') || selectedMessenger === 'sms'}
+                className={`w-full ${messengerColors[selectedMessenger]}`}
               >
                 {isLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (
                   <Send className="h-4 w-4 mr-2" />
                 )}
-                Отправить в WhatsApp
+                Отправить в {messengerLabels[selectedMessenger]}
               </Button>
 
               <p className="text-xs text-muted-foreground text-center">
@@ -452,6 +581,13 @@ export const InviteToPortalButton = ({
                   }
                 </span>
               </div>
+
+              {actionResult.short_url && (
+                <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                  <p className="font-medium mb-1">Сокращённая ссылка:</p>
+                  <p className="text-muted-foreground font-mono text-xs">{actionResult.short_url}</p>
+                </div>
+              )}
 
               <Button
                 variant="outline"
