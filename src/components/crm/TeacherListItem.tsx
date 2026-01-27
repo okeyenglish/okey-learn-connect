@@ -171,7 +171,7 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
       onClick={onClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`w-full p-2 text-left rounded-lg transition-all duration-200 relative mb-0.5 border select-none touch-manipulation ${
+      className={`w-full p-1.5 md:p-2 text-left rounded-lg transition-all duration-200 relative border select-none touch-manipulation ${
         isPinned
           ? `border-orange-200 bg-gradient-to-r ${
               isSelected 
@@ -185,12 +185,12 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2 flex-1 min-w-0">
-          <Avatar className={`h-9 w-9 flex-shrink-0 ring-2 transition-all ${
+          <Avatar className={`h-8 w-8 md:h-9 md:w-9 flex-shrink-0 ring-2 transition-all ${
             isPinned 
               ? 'ring-orange-200 shadow-sm' 
               : 'ring-border/30'
           }`}>
-            <AvatarFallback className={`text-sm font-medium ${
+            <AvatarFallback className={`text-xs md:text-sm font-medium ${
               isPinned 
                 ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white' 
                 : 'bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))]'
@@ -208,9 +208,9 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
               {isPinned && <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />}
             </div>
             
-            <div className="flex items-center gap-1 flex-wrap mb-0.5">
+            <div className="flex items-center gap-1 flex-wrap">
               {isPinned && (
-                <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/50">
+                <Badge variant="outline" className="text-[8px] md:text-[10px] h-3 md:h-4 px-1 md:px-1.5 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/50">
                   В работе
                 </Badge>
               )}
@@ -218,7 +218,7 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
                 <Badge 
                   key={idx} 
                   variant="outline" 
-                  className={`text-[9px] h-3.5 px-1 py-0 ${badge.className}`}
+                  className={`text-[8px] h-3 px-1 py-0 ${badge.className}`}
                 >
                   {badge.label}
                 </Badge>
