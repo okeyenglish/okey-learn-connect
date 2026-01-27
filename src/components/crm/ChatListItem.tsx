@@ -253,7 +253,7 @@ export const ChatListItem = React.memo(({
                       <span className="w-1 h-1 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
                       <span className="w-1 h-1 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
                     </span>
-                    <span className="truncate">{typingInfo?.names?.[0] || 'Менеджер'} печатает...</span>
+                    <span className="truncate">{typingInfo?.names?.[0] || 'Сотрудник'} печатает...</span>
                   </div>
                   {typingInfo?.draftText && (
                     <p className="text-[11px] text-orange-500/80 truncate mt-0.5 font-normal not-italic animate-fade-in" style={{animationDelay: '100ms'}}>

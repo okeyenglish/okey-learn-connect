@@ -65,6 +65,10 @@ interface AIHubInlineProps {
   onOpenModal?: any;
   onOpenChat?: (clientId: string) => void;
   onBack?: () => void;
+  /** If set, auto-open a direct chat with this staff user on mount */
+  initialStaffUserId?: string | null;
+  /** Clear the initialStaffUserId after it's been processed */
+  onClearInitialStaffUserId?: () => void;
 }
 
 interface ChatMessage {
@@ -106,7 +110,9 @@ export const AIHubInline = ({
   context,
   onOpenModal,
   onOpenChat,
-  onBack
+  onBack,
+  initialStaffUserId,
+  onClearInitialStaffUserId
 }: AIHubInlineProps) => {
   const [activeChat, setActiveChat] = useState<ChatItem | null>(null);
   const [message, setMessage] = useState('');
@@ -230,6 +236,27 @@ export const AIHubInline = ({
     });
 
   const allChats = [...aiChats, ...groupChatItems, ...teacherChatItems, ...staffChatItems];
+
+  // Auto-open chat when initialStaffUserId is provided
+  useEffect(() => {
+    if (!initialStaffUserId) return;
+    
+    // Find the staff chat item by profile ID
+    const targetChat = [...staffChatItems, ...teacherChatItems].find(chat => {
+      if (chat.type === 'staff') {
+        return (chat.data as StaffMember)?.id === initialStaffUserId;
+      }
+      if (chat.type === 'teacher') {
+        return (chat.data as TeacherChatItem)?.profileId === initialStaffUserId;
+      }
+      return false;
+    });
+
+    if (targetChat) {
+      setActiveChat(targetChat);
+      onClearInitialStaffUserId?.();
+    }
+  }, [initialStaffUserId, staffChatItems, teacherChatItems, onClearInitialStaffUserId]);
 
   useEffect(() => {
     const initialMessages: Record<string, ChatMessage[]> = {};

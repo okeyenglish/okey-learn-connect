@@ -94,28 +94,35 @@ const QuickMessageInput: React.FC<{
         .eq('id', userData.user.id)
         .maybeSingle();
 
-      const senderName = [senderProfile?.first_name, senderProfile?.last_name]
+      if (!senderProfile?.organization_id) {
+        throw new Error('No organization found');
+      }
+
+      const senderName = [senderProfile.first_name, senderProfile.last_name]
         .filter(Boolean).join(' ') || 'Коллега';
 
-      // Create notification message with context
+      // Create contextual message for internal staff messaging
       const contextMessage = clientName 
-        ? `💬 Сообщение от ${senderName} (чат: ${clientName}):\n\n${message}`
-        : `💬 Сообщение от ${senderName}:\n\n${message}`;
+        ? `[По чату: ${clientName}]\n${message}`
+        : message;
 
-      // Insert into assistant_messages for the recipient
-      if (senderProfile?.organization_id) {
-        await supabase.from('assistant_messages').insert({
-          user_id: recipientId,
+      // Insert into internal_staff_messages (ChatOS system)
+      const { error: insertError } = await (supabase as any)
+        .from('internal_staff_messages')
+        .insert({
           organization_id: senderProfile.organization_id,
-          role: 'system',
-          content: contextMessage,
+          sender_id: userData.user.id,
+          recipient_user_id: recipientId,
+          message_text: contextMessage,
+          message_type: 'text',
           is_read: false,
         });
-      }
+
+      if (insertError) throw insertError;
 
       toast({
         title: "Сообщение отправлено",
-        description: `${recipientName} получит уведомление`,
+        description: `${recipientName} получит в ChatOS`,
       });
 
       setMessage('');
