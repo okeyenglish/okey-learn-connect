@@ -5,7 +5,6 @@
  * if Cloud is unavailable.
  */
 import { selfHostedPost } from './selfHostedApi';
-import { supabase } from '@/integrations/supabase/client';
 
 // Lovable Cloud Supabase configuration (PRIMARY)
 const LOVABLE_CLOUD_URL = 'https://igqdjqmohwsgyeuhitqg.supabase.co';
@@ -131,11 +130,28 @@ export async function pushApiWithFallback<T = unknown>(
       return { success: true, data: cloudResponse.data, source: 'lovable-cloud' };
     }
 
-    // Client errors (4xx except 408, 429) - don't fallback, return error
-    if (cloudResponse.status && cloudResponse.status >= 400 && cloudResponse.status < 500 && 
-        cloudResponse.status !== 408 && cloudResponse.status !== 429) {
-      console.warn(`[PushAPI] ❌ ${endpoint} Lovable Cloud client error (${cloudResponse.status}):`, cloudResponse.error);
-      return { success: false, error: cloudResponse.error, source: 'lovable-cloud' };
+    // Client errors (4xx except 408, 429)
+    // IMPORTANT: 401/403 are often caused by cross-environment auth differences (self-hosted JWTs vs Cloud).
+    // In this case we should ALLOW fallback to self-hosted.
+    if (
+      cloudResponse.status &&
+      cloudResponse.status >= 400 &&
+      cloudResponse.status < 500 &&
+      cloudResponse.status !== 408 &&
+      cloudResponse.status !== 429
+    ) {
+      if (cloudResponse.status === 401 || cloudResponse.status === 403) {
+        console.warn(
+          `[PushAPI] ⚠️ ${endpoint} Lovable Cloud auth error (${cloudResponse.status}) -> allow fallback:`,
+          cloudResponse.error
+        );
+      } else {
+        console.warn(
+          `[PushAPI] ❌ ${endpoint} Lovable Cloud client error (${cloudResponse.status}):`,
+          cloudResponse.error
+        );
+        return { success: false, error: cloudResponse.error, source: 'lovable-cloud' };
+      }
     }
 
     console.warn(`[PushAPI] ⚠️ ${endpoint} Lovable Cloud attempt ${attempt + 1} failed:`, cloudResponse.error);
