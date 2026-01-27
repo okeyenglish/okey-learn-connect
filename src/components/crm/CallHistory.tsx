@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, Search, X, CheckCheck, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, Search, X, CheckCheck, ArrowUp, ArrowDown, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-import { useCallHistory, CallLog } from "@/hooks/useCallHistory";
+import { useInfiniteCallHistory } from "@/hooks/useInfiniteCallHistory";
+import type { CallLog } from "@/hooks/useCallHistory";
 import { CallDetailModal } from "./CallDetailModal";
 import { useUnviewedMissedCallsCount, useViewedMissedCalls } from "@/hooks/useViewedMissedCalls";
 
@@ -22,7 +23,21 @@ type DirectionFilter = 'all' | 'incoming' | 'outgoing';
 type SortOrder = 'newest' | 'oldest';
 
 export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
-  const { data: calls = [], isLoading } = useCallHistory(clientId);
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteCallHistory(clientId);
+  
+  // Flatten all pages into a single array
+  const calls = useMemo(() => {
+    return data?.pages.flatMap(page => page.calls) ?? [];
+  }, [data]);
+  
+  const totalCalls = data?.pages[0]?.total ?? 0;
+  
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -30,6 +45,9 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMarkingAll, setIsMarkingAll] = useState(false);
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
+  
+  // Ref for intersection observer (infinite scroll)
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   
   // Get unviewed missed calls from server
   const { data: unviewedData } = useUnviewedMissedCallsCount(clientId);
@@ -93,6 +111,30 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
     
     return { unviewedCalls: unviewed, viewedCalls: viewed };
   }, [filteredCalls, unviewedCallIds]);
+
+  // Infinite scroll with intersection observer
+  const handleLoadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  useEffect(() => {
+    const element = loadMoreRef.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          handleLoadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [handleLoadMore]);
 
   const getCallIcon = (call: CallLog) => {
     if (call.direction === 'incoming') {
@@ -300,7 +342,7 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
             <Phone className="h-4 w-4" />
-            История звонков ({calls.length})
+            История звонков ({calls.length}{totalCalls > calls.length ? ` из ${totalCalls}` : ''})
             {unviewedCalls.length > 0 && (
               <Badge variant="destructive">
                 {unviewedCalls.length} новых
@@ -462,6 +504,23 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
                 ))}
               </div>
             )}
+
+            {/* Infinite scroll trigger */}
+            <div ref={loadMoreRef} className="h-8 flex items-center justify-center">
+              {isFetchingNextPage && (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+              {hasNextPage && !isFetchingNextPage && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLoadMore}
+                  className="text-xs text-muted-foreground"
+                >
+                  Загрузить ещё
+                </Button>
+              )}
+            </div>
           </div>
         </ScrollArea>
         
