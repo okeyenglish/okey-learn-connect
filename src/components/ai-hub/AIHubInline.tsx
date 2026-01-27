@@ -403,87 +403,145 @@ export const AIHubInline = ({
     );
   }
 
-  // Main chat list
+  // Format time like client list
+  const formatTime = (dateStr?: string) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    if (isToday) {
+      return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    }
+    return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+  };
+
+  // Main chat list - matching client list design
   return (
     <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-background">
-      <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
-        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-          <MessageCircle className="h-5 w-5 text-primary" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h2 className="font-semibold">ChatOS</h2>
-          <p className="text-xs text-muted-foreground">Чаты и AI-помощники</p>
-        </div>
-      </div>
-
-      <div className="px-4 py-2 border-b">
+      {/* Search bar matching client list */}
+      <div className="px-3 py-2 border-b shrink-0">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Поиск чатов..." className="pl-9 h-9" />
+          <Input 
+            value={searchQuery} 
+            onChange={(e) => setSearchQuery(e.target.value)} 
+            placeholder="Поиск по чатам..." 
+            className="h-10 pr-10 pl-3"
+          />
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         </div>
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-1">
+        <div className="divide-y divide-border">
           {(chatsLoading || teachersLoading) && (
             <div className="text-center py-4">
               <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
             </div>
           )}
 
+          {/* AI Helpers Section - collapsible */}
           {aiChatsList.length > 0 && (
             <>
-              <button onClick={toggleAiSection} className="w-full px-3 py-2 flex items-center justify-between hover:bg-muted/50 rounded-md transition-colors">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">AI Помощники</p>
-                <div className="flex items-center gap-1.5">
-                  {assistantUnread > 0 && <Badge variant="destructive" className="text-xs h-5 min-w-[20px] flex items-center justify-center">{assistantUnread}</Badge>}
+              <button 
+                onClick={toggleAiSection} 
+                className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-muted/30 transition-colors bg-muted/10"
+              >
+                <div className="flex items-center gap-2">
                   {aiSectionExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                  <span className="text-sm font-medium text-muted-foreground">AI Помощники</span>
                 </div>
+                <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full">
+                  {aiChatsList.length}
+                </Badge>
               </button>
+              
               {aiSectionExpanded && aiChatsList.map((item) => (
-                <button key={item.id} onClick={() => handleSelectChat(item)} className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left">
-                  <Avatar className="h-11 w-11">
+                <button 
+                  key={item.id} 
+                  onClick={() => handleSelectChat(item)} 
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                >
+                  <Avatar className="h-12 w-12 shrink-0">
                     <AvatarFallback className={item.iconBg}>
                       <item.icon className={`h-5 w-5 ${item.iconColor}`} />
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <div className="flex items-center justify-between gap-2">
                       <p className="font-medium text-sm truncate">{item.name}</p>
-                      {(item.unreadCount || 0) > 0 && <Badge variant="destructive" className="ml-2 text-xs">{item.unreadCount}</Badge>}
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {item.lastMessage ? 'Сейчас' : ''}
+                      </span>
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">{item.lastMessage || item.description}</p>
+                    <div className="flex items-center justify-between gap-2 mt-0.5">
+                      <p className="text-xs text-muted-foreground truncate">{item.lastMessage || item.description}</p>
+                      {(item.unreadCount || 0) > 0 && (
+                        <Badge variant="default" className="h-5 min-w-[20px] px-1.5 text-xs rounded-full shrink-0 bg-primary">
+                          {item.unreadCount}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </button>
               ))}
             </>
           )}
 
+          {/* Staff & Groups Section */}
           {corporateChatsList.length > 0 && (
             <>
-              <div className="px-3 py-2 mt-2 flex items-center justify-between">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Сотрудники и группы</p>
+              <div className="px-4 py-2.5 flex items-center justify-between bg-muted/10">
+                <span className="text-sm font-medium text-muted-foreground">Сотрудники и группы</span>
                 <div className="flex items-center gap-1">
+                  <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full mr-1">
+                    {corporateChatsList.length}
+                  </Badge>
                   <MassLinkTeacherProfilesModal onCompleted={() => queryClient.invalidateQueries({ queryKey: ['teacher-chats'] })} />
                   <CreateStaffGroupModal onGroupCreated={() => queryClient.invalidateQueries({ queryKey: ['internal-chats'] })} />
                 </div>
               </div>
+              
               {corporateChatsList.map((item) => {
                 const isTeacher = item.type === 'teacher';
                 const teacher = isTeacher ? (item.data as TeacherChatItem) : null;
+                const lastMsgTime = teacher?.lastMessageTime;
+                
                 return (
-                  <button key={`${item.type}-${item.id}`} onClick={() => handleSelectChat(item)} className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left">
-                    <Avatar className="h-11 w-11">
+                  <button 
+                    key={`${item.type}-${item.id}`} 
+                    onClick={() => handleSelectChat(item)} 
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                  >
+                    <Avatar className="h-12 w-12 shrink-0">
                       <AvatarFallback className={item.iconBg}>
-                        {isTeacher && teacher ? <span className="text-sm font-medium text-green-600">{teacher.firstName?.[0]}{teacher.lastName?.[0]}</span> : <item.icon className={`h-5 w-5 ${item.iconColor}`} />}
+                        {isTeacher && teacher ? (
+                          <span className="text-sm font-semibold text-green-600">
+                            {teacher.firstName?.[0]}{teacher.lastName?.[0]}
+                          </span>
+                        ) : (
+                          <item.icon className={`h-5 w-5 ${item.iconColor}`} />
+                        )}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <p className="font-medium text-sm truncate">{item.name}</p>
-                        {(item.unreadCount || 0) > 0 && <Badge variant="destructive" className="ml-2 text-xs">{item.unreadCount}</Badge>}
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={`text-sm truncate ${(item.unreadCount || 0) > 0 ? 'font-semibold' : 'font-medium'}`}>
+                          {item.name}
+                        </p>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {formatTime(lastMsgTime)}
+                        </span>
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">{item.lastMessage || item.description}</p>
+                      <div className="flex items-center justify-between gap-2 mt-0.5">
+                        <p className="text-xs text-muted-foreground truncate">
+                          {item.lastMessage || item.description}
+                        </p>
+                        {(item.unreadCount || 0) > 0 && (
+                          <Badge variant="default" className="h-5 min-w-[20px] px-1.5 text-xs rounded-full shrink-0 bg-primary">
+                            {item.unreadCount}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </button>
                 );
@@ -492,7 +550,9 @@ export const AIHubInline = ({
           )}
 
           {filteredChats.length === 0 && !chatsLoading && !teachersLoading && (
-            <div className="text-center py-8 text-muted-foreground">{searchQuery ? 'Ничего не найдено' : 'Нет доступных чатов'}</div>
+            <div className="text-center py-8 text-muted-foreground">
+              {searchQuery ? 'Ничего не найдено' : 'Нет доступных чатов'}
+            </div>
           )}
         </div>
       </ScrollArea>
