@@ -1,7 +1,47 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Background task: cleanup stale typing indicators every 10 seconds
+let lastCleanupTime = 0;
+const CLEANUP_INTERVAL_MS = 10_000;
+
+async function cleanupStaleTypingStatus() {
+  const now = Date.now();
+  if (now - lastCleanupTime < CLEANUP_INTERVAL_MS) {
+    return; // Too soon since last cleanup
+  }
+  lastCleanupTime = now;
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    
+    if (!supabaseUrl || !supabaseKey) {
+      return;
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Call the cleanup function we created
+    const { data, error } = await supabase.rpc("cleanup_stale_typing_status");
+    
+    if (error) {
+      // Function might not exist yet, silently ignore
+      if (!error.message?.includes("does not exist")) {
+        console.warn("[main] cleanup_stale_typing_status error:", error.message);
+      }
+    } else if (data && data > 0) {
+      console.log(`[main] Cleaned up ${data} stale typing indicators`);
+    }
+  } catch (e) {
+    // Non-critical, don't break routing
+    console.warn("[main] cleanup_stale_typing_status exception:", e);
+  }
+}
 
 function extractFunctionNameAndRemainder(pathname: string): { name: string | null; remainderPath: string } {
   const parts = pathname.split("/").filter(Boolean);
@@ -20,6 +60,15 @@ function extractFunctionNameAndRemainder(pathname: string): { name: string | nul
 }
 
 Deno.serve(async (req) => {
+  // Fire-and-forget: trigger cleanup on every request (throttled internally)
+  // @ts-ignore - EdgeRuntime.waitUntil is available in Supabase edge-runtime
+  if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+    EdgeRuntime.waitUntil(cleanupStaleTypingStatus());
+  } else {
+    // Fallback for environments without waitUntil
+    cleanupStaleTypingStatus().catch(() => {});
+  }
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
