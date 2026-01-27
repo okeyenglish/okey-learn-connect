@@ -47,13 +47,13 @@ GRANT EXECUTE ON FUNCTION public.cleanup_stale_presence() TO service_role;
 -- ============================================================
 -- 3. Schedule the cron job (every 5 minutes)
 -- ============================================================
--- First, try to remove existing job if it exists
+-- First, try to remove existing job if it exists (ignore all errors)
 DO $$
 BEGIN
   PERFORM cron.unschedule('cleanup-stale-presence');
-EXCEPTION WHEN undefined_object THEN
-  -- Job doesn't exist, that's fine
-  NULL;
+EXCEPTION WHEN OTHERS THEN
+  -- Job doesn't exist or any other error, that's fine
+  RAISE NOTICE 'No existing cron job to unschedule: %', SQLERRM;
 END $$;
 
 -- Schedule new job
