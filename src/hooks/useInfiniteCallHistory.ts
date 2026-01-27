@@ -1,5 +1,6 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { selfHostedPost } from "@/lib/selfHostedApi";
+import { useEffect, useCallback } from "react";
 import type { CallLog } from "./useCallHistory";
 
 interface CallLogsResponse {
@@ -9,10 +10,106 @@ interface CallLogsResponse {
   hasMore?: boolean;
 }
 
+interface CachedCallData {
+  pages: { calls: CallLog[]; nextOffset: number | null; total: number }[];
+  timestamp: number;
+  clientId: string;
+}
+
 const PAGE_SIZE = 20;
+const CACHE_KEY_PREFIX = 'call-history-cache-';
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+const MAX_CACHED_CLIENTS = 50; // Limit cached clients to prevent storage bloat
+
+// Get cached data from localStorage
+const getCachedData = (clientId: string): CachedCallData | null => {
+  try {
+    const cached = localStorage.getItem(`${CACHE_KEY_PREFIX}${clientId}`);
+    if (!cached) return null;
+    
+    const data: CachedCallData = JSON.parse(cached);
+    
+    // Check if cache is still valid
+    if (Date.now() - data.timestamp > CACHE_TTL) {
+      localStorage.removeItem(`${CACHE_KEY_PREFIX}${clientId}`);
+      return null;
+    }
+    
+    return data;
+  } catch {
+    return null;
+  }
+};
+
+// Save data to localStorage cache
+const setCachedData = (clientId: string, pages: CachedCallData['pages']) => {
+  try {
+    // Clean up old caches if too many
+    cleanupOldCaches();
+    
+    const data: CachedCallData = {
+      pages,
+      timestamp: Date.now(),
+      clientId
+    };
+    localStorage.setItem(`${CACHE_KEY_PREFIX}${clientId}`, JSON.stringify(data));
+  } catch (e) {
+    // Storage might be full, try to clean up
+    console.warn('[CallHistory] Cache write failed:', e);
+    cleanupOldCaches(true);
+  }
+};
+
+// Remove old caches to prevent storage bloat
+const cleanupOldCaches = (force = false) => {
+  try {
+    const cacheKeys: { key: string; timestamp: number }[] = [];
+    
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(CACHE_KEY_PREFIX)) {
+        try {
+          const data = JSON.parse(localStorage.getItem(key) || '{}');
+          cacheKeys.push({ key, timestamp: data.timestamp || 0 });
+        } catch {
+          // Invalid cache, remove it
+          localStorage.removeItem(key);
+        }
+      }
+    }
+    
+    // Sort by timestamp (oldest first)
+    cacheKeys.sort((a, b) => a.timestamp - b.timestamp);
+    
+    // Remove oldest caches if we have too many or if forced
+    const removeCount = force ? Math.ceil(cacheKeys.length / 2) : Math.max(0, cacheKeys.length - MAX_CACHED_CLIENTS);
+    for (let i = 0; i < removeCount; i++) {
+      localStorage.removeItem(cacheKeys[i].key);
+    }
+  } catch {
+    // Ignore cleanup errors
+  }
+};
 
 export const useInfiniteCallHistory = (clientId: string) => {
-  return useInfiniteQuery({
+  const queryClient = useQueryClient();
+  
+  // Initialize with cached data if available
+  useEffect(() => {
+    if (!clientId) return;
+    
+    const cached = getCachedData(clientId);
+    if (cached && cached.pages.length > 0) {
+      // Pre-populate query cache with offline data
+      queryClient.setQueryData(['call-logs-infinite', clientId], {
+        pages: cached.pages,
+        pageParams: cached.pages.map((_, i) => i * PAGE_SIZE)
+      });
+      console.log('[CallHistory] Loaded from cache:', clientId, cached.pages.length, 'pages');
+    }
+  }, [clientId, queryClient]);
+
+  const query = useInfiniteQuery({
     queryKey: ['call-logs-infinite', clientId],
     queryFn: async ({ pageParam = 0 }): Promise<{ calls: CallLog[]; nextOffset: number | null; total: number }> => {
       const response = await selfHostedPost<CallLogsResponse>('get-call-logs', {
@@ -39,5 +136,45 @@ export const useInfiniteCallHistory = (clientId: string) => {
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextOffset,
     enabled: !!clientId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes (formerly cacheTime)
+    refetchOnWindowFocus: false,
+    retry: 2,
+    // Use cached data while fetching
+    placeholderData: (previousData) => previousData,
   });
+
+  // Persist successful fetches to localStorage
+  useEffect(() => {
+    if (query.data && query.data.pages.length > 0 && !query.isFetching) {
+      setCachedData(clientId, query.data.pages);
+    }
+  }, [clientId, query.data, query.isFetching]);
+
+  // Check if we're using cached/offline data
+  const isOfflineData = useCallback(() => {
+    if (!query.data) return false;
+    const cached = getCachedData(clientId);
+    return cached !== null && query.isError;
+  }, [clientId, query.data, query.isError]);
+
+  return {
+    ...query,
+    isOfflineData: isOfflineData(),
+  };
+};
+
+// Hook to clear all call history cache
+export const useClearCallHistoryCache = () => {
+  return useCallback(() => {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(CACHE_KEY_PREFIX)) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    console.log('[CallHistory] Cache cleared:', keysToRemove.length, 'entries');
+  }, []);
 };
