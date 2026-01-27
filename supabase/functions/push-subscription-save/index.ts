@@ -22,15 +22,48 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Check for API key (anon key) - basic authorization check
-    // Note: We don't validate JWT because users authenticate via self-hosted Supabase
-    // which has a different JWT secret. The user_id comes from the client after
-    // successful self-hosted authentication.
-    const apiKey = req.headers.get("apikey");
-    const expectedAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    
-    if (!apiKey || apiKey !== expectedAnonKey) {
-      console.error("[push-subscription-save] Invalid or missing API key");
+    // Auth strategy (self-hosted frontend compatibility):
+    // - Accept anon key via `apikey` header OR `Authorization: Bearer <anon>`
+    // - Also accept a VALID JWT issued by this backend (useful for internal tooling)
+    // - Do NOT accept/validate JWTs from self-hosted instances (different signing keys)
+    const apiKeyHeader = req.headers.get("apikey");
+    const authHeader = req.headers.get("authorization") ?? req.headers.get("Authorization");
+    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
+
+    const expectedAnonKey =
+      Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+
+    if (!expectedAnonKey) {
+      console.error("[push-subscription-save] Missing backend anon key env (SUPABASE_ANON_KEY/SUPABASE_PUBLISHABLE_KEY)");
+      return new Response(
+        JSON.stringify({ error: "Server configuration error" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const isAnonKeyAuth =
+      apiKeyHeader === expectedAnonKey || bearerToken === expectedAnonKey;
+
+    let isValidBackendJwt = false;
+    if (!isAnonKeyAuth && bearerToken) {
+      try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        // Validate JWT claims against THIS backend's signing keys.
+        const supabaseAuth = createClient(supabaseUrl, expectedAnonKey, {
+          global: { headers: { Authorization: `Bearer ${bearerToken}` } },
+        });
+        const { data, error } = await supabaseAuth.auth.getClaims(bearerToken);
+        isValidBackendJwt = !error && !!data?.claims;
+      } catch (_e) {
+        isValidBackendJwt = false;
+      }
+    }
+
+    if (!isAnonKeyAuth && !isValidBackendJwt) {
+      console.error("[push-subscription-save] Unauthorized: missing/invalid anon key or backend JWT", {
+        hasApiKeyHeader: !!apiKeyHeader,
+        hasAuthorization: !!authHeader,
+      });
       return new Response(
         JSON.stringify({ error: "Unauthorized - invalid API key" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }

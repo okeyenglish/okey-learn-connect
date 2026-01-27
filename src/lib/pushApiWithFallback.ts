@@ -58,6 +58,9 @@ async function callLovableCloud<T>(
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'apikey': LOVABLE_CLOUD_ANON_KEY,
+      // Some runtimes/proxies don't forward `apikey` reliably; `Authorization` is widely supported.
+      // We send the anon key (NOT a self-hosted JWT).
+      'Authorization': `Bearer ${LOVABLE_CLOUD_ANON_KEY}`,
     };
 
     const response = await fetch(url, {
