@@ -91,8 +91,31 @@ self.addEventListener('push', (event) => {
     requireInteraction: data.requireInteraction || false,
   };
 
+  const broadcastToClients = async () => {
+    try {
+      const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of clientList) {
+        client.postMessage({
+          type: 'PUSH_RECEIVED',
+          payload: {
+            title: data.title,
+            body: data.body,
+            tag: data.tag,
+            url: (options.data as Record<string, unknown> | undefined)?.url,
+          },
+          receivedAt: Date.now(),
+        });
+      }
+    } catch (e) {
+      console.warn('[SW] Failed to broadcast push to clients:', e);
+    }
+  };
+
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    Promise.all([
+      self.registration.showNotification(data.title, options),
+      broadcastToClients(),
+    ])
   );
 });
 
