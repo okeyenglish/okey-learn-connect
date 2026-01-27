@@ -1,7 +1,8 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   RefreshCw, 
   CheckCircle2, 
@@ -17,7 +18,10 @@ import {
   Cloud,
   Trash2,
   Info,
-  MessageSquare
+  MessageSquare,
+  Code,
+  Copy,
+  Check
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
@@ -27,6 +31,11 @@ import { pushApiWithFallback, getLastPushApiSource, type PushApiSource } from '@
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+
+interface RawPayloadEntry {
+  payload: string;
+  receivedAt: string;
+}
 
 interface DiagnosticResult {
   status: 'pending' | 'checking' | 'success' | 'warning' | 'error';
@@ -80,6 +89,37 @@ export function PushDiagnostics({ className }: { className?: string }) {
   const [isRunning, setIsRunning] = useState(false);
   const [testPushLoading, setTestPushLoading] = useState(false);
   const [showVersionInfo, setShowVersionInfo] = useState(false);
+  const [showRawPayloads, setShowRawPayloads] = useState(false);
+  const [rawPayloads, setRawPayloads] = useState<RawPayloadEntry[]>([]);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  // Listen for raw payloads from Service Worker
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'PUSH_RAW_PAYLOAD') {
+        const newEntry: RawPayloadEntry = {
+          payload: event.data.payload || '',
+          receivedAt: event.data.receivedAt || new Date().toISOString(),
+        };
+        setRawPayloads(prev => [newEntry, ...prev].slice(0, 10)); // Keep last 10
+      }
+    };
+
+    navigator.serviceWorker?.addEventListener('message', handleMessage);
+    return () => {
+      navigator.serviceWorker?.removeEventListener('message', handleMessage);
+    };
+  }, []);
+
+  const copyPayload = (payload: string, index: number) => {
+    navigator.clipboard.writeText(payload);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
+  const clearPayloads = () => {
+    setRawPayloads([]);
+  };
 
   const updateDiagnostic = useCallback((key: keyof DiagnosticState, result: Partial<DiagnosticResult>) => {
     setDiagnostics(prev => ({
@@ -640,6 +680,77 @@ export function PushDiagnostics({ className }: { className?: string }) {
               <RefreshCw className="h-4 w-4 mr-2" />
               Переподписаться
             </Button>
+          )}
+        </div>
+
+        {/* Raw Payloads Section */}
+        <div className="pt-2 border-t">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowRawPayloads(!showRawPayloads)}
+            className="w-full justify-between"
+          >
+            <span className="flex items-center gap-2">
+              <Code className="h-4 w-4" />
+              Raw Payloads
+            </span>
+            <Badge variant="secondary" className="ml-2">
+              {rawPayloads.length}
+            </Badge>
+          </Button>
+          
+          {showRawPayloads && (
+            <div className="mt-2 space-y-2">
+              {rawPayloads.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  Нет данных. Отправьте тестовый push.
+                </p>
+              ) : (
+                <>
+                  <div className="flex justify-end">
+                    <Button variant="ghost" size="sm" onClick={clearPayloads} className="h-6 text-xs">
+                      <Trash2 className="h-3 w-3 mr-1" />
+                      Очистить
+                    </Button>
+                  </div>
+                  <ScrollArea className="h-48">
+                    <div className="space-y-2">
+                      {rawPayloads.map((entry, index) => (
+                        <div key={entry.receivedAt + index} className="p-2 bg-muted/50 rounded-md text-xs">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-muted-foreground">
+                              {new Date(entry.receivedAt).toLocaleTimeString('ru-RU')}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 px-1"
+                              onClick={() => copyPayload(entry.payload, index)}
+                            >
+                              {copiedIndex === index ? (
+                                <Check className="h-3 w-3 text-green-500" />
+                              ) : (
+                                <Copy className="h-3 w-3" />
+                              )}
+                            </Button>
+                          </div>
+                          <pre className="font-mono text-[10px] whitespace-pre-wrap break-all max-h-24 overflow-auto">
+                            {(() => {
+                              try {
+                                return JSON.stringify(JSON.parse(entry.payload), null, 2);
+                              } catch {
+                                return entry.payload;
+                              }
+                            })()}
+                          </pre>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </>
+              )}
+            </div>
           )}
         </div>
 
