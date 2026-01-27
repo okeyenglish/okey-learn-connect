@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -42,27 +41,6 @@ export function ConvertToTeacherModal({
   const [lastName, setLastName] = useState(defaultLastName);
   const [phone, setPhone] = useState(clientPhone || '');
   const [email, setEmail] = useState(clientEmail || '');
-  const [branch, setBranch] = useState<string>('');
-  
-  // Fetch branches
-  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
-  
-  useEffect(() => {
-    if (open && organizationId) {
-      // Fetch branches for the organization
-      supabase
-        .from('branches')
-        .select('id, name')
-        .eq('organization_id', organizationId)
-        .eq('is_active', true)
-        .order('name')
-        .then(({ data }) => {
-          if (data) {
-            setBranches(data);
-          }
-        });
-    }
-  }, [open, organizationId]);
 
   // Reset form when modal opens
   useEffect(() => {
@@ -72,7 +50,6 @@ export function ConvertToTeacherModal({
       setLastName(parts.slice(1).join(' ') || '');
       setPhone(clientPhone || '');
       setEmail(clientEmail || '');
-      setBranch('');
     }
   }, [open, clientName, clientPhone, clientEmail]);
 
@@ -98,7 +75,6 @@ export function ConvertToTeacherModal({
           last_name: lastName.trim() || null,
           phone: phone.trim() || null,
           email: email.trim() || null,
-          branch: branch || null,
           organization_id: organizationId,
           is_active: true,
         })
@@ -110,22 +86,7 @@ export function ConvertToTeacherModal({
         throw new Error('Не удалось создать преподавателя');
       }
 
-      // 2. Update client record to link to teacher
-      const { error: clientError } = await supabase
-        .from('clients')
-        .update({
-          teacher_id: teacherData.id,
-          // Mark the client as a teacher type for future reference
-          source: 'converted_teacher',
-        })
-        .eq('id', clientId);
-
-      if (clientError) {
-        console.error('Error updating client:', clientError);
-        // Don't throw - teacher was created, just log the link issue
-      }
-
-      // 3. Create teacher_client_links entry for proper chat association
+      // 2. Create teacher_client_links entry for proper chat association
       const { error: linkError } = await supabase
         .from('teacher_client_links')
         .upsert({
@@ -143,7 +104,7 @@ export function ConvertToTeacherModal({
         // Non-critical, continue
       }
 
-      // 4. Invalidate relevant queries
+      // 3. Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
       queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
       queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
@@ -222,24 +183,6 @@ export function ConvertToTeacherModal({
               placeholder="teacher@example.com"
             />
           </div>
-
-          {branches.length > 0 && (
-            <div className="space-y-2">
-              <Label htmlFor="branch">Филиал</Label>
-              <Select value={branch} onValueChange={setBranch}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите филиал" />
-                </SelectTrigger>
-                <SelectContent>
-                  {branches.map((b) => (
-                    <SelectItem key={b.id} value={b.name}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
         </div>
 
         <DialogFooter>
