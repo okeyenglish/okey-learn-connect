@@ -1,19 +1,23 @@
-import { Bell, BellOff, Loader2 } from 'lucide-react';
+import { Bell, BellOff, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { FocusModeWarning } from './FocusModeWarning';
 import { cn } from '@/lib/utils';
 
 interface PushNotificationToggleProps {
   variant?: 'button' | 'switch' | 'card';
   className?: string;
+  /** Show Focus/DND warning if detected */
+  showFocusWarning?: boolean;
 }
 
 export function PushNotificationToggle({ 
   variant = 'switch',
-  className 
+  className,
+  showFocusWarning = false,
 }: PushNotificationToggleProps) {
   const { 
     isSupported, 
@@ -60,7 +64,7 @@ export function PushNotificationToggle({
             Получайте уведомления о занятиях, сообщениях и важных событиях даже когда браузер закрыт
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <p className="text-sm font-medium">
@@ -83,6 +87,11 @@ export function PushNotificationToggle({
               />
             </div>
           </div>
+          
+          {/* Focus/DND warning */}
+          {showFocusWarning && isSubscribed && (
+            <FocusModeWarning compact />
+          )}
         </CardContent>
       </Card>
     );
@@ -90,26 +99,33 @@ export function PushNotificationToggle({
 
   // Default: switch variant
   return (
-    <div className={cn('flex items-center justify-between gap-4', className)}>
-      <div className="flex items-center gap-2">
-        {isSubscribed ? (
-          <Bell className="h-4 w-4 text-primary" />
-        ) : (
-          <BellOff className="h-4 w-4 text-muted-foreground" />
-        )}
-        <Label htmlFor="push-toggle" className="cursor-pointer">
-          Push-уведомления
-        </Label>
+    <div className={cn('space-y-2', className)}>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          {isSubscribed ? (
+            <Bell className="h-4 w-4 text-primary" />
+          ) : (
+            <BellOff className="h-4 w-4 text-muted-foreground" />
+          )}
+          <Label htmlFor="push-toggle" className="cursor-pointer">
+            Push-уведомления
+          </Label>
+        </div>
+        <div className="flex items-center gap-2">
+          {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+          <Switch
+            id="push-toggle"
+            checked={isSubscribed}
+            onCheckedChange={toggle}
+            disabled={isLoading || permission === 'denied'}
+          />
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-        <Switch
-          id="push-toggle"
-          checked={isSubscribed}
-          onCheckedChange={toggle}
-          disabled={isLoading || permission === 'denied'}
-        />
-      </div>
+      
+      {/* Focus/DND warning - compact inline */}
+      {showFocusWarning && isSubscribed && (
+        <FocusModeWarning compact />
+      )}
     </div>
   );
 }
