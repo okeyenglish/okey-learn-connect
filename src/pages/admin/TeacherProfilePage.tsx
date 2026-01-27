@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import { useTeacherProfile } from '@/hooks/useTeacherProfile';
+import { TeacherSchedulePanel } from '@/components/crm/TeacherSchedulePanel';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import {
@@ -26,6 +27,7 @@ import {
   Edit,
   Loader2,
   AlertCircle,
+  CalendarDays,
 } from 'lucide-react';
 import { EditTeacherModal } from '@/components/admin/EditTeacherModal';
 import type { Teacher } from '@/integrations/supabase/database.types';
@@ -248,18 +250,34 @@ const TeacherProfilePage: React.FC = () => {
         </Card>
       </div>
 
-      {/* Табы с группами и уроками */}
-      <Tabs defaultValue="groups" className="space-y-4">
+      {/* Табы с группами, уроками и расписанием */}
+      <Tabs defaultValue="schedule" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="schedule" className="gap-2">
+            <CalendarDays className="h-4 w-4" />
+            Расписание
+          </TabsTrigger>
           <TabsTrigger value="groups" className="gap-2">
             <Users className="h-4 w-4" />
             Группы ({profile.groups.length})
           </TabsTrigger>
           <TabsTrigger value="lessons" className="gap-2">
             <Clock className="h-4 w-4" />
-            Уроки за 30 дней ({profile.recentLessons.length})
+            История уроков
           </TabsTrigger>
         </TabsList>
+
+        {/* Расписание */}
+        <TabsContent value="schedule">
+          <Card>
+            <CardContent className="pt-6">
+              <TeacherSchedulePanel 
+                teacherId={teacherId!} 
+                teacherName={fullName}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Группы */}
         <TabsContent value="groups">
