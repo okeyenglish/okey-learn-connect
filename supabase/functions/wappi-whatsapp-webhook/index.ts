@@ -367,7 +367,7 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
           body: messageText.slice(0, 100) + (messageText.length > 100 ? '...' : ''),
           icon: client.avatar_url || '/pwa-192x192.png',
           url: `/crm?clientId=${client.id}`,
-          tag: `whatsapp-chat-${client.id}`,
+          tag: `whatsapp-${client.id}-${Date.now()}`,
         },
       });
       console.log('Push notification sent for WhatsApp message to', userIds.length, 'users in org:', organizationId, 'result:', pushResult);

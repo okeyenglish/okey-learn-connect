@@ -214,7 +214,7 @@ async function handleIncomingMessage(
           body: messageText.slice(0, 100) + (messageText.length > 100 ? '...' : ''),
           icon: client.avatar_url || '/pwa-192x192.png',
           url: `/crm?clientId=${client.id}`,
-          tag: `telegram-chat-${client.id}`,
+          tag: `telegram-${client.id}-${Date.now()}`,
         },
       });
       console.log('Push notification sent for Telegram message to', userIds.length, 'users in org:', organizationId, 'result:', pushResult);
