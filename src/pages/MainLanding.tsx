@@ -18,7 +18,7 @@ const MainLanding = () => {
   return (
     <>
       <SEOHead 
-        title="Academius — CRM для образовательных центров"
+        title="AcademyOS — CRM для образовательных центров"
         description="Современная платформа для управления учебными центрами. Автоматизация работы с клиентами, расписание, мессенджеры и аналитика."
       />
       
@@ -30,7 +30,7 @@ const MainLanding = () => {
               <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
                 <GraduationCap className="h-6 w-6 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold">Academius</span>
+              <span className="text-xl font-bold">AcademyOS</span>
             </div>
             <div className="flex items-center gap-4">
               <Link to="/auth">
@@ -139,7 +139,7 @@ const MainLanding = () => {
                 Готовы автоматизировать вашу школу?
               </h2>
               <p className="text-primary-foreground/80 mb-8 max-w-xl mx-auto">
-                Начните использовать Academius бесплатно. Без ограничений по времени.
+                Начните использовать AcademyOS бесплатно. Без ограничений по времени.
               </p>
               <Link to="/auth">
                 <Button size="lg" variant="secondary" className="gap-2">
@@ -158,10 +158,10 @@ const MainLanding = () => {
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                 <GraduationCap className="h-4 w-4 text-primary-foreground" />
               </div>
-              <span className="font-semibold">Academius</span>
+              <span className="font-semibold">AcademyOS</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Academius. Все права защищены.
+              © {new Date().getFullYear()} AcademyOS. Все права защищены.
             </p>
           </div>
         </footer>

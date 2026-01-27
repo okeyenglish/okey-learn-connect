@@ -137,6 +137,7 @@ const AppContent = () => {
   const isPortalPage = location.pathname === '/student-portal' || location.pathname === '/teacher-portal' || location.pathname === '/methodist-portal' || location.pathname.startsWith('/teacher-group/');
   const isProgramsPage = location.pathname === '/programs' || location.pathname.startsWith('/programs/');
   const isMainLandingPage = location.pathname === '/main';
+  const isAuthPage = location.pathname.startsWith('/auth') || location.pathname.startsWith('/register/');
   const isOrgPage = location.pathname.match(/^\/[a-zA-Z0-9_-]+/) && !['main', 'branches', 'test', 'about', 'teachers', 'reviews', 'pricing', 'faq', 'contacts', 'contact-method', 'admin', 'newcrm', 'crm', 'leads', 'student', 'student-portal', 'teacher-portal', 'course', 'online-lesson', 'auth', 'diag', 'test-user', 'holihope-import', 'seo', 'callsforteachers', 'payment', 'balance-test', 'teacher-test', 'sessions', 'install', 'monitor', 'webhook-test', 'employee', 'debug-access', '5000', 'programs', 'register', 'course-details'].some(path => location.pathname.startsWith('/' + path));
 
   if (isCRMPage) {
@@ -150,6 +151,23 @@ const AppContent = () => {
   // Main landing page without O'KEY ENGLISH header/footer
   if (isMainLandingPage) {
     return <MainLanding />;
+  }
+
+  // Auth pages without O'KEY ENGLISH header/footer
+  if (isAuthPage) {
+    return (
+      <Suspense fallback={<LoadingComponent />}>
+        <Routes>
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+          <Route path="/auth/reset-password" element={<ResetPassword />} />
+          <Route path="/auth/qr" element={<QRLogin />} />
+          <Route path="/auth/sso" element={<SSOCallback />} />
+          <Route path="/register/teacher/:token" element={<TeacherRegistration />} />
+        </Routes>
+      </Suspense>
+    );
   }
 
   if (isPortalPage) {
