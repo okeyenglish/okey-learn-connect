@@ -42,7 +42,6 @@ import { useStaffTypingIndicator } from '@/hooks/useStaffTypingIndicator';
 import { StaffTypingIndicator } from '@/components/ai-hub/StaffTypingIndicator';
 import { CreateStaffGroupModal } from '@/components/ai-hub/CreateStaffGroupModal';
 import { LinkTeacherProfileModal } from '@/components/ai-hub/LinkTeacherProfileModal';
-import { MassLinkTeacherProfilesModal } from '@/components/ai-hub/MassLinkTeacherProfilesModal';
 import VoiceAssistant from '@/components/VoiceAssistant';
 import { usePersistedSections } from '@/hooks/usePersistedSections';
 
@@ -69,7 +68,16 @@ interface ChatMessage {
 }
 
 type ConsultantType = 'lawyer' | 'accountant' | 'marketer' | 'hr' | 'methodist' | 'it';
-type ChatType = 'assistant' | ConsultantType | 'group' | 'teacher';
+type ChatType = 'assistant' | ConsultantType | 'group' | 'teacher' | 'staff';
+
+interface StaffMember {
+  id: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  avatar_url?: string;
+  branch?: string;
+}
 
 interface ChatItem {
   id: string;
@@ -83,7 +91,7 @@ interface ChatItem {
   unreadCount?: number;
   lastMessage?: string;
   lastMessageTime?: string;
-  data?: InternalChat | TeacherChatItem;
+  data?: InternalChat | TeacherChatItem | StaffMember;
 }
 
 export const AIHubInline = ({ 
@@ -108,17 +116,21 @@ export const AIHubInline = ({
 
   const { data: internalChats, isLoading: chatsLoading } = useInternalChats();
   const { teachers, isLoading: teachersLoading } = useTeacherChats(null);
-  const { data: staffMembers } = useStaffMembers();
+  const { data: staffMembers, isLoading: staffMembersLoading } = useStaffMembers();
   
-  // Get profile IDs for staff conversation previews
+  // Get all profile IDs for staff conversation previews (teachers with profiles + all staff members)
   const teacherProfileIds = teachers
     .filter(t => t.profileId)
     .map(t => t.profileId as string);
-  const { data: staffPreviews } = useStaffConversationPreviews(teacherProfileIds);
+  const staffMemberIds = (staffMembers || []).map(s => s.id);
+  const allProfileIds = [...new Set([...teacherProfileIds, ...staffMemberIds])];
+  const { data: staffPreviews } = useStaffConversationPreviews(allProfileIds);
   
   const selectedStaffProfileId = activeChat?.type === 'teacher' 
     ? (activeChat.data as TeacherChatItem)?.profileId || ''
-    : '';
+    : activeChat?.type === 'staff'
+      ? (activeChat.data as StaffMember)?.id || ''
+      : '';
   const { data: staffDirectMessages, isLoading: staffDirectLoading } = useStaffDirectMessages(selectedStaffProfileId);
   const { data: staffGroupMessages, isLoading: staffGroupLoading } = useStaffGroupMessages(
     activeChat?.type === 'group' ? activeChat.id : ''
@@ -128,10 +140,12 @@ export const AIHubInline = ({
   const { unreadCount: assistantUnread } = useAssistantMessages();
 
   const typingChatId = activeChat?.type === 'teacher' 
-    ? selectedStaffProfileId 
-    : activeChat?.type === 'group' 
-      ? activeChat.id 
-      : '';
+    ? (activeChat.data as TeacherChatItem)?.profileId || ''
+    : activeChat?.type === 'staff'
+      ? (activeChat.data as StaffMember)?.id || ''
+      : activeChat?.type === 'group' 
+        ? activeChat.id 
+        : '';
   const typingChatType = activeChat?.type === 'group' ? 'group' : 'direct';
   const { typingUsers, setTyping, stopTyping } = useStaffTypingIndicator({
     chatId: typingChatId,
@@ -163,25 +177,49 @@ export const AIHubInline = ({
     id: group.id, type: 'group' as ChatType, name: group.name, description: group.description || group.branch || 'Групповой чат', icon: Users, iconBg: 'bg-blue-500/10', iconColor: 'text-blue-600', data: group,
   }));
 
-  // Use internal staff messages previews instead of messenger data
-  const teacherChatItems: ChatItem[] = teachers.map(teacher => {
-    const preview = teacher.profileId ? staffPreviews?.[teacher.profileId] : null;
-    return {
-      id: teacher.id, 
-      type: 'teacher' as ChatType, 
-      name: teacher.fullName, 
-      description: teacher.profileId ? (teacher.branch || teacher.email || 'Преподаватель') : '⚠️ Нет привязки к профилю', 
-      icon: GraduationCap, 
-      iconBg: teacher.profileId ? 'bg-green-500/10' : 'bg-amber-500/10', 
-      iconColor: teacher.profileId ? 'text-green-600' : 'text-amber-600', 
-      unreadCount: preview?.unreadCount || 0, 
-      lastMessage: preview?.lastMessage || undefined,
-      lastMessageTime: preview?.lastMessageTime || undefined,
-      data: teacher,
-    };
-  });
+  // Teachers with profile links
+  const teacherChatItems: ChatItem[] = teachers
+    .filter(teacher => teacher.profileId) // Only show teachers with profile links
+    .map(teacher => {
+      const preview = staffPreviews?.[teacher.profileId!];
+      return {
+        id: teacher.id, 
+        type: 'teacher' as ChatType, 
+        name: teacher.fullName, 
+        description: teacher.branch || teacher.email || 'Преподаватель', 
+        icon: GraduationCap, 
+        iconBg: 'bg-green-500/10', 
+        iconColor: 'text-green-600', 
+        unreadCount: preview?.unreadCount || 0, 
+        lastMessage: preview?.lastMessage || undefined,
+        lastMessageTime: preview?.lastMessageTime || undefined,
+        data: teacher,
+      };
+    });
 
-  const allChats = [...aiChats, ...groupChatItems, ...teacherChatItems];
+  // Other staff members (managers, methodists, etc.) - exclude those already shown as teachers
+  const teacherProfileIdsSet = new Set(teacherProfileIds);
+  const staffChatItems: ChatItem[] = (staffMembers || [])
+    .filter(staff => !teacherProfileIdsSet.has(staff.id)) // Exclude users already shown as teachers
+    .map(staff => {
+      const preview = staffPreviews?.[staff.id];
+      const fullName = [staff.first_name, staff.last_name].filter(Boolean).join(' ') || staff.email || 'Сотрудник';
+      return {
+        id: staff.id,
+        type: 'staff' as ChatType,
+        name: fullName,
+        description: staff.branch || staff.email || 'Сотрудник',
+        icon: Users,
+        iconBg: 'bg-blue-500/10',
+        iconColor: 'text-blue-600',
+        unreadCount: preview?.unreadCount || 0,
+        lastMessage: preview?.lastMessage || undefined,
+        lastMessageTime: preview?.lastMessageTime || undefined,
+        data: staff,
+      };
+    });
+
+  const allChats = [...aiChats, ...groupChatItems, ...teacherChatItems, ...staffChatItems];
 
   useEffect(() => {
     const initialMessages: Record<string, ChatMessage[]> = {};
@@ -253,6 +291,15 @@ export const AIHubInline = ({
       } catch (error) {
         toast.error('Ошибка отправки сообщения');
       }
+    } else if (activeChat.type === 'staff' && activeChat.data) {
+      const staff = activeChat.data as StaffMember;
+      try {
+        await sendStaffMessage.mutateAsync({ recipient_user_id: staff.id, message_text: message.trim(), message_type: 'text' });
+        setMessage('');
+        stopTyping();
+      } catch (error) {
+        toast.error('Ошибка отправки сообщения');
+      }
     }
   };
 
@@ -280,7 +327,7 @@ export const AIHubInline = ({
 
   const getCurrentMessages = (): ChatMessage[] => {
     if (!activeChat) return [];
-    if (activeChat.type === 'teacher') {
+    if (activeChat.type === 'teacher' || activeChat.type === 'staff') {
       return (staffDirectMessages || []).map((m) => ({ id: m.id, type: m.sender_id === user?.id ? 'user' : 'assistant', content: m.message_text || '', timestamp: new Date(m.created_at), sender: m.sender?.first_name })) as ChatMessage[];
     }
     if (activeChat.type === 'group') {
@@ -301,7 +348,7 @@ export const AIHubInline = ({
   );
 
   const aiChatsList = filteredChats.filter(item => item.type === 'assistant' || ['lawyer', 'accountant', 'marketer', 'hr', 'methodist', 'it'].includes(item.type));
-  const corporateChatsList = filteredChats.filter(item => item.type === 'group' || item.type === 'teacher');
+  const corporateChatsList = filteredChats.filter(item => item.type === 'group' || item.type === 'teacher' || item.type === 'staff');
 
   // Render AI Assistant inline
   if (activeChat?.type === 'assistant') {
@@ -533,13 +580,21 @@ export const AIHubInline = ({
               
               {corporateChatsList.map((item) => {
                 const isTeacher = item.type === 'teacher';
+                const isStaff = item.type === 'staff';
+                const isGroup = item.type === 'group';
                 const teacher = isTeacher ? (item.data as TeacherChatItem) : null;
+                const staff = isStaff ? (item.data as StaffMember) : null;
                 // Use lastMessageTime from internal staff messages, not from messenger data
                 const lastMsgTime = item.lastMessageTime || undefined;
                 const hasUnread = (item.unreadCount || 0) > 0;
-                const initials = isTeacher && teacher 
-                  ? `${teacher.lastName?.[0] || ''}${teacher.firstName?.[0] || ''}`.toUpperCase() || '•'
-                  : '';
+                
+                // Calculate initials for teachers and staff
+                let initials = '';
+                if (isTeacher && teacher) {
+                  initials = `${teacher.lastName?.[0] || ''}${teacher.firstName?.[0] || ''}`.toUpperCase() || '•';
+                } else if (isStaff && staff) {
+                  initials = `${staff.last_name?.[0] || ''}${staff.first_name?.[0] || ''}`.toUpperCase() || '•';
+                }
                 
                 return (
                   <button 
@@ -551,7 +606,7 @@ export const AIHubInline = ({
                       <div className="flex items-start gap-2 flex-1 min-w-0">
                         <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30">
                           <AvatarFallback className="bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))] text-sm font-medium">
-                            {isTeacher ? initials : <item.icon className="h-4 w-4" />}
+                            {isTeacher || isStaff ? initials : <item.icon className="h-4 w-4" />}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0 overflow-hidden">
