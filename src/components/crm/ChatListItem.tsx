@@ -203,39 +203,18 @@ export const ChatListItem = React.memo(({
                   </Badge>
                 )}
                 {isInWorkByOthers && pinnedByUserName && (
-                  <TooltipProvider delayDuration={300}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge 
-                          variant="outline" 
-                          className="text-[10px] h-4 px-1.5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 cursor-pointer hover:bg-blue-100 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (pinnedByUserId && onMessageUser) {
-                              onMessageUser(pinnedByUserId, pinnedByUserName);
-                            }
-                          }}
-                        >
-                          В работе
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="flex flex-col gap-1 p-2">
-                        <span className="text-xs font-medium">У {pinnedByUserName}</span>
-                        {pinnedByUserId && onMessageUser && (
-                          <button 
-                            className="flex items-center gap-1 text-[10px] text-primary hover:underline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onMessageUser(pinnedByUserId, pinnedByUserName);
-                            }}
-                          >
-                            <MessageCircle className="h-3 w-3" />
-                            Написать в ChatOS
-                          </button>
-                        )}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <Badge 
+                    variant="outline" 
+                    className="text-[10px] h-4 px-1.5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 cursor-pointer hover:bg-blue-100 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (pinnedByUserId && onMessageUser) {
+                        onMessageUser(pinnedByUserId, pinnedByUserName);
+                      }
+                    }}
+                  >
+                    У {pinnedByUserName.split(' ')[0]}
+                  </Badge>
                 )}
                 {foundInMessages && (
                   <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 flex items-center gap-0.5">
