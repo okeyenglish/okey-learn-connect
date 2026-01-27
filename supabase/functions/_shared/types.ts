@@ -1899,20 +1899,40 @@ export async function getOrgAdminManagerUserIds(
 ): Promise<string[]> {
   console.log('[getOrgAdminManagerUserIds] Fetching for org:', organizationId);
   
-  // Join user_roles with profiles to filter by organization_id
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, user_roles!inner(role)')
-    .eq('organization_id', organizationId)
-    .in('user_roles.role', ['admin', 'manager']);
+  // STEP 1: Get all user_ids with admin/manager roles
+  // Using a more reliable two-step query to avoid foreign key relationship issues
+  const { data: roleData, error: roleError } = await supabase
+    .from('user_roles')
+    .select('user_id')
+    .in('role', ['admin', 'manager']);
 
-  if (error) {
-    console.error('[getOrgAdminManagerUserIds] Error:', error);
+  if (roleError) {
+    console.error('[getOrgAdminManagerUserIds] Error fetching roles:', roleError);
     return [];
   }
 
-  const userIds = data?.map((p: { id: string }) => p.id) || [];
-  console.log('[getOrgAdminManagerUserIds] Found', userIds.length, 'users');
+  if (!roleData || roleData.length === 0) {
+    console.log('[getOrgAdminManagerUserIds] No admin/manager roles found in system');
+    return [];
+  }
+
+  const roleUserIds = roleData.map((r: { user_id: string }) => r.user_id);
+  console.log('[getOrgAdminManagerUserIds] Found', roleUserIds.length, 'users with admin/manager roles');
+
+  // STEP 2: Filter by organization_id in profiles
+  const { data: profiles, error: profileError } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('organization_id', organizationId)
+    .in('id', roleUserIds);
+
+  if (profileError) {
+    console.error('[getOrgAdminManagerUserIds] Error fetching profiles:', profileError);
+    return [];
+  }
+
+  const userIds = profiles?.map((p: { id: string }) => p.id) || [];
+  console.log('[getOrgAdminManagerUserIds] Filtered to', userIds.length, 'users in org:', organizationId);
   
   return userIds;
 }

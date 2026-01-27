@@ -537,28 +537,17 @@ Deno.serve(async (req) => {
     // === STEP 5: Filter subscriptions for test pushes ===
     console.log(`[${requestId}] Step 5: Filtering subscriptions...`);
     
-    // For test pushes, sending to multiple stale subscriptions on the same device can result
-    // in notifications being immediately replaced (same tag) or delivered to an old/broken SW.
-    // To make the "Test push" button reliable, send only to the latest subscription per user.
-    const isTestPush = typeof payload.tag === 'string' && payload.tag.startsWith('test-push');
-    const subscriptionsToNotify = isTestPush
-      ? (() => {
-          const latestByUser = new Map<string, any>();
-          for (const sub of subscriptions) {
-            const userKey = String(sub.user_id);
-            const prev = latestByUser.get(userKey);
-            const subTime = sub.updated_at ? Date.parse(String(sub.updated_at)) : 0;
-            const prevTime = prev?.updated_at ? Date.parse(String(prev.updated_at)) : 0;
-            if (!prev || subTime >= prevTime) latestByUser.set(userKey, sub);
-          }
-          return Array.from(latestByUser.values());
-        })()
-      : subscriptions;
-
-    console.log(`[${requestId}] Subscriptions to notify: ${subscriptionsToNotify.length} (isTestPush: ${isTestPush})`);
+    // For test pushes, use "fresh + fallback" strategy:
+    // 1. Sort by updated_at (freshest first)
+    // 2. Try the freshest subscription first
+    // 3. If it fails, try the next one, and so on
+    // 4. Stop at first success (or exhaust all subscriptions)
+    const isTestPush = typeof payload.tag === 'string' && payload.tag.startsWith('test-');
+    
+    console.log(`[${requestId}] isTestPush: ${isTestPush}, tag: ${payload.tag}`);
     
     // Log detailed subscription info
-    subscriptionsToNotify.forEach((sub, idx) => {
+    subscriptions.forEach((sub, idx) => {
       const keys = sub.keys as { p256dh: string; auth: string } | null;
       const endpointHost = new URL(sub.endpoint).hostname;
       console.log(`[${requestId}] 📱 Subscription #${idx + 1}:`);
@@ -574,17 +563,35 @@ Deno.serve(async (req) => {
     // === STEP 6: Send push notifications ===
     console.log(`[${requestId}] Step 6: Sending push notifications...`);
 
-    const results = await Promise.all(
-      subscriptionsToNotify.map(async (sub, idx) => {
+    let results: Array<{ subscriptionId: string; userId: string; success: boolean; error?: string; statusCode?: number }>;
+
+    if (isTestPush) {
+      // === TEST PUSH: Fresh + Fallback Strategy ===
+      console.log(`[${requestId}] 🧪 Using FRESH + FALLBACK strategy for test push`);
+      
+      // Sort subscriptions by updated_at (freshest first)
+      const sortedSubs = [...subscriptions].sort((a, b) => {
+        const aTime = a.updated_at ? Date.parse(String(a.updated_at)) : 0;
+        const bTime = b.updated_at ? Date.parse(String(b.updated_at)) : 0;
+        return bTime - aTime; // Descending - freshest first
+      });
+      
+      console.log(`[${requestId}] Sorted ${sortedSubs.length} subscriptions by freshness`);
+      
+      results = [];
+      let successCount = 0;
+      
+      for (let idx = 0; idx < sortedSubs.length; idx++) {
+        const sub = sortedSubs[idx];
         const subStartTime = Date.now();
-        console.log(`[${requestId}] 📤 Sending to subscription #${idx + 1}...`);
-        
-        // Keys stored as JSONB object { p256dh, auth }
         const keys = sub.keys as { p256dh: string; auth: string };
         
+        console.log(`[${requestId}] 📤 [${idx + 1}/${sortedSubs.length}] Trying subscription (user: ${sub.user_id}, updated: ${sub.updated_at})...`);
+        
         if (!keys?.p256dh || !keys?.auth) {
-          console.error(`[${requestId}] ❌ Subscription #${idx + 1} has invalid keys`);
-          return { subscriptionId: sub.id, userId: sub.user_id, success: false, error: 'Invalid keys' };
+          console.error(`[${requestId}] ❌ Subscription has invalid keys, skipping...`);
+          results.push({ subscriptionId: sub.id, userId: sub.user_id, success: false, error: 'Invalid keys' });
+          continue;
         }
         
         const result = await sendWebPush(
@@ -597,10 +604,17 @@ Deno.serve(async (req) => {
         const subDuration = Date.now() - subStartTime;
         
         if (result.success) {
-          console.log(`[${requestId}] ✅ Subscription #${idx + 1}: SUCCESS (${result.statusCode}) in ${subDuration}ms`);
+          console.log(`[${requestId}] ✅ SUCCESS on subscription #${idx + 1} (${result.statusCode}) in ${subDuration}ms`);
+          results.push({ subscriptionId: sub.id, userId: sub.user_id, ...result });
+          successCount++;
+          // Stop on first success - we don't want to spam all devices with test notifications
+          console.log(`[${requestId}] 🎯 Test push delivered successfully, stopping (fresh+fallback complete)`);
+          break;
         } else {
-          console.error(`[${requestId}] ❌ Subscription #${idx + 1}: FAILED - ${result.error} (${result.statusCode}) in ${subDuration}ms`);
+          console.error(`[${requestId}] ❌ FAILED on subscription #${idx + 1} - ${result.error} (${result.statusCode}) in ${subDuration}ms`);
+          results.push({ subscriptionId: sub.id, userId: sub.user_id, ...result });
           
+          // Delete expired subscriptions
           if (result.error === 'subscription_expired') {
             console.log(`[${requestId}] 🗑️ Deleting expired subscription: ${sub.id}`);
             await supabase
@@ -608,11 +622,58 @@ Deno.serve(async (req) => {
               .delete()
               .eq('id', sub.id);
           }
+          
+          // Continue to next subscription (fallback)
+          console.log(`[${requestId}] ⏭️ Falling back to next subscription...`);
         }
+      }
+      
+      if (successCount === 0) {
+        console.warn(`[${requestId}] ⚠️ All ${sortedSubs.length} subscriptions failed for test push`);
+      }
+    } else {
+      // === REGULAR PUSH: Send to all subscriptions in parallel ===
+      console.log(`[${requestId}] 📢 Sending to ALL ${subscriptions.length} subscriptions in parallel`);
+      
+      results = await Promise.all(
+        subscriptions.map(async (sub, idx) => {
+          const subStartTime = Date.now();
+          console.log(`[${requestId}] 📤 Sending to subscription #${idx + 1}...`);
+          
+          const keys = sub.keys as { p256dh: string; auth: string };
+          
+          if (!keys?.p256dh || !keys?.auth) {
+            console.error(`[${requestId}] ❌ Subscription #${idx + 1} has invalid keys`);
+            return { subscriptionId: sub.id, userId: sub.user_id, success: false, error: 'Invalid keys' };
+          }
+          
+          const result = await sendWebPush(
+            { endpoint: sub.endpoint, p256dh: keys.p256dh, auth: keys.auth },
+            payload,
+            vapidPublicKey,
+            vapidPrivateKey
+          );
 
-        return { subscriptionId: sub.id, userId: sub.user_id, ...result };
-      })
-    );
+          const subDuration = Date.now() - subStartTime;
+          
+          if (result.success) {
+            console.log(`[${requestId}] ✅ Subscription #${idx + 1}: SUCCESS (${result.statusCode}) in ${subDuration}ms`);
+          } else {
+            console.error(`[${requestId}] ❌ Subscription #${idx + 1}: FAILED - ${result.error} (${result.statusCode}) in ${subDuration}ms`);
+            
+            if (result.error === 'subscription_expired') {
+              console.log(`[${requestId}] 🗑️ Deleting expired subscription: ${sub.id}`);
+              await supabase
+                .from('push_subscriptions')
+                .delete()
+                .eq('id', sub.id);
+            }
+          }
+
+          return { subscriptionId: sub.id, userId: sub.user_id, ...result };
+        })
+      );
+    }
 
     // === STEP 7: Compile results ===
     const successful = results.filter(r => r.success).length;

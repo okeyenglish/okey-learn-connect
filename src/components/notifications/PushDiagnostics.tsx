@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +16,8 @@ import {
   Key,
   Cloud,
   Trash2,
-  Info
+  Info,
+  MessageSquare
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
@@ -25,6 +26,7 @@ import { selfHostedPost } from '@/lib/selfHostedApi';
 import { pushApiWithFallback, getLastPushApiSource, type PushApiSource } from '@/lib/pushApiWithFallback';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DiagnosticResult {
   status: 'pending' | 'checking' | 'success' | 'warning' | 'error';
@@ -40,6 +42,23 @@ interface DiagnosticState {
   server: DiagnosticResult;
   vapidMatch: DiagnosticResult;
   apiSource: DiagnosticResult;
+  webhookPush: DiagnosticResult;
+}
+
+interface WebhookPushLog {
+  id: string;
+  created_at: string;
+  event_type: string;
+  processed: boolean;
+  webhook_data: {
+    organizationId?: string;
+    userIds?: string[];
+    userCount?: number;
+    pushResult?: { sent?: number; failed?: number; error?: string };
+    clientName?: string;
+    callTime?: string;
+    senderName?: string;
+  };
 }
 
 const initialState: DiagnosticState = {
@@ -50,6 +69,7 @@ const initialState: DiagnosticState = {
   server: { status: 'pending', message: 'Связь с сервером' },
   vapidMatch: { status: 'pending', message: 'VAPID ключи' },
   apiSource: { status: 'pending', message: 'Источник API' },
+  webhookPush: { status: 'pending', message: 'Push от клиентов' },
 };
 
 export function PushDiagnostics({ className }: { className?: string }) {
@@ -319,6 +339,77 @@ export function PushDiagnostics({ className }: { className?: string }) {
       });
     }
 
+    // 7. Check webhook push status (recent push-diagnostic logs)
+    updateDiagnostic('webhookPush', { status: 'checking' });
+    
+    try {
+      // Fetch recent push-diagnostic logs from webhook_logs
+      const { data: pushLogs, error: logsError } = await supabase
+        .from('webhook_logs')
+        .select('id, created_at, event_type, processed, webhook_data')
+        .eq('messenger_type', 'push-diagnostic')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      
+      if (logsError) {
+        console.error('Error fetching webhook push logs:', logsError);
+        updateDiagnostic('webhookPush', {
+          status: 'warning',
+          message: 'Не удалось загрузить логи',
+          details: logsError.message,
+        });
+      } else if (!pushLogs || pushLogs.length === 0) {
+        updateDiagnostic('webhookPush', {
+          status: 'warning',
+          message: 'Нет данных',
+          details: 'Пока не было входящих сообщений с push',
+        });
+      } else {
+        // Analyze recent push logs
+        const recentLog = pushLogs[0] as unknown as WebhookPushLog;
+        const webhookData = recentLog.webhook_data || {};
+        const pushResult = webhookData.pushResult;
+        const logTime = new Date(recentLog.created_at).toLocaleString('ru-RU', {
+          day: '2-digit',
+          month: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        
+        if (pushResult?.sent && pushResult.sent > 0) {
+          updateDiagnostic('webhookPush', {
+            status: 'success',
+            message: `Последний push доставлен`,
+            details: `${logTime}: отправлено ${pushResult.sent}, ошибок ${pushResult.failed || 0}`,
+          });
+        } else if (pushResult?.error) {
+          updateDiagnostic('webhookPush', {
+            status: 'error',
+            message: 'Push не доставлен',
+            details: `${logTime}: ${pushResult.error.slice(0, 50)}`,
+          });
+        } else if (webhookData.userCount === 0) {
+          updateDiagnostic('webhookPush', {
+            status: 'error',
+            message: 'Нет получателей',
+            details: `${logTime}: admin/manager не найдены`,
+          });
+        } else {
+          updateDiagnostic('webhookPush', {
+            status: 'warning',
+            message: 'Статус неизвестен',
+            details: `${logTime}: ${recentLog.event_type}`,
+          });
+        }
+      }
+    } catch (err) {
+      updateDiagnostic('webhookPush', {
+        status: 'warning',
+        message: 'Ошибка проверки',
+        details: err instanceof Error ? err.message : 'Unknown',
+      });
+    }
+
     setIsRunning(false);
   }, [user, updateDiagnostic]);
 
@@ -393,6 +484,8 @@ export function PushDiagnostics({ className }: { className?: string }) {
         return <Key className="h-4 w-4" />;
       case 'apiSource':
         return <Cloud className="h-4 w-4" />;
+      case 'webhookPush':
+        return <MessageSquare className="h-4 w-4" />;
     }
   };
 

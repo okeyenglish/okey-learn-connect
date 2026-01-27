@@ -727,11 +727,20 @@ Deno.serve(async (req) => {
           }
           
           // Send push notification to managers/admins in this organization
+          // === PUSH DIAGNOSTIC LOGGING ===
+          console.log('[onlinepbx-webhook] === PUSH NOTIFICATION START ===');
+          console.log('[onlinepbx-webhook] Organization ID:', organizationId);
+          
+          let pushResult: { sent?: number; failed?: number; error?: string } = {};
+          let userIds: string[] = [];
+          
           try {
-            const userIds = await getOrgAdminManagerUserIds(supabase, organizationId);
+            userIds = await getOrgAdminManagerUserIds(supabase, organizationId);
+            console.log('[onlinepbx-webhook] getOrgAdminManagerUserIds returned:', userIds.length, 'users');
+            console.log('[onlinepbx-webhook] User IDs:', userIds.slice(0, 5)); // Log first 5 for privacy
             
             if (userIds.length > 0) {
-              await sendPushNotification({
+              pushResult = await sendPushNotification({
                 userIds,
                 payload: {
                   title: '📞 Пропущенный звонок',
@@ -741,11 +750,38 @@ Deno.serve(async (req) => {
                   tag: `missed-call-${newCallLog.id}`,
                 },
               });
-              console.log('Push notification sent for missed call to', userIds.length, 'users in org:', organizationId);
+              console.log('[onlinepbx-webhook] Push result:', pushResult);
+            } else {
+              console.warn('[onlinepbx-webhook] No admin/manager users found for push!');
+              pushResult = { sent: 0, failed: 0, error: 'No users with admin/manager role in org' };
             }
           } catch (pushErr) {
-            console.error('Error sending push notification for missed call:', pushErr);
+            console.error('[onlinepbx-webhook] Push notification error:', pushErr);
+            pushResult = { sent: 0, failed: 0, error: String(pushErr) };
           }
+          
+          // Log push diagnostic to webhook_logs for UI visibility
+          try {
+            await supabase.from('webhook_logs').insert({
+              messenger_type: 'push-diagnostic',
+              event_type: 'missed_call_push',
+              webhook_data: {
+                organizationId,
+                userIds,
+                userCount: userIds.length,
+                pushResult,
+                callLogId: newCallLog.id,
+                clientName,
+                callTime,
+              },
+              processed: pushResult.sent !== undefined && pushResult.sent > 0,
+            });
+            console.log('[onlinepbx-webhook] Push diagnostic logged to webhook_logs');
+          } catch (logErr) {
+            console.warn('[onlinepbx-webhook] Failed to log push diagnostic:', logErr);
+          }
+          
+          console.log('[onlinepbx-webhook] === PUSH NOTIFICATION END ===');
           
           let responsibleEmployeeId: string | null = null;
           if (rawTo) {
