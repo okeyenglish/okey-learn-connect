@@ -8,7 +8,8 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { toast } from "sonner";
-import { Bell, Clock, Save, Loader2, ArrowLeft } from "lucide-react";
+import { Bell, Clock, Save, Loader2, ArrowLeft, Smartphone, CheckCircle, XCircle } from "lucide-react";
+import { usePortalPushNotifications } from "@/hooks/usePortalPushNotifications";
 
 type NotificationFrequency = 'instant' | '15min' | 'hourly' | 'daily' | 'disabled';
 
@@ -41,11 +42,30 @@ export default function ParentSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  const {
+    isSupported: isPushSupported,
+    isSubscribed: isPushSubscribed,
+    isLoading: isPushLoading,
+    error: pushError,
+    subscribe: subscribeToPush,
+    unsubscribe: unsubscribeFromPush,
+  } = usePortalPushNotifications(client?.id);
+
   useEffect(() => {
     if (client?.id) {
       loadSettings();
     }
   }, [client?.id]);
+
+  // Sync push subscription state with settings
+  useEffect(() => {
+    if (!isPushLoading) {
+      setSettings(prev => ({
+        ...prev,
+        push_notifications: isPushSubscribed,
+      }));
+    }
+  }, [isPushSubscribed, isPushLoading]);
 
   const loadSettings = async () => {
     try {
@@ -69,6 +89,24 @@ export default function ParentSettings() {
       console.error('Error loading settings:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handlePushToggle = async (enabled: boolean) => {
+    if (enabled) {
+      const success = await subscribeToPush();
+      if (success) {
+        toast.success('Push-уведомления включены');
+        setSettings(prev => ({ ...prev, push_notifications: true }));
+      } else if (pushError) {
+        toast.error(pushError);
+      }
+    } else {
+      const success = await unsubscribeFromPush();
+      if (success) {
+        toast.success('Push-уведомления отключены');
+        setSettings(prev => ({ ...prev, push_notifications: false }));
+      }
     }
   };
 
@@ -198,20 +236,56 @@ export default function ParentSettings() {
                 />
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-lg border">
-                <div className="space-y-0.5">
-                  <p className="font-medium">Push-уведомления</p>
-                  <p className="text-sm text-muted-foreground">
-                    Уведомления в браузере
-                  </p>
+              {/* Push notifications with subscription management */}
+              <div className="p-3 rounded-lg border space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="h-4 w-4" />
+                      <p className="font-medium">Push-уведомления</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Мгновенные уведомления в браузере
+                    </p>
+                  </div>
+                  <Switch
+                    checked={settings.push_notifications}
+                    onCheckedChange={handlePushToggle}
+                    disabled={isPushLoading || !isPushSupported}
+                  />
                 </div>
-                <Switch
-                  checked={settings.push_notifications}
-                  onCheckedChange={(checked) => setSettings(prev => ({ 
-                    ...prev, 
-                    push_notifications: checked 
-                  }))}
-                />
+
+                {/* Push status indicator */}
+                {isPushSupported ? (
+                  <div className={`flex items-center gap-2 text-xs ${
+                    isPushSubscribed ? 'text-green-600' : 'text-muted-foreground'
+                  }`}>
+                    {isPushLoading ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span>Проверка...</span>
+                      </>
+                    ) : isPushSubscribed ? (
+                      <>
+                        <CheckCircle className="h-3 w-3" />
+                        <span>Подписка активна</span>
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="h-3 w-3" />
+                        <span>Подписка не активна</span>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-amber-600">
+                    Push-уведомления не поддерживаются в вашем браузере
+                  </p>
+                )}
+
+                {pushError && (
+                  <p className="text-xs text-destructive">{pushError}</p>
+                )}
               </div>
             </div>
           </div>

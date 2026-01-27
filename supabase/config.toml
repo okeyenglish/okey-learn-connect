@@ -410,3 +410,15 @@ verify_jwt = true
 
 [functions.portal-magic-login]
 verify_jwt = false
+
+[functions.portal-push-config]
+verify_jwt = false
+
+[functions.portal-push-subscribe]
+verify_jwt = true
+
+[functions.portal-push-unsubscribe]
+verify_jwt = true
+
+[functions.portal-push-send]
+verify_jwt = true
