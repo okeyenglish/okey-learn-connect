@@ -39,6 +39,7 @@ import {
 } from '@/hooks/useInternalStaffMessages';
 import { useStaffTypingIndicator } from '@/hooks/useStaffTypingIndicator';
 import { StaffTypingIndicator } from '@/components/ai-hub/StaffTypingIndicator';
+import { CreateStaffGroupModal } from '@/components/ai-hub/CreateStaffGroupModal';
 import VoiceAssistant from '@/components/VoiceAssistant';
 
 interface AIHubProps {
@@ -709,10 +710,16 @@ export const AIHub = ({
             {/* Corporate Chats Section (Groups + Teachers) */}
             {corporateChatsList.length > 0 && (
               <>
-                <div className="px-3 py-2 mt-2">
+                <div className="px-3 py-2 mt-2 flex items-center justify-between">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     Сотрудники и группы
                   </p>
+                  <CreateStaffGroupModal 
+                    onGroupCreated={() => {
+                      // Invalidate internal chats to refresh the list
+                      queryClient.invalidateQueries({ queryKey: ['internal-chats'] });
+                    }}
+                  />
                 </div>
                 {corporateChatsList.map((item) => {
                   // For teachers, show initials
