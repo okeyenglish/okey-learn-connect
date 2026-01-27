@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { selfHostedPost } from '@/lib/selfHostedApi';
+import { pushApiWithFallback, fetchVapidKeyWithFallback, getLastPushApiSource, type PushApiSource } from '@/lib/pushApiWithFallback';
 
 // VAPID public key - must match the VAPID_PUBLIC_KEY in Supabase secrets
 const VAPID_PUBLIC_KEY = 'BNCGXWZNiciyztYDIZPXM_smN8mBxrfFPIG_ohpea-9H5B0Gl-zjfWkh7XJOemAh2iDQR87V3f54LQ12DRJfl6s';
@@ -53,24 +54,11 @@ function isDebugWindowActive(): boolean {
   return Date.now() < until;
 }
 
-async function fetchVapidPublicKey(): Promise<string> {
-  // Prefer fetching from self-hosted backend (prevents mismatches after key rotation), fallback to hardcoded.
-  try {
-    const res = await selfHostedPost<{ success?: boolean; vapidPublicKey?: string; error?: string }>(
-      'portal-push-config',
-      undefined
-    );
-
-    const key = res.data?.vapidPublicKey;
-    if (res.success && typeof key === 'string' && key.length > 20) {
-      console.log('[Push] VAPID key from self-hosted server:', key.substring(0, 20) + '...');
-      return key;
-    }
-    console.warn('[Push] Self-hosted returned invalid VAPID, using fallback:', VAPID_PUBLIC_KEY.substring(0, 20) + '...');
-  } catch (e) {
-    console.warn('[Push] Failed to fetch VAPID from self-hosted, using fallback:', e);
-  }
-  return VAPID_PUBLIC_KEY;
+async function fetchVapidPublicKey(): Promise<{ key: string; source: PushApiSource }> {
+  // Use the fallback helper for VAPID key fetching
+  const result = await fetchVapidKeyWithFallback();
+  console.log(`[Push] VAPID key from ${result.source}:`, result.vapidKey.substring(0, 20) + '...');
+  return { key: result.vapidKey, source: result.source };
 }
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -521,8 +509,9 @@ export function usePushNotifications() {
       // 1) Reuse existing subscription if present (prevents InvalidStateError)
       // 2) Otherwise create a fresh one using the current VAPID key from backend
       const existing = await registration.pushManager.getSubscription();
-      const vapidKey = await fetchVapidPublicKey();
-      console.log('[Push] Using VAPID key (len):', vapidKey?.length);
+      const vapidResult = await fetchVapidPublicKey();
+      const vapidKey = vapidResult.key;
+      console.log(`[Push] Using VAPID key from ${vapidResult.source} (len):`, vapidKey.length);
 
       const subscription =
         existing ??
@@ -538,9 +527,9 @@ export function usePushNotifications() {
         throw new Error('Invalid subscription data');
       }
 
-      // Save subscription to self-hosted database via Edge Function
-      console.log('[Push] Saving subscription to self-hosted for user:', user.id);
-      const saveResponse = await selfHostedPost<{ success: boolean; error?: string }>('push-subscription-save', {
+      // Save subscription to self-hosted database via Edge Function (with fallback)
+      console.log('[Push] Saving subscription for user:', user.id);
+      const saveResponse = await pushApiWithFallback<{ success: boolean; error?: string }>('push-subscription-save', {
         user_id: user.id,
         endpoint: subscriptionJson.endpoint,
         keys: {
@@ -555,7 +544,7 @@ export function usePushNotifications() {
         throw new Error(saveResponse.error || 'Failed to save subscription');
       }
       
-      console.log('[Push] Subscription saved successfully');
+      console.log(`[Push] Subscription saved successfully via ${saveResponse.source}`);
 
       // Remember endpoint for later cleanup
       safeLocalStorageSet(getLastEndpointStorageKey(user.id), subscriptionJson.endpoint);
@@ -600,15 +589,15 @@ export function usePushNotifications() {
         const endpoint = subscription.endpoint;
         await subscription.unsubscribe();
 
-        // Remove from self-hosted database via Edge Function
-        console.log('[Push] Deleting subscription from self-hosted for user:', user.id);
-        const deleteResponse = await selfHostedPost<{ success: boolean; error?: string }>('push-subscription-delete', {
+        // Remove from database via Edge Function (with fallback)
+        console.log('[Push] Deleting subscription for user:', user.id);
+        const deleteResponse = await pushApiWithFallback<{ success: boolean; error?: string }>('push-subscription-delete', {
           user_id: user.id,
           endpoint,
         });
 
         if (!deleteResponse.success) {
-          console.warn('[Push] Error deleting subscription:', deleteResponse.error);
+          console.warn(`[Push] Error deleting subscription via ${deleteResponse.source}:`, deleteResponse.error);
           // Don't throw - local unsubscribe succeeded
         }
 
@@ -625,7 +614,7 @@ export function usePushNotifications() {
         const storedEndpoint = safeLocalStorageGet(storedKey);
         if (storedEndpoint) {
           console.log('[Push] No local subscription; deleting stored endpoint from server');
-          await selfHostedPost<{ success: boolean; error?: string }>('push-subscription-delete', {
+          await pushApiWithFallback<{ success: boolean; error?: string }>('push-subscription-delete', {
             user_id: user.id,
             endpoint: storedEndpoint,
           });
@@ -692,17 +681,17 @@ export function usePushNotifications() {
           // Subscription expired or was revoked - try to re-subscribe silently
           console.log('[Push] Health check: Subscription expired, re-subscribing...');
           
-          const vapidKey = await fetchVapidPublicKey();
+          const vapidResult = await fetchVapidPublicKey();
           const newSubscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
+            applicationServerKey: urlBase64ToUint8Array(vapidResult.key) as BufferSource,
           });
 
           const subscriptionJson = newSubscription.toJSON();
           
           if (subscriptionJson.endpoint && subscriptionJson.keys?.p256dh && subscriptionJson.keys?.auth) {
-            // Save new subscription to server
-            const saveResponse = await selfHostedPost<{ success: boolean; error?: string }>('push-subscription-save', {
+            // Save new subscription to server (with fallback)
+            const saveResponse = await pushApiWithFallback<{ success: boolean; error?: string }>('push-subscription-save', {
               user_id: user.id,
               endpoint: subscriptionJson.endpoint,
               keys: {
@@ -713,7 +702,7 @@ export function usePushNotifications() {
             });
 
             if (saveResponse.success) {
-              console.log('[Push] Health check: Re-subscribed successfully');
+              console.log(`[Push] Health check: Re-subscribed successfully via ${saveResponse.source}`);
               safeLocalStorageSet(getLastEndpointStorageKey(user.id), subscriptionJson.endpoint);
             } else {
               console.warn('[Push] Health check: Failed to save new subscription:', saveResponse.error);
@@ -721,7 +710,8 @@ export function usePushNotifications() {
           }
         } else {
           // Subscription exists - check VAPID key match
-          const serverVapidKey = await fetchVapidPublicKey();
+          const serverVapidResult = await fetchVapidPublicKey();
+          const serverVapidKey = serverVapidResult.key;
           const subKey = subscription.options?.applicationServerKey;
           
           let vapidMismatch = false;
@@ -753,7 +743,7 @@ export function usePushNotifications() {
               const subscriptionJson = newSubscription.toJSON();
               
               if (subscriptionJson.endpoint && subscriptionJson.keys?.p256dh && subscriptionJson.keys?.auth) {
-                const saveResponse = await selfHostedPost<{ success: boolean; error?: string }>('push-subscription-save', {
+                const saveResponse = await pushApiWithFallback<{ success: boolean; error?: string }>('push-subscription-save', {
                   user_id: user.id,
                   endpoint: subscriptionJson.endpoint,
                   keys: {
@@ -764,7 +754,7 @@ export function usePushNotifications() {
                 });
                 
                 if (saveResponse.success) {
-                  console.log('[Push] Health check: Re-subscribed with correct VAPID key');
+                  console.log(`[Push] Health check: Re-subscribed with correct VAPID key via ${saveResponse.source}`);
                   safeLocalStorageSet(getLastEndpointStorageKey(user.id), subscriptionJson.endpoint);
                 } else {
                   console.error('[Push] Health check: Failed to save corrected subscription:', saveResponse.error);
@@ -783,7 +773,7 @@ export function usePushNotifications() {
               
               const subscriptionJson = subscription.toJSON();
               if (subscriptionJson.keys?.p256dh && subscriptionJson.keys?.auth) {
-                await selfHostedPost<{ success: boolean }>('push-subscription-save', {
+                await pushApiWithFallback<{ success: boolean }>('push-subscription-save', {
                   user_id: user.id,
                   endpoint: subscription.endpoint,
                   keys: {
