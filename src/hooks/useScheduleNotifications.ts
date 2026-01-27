@@ -3,12 +3,14 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { NotificationChannel, getChannelDisplayName } from './useTeacherNotificationSettings';
 
 export interface ScheduleChangeNotification {
   teacherId: string;
   teacherName: string;
   teacherPhone?: string;
   teacherEmail?: string;
+  teacherTelegramId?: string;
   sessionId: string;
   groupName?: string;
   changeType: 'created' | 'updated' | 'cancelled' | 'rescheduled';
@@ -23,11 +25,16 @@ export interface ScheduleChangeNotification {
 
 export interface TeacherNotificationPreferences {
   whatsapp_enabled: boolean;
+  telegram_enabled: boolean;
+  max_enabled: boolean;
+  internal_chat_enabled: boolean;
   email_enabled: boolean;
   push_enabled: boolean;
+  preferred_channel: NotificationChannel;
   schedule_changes: boolean;
   notification_phone: string | null;
   notification_email: string | null;
+  notification_telegram_id: string | null;
 }
 
 export const useScheduleNotifications = () => {
@@ -38,29 +45,39 @@ export const useScheduleNotifications = () => {
     teacherId: string
   ): Promise<TeacherNotificationPreferences> => {
     const defaults: TeacherNotificationPreferences = {
-      whatsapp_enabled: true,
+      whatsapp_enabled: false,
+      telegram_enabled: false,
+      max_enabled: false,
+      internal_chat_enabled: true,
       email_enabled: false,
       push_enabled: true,
+      preferred_channel: 'internal_chat',
       schedule_changes: true,
       notification_phone: null,
       notification_email: null,
+      notification_telegram_id: null,
     };
 
     try {
       const { data } = await supabase
         .from('teacher_notification_settings')
-        .select('whatsapp_enabled, email_enabled, push_enabled, schedule_changes, notification_phone, notification_email')
+        .select('*')
         .eq('teacher_id', teacherId)
         .maybeSingle();
 
       if (data) {
         return {
           whatsapp_enabled: data.whatsapp_enabled ?? defaults.whatsapp_enabled,
+          telegram_enabled: data.telegram_enabled ?? defaults.telegram_enabled,
+          max_enabled: data.max_enabled ?? defaults.max_enabled,
+          internal_chat_enabled: data.internal_chat_enabled ?? defaults.internal_chat_enabled,
           email_enabled: data.email_enabled ?? defaults.email_enabled,
           push_enabled: data.push_enabled ?? defaults.push_enabled,
+          preferred_channel: data.preferred_channel ?? defaults.preferred_channel,
           schedule_changes: data.schedule_changes ?? defaults.schedule_changes,
           notification_phone: data.notification_phone,
           notification_email: data.notification_email,
+          notification_telegram_id: data.notification_telegram_id,
         };
       }
     } catch (error) {
@@ -76,7 +93,14 @@ export const useScheduleNotifications = () => {
   const getTeacherContact = useCallback(async (
     teacherId?: string | null,
     teacherName?: string | null
-  ): Promise<{ id: string; name: string; phone: string | null; email: string | null; profileId: string | null } | null> => {
+  ): Promise<{ 
+    id: string; 
+    name: string; 
+    phone: string | null; 
+    email: string | null; 
+    profileId: string | null;
+    telegramId: string | null;
+  } | null> => {
     try {
       if (teacherId) {
         const { data } = await supabase
@@ -92,6 +116,7 @@ export const useScheduleNotifications = () => {
             phone: data.phone,
             email: data.email,
             profileId: data.profile_id,
+            telegramId: null, // Will be fetched from settings
           };
         }
       }
@@ -120,6 +145,7 @@ export const useScheduleNotifications = () => {
             phone: data.phone,
             email: data.email,
             profileId: data.profile_id,
+            telegramId: null,
           };
         }
       }
@@ -132,7 +158,7 @@ export const useScheduleNotifications = () => {
   }, []);
 
   /**
-   * Format schedule change message for WhatsApp
+   * Format schedule change message
    */
   const formatNotificationMessage = useCallback((notification: ScheduleChangeNotification): string => {
     const { changeType, groupName, oldDate, newDate, oldTime, newTime, oldClassroom, newClassroom, notes } = notification;
@@ -227,13 +253,11 @@ export const useScheduleNotifications = () => {
   ): Promise<boolean> => {
     try {
       const normalizedPhone = phone.replace(/\D/g, '');
-      
       const response = await selfHostedPost<{ success: boolean }>('whatsapp-send', {
         phoneNumber: normalizedPhone,
         message,
         skipClientLookup: true
       });
-
       return response.success && response.data?.success === true;
     } catch (error) {
       console.error('Error sending WhatsApp notification:', error);
@@ -242,7 +266,75 @@ export const useScheduleNotifications = () => {
   }, []);
 
   /**
-   * Send push notification to teacher
+   * Send notification via Telegram
+   */
+  const sendTelegramNotification = useCallback(async (
+    telegramId: string,
+    message: string
+  ): Promise<boolean> => {
+    try {
+      const response = await selfHostedPost<{ success: boolean }>('telegram-send', {
+        chatId: telegramId,
+        message,
+      });
+      return response.success && response.data?.success === true;
+    } catch (error) {
+      console.error('Error sending Telegram notification:', error);
+      return false;
+    }
+  }, []);
+
+  /**
+   * Send notification via MAX
+   */
+  const sendMaxNotification = useCallback(async (
+    phone: string,
+    message: string
+  ): Promise<boolean> => {
+    try {
+      const normalizedPhone = phone.replace(/\D/g, '');
+      const response = await selfHostedPost<{ success: boolean }>('max-send', {
+        phoneNumber: normalizedPhone,
+        message,
+      });
+      return response.success && response.data?.success === true;
+    } catch (error) {
+      console.error('Error sending MAX notification:', error);
+      return false;
+    }
+  }, []);
+
+  /**
+   * Send internal chat notification (assistant message to teacher)
+   */
+  const sendInternalChatNotification = useCallback(async (
+    teacherProfileId: string,
+    message: string
+  ): Promise<boolean> => {
+    try {
+      // Create an assistant message for the teacher
+      const { error } = await supabase
+        .from('assistant_messages')
+        .insert({
+          user_id: teacherProfileId,
+          role: 'assistant',
+          content: message,
+          is_read: false,
+        });
+      
+      if (error) {
+        console.error('Error creating internal chat notification:', error);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('Error sending internal chat notification:', error);
+      return false;
+    }
+  }, []);
+
+  /**
+   * Send push notification
    */
   const sendPushNotification = useCallback(async (
     profileId: string,
@@ -259,13 +351,55 @@ export const useScheduleNotifications = () => {
           url: '/teacher-portal?tab=schedule',
         }
       });
-
       return response.success && response.data?.success === true;
     } catch (error) {
       console.error('Error sending push notification:', error);
       return false;
     }
   }, []);
+
+  /**
+   * Send notification via specific channel
+   */
+  const sendViaChannel = useCallback(async (
+    channel: NotificationChannel,
+    teacher: { 
+      profileId: string | null; 
+      phone: string | null; 
+      email: string | null; 
+      telegramId: string | null;
+    },
+    settings: TeacherNotificationPreferences,
+    message: string,
+    shortTitle: string,
+    shortBody: string
+  ): Promise<boolean> => {
+    const phone = settings.notification_phone || teacher.phone;
+    const telegramId = settings.notification_telegram_id || teacher.telegramId;
+
+    switch (channel) {
+      case 'whatsapp':
+        if (phone) return sendWhatsAppNotification(phone, message);
+        break;
+      case 'telegram':
+        if (telegramId) return sendTelegramNotification(telegramId, message);
+        break;
+      case 'max':
+        if (phone) return sendMaxNotification(phone, message);
+        break;
+      case 'internal_chat':
+        if (teacher.profileId) return sendInternalChatNotification(teacher.profileId, message);
+        break;
+      case 'push':
+        if (teacher.profileId) return sendPushNotification(teacher.profileId, shortTitle, shortBody);
+        break;
+      case 'email':
+        // TODO: Implement email notifications
+        console.log('[Notification] Email not implemented yet');
+        break;
+    }
+    return false;
+  }, [sendWhatsAppNotification, sendTelegramNotification, sendMaxNotification, sendInternalChatNotification, sendPushNotification]);
 
   /**
    * Notify teacher about schedule change using their preferences
@@ -313,6 +447,7 @@ export const useScheduleNotifications = () => {
       teacherName: teacher.name,
       teacherPhone: settings.notification_phone || teacher.phone || undefined,
       teacherEmail: settings.notification_email || teacher.email || undefined,
+      teacherTelegramId: settings.notification_telegram_id || undefined,
       sessionId,
       groupName,
       changeType,
@@ -326,23 +461,73 @@ export const useScheduleNotifications = () => {
     };
 
     const message = formatNotificationMessage(notification);
+    const shortTitle = changeType === 'cancelled' ? '❌ Занятие отменено' : '🔔 Изменение в расписании';
+    const shortBody = groupName ? `${groupName}: ${changeType === 'cancelled' ? 'отменено' : 'изменено'}` : 'Проверьте расписание';
+    
     const channelsSent: string[] = [];
+    const teacherData = {
+      profileId: teacher.profileId,
+      phone: teacher.phone,
+      email: teacher.email,
+      telegramId: settings.notification_telegram_id,
+    };
 
-    // Send WhatsApp notification
-    if (settings.whatsapp_enabled && notification.teacherPhone) {
-      const sent = await sendWhatsAppNotification(notification.teacherPhone, message);
-      if (sent) channelsSent.push('whatsapp');
+    // First, try preferred channel
+    if (settings.preferred_channel) {
+      const isChannelEnabled = (() => {
+        switch (settings.preferred_channel) {
+          case 'whatsapp': return settings.whatsapp_enabled;
+          case 'telegram': return settings.telegram_enabled;
+          case 'max': return settings.max_enabled;
+          case 'internal_chat': return settings.internal_chat_enabled;
+          case 'email': return settings.email_enabled;
+          case 'push': return settings.push_enabled;
+          default: return false;
+        }
+      })();
+
+      if (isChannelEnabled) {
+        const sent = await sendViaChannel(
+          settings.preferred_channel,
+          teacherData,
+          settings,
+          message,
+          shortTitle,
+          shortBody
+        );
+        if (sent) {
+          channelsSent.push(getChannelDisplayName(settings.preferred_channel));
+        }
+      }
     }
 
-    // Send Push notification
-    if (settings.push_enabled && teacher.profileId) {
-      const title = changeType === 'cancelled' ? '❌ Занятие отменено' : '🔔 Изменение в расписании';
-      const body = groupName ? `${groupName}: ${changeType === 'cancelled' ? 'отменено' : 'изменено'}` : 'Проверьте расписание';
-      const sent = await sendPushNotification(teacher.profileId, title, body);
-      if (sent) channelsSent.push('push');
-    }
+    // If preferred channel failed or wasn't set, try other enabled channels
+    if (channelsSent.length === 0) {
+      const channels: NotificationChannel[] = ['internal_chat', 'push', 'whatsapp', 'telegram', 'max'];
+      
+      for (const channel of channels) {
+        if (channel === settings.preferred_channel) continue;
+        
+        const isEnabled = (() => {
+          switch (channel) {
+            case 'whatsapp': return settings.whatsapp_enabled;
+            case 'telegram': return settings.telegram_enabled;
+            case 'max': return settings.max_enabled;
+            case 'internal_chat': return settings.internal_chat_enabled;
+            case 'push': return settings.push_enabled;
+            default: return false;
+          }
+        })();
 
-    // TODO: Email notifications can be added here when needed
+        if (isEnabled) {
+          const sent = await sendViaChannel(channel, teacherData, settings, message, shortTitle, shortBody);
+          if (sent) {
+            channelsSent.push(getChannelDisplayName(channel));
+            break; // Stop after first successful send
+          }
+        }
+      }
+    }
 
     return { 
       success: true, 
@@ -350,7 +535,7 @@ export const useScheduleNotifications = () => {
       channels: channelsSent,
       reason: channelsSent.length === 0 ? 'Не удалось отправить уведомления' : undefined
     };
-  }, [getTeacherContact, getTeacherNotificationSettings, formatNotificationMessage, sendWhatsAppNotification, sendPushNotification]);
+  }, [getTeacherContact, getTeacherNotificationSettings, formatNotificationMessage, sendViaChannel]);
 
   /**
    * Check if global notification settings allow sending
