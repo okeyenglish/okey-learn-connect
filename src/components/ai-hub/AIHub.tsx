@@ -107,12 +107,11 @@ export const AIHub = ({
   const { data: staffMembers } = useStaffMembers();
   
   // Staff messaging hooks - for staff direct messages using new internal_staff_messages table
-  // Note: For teachers, we use the teacher.id but will need profile_id for direct messaging
-  // For now, we'll use staffMembers to find staff profiles for direct messaging
-  const selectedStaffId = activeChat?.type === 'teacher' 
-    ? (activeChat.data as TeacherChatItem)?.id || ''
+  // Use profile_id for direct messaging with teachers (links to profiles/auth.users)
+  const selectedStaffProfileId = activeChat?.type === 'teacher' 
+    ? (activeChat.data as TeacherChatItem)?.profileId || ''
     : '';
-  const { data: staffDirectMessages, isLoading: staffDirectLoading } = useStaffDirectMessages(selectedStaffId);
+  const { data: staffDirectMessages, isLoading: staffDirectLoading } = useStaffDirectMessages(selectedStaffProfileId);
   const { data: staffGroupMessages, isLoading: staffGroupLoading } = useStaffGroupMessages(
     activeChat?.type === 'group' ? activeChat.id : ''
   );
@@ -340,10 +339,14 @@ export const AIHub = ({
     // For teacher/staff direct chats - use new internal_staff_messages table
     else if (activeChat.type === 'teacher' && activeChat.data) {
       const teacher = activeChat.data as TeacherChatItem;
+      if (!teacher.profileId) {
+        toast.error('У преподавателя не привязан профиль пользователя');
+        return;
+      }
       try {
-        // Use teacher.id as recipient - this will be matched against staff profiles
+        // Use teacher.profileId as recipient - links to profiles/auth.users
         await sendStaffMessage.mutateAsync({
-          recipient_user_id: teacher.id,
+          recipient_user_id: teacher.profileId,
           message_text: message.trim(),
           message_type: 'text'
         });
