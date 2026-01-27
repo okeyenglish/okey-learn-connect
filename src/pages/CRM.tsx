@@ -132,7 +132,8 @@ import {
   MapPin,
   HardDrive,
   Sparkles,
-  Trash2
+  Trash2,
+  Loader2
 } from "lucide-react";
 import { AnimatedLogo } from "@/components/AnimatedLogo";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
@@ -157,6 +158,7 @@ const ImportStudentsModal = lazy(() => import("@/components/students/ImportStude
 const EnhancedStudentCard = lazy(() => import("@/components/students/EnhancedStudentCard").then(m => ({ default: m.EnhancedStudentCard })));
 const NewFinancesSection = lazy(() => import("@/components/finances/NewFinancesSection").then(m => ({ default: m.NewFinancesSection })));
 const AIHub = lazy(() => import("@/components/ai-hub/AIHub").then(m => ({ default: m.AIHub })));
+const AIHubInline = lazy(() => import("@/components/ai-hub/AIHubInline").then(m => ({ default: m.AIHubInline })));
 const ScheduleSection = lazy(() => import("@/components/crm/sections/ScheduleSection"));
 const DocumentsSection = lazy(() => import("@/components/documents/DocumentsSection").then(m => ({ default: m.DocumentsSection })));
 const AnalyticsSection = lazy(() => import("@/components/analytics/AnalyticsSection").then(m => ({ default: m.AnalyticsSection })));
@@ -1806,8 +1808,13 @@ const CRMContent = () => {
 
   // Обработчики для мобильной навигации
   const handleMobileChatOSClick = () => {
-    // ChatOS opens the AI Hub
-    setVoiceAssistantOpen(true);
+    // ChatOS shows inline AI Hub section (like clients list)
+    setActiveChatType('chatos');
+    setActiveChatId(null);
+    if (isMobile) {
+      setLeftSidebarOpen(false);
+      setRightSidebarOpen(false);
+    }
   };
 
   const handleMobileTeachersClick = () => {
@@ -4090,6 +4097,22 @@ const CRMContent = () => {
                 }}
               />
             </div>
+          ) : activeChatType === 'chatos' ? (
+            <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+              <AIHubInline 
+                context={{
+                  currentPage: 'crm',
+                  activeClientId: activeChatId,
+                  activeClientName: currentChatClientInfo.name,
+                  userBranch: profile?.branch || undefined,
+                  activeChatType
+                }}
+                onOpenChat={(clientId: string) => {
+                  handleChatClick(clientId, 'client');
+                }}
+                onBack={() => setActiveChatType('client')}
+              />
+            </Suspense>
           ) : activeChatType === 'communities' ? (
             isMobile ? (
               <EmployeeKPISection className="flex-1" />
