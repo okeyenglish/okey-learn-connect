@@ -1479,8 +1479,13 @@ const CRMContent = () => {
         .update({ is_active: false })
         .eq('id', deleteChatDialog.chatId);
       if (error) throw error;
+      
+      // Invalidate all chat-related queries
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
+      
       if (activeChatId === deleteChatDialog.chatId) {
         setActiveChatId(null);
       }
