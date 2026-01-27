@@ -110,6 +110,7 @@ const EmployeeOnboarding = lazy(() => import('./pages/employee/EmployeeOnboardin
 const TeacherOnboarding = lazy(() => import('./pages/teacher/TeacherOnboarding'));
 const BulkTeacherImportPage = lazy(() => import('./pages/admin/BulkTeacherImportPage'));
 const TeacherInvitationsPage = lazy(() => import('./pages/admin/TeacherInvitationsPage'));
+const TeacherProfilePage = lazy(() => import('./pages/admin/TeacherProfilePage'));
 const DebugAccess = lazy(() => import('./pages/DebugAccess'));
 const OrgLayout = lazy(() => import('./pages/org/OrgLayout'));
 const OrgHome = lazy(() => import('./pages/org/OrgHome'));
@@ -368,6 +369,13 @@ const AppContent = () => {
             <ProtectedRoute allowedRoles={['admin', 'manager']}>
               <Suspense fallback={<LoadingComponent />}>
                 <TeacherInvitationsPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/teachers/:teacherId" element={
+            <ProtectedRoute allowedRoles={['admin', 'manager']}>
+              <Suspense fallback={<LoadingComponent />}>
+                <TeacherProfilePage />
               </Suspense>
             </ProtectedRoute>
           } />
