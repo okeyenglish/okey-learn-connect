@@ -126,7 +126,7 @@ export const AIHubInline = ({
   
   const { aiSectionExpanded, toggleAiSection } = usePersistedSections();
   const { branchesForDropdown } = useUserAllowedBranches();
-  const { onlineUsers, isUserOnline, onlineCount } = useStaffOnlinePresence();
+  const { onlineUsers, isUserOnline, getLastSeenFormatted, onlineCount } = useStaffOnlinePresence();
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
@@ -748,6 +748,7 @@ export const AIHubInline = ({
                 // Check if user is online
                 const userProfileId = isTeacher ? teacher?.profileId : isStaff ? staff?.id : null;
                 const isOnline = userProfileId ? isUserOnline(userProfileId) : false;
+                const lastSeenText = userProfileId && !isOnline ? getLastSeenFormatted(userProfileId) : null;
                 
                 // Calculate initials for teachers and staff
                 let initials = '';
@@ -793,7 +794,16 @@ export const AIHubInline = ({
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
-                            {item.lastMessage || item.description}
+                            {isOnline ? (
+                              <span className="text-green-600 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                                Онлайн
+                              </span>
+                            ) : lastSeenText ? (
+                              <span className="text-muted-foreground/70">{lastSeenText}</span>
+                            ) : (
+                              item.lastMessage || item.description
+                            )}
                           </p>
                         </div>
                       </div>
