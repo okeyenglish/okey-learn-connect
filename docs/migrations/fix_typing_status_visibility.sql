@@ -24,6 +24,7 @@ DROP POLICY IF EXISTS "typing_status_select_own" ON public.typing_status;
 DROP POLICY IF EXISTS "typing_status_insert_own" ON public.typing_status;
 DROP POLICY IF EXISTS "typing_status_update_own" ON public.typing_status;
 DROP POLICY IF EXISTS "typing_status_delete_own" ON public.typing_status;
+DROP POLICY IF EXISTS "typing_status_select_all" ON public.typing_status;
 
 -- ============================================================
 -- STEP 4: Create permissive policies for typing_status

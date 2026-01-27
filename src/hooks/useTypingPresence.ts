@@ -15,6 +15,7 @@ export interface TypingPresence {
 type TypingStatusRow = Pick<TypingStatus, 'user_id' | 'client_id' | 'is_typing' | 'updated_at'> & {
   manager_name?: string | null;
   draft_text?: string | null;
+  last_activity?: string | null;
 };
 
 // Soft typing sound (shorter/quieter than message notification)
@@ -78,9 +79,9 @@ export const useTypingPresence = () => {
     const cutoff = new Date(Date.now() - TYPING_TTL_MS).toISOString();
     const { data, error } = await supabase
       .from('typing_status')
-      .select('client_id,user_id,is_typing,manager_name,updated_at')
+      .select('client_id,user_id,is_typing,manager_name,draft_text,updated_at,last_activity')
       .eq('is_typing', true)
-      .gt('updated_at', cutoff);
+      .or(`updated_at.gt.${cutoff},last_activity.gt.${cutoff}`);
     
     if (error) {
       console.error('[useTypingPresence] Initial fetch error:', error);
@@ -143,8 +144,9 @@ export const useTypingPresence = () => {
     const managerName = record.manager_name || 'Менеджер';
     const draftText = record.draft_text || null;
 
-    // Drop stale typing
-    const isFresh = !!record.updated_at && (Date.now() - new Date(record.updated_at).getTime() <= TYPING_TTL_MS);
+    // Drop stale typing - check both updated_at and last_activity
+    const timestamp = record.last_activity || record.updated_at;
+    const isFresh = !!timestamp && (Date.now() - new Date(timestamp).getTime() <= TYPING_TTL_MS);
     const shouldRemove = eventType === 'DELETE' || !isTyping || !isFresh;
 
     setTypingByClient(prev => {
