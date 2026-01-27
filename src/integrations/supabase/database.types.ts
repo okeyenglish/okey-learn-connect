@@ -593,6 +593,98 @@ export interface ParentNotificationSettings {
   updated_at: string;
 }
 
+// ============ Client/Student Portal ============
+
+export type InvitationStatus = 'pending' | 'completed' | 'expired' | 'cancelled';
+
+export interface ClientInvitation {
+  id: string;
+  organization_id: string | null;
+  client_id: string | null;
+  invite_token: string;
+  phone: string;
+  first_name: string | null;
+  status: InvitationStatus;
+  expires_at: string;
+  completed_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined relations
+  clients?: Client;
+  organizations?: Organization;
+}
+
+export interface StudentInvitation {
+  id: string;
+  organization_id: string | null;
+  student_id: string | null;
+  parent_client_id: string | null;
+  invite_token: string;
+  phone: string;
+  first_name: string | null;
+  status: InvitationStatus;
+  expires_at: string;
+  completed_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined relations
+  students?: Student;
+  organizations?: Organization;
+}
+
+export type HomeworkStatus = 'assigned' | 'in_progress' | 'submitted' | 'reviewed' | 'completed';
+
+export interface HomeworkRecord {
+  id: string;
+  organization_id: string;
+  student_id: string | null;
+  homework_group_id: string | null;
+  homework_lesson_session_id: string | null;
+  teacher_id: string | null;
+  title: string;
+  homework_description: string | null;
+  due_date: string | null;
+  status: HomeworkStatus;
+  student_answer: string | null;
+  student_files: Json;
+  teacher_feedback: string | null;
+  grade: string | null;
+  assigned_at: string;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  homework_updated_at: string;
+  // Joined relations
+  students?: Student;
+  learning_groups?: LearningGroup;
+  teachers?: Teacher;
+}
+
+export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
+
+export interface StudentProgressRecord {
+  id: string;
+  organization_id: string;
+  student_id: string;
+  progress_lesson_session_id: string | null;
+  teacher_id: string | null;
+  lesson_date: string;
+  attendance: AttendanceStatus;
+  grade: string | null;
+  teacher_notes: string | null;
+  homework_done: boolean;
+  activity_score: number | null;
+  topics_covered: string[] | null;
+  created_at: string;
+  progress_updated_at: string;
+  // Joined relations
+  students?: Student;
+  lesson_sessions?: LessonSession;
+  teachers?: Teacher;
+}
+
 
 export interface MessageReadStatus {
   id: string;

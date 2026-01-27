@@ -392,3 +392,12 @@ verify_jwt = false
 
 [functions.mark-calls-viewed]
 verify_jwt = true
+
+[functions.complete-client-onboarding]
+verify_jwt = false
+
+[functions.complete-student-onboarding]
+verify_jwt = false
+
+[functions.send-portal-invitation]
+verify_jwt = true
