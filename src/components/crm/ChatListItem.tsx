@@ -203,19 +203,26 @@ export const ChatListItem = React.memo(({
                   </Badge>
                 )}
                 {isInWorkByOthers && pinnedByUserName && (
-                  <Badge 
-                    variant="outline" 
-                    className="text-[10px] h-4 px-1.5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 cursor-pointer hover:bg-blue-100 transition-colors flex items-center gap-0.5"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (pinnedByUserId && onMessageUser) {
-                        onMessageUser(pinnedByUserId, pinnedByUserName);
-                      }
-                    }}
-                  >
-                    В работе: {pinnedByUserName.split(' ')[0]}
-                    <MessageCircle className="h-2.5 w-2.5 ml-0.5" />
-                  </Badge>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge 
+                        variant="outline" 
+                        className="text-[10px] h-4 px-1.5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 cursor-pointer hover:bg-blue-100 transition-colors flex items-center gap-0.5"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (pinnedByUserId && onMessageUser) {
+                            onMessageUser(pinnedByUserId, pinnedByUserName);
+                          }
+                        }}
+                      >
+                        В работе: {pinnedByUserName.split(' ')[0]}
+                        <MessageCircle className="h-2.5 w-2.5 ml-0.5" />
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      Написать в ChatOS
+                    </TooltipContent>
+                  </Tooltip>
                 )}
                 {foundInMessages && (
                   <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 flex items-center gap-0.5">
