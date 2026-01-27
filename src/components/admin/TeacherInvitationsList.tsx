@@ -43,6 +43,7 @@ import {
   Phone,
   Mail,
   MapPin,
+  SendHorizonal,
 } from 'lucide-react';
 
 type StatusFilter = 'all' | 'pending' | 'accepted' | 'expired' | 'cancelled';
@@ -53,8 +54,15 @@ export const TeacherInvitationsList: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [selectedInvitation, setSelectedInvitation] = useState<TeacherInvitation | null>(null);
+  const [bulkSendDialogOpen, setBulkSendDialogOpen] = useState(false);
+  const [isBulkSending, setIsBulkSending] = useState(false);
 
   const baseUrl = window.location.origin;
+
+  // Pending приглашения с телефоном для массовой отправки
+  const pendingWithPhone = invitations.filter(
+    inv => inv.status === 'pending' && inv.phone && !isPast(new Date(inv.token_expires_at))
+  );
 
   // Фильтрация
   const filteredInvitations = invitations.filter(inv => {
@@ -121,6 +129,40 @@ export const TeacherInvitationsList: React.FC = () => {
     setSelectedInvitation(null);
   };
 
+  // Массовая отправка через WhatsApp
+  const handleBulkSendWhatsApp = async () => {
+    setIsBulkSending(true);
+    
+    // Открываем все ссылки с небольшой задержкой
+    for (let i = 0; i < pendingWithPhone.length; i++) {
+      const invitation = pendingWithPhone[i];
+      const link = getInviteLink(invitation);
+      const message = encodeURIComponent(
+        `Здравствуйте, ${invitation.first_name}! Вы приглашены как преподаватель. Пройдите по ссылке для завершения регистрации: ${link}`
+      );
+      const phone = invitation.phone?.replace(/\D/g, '');
+      
+      // Открываем с задержкой чтобы браузер не блокировал
+      setTimeout(() => {
+        window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+      }, i * 500);
+    }
+    
+    toast.success(`Открыто ${pendingWithPhone.length} окон WhatsApp для отправки`);
+    setIsBulkSending(false);
+    setBulkSendDialogOpen(false);
+  };
+
+  // Копирование всех ссылок
+  const handleCopyAllLinks = async () => {
+    const links = pendingWithPhone.map(inv => 
+      `${inv.first_name} ${inv.last_name || ''}: ${getInviteLink(inv)}`
+    ).join('\n');
+    
+    await navigator.clipboard.writeText(links);
+    toast.success(`Скопировано ${pendingWithPhone.length} ссылок`);
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'pending': return <Clock className="h-4 w-4" />;
@@ -155,10 +197,23 @@ export const TeacherInvitationsList: React.FC = () => {
               Управление приглашениями и magic links
             </CardDescription>
           </div>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Обновить
-          </Button>
+          <div className="flex gap-2">
+            {pendingWithPhone.length > 0 && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setBulkSendDialogOpen(true)}
+                className="gap-2"
+              >
+                <SendHorizonal className="h-4 w-4" />
+                Отправить все ({pendingWithPhone.length})
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Обновить
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -368,6 +423,56 @@ export const TeacherInvitationsList: React.FC = () => {
             <AlertDialogCancel>Нет</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmCancel} className="bg-destructive text-destructive-foreground">
               Да, отменить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Диалог массовой отправки */}
+      <AlertDialog open={bulkSendDialogOpen} onOpenChange={setBulkSendDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-green-600" />
+              Массовая отправка через WhatsApp
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Будет открыто <strong>{pendingWithPhone.length}</strong> окон WhatsApp Web 
+                для отправки приглашений преподавателям:
+              </p>
+              <div className="max-h-40 overflow-y-auto rounded-lg border p-3 bg-muted/50">
+                {pendingWithPhone.map((inv) => (
+                  <div key={inv.id} className="flex items-center gap-2 py-1 text-sm">
+                    <Phone className="h-3 w-3 text-muted-foreground" />
+                    <span>{inv.first_name} {inv.last_name || ''}</span>
+                    <span className="text-muted-foreground">— {inv.phone}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                <strong>Важно:</strong> Разрешите всплывающие окна в браузере. 
+                Окна будут открываться с интервалом 0.5 сек.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={handleCopyAllLinks}>
+              <Copy className="h-4 w-4 mr-2" />
+              Копировать все ссылки
+            </Button>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleBulkSendWhatsApp}
+              disabled={isBulkSending}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isBulkSending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <MessageCircle className="h-4 w-4 mr-2" />
+              )}
+              Открыть WhatsApp
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
