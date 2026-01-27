@@ -131,6 +131,7 @@ const ParentHomework = lazy(() => import('./pages/portal/ParentHomework'));
 const ParentProgress = lazy(() => import('./pages/portal/ParentProgress'));
 const ParentBalance = lazy(() => import('./pages/portal/ParentBalance'));
 const ParentChat = lazy(() => import('./pages/portal/ParentChat'));
+const ParentSettings = lazy(() => import('./pages/portal/ParentSettings'));
 const StudentPortalLayout = lazy(() => import('./pages/portal/StudentPortalLayout'));
 const StudentPortalHome = lazy(() => import('./pages/portal/StudentPortalHome'));
 
@@ -218,6 +219,7 @@ const AppContent = () => {
             <Route path="progress" element={<ParentProgress />} />
             <Route path="balance" element={<ParentBalance />} />
             <Route path="chat" element={<ParentChat />} />
+            <Route path="settings" element={<ParentSettings />} />
           </Route>
           
           {/* Student Portal (own account) */}
