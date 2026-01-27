@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 
 // VAPID public key - must match the VAPID_PUBLIC_KEY in Supabase secrets
-const VAPID_PUBLIC_KEY = 'BCqgfbaK1qdKUo3mtYwL3UAGl5tcaRyIMEE_Dmt7vc6sGSQ_MO730PV3bc9mF5WAMeGhl4t2byCljxFpkbjiwGM';
+const VAPID_PUBLIC_KEY = 'BNCGXWZNiciyztYDIZPXM_smN8mBxrfFPIG_ohpea-9H5B0Gl-zjfWkh7XJOemAh2iDQR87V3f54LQ12DRJfl6s';
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
