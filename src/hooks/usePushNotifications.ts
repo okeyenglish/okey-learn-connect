@@ -306,9 +306,8 @@ export function usePushNotifications() {
     checkSubscription();
   }, [checkSubscription]);
 
-  // Debug: when SW receives a push, it broadcasts a message to open clients.
-  // We only surface this as a toast during a short debug window.
-  // Also detect Focus/DND mode if push was received but notification might be suppressed.
+  // When SW receives a push, it broadcasts a message to open clients.
+  // If app is in foreground, OS notification banner likely won't show - so we show in-app toast as fallback.
   useEffect(() => {
     if (!isSupported) return;
 
@@ -317,19 +316,25 @@ export function usePushNotifications() {
       if (!msg || msg.type !== 'PUSH_RECEIVED') return;
       
       const isDebugActive = isDebugWindowActive();
-      const payload = (msg.payload ?? {}) as { title?: unknown; body?: unknown };
-      const title = typeof payload.title === 'string' && payload.title.trim()
-        ? `Push получен: ${payload.title}`
-        : 'Push получен';
-      const body = typeof payload.body === 'string' ? payload.body : '';
+      const isInForeground = document.visibilityState === 'visible' && document.hasFocus();
+      const payload = (msg.payload ?? {}) as { 
+        title?: unknown; 
+        body?: unknown;
+        url?: unknown;
+        tag?: unknown;
+      };
       
+      const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+      const body = typeof payload.body === 'string' ? payload.body : '';
+      const url = typeof payload.url === 'string' ? payload.url : '';
+      
+      // Debug mode: show confirmation toast
       if (isDebugActive) {
-        toast.success(title);
+        toast.success(title ? `Push получен: ${title}` : 'Push получен');
         if (body) toast.message(body.length > 140 ? `${body.slice(0, 140)}…` : body);
         
-        // If the app is in foreground, the OS notification banner likely won't show.
-        // Mark this as potential Focus/DND mode for the warning indicator.
-        if (document.visibilityState === 'visible' && document.hasFocus()) {
+        // Mark Focus/DND detection if in foreground
+        if (isInForeground) {
           try {
             localStorage.setItem('push:focus_mode_detected', 'true');
             localStorage.setItem('push:focus_mode_detected_at', String(Date.now()));
@@ -337,6 +342,25 @@ export function usePushNotifications() {
             // ignore
           }
         }
+        return;
+      }
+      
+      // Foreground fallback: show in-app toast notification
+      // This ensures users see the notification even when OS banner is suppressed
+      if (isInForeground && title) {
+        // Use toast with action for navigation
+        toast(title, {
+          description: body.length > 100 ? `${body.slice(0, 100)}…` : body,
+          duration: 8000,
+          action: url ? {
+            label: 'Открыть',
+            onClick: () => {
+              if (url.startsWith('/')) {
+                window.location.href = url;
+              }
+            },
+          } : undefined,
+        });
       }
     };
 
