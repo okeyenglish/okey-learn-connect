@@ -210,8 +210,8 @@ async function handleIncomingMessage(
       const pushResult = await sendPushNotification({
         userIds,
         payload: {
-          title: clientFullName,
-          body: messageText.slice(0, 100) + (messageText.length > 100 ? '...' : ''),
+          title: '✈️ Telegram',
+          body: `${clientFullName}: ${messageText.slice(0, 80)}${messageText.length > 80 ? '...' : ''}`,
           icon: client.avatar_url || '/pwa-192x192.png',
           url: `/newcrm?clientId=${client.id}`,
           tag: `telegram-${client.id}-${Date.now()}`,

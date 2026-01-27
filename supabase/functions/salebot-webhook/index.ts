@@ -285,8 +285,8 @@ Deno.serve(async (req) => {
         const pushResult = await sendPushNotification({
           userIds,
           payload: {
-            title: `💬 ${clientName}`,
-            body: messagePreview || 'Новое сообщение',
+            title: '💬 Новое сообщение',
+            body: `${clientName}: ${messagePreview || 'Новое сообщение'}`,
             icon: '/pwa-192x192.png',
             badge: '/pwa-192x192.png',
             tag: `chat-${clientId}-${Date.now()}`,
