@@ -2206,15 +2206,15 @@ export const ChatArea = ({
       {/* Chat Messages with Tabs */}
       <div className="flex-1 overflow-hidden min-h-0">
         <Tabs value={activeMessengerTab} onValueChange={handleTabChange} className="h-full flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-6 rounded-none bg-muted/30 border-b shrink-0">
+          <TabsList className="flex w-full rounded-none bg-muted/30 border-b shrink-0 gap-0.5 p-0.5 overflow-x-auto">
             <TabsTrigger 
               value="whatsapp" 
-              className="text-xs relative data-[state=active]:bg-green-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+              className="text-xs relative px-2 py-1.5 flex-shrink-0 data-[state=active]:bg-green-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
             >
-              <span className="flex items-center gap-1.5">
+              <span className="flex items-center gap-1 whitespace-nowrap">
                 {/* Integration status indicator */}
                 <span 
-                  className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors ${
                     integrationsStatus?.whatsapp?.isEnabled && integrationsStatus?.whatsapp?.isConfigured
                       ? 'bg-green-400 data-[state=active]:bg-white'
                       : 'bg-red-400 data-[state=active]:bg-red-200'
@@ -2235,11 +2235,11 @@ export const ChatArea = ({
             </TabsTrigger>
             <TabsTrigger 
               value="telegram" 
-              className="text-xs relative data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+              className="text-xs relative px-2 py-1.5 flex-shrink-0 data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
             >
-              <span className="flex items-center gap-1.5">
+              <span className="flex items-center gap-1 whitespace-nowrap">
                 <span 
-                  className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors ${
                     integrationsStatus?.telegram?.isEnabled && integrationsStatus?.telegram?.isConfigured
                       ? 'bg-green-400 data-[state=active]:bg-white'
                       : 'bg-red-400 data-[state=active]:bg-red-200'
@@ -2260,11 +2260,11 @@ export const ChatArea = ({
             </TabsTrigger>
             <TabsTrigger 
               value="max" 
-              className="text-xs relative data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+              className="text-xs relative px-2 py-1.5 flex-shrink-0 data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
             >
-              <span className="flex items-center gap-1.5">
+              <span className="flex items-center gap-1 whitespace-nowrap">
                 <span 
-                  className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors ${
                     integrationsStatus?.max?.isEnabled && integrationsStatus?.max?.isConfigured
                       ? 'bg-green-400 data-[state=active]:bg-white'
                       : 'bg-red-400 data-[state=active]:bg-red-200'
@@ -2285,11 +2285,11 @@ export const ChatArea = ({
             </TabsTrigger>
             <TabsTrigger 
               value="chatos" 
-              className="text-xs relative data-[state=active]:bg-teal-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+              className="text-xs relative px-2 py-1.5 flex-shrink-0 data-[state=active]:bg-teal-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
             >
-              <span className="flex items-center gap-1.5">
+              <span className="flex items-center gap-1 whitespace-nowrap">
                 <span 
-                  className="w-1.5 h-1.5 rounded-full bg-green-400 data-[state=active]:bg-white transition-colors"
+                  className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-green-400 data-[state=active]:bg-white transition-colors"
                   title="Внутренний чат"
                 />
                 ChatOS
@@ -2302,9 +2302,9 @@ export const ChatArea = ({
             </TabsTrigger>
             <TabsTrigger 
               value="email" 
-              className="text-xs relative data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+              className="text-xs relative px-2 py-1.5 flex-shrink-0 data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
             >
-              Email
+              <span className="whitespace-nowrap">Email</span>
               {unreadByMessenger.email > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                   {unreadByMessenger.email > 99 ? '99+' : unreadByMessenger.email}
@@ -2313,9 +2313,9 @@ export const ChatArea = ({
             </TabsTrigger>
             <TabsTrigger 
               value="calls" 
-              className="text-xs relative data-[state=active]:bg-rose-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
+              className="text-xs relative px-2 py-1.5 flex-shrink-0 data-[state=active]:bg-rose-500 data-[state=active]:text-white data-[state=active]:shadow-sm transition-all"
             >
-              Звонки
+              <span className="whitespace-nowrap">Звонки</span>
               {unreadByMessenger.calls > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                   {unreadByMessenger.calls > 99 ? '99+' : unreadByMessenger.calls}
