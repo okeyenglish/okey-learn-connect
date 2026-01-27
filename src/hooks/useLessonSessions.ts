@@ -1,10 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/typedClient";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useScheduleNotifications } from "./useScheduleNotifications";
 
 export interface LessonSession {
   id: string;
   group_id: string;
+  teacher_id?: string | null;
   teacher_name: string;
   branch: string;
   classroom: string;
@@ -145,12 +147,50 @@ export const useCreateLessonSession = () => {
   });
 };
 
-// Hook для обновления занятия
+// Hook для обновления занятия с уведомлениями
 export const useUpdateLessonSession = () => {
   const queryClient = useQueryClient();
+  const { notifyTeacherScheduleChange, checkNotificationSettings } = useScheduleNotifications();
+  // Keep track of pending notification context
+  const notificationContextRef = useRef<{
+    oldValues?: Partial<LessonSession>;
+    groupName?: string;
+    teacherId?: string | null;
+    teacherName?: string | null;
+  }>({});
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<LessonSession> }) => {
+    mutationFn: async ({ 
+      id, 
+      data,
+      skipNotification = false,
+      notifyOnChanges = ['lesson_date', 'start_time', 'classroom', 'status']
+    }: { 
+      id: string; 
+      data: Partial<LessonSession>;
+      skipNotification?: boolean;
+      notifyOnChanges?: string[];
+    }) => {
+      // Fetch old values before update for comparison
+      const { data: oldSession } = await supabase
+        .from('lesson_sessions')
+        .select(`
+          *,
+          learning_groups:group_id (name)
+        `)
+        .eq('id', id)
+        .single();
+
+      // Store context for notification
+      if (oldSession) {
+        notificationContextRef.current = {
+          oldValues: oldSession,
+          groupName: oldSession.learning_groups?.name,
+          teacherId: oldSession.teacher_id,
+          teacherName: oldSession.teacher_name
+        };
+      }
+
       const { data: result, error } = await supabase
         .from('lesson_sessions')
         .update(data)
@@ -159,6 +199,54 @@ export const useUpdateLessonSession = () => {
         .single();
 
       if (error) throw error;
+      
+      // Check if we should send notification
+      if (!skipNotification && oldSession) {
+        const hasRelevantChanges = notifyOnChanges.some(field => {
+          const oldVal = oldSession[field as keyof typeof oldSession];
+          const newVal = data[field as keyof typeof data];
+          return newVal !== undefined && newVal !== oldVal;
+        });
+
+        if (hasRelevantChanges) {
+          // Check if notifications are enabled
+          const notificationsEnabled = await checkNotificationSettings();
+          
+          if (notificationsEnabled) {
+            // Determine change type
+            let changeType: 'updated' | 'cancelled' | 'rescheduled' = 'updated';
+            if (data.status === 'cancelled') {
+              changeType = 'cancelled';
+            } else if (data.status === 'rescheduled' || data.lesson_date || data.start_time) {
+              changeType = 'rescheduled';
+            }
+
+            // Send notification (fire and forget - don't block the update)
+            notifyTeacherScheduleChange({
+              teacherId: data.teacher_id || notificationContextRef.current.teacherId,
+              teacherName: data.teacher_name || notificationContextRef.current.teacherName,
+              sessionId: id,
+              groupName: notificationContextRef.current.groupName,
+              changeType,
+              oldValues: {
+                lesson_date: oldSession.lesson_date,
+                start_time: oldSession.start_time,
+                classroom: oldSession.classroom
+              },
+              newValues: {
+                lesson_date: data.lesson_date || oldSession.lesson_date,
+                start_time: data.start_time || oldSession.start_time,
+                classroom: data.classroom || oldSession.classroom
+              }
+            }).then(result => {
+              console.log('Schedule notification result:', result);
+            }).catch(err => {
+              console.error('Failed to send schedule notification:', err);
+            });
+          }
+        }
+      }
+
       return result;
     },
     onSuccess: () => {
