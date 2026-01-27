@@ -537,6 +537,62 @@ export interface ChatPresence {
   created_at: string;
 }
 
+// ============ Notification History ============
+
+export type NotificationStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'failed' | 'cancelled';
+export type NotificationType = 'lesson_reminder' | 'schedule_change' | 'payment_reminder' | 'homework' | 'attendance' | 'custom' | 'system';
+export type RecipientType = 'teacher' | 'parent' | 'student' | 'client' | 'staff';
+export type NotificationChannel = 'whatsapp' | 'telegram' | 'max' | 'chatos' | 'internal_chat' | 'email' | 'push' | 'sms';
+
+export interface NotificationHistory {
+  id: string;
+  organization_id: string;
+  recipient_type: RecipientType;
+  recipient_id: string | null;
+  recipient_name: string;
+  recipient_contact: string | null;
+  channel: NotificationChannel;
+  notification_type: NotificationType;
+  lesson_session_id: string | null;
+  group_id: string | null;
+  student_id: string | null;
+  title: string;
+  message_text: string;
+  status: NotificationStatus;
+  status_details: string | null;
+  external_message_id: string | null;
+  scheduled_at: string | null;
+  sent_at: string | null;
+  delivered_at: string | null;
+  read_at: string | null;
+  failed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ParentNotificationSettings {
+  id: string;
+  organization_id: string;
+  student_id: string;
+  whatsapp_enabled: boolean;
+  telegram_enabled: boolean;
+  max_enabled: boolean;
+  chatos_enabled: boolean;
+  email_enabled: boolean;
+  push_enabled: boolean;
+  preferred_channel: NotificationChannel;
+  lesson_reminders: boolean;
+  schedule_changes: boolean;
+  payment_reminders: boolean;
+  homework_notifications: boolean;
+  attendance_notifications: boolean;
+  reminder_minutes_before: number;
+  notification_phone: string | null;
+  notification_email: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 
 export interface MessageReadStatus {
   id: string;
@@ -1330,8 +1386,7 @@ export interface StudentDiscountSurcharge {
   updated_at: string;
 }
 
-// Teacher notification settings
-export type NotificationChannel = 'whatsapp' | 'telegram' | 'max' | 'internal_chat' | 'email' | 'push';
+// Teacher notification settings (uses NotificationChannel from above)
 
 export interface TeacherNotificationSettings {
   id: string;

@@ -214,8 +214,44 @@ Deno.serve(async (req) => {
 
         const groupName = lesson.learning_groups?.name || 'Группа';
         const reminderText = `${groupName} в ${lesson.start_time}`;
+        const fullMessage = `⏰ Напоминание: ${groupName}\n📅 Сегодня в ${lesson.start_time}\n\nДо начала занятия ~${Math.round(minutesUntilLesson)} минут`;
         
         let notificationsSent = 0;
+
+        // Helper to log notification to history
+        const logNotification = async (channel: string, status: string, externalId?: string, errorDetails?: string) => {
+          try {
+            // Get organization_id from lesson_sessions
+            const { data: lessonData } = await supabase
+              .from('lesson_sessions')
+              .select('organization_id')
+              .eq('id', lesson.id)
+              .single();
+
+            if (lessonData?.organization_id) {
+              await supabase.from('notification_history').insert({
+                organization_id: lessonData.organization_id,
+                recipient_type: 'teacher',
+                recipient_id: teacher.id,
+                recipient_name: `${teacher.first_name} ${teacher.last_name || ''}`.trim(),
+                recipient_contact: settings.notification_phone || teacher.phone,
+                channel,
+                notification_type: 'lesson_reminder',
+                lesson_session_id: lesson.id,
+                group_id: lesson.group_id,
+                title: `Напоминание о занятии`,
+                message_text: fullMessage,
+                status,
+                status_details: errorDetails,
+                external_message_id: externalId,
+                sent_at: status === 'sent' || status === 'delivered' ? new Date().toISOString() : null,
+                failed_at: status === 'failed' ? new Date().toISOString() : null,
+              });
+            }
+          } catch (logError) {
+            console.error('[lesson-reminders] Failed to log notification:', logError);
+          }
+        };
 
         // Send Push notification
         if (settings.push_enabled && teacher.profile_id) {
@@ -235,11 +271,14 @@ Deno.serve(async (req) => {
 
             if (!pushError) {
               notificationsSent++;
+              await logNotification('push', 'sent');
               console.log(`[lesson-reminders] Push sent for lesson ${lesson.id}`);
             } else {
+              await logNotification('push', 'failed', undefined, pushError.message);
               console.error(`[lesson-reminders] Push error:`, pushError);
             }
           } catch (err) {
+            await logNotification('push', 'failed', undefined, String(err));
             console.error(`[lesson-reminders] Push exception:`, err);
           }
         }
@@ -249,23 +288,24 @@ Deno.serve(async (req) => {
           const phone = settings.notification_phone || teacher.phone;
           if (phone) {
             try {
-              const message = `⏰ Напоминание: ${groupName}\n📅 Сегодня в ${lesson.start_time}\n\nДо начала занятия ~${Math.round(minutesUntilLesson)} минут`;
-              
-              const { error: whatsappError } = await supabase.functions.invoke('whatsapp-send', {
+              const { data: whatsappResult, error: whatsappError } = await supabase.functions.invoke('whatsapp-send', {
                 body: {
                   phoneNumber: phone.replace(/\D/g, ''),
-                  message,
+                  message: fullMessage,
                   skipClientLookup: true,
                 },
               });
 
               if (!whatsappError) {
                 notificationsSent++;
+                await logNotification('whatsapp', 'sent', whatsappResult?.messageId);
                 console.log(`[lesson-reminders] WhatsApp sent for lesson ${lesson.id}`);
               } else {
+                await logNotification('whatsapp', 'failed', undefined, whatsappError.message);
                 console.error(`[lesson-reminders] WhatsApp error:`, whatsappError);
               }
             } catch (err) {
+              await logNotification('whatsapp', 'failed', undefined, String(err));
               console.error(`[lesson-reminders] WhatsApp exception:`, err);
             }
           }
