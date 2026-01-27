@@ -2,7 +2,7 @@ import { useEffect, useCallback, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
-export type PresenceType = 'viewing' | 'on_call';
+export type PresenceType = 'viewing' | 'on_call' | 'idle';
 
 export interface ChatPresenceRecord {
   user_id: string;
@@ -31,6 +31,9 @@ const STALE_THRESHOLD_MS = 60_000;
  * Hook to track current user's presence in a specific chat
  * Updates presence on mount and via heartbeat
  */
+// Idle timeout - mark as idle after 2 minutes of inactivity
+const IDLE_TIMEOUT_MS = 2 * 60 * 1000;
+
 export const useChatPresenceTracker = (clientId: string | null) => {
   const currentUserIdRef = useRef<string | null>(null);
   const managerNameRef = useRef<string | null>(null);
@@ -39,6 +42,35 @@ export const useChatPresenceTracker = (clientId: string | null) => {
   const lastClientIdRef = useRef<string | null>(null);
   const profileLoadedRef = useRef<boolean>(false);
   const pendingClientIdRef = useRef<string | null>(null);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentStatusRef = useRef<PresenceType>('viewing');
+  const lastActivityRef = useRef<number>(Date.now());
+
+  // Reset idle timer on user activity
+  const resetIdleTimer = useCallback(() => {
+    lastActivityRef.current = Date.now();
+    
+    // If was idle, switch back to viewing
+    if (currentStatusRef.current === 'idle' && lastClientIdRef.current) {
+      currentStatusRef.current = 'viewing';
+      // Will update on next heartbeat or immediately if needed
+    }
+  }, []);
+
+  // Track user activity
+  useEffect(() => {
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
+    
+    events.forEach(event => {
+      window.addEventListener(event, resetIdleTimer, { passive: true });
+    });
+
+    return () => {
+      events.forEach(event => {
+        window.removeEventListener(event, resetIdleTimer);
+      });
+    };
+  }, [resetIdleTimer]);
 
   // Load current user info once and update presence immediately after
   useEffect(() => {
@@ -144,18 +176,39 @@ export const useChatPresenceTracker = (clientId: string | null) => {
       pendingClientIdRef.current = clientId;
     }
 
-    // Initial presence update
-    updatePresence(clientId);
+    lastClientIdRef.current = clientId;
+    currentStatusRef.current = 'viewing';
+    lastActivityRef.current = Date.now();
 
-    // Heartbeat to keep presence alive
+    // Initial presence update
+    updatePresence(clientId, 'viewing');
+
+    // Heartbeat to keep presence alive and check for idle
     heartbeatRef.current = setInterval(() => {
-      updatePresence(clientId);
+      const timeSinceActivity = Date.now() - lastActivityRef.current;
+      const shouldBeIdle = timeSinceActivity >= IDLE_TIMEOUT_MS;
+      
+      // Only update if status changed or heartbeat needed
+      if (shouldBeIdle && currentStatusRef.current !== 'idle') {
+        currentStatusRef.current = 'idle';
+        updatePresence(clientId, 'idle');
+      } else if (!shouldBeIdle && currentStatusRef.current === 'idle') {
+        currentStatusRef.current = 'viewing';
+        updatePresence(clientId, 'viewing');
+      } else {
+        // Regular heartbeat with current status
+        updatePresence(clientId, currentStatusRef.current);
+      }
     }, HEARTBEAT_INTERVAL);
 
     return () => {
       if (heartbeatRef.current) {
         clearInterval(heartbeatRef.current);
         heartbeatRef.current = null;
+      }
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = null;
       }
       // Clear presence on unmount
       if (clientId) {

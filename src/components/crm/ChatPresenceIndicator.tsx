@@ -36,14 +36,57 @@ const ReadingEyes: React.FC<{ className?: string }> = ({ className = '' }) => (
   </div>
 );
 
+// Sleepy eyes component - closed eyes with Z for idle status 😴
+const SleepyEyes: React.FC<{ className?: string }> = ({ className = '' }) => (
+  <div className={`flex items-center gap-[2px] ${className}`}>
+    {/* Left closed eye - curved line */}
+    <div className="relative w-[9px] h-[11px] flex items-center justify-center">
+      <div className="w-[7px] h-[2px] bg-slate-400 rounded-full" 
+           style={{ transform: 'rotate(-10deg)' }} />
+    </div>
+    {/* Right closed eye - curved line */}
+    <div className="relative w-[9px] h-[11px] flex items-center justify-center">
+      <div className="w-[7px] h-[2px] bg-slate-400 rounded-full" 
+           style={{ transform: 'rotate(10deg)' }} />
+    </div>
+    {/* Floating Z */}
+    <span className="text-[8px] font-bold text-slate-400 animate-pulse ml-0.5">
+      z
+    </span>
+  </div>
+);
+
 const getPresenceColor = (type: PresenceType) => {
   switch (type) {
     case 'on_call':
       return 'bg-green-100 border-green-300 dark:bg-green-950/50 dark:border-green-700';
+    case 'idle':
+      return 'bg-slate-100 border-slate-300 dark:bg-slate-800/50 dark:border-slate-600';
     case 'viewing':
     default:
       return 'bg-blue-50 border-blue-200 dark:bg-blue-950/50 dark:border-blue-700';
   }
+};
+
+const getPresenceIcon = (type: PresenceType) => {
+  switch (type) {
+    case 'on_call':
+      return <Phone className="h-3 w-3 text-green-500 animate-pulse" />;
+    case 'idle':
+      return <SleepyEyes />;
+    case 'viewing':
+    default:
+      return <ReadingEyes />;
+  }
+};
+
+const getTooltipTitle = (viewers: Array<{ type: PresenceType }>) => {
+  const hasCall = viewers.some(v => v.type === 'on_call');
+  const allIdle = viewers.every(v => v.type === 'idle');
+  
+  if (hasCall) return '📞 На связи:';
+  if (allIdle) return '😴 Неактивны:';
+  return '👀 Сейчас смотрят:';
 };
 
 export const ChatPresenceIndicator: React.FC<ChatPresenceIndicatorProps> = ({
@@ -56,24 +99,28 @@ export const ChatPresenceIndicator: React.FC<ChatPresenceIndicatorProps> = ({
 
   const { viewers } = presence;
   const hasCall = viewers.some(v => v.type === 'on_call');
+  const hasIdle = viewers.some(v => v.type === 'idle');
+  const allIdle = viewers.every(v => v.type === 'idle');
   const primaryViewer = viewers[0];
   const additionalCount = viewers.length - 1;
 
-  // Determine main icon based on presence types
-  const mainIcon = hasCall ? (
-    <Phone className="h-3 w-3 text-green-500 animate-pulse" />
-  ) : (
-    <ReadingEyes />
-  );
+  // Determine main icon based on presence types (priority: call > viewing > idle)
+  const mainIcon = hasCall 
+    ? <Phone className="h-3 w-3 text-green-500 animate-pulse" />
+    : allIdle 
+      ? <SleepyEyes />
+      : <ReadingEyes />;
 
   const containerClass = hasCall
     ? 'bg-green-100 border-green-300 dark:bg-green-950/50 dark:border-green-700'
-    : 'bg-blue-50 border-blue-200 dark:bg-blue-950/50 dark:border-blue-700';
+    : allIdle
+      ? 'bg-slate-100 border-slate-300 dark:bg-slate-800/50 dark:border-slate-600'
+      : 'bg-blue-50 border-blue-200 dark:bg-blue-950/50 dark:border-blue-700';
 
   const tooltipContent = (
     <div className="space-y-1.5 p-1">
       <p className="text-xs font-medium text-muted-foreground mb-2">
-        {hasCall ? '📞 На связи:' : '👀 Сейчас смотрят:'}
+        {getTooltipTitle(viewers)}
       </p>
       {viewers.map((viewer, idx) => (
         <div key={viewer.userId} className="flex items-center gap-2">
@@ -87,6 +134,9 @@ export const ChatPresenceIndicator: React.FC<ChatPresenceIndicatorProps> = ({
             {viewer.name}
             {viewer.type === 'on_call' && (
               <Phone className="h-3 w-3 text-green-500 ml-1" />
+            )}
+            {viewer.type === 'idle' && (
+              <span className="text-[10px] text-slate-400 ml-1">💤</span>
             )}
           </span>
         </div>
