@@ -175,6 +175,19 @@ export default {
           "0%": { transform: "translateX(0)" },
           "100%": { transform: "translateX(100%)" }
         },
+        "look-around": {
+          "0%, 100%": { transform: "translate(0, 0)" },
+          "15%": { transform: "translate(2px, 0)" },
+          "30%": { transform: "translate(2px, 1px)" },
+          "45%": { transform: "translate(-1px, 1px)" },
+          "60%": { transform: "translate(-1px, 0)" },
+          "75%": { transform: "translate(1px, -1px)" },
+          "90%": { transform: "translate(0, -1px)" },
+        },
+        "blink": {
+          "0%, 90%, 100%": { transform: "scaleY(1)" },
+          "95%": { transform: "scaleY(0.1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -189,6 +202,8 @@ export default {
         "exit": "fade-out 0.2s ease-out, scale-out 0.2s ease-out",
         "message-enter": "message-enter 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
         "message-send": "message-send 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards",
+        "look-around": "look-around 3s ease-in-out infinite",
+        "blink": "blink 4s ease-in-out infinite",
       },
     },
   },

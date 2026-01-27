@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Phone, Users } from 'lucide-react';
+import { Phone, Users } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
   Tooltip,
@@ -14,15 +14,35 @@ interface ChatPresenceIndicatorProps {
   compact?: boolean;
 }
 
-const getPresenceIcon = (type: PresenceType) => {
-  switch (type) {
-    case 'on_call':
-      return <Phone className="h-3 w-3 text-green-500 animate-pulse" />;
-    case 'viewing':
-    default:
-      return <Eye className="h-3 w-3 text-blue-500" />;
-  }
-};
+// Animated reading eyes component - cute and friendly
+const ReadingEyes: React.FC<{ className?: string }> = ({ className = '' }) => (
+  <div className={`flex items-center gap-[1px] ${className}`}>
+    {/* Left eye */}
+    <div className="relative w-[10px] h-[10px] rounded-full bg-gradient-to-b from-white to-slate-100 border border-blue-300/80 overflow-hidden shadow-sm animate-blink">
+      <div 
+        className="absolute w-[5px] h-[5px] bg-gradient-radial from-blue-400 to-blue-600 rounded-full animate-look-around shadow-inner"
+        style={{ top: '2px', left: '2px' }}
+      />
+      {/* Highlight */}
+      <div 
+        className="absolute w-[2px] h-[2px] bg-white rounded-full opacity-90"
+        style={{ top: '2px', left: '5px' }}
+      />
+    </div>
+    {/* Right eye */}
+    <div className="relative w-[10px] h-[10px] rounded-full bg-gradient-to-b from-white to-slate-100 border border-blue-300/80 overflow-hidden shadow-sm animate-blink">
+      <div 
+        className="absolute w-[5px] h-[5px] bg-gradient-radial from-blue-400 to-blue-600 rounded-full animate-look-around shadow-inner"
+        style={{ top: '2px', left: '2px' }}
+      />
+      {/* Highlight */}
+      <div 
+        className="absolute w-[2px] h-[2px] bg-white rounded-full opacity-90"
+        style={{ top: '2px', left: '5px' }}
+      />
+    </div>
+  </div>
+);
 
 const getPresenceColor = (type: PresenceType) => {
   switch (type) {
@@ -30,7 +50,7 @@ const getPresenceColor = (type: PresenceType) => {
       return 'bg-green-100 border-green-300 dark:bg-green-950/50 dark:border-green-700';
     case 'viewing':
     default:
-      return 'bg-blue-100 border-blue-300 dark:bg-blue-950/50 dark:border-blue-700';
+      return 'bg-blue-50 border-blue-200 dark:bg-blue-950/50 dark:border-blue-700';
   }
 };
 
@@ -51,12 +71,12 @@ export const ChatPresenceIndicator: React.FC<ChatPresenceIndicatorProps> = ({
   const mainIcon = hasCall ? (
     <Phone className="h-3 w-3 text-green-500 animate-pulse" />
   ) : (
-    <Eye className="h-3 w-3 text-blue-500" />
+    <ReadingEyes />
   );
 
   const containerClass = hasCall
     ? 'bg-green-100 border-green-300 dark:bg-green-950/50 dark:border-green-700'
-    : 'bg-blue-100 border-blue-300 dark:bg-blue-950/50 dark:border-blue-700';
+    : 'bg-blue-50 border-blue-200 dark:bg-blue-950/50 dark:border-blue-700';
 
   const tooltipContent = (
     <div className="space-y-1.5 p-1">
