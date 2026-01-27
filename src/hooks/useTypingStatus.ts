@@ -14,12 +14,17 @@ export interface TypingInfo {
 type TypingStatusWithName = TypingStatus;
 
 // OPTIMIZED: Uses payload directly instead of refresh() SELECT queries
+// With fallback polling for unstable realtime connections
 export const useTypingStatus = (clientId: string) => {
   const [typingUsers, setTypingUsers] = useState<TypingStatusWithName[]>([]);
   const [isCurrentUserTyping, setIsCurrentUserTyping] = useState(false);
   const currentUserIdRef = useRef<string | null>(null);
   const managerNameRef = useRef<string>('Менеджер');
   const inactivityTimerRef = useRef<number | null>(null);
+  
+  // Fallback polling refs
+  const realtimeWorkingRef = useRef(false);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load current user and manager name once
   useEffect(() => {
@@ -38,6 +43,21 @@ export const useTypingStatus = (clientId: string) => {
       }
     })();
   }, []);
+
+  // Fetch typing users - used for both initial load and fallback polling
+  const fetchTypingUsers = useCallback(async () => {
+    if (!clientId) return;
+    
+    const { data, error } = await supabase
+      .from('typing_status')
+      .select('user_id, client_id, is_typing, manager_name, draft_text')
+      .eq('client_id', clientId)
+      .eq('is_typing', true);
+      
+    if (!error && data) {
+      setTypingUsers(data.filter((t) => t.user_id !== currentUserIdRef.current) as TypingStatusWithName[]);
+    }
+  }, [clientId]);
 
   // Fetch initial typing users for this client
   useEffect(() => {
@@ -113,9 +133,20 @@ export const useTypingStatus = (clientId: string) => {
   }, []);
 
   // Subscribe to realtime typing updates for this client
-  // OPTIMIZED: Single subscription with event: '*' instead of 3 separate subscriptions
+  // With fallback polling that disables after first realtime event
   useEffect(() => {
     if (!clientId) return;
+    
+    // Reset realtime working flag for this client
+    realtimeWorkingRef.current = false;
+    
+    // Start fallback polling (every 2 seconds)
+    pollingIntervalRef.current = setInterval(() => {
+      if (!realtimeWorkingRef.current) {
+        console.log('⏱️ Typing fallback poll (realtime not confirmed)');
+        fetchTypingUsers();
+      }
+    }, 2000);
     
     const channelName = `typing_status_${clientId}_optimized`;
     const channel = supabase
@@ -131,6 +162,16 @@ export const useTypingStatus = (clientId: string) => {
           if (!record) return;
           if (record.client_id !== clientId) return;
 
+          // First realtime event received - disable fallback polling
+          if (!realtimeWorkingRef.current) {
+            realtimeWorkingRef.current = true;
+            console.log('✅ Typing realtime confirmed working, disabling fallback poll');
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+          }
+
           // Track realtime event
           performanceAnalytics.trackRealtimeEvent(channelName);
           // Use payload directly instead of refreshTyping() SELECT
@@ -145,10 +186,15 @@ export const useTypingStatus = (clientId: string) => {
     performanceAnalytics.trackRealtimeSubscription(channelName, 'typing_status');
 
     return () => {
+      // Cleanup polling
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
       performanceAnalytics.untrackRealtimeSubscription(channelName);
       supabase.removeChannel(channel);
     };
-  }, [clientId, handleRealtimePayload]);
+  }, [clientId, handleRealtimePayload, fetchTypingUsers]);
 
   // Core update function (will be throttled)
   const doUpdateTypingStatus = useCallback(async (isTyping: boolean, draftText?: string) => {
