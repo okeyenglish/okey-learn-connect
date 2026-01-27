@@ -397,10 +397,10 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
                   >
                     <button
                       onClick={() => selectWithScroll('teachers-group')}
-                      className={`w-full text-left p-2 transition-all duration-200 relative ${
+                      className={`w-full text-left p-2 rounded-lg transition-all duration-200 relative mb-0.5 border ${
                         selectedTeacherId === 'teachers-group'
-                          ? 'bg-accent/50'
-                          : 'hover:bg-accent/30'
+                          ? 'bg-accent/50 shadow-sm border-accent'
+                          : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
