@@ -176,6 +176,7 @@ export const useTeacherChatMessages = (clientId: string, enabled = true) => {
 
 export interface TeacherChatItem {
   id: string; // teacher.id from teachers table
+  profileId: string | null; // profile_id linking to profiles/auth.users for internal_staff_messages
   firstName: string;
   lastName: string;
   fullName: string;
@@ -215,6 +216,7 @@ export const useTeacherChats = (branch?: string | null) => {
   // Define teacher type for legacy query
   type TeacherRow = {
     id: string;
+    profile_id: string | null;
     first_name: string | null;
     last_name: string | null;
     phone: string | null;
@@ -230,7 +232,7 @@ export const useTeacherChats = (branch?: string | null) => {
     queryFn: async (): Promise<TeacherRow[]> => {
       let query = supabase
         .from('teachers')
-        .select('id, first_name, last_name, phone, email, branch, subjects, categories, is_active')
+        .select('id, profile_id, first_name, last_name, phone, email, branch, subjects, categories, is_active')
         .eq('is_active', true)
         .order('last_name', { ascending: true });
 
@@ -283,6 +285,7 @@ export const useTeacherChats = (branch?: string | null) => {
       
       return {
         id: teacher.id,
+        profileId: teacher.profile_id || null,
         firstName: teacher.first_name || '',
         lastName: teacher.last_name || '',
         fullName: fullName || 'Преподаватель',
