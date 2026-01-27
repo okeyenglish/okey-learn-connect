@@ -515,6 +515,14 @@ async function mergeClients(
   console.log('Client merge completed');
 }
 
+interface ClientResult {
+  id: string;
+  name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  avatar_url?: string | null;
+}
+
 async function findOrCreateClient(
   supabase: any,
   params: {
@@ -526,7 +534,7 @@ async function findOrCreateClient(
     avatarUrl?: string | null;
     phoneNumber?: string | null; // From contact_phone field
   }
-): Promise<{ id: string } | null> {
+): Promise<ClientResult | null> {
   const { organizationId, telegramUserId, telegramChatId, name, username, avatarUrl, phoneNumber } = params;
 
   console.log('findOrCreateClient called with:', { organizationId, telegramUserId, telegramChatId, name, username, avatarUrl, phoneNumber });
@@ -576,8 +584,20 @@ async function findOrCreateClient(
     return null;
   }
 
+  // Fetch full client data for push notification formatting
+  const { data: clientData, error: fetchError } = await supabase
+    .from('clients')
+    .select('id, name, first_name, last_name, avatar_url')
+    .eq('id', clientId)
+    .single();
+
+  if (fetchError || !clientData) {
+    console.error('Error fetching client data after RPC:', fetchError);
+    return { id: clientId, name: finalName };
+  }
+
   console.log('findOrCreateClient via RPC returned client:', clientId);
-  return { id: clientId };
+  return clientData as ClientResult;
 }
 
 // Legacy findOrCreateClient function - kept for fallback when telegramUserId is null
@@ -592,7 +612,7 @@ async function findOrCreateClientLegacy(
     avatarUrl?: string | null;
     phoneNumber?: string | null;
   }
-): Promise<{ id: string } | null> {
+): Promise<ClientResult | null> {
   const { organizationId, telegramUserId, telegramChatId, name, username, avatarUrl, phoneNumber } = params;
 
   console.log('findOrCreateClientLegacy called with:', { organizationId, telegramChatId, name });
@@ -614,7 +634,7 @@ async function findOrCreateClientLegacy(
   // Try to find by telegram_chat_id (since we don't have telegram_user_id)
   const { data: clientByChatId } = await supabase
     .from('clients')
-    .select('id')
+    .select('id, name, first_name, last_name, avatar_url')
     .eq('organization_id', organizationId)
     .eq('telegram_chat_id', telegramChatId)
     .eq('is_active', true)
@@ -623,7 +643,7 @@ async function findOrCreateClientLegacy(
   if (clientByChatId && clientByChatId.length > 0) {
     console.log('Found client by telegram_chat_id:', clientByChatId[0].id);
     await updateClientData(clientByChatId[0].id, { telegram_user_id: telegramUserId });
-    return clientByChatId[0];
+    return clientByChatId[0] as ClientResult;
   }
 
   // Try to find by phone if provided
@@ -631,7 +651,7 @@ async function findOrCreateClientLegacy(
     const phoneLast10 = phoneNumber.slice(-10);
     const { data: clientByPhone } = await supabase
       .from('clients')
-      .select('id')
+      .select('id, name, first_name, last_name, avatar_url')
       .eq('organization_id', organizationId)
       .eq('is_active', true)
       .ilike('phone', `%${phoneLast10}%`)
@@ -643,7 +663,7 @@ async function findOrCreateClientLegacy(
         telegram_chat_id: telegramChatId,
         telegram_user_id: telegramUserId
       });
-      return clientByPhone[0];
+      return clientByPhone[0] as ClientResult;
     }
   }
 
@@ -676,7 +696,7 @@ async function findOrCreateClientLegacy(
       notes: username ? `@${username}` : null,
       is_active: true
     })
-    .select('id')
+    .select('id, name, first_name, last_name, avatar_url')
     .single();
 
   if (createError) {
@@ -685,7 +705,7 @@ async function findOrCreateClientLegacy(
   }
 
   console.log('Created new client (legacy):', newClient.id);
-  return newClient;
+  return newClient as ClientResult;
 }
 
 function extractMessageContent(message: TelegramWappiMessage): {

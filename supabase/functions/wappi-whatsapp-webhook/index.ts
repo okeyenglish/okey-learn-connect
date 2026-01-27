@@ -65,21 +65,27 @@ async function findOrCreateClient(phoneNumber: string, senderName: string | unde
   // First check by phone in client_phone_numbers table
   const { data: phoneData } = await supabase
     .from('client_phone_numbers')
-    .select('client_id, clients!inner(id, name, organization_id)')
+    .select('client_id, clients!inner(id, name, first_name, last_name, organization_id)')
     .eq('phone', phoneNumber)
     .limit(1)
     .maybeSingle()
 
   if (phoneData?.client_id) {
+    const clientData = phoneData.clients as any;
     console.log('Found client by phone number:', phoneData.client_id)
-    return { id: phoneData.client_id, name: (phoneData.clients as any)?.name }
+    return { 
+      id: phoneData.client_id, 
+      name: clientData?.name,
+      first_name: clientData?.first_name,
+      last_name: clientData?.last_name
+    }
   }
 
   // Try to find by whatsapp_chat_id
   const chatId = `${phoneNumber}@c.us`
   const { data: existingClient } = await supabase
     .from('clients')
-    .select('id, name')
+    .select('id, name, first_name, last_name')
     .eq('whatsapp_chat_id', chatId)
     .eq('organization_id', organizationId)
     .maybeSingle()
@@ -92,7 +98,7 @@ async function findOrCreateClient(phoneNumber: string, senderName: string | unde
   // Try to find by phone field directly
   const { data: clientByPhone } = await supabase
     .from('clients')
-    .select('id, name')
+    .select('id, name, first_name, last_name')
     .eq('phone', phoneNumber)
     .eq('organization_id', organizationId)
     .maybeSingle()
@@ -119,7 +125,7 @@ async function findOrCreateClient(phoneNumber: string, senderName: string | unde
       organization_id: organizationId,
       is_active: true
     })
-    .select('id, name')
+    .select('id, name, first_name, last_name')
     .single()
 
   if (createError) {
