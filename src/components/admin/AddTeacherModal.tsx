@@ -95,11 +95,11 @@ export const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ onTeacherAdded
 
       if (roleError) throw roleError;
 
-      // 4. Создаем запись в teachers
+      // 4. Создаем запись в teachers с привязкой profile_id
       const { error: teacherError } = await supabase
         .from('teachers')
         .insert({
-          profile_id: userId,
+          profile_id: userId, // Автоматическая привязка к профилю пользователя
           first_name: formData.firstName,
           last_name: formData.lastName,
           email: formData.email,
