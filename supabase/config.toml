@@ -386,3 +386,9 @@ verify_jwt = false
 
 [functions.quick-responses]
 verify_jwt = true
+
+[functions.parent-lesson-reminders]
+verify_jwt = false
+
+[functions.mark-calls-viewed]
+verify_jwt = true
