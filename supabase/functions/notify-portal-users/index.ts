@@ -149,13 +149,25 @@ Deno.serve(async (req) => {
           ? lastMessage.substring(0, 100) + '...'
           : lastMessage;
 
-        const notificationTitle = unreadCount === 1
-          ? `Новое сообщение от ${schoolName}`
-          : `${unreadCount} новых сообщений`;
+        // Get sender name from the last unread message
+        const { data: lastMsgData } = await supabase
+          .from('chat_messages')
+          .select('sender_name')
+          .eq('client_id', notification.id)
+          .eq('direction', 'outgoing')
+          .eq('is_read', false)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
 
-        const notificationBody = unreadCount === 1
-          ? messagePreview
-          : `Последнее: "${messagePreview}"`;
+        const senderName = lastMsgData?.sender_name || schoolName;
+
+        // Format: "Имя Отправителя" as title, message text as body
+        const notificationTitle = unreadCount === 1
+          ? senderName
+          : `${senderName} и ещё ${unreadCount - 1}`;
+
+        const notificationBody = messagePreview;
 
         const notificationText = unreadCount === 1
           ? `📬 Новое сообщение от ${schoolName}:\n\n"${messagePreview}"\n\nОткройте личный кабинет для просмотра.`
