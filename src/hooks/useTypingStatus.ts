@@ -122,15 +122,24 @@ export const useTypingStatus = (clientId: string) => {
       .channel(channelName)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'typing_status', filter: `client_id=eq.${clientId}` },
+        // NOTE: Avoid server-side filter here. On some self-hosted realtime setups
+        // filtered subscriptions may not receive events reliably.
+        { event: '*', schema: 'public', table: 'typing_status' },
         (payload) => {
+          const typed = payload as RealtimePostgresChangesPayload<TypingStatusWithName>;
+          const record = (typed.eventType === 'DELETE' ? typed.old : typed.new) as TypingStatusWithName | undefined;
+          if (!record) return;
+          if (record.client_id !== clientId) return;
+
           // Track realtime event
           performanceAnalytics.trackRealtimeEvent(channelName);
           // Use payload directly instead of refreshTyping() SELECT
-          handleRealtimePayload(payload as RealtimePostgresChangesPayload<TypingStatusWithName>);
+          handleRealtimePayload(typed);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('🛰️ Typing channel status:', channelName, status);
+      });
     
     // Track subscription
     performanceAnalytics.trackRealtimeSubscription(channelName, 'typing_status');
