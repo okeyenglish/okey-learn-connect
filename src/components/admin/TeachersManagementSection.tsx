@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,12 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AddTeacherModal } from '@/components/admin/AddTeacherModal';
+import { EditTeacherModal } from '@/components/admin/EditTeacherModal';
 import { useTeachers, getTeacherFullName } from '@/hooks/useTeachers';
 import { useTeacherInvitations } from '@/hooks/useTeacherInvitations';
 import { useOrganization } from '@/hooks/useOrganization';
 import { useNavigate } from 'react-router-dom';
+import type { Teacher } from '@/integrations/supabase/database.types';
 import { 
   Search, 
   GraduationCap, 
@@ -27,21 +29,31 @@ import {
   Users,
   Clock,
   CheckCircle2,
+  XCircle,
+  UserX,
+  UserCheck,
 } from 'lucide-react';
-import { useState } from 'react';
+
+type StatusFilter = 'all' | 'active' | 'inactive';
 
 export const TeachersManagementSection: React.FC = () => {
   const navigate = useNavigate();
-  const { teachers, isLoading } = useTeachers();
-  const { invitations } = useTeacherInvitations();
-  const { branches } = useOrganization();
-  
   const [searchTerm, setSearchTerm] = useState('');
   const [branchFilter, setBranchFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
+  const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  
+  // Загружаем всех преподавателей (включая неактивных) для полной статистики
+  const { teachers, isLoading, refetch, toggleActive } = useTeachers({ includeInactive: true });
+  const { invitations } = useTeacherInvitations();
+  const { branches } = useOrganization();
 
   // Статистика
   const pendingInvitations = invitations.filter(i => i.status === 'pending').length;
   const linkedTeachers = teachers.filter(t => t.profile_id).length;
+  const activeTeachers = teachers.filter(t => t.is_active !== false);
+  const inactiveTeachers = teachers.filter(t => t.is_active === false);
 
   // Фильтрация
   const filteredTeachers = teachers.filter(teacher => {
@@ -53,10 +65,24 @@ export const TeachersManagementSection: React.FC = () => {
     
     const matchesBranch = branchFilter === 'all' || teacher.branch === branchFilter;
     
-    return matchesSearch && matchesBranch;
+    const matchesStatus = 
+      statusFilter === 'all' ||
+      (statusFilter === 'active' && teacher.is_active !== false) ||
+      (statusFilter === 'inactive' && teacher.is_active === false);
+    
+    return matchesSearch && matchesBranch && matchesStatus;
   });
 
   const uniqueBranches = [...new Set(teachers.map(t => t.branch).filter(Boolean))];
+
+  const handleEditTeacher = (teacher: Teacher) => {
+    setEditingTeacher(teacher);
+    setEditModalOpen(true);
+  };
+
+  const handleToggleActive = (teacher: Teacher) => {
+    toggleActive.mutate({ id: teacher.id, isActive: teacher.is_active === false });
+  };
 
   if (isLoading) {
     return (
@@ -88,7 +114,7 @@ export const TeachersManagementSection: React.FC = () => {
             <FileSpreadsheet className="h-4 w-4 mr-2" />
             Массовый импорт
           </Button>
-          <AddTeacherModal onTeacherAdded={() => {}}>
+          <AddTeacherModal onTeacherAdded={() => refetch()}>
             <Button>
               <UserPlus className="h-4 w-4 mr-2" />
               Добавить
@@ -98,10 +124,10 @@ export const TeachersManagementSection: React.FC = () => {
       </div>
 
       {/* Статистика */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Всего преподавателей</CardTitle>
+            <CardTitle className="text-sm font-medium">Всего</CardTitle>
             <GraduationCap className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -111,14 +137,21 @@ export const TeachersManagementSection: React.FC = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">С аккаунтом</CardTitle>
+            <CardTitle className="text-sm font-medium">Активные</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{linkedTeachers}</div>
-            <p className="text-xs text-muted-foreground">
-              Привязан profile_id
-            </p>
+            <div className="text-2xl font-bold">{activeTeachers.length}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Неактивные</CardTitle>
+            <XCircle className="h-4 w-4 text-gray-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{inactiveTeachers.length}</div>
           </CardContent>
         </Card>
 
@@ -129,9 +162,6 @@ export const TeachersManagementSection: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{pendingInvitations}</div>
-            <p className="text-xs text-muted-foreground">
-              Активных приглашений
-            </p>
           </CardContent>
         </Card>
 
@@ -172,6 +202,16 @@ export const TeachersManagementSection: React.FC = () => {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Статус" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Все статусы</SelectItem>
+                <SelectItem value="active">Только активные</SelectItem>
+                <SelectItem value="inactive">Только неактивные</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -209,7 +249,7 @@ export const TeachersManagementSection: React.FC = () => {
                   </TableRow>
                 ) : (
                   filteredTeachers.map((teacher) => (
-                    <TableRow key={teacher.id}>
+                    <TableRow key={teacher.id} className={teacher.is_active === false ? 'opacity-60' : ''}>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-9 w-9">
@@ -267,7 +307,12 @@ export const TeachersManagementSection: React.FC = () => {
                       </TableCell>
                       
                       <TableCell>
-                        {teacher.profile_id ? (
+                        {teacher.is_active === false ? (
+                          <Badge variant="outline" className="text-gray-500 border-gray-200">
+                            <XCircle className="h-3 w-3 mr-1" />
+                            Неактивен
+                          </Badge>
+                        ) : teacher.profile_id ? (
                           <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
                             <CheckCircle2 className="h-3 w-3 mr-1" />
                             Активен
@@ -288,14 +333,25 @@ export const TeachersManagementSection: React.FC = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
-                              <Eye className="mr-2 h-4 w-4" />
-                              Просмотреть
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditTeacher(teacher)}>
                               <Edit className="mr-2 h-4 w-4" />
                               Редактировать
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {teacher.is_active === false ? (
+                              <DropdownMenuItem onClick={() => handleToggleActive(teacher)}>
+                                <UserCheck className="mr-2 h-4 w-4 text-green-600" />
+                                Активировать
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem 
+                                onClick={() => handleToggleActive(teacher)}
+                                className="text-destructive"
+                              >
+                                <UserX className="mr-2 h-4 w-4" />
+                                Деактивировать
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -307,6 +363,14 @@ export const TeachersManagementSection: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Модальное окно редактирования */}
+      <EditTeacherModal
+        teacher={editingTeacher}
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        onUpdated={() => refetch()}
+      />
     </div>
   );
 };

@@ -1,6 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import type { Teacher } from '@/integrations/supabase/database.types';
+import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/errorUtils';
 
 export type { Teacher };
 
@@ -8,17 +10,24 @@ export interface TeacherFilters {
   subject?: string;
   category?: string;
   branch?: string;
+  includeInactive?: boolean;
 }
 
 export const useTeachers = (filters?: TeacherFilters) => {
-  const { data: teachers, isLoading, error } = useQuery({
+  const queryClient = useQueryClient();
+
+  const { data: teachers, isLoading, error, refetch } = useQuery({
     queryKey: ['teachers', filters],
     queryFn: async () => {
       let query = supabase
         .from('teachers')
         .select('*')
-        .eq('is_active', true)
         .order('last_name', { ascending: true });
+
+      // По умолчанию показываем только активных
+      if (!filters?.includeInactive) {
+        query = query.eq('is_active', true);
+      }
 
       // Apply filters
       if (filters?.branch) {
@@ -48,15 +57,55 @@ export const useTeachers = (filters?: TeacherFilters) => {
     },
   });
 
+  // Мутация для обновления преподавателя
+  const updateTeacher = useMutation({
+    mutationFn: async (data: { id: string; updates: Partial<Teacher> }) => {
+      const { error } = await supabase
+        .from('teachers')
+        .update(data.updates)
+        .eq('id', data.id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teachers'] });
+    },
+    onError: (error) => {
+      toast.error('Ошибка: ' + getErrorMessage(error));
+    },
+  });
+
+  // Мутация для деактивации/активации
+  const toggleActive = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const { error } = await supabase
+        .from('teachers')
+        .update({ is_active: isActive })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: (_, { isActive }) => {
+      queryClient.invalidateQueries({ queryKey: ['teachers'] });
+      toast.success(isActive ? 'Преподаватель активирован' : 'Преподаватель деактивирован');
+    },
+    onError: (error) => {
+      toast.error('Ошибка: ' + getErrorMessage(error));
+    },
+  });
+
   return {
     teachers: teachers || [],
     isLoading,
     error,
+    refetch,
+    updateTeacher,
+    toggleActive,
   };
 };
 
 export const getTeacherFullName = (teacher: Teacher): string => {
-  return `${teacher.last_name} ${teacher.first_name}`;
+  return `${teacher.last_name || ''} ${teacher.first_name}`.trim();
 };
 
 export const getFilteredTeachers = (teachers: Teacher[], subject: string, category: string): Teacher[] => {
