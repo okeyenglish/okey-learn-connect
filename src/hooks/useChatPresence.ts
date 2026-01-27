@@ -78,12 +78,20 @@ export const useChatPresenceTracker = (clientId: string | null) => {
     })();
   }, []);
 
-  // Update presence in database
+  // Update presence in database - clears all other presence first to ensure only one active chat
   const updatePresence = useCallback(async (targetClientId: string, type: PresenceType = 'viewing') => {
     const userId = currentUserIdRef.current;
     if (!userId || !targetClientId) return;
 
     try {
+      // First, delete ALL presence records for this user (ensures only one active chat)
+      await supabase
+        .from('chat_presence')
+        .delete()
+        .eq('user_id', userId)
+        .neq('client_id', targetClientId);
+
+      // Then upsert the current chat presence
       await supabase
         .from('chat_presence')
         .upsert({
