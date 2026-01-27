@@ -4,7 +4,7 @@ export const useCRMState = () => {
   const [activeTab, setActiveTab] = useState<string>("chats");
   const [activePhoneId, setActivePhoneId] = useState<string>('1');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
-  const [activeChatType, setActiveChatType] = useState<'client' | 'corporate' | 'teachers' | 'communities'>('client');
+  const [activeChatType, setActiveChatType] = useState<'client' | 'corporate' | 'teachers' | 'communities' | 'chatos'>('client');
   const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
   const [isPinnedSectionOpen, setIsPinnedSectionOpen] = useState(false);
   const [showOnlyUnread, setShowOnlyUnread] = useState(false);
