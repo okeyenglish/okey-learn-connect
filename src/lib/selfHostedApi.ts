@@ -128,6 +128,9 @@ export async function selfHostedFetch<T = unknown>(
       // Build request headers
       const requestHeaders: Record<string, string> = {
         'Content-Type': 'application/json',
+        // Supabase functions often require the project publishable key in `apikey` even when using Authorization.
+        // This is safe to expose and ensures compatibility with function gateways/routers.
+        'apikey': SELF_HOSTED_ANON_KEY,
         ...headers
       };
 
