@@ -238,8 +238,12 @@ export const AIHubInline = ({
   const allChats = [...aiChats, ...groupChatItems, ...teacherChatItems, ...staffChatItems];
 
   // Auto-open chat when initialStaffUserId is provided
+  // Wait for staff data to load before trying to find the target chat
   useEffect(() => {
     if (!initialStaffUserId) return;
+    
+    // Wait for staff members data to be loaded
+    if (staffMembersLoading || teachersLoading) return;
     
     // Find the staff chat item by profile ID
     const targetChat = [...staffChatItems, ...teacherChatItems].find(chat => {
@@ -255,8 +259,13 @@ export const AIHubInline = ({
     if (targetChat) {
       setActiveChat(targetChat);
       onClearInitialStaffUserId?.();
+    } else {
+      // If target not found among teachers/staff, try to create a temporary chat entry
+      // This can happen if the user isn't a teacher but is a profile
+      console.log('[AIHubInline] Target staff not found:', initialStaffUserId);
+      onClearInitialStaffUserId?.();
     }
-  }, [initialStaffUserId, staffChatItems, teacherChatItems, onClearInitialStaffUserId]);
+  }, [initialStaffUserId, staffChatItems, teacherChatItems, staffMembersLoading, teachersLoading, onClearInitialStaffUserId]);
 
   useEffect(() => {
     const initialMessages: Record<string, ChatMessage[]> = {};
