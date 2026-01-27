@@ -108,6 +108,7 @@ const SystemMonitor = lazy(() => import('./pages/SystemMonitor'));
 const WebhookTest = lazy(() => import('./pages/WebhookTest'));
 const EmployeeOnboarding = lazy(() => import('./pages/employee/EmployeeOnboarding'));
 const TeacherOnboarding = lazy(() => import('./pages/teacher/TeacherOnboarding'));
+const BulkTeacherImportPage = lazy(() => import('./pages/admin/BulkTeacherImportPage'));
 const DebugAccess = lazy(() => import('./pages/DebugAccess'));
 const OrgLayout = lazy(() => import('./pages/org/OrgLayout'));
 const OrgHome = lazy(() => import('./pages/org/OrgHome'));
@@ -352,6 +353,13 @@ const AppContent = () => {
             <ProtectedRoute allowedRoles={['admin']}>
               <Suspense fallback={<LoadingComponent />}>
                 <Admin />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/teachers/import" element={
+            <ProtectedRoute allowedRoles={['admin', 'manager']}>
+              <Suspense fallback={<LoadingComponent />}>
+                <BulkTeacherImportPage />
               </Suspense>
             </ProtectedRoute>
           } />
