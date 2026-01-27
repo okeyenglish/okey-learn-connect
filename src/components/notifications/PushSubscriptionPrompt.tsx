@@ -1,16 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useAuth } from '@/hooks/useAuth';
+import { cn } from '@/lib/utils';
 
 const PUSH_PROMPT_DISMISSED_KEY = 'push_prompt_dismissed';
 const PUSH_PROMPT_SHOWN_KEY = 'push_prompt_shown_at';
@@ -18,14 +11,15 @@ const PUSH_PROMPT_SHOWN_KEY = 'push_prompt_shown_at';
 const PROMPT_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
- * Shows a dialog prompting the user to enable push notifications
+ * Shows a non-blocking floating banner prompting the user to enable push notifications
  * after they log in for the first time (or after cooldown period)
  */
 export function PushSubscriptionPrompt() {
   const { user, loading: authLoading } = useAuth();
   const { isSupported, isSubscribed, isLoading, subscribe, permission } = usePushNotifications();
-  const [open, setOpen] = useState(false);
+  const [visible, setVisible] = useState(false);
   const [isSubscribing, setIsSubscribing] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
 
   useEffect(() => {
     // Don't show if:
@@ -51,20 +45,31 @@ export function PushSubscriptionPrompt() {
     if (shouldShow) {
       // Small delay to let the UI settle after login
       const timer = setTimeout(() => {
-        setOpen(true);
+        setVisible(true);
         // Mark that we showed the prompt
         markPromptShown(user.id);
-      }, 1500);
+      }, 2000);
       return () => clearTimeout(timer);
     }
   }, [authLoading, user, isSupported, isSubscribed, permission, isLoading]);
+
+  const handleClose = (markAsDismissed = false) => {
+    setIsExiting(true);
+    setTimeout(() => {
+      setVisible(false);
+      setIsExiting(false);
+      if (markAsDismissed && user) {
+        markDismissed(user.id);
+      }
+    }, 300);
+  };
 
   const handleEnable = async () => {
     setIsSubscribing(true);
     try {
       const success = await subscribe();
       if (success) {
-        setOpen(false);
+        handleClose(false);
         // Clear dismissed flag on success
         if (user) {
           clearDismissed(user.id);
@@ -75,99 +80,72 @@ export function PushSubscriptionPrompt() {
     }
   };
 
-  const handleDismiss = () => {
-    setOpen(false);
-    if (user) {
-      markDismissed(user.id);
-    }
-  };
-
-  const handleRemindLater = () => {
-    setOpen(false);
-    // Don't mark as dismissed - just close
-    // It will show again on next login
-  };
-
-  if (!isSupported || isSubscribed) {
+  if (!visible || !isSupported || isSubscribed) {
     return null;
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5 text-primary" />
-            Включить уведомления?
-          </DialogTitle>
-          <DialogDescription className="text-left">
-            Получайте мгновенные оповещения о новых сообщениях, занятиях и важных событиях — даже когда браузер закрыт.
-          </DialogDescription>
-        </DialogHeader>
+    <div
+      className={cn(
+        'fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-sm z-50',
+        'bg-background border border-border rounded-lg shadow-lg',
+        'transition-all duration-300 ease-out',
+        isExiting
+          ? 'opacity-0 translate-y-4'
+          : 'opacity-100 translate-y-0 animate-fade-in'
+      )}
+    >
+      {/* Close button */}
+      <button
+        onClick={() => handleClose(true)}
+        className="absolute top-2 right-2 p-1 rounded-full hover:bg-muted transition-colors"
+        aria-label="Закрыть"
+      >
+        <X className="h-4 w-4 text-muted-foreground" />
+      </button>
 
-        <div className="space-y-3 py-2">
-          <div className="flex items-start gap-3 text-sm">
-            <div className="rounded-full bg-primary/10 p-1.5 mt-0.5">
-              <Bell className="h-3.5 w-3.5 text-primary" />
-            </div>
-            <div>
-              <p className="font-medium">Новые сообщения</p>
-              <p className="text-muted-foreground text-xs">Моментально узнавайте о входящих</p>
-            </div>
+      <div className="p-4 pr-8">
+        {/* Header */}
+        <div className="flex items-start gap-3">
+          <div className="rounded-full bg-primary/10 p-2 shrink-0">
+            <Bell className="h-5 w-5 text-primary" />
           </div>
-          <div className="flex items-start gap-3 text-sm">
-            <div className="rounded-full bg-primary/10 p-1.5 mt-0.5">
-              <Bell className="h-3.5 w-3.5 text-primary" />
-            </div>
-            <div>
-              <p className="font-medium">Напоминания об уроках</p>
-              <p className="text-muted-foreground text-xs">Не пропустите занятия</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 text-sm">
-            <div className="rounded-full bg-primary/10 p-1.5 mt-0.5">
-              <Bell className="h-3.5 w-3.5 text-primary" />
-            </div>
-            <div>
-              <p className="font-medium">Пропущенные звонки</p>
-              <p className="text-muted-foreground text-xs">Узнавайте сразу, если не смогли ответить</p>
-            </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="font-semibold text-sm">Включить уведомления?</h4>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+              Получайте оповещения о сообщениях, занятиях и звонках — даже когда браузер закрыт
+            </p>
           </div>
         </div>
 
-        <DialogFooter className="flex-col gap-2 sm:flex-row">
+        {/* Actions */}
+        <div className="flex items-center justify-end gap-2 mt-3">
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleRemindLater}
-            className="text-muted-foreground"
+            onClick={() => handleClose(false)}
+            className="text-xs h-8 px-3"
           >
             Позже
           </Button>
           <Button
-            variant="outline"
             size="sm"
-            onClick={handleDismiss}
-          >
-            Не сейчас
-          </Button>
-          <Button
             onClick={handleEnable}
             disabled={isSubscribing}
-            className="gap-2"
+            className="text-xs h-8 px-3 gap-1.5"
           >
             {isSubscribing ? (
-              <>Включаю...</>
+              'Включаю...'
             ) : (
               <>
-                <Bell className="h-4 w-4" />
+                <Bell className="h-3.5 w-3.5" />
                 Включить
               </>
             )}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
+    </div>
   );
 }
 
