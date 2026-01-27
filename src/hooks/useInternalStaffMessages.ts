@@ -2,7 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { playNotificationSound } from '@/hooks/useNotificationSound';
+import { showBrowserNotification } from '@/hooks/useBrowserNotifications';
 
 export interface StaffMessage {
   id: string;
@@ -242,9 +244,58 @@ export const useMarkStaffMessagesRead = () => {
   });
 };
 
-// Hook for getting unread message count
+// Hook for getting unread message count with realtime sound notifications
 export const useStaffUnreadCount = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const lastNotifiedRef = useRef<string | null>(null);
+
+  // Realtime subscription for incoming messages
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`staff-messages-notifications-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'internal_staff_messages',
+        },
+        (payload) => {
+          const newMessage = payload.new as StaffMessage;
+          
+          // Only notify for messages sent TO this user (not FROM this user)
+          if (newMessage.recipient_user_id === user.id && newMessage.sender_id !== user.id) {
+            // Prevent duplicate notifications
+            if (lastNotifiedRef.current !== newMessage.id) {
+              lastNotifiedRef.current = newMessage.id;
+              
+              // Play notification sound
+              playNotificationSound(0.5);
+              
+              // Show browser notification if tab is not focused
+              if (document.hidden) {
+                showBrowserNotification({
+                  title: 'Новое сообщение от сотрудника',
+                  body: newMessage.message_text?.substring(0, 100) || 'Новое сообщение',
+                  tag: `staff-msg-${newMessage.id}`,
+                });
+              }
+              
+              // Invalidate unread count
+              queryClient.invalidateQueries({ queryKey: ['staff-unread-count'] });
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, queryClient]);
 
   return useQuery({
     queryKey: ['staff-unread-count'],
