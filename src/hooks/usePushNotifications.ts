@@ -10,6 +10,7 @@ const VAPID_PUBLIC_KEY = 'BNCGXWZNiciyztYDIZPXM_smN8mBxrfFPIG_ohpea-9H5B0Gl-zjfW
 // Persist last known endpoint so we can delete stale subscriptions on the server
 // even if the browser already dropped the subscription locally.
 const LAST_ENDPOINT_STORAGE_PREFIX = 'push:last_endpoint:';
+const PUSH_DEBUG_UNTIL_KEY = 'push:debug_until';
 
 function getLastEndpointStorageKey(userId: string) {
   return `${LAST_ENDPOINT_STORAGE_PREFIX}${userId}`;
@@ -40,6 +41,14 @@ function safeLocalStorageRemove(key: string) {
   } catch {
     // ignore
   }
+}
+
+function isDebugWindowActive(): boolean {
+  const raw = safeLocalStorageGet(PUSH_DEBUG_UNTIL_KEY);
+  if (!raw) return false;
+  const until = Number(raw);
+  if (!Number.isFinite(until)) return false;
+  return Date.now() < until;
 }
 
 async function fetchVapidPublicKey(): Promise<string> {
@@ -296,6 +305,29 @@ export function usePushNotifications() {
   useEffect(() => {
     checkSubscription();
   }, [checkSubscription]);
+
+  // Debug: when SW receives a push, it broadcasts a message to open clients.
+  // We only surface this as a toast during a short debug window.
+  useEffect(() => {
+    if (!isSupported) return;
+
+    const onMessage = (event: MessageEvent) => {
+      const msg = event.data as any;
+      if (!msg || msg.type !== 'PUSH_RECEIVED') return;
+      if (!isDebugWindowActive()) return;
+
+      const payload = (msg.payload ?? {}) as { title?: unknown; body?: unknown };
+      const title = typeof payload.title === 'string' && payload.title.trim()
+        ? `Push получен: ${payload.title}`
+        : 'Push получен';
+      const body = typeof payload.body === 'string' ? payload.body : '';
+      toast.success(title);
+      if (body) toast.message(body.length > 140 ? `${body.slice(0, 140)}…` : body);
+    };
+
+    navigator.serviceWorker.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
+  }, [isSupported]);
 
   // Subscribe to push notifications
   const subscribe = useCallback(async (): Promise<boolean> => {

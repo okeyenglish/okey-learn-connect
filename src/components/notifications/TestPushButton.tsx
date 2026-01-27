@@ -23,7 +23,14 @@ export function TestPushButton({ variant = 'outline', size = 'sm', className }: 
 
     setIsLoading(true);
     try {
-      const response = await selfHostedPost<{ sent?: number }>('send-push-notification', {
+      // Enable short-lived debug window: if SW receives push, app will show a toast.
+      try {
+        localStorage.setItem('push:debug_until', String(Date.now() + 2 * 60 * 1000));
+      } catch {
+        // ignore
+      }
+
+      const response = await selfHostedPost<{ sent?: number; failed?: number; details?: unknown }>('send-push-notification', {
         userId: user.id,
         payload: {
           title: 'Тестовое уведомление 🔔',
@@ -41,6 +48,9 @@ export function TestPushButton({ variant = 'outline', size = 'sm', className }: 
       
       if (response.data?.sent && response.data.sent > 0) {
         toast.success(`Push отправлен (${response.data.sent} подписок)`);
+        toast.message('Ожидаю получение push на устройстве…');
+      } else if (response.data?.failed && response.data.failed > 0) {
+        toast.warning(`Все подписки истекли (${response.data.failed})`);
       } else if (response.data?.sent === 0) {
         toast.warning('Нет активных подписок. Включите уведомления.');
       } else {

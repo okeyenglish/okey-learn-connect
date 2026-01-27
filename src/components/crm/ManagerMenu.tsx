@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import { User, Settings, Key, LogOut, ChevronDown, Shield, Bell, BellOff, Send } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -53,10 +54,17 @@ export const ManagerMenu = ({
   console.log('🔐 ManagerMenu roles check:', { role, roles, isAdmin, isMethodist, canAccessAdmin });
 
 
-  const handleTestPush = async (e: React.MouseEvent) => {
+  const handleTestPush = async (e: ReactMouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!user) return;
+
+    // Enable short-lived debug mode: if SW receives push, UI will show a toast.
+    try {
+      localStorage.setItem('push:debug_until', String(Date.now() + 2 * 60 * 1000));
+    } catch {
+      // ignore
+    }
     
     setTestPushLoading(true);
     try {
@@ -82,6 +90,7 @@ export const ManagerMenu = ({
       
       if (response.data?.sent && response.data.sent > 0) {
         toast.success(`Push отправлен (${response.data.sent})`);
+        toast.message('Ожидаю получение push на устройстве…');
       } else if (response.data?.failed && response.data.failed > 0) {
         toast.warning(`Все подписки истекли (${response.data.failed})`);
       } else {
