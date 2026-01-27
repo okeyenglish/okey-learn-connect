@@ -148,16 +148,16 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
       onClick={onClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`w-full p-2 text-left transition-all duration-200 relative select-none touch-manipulation ${
+      className={`w-full p-2 text-left rounded-lg transition-all duration-200 relative mb-0.5 border select-none touch-manipulation ${
         isPinned
-          ? `rounded-lg border border-orange-200 bg-gradient-to-r ${
+          ? `border-orange-200 bg-gradient-to-r ${
               isSelected 
                 ? 'from-orange-50 to-orange-100/50 shadow-sm dark:from-orange-950 dark:to-orange-900/50' 
                 : 'from-white to-orange-50/30 hover:to-orange-50 dark:from-background dark:to-orange-950/30 hover:shadow-sm'
             }`
           : isSelected
-            ? 'bg-accent/50'
-            : 'hover:bg-accent/30'
+            ? 'bg-accent/50 shadow-sm border-accent'
+            : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
       }`}
     >
       <div className="flex items-start justify-between gap-2">
