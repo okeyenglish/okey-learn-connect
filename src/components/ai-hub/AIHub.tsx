@@ -23,7 +23,9 @@ import {
   ArrowLeft,
   MessageCircle,
   Search,
-  Link2
+  Link2,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { selfHostedPost } from '@/lib/selfHostedApi';
@@ -99,6 +101,7 @@ export const AIHub = ({
   const [isRecording, setIsRecording] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [teacherClientId, setTeacherClientId] = useState<string | null>(null);
+  const [aiSectionExpanded, setAiSectionExpanded] = useState(false); // Collapsed by default
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -684,19 +687,35 @@ export const AIHub = ({
               </div>
             )}
 
-            {/* AI Chats Section */}
+            {/* AI Chats Section - Collapsible */}
             {aiChatsList.length > 0 && (
               <>
-                <div className="px-3 py-2">
+                <button
+                  onClick={() => setAiSectionExpanded(!aiSectionExpanded)}
+                  className="w-full px-3 py-2 flex items-center justify-between hover:bg-muted/50 rounded-md transition-colors"
+                >
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     AI Помощники
                   </p>
-                </div>
-                {aiChatsList.map((item) => (
+                  <div className="flex items-center gap-1.5">
+                    {assistantUnread > 0 && (
+                      <Badge variant="destructive" className="text-xs h-5 min-w-[20px] flex items-center justify-center">
+                        {assistantUnread}
+                      </Badge>
+                    )}
+                    {aiSectionExpanded ? (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
+                </button>
+                
+                {aiSectionExpanded && aiChatsList.map((item) => (
                   <button
                     key={item.id}
                     onClick={() => handleSelectChat(item)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left"
+                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left animate-in fade-in slide-in-from-top-1 duration-200"
                   >
                     <Avatar className="h-11 w-11">
                       <AvatarFallback className={item.iconBg}>
