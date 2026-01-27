@@ -421,7 +421,7 @@ export const AIHubInline = ({
 
   const aiChatsList = filteredChats.filter(item => item.type === 'assistant' || ['lawyer', 'accountant', 'marketer', 'hr', 'methodist', 'it'].includes(item.type));
   
-  // Corporate chats sorted by last message time (most recent first)
+  // Corporate chats sorted by: 1) unread, 2) online status, 3) last message time
   const corporateChatsList = filteredChats
     .filter(item => item.type === 'group' || item.type === 'teacher' || item.type === 'staff')
     .sort((a, b) => {
@@ -430,6 +430,22 @@ export const AIHubInline = ({
       const bUnread = b.unreadCount || 0;
       if (aUnread > 0 && bUnread === 0) return -1;
       if (bUnread > 0 && aUnread === 0) return 1;
+      
+      // Then sort by online status (online first)
+      const aProfileId = a.type === 'teacher' 
+        ? (a.data as TeacherChatItem)?.profileId 
+        : a.type === 'staff' 
+          ? (a.data as StaffMember)?.id 
+          : null;
+      const bProfileId = b.type === 'teacher' 
+        ? (b.data as TeacherChatItem)?.profileId 
+        : b.type === 'staff' 
+          ? (b.data as StaffMember)?.id 
+          : null;
+      const aOnline = aProfileId ? isUserOnline(aProfileId) : false;
+      const bOnline = bProfileId ? isUserOnline(bProfileId) : false;
+      if (aOnline && !bOnline) return -1;
+      if (bOnline && !aOnline) return 1;
       
       // Then sort by last message time
       const aTime = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
