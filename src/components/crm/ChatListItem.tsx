@@ -201,7 +201,7 @@ export const ChatListItem = React.memo(({
               </div>
               
               {isTyping ? (
-                <div className="text-xs text-orange-600 italic leading-relaxed">
+                <div className="text-xs text-orange-600 italic leading-relaxed animate-fade-in">
                   <div className="flex items-center gap-1">
                     <span className="inline-flex gap-0.5">
                       <span className="w-1 h-1 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
@@ -211,13 +211,13 @@ export const ChatListItem = React.memo(({
                     <span className="truncate">{typingInfo?.names?.[0] || 'Менеджер'} печатает...</span>
                   </div>
                   {typingInfo?.draftText && (
-                    <p className="text-[11px] text-orange-500/80 truncate mt-0.5 font-normal not-italic">
+                    <p className="text-[11px] text-orange-500/80 truncate mt-0.5 font-normal not-italic animate-fade-in" style={{animationDelay: '100ms'}}>
                       «{typingInfo.draftText.length > 50 ? `${typingInfo.draftText.slice(0, 50)}…` : typingInfo.draftText}»
                     </p>
                   )}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
+                <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed transition-opacity duration-200">
                   {chat.lastMessage || "Нет сообщений"}
                 </p>
               )}
