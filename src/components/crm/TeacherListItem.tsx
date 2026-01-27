@@ -1,6 +1,7 @@
 import React, { useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Pin } from 'lucide-react';
 import { TeacherChatItem } from '@/hooks/useTeacherChats';
 import { TeacherChatContextMenu } from './TeacherChatContextMenu';
@@ -65,6 +66,8 @@ interface TeacherListItemProps {
   onBlock?: () => void;
   onDelete?: () => void;
   onPrefetch?: (teacherId: string, clientId: string | null) => void;
+  isInWorkByOthers?: boolean;
+  pinnedByUserName?: string;
 }
 
 export const TeacherListItem: React.FC<TeacherListItemProps> = ({
@@ -77,7 +80,9 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
   onPinDialog,
   onBlock,
   onDelete,
-  onPrefetch
+  onPrefetch,
+  isInWorkByOthers = false,
+  pinnedByUserName
 }) => {
   const queryClient = useQueryClient();
   const prefetchTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -179,6 +184,19 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
               </p>
               {flags && <span className="text-[10px] flex-shrink-0">{flags}</span>}
               {isPinned && <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />}
+            </div>
+            
+            <div className="flex items-center gap-1 flex-wrap mb-0.5">
+              {isPinned && (
+                <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/50">
+                  В работе
+                </Badge>
+              )}
+              {isInWorkByOthers && pinnedByUserName && (
+                <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50">
+                  У {pinnedByUserName}
+                </Badge>
+              )}
             </div>
             
             <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">

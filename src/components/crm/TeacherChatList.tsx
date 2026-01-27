@@ -34,6 +34,10 @@ export interface TeacherChatListProps {
   onPinDialog?: (teacherId: string) => void;
   onDelete?: (teacherId: string) => void;
 
+  // Shared states for "in work by others" badges
+  isInWorkByOthers?: (teacherId: string) => boolean;
+  getPinnedByUserName?: (teacherId: string) => string;
+
   // Search / filters
   searchQuery: string;
   setSearchQuery: (value: string) => void;
@@ -65,6 +69,8 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
   onMarkRead,
   onPinDialog,
   onDelete,
+  isInWorkByOthers,
+  getPinnedByUserName,
   searchQuery,
   setSearchQuery,
   showFilters,
@@ -445,6 +451,8 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
                     onMarkRead={onMarkRead ? () => onMarkRead(teacher.id) : undefined}
                     onPinDialog={onPinDialog ? () => onPinDialog(teacher.id) : undefined}
                     onDelete={onDelete ? () => onDelete(teacher.id) : undefined}
+                    isInWorkByOthers={isInWorkByOthers ? isInWorkByOthers(teacher.id) : false}
+                    pinnedByUserName={getPinnedByUserName ? getPinnedByUserName(teacher.id) : undefined}
                   />
                 </div>
               );
