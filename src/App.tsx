@@ -12,6 +12,7 @@ import Footer from "@/components/Footer";
 import ChatBot from "@/components/ChatBot";
 import ScrollToTop from "@/components/ScrollToTop";
 import { lazy, Suspense, useEffect } from "react";
+import { PushSubscriptionPrompt } from "@/components/notifications/PushSubscriptionPrompt";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 // Disable pinch-to-zoom and double-tap zoom on iOS Safari
@@ -651,6 +652,7 @@ const App = () => {
               <BrowserRouter>
                 <ScrollToTop />
                 <AppContent />
+                <PushSubscriptionPrompt />
               </BrowserRouter>
             </TooltipProvider>
           </LanguageProvider>
