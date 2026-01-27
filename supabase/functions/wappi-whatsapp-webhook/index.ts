@@ -354,7 +354,7 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
       const clientFullName = [client.first_name, client.last_name]
         .filter(Boolean).join(' ') || client.name || 'Клиент';
       
-      await sendPushNotification({
+      const pushResult = await sendPushNotification({
         userIds,
         payload: {
           title: clientFullName,
@@ -364,7 +364,21 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
           tag: `whatsapp-chat-${client.id}`,
         },
       });
-      console.log('Push notification sent for WhatsApp message to', userIds.length, 'users in org:', organizationId);
+      console.log('Push notification sent for WhatsApp message to', userIds.length, 'users in org:', organizationId, 'result:', pushResult);
+      
+      // Log push result for diagnostics
+      await supabase.from('webhook_logs').insert({
+        messenger_type: 'push-diagnostic',
+        event_type: 'whatsapp-push-sent',
+        webhook_data: {
+          clientId: client.id,
+          organizationId,
+          userIds,
+          pushResult,
+          timestamp: new Date().toISOString(),
+        },
+        processed: true
+      }).catch((e: unknown) => console.error('[wappi-webhook] Failed to log push result:', e));
     }
   } catch (pushErr) {
     console.error('Error sending push notification:', pushErr);

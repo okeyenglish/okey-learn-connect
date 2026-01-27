@@ -207,7 +207,7 @@ async function handleIncomingMessage(
         ? `${client.first_name} ${client.last_name}`.trim()
         : client.name || senderName;
       
-      await sendPushNotification({
+      const pushResult = await sendPushNotification({
         userIds,
         payload: {
           title: clientFullName,
@@ -217,7 +217,21 @@ async function handleIncomingMessage(
           tag: `telegram-chat-${client.id}`,
         },
       });
-      console.log('Push notification sent for Telegram message to', userIds.length, 'users in org:', organizationId);
+      console.log('Push notification sent for Telegram message to', userIds.length, 'users in org:', organizationId, 'result:', pushResult);
+      
+      // Log push result for diagnostics
+      await supabase.from('webhook_logs').insert({
+        messenger_type: 'push-diagnostic',
+        event_type: 'telegram-push-sent',
+        webhook_data: {
+          clientId: client.id,
+          organizationId,
+          userIds,
+          pushResult,
+          timestamp: new Date().toISOString(),
+        },
+        processed: true
+      }).catch((e: unknown) => console.error('[telegram-webhook] Failed to log push result:', e));
     }
   } catch (pushErr) {
     console.error('Error sending push notification:', pushErr);
