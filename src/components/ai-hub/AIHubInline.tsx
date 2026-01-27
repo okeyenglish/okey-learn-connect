@@ -44,6 +44,14 @@ import { CreateStaffGroupModal } from '@/components/ai-hub/CreateStaffGroupModal
 import { LinkTeacherProfileModal } from '@/components/ai-hub/LinkTeacherProfileModal';
 import VoiceAssistant from '@/components/VoiceAssistant';
 import { usePersistedSections } from '@/hooks/usePersistedSections';
+import { useUserAllowedBranches } from '@/hooks/useUserAllowedBranches';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface AIHubInlineProps {
   context?: {
@@ -107,8 +115,10 @@ export const AIHubInline = ({
   const [isRecording, setIsRecording] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [teacherClientId, setTeacherClientId] = useState<string | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState<string>('all');
   
   const { aiSectionExpanded, toggleAiSection } = usePersistedSections();
+  const { branchesForDropdown } = useUserAllowedBranches();
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
@@ -342,10 +352,34 @@ export const AIHubInline = ({
     return consultant?.placeholder || 'Введите сообщение...';
   };
 
-  const filteredChats = allChats.filter(item =>
+  // Filter by search query
+  const searchFiltered = allChats.filter(item =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Filter by branch (for staff and teachers only)
+  const filteredChats = searchFiltered.filter(item => {
+    // AI chats and groups are always shown
+    if (item.type === 'assistant' || ['lawyer', 'accountant', 'marketer', 'hr', 'methodist', 'it'].includes(item.type) || item.type === 'group') {
+      return true;
+    }
+    
+    // Apply branch filter for teachers and staff
+    if (selectedBranch === 'all') return true;
+    
+    if (item.type === 'teacher') {
+      const teacher = item.data as TeacherChatItem;
+      return teacher?.branch === selectedBranch;
+    }
+    
+    if (item.type === 'staff') {
+      const staff = item.data as StaffMember;
+      return staff?.branch === selectedBranch;
+    }
+    
+    return true;
+  });
 
   const aiChatsList = filteredChats.filter(item => item.type === 'assistant' || ['lawyer', 'accountant', 'marketer', 'hr', 'methodist', 'it'].includes(item.type));
   const corporateChatsList = filteredChats.filter(item => item.type === 'group' || item.type === 'teacher' || item.type === 'staff');
@@ -487,8 +521,8 @@ export const AIHubInline = ({
   // Main chat list - matching client/teacher list design
   return (
     <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-background">
-      {/* Search bar matching client list */}
-      <div className="p-2 border-b shrink-0">
+      {/* Search bar and branch filter */}
+      <div className="p-2 border-b shrink-0 space-y-2">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
@@ -498,6 +532,21 @@ export const AIHubInline = ({
             className="h-8 text-sm pl-8"
           />
         </div>
+        
+        {/* Branch filter */}
+        <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue placeholder="Все филиалы" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Все филиалы</SelectItem>
+            {branchesForDropdown.map((branch) => (
+              <SelectItem key={branch} value={branch}>
+                {branch}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <ScrollArea className="flex-1">
