@@ -508,6 +508,20 @@ export interface TypingStatus {
   manager_name?: string | null;
 }
 
+export type PresenceType = 'viewing' | 'on_call';
+
+export interface ChatPresence {
+  id: string;
+  user_id: string;
+  client_id: string;
+  presence_type: PresenceType;
+  manager_name: string | null;
+  manager_avatar_url: string | null;
+  updated_at: string;
+  created_at: string;
+}
+
+
 export interface MessageReadStatus {
   id: string;
   message_id: string;

@@ -135,6 +135,7 @@ import {
 } from "lucide-react";
 import { AnimatedLogo } from "@/components/AnimatedLogo";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
+import { useChatPresenceList, useChatPresenceTracker } from "@/hooks/useChatPresence";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import { toast } from "sonner";
 import { useBulkActionUndo, BulkActionState } from "@/hooks/useBulkActionUndo";
@@ -443,7 +444,10 @@ const CRMContent = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   const { typingByClient } = useTypingPresence();
+  const { presenceByClient } = useChatPresenceList();
   
+  // Track current user's presence in the active chat
+  useChatPresenceTracker(activeChatId);
   // Enable real-time updates for clients data
   useRealtimeClients();
   
@@ -3493,6 +3497,7 @@ const CRMContent = () => {
                           getMessengerType={getMessengerType}
                           searchQuery={chatSearchQuery}
                           typingByClient={typingByClient}
+                          presenceByClient={presenceByClient}
                           onChatClick={handleChatClick}
                           onChatAction={handleChatAction}
                           onBulkSelect={handleBulkSelectToggle}
@@ -3538,6 +3543,7 @@ const CRMContent = () => {
                         getMessengerType={getMessengerType}
                         searchQuery={chatSearchQuery}
                         typingByClient={typingByClient}
+                        presenceByClient={presenceByClient}
                         onChatClick={handleChatClick}
                         onChatAction={handleChatAction}
                         onBulkSelect={handleBulkSelectToggle}
@@ -3915,6 +3921,7 @@ const CRMContent = () => {
                           getMessengerType={getMessengerType}
                           searchQuery={chatSearchQuery}
                           typingByClient={typingByClient}
+                          presenceByClient={presenceByClient}
                           onChatClick={handleChatClick}
                           onChatAction={handleChatAction}
                           onBulkSelect={handleBulkSelectToggle}
@@ -3962,6 +3969,7 @@ const CRMContent = () => {
                         getMessengerType={getMessengerType}
                         searchQuery={chatSearchQuery}
                         typingByClient={typingByClient}
+                        presenceByClient={presenceByClient}
                         onChatClick={handleChatClick}
                         onChatAction={handleChatAction}
                         onBulkSelect={handleBulkSelectToggle}

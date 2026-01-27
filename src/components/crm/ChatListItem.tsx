@@ -3,6 +3,8 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Pin, MessageSquare } from "lucide-react";
 import { ChatContextMenu } from "./ChatContextMenu";
+import { ChatPresenceIndicator } from "./ChatPresenceIndicator";
+import type { PresenceInfo } from '@/hooks/useChatPresence';
 
 interface TypingInfo {
   count: number;
@@ -35,6 +37,7 @@ interface ChatListItemProps {
   foundInMessages?: boolean;
   searchQuery?: string;
   typingInfo?: TypingInfo | null;
+  presenceInfo?: PresenceInfo | null;
   onChatClick: () => void;
   onMarkUnread: () => void;
   onMarkRead?: () => void;
@@ -86,6 +89,7 @@ export const ChatListItem = React.memo(({
   foundInMessages,
   searchQuery,
   typingInfo,
+  presenceInfo,
   onChatClick,
   onMarkUnread,
   onMarkRead,
@@ -97,6 +101,7 @@ export const ChatListItem = React.memo(({
   onBulkSelect
 }: ChatListItemProps) => {
   const isTyping = typingInfo && typingInfo.count > 0;
+  const hasPresence = presenceInfo && presenceInfo.viewers.length > 0;
   
   return (
     <ChatContextMenu
@@ -225,7 +230,13 @@ export const ChatListItem = React.memo(({
           </div>
           
           <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-            <span className="text-[10px] text-muted-foreground font-medium">{chat.time}</span>
+            <div className="flex items-center gap-1">
+              {/* Presence indicator */}
+              {hasPresence && (
+                <ChatPresenceIndicator presence={presenceInfo} compact />
+              )}
+              <span className="text-[10px] text-muted-foreground font-medium">{chat.time}</span>
+            </div>
             {displayUnread && (
               <span className={`${
                 isPinned ? 'bg-gradient-to-r from-orange-500 to-orange-600' : 'bg-gradient-to-r from-primary to-primary/90'
@@ -256,10 +267,12 @@ export const ChatListItem = React.memo(({
   const nextTypingName = nextProps.typingInfo?.names?.[0] ?? '';
   const prevDraftText = prevProps.typingInfo?.draftText ?? '';
   const nextDraftText = nextProps.typingInfo?.draftText ?? '';
+  const prevPresenceCount = prevProps.presenceInfo?.viewers?.length ?? 0;
+  const nextPresenceCount = nextProps.presenceInfo?.viewers?.length ?? 0;
   
   return (
     prevProps.chat.id === nextProps.chat.id &&
-    prevProps.chat.name === nextProps.chat.name && // ВАЖНО: обновлять при изменении имени
+    prevProps.chat.name === nextProps.chat.name &&
     prevProps.chat.unread === nextProps.chat.unread &&
     prevProps.chat.lastMessage === nextProps.chat.lastMessage &&
     prevProps.chat.time === nextProps.chat.time &&
@@ -274,7 +287,8 @@ export const ChatListItem = React.memo(({
     prevProps.searchQuery === nextProps.searchQuery &&
     prevTypingCount === nextTypingCount &&
     prevTypingName === nextTypingName &&
-    prevDraftText === nextDraftText
+    prevDraftText === nextDraftText &&
+    prevPresenceCount === nextPresenceCount
   );
 });
 
