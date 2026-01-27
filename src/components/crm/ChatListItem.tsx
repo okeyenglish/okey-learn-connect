@@ -212,7 +212,7 @@ export const ChatListItem = React.memo(({
                   </div>
                   {typingInfo?.draftText && (
                     <p className="text-[11px] text-orange-500/80 truncate mt-0.5 font-normal not-italic">
-                      «{typingInfo.draftText}»
+                      «{typingInfo.draftText.length > 50 ? `${typingInfo.draftText.slice(0, 50)}…` : typingInfo.draftText}»
                     </p>
                   )}
                 </div>
