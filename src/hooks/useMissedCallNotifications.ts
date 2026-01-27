@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import type { ReactNode } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { playNotificationSound } from '@/hooks/useNotificationSound';
 import { showBrowserNotification } from '@/hooks/useBrowserNotifications';
@@ -53,7 +54,7 @@ export const useMissedCallNotifications = () => {
 /**
  * Component wrapper for using the hook in non-hook contexts
  */
-export const MissedCallNotificationProvider = ({ children }: { children?: React.ReactNode }) => {
+export const MissedCallNotificationProvider = ({ children }: { children?: ReactNode }) => {
   useMissedCallNotifications();
   return children;
 };
