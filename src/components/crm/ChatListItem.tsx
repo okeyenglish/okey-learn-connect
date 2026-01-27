@@ -1,9 +1,15 @@
 import React from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Pin, MessageSquare } from "lucide-react";
+import { Pin, MessageSquare, MessageCircle } from "lucide-react";
 import { ChatContextMenu } from "./ChatContextMenu";
 import { ChatPresenceIndicator } from "./ChatPresenceIndicator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { PresenceInfo } from '@/hooks/useChatPresence';
 
 interface TypingInfo {
@@ -31,6 +37,8 @@ interface ChatListItemProps {
   showEye: boolean;
   isInWorkByOthers: boolean;
   pinnedByUserName?: string;
+  pinnedByUserId?: string;
+  onMessageUser?: (userId: string, userName: string) => void;
   profile?: any;
   bulkSelectMode: boolean;
   isSelected: boolean;
@@ -83,6 +91,8 @@ export const ChatListItem = React.memo(({
   showEye,
   isInWorkByOthers,
   pinnedByUserName,
+  pinnedByUserId,
+  onMessageUser,
   profile,
   bulkSelectMode,
   isSelected,
@@ -193,9 +203,39 @@ export const ChatListItem = React.memo(({
                   </Badge>
                 )}
                 {isInWorkByOthers && pinnedByUserName && (
-                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50">
-                    У {pinnedByUserName}
-                  </Badge>
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge 
+                          variant="outline" 
+                          className="text-[10px] h-4 px-1.5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 cursor-pointer hover:bg-blue-100 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (pinnedByUserId && onMessageUser) {
+                              onMessageUser(pinnedByUserId, pinnedByUserName);
+                            }
+                          }}
+                        >
+                          В работе
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="flex flex-col gap-1 p-2">
+                        <span className="text-xs font-medium">У {pinnedByUserName}</span>
+                        {pinnedByUserId && onMessageUser && (
+                          <button 
+                            className="flex items-center gap-1 text-[10px] text-primary hover:underline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onMessageUser(pinnedByUserId, pinnedByUserName);
+                            }}
+                          >
+                            <MessageCircle className="h-3 w-3" />
+                            Написать в ChatOS
+                          </button>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
                 {foundInMessages && (
                   <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 flex items-center gap-0.5">

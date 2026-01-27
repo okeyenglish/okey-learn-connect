@@ -8,6 +8,7 @@ interface SharedChatState {
   user_id: string;
   pinned_by_others: boolean;
   pinned_by_user_name?: string;
+  pinned_by_user_id?: string;
 }
 
 export const useSharedChatStates = (chatIds: string[] = []) => {
@@ -42,7 +43,8 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
       // Chunk the IDs to avoid URL length limits (max ~100 IDs per request)
       const CHUNK_SIZE = 100;
       const myStatesMap = new Map<string, boolean>();
-      const countMap = new Map<string, number>();
+      // Map: chat_id -> { user_id, user_name }
+      const pinnedByMap = new Map<string, { user_id: string; user_name: string }>();
 
       // Мои состояния чатов - chunked
       for (let i = 0; i < currentChatIds.length; i += CHUNK_SIZE) {
@@ -64,33 +66,55 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
         });
       }
 
-      // Глобальный счетчик закреплений по чату - chunked
+      // Получаем все закрепления других пользователей с именами - chunked
       for (let i = 0; i < currentChatIds.length; i += CHUNK_SIZE) {
         const chunk = currentChatIds.slice(i, i + CHUNK_SIZE);
         
-        const { data: counts, error: countsError } = await supabase.rpc('get_chat_pin_counts', {
-          _chat_ids: chunk
-        });
+        const { data: otherPins, error: pinsError } = await supabase
+          .from('chat_states')
+          .select(`
+            chat_id,
+            user_id,
+            profiles!chat_states_user_id_fkey(first_name, last_name)
+          `)
+          .eq('is_pinned', true)
+          .neq('user_id', user.id)
+          .in('chat_id', chunk);
 
-        if (countsError) {
-          console.error('Error fetching shared pin counts chunk:', countsError);
+        if (pinsError) {
+          console.error('Error fetching other users pins chunk:', pinsError);
           continue;
         }
 
-        (counts || []).forEach((row: any) => countMap.set(row.chat_id, row.pin_count));
+        (otherPins || []).forEach((pin: any) => {
+          const profile = pin.profiles;
+          const userName = profile 
+            ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Менеджер'
+            : 'Менеджер';
+          
+          // Сохраняем первого закрепившего (если несколько)
+          if (!pinnedByMap.has(pin.chat_id)) {
+            pinnedByMap.set(pin.chat_id, { 
+              user_id: pin.user_id, 
+              user_name: userName 
+            });
+          }
+        });
       }
 
       // Собираем итоговую карту только для запрошенных chatIds
       const chatStatesMap: Record<string, SharedChatState> = {};
       currentChatIds.forEach((chatId) => {
         const isPinnedByMe = myStatesMap.get(chatId) || false;
-        const totalPins = countMap.get(chatId) || 0;
+        const pinnedByOther = pinnedByMap.get(chatId);
+        
         chatStatesMap[chatId] = {
           chat_id: chatId,
           is_pinned: isPinnedByMe,
           user_id: isPinnedByMe ? user.id : '',
-          pinned_by_others: totalPins > 0 && !isPinnedByMe,
-          pinned_by_user_name: undefined
+          pinned_by_others: !!pinnedByOther,
+          pinned_by_user_name: pinnedByOther?.user_name,
+          pinned_by_user_id: pinnedByOther?.user_id
         };
       });
 
@@ -167,7 +191,12 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
 
   const getPinnedByUserName = (chatId: string): string => {
     const state = sharedStates[chatId];
-    return state?.pinned_by_user_name || 'Неизвестный пользователь';
+    return state?.pinned_by_user_name || '';
+  };
+
+  const getPinnedByUserId = (chatId: string): string | undefined => {
+    const state = sharedStates[chatId];
+    return state?.pinned_by_user_id;
   };
 
   return {
@@ -175,6 +204,7 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
     isPinnedByCurrentUser,
     isPinnedByAnyone,
     getPinnedByUserName,
+    getPinnedByUserId,
     isLoading
   };
 };
