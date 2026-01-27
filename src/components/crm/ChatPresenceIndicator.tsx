@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Phone, Users, MessageCircle, Send, X } from 'lucide-react';
+import { Phone, Users, MessageCircle, Send, X, ArrowRightLeft } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,8 @@ interface ChatPresenceIndicatorProps {
   presence: PresenceInfo | null | undefined;
   compact?: boolean;
   clientName?: string;
+  onRequestTakeover?: (userId: string, userName: string) => void;
+  isTypingByOther?: boolean;
 }
 
 // Animated reading eyes component - emoji style 👀 with blinking
@@ -169,11 +171,13 @@ const getTooltipTitle = (viewers: Array<{ type: PresenceType }>) => {
   return '👀 Сейчас смотрят:';
 };
 
-// Viewer row with message button
+// Viewer row with message and takeover buttons
 const ViewerRow: React.FC<{
   viewer: { userId: string; name: string; avatarUrl: string | null; type: PresenceType };
   clientName?: string;
-}> = ({ viewer, clientName }) => {
+  onRequestTakeover?: (userId: string, userName: string) => void;
+  isTypingByOther?: boolean;
+}> = ({ viewer, clientName, onRequestTakeover, isTypingByOther }) => {
   const [showMessageInput, setShowMessageInput] = useState(false);
 
   if (showMessageInput) {
@@ -206,17 +210,42 @@ const ViewerRow: React.FC<{
           )}
         </span>
       </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
-        onClick={(e) => {
-          e.stopPropagation();
-          setShowMessageInput(true);
-        }}
-      >
-        <MessageCircle className="h-3 w-3 text-muted-foreground" />
-      </Button>
+      <div className="flex items-center gap-0.5">
+        {/* Takeover button - only show if other is typing */}
+        {isTypingByOther && onRequestTakeover && (
+          <TooltipProvider delayDuration={100}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-orange-500 hover:text-orange-600 hover:bg-orange-50"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRequestTakeover(viewer.userId, viewer.name);
+                  }}
+                >
+                  <ArrowRightLeft className="h-3 w-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                Перехватить чат
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowMessageInput(true);
+          }}
+        >
+          <MessageCircle className="h-3 w-3 text-muted-foreground" />
+        </Button>
+      </div>
     </div>
   );
 };
@@ -225,6 +254,8 @@ export const ChatPresenceIndicator: React.FC<ChatPresenceIndicatorProps> = ({
   presence,
   compact = false,
   clientName,
+  onRequestTakeover,
+  isTypingByOther,
 }) => {
   if (!presence || presence.viewers.length === 0) {
     return null;
@@ -255,7 +286,13 @@ export const ChatPresenceIndicator: React.FC<ChatPresenceIndicatorProps> = ({
         {getTooltipTitle(viewers)}
       </p>
       {viewers.map((viewer) => (
-        <ViewerRow key={viewer.userId} viewer={viewer} clientName={clientName} />
+        <ViewerRow 
+          key={viewer.userId} 
+          viewer={viewer} 
+          clientName={clientName}
+          onRequestTakeover={onRequestTakeover}
+          isTypingByOther={isTypingByOther}
+        />
       ))}
     </div>
   );

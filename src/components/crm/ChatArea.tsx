@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, PanelLeft, PanelRight, CheckCheck, ListTodo, CreditCard, User } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, PanelLeft, PanelRight, CheckCheck, ListTodo, CreditCard, User, ArrowRightLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -51,6 +51,8 @@ import { useClientAvatars } from '@/hooks/useClientAvatars';
 import { useMessengerIntegrationStatus, useAllIntegrationsStatus, MessengerType } from '@/hooks/useMessengerIntegrationStatus';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useMessageDrafts } from '@/hooks/useMessageDrafts';
+import { useChatTakeover } from '@/hooks/useChatTakeover';
+import { TakeoverRequestDialog } from './TakeoverRequestDialog';
 
 interface ChatAreaProps {
   clientId: string;
@@ -298,6 +300,15 @@ export const ChatArea = ({
   const markChatMessagesAsReadByMessengerMutation = useMarkChatMessagesAsReadByMessenger();
   const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
   const queryClient = useQueryClient();
+  
+  // Chat takeover functionality
+  const { 
+    incomingRequest, 
+    receivedDraft, 
+    requestTakeover, 
+    respondToRequest, 
+    clearReceivedDraft 
+  } = useChatTakeover(clientId);
 
   // Auto-retry logic for failed messages (30 sec delay, max 3 attempts)
   const handleAutoRetry = useCallback(async (messageId: string, retryCount: number): Promise<boolean> => {
@@ -503,6 +514,19 @@ export const ChatArea = ({
     setInitialSearchApplied(null);
     setCurrentHighlightedId(null);
   }, [clientId]);
+
+  // Handle received draft from chat takeover
+  useEffect(() => {
+    if (receivedDraft) {
+      console.log('[ChatArea] Received draft from takeover:', receivedDraft);
+      setMessage(receivedDraft);
+      clearReceivedDraft();
+      toast({
+        title: "Черновик получен",
+        description: "Текст от предыдущего менеджера добавлен в поле ввода",
+      });
+    }
+  }, [receivedDraft, clearReceivedDraft, toast]);
 
   // Handle highlighted message - scroll to it and highlight
   // Also auto-find first matching message when initialSearchQuery is provided
@@ -2748,18 +2772,32 @@ export const ChatArea = ({
             {/* Typing indicator above textarea */}
             {isOtherUserTyping && typingInfo && (
               <div className="px-2 py-1.5 bg-orange-50 border border-orange-200 rounded-md mb-1">
-                <div className="text-xs text-orange-700 flex items-center gap-1.5">
-                  <span className="inline-flex gap-0.5">
-                    <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
-                    <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
-                    <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
-                  </span>
-                  <span className="font-medium">{typingInfo.managerName}</span>
-                  <span>печатает:</span>
-                  {typingInfo.draftText && (
-                    <span className="text-orange-600 italic truncate max-w-[200px]">
-                      "{typingInfo.draftText}"
+                <div className="text-xs text-orange-700 flex items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="inline-flex gap-0.5 shrink-0">
+                      <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
+                      <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
+                      <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
                     </span>
+                    <span className="font-medium shrink-0">{typingInfo.managerName}</span>
+                    <span className="shrink-0">печатает:</span>
+                    {typingInfo.draftText && (
+                      <span className="text-orange-600 italic truncate max-w-[200px]">
+                        "{typingInfo.draftText}"
+                      </span>
+                    )}
+                  </div>
+                  {/* Takeover button */}
+                  {typingInfo.managerId && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-orange-700 hover:text-orange-900 hover:bg-orange-100 shrink-0"
+                      onClick={() => requestTakeover(typingInfo.managerId!, typingInfo.managerName || 'Менеджер', clientName)}
+                    >
+                      <ArrowRightLeft className="h-3 w-3 mr-1" />
+                      <span className="text-[10px]">Перехватить</span>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -3228,6 +3266,17 @@ export const ChatArea = ({
           // Фокус на поле ввода
           setTimeout(() => textareaRef.current?.focus(), 100);
         }}
+      />
+
+      {/* Takeover Request Dialog */}
+      <TakeoverRequestDialog
+        request={incomingRequest}
+        draftText={message}
+        onApprove={(draftText) => {
+          respondToRequest(true, draftText);
+          setMessage(''); // Clear after transfer
+        }}
+        onDecline={() => respondToRequest(false)}
       />
 
     </div>
