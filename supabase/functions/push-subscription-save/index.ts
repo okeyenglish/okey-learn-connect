@@ -44,6 +44,16 @@ Deno.serve(async (req) => {
     const isAnonKeyAuth =
       apiKeyHeader === expectedAnonKey || bearerToken === expectedAnonKey;
 
+    // Debug: always log summary (redacted) for troubleshooting cross-env auth
+    const redact = (v: string | null | undefined) =>
+      v ? `${v.slice(0, 20)}…(len:${v.length})` : null;
+    console.log("[push-subscription-save] Auth check", {
+      isAnonKeyAuth,
+      apiKeyHeader: redact(apiKeyHeader),
+      bearerToken: redact(bearerToken),
+      expectedAnonKey: redact(expectedAnonKey),
+    });
+
     let isValidBackendJwt = false;
     if (!isAnonKeyAuth) {
       const tokensToValidate = [bearerToken, apiKeyHeader].filter(
