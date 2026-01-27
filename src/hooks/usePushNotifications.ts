@@ -1,8 +1,8 @@
 /* @refresh reset */
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 // VAPID public key - must match the VAPID_PUBLIC_KEY in Supabase secrets
 const VAPID_PUBLIC_KEY = 'BCqgfbaK1qdKUo3mtYwL3UAGl5tcaRyIMEE_Dmt7vc6sGSQ_MO730PV3bc9mF5WAMeGhl4t2byCljxFpkbjiwGM';
@@ -304,14 +304,6 @@ export function usePushNotifications() {
         return false;
       }
 
-      // Clean up ALL old subscriptions for this user before creating new one
-      // This ensures only the current device/browser endpoint is active
-      console.log('[Push] Cleaning old subscriptions for user:', user.id);
-      await supabase
-        .from('push_subscriptions')
-        .delete()
-        .eq('user_id', user.id);
-
       // Subscribe to push
       // iOS Safari is picky about the key type; pass Uint8Array (not .buffer) for best compatibility.
       const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
@@ -326,24 +318,24 @@ export function usePushNotifications() {
         throw new Error('Invalid subscription data');
       }
 
-      // Save subscription to database with VAPID key info for debugging
-      const { error } = await supabase
-        .from('push_subscriptions')
-        .upsert({
-          user_id: user.id,
-          endpoint: subscriptionJson.endpoint,
-          keys: {
-            p256dh: subscriptionJson.keys.p256dh,
-            auth: subscriptionJson.keys.auth,
-          },
-        }, {
-          onConflict: 'user_id,endpoint',
-        });
+      // Save subscription to self-hosted database via Edge Function
+      console.log('[Push] Saving subscription to self-hosted for user:', user.id);
+      const saveResponse = await selfHostedPost<{ success: boolean; error?: string }>('push-subscription-save', {
+        user_id: user.id,
+        endpoint: subscriptionJson.endpoint,
+        keys: {
+          p256dh: subscriptionJson.keys.p256dh,
+          auth: subscriptionJson.keys.auth,
+        },
+        user_agent: navigator.userAgent,
+      });
 
-      if (error) {
-        console.error('Error saving subscription:', error);
-        throw error;
+      if (!saveResponse.success || saveResponse.error) {
+        console.error('Error saving subscription:', saveResponse.error);
+        throw new Error(saveResponse.error || 'Failed to save subscription');
       }
+      
+      console.log('[Push] Subscription saved successfully');
 
       setState(prev => ({ 
         ...prev, 
@@ -382,14 +374,20 @@ export function usePushNotifications() {
       const subscription = await registration.pushManager.getSubscription();
 
       if (subscription) {
+        const endpoint = subscription.endpoint;
         await subscription.unsubscribe();
 
-        // Remove from database
-        await supabase
-          .from('push_subscriptions')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('endpoint', subscription.endpoint);
+        // Remove from self-hosted database via Edge Function
+        console.log('[Push] Deleting subscription from self-hosted for user:', user.id);
+        const deleteResponse = await selfHostedPost<{ success: boolean; error?: string }>('push-subscription-delete', {
+          user_id: user.id,
+          endpoint,
+        });
+
+        if (!deleteResponse.success) {
+          console.warn('[Push] Error deleting subscription:', deleteResponse.error);
+          // Don't throw - local unsubscribe succeeded
+        }
       }
 
       setState(prev => ({ 
