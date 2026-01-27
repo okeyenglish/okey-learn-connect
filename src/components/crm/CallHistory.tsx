@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, Search, X, CheckCheck, ArrowUp, ArrowDown, Loader2, WifiOff } from "lucide-react";
+import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, Search, X, CheckCheck, ArrowUp, ArrowDown, Loader2, WifiOff, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -31,6 +31,9 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
     isFetchingNextPage,
     isOfflineData,
     isError,
+    isOnline,
+    isSyncing,
+    syncNow,
   } = useInfiniteCallHistory(clientId);
   
   // Flatten all pages into a single array
@@ -363,25 +366,41 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
             )}
           </CardTitle>
           
-          {/* Sort toggle */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
-            className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
-          >
-            {sortOrder === 'newest' ? (
-              <>
-                <ArrowDown className="h-3 w-3" />
-                Новые
-              </>
-            ) : (
-              <>
-                <ArrowUp className="h-3 w-3" />
-                Старые
-              </>
+          <div className="flex items-center gap-1">
+            {/* Sync button */}
+            {(isOfflineData || isError) && isOnline && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={syncNow}
+                disabled={isSyncing}
+                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                title="Синхронизировать"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+              </Button>
             )}
-          </Button>
+            
+            {/* Sort toggle */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+              className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+            >
+              {sortOrder === 'newest' ? (
+                <>
+                  <ArrowDown className="h-3 w-3" />
+                  Новые
+                </>
+              ) : (
+                <>
+                  <ArrowUp className="h-3 w-3" />
+                  Старые
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         {/* Phone search */}
