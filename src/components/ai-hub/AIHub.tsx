@@ -232,15 +232,17 @@ export const AIHub = ({
     data: group,
   }));
 
-  // Teacher chats
+  // Teacher chats - with profile link indicator
   const teacherChatItems: ChatItem[] = teachers.map(teacher => ({
     id: teacher.id,
     type: 'teacher' as ChatType,
     name: teacher.fullName,
-    description: teacher.branch || teacher.email || 'Преподаватель',
+    description: teacher.profileId 
+      ? (teacher.branch || teacher.email || 'Преподаватель')
+      : '⚠️ Нет привязки к профилю',
     icon: GraduationCap,
-    iconBg: 'bg-green-500/10',
-    iconColor: 'text-green-600',
+    iconBg: teacher.profileId ? 'bg-green-500/10' : 'bg-amber-500/10',
+    iconColor: teacher.profileId ? 'text-green-600' : 'text-amber-600',
     unreadCount: teacher.unreadMessages,
     lastMessage: teacher.lastMessageText || undefined,
     data: teacher,
