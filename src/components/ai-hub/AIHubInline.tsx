@@ -382,7 +382,22 @@ export const AIHubInline = ({
   });
 
   const aiChatsList = filteredChats.filter(item => item.type === 'assistant' || ['lawyer', 'accountant', 'marketer', 'hr', 'methodist', 'it'].includes(item.type));
-  const corporateChatsList = filteredChats.filter(item => item.type === 'group' || item.type === 'teacher' || item.type === 'staff');
+  
+  // Corporate chats sorted by last message time (most recent first)
+  const corporateChatsList = filteredChats
+    .filter(item => item.type === 'group' || item.type === 'teacher' || item.type === 'staff')
+    .sort((a, b) => {
+      // Items with unread messages come first
+      const aUnread = a.unreadCount || 0;
+      const bUnread = b.unreadCount || 0;
+      if (aUnread > 0 && bUnread === 0) return -1;
+      if (bUnread > 0 && aUnread === 0) return 1;
+      
+      // Then sort by last message time
+      const aTime = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+      const bTime = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+      return bTime - aTime; // Descending (most recent first)
+    });
 
   // Render AI Assistant inline
   if (activeChat?.type === 'assistant') {
@@ -663,6 +678,17 @@ export const AIHubInline = ({
                             <p className={`text-sm ${hasUnread ? 'font-semibold' : 'font-medium'} truncate`}>
                               {item.name}
                             </p>
+                            {/* Branch badge for teachers and staff */}
+                            {(isTeacher && teacher?.branch) && (
+                              <Badge variant="outline" className="text-[9px] h-4 px-1.5 shrink-0 font-normal bg-green-50 text-green-700 border-green-200">
+                                {teacher.branch}
+                              </Badge>
+                            )}
+                            {(isStaff && staff?.branch) && (
+                              <Badge variant="outline" className="text-[9px] h-4 px-1.5 shrink-0 font-normal bg-blue-50 text-blue-700 border-blue-200">
+                                {staff.branch}
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
                             {item.lastMessage || item.description}
