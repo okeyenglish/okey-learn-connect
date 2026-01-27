@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { User, Settings, Key, LogOut, ChevronDown, Shield, Bell, BellOff, Send } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { User, Settings, Key, LogOut, ChevronDown, Shield, Bell, BellOff, Send, AlertTriangle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,39 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { toast } from "sonner";
+
+/** Inline Focus/DND indicator for dropdown menu */
+function FocusModeIndicator() {
+  const [showWarning, setShowWarning] = useState(false);
+
+  useEffect(() => {
+    const checkFocusMode = () => {
+      try {
+        const detected = localStorage.getItem('push:focus_mode_detected');
+        const detectedAt = localStorage.getItem('push:focus_mode_detected_at');
+        
+        if (detected === 'true' && detectedAt) {
+          const timestamp = parseInt(detectedAt, 10);
+          const oneHourAgo = Date.now() - 60 * 60 * 1000;
+          setShowWarning(timestamp > oneHourAgo);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    checkFocusMode();
+  }, []);
+
+  if (!showWarning) return null;
+
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-sm mx-1 mb-1">
+      <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+      <span>Возможно, включён режим «Не беспокоить»</span>
+    </div>
+  );
+}
 
 interface ManagerMenuProps {
   managerName: string;
@@ -230,13 +263,16 @@ export const ManagerMenu = ({
               />
             </div>
             {isSubscribed && (
-              <DropdownMenuItem
-                onClick={handleTestPush}
-                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted"
-              >
-                <Send className="h-4 w-4 text-muted-foreground" />
-                <span>{testPushLoading ? 'Отправка...' : 'Тест push'}</span>
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuItem
+                  onClick={handleTestPush}
+                  className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted"
+                >
+                  <Send className="h-4 w-4 text-muted-foreground" />
+                  <span>{testPushLoading ? 'Отправка...' : 'Тест push'}</span>
+                </DropdownMenuItem>
+                <FocusModeIndicator />
+              </>
             )}
           </>
         )}

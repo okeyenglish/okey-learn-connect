@@ -308,21 +308,36 @@ export function usePushNotifications() {
 
   // Debug: when SW receives a push, it broadcasts a message to open clients.
   // We only surface this as a toast during a short debug window.
+  // Also detect Focus/DND mode if push was received but notification might be suppressed.
   useEffect(() => {
     if (!isSupported) return;
 
     const onMessage = (event: MessageEvent) => {
       const msg = event.data as any;
       if (!msg || msg.type !== 'PUSH_RECEIVED') return;
-      if (!isDebugWindowActive()) return;
-
+      
+      const isDebugActive = isDebugWindowActive();
       const payload = (msg.payload ?? {}) as { title?: unknown; body?: unknown };
       const title = typeof payload.title === 'string' && payload.title.trim()
         ? `Push получен: ${payload.title}`
         : 'Push получен';
       const body = typeof payload.body === 'string' ? payload.body : '';
-      toast.success(title);
-      if (body) toast.message(body.length > 140 ? `${body.slice(0, 140)}…` : body);
+      
+      if (isDebugActive) {
+        toast.success(title);
+        if (body) toast.message(body.length > 140 ? `${body.slice(0, 140)}…` : body);
+        
+        // If the app is in foreground, the OS notification banner likely won't show.
+        // Mark this as potential Focus/DND mode for the warning indicator.
+        if (document.visibilityState === 'visible' && document.hasFocus()) {
+          try {
+            localStorage.setItem('push:focus_mode_detected', 'true');
+            localStorage.setItem('push:focus_mode_detected_at', String(Date.now()));
+          } catch {
+            // ignore
+          }
+        }
+      }
     };
 
     navigator.serviceWorker.addEventListener('message', onMessage);
