@@ -5,10 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabaseTyped as supabase } from "@/integrations/supabase/typedClient";
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, Link2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useOrganization } from '@/hooks/useOrganization';
 import { getErrorMessage } from '@/lib/errorUtils';
+import { normalizePhone } from '@/utils/phoneNormalization';
+import { Badge } from '@/components/ui/badge';
 
 interface AddTeacherModalProps {
   onTeacherAdded?: () => void;
@@ -50,72 +52,144 @@ export const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ onTeacherAdded
     setIsLoading(true);
 
     try {
-      // 1. Создаем пользователя в auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
+      // 0. Проверяем существующий профиль по email или телефону для автопривязки
+      let existingProfileId: string | null = null;
+      
+      if (formData.email || formData.phone) {
+        const { data: existingProfiles } = await supabase
+          .from('profiles')
+          .select('id, email, phone')
+          .eq('organization_id', organizationId)
+          .eq('is_active', true);
+
+        if (existingProfiles) {
+          // Ищем совпадение по email
+          if (formData.email) {
+            const emailMatch = existingProfiles.find(
+              p => p.email?.toLowerCase() === formData.email.toLowerCase()
+            );
+            if (emailMatch) {
+              existingProfileId = emailMatch.id;
+            }
+          }
+          
+          // Ищем совпадение по телефону если не нашли по email
+          if (!existingProfileId && formData.phone) {
+            const normalizedPhone = normalizePhone(formData.phone);
+            const phoneMatch = existingProfiles.find(
+              p => p.phone && normalizePhone(p.phone) === normalizedPhone
+            );
+            if (phoneMatch) {
+              existingProfileId = phoneMatch.id;
+            }
+          }
+        }
+      }
+
+      // Если нашли существующий профиль - используем его
+      if (existingProfileId) {
+        // Создаем только запись преподавателя с привязкой к существующему профилю
+        const { error: teacherError } = await supabase
+          .from('teachers')
+          .insert({
+            profile_id: existingProfileId,
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            email: formData.email,
+            phone: formData.phone,
+            branch: formData.branch,
+            subjects: formData.subjects,
+            categories: formData.categories,
+            is_active: true,
+          });
+
+        if (teacherError) throw teacherError;
+
+        // Добавляем роль teacher если её нет
+        await supabase
+          .from('user_roles')
+          .upsert({
+            user_id: existingProfileId,
+            role: 'teacher',
+          }, { onConflict: 'user_id,role' });
+
+        toast({
+          title: 'Преподаватель создан',
+          description: (
+            <div className="flex items-center gap-2">
+              <Link2 className="h-4 w-4 text-green-500" />
+              <span>Автоматически привязан к существующему профилю</span>
+            </div>
+          ),
+        });
+      } else {
+        // 1. Создаем нового пользователя в auth
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              phone: formData.phone,
+              branch: formData.branch,
+              organization_id: organizationId,
+            },
+            emailRedirectTo: `${window.location.origin}/`,
+          },
+        });
+
+        if (authError) throw authError;
+        if (!authData.user) throw new Error('Не удалось создать пользователя');
+
+        const userId = authData.user.id;
+
+        // 2. Обновляем профиль
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
             first_name: formData.firstName,
             last_name: formData.lastName,
             phone: formData.phone,
             branch: formData.branch,
             organization_id: organizationId,
-          },
-          emailRedirectTo: `${window.location.origin}/`,
-        },
-      });
+          })
+          .eq('id', userId);
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Не удалось создать пользователя');
+        if (profileError) throw profileError;
 
-      const userId = authData.user.id;
+        // 3. Назначаем роль teacher
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: userId,
+            role: 'teacher',
+          });
 
-      // 2. Обновляем профиль
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          phone: formData.phone,
-          branch: formData.branch,
-          organization_id: organizationId,
-        })
-        .eq('id', userId);
+        if (roleError) throw roleError;
 
-      if (profileError) throw profileError;
+        // 4. Создаем запись в teachers с привязкой profile_id
+        const { error: teacherError } = await supabase
+          .from('teachers')
+          .insert({
+            profile_id: userId,
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            email: formData.email,
+            phone: formData.phone,
+            branch: formData.branch,
+            subjects: formData.subjects,
+            categories: formData.categories,
+            is_active: true,
+          });
 
-      // 3. Назначаем роль teacher
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: userId,
-          role: 'teacher',
+        if (teacherError) throw teacherError;
+
+        toast({
+          title: 'Преподаватель создан',
+          description: `${formData.firstName} ${formData.lastName} успешно добавлен в систему`,
         });
-
-      if (roleError) throw roleError;
-
-      // 4. Создаем запись в teachers с привязкой profile_id
-      const { error: teacherError } = await supabase
-        .from('teachers')
-        .insert({
-          profile_id: userId, // Автоматическая привязка к профилю пользователя
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          email: formData.email,
-          phone: formData.phone,
-          branch: formData.branch,
-          subjects: formData.subjects,
-          categories: formData.categories,
-          is_active: true,
-        });
-
-      if (teacherError) throw teacherError;
-
-      toast({
-        title: 'Преподаватель создан',
-        description: `${formData.firstName} ${formData.lastName} успешно добавлен в систему`,
-      });
+      }
 
       resetForm();
       setOpen(false);

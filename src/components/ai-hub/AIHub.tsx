@@ -44,6 +44,7 @@ import { useStaffTypingIndicator } from '@/hooks/useStaffTypingIndicator';
 import { StaffTypingIndicator } from '@/components/ai-hub/StaffTypingIndicator';
 import { CreateStaffGroupModal } from '@/components/ai-hub/CreateStaffGroupModal';
 import { LinkTeacherProfileModal } from '@/components/ai-hub/LinkTeacherProfileModal';
+import { MassLinkTeacherProfilesModal } from '@/components/ai-hub/MassLinkTeacherProfilesModal';
 import VoiceAssistant from '@/components/VoiceAssistant';
 
 interface AIHubProps {
@@ -752,12 +753,18 @@ export const AIHub = ({
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     Сотрудники и группы
                   </p>
-                  <CreateStaffGroupModal 
-                    onGroupCreated={() => {
-                      // Invalidate internal chats to refresh the list
-                      queryClient.invalidateQueries({ queryKey: ['internal-chats'] });
-                    }}
-                  />
+                  <div className="flex items-center gap-1">
+                    <MassLinkTeacherProfilesModal 
+                      onCompleted={() => {
+                        queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
+                      }}
+                    />
+                    <CreateStaffGroupModal 
+                      onGroupCreated={() => {
+                        queryClient.invalidateQueries({ queryKey: ['internal-chats'] });
+                      }}
+                    />
+                  </div>
                 </div>
                 {corporateChatsList.map((item) => {
                   // For teachers, show initials
