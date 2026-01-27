@@ -11,7 +11,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 // Build timestamp embedded at bundle time (via Vite define or fallback)
 export const BUILD_VERSION = __BUILD_TIMESTAMP__ ?? 'dev';
-export const SW_VERSION = 'push-support-v5'; // Must match src/sw.ts marker
+export const SW_VERSION = 'push-support-v6'; // Must match src/sw.ts marker
 
 declare const __BUILD_TIMESTAMP__: string | undefined;
 

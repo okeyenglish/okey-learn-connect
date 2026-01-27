@@ -3,9 +3,10 @@ import { precacheAndRoute, cleanupOutdatedCaches, PrecacheEntry } from 'workbox-
 
 declare const self: ServiceWorkerGlobalScope;
 
-// ===== MARKER: push-support-v5 =====
+// ===== MARKER: push-support-v6 =====
 // This marker confirms that the custom SW code is deployed
-console.log('[SW] push-support-v5 loaded at', new Date().toISOString());
+// v6: Enhanced iOS Safari compatibility - explicit title handling
+console.log('[SW] push-support-v6 loaded at', new Date().toISOString());
 
 // Force immediate activation - critical for iOS PWA updates
 self.addEventListener('install', () => {
@@ -140,9 +141,13 @@ self.addEventListener('push', (event) => {
     }
   };
 
+  // iOS Safari specific: ensure title is explicitly set
+  const notificationTitle = data.title || "O'KEY ENGLISH";
+  console.log('[SW] Showing notification with title:', notificationTitle, 'body:', data.body?.substring(0, 50));
+
   event.waitUntil(
     Promise.all([
-      self.registration.showNotification(data.title, options),
+      self.registration.showNotification(notificationTitle, options),
       broadcastToClients(),
     ])
   );
