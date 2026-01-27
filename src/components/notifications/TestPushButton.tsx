@@ -33,8 +33,8 @@ export function TestPushButton({ variant = 'outline', size = 'sm', className }: 
       const response = await selfHostedPost<{ sent?: number; failed?: number; details?: unknown }>('send-push-notification', {
         userId: user.id,
         payload: {
-          title: 'Тестовое уведомление 🔔',
-          body: `Push работает! Время: ${new Date().toLocaleTimeString('ru-RU')}`,
+          title: '🔔 Тест push',
+          body: `Система: Push работает! Время: ${new Date().toLocaleTimeString('ru-RU')}`,
           icon: '/pwa-192x192.png',
           badge: '/pwa-192x192.png',
           tag: `test-push-${Date.now()}`, // Unique tag to prevent iOS from collapsing notifications

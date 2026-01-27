@@ -189,8 +189,8 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
       const pushResult = await sendPushNotification({
         userIds,
         payload: {
-          title: clientFullName,
-          body: msgText.slice(0, 100) + (msgText.length > 100 ? '...' : ''),
+          title: '📨 MAX',
+          body: `${clientFullName}: ${msgText.slice(0, 80)}${msgText.length > 80 ? '...' : ''}`,
           icon: client.avatar_url || '/pwa-192x192.png',
           url: `/newcrm?clientId=${client.id}`,
           tag: `max-${client.id}-${Date.now()}`,
