@@ -1,132 +1,151 @@
 
-Цель: устранить ошибку подписки Push в PWA (“Unauthorized - invalid API key”) и сделать диагностику/обновление PWA предсказуемыми, чтобы подобные “залипания” на старом коде больше не ломали push.
 
----
+## Цель
+Сделать так, чтобы входящие сообщения от клиентов (WhatsApp, Telegram/MAX, OnlinePBX) приводили к push-уведомлениям для admin/manager пользователей организации, а «Тест push» использовал надёжную стратегию «свежая + fallback».
 
-## 1) Что именно сейчас ломается (диагностика по фактам)
+## Диагностика проблемы
 
-### 1.1. Ошибка приходит из backend-функции Lovable Cloud `push-subscription-save`
-По логам функции `push-subscription-save` видно:
+### Почему тест в меню работает, а сообщения от клиентов — нет?
 
-- `expectedAnonKey: "sb_publishable_…(len:46)"`  
-  Это “publishable key” нового формата (`sb_publishable_*`), который функция ожидает как API key.
+1. **Тест push** (`ManagerMenu.tsx`, `PushDiagnostics.tsx`) вызывает:
+   ```typescript
+   selfHostedPost('send-push-notification', { userId: user.id, payload: {...} })
+   ```
+   Это прямой вызов self-hosted функции `send-push-notification` — она работает.
 
-- При этом запрос приносит:
-  - `apikey` длиной **208** (JWT-подобный ключ старого формата)
-  - `Authorization Bearer` длиной **817** (похоже на access token от self-hosted авторизации)
+2. **Входящие сообщения** обрабатываются webhooks (`telegram-webhook`, `wappi-whatsapp-webhook`, и т.д.), которые:
+   - Вызывают `sendPushNotification()` из `_shared/types.ts`
+   - `sendPushNotification()` делает HTTP-запрос к `https://api.academyos.ru/functions/v1/send-push-notification`
 
-Итог: `isAnonKeyAuth: false` → функция возвращает **401 Unauthorized - invalid API key**.
+3. **Критическая проблема**: Edge Functions в этом репозитории (Lovable Cloud) **не синхронизируются автоматически** с self-hosted Supabase (`api.academyos.ru`). 
 
-### 1.2. Почему “фикс” не проявляется в PWA
-По логам видно, что `Authorization` в запросе — **817 символов**, хотя в текущем `src/lib/pushApiWithFallback.ts` “cloud-вызов” должен отправлять `Authorization: Bearer <cloud anon>` (короткий 208).  
-Это сильный сигнал, что установленная PWA работает на **закэшированном старом JS-бандле** (и/или старом Service Worker), и поэтому ваши последние изменения:
-- fallback-логика,
-- добавление `apikey` в self-hosted запросы,
-- и любые правки `pushApiWithFallback`
-в PWA просто **не применяются**.
+   Webhook-функции на self-hosted сервере, скорее всего, работают на **устаревшем коде**:
+   - Может не быть вызова `sendPushNotification()` вообще
+   - Может быть ошибка в `getOrgAdminManagerUserIds()` (неверный join/фильтр)
+   - Может отсутствовать логирование, поэтому нет видимости в том, что происходит
 
-Это типичный сценарий для iOS PWA: приложение продолжает работать на старом Service Worker и “app shell” до тех пор, пока пользователь явно не обновит/переустановит PWA или пока приложение не реализует корректный UX обновления.
+## План исправления
 
----
+### Шаг 1: Добавить диагностическое логирование в webhooks
+Улучшить логирование в каждом webhook для чёткого понимания:
+- Найдена ли организация?
+- Сколько userIds вернул `getOrgAdminManagerUserIds()`?
+- Какой результат вернул `sendPushNotification()`?
 
-## 2) Что нужно сделать, чтобы точно воспроизвести и подтвердить причину
+**Файлы:**
+- `supabase/functions/telegram-webhook/index.ts`
+- `supabase/functions/wappi-whatsapp-webhook/index.ts`
+- `supabase/functions/max-webhook/index.ts`
+- `supabase/functions/salebot-webhook/index.ts`
+- `supabase/functions/onlinepbx-webhook/index.ts`
 
-### 2.1. Минимальная проверка “устаревшей PWA”
-Добавим в интерфейс (в настройки/профиль) небольшой блок:
-- “Версия приложения” (например, build timestamp/commit hash)
-- “Версия Service Worker” (строка-маркер уже есть в `src/sw.ts`: `push-support-v5`)
-- “Последний источник push API: Lovable Cloud / self-hosted” (у вас уже есть `getLastPushApiSource()`)
+### Шаг 2: Исправить `getOrgAdminManagerUserIds()` в `_shared/types.ts`
+Текущий запрос:
+```typescript
+const { data, error } = await supabase
+  .from('profiles')
+  .select('id, user_roles!inner(role)')
+  .eq('organization_id', organizationId)
+  .in('user_roles.role', ['admin', 'manager']);
+```
 
-Если PWA показывает старую версию/не видит маркер — значит точно живёт на старом кешe.
+Проблема: `user_roles` может не иметь правильного foreign key relationship с `profiles` в self-hosted БД, или `!inner` join может работать некорректно.
 
-### 2.2. Включим видимый сигнал о том, какой источник реально используется
-В `usePushNotifications.subscribe()` после `pushApiWithFallback(...)` показывать (в debug-режиме или в диагностике):
-- через какой источник сохранилась подписка
-- если ошибка — от какого источника ошибка пришла
+Решение: использовать более надёжный подход через `user_roles` → `profiles`:
+```typescript
+// Получаем user_ids с ролями admin/manager
+const { data: roleData } = await supabase
+  .from('user_roles')
+  .select('user_id')
+  .in('role', ['admin', 'manager']);
 
-Это позволит отличить:
-- “Cloud 401, но self-hosted спас”
-от
-- “Cloud 401 и self-hosted тоже 401”.
+if (!roleData || roleData.length === 0) return [];
 
----
+const userIds = roleData.map(r => r.user_id);
 
-## 3) Исправление “по-настоящему”: обновления PWA + гарантированный сброс кеша
+// Фильтруем по организации
+const { data: profiles } = await supabase
+  .from('profiles')
+  .select('id')
+  .eq('organization_id', organizationId)
+  .in('id', userIds);
 
-### 3.1. Реализовать штатный механизм обновления PWA (без переустановки)
-Так как используется `vite-plugin-pwa` (injectManifest) и `src/sw.ts`, добавим клиентскую регистрацию SW с обработкой обновлений:
-- при наличии нового SW показываем toast/баннер:
-  - “Доступно обновление”
-  - кнопка “Обновить” → `postMessage({ type: 'SKIP_WAITING' })` и перезагрузка страницы
-- на `controllerchange` автоматически перезагружаем страницу один раз
+return profiles?.map(p => p.id) || [];
+```
 
-Это критично для iOS PWA: иначе люди неделями сидят на старом бандле.
+### Шаг 3: Реализовать стратегию «Свежая + fallback» для тест-push
+В `send-push-notification` изменить логику отправки для тест-пуша:
+1. Сначала отправить на самую свежую подписку
+2. Если она вернула ошибку (expired/failed) — попробовать следующую
+3. Остановиться при первом успехе
 
-### 3.2. Кнопка “Сбросить кеш PWA” в настройках (must-have для поддержки)
-Добавим кнопку в меню “Настройки”:
-- `navigator.serviceWorker.getRegistrations()` → `unregister()`
-- `caches.keys()` → `caches.delete(key)` для всех
-- очистить ключи, связанные с push (например, `push:last_endpoint:*`, `push:debug_until`)
-- затем `location.reload()`
+```typescript
+if (isTestPush) {
+  // Сортируем по дате обновления (свежие сначала)
+  const sortedSubs = [...subscriptions].sort((a, b) => 
+    new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+  );
+  
+  for (const sub of sortedSubs) {
+    const result = await sendWebPush(sub, payload, vapidPublicKey, vapidPrivateKey);
+    if (result.success) {
+      return { sent: 1, failed: 0 };
+    }
+    // Удаляем expired подписки
+    if (result.error === 'subscription_expired') {
+      await supabase.from('push_subscriptions').delete().eq('id', sub.id);
+    }
+  }
+  return { sent: 0, failed: sortedSubs.length };
+}
+```
 
-Эта кнопка — самый быстрый способ “вылечить” PWA без удаления приложения с экрана.
+### Шаг 4: Инструкция по деплою на self-hosted
+Создать документ с чёткими командами для развёртывания обновлённых Edge Functions на self-hosted Supabase.
 
----
+**Файл:** `docs/migration/11-deploy-edge-functions-to-selfhosted.md`
 
-## 4) Устранение причины 401 в подписке (архитектурно безопасно)
+Содержание:
+```bash
+# Установить Supabase CLI
+npm install -g supabase
 
-Есть две стратегии. Рекомендую начать с A (самая надёжная при вашей текущей связке self-hosted auth), а B можно сделать позже, если Cloud снова станет “основным”.
+# Залогиниться (если ещё не)
+supabase login
 
-### A) Для `push-subscription-save/delete` сделать self-hosted “первичным”
-Сейчас эти операции не выигрывают от Cloud-первичности, но страдают от несовместимости ключей/подписных ключей между окружениями.
+# Линковка к self-hosted проекту
+supabase link --project-ref <your-project-ref>
 
-План изменения:
-- В `pushApiWithFallback()` добавить правило:
-  - если endpoint `push-subscription-save` или `push-subscription-delete` → сначала вызвать self-hosted
-  - при сетевой ошибке/5xx → падать назад на Cloud
-- Таким образом:
-  - подписка будет сохраняться там, где у пользователя валидная авторизация
-  - а Cloud останется “основным” для отправки push (где это действительно важно)
+# Деплой всех webhook-функций
+supabase functions deploy telegram-webhook
+supabase functions deploy wappi-whatsapp-webhook
+supabase functions deploy max-webhook
+supabase functions deploy salebot-webhook
+supabase functions deploy onlinepbx-webhook
+supabase functions deploy send-push-notification
+```
 
-Важно: у вас уже есть self-hosted push engine, и вы уже добавили `apikey` в self-hosted gateway — нужно лишь убедиться, что PWA реально получила этот код (см. пункты 3.1–3.2).
+### Шаг 5: Добавить UI-индикатор «Push от клиентов»
+В `PushDiagnostics.tsx` добавить проверку:
+- Есть ли недавние записи `webhook_logs` с `messenger_type = 'push-diagnostic'`?
+- Если да — показать статус последней отправки push
 
-### B) (Опционально) Починить Cloud auth на publishable key нового формата
-Проблема: Cloud функция ожидает `sb_publishable_*`, а фронт отправляет ключ другого формата.  
-Решения:
-- перестать хардкодить Cloud ключ и получать его из корректного источника (конфигурация сборки/переменные окружения)
-- или сделать публичный “config endpoint” (без auth), который возвращает publishable key, и кэшировать его на фронте перед вызовами Cloud
+Это позволит пользователю видеть, доходят ли push-уведомления от webhooks.
 
-Но стратегически A проще и безопаснее: не нужно “подгонять” ключи между разными системами авторизации.
+## Изменяемые файлы
 
----
+| Файл | Изменения |
+|------|-----------|
+| `supabase/functions/_shared/types.ts` | Исправить `getOrgAdminManagerUserIds()` на более надёжный запрос |
+| `supabase/functions/send-push-notification/index.ts` | Добавить стратегию «свежая + fallback» для тест-пуша |
+| `supabase/functions/telegram-webhook/index.ts` | Улучшить диагностическое логирование |
+| `supabase/functions/wappi-whatsapp-webhook/index.ts` | Улучшить диагностическое логирование |
+| `supabase/functions/max-webhook/index.ts` | Улучшить диагностическое логирование |
+| `supabase/functions/salebot-webhook/index.ts` | Улучшить диагностическое логирование |
+| `supabase/functions/onlinepbx-webhook/index.ts` | Улучшить диагностическое логирование |
+| `docs/migration/11-deploy-edge-functions-to-selfhosted.md` | Инструкция по деплою |
+| `src/components/notifications/PushDiagnostics.tsx` | Добавить индикатор статуса push от клиентов |
 
-## 5) План проверки после внедрения
-
-1) В PWA открыть “Настройки” → нажать “Сбросить кеш PWA” → приложение перезагрузится
-2) Убедиться, что версия UI и маркер SW соответствуют актуальным (например, `push-support-v5`)
-3) Включить “Уведомления”:
-   - ожидаем: Cloud может вернуть 401, но self-hosted сохранит подписку успешно
-   - в UI диагностики должно быть видно: “сохранено через self-hosted”
-4) Нажать “Тестовый push” → получить уведомление (или хотя бы увидеть “sent: 1”)
-
----
-
-## 6) Технические файлы, которые будем менять (в default mode)
-
-Frontend:
-- `src/lib/pushApiWithFallback.ts` — правило приоритета источника для subscription endpoints + улучшенная диагностика
-- `src/main.tsx` или `src/App.tsx` (где у вас входная точка) — регистрация SW и UI-обновления (toast/баннер)
-- `src/components/notifications/PushDiagnostics.tsx` (или экран настроек) — кнопка “Сбросить кеш PWA” + показ версий/источника
-- (возможно) `src/components/.../Settings` — добавить UI-элементы
-
-Backend functions (опционально):
-- ничего не трогаем, если выбираем стратегию A
-- если стратегию B — добавляем/правим функцию конфигурации ключа
-
----
-
-## 7) Почему это закроет проблему именно в PWA
-- Сейчас PWA, судя по симптомам, “залипла” на старом бандле → любые фиксы не доходят.
-- Добавив управляемое обновление SW и кнопку сброса кеша, мы гарантируем доставку актуального кода.
-- Переключив subscription endpoints на self-hosted-first, убираем зависимость от Cloud ключей и несовместимости форматов `sb_publishable_*` vs JWT.
+## Важно!
+После внесения изменений в Lovable, **необходимо вручную задеплоить** Edge Functions на self-hosted Supabase (`api.academyos.ru`). Без этого шага push-уведомления от входящих сообщений работать не будут.
 
