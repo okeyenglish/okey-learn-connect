@@ -263,58 +263,153 @@ async function sendWebPush(
   vapidPublicKey: string,
   vapidPrivateKey: string
 ): Promise<{ success: boolean; error?: string; statusCode?: number }> {
+  const endpointHost = new URL(subscription.endpoint).hostname;
+  const logPrefix = `[WebPush:${endpointHost.substring(0, 20)}]`;
+  
   try {
+    console.log(`${logPrefix} === Starting WebPush ===`);
+    
+    // === Step 1: Validate inputs ===
+    console.log(`${logPrefix} Step 1: Validating inputs...`);
+    console.log(`${logPrefix}   - Endpoint: ${subscription.endpoint.substring(0, 80)}...`);
+    console.log(`${logPrefix}   - p256dh length: ${subscription.p256dh?.length || 0} chars`);
+    console.log(`${logPrefix}   - auth length: ${subscription.auth?.length || 0} chars`);
+    console.log(`${logPrefix}   - VAPID public key length: ${vapidPublicKey?.length || 0} chars`);
+    console.log(`${logPrefix}   - VAPID private key length: ${vapidPrivateKey?.length || 0} chars`);
+    
+    if (!subscription.p256dh || !subscription.auth) {
+      console.error(`${logPrefix} ❌ Missing subscription keys`);
+      return { success: false, error: 'Missing subscription keys (p256dh or auth)' };
+    }
+    
+    // === Step 2: Prepare payload ===
+    console.log(`${logPrefix} Step 2: Preparing payload...`);
     const payloadString = JSON.stringify(payload);
+    console.log(`${logPrefix}   - Payload size: ${payloadString.length} bytes`);
+    console.log(`${logPrefix}   - Payload preview: ${payloadString.substring(0, 100)}...`);
 
-    // Encrypt the payload
-    const { encrypted, salt, serverPublicKey } = await encryptPayload(
-      payloadString,
-      subscription.p256dh,
-      subscription.auth
-    );
+    // === Step 3: Encrypt payload ===
+    console.log(`${logPrefix} Step 3: Encrypting payload (RFC 8291)...`);
+    const encryptStartTime = Date.now();
+    
+    let encrypted: Uint8Array;
+    let salt: Uint8Array;
+    let serverPublicKey: Uint8Array;
+    
+    try {
+      const result = await encryptPayload(
+        payloadString,
+        subscription.p256dh,
+        subscription.auth
+      );
+      encrypted = result.encrypted;
+      salt = result.salt;
+      serverPublicKey = result.serverPublicKey;
+      
+      console.log(`${logPrefix}   ✅ Encryption successful in ${Date.now() - encryptStartTime}ms`);
+      console.log(`${logPrefix}   - Encrypted size: ${encrypted.length} bytes`);
+      console.log(`${logPrefix}   - Salt size: ${salt.length} bytes`);
+      console.log(`${logPrefix}   - Server public key size: ${serverPublicKey.length} bytes`);
+    } catch (encryptError) {
+      console.error(`${logPrefix} ❌ Encryption failed:`, encryptError);
+      return { success: false, error: `Encryption failed: ${encryptError instanceof Error ? encryptError.message : 'Unknown'}` };
+    }
 
+    // === Step 4: Build encrypted body ===
+    console.log(`${logPrefix} Step 4: Building aes128gcm body...`);
     const body = buildEncryptedBody(encrypted, salt, serverPublicKey);
+    console.log(`${logPrefix}   - Total body size: ${body.length} bytes`);
 
-    // Generate VAPID authorization
-    const jwt = await generateVapidJwt(
-      subscription.endpoint,
-      vapidPrivateKey,
-      vapidPublicKey,
-      'mailto:admin@okey-english.ru'
-    );
+    // === Step 5: Generate VAPID JWT ===
+    console.log(`${logPrefix} Step 5: Generating VAPID JWT...`);
+    const vapidStartTime = Date.now();
+    
+    let jwt: string;
+    try {
+      jwt = await generateVapidJwt(
+        subscription.endpoint,
+        vapidPrivateKey,
+        vapidPublicKey,
+        'mailto:admin@okey-english.ru'
+      );
+      
+      console.log(`${logPrefix}   ✅ VAPID JWT generated in ${Date.now() - vapidStartTime}ms`);
+      console.log(`${logPrefix}   - JWT length: ${jwt.length} chars`);
+      console.log(`${logPrefix}   - JWT header: ${jwt.split('.')[0].substring(0, 20)}...`);
+    } catch (vapidError) {
+      console.error(`${logPrefix} ❌ VAPID JWT generation failed:`, vapidError);
+      return { success: false, error: `VAPID JWT failed: ${vapidError instanceof Error ? vapidError.message : 'Unknown'}` };
+    }
 
     const vapidAuth = `vapid t=${jwt}, k=${vapidPublicKey}`;
+    console.log(`${logPrefix}   - Authorization header length: ${vapidAuth.length} chars`);
 
-    console.log(`Sending push to ${subscription.endpoint.substring(0, 50)}...`);
+    // === Step 6: Send HTTP request ===
+    console.log(`${logPrefix} Step 6: Sending HTTP POST to push service...`);
+    const fetchStartTime = Date.now();
+    
+    const headers = {
+      'Content-Type': 'application/octet-stream',
+      'Content-Encoding': 'aes128gcm',
+      'Content-Length': body.length.toString(),
+      'TTL': '86400',
+      'Urgency': 'high',
+      'Authorization': vapidAuth,
+    };
+    
+    console.log(`${logPrefix}   - Headers: Content-Type=${headers['Content-Type']}, Content-Encoding=${headers['Content-Encoding']}, TTL=${headers['TTL']}, Urgency=${headers['Urgency']}`);
 
     const response = await fetch(subscription.endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Content-Encoding': 'aes128gcm',
-        'Content-Length': body.length.toString(),
-        'TTL': '86400',
-        'Urgency': 'high', // High urgency for iOS - critical for immediate delivery
-        'Authorization': vapidAuth,
-      },
+      headers,
       body: body,
     });
 
-    console.log(`Push response status: ${response.status}`);
+    const fetchDuration = Date.now() - fetchStartTime;
+    
+    // === Step 7: Process response ===
+    console.log(`${logPrefix} Step 7: Processing response...`);
+    console.log(`${logPrefix}   - Status: ${response.status} ${response.statusText}`);
+    console.log(`${logPrefix}   - Fetch duration: ${fetchDuration}ms`);
+    
+    // Log response headers (useful for debugging)
+    const responseHeaders: Record<string, string> = {};
+    response.headers.forEach((value, key) => {
+      responseHeaders[key] = value;
+    });
+    console.log(`${logPrefix}   - Response headers: ${JSON.stringify(responseHeaders)}`);
 
     if (response.ok || response.status === 201) {
+      console.log(`${logPrefix} ✅ Push sent successfully!`);
       return { success: true, statusCode: response.status };
     }
 
     if (response.status === 404 || response.status === 410) {
+      console.warn(`${logPrefix} ⚠️ Subscription expired (${response.status})`);
       return { success: false, error: 'subscription_expired', statusCode: response.status };
     }
 
+    // Read error body
     const errorText = await response.text();
-    console.error(`Push error response: ${errorText}`);
+    console.error(`${logPrefix} ❌ Push failed with status ${response.status}`);
+    console.error(`${logPrefix}   - Error body: ${errorText.substring(0, 500)}`);
+    
+    // Parse common error scenarios
+    if (response.status === 401 || response.status === 403) {
+      console.error(`${logPrefix}   - Likely cause: VAPID key mismatch or invalid JWT signature`);
+    } else if (response.status === 400) {
+      console.error(`${logPrefix}   - Likely cause: Malformed request or invalid encryption`);
+    } else if (response.status === 413) {
+      console.error(`${logPrefix}   - Likely cause: Payload too large`);
+    }
+    
     return { success: false, error: errorText, statusCode: response.status };
+    
   } catch (error) {
-    console.error('Push send error:', error);
+    console.error(`${logPrefix} ❌ Unexpected error:`, error);
+    console.error(`${logPrefix}   - Error type: ${error instanceof Error ? error.constructor.name : typeof error}`);
+    console.error(`${logPrefix}   - Error message: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`${logPrefix}   - Stack: ${error instanceof Error ? error.stack : 'N/A'}`);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
