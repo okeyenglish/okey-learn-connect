@@ -140,6 +140,7 @@ import { AnimatedLogo } from "@/components/AnimatedLogo";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useChatPresenceList, useChatPresenceTracker } from "@/hooks/useChatPresence";
 import { useActiveCallPresence } from "@/hooks/useActiveCallPresence";
+import { useStaffOnlinePresence } from "@/hooks/useStaffOnlinePresence";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import { toast } from "sonner";
 import { useBulkActionUndo, BulkActionState } from "@/hooks/useBulkActionUndo";
@@ -443,6 +444,7 @@ const CRMContent = () => {
   const { filterAllowedBranches, hasRestrictions: hasUserBranchRestrictions } = useUserAllowedBranches();
   const { unreadCount: assistantUnreadCount, markAllAsRead: markAssistantAsRead } = useAssistantMessages();
   const { data: staffUnreadCount = 0 } = useStaffUnreadCount();
+  const { isUserOnline } = useStaffOnlinePresence();
   const isMobile = useIsMobile();
   
   // Auto-manage right panel state based on screen size
@@ -3576,6 +3578,7 @@ const CRMContent = () => {
                           isInWorkByOthers={isInWorkByOthers}
                           getPinnedByUserName={getPinnedByUserName}
                           getPinnedByUserId={getPinnedByUserId}
+                          isUserOnline={isUserOnline}
                           onMessageUser={handleMessageUser}
                           messageSearchClientIds={messageSearchClientIds}
                           getMessengerType={getMessengerType}
@@ -3624,6 +3627,7 @@ const CRMContent = () => {
                         isInWorkByOthers={isInWorkByOthers}
                         getPinnedByUserName={getPinnedByUserName}
                         getPinnedByUserId={getPinnedByUserId}
+                        isUserOnline={isUserOnline}
                         onMessageUser={handleMessageUser}
                         messageSearchClientIds={messageSearchClientIds}
                         getMessengerType={getMessengerType}
@@ -4008,6 +4012,7 @@ const CRMContent = () => {
                           isInWorkByOthers={isInWorkByOthers}
                           getPinnedByUserName={getPinnedByUserName}
                           getPinnedByUserId={getPinnedByUserId}
+                          isUserOnline={isUserOnline}
                           onMessageUser={handleMessageUser}
                           messageSearchClientIds={messageSearchClientIds}
                           getMessengerType={getMessengerType}
@@ -4058,6 +4063,7 @@ const CRMContent = () => {
                         isInWorkByOthers={isInWorkByOthers}
                         getPinnedByUserName={getPinnedByUserName}
                         getPinnedByUserId={getPinnedByUserId}
+                        isUserOnline={isUserOnline}
                         onMessageUser={handleMessageUser}
                         messageSearchClientIds={messageSearchClientIds}
                         getMessengerType={getMessengerType}

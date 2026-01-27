@@ -38,6 +38,7 @@ interface ChatListItemProps {
   isInWorkByOthers: boolean;
   pinnedByUserName?: string;
   pinnedByUserId?: string;
+  isPinnedByUserOnline?: boolean;
   onMessageUser?: (userId: string, userName: string) => void;
   profile?: any;
   bulkSelectMode: boolean;
@@ -92,6 +93,7 @@ export const ChatListItem = React.memo(({
   isInWorkByOthers,
   pinnedByUserName,
   pinnedByUserId,
+  isPinnedByUserOnline,
   onMessageUser,
   profile,
   bulkSelectMode,
@@ -215,12 +217,15 @@ export const ChatListItem = React.memo(({
                           }
                         }}
                       >
+                        {isPinnedByUserOnline && (
+                          <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                        )}
                         В работе: {pinnedByUserName.split(' ')[0]}
                         <MessageCircle className="h-2.5 w-2.5 ml-0.5" />
                       </Badge>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="text-xs">
-                      Написать в ChatOS
+                      {isPinnedByUserOnline ? '🟢 Онлайн — ' : ''}Написать в ChatOS
                     </TooltipContent>
                   </Tooltip>
                 )}
