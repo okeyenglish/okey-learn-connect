@@ -54,7 +54,7 @@ function isDebugWindowActive(): boolean {
 }
 
 async function fetchVapidPublicKey(): Promise<string> {
-  // Prefer fetching from backend (prevents mismatches after key rotation), fallback to hardcoded.
+  // Prefer fetching from self-hosted backend (prevents mismatches after key rotation), fallback to hardcoded.
   try {
     const res = await selfHostedPost<{ success?: boolean; vapidPublicKey?: string; error?: string }>(
       'portal-push-config',
@@ -63,10 +63,12 @@ async function fetchVapidPublicKey(): Promise<string> {
 
     const key = res.data?.vapidPublicKey;
     if (res.success && typeof key === 'string' && key.length > 20) {
+      console.log('[Push] VAPID key from self-hosted server:', key.substring(0, 20) + '...');
       return key;
     }
-  } catch {
-    // ignore
+    console.warn('[Push] Self-hosted returned invalid VAPID, using fallback:', VAPID_PUBLIC_KEY.substring(0, 20) + '...');
+  } catch (e) {
+    console.warn('[Push] Failed to fetch VAPID from self-hosted, using fallback:', e);
   }
   return VAPID_PUBLIC_KEY;
 }

@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 
 // VAPID public key from self-hosted environment
-const VAPID_PUBLIC_KEY = 'BMq-TnK0qXtJGnxvEALqjPGqEFGvD7kQLLvDMvpL2vgL6qvXGHqpDqWqYqKqMqNqLqOq';
+const VAPID_PUBLIC_KEY = 'BNCGXWZNiciyztYDIZPXM_smN8mBxrfFPIG_ohpea-9H5B0Gl-zjfWkh7XJOemAh2iDQR87V3f54LQ12DRJfl6s';
 
 interface PushSubscriptionState {
   isSupported: boolean;
