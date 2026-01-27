@@ -7,6 +7,59 @@ import { selfHostedPost } from '@/lib/selfHostedApi';
 // VAPID public key - must match the VAPID_PUBLIC_KEY in Supabase secrets
 const VAPID_PUBLIC_KEY = 'BNCGXWZNiciyztYDIZPXM_smN8mBxrfFPIG_ohpea-9H5B0Gl-zjfWkh7XJOemAh2iDQR87V3f54LQ12DRJfl6s';
 
+// Persist last known endpoint so we can delete stale subscriptions on the server
+// even if the browser already dropped the subscription locally.
+const LAST_ENDPOINT_STORAGE_PREFIX = 'push:last_endpoint:';
+
+function getLastEndpointStorageKey(userId: string) {
+  return `${LAST_ENDPOINT_STORAGE_PREFIX}${userId}`;
+}
+
+function safeLocalStorageGet(key: string): string | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeLocalStorageSet(key: string, value: string) {
+  try {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(key, value);
+  } catch {
+    // ignore
+  }
+}
+
+function safeLocalStorageRemove(key: string) {
+  try {
+    if (typeof window === 'undefined') return;
+    window.localStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+}
+
+async function fetchVapidPublicKey(): Promise<string> {
+  // Prefer fetching from backend (prevents mismatches after key rotation), fallback to hardcoded.
+  try {
+    const res = await selfHostedPost<{ success?: boolean; vapidPublicKey?: string; error?: string }>(
+      'portal-push-config',
+      undefined
+    );
+
+    const key = res.data?.vapidPublicKey;
+    if (res.success && typeof key === 'string' && key.length > 20) {
+      return key;
+    }
+  } catch {
+    // ignore
+  }
+  return VAPID_PUBLIC_KEY;
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding)
@@ -305,12 +358,19 @@ export function usePushNotifications() {
       }
 
       // Subscribe to push
-      // iOS Safari is picky about the key type; pass Uint8Array (not .buffer) for best compatibility.
-      const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: applicationServerKey as BufferSource,
-      });
+      // 1) Reuse existing subscription if present (prevents InvalidStateError)
+      // 2) Otherwise create a fresh one using the current VAPID key from backend
+      const existing = await registration.pushManager.getSubscription();
+      const vapidKey = await fetchVapidPublicKey();
+      console.log('[Push] Using VAPID key (len):', vapidKey?.length);
+
+      const subscription =
+        existing ??
+        (await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          // iOS Safari is picky about the key type; pass Uint8Array (not .buffer) for best compatibility.
+          applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
+        }));
 
       const subscriptionJson = subscription.toJSON();
       
@@ -336,6 +396,9 @@ export function usePushNotifications() {
       }
       
       console.log('[Push] Subscription saved successfully');
+
+      // Remember endpoint for later cleanup
+      safeLocalStorageSet(getLastEndpointStorageKey(user.id), subscriptionJson.endpoint);
 
       setState(prev => ({ 
         ...prev, 
@@ -387,6 +450,26 @@ export function usePushNotifications() {
         if (!deleteResponse.success) {
           console.warn('[Push] Error deleting subscription:', deleteResponse.error);
           // Don't throw - local unsubscribe succeeded
+        }
+
+        // Clear stored endpoint if it matches
+        const storedKey = getLastEndpointStorageKey(user.id);
+        const stored = safeLocalStorageGet(storedKey);
+        if (stored && stored === endpoint) {
+          safeLocalStorageRemove(storedKey);
+        }
+      } else {
+        // No local subscription (often happens when browser already invalidated it).
+        // Try to delete last known endpoint from server to avoid “all subscriptions expired”.
+        const storedKey = getLastEndpointStorageKey(user.id);
+        const storedEndpoint = safeLocalStorageGet(storedKey);
+        if (storedEndpoint) {
+          console.log('[Push] No local subscription; deleting stored endpoint from server');
+          await selfHostedPost<{ success: boolean; error?: string }>('push-subscription-delete', {
+            user_id: user.id,
+            endpoint: storedEndpoint,
+          });
+          safeLocalStorageRemove(storedKey);
         }
       }
 
