@@ -182,7 +182,7 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
   }, [selectedTeacherId]);
 
   return (
-    <div className={`flex flex-col overflow-hidden ${className}`.trim()}>
+    <div className={`flex flex-col overflow-hidden w-full ${className}`.trim()}>
       {/* Search & Filters Header */}
       <div className="p-2 border-b border-border shrink-0 space-y-2">
         <div className="flex gap-1">

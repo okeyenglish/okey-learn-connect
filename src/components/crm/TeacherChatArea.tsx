@@ -464,8 +464,8 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     // Show teacher list
     if (!selectedTeacherId) {
       return (
-        <div className="flex flex-col h-full min-h-0 bg-background">
-          <TeacherChatList {...teacherListProps} />
+        <div className="flex flex-col h-full w-full min-h-0 bg-background">
+          <TeacherChatList {...teacherListProps} className="w-full" />
         </div>
       );
     }

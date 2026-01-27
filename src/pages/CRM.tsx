@@ -4083,7 +4083,7 @@ const CRMContent = () => {
               onMessageChange={setHasUnsavedChat}
             />
           ) : activeChatType === 'teachers' ? (
-            <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden">
+            <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden w-full">
               <TeacherChatArea 
                 selectedTeacherId={activeChatId === 'teachers' ? 'teachers-group' : activeChatId}
                 onSelectTeacher={(teacherId: string | null) => {
