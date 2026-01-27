@@ -13,7 +13,8 @@ import {
   Archive, 
   Trash2,
   Lock,
-  Link2
+  Link2,
+  GraduationCap
 } from "lucide-react";
 
 interface ChatContextMenuProps {
@@ -25,6 +26,7 @@ interface ChatContextMenuProps {
   onBlock?: () => void;
   onDelete?: () => void;
   onLinkToClient?: () => void;
+  onConvertToTeacher?: () => void;
   isPinned?: boolean;
   isArchived?: boolean;
   isUnread?: boolean;
@@ -39,6 +41,7 @@ export const ChatContextMenu = ({
   onBlock,
   onDelete,
   onLinkToClient,
+  onConvertToTeacher,
   isPinned = false,
   isArchived = false,
   isUnread = false
@@ -94,6 +97,13 @@ export const ChatContextMenu = ({
           <ContextMenuItem onClick={onLinkToClient} className="cursor-pointer">
             <Link2 className="mr-2 h-4 w-4" />
             Привязать к клиенту
+          </ContextMenuItem>
+        )}
+        
+        {onConvertToTeacher && (
+          <ContextMenuItem onClick={onConvertToTeacher} className="cursor-pointer text-purple-600">
+            <GraduationCap className="mr-2 h-4 w-4" />
+            Перевести в преподаватели
           </ContextMenuItem>
         )}
         
