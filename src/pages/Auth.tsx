@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/use-toast';
 import { getErrorMessage } from '@/lib/errorUtils';
+import { AcademyOSLogo } from '@/components/AcademyOSLogo';
 
 export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
@@ -207,11 +208,11 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted/30 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">O'KEY ENGLISH</h1>
-          <p className="text-lg text-gray-600">Личный кабинет</p>
+        <div className="flex flex-col items-center mb-8">
+          <AcademyOSLogo size="lg" className="mb-2" />
+          <p className="text-lg text-muted-foreground">Личный кабинет</p>
         </div>
       </div>
 
@@ -288,7 +289,7 @@ export default function Auth() {
 
                   <Button 
                     type="submit" 
-                    className="w-full bg-red-500 hover:bg-red-600 text-white" 
+                    className="w-full" 
                     disabled={isLoading}
                   >
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -387,7 +388,7 @@ export default function Auth() {
 
                   <Button 
                     type="submit" 
-                    className="w-full bg-red-500 hover:bg-red-600 text-white" 
+                    className="w-full" 
                     disabled={isLoading}
                   >
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -400,9 +401,9 @@ export default function Auth() {
         </Card>
 
         <div className="text-center mt-6">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             Нужна помощь?{' '}
-            <a href="/contacts" className="font-medium text-red-500 hover:text-red-600">
+            <a href="/contacts" className="font-medium text-primary hover:text-primary/80">
               Свяжитесь с нами
             </a>
           </p>
