@@ -329,6 +329,7 @@ export function usePushNotifications() {
       const title = typeof payload.title === 'string' ? payload.title.trim() : '';
       const body = typeof payload.body === 'string' ? payload.body : '';
       const url = typeof payload.url === 'string' ? payload.url : '';
+      const tag = typeof payload.tag === 'string' ? payload.tag : '';
       
       // Debug mode: show confirmation toast
       if (isDebugActive) {
@@ -347,28 +348,112 @@ export function usePushNotifications() {
         return;
       }
       
-      // Foreground fallback: show in-app toast notification
-      // This ensures users see the notification even when OS banner is suppressed
+      // Foreground fallback: show in-app toast notification with type-specific styling
       if (isInForeground && title) {
-        // Use toast with action for navigation
-        toast(title, {
-          description: body.length > 100 ? `${body.slice(0, 100)}…` : body,
-          duration: 8000,
-          action: url ? {
-            label: 'Открыть',
-            onClick: () => {
-              if (url.startsWith('/')) {
-                window.location.href = url;
-              }
-            },
-          } : undefined,
-        });
+        const truncatedBody = body.length > 100 ? `${body.slice(0, 100)}…` : body;
+        const actionConfig = url ? {
+          label: 'Открыть',
+          onClick: () => {
+            if (url.startsWith('/')) {
+              window.location.href = url;
+            }
+          },
+        } : undefined;
+
+        // Determine notification type from tag
+        const notificationType = getNotificationType(tag);
+        
+        switch (notificationType) {
+          case 'whatsapp':
+            toast(title, {
+              description: truncatedBody,
+              duration: 8000,
+              icon: '💬',
+              className: 'border-l-4 border-l-green-500 bg-green-50 dark:bg-green-950/30',
+              action: actionConfig,
+            });
+            break;
+            
+          case 'telegram':
+            toast(title, {
+              description: truncatedBody,
+              duration: 8000,
+              icon: '✈️',
+              className: 'border-l-4 border-l-blue-500 bg-blue-50 dark:bg-blue-950/30',
+              action: actionConfig,
+            });
+            break;
+            
+          case 'max':
+            toast(title, {
+              description: truncatedBody,
+              duration: 8000,
+              icon: '📨',
+              className: 'border-l-4 border-l-purple-500 bg-purple-50 dark:bg-purple-950/30',
+              action: actionConfig,
+            });
+            break;
+            
+          case 'missed-call':
+            toast(title, {
+              description: truncatedBody,
+              duration: 10000,
+              icon: '📞',
+              className: 'border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950/30',
+              action: actionConfig,
+            });
+            break;
+            
+          case 'lesson':
+            toast(title, {
+              description: truncatedBody,
+              duration: 12000,
+              icon: '🎓',
+              className: 'border-l-4 border-l-amber-500 bg-amber-50 dark:bg-amber-950/30',
+              action: actionConfig,
+            });
+            break;
+            
+          case 'lesson-parent':
+            toast(title, {
+              description: truncatedBody,
+              duration: 12000,
+              icon: '📚',
+              className: 'border-l-4 border-l-indigo-500 bg-indigo-50 dark:bg-indigo-950/30',
+              action: actionConfig,
+            });
+            break;
+            
+          default:
+            // Generic notification
+            toast(title, {
+              description: truncatedBody,
+              duration: 8000,
+              icon: '🔔',
+              action: actionConfig,
+            });
+        }
       }
     };
 
     navigator.serviceWorker.addEventListener('message', onMessage);
     return () => navigator.serviceWorker.removeEventListener('message', onMessage);
   }, [isSupported]);
+
+  // Helper to determine notification type from tag
+  function getNotificationType(tag: string): string {
+    if (!tag) return 'generic';
+    
+    if (tag.startsWith('whatsapp-')) return 'whatsapp';
+    if (tag.startsWith('telegram-')) return 'telegram';
+    if (tag.startsWith('max-')) return 'max';
+    if (tag.startsWith('missed-call')) return 'missed-call';
+    if (tag.startsWith('lesson-teacher') || tag.includes('teacher-reminder')) return 'lesson';
+    if (tag.startsWith('lesson-parent') || tag.includes('parent-reminder')) return 'lesson-parent';
+    if (tag.includes('lesson') || tag.includes('schedule')) return 'lesson';
+    
+    return 'generic';
+  }
 
   // Subscribe to push notifications
   const subscribe = useCallback(async (): Promise<boolean> => {
