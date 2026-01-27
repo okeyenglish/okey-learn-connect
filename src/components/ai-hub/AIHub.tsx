@@ -46,6 +46,7 @@ import { CreateStaffGroupModal } from '@/components/ai-hub/CreateStaffGroupModal
 import { LinkTeacherProfileModal } from '@/components/ai-hub/LinkTeacherProfileModal';
 import { MassLinkTeacherProfilesModal } from '@/components/ai-hub/MassLinkTeacherProfilesModal';
 import VoiceAssistant from '@/components/VoiceAssistant';
+import { usePersistedSections } from '@/hooks/usePersistedSections';
 
 interface AIHubProps {
   isOpen: boolean;
@@ -102,7 +103,9 @@ export const AIHub = ({
   const [isRecording, setIsRecording] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [teacherClientId, setTeacherClientId] = useState<string | null>(null);
-  const [aiSectionExpanded, setAiSectionExpanded] = useState(false); // Collapsed by default
+  
+  // Persisted sections state
+  const { aiSectionExpanded, toggleAiSection } = usePersistedSections();
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -692,7 +695,7 @@ export const AIHub = ({
             {aiChatsList.length > 0 && (
               <>
                 <button
-                  onClick={() => setAiSectionExpanded(!aiSectionExpanded)}
+                  onClick={toggleAiSection}
                   className="w-full px-3 py-2 flex items-center justify-between hover:bg-muted/50 rounded-md transition-colors"
                 >
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
