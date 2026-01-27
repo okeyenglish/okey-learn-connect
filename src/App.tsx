@@ -45,7 +45,7 @@ const useDisableMobileZoom = () => {
 };
 
 // Immediate load for critical pages
-import Index from "./pages/Index";
+import MainLanding from "./pages/MainLanding";
 
 // Lazy load all other pages for better code splitting
 const SuperSafari = lazy(() => import("./pages/programs/SuperSafari"));
@@ -136,6 +136,8 @@ const AppContent = () => {
   const isCRMPage = location.pathname === '/newcrm' || location.pathname === '/';
   const isPortalPage = location.pathname === '/student-portal' || location.pathname === '/teacher-portal' || location.pathname === '/methodist-portal' || location.pathname.startsWith('/teacher-group/');
   const isProgramsPage = location.pathname === '/programs' || location.pathname.startsWith('/programs/');
+  const isMainLandingPage = location.pathname === '/main';
+  const isOrgPage = location.pathname.match(/^\/[a-zA-Z0-9_-]+/) && !['main', 'branches', 'test', 'about', 'teachers', 'reviews', 'pricing', 'faq', 'contacts', 'contact-method', 'admin', 'newcrm', 'crm', 'leads', 'student', 'student-portal', 'teacher-portal', 'course', 'online-lesson', 'auth', 'diag', 'test-user', 'holihope-import', 'seo', 'callsforteachers', 'payment', 'balance-test', 'teacher-test', 'sessions', 'install', 'monitor', 'webhook-test', 'employee', 'debug-access', '5000', 'programs', 'register', 'course-details'].some(path => location.pathname.startsWith('/' + path));
 
   if (isCRMPage) {
     return (
@@ -143,6 +145,11 @@ const AppContent = () => {
         <CRM />
       </Suspense>
     );
+  }
+
+  // Main landing page without O'KEY ENGLISH header/footer
+  if (isMainLandingPage) {
+    return <MainLanding />;
   }
 
   if (isPortalPage) {
@@ -231,7 +238,7 @@ const AppContent = () => {
       <Header />
       <main className="flex-1 pb-16 lg:pb-0">
         <Routes>
-          <Route path="/main" element={<Index />} />
+          <Route path="/main" element={<MainLanding />} />
           <Route path="/branches" element={
             <Suspense fallback={<LoadingComponent />}>
               <Branches />
