@@ -1,207 +1,223 @@
 
-# План оптимизации нагрузки на self-hosted Supabase
+# План: Новая логика добавления преподавателей с автоматическим созданием ID и magic link
 
-## Обзор проблемы
+## Текущая проблема
 
-Анализ выявил ~1.7 MB/s дисковой активности (WAL записи) от следующих источников:
+Сейчас при добавлении преподавателя требуется ввод email и пароля в модале, затем создаётся `auth.users` через `signUp()`. Это неудобно:
+- Администратор должен придумывать пароль за преподавателя
+- Преподаватель не подтверждает свои данные сам
+- При ошибке в email — аккаунт "сломан"
 
-| Источник | Интервал | Проблема |
-|----------|----------|----------|
-| `useTypingPresence` | На каждое событие | `SELECT *` при каждом изменении typing_status |
-| `useTypingStatus` | На каждое событие | 3 подписки делают `refresh()` на каждый INSERT/UPDATE/DELETE |
-| `useEventStats` | 30 сек | Polling статистики событий |
-| `useAssistantMessages` | 30 сек | Polling непрочитанных сообщений |
-| `PendingPaymentsPanel` | 30 сек | Polling платежей |
-| `useOrganizationRealtimeMessages` | 30 сек | Hybrid polling как fallback |
-| `useMaterializedView` | 5 мин | Тяжёлый REFRESH MATERIALIZED VIEW |
-| WhatsApp polling | 30-60 сек | Множественные интервалы проверки статуса |
+## Новая логика
 
----
+При добавлении преподавателя:
+1. **Сразу создаётся запись `teachers`** с уникальным `id` (UUID) — преподаватель появляется в корпоративных чатах
+2. **Создаётся приглашение** (`teacher_invitations`) с magic link
+3. **Администратор отправляет magic link** через WhatsApp/Telegram/email
+4. **Преподаватель переходит по ссылке**, заполняет фамилию, email, пароль
+5. **Создаётся `auth.users` + `profiles`**, привязывается `teachers.profile_id`
 
-## Фаза 1: Критические оптимизации (высокий приоритет)
+**Особый случай:** Если преподаватель с таким email/телефоном уже есть в системе — ему открывается доступ к новой организации (через `user_roles` + обновление `teachers.profile_id`).
 
-### 1.1 Оптимизация useTypingPresence
+## Компоненты для разработки
 
-**Текущая проблема**: На каждое событие postgres_changes выполняется `SELECT * FROM typing_status`
+### 1. Миграция базы данных
 
-**Решение**: Использовать payload из события напрямую вместо refresh()
-
-```typescript
-// Вместо:
-.on('postgres_changes', { event: '*', ... }, () => refresh())
-
-// Использовать:
-.on('postgres_changes', { event: '*', ... }, (payload) => {
-  const record = payload.new as TypingStatusWithName;
-  setTypingByClient(prev => {
-    const updated = { ...prev };
-    if (payload.eventType === 'DELETE' || !record.is_typing) {
-      // Удаляем из карты
-      if (updated[record.client_id]) {
-        updated[record.client_id].count--;
-        if (updated[record.client_id].count <= 0) {
-          delete updated[record.client_id];
-        }
-      }
-    } else {
-      // Добавляем/обновляем
-      if (!updated[record.client_id]) {
-        updated[record.client_id] = { count: 0, names: [] };
-      }
-      // ... логика обновления
-    }
-    return updated;
-  });
-})
-```
-
-**Файл**: `src/hooks/useTypingPresence.ts`
-
-### 1.2 Оптимизация useTypingStatus
-
-**Текущая проблема**: 3 отдельных подписки (INSERT, UPDATE, DELETE), каждая вызывает `refreshTyping()` с SELECT
-
-**Решение**: 
-1. Объединить в одну подписку с `event: '*'`
-2. Использовать payload напрямую
-
-```typescript
-const channel = supabase
-  .channel(`typing_status_${clientId}`)
-  .on(
-    'postgres_changes',
-    { event: '*', schema: 'public', table: 'typing_status', filter: `client_id=eq.${clientId}` },
-    (payload) => {
-      // Обновляем состояние из payload без SELECT
-      const record = payload.new || payload.old;
-      setTypingUsers(prev => {
-        if (payload.eventType === 'DELETE') {
-          return prev.filter(t => t.user_id !== record.user_id);
-        } else {
-          const existing = prev.findIndex(t => t.user_id === record.user_id);
-          if (existing >= 0) {
-            const updated = [...prev];
-            updated[existing] = record;
-            return updated;
-          }
-          return [...prev, record];
-        }
-      });
-    }
-  )
-  .subscribe();
-```
-
-**Файл**: `src/hooks/useTypingStatus.ts`
-
----
-
-## Фаза 2: Увеличение интервалов polling (средний приоритет)
-
-### 2.1 Увеличить refetchInterval с 30 до 60 секунд
-
-| Файл | Было | Станет |
-|------|------|--------|
-| `useAssistantMessages.ts` | 30000 | 60000 |
-| `useEventBus.ts` | 30000 | 60000 |
-| `PendingPaymentsPanel.tsx` | 30000 | 60000 |
-
-### 2.2 Увеличить hybrid polling в useOrganizationRealtimeMessages
-
-```typescript
-// Было
-const HYBRID_POLLING_INTERVAL = 30000;
-
-// Станет
-const HYBRID_POLLING_INTERVAL = 60000;
-```
-
-**Файл**: `src/hooks/useOrganizationRealtimeMessages.ts`
-
----
-
-## Фаза 3: Оптимизация материализованных представлений
-
-### 3.1 Увеличить интервал автообновления
-
-```typescript
-// Было: 5 минут по умолчанию
-export function useAutoRefreshMaterializedViews(intervalMinutes: number = 5)
-
-// Станет: 15 минут
-export function useAutoRefreshMaterializedViews(intervalMinutes: number = 15)
-```
-
-### 3.2 Добавить условие видимости вкладки
-
-```typescript
-useEffect(() => {
-  const doRefresh = () => {
-    // Обновляем только если вкладка активна
-    if (document.visibilityState === 'visible') {
-      refresh();
-    }
-  };
-  
-  doRefresh(); // При монтировании
-  const interval = setInterval(doRefresh, intervalMinutes * 60 * 1000);
-  return () => clearInterval(interval);
-}, [refresh, intervalMinutes]);
-```
-
-**Файл**: `src/hooks/useMaterializedView.ts`
-
----
-
-## Фаза 4: Консолидация Realtime подписок (низкий приоритет)
-
-### 4.1 Текущее состояние
-- **33 подписки** на `postgres_changes`
-- Дублирование: `chat_messages` в 4 местах, `typing_status` в 2 местах
-
-### 4.2 Рекомендация
-Создать централизованный хук `useGlobalRealtimeSubscriptions` который:
-1. Поддерживает ОДНУ подписку на таблицу
-2. Распределяет события через EventEmitter или Context
-
-*Это большой рефакторинг, отложить на будущее*
-
----
-
-## Итоговый список файлов для изменения
-
-| Файл | Изменение |
-|------|-----------|
-| `src/hooks/useTypingPresence.ts` | Использовать payload вместо refresh() |
-| `src/hooks/useTypingStatus.ts` | Объединить подписки, использовать payload |
-| `src/hooks/useAssistantMessages.ts` | refetchInterval: 30000 → 60000 |
-| `src/hooks/useEventBus.ts` | refetchInterval: 30000 → 60000 |
-| `src/components/payments/PendingPaymentsPanel.tsx` | refetchInterval: 30000 → 60000 |
-| `src/hooks/useOrganizationRealtimeMessages.ts` | HYBRID_POLLING_INTERVAL: 30000 → 60000 |
-| `src/hooks/useMaterializedView.ts` | Интервал 5 → 15 мин, проверка visibilityState |
-
----
-
-## Ожидаемый результат
-
-| Метрика | До | После |
-|---------|-----|-------|
-| SELECT запросов от typing_status | ~20/сек при активности | 0 (используем payload) |
-| Polling запросов | каждые 30 сек × 3 источника | каждые 60 сек |
-| MV refresh | каждые 5 мин | каждые 15 мин |
-| Disk I/O (WAL) | ~1.7 MB/s | ~0.5-0.8 MB/s (ожидание) |
-
----
-
-## SQL миграция
-
-Для self-hosted необходимо выполнить ранее созданную миграцию:
+Создание таблицы `teacher_invitations` (по аналогии с `employee_invitations`):
 
 ```sql
--- Выполнить на self-hosted Supabase:
-ALTER TABLE public.typing_status
-ADD COLUMN IF NOT EXISTS draft_text TEXT,
-ADD COLUMN IF NOT EXISTS manager_name TEXT;
+CREATE TABLE public.teacher_invitations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES organizations(id),
+  teacher_id UUID NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  first_name TEXT NOT NULL,
+  last_name TEXT,
+  phone TEXT,
+  email TEXT,
+  branch TEXT,
+  invite_token TEXT NOT NULL UNIQUE DEFAULT (
+    replace(gen_random_uuid()::text, '-', '') || 
+    replace(gen_random_uuid()::text, '-', '')
+  ),
+  token_expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '7 days'),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'expired', 'cancelled')),
+  created_by UUID REFERENCES profiles(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- RLS
+ALTER TABLE teacher_invitations ENABLE ROW LEVEL SECURITY;
+
+-- Политики
+CREATE POLICY "teacher_invitations_select" ON teacher_invitations 
+  FOR SELECT USING (
+    organization_id IN (SELECT organization_id FROM profiles WHERE id = auth.uid())
+    OR invite_token IS NOT NULL
+  );
+
+CREATE POLICY "teacher_invitations_insert" ON teacher_invitations 
+  FOR INSERT WITH CHECK (
+    organization_id IN (SELECT organization_id FROM profiles WHERE id = auth.uid())
+  );
+
+CREATE POLICY "teacher_invitations_update" ON teacher_invitations 
+  FOR UPDATE USING (
+    organization_id IN (SELECT organization_id FROM profiles WHERE id = auth.uid())
+    OR invite_token IS NOT NULL
+  );
 ```
 
-**Путь к файлу**: `docs/migrations/add_typing_status_columns.sql`
+### 2. Обновление `AddTeacherModal`
+
+Переработка формы:
+- Убрать поля `email` и `password` (они необязательны)
+- Оставить: `firstName`, `lastName` (опционально), `phone`, `branch`
+- После создания показывать экран с magic link (как в `AddEmployeeModal`)
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                    Шаг 1: Форма                             │
+│  • Имя *                                                    │
+│  • Фамилия                                                  │
+│  • Телефон *                                                │
+│  • Филиал                                                   │
+│  • Email (опционально, для автопривязки)                    │
+│                                                             │
+│                    [Создать]                                │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   Шаг 2: Отправка ссылки                    │
+│                                                             │
+│  Приглашение для Анна создано!                              │
+│                                                             │
+│  [https://app.../teacher/onboarding/abc123...]  [📋 Copy]  │
+│                                                             │
+│  [📱 WhatsApp]  [✈️ Telegram]  [📧 Email]                  │
+│                                                             │
+│                      [Готово]                               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Логика создания:**
+1. Проверяем существующий профиль по email/phone
+2. Если найден — создаём `teachers` с `profile_id`, добавляем роль `teacher`
+3. Если не найден — создаём `teachers` без `profile_id`, создаём `teacher_invitations`
+
+### 3. Страница онбординга преподавателя
+
+Новая страница `/teacher/onboarding/:token`:
+
+**Файл:** `src/pages/teacher/TeacherOnboarding.tsx`
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                   🎓 Добро пожаловать!                      │
+│                                                             │
+│   Школа "Okey English" приглашает вас как преподавателя    │
+│                                                             │
+│   ┌─────────────────────────────────────┐                   │
+│   │ Имя: Анна                           │                   │
+│   │ Телефон: +7 (916) 123-45-67         │                   │
+│   │ Филиал: Люберцы                     │                   │
+│   └─────────────────────────────────────┘                   │
+│                                                             │
+│   Фамилия *          [________________]                     │
+│   Email *            [________________]                     │
+│   Пароль *           [________________]                     │
+│   Подтверждение *    [________________]                     │
+│                                                             │
+│   ☑ Принимаю условия работы                                │
+│                                                             │
+│                 [Завершить регистрацию]                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 4. Edge Function: `complete-teacher-onboarding`
+
+**Файл:** `supabase/functions/complete-teacher-onboarding/index.ts`
+
+Логика:
+1. Валидация `invite_token`
+2. Проверка статуса и срока действия приглашения
+3. Проверка существующего пользователя с таким email
+   - Если существует — привязываем к преподавателю, добавляем роль
+   - Если не существует — создаём через `auth.admin.createUser`
+4. Обновляем `profiles` с `organization_id`
+5. Добавляем роль `teacher` в `user_roles`
+6. Обновляем `teachers.profile_id`
+7. Обновляем статус приглашения на `accepted`
+
+### 5. Хук `useTeacherInvitations`
+
+**Файл:** `src/hooks/useTeacherInvitations.ts`
+
+По аналогии с `useEmployeeInvitations`:
+- Получение списка приглашений
+- Отмена приглашения
+- Переотправка приглашения
+
+### 6. Обновление маршрутизации
+
+Добавить новый маршрут в `App.tsx`:
+
+```typescript
+<Route path="/teacher/onboarding/:token" element={<TeacherOnboarding />} />
+```
+
+## Особые случаи
+
+### Преподаватель уже в системе (другая организация)
+
+Если email/телефон найден в `profiles` другой организации:
+1. Создаём запись `teachers` с найденным `profile_id`
+2. Не создаём приглашение — сразу активен
+3. Показываем уведомление "Преподаватель уже в системе, доступ открыт"
+
+### Преподаватель в этой организации (другая роль)
+
+Если пользователь уже есть в организации (например, как manager):
+1. Создаём запись `teachers` с его `profile_id`
+2. Добавляем роль `teacher` через upsert
+3. Не требуется повторная регистрация
+
+## Порядок реализации
+
+1. Миграция БД — создание таблицы `teacher_invitations`
+2. Edge Function `complete-teacher-onboarding`
+3. Обновление `config.toml`
+4. Страница `TeacherOnboarding.tsx`
+5. Хук `useTeacherInvitations.ts`
+6. Переработка `AddTeacherModal.tsx`
+7. Обновление маршрутизации
+8. Тестирование всех сценариев
+
+## Технические детали
+
+### Структура `teacher_invitations`
+
+| Колонка | Тип | Описание |
+|---------|-----|----------|
+| id | UUID | Первичный ключ |
+| organization_id | UUID | Организация (FK) |
+| teacher_id | UUID | Связь с teachers (FK) |
+| first_name | TEXT | Имя |
+| last_name | TEXT | Фамилия (заполняется при онбординге) |
+| phone | TEXT | Телефон |
+| email | TEXT | Email (заполняется при онбординге) |
+| branch | TEXT | Филиал |
+| invite_token | TEXT | Уникальный токен приглашения |
+| token_expires_at | TIMESTAMPTZ | Срок действия |
+| status | TEXT | pending/accepted/expired/cancelled |
+| created_by | UUID | Кто создал |
+| created_at | TIMESTAMPTZ | Дата создания |
+| updated_at | TIMESTAMPTZ | Дата обновления |
+
+### Безопасность
+
+- JWT верификация включена для Edge Function
+- RLS политики ограничивают доступ к приглашениям
+- Токены генерируются криптографически безопасно
+- Пароли проверяются на минимальную длину
