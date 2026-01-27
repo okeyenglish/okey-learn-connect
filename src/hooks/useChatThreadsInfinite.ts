@@ -45,6 +45,25 @@ export const useChatThreadsInfinite = () => {
   const queryClient = useQueryClient();
   const { checkAndFetchMissingAvatars } = useBulkAvatarFetch();
 
+  // Query to get deleted client IDs (is_active = false)
+  const { data: deletedClientIds = [] } = useQuery({
+    queryKey: ['deleted-client-ids'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('is_active', false);
+      
+      if (error) {
+        console.warn('[useChatThreadsInfinite] Error fetching deleted clients:', error.message);
+        return [];
+      }
+      return (data || []).map(c => c.id);
+    },
+    staleTime: 30000, // 30 seconds
+    refetchOnWindowFocus: false,
+  });
+
   // Infinite query for paginated threads
   const infiniteQuery = useInfiniteQuery({
     queryKey: ['chat-threads-infinite'],
@@ -118,7 +137,10 @@ export const useChatThreadsInfinite = () => {
     refetchOnWindowFocus: false,
   });
 
-  // Merge all threads: unread first, then paginated
+  // Set of deleted client IDs for fast lookup
+  const deletedIdsSet = useMemo(() => new Set(deletedClientIds), [deletedClientIds]);
+
+  // Merge all threads: unread first, then paginated, filter out deleted
   const allThreads = useMemo(() => {
     const unreadThreads = unreadQuery.data || [];
     const paginatedPages = infiniteQuery.data?.pages || [];
@@ -127,14 +149,16 @@ export const useChatThreadsInfinite = () => {
     // Create a map for deduplication
     const threadMap = new Map<string, ChatThread>();
 
-    // Add unread threads first (they take priority)
+    // Add unread threads first (they take priority), skip deleted
     unreadThreads.forEach(t => {
-      threadMap.set(t.client_id, t);
+      if (!deletedIdsSet.has(t.client_id)) {
+        threadMap.set(t.client_id, t);
+      }
     });
 
-    // Add paginated threads (skip if already exists from unread)
+    // Add paginated threads (skip if already exists from unread or deleted)
     paginatedThreads.forEach(t => {
-      if (!threadMap.has(t.client_id)) {
+      if (!threadMap.has(t.client_id) && !deletedIdsSet.has(t.client_id)) {
         threadMap.set(t.client_id, t);
       }
     });
@@ -154,7 +178,7 @@ export const useChatThreadsInfinite = () => {
     });
 
     return merged;
-  }, [unreadQuery.data, infiniteQuery.data?.pages]);
+  }, [unreadQuery.data, infiniteQuery.data?.pages, deletedIdsSet]);
 
   // Trigger background avatar fetch for clients without avatars
   useEffect(() => {
