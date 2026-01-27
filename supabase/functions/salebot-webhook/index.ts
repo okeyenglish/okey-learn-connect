@@ -289,7 +289,7 @@ Deno.serve(async (req) => {
             body: messagePreview || 'Новое сообщение',
             icon: '/pwa-192x192.png',
             badge: '/pwa-192x192.png',
-            tag: `salebot-${clientId}`,
+            tag: `chat-${clientId}-${Date.now()}`,
             url: `/crm/chats/${clientId}`,
           },
         })

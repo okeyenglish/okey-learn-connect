@@ -193,7 +193,7 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
           body: msgText.slice(0, 100) + (msgText.length > 100 ? '...' : ''),
           icon: client.avatar_url || '/pwa-192x192.png',
           url: `/crm?clientId=${client.id}`,
-          tag: `max-chat-${client.id}`,
+          tag: `max-${client.id}-${Date.now()}`,
         },
       });
       console.log('Push notification sent for MAX message to', userIds.length, 'users in org:', organizationId, 'result:', pushResult);
