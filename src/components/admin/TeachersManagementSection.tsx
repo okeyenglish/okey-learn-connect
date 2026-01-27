@@ -333,6 +333,10 @@ export const TeachersManagementSection: React.FC = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => navigate(`/admin/teachers/${teacher.id}`)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              Просмотреть профиль
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleEditTeacher(teacher)}>
                               <Edit className="mr-2 h-4 w-4" />
                               Редактировать
