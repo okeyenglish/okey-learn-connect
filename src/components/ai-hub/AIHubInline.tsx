@@ -35,7 +35,8 @@ import {
   useStaffDirectMessages, 
   useStaffGroupMessages, 
   useSendStaffMessage, 
-  useStaffMembers 
+  useStaffMembers,
+  useStaffConversationPreviews
 } from '@/hooks/useInternalStaffMessages';
 import { useStaffTypingIndicator } from '@/hooks/useStaffTypingIndicator';
 import { StaffTypingIndicator } from '@/components/ai-hub/StaffTypingIndicator';
@@ -81,6 +82,7 @@ interface ChatItem {
   badge?: string;
   unreadCount?: number;
   lastMessage?: string;
+  lastMessageTime?: string;
   data?: InternalChat | TeacherChatItem;
 }
 
@@ -105,8 +107,14 @@ export const AIHubInline = ({
   const queryClient = useQueryClient();
 
   const { data: internalChats, isLoading: chatsLoading } = useInternalChats();
-  const { teachers, totalUnread: teachersUnread, isLoading: teachersLoading } = useTeacherChats(null);
+  const { teachers, isLoading: teachersLoading } = useTeacherChats(null);
   const { data: staffMembers } = useStaffMembers();
+  
+  // Get profile IDs for staff conversation previews
+  const teacherProfileIds = teachers
+    .filter(t => t.profileId)
+    .map(t => t.profileId as string);
+  const { data: staffPreviews } = useStaffConversationPreviews(teacherProfileIds);
   
   const selectedStaffProfileId = activeChat?.type === 'teacher' 
     ? (activeChat.data as TeacherChatItem)?.profileId || ''
@@ -155,9 +163,23 @@ export const AIHubInline = ({
     id: group.id, type: 'group' as ChatType, name: group.name, description: group.description || group.branch || 'Групповой чат', icon: Users, iconBg: 'bg-blue-500/10', iconColor: 'text-blue-600', data: group,
   }));
 
-  const teacherChatItems: ChatItem[] = teachers.map(teacher => ({
-    id: teacher.id, type: 'teacher' as ChatType, name: teacher.fullName, description: teacher.profileId ? (teacher.branch || teacher.email || 'Преподаватель') : '⚠️ Нет привязки к профилю', icon: GraduationCap, iconBg: teacher.profileId ? 'bg-green-500/10' : 'bg-amber-500/10', iconColor: teacher.profileId ? 'text-green-600' : 'text-amber-600', unreadCount: teacher.unreadMessages, lastMessage: teacher.lastMessageText || undefined, data: teacher,
-  }));
+  // Use internal staff messages previews instead of messenger data
+  const teacherChatItems: ChatItem[] = teachers.map(teacher => {
+    const preview = teacher.profileId ? staffPreviews?.[teacher.profileId] : null;
+    return {
+      id: teacher.id, 
+      type: 'teacher' as ChatType, 
+      name: teacher.fullName, 
+      description: teacher.profileId ? (teacher.branch || teacher.email || 'Преподаватель') : '⚠️ Нет привязки к профилю', 
+      icon: GraduationCap, 
+      iconBg: teacher.profileId ? 'bg-green-500/10' : 'bg-amber-500/10', 
+      iconColor: teacher.profileId ? 'text-green-600' : 'text-amber-600', 
+      unreadCount: preview?.unreadCount || 0, 
+      lastMessage: preview?.lastMessage || undefined,
+      lastMessageTime: preview?.lastMessageTime || undefined,
+      data: teacher,
+    };
+  });
 
   const allChats = [...aiChats, ...groupChatItems, ...teacherChatItems];
 
@@ -512,7 +534,8 @@ export const AIHubInline = ({
               {corporateChatsList.map((item) => {
                 const isTeacher = item.type === 'teacher';
                 const teacher = isTeacher ? (item.data as TeacherChatItem) : null;
-                const lastMsgTime = teacher?.lastMessageTime;
+                // Use lastMessageTime from internal staff messages, not from messenger data
+                const lastMsgTime = item.lastMessageTime || undefined;
                 const hasUnread = (item.unreadCount || 0) > 0;
                 const initials = isTeacher && teacher 
                   ? `${teacher.lastName?.[0] || ''}${teacher.firstName?.[0] || ''}`.toUpperCase() || '•'
