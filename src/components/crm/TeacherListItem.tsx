@@ -1,32 +1,10 @@
 import React, { useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Pin } from 'lucide-react';
 import { TeacherChatItem } from '@/hooks/useTeacherChats';
 import { TeacherChatContextMenu } from './TeacherChatContextMenu';
 import { supabase } from '@/integrations/supabase/typedClient';
-
-// Get category badge styling
-const getCategoryBadge = (category: string): { label: string; className: string } => {
-  const categoryLower = category.toLowerCase();
-  if (categoryLower.includes('дет') || categoryLower.includes('child') || categoryLower.includes('kid')) {
-    return { label: 'Дети', className: 'bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950/50 dark:text-pink-300' };
-  }
-  if (categoryLower.includes('взросл') || categoryLower.includes('adult')) {
-    return { label: 'Взрослые', className: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300' };
-  }
-  if (categoryLower.includes('подрост') || categoryLower.includes('teen')) {
-    return { label: 'Подростки', className: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300' };
-  }
-  if (categoryLower.includes('индив') || categoryLower.includes('individual')) {
-    return { label: 'Индив', className: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300' };
-  }
-  if (categoryLower.includes('групп') || categoryLower.includes('group')) {
-    return { label: 'Группы', className: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/50 dark:text-green-300' };
-  }
-  return { label: category, className: 'bg-muted text-muted-foreground border-border' };
-};
 
 // Map subject names to country flag emojis
 const getSubjectFlag = (subject: string): string => {
@@ -156,11 +134,6 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
     }
   }, []);
   
-  // Get unique category badges (max 2 for space)
-  const categoryBadges = (teacher.categories || [])
-    .slice(0, 2)
-    .map(cat => getCategoryBadge(cat));
-  
   // Truncate preview text and remove "OKEY ENGLISH [Branch]" prefix
   let previewText = teacher.lastMessageText || '';
   previewText = previewText.replace(/^OKEY ENGLISH\s+[^\s]+\s*/i, '');
@@ -200,32 +173,15 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
           </Avatar>
           
           <div className="flex-1 min-w-0 overflow-hidden">
-            <div className="flex items-center gap-1.5 mb-0">
-              <span className={`text-sm truncate max-w-[60%] ${isUnread ? 'font-semibold' : 'font-medium'}`}>
+            <div className="flex items-center gap-1 mb-0">
+              <span className={`text-sm truncate ${isUnread ? 'font-semibold' : 'font-medium'}`}>
                 {teacher.fullName}
               </span>
-              {flags && <span className="text-xs flex-shrink-0">{flags}</span>}
-              {isPinned && <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />}
+              {flags && <span className="text-[10px] flex-shrink-0">{flags}</span>}
+              {isPinned && <Pin className="h-3 w-3 text-orange-500 flex-shrink-0" />}
             </div>
             
-            <div className="flex items-center gap-1 flex-wrap">
-              {isPinned && (
-                <Badge variant="outline" className="text-[8px] md:text-[10px] h-3 md:h-4 px-1 md:px-1.5 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/50">
-                  В работе
-                </Badge>
-              )}
-              {categoryBadges.map((badge, idx) => (
-                <Badge 
-                  key={idx} 
-                  variant="outline" 
-                  className={`text-[8px] h-3 px-1 py-0 ${badge.className}`}
-                >
-                  {badge.label}
-                </Badge>
-              ))}
-            </div>
-            
-            <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
+            <p className="text-xs text-muted-foreground line-clamp-1">
               {previewText || 'Нет сообщений'}
             </p>
           </div>
