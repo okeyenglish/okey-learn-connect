@@ -32,6 +32,7 @@ import { WebhooksDirectory } from "./WebhooksDirectory";
 import { SystemMonitorPanel } from "./SystemMonitorPanel";
 import { TrialRequestsManager } from "./TrialRequestsManager";
 import { KpiManagementPage } from "./KpiManagementPage";
+import { TeachersManagementSection } from "./TeachersManagementSection";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -55,6 +56,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
     switch (currentSection) {
       case "trial-requests":
         return <TrialRequestsManager />;
+      case "teachers":
+        return <TeachersManagementSection />;
       case "kpi-management":
         return <KpiManagementPage />;
       case "faq":
