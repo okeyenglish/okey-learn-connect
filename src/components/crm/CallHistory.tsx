@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, Search, X, CheckCheck, ArrowUp, ArrowDown, Loader2 } from "lucide-react";
+import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, Search, X, CheckCheck, ArrowUp, ArrowDown, Loader2, WifiOff } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -29,6 +29,8 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    isOfflineData,
+    isError,
   } = useInfiniteCallHistory(clientId);
   
   // Flatten all pages into a single array
@@ -343,6 +345,17 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
           <CardTitle className="text-sm flex items-center gap-2">
             <Phone className="h-4 w-4" />
             История звонков ({calls.length}{totalCalls > calls.length ? ` из ${totalCalls}` : ''})
+            {isOfflineData && (
+              <Badge variant="secondary" className="gap-1 text-[10px] bg-amber-100 text-amber-700 border-amber-200">
+                <WifiOff className="h-2.5 w-2.5" />
+                Офлайн
+              </Badge>
+            )}
+            {isError && !isOfflineData && calls.length > 0 && (
+              <Badge variant="secondary" className="gap-1 text-[10px] bg-amber-100 text-amber-700 border-amber-200">
+                Кэш
+              </Badge>
+            )}
             {unviewedCalls.length > 0 && (
               <Badge variant="destructive">
                 {unviewedCalls.length} новых
