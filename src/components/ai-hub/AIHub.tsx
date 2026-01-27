@@ -29,6 +29,7 @@ import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import VoiceAssistant from '@/components/VoiceAssistant';
+import { CommunityTab } from './CommunityTab';
 
 interface AIHubProps {
   isOpen: boolean;
@@ -642,96 +643,9 @@ export const AIHub = ({
             )}
           </TabsContent>
 
-          {/* Вкладка Сообщество */}
-          <TabsContent value="community" className="flex-1 m-0 overflow-hidden relative">
-            {/* Заголовок */}
-            <div className="px-4 py-3 border-b flex items-center gap-3 shrink-0">
-              <Avatar className="h-9 w-9 shrink-0">
-                <AvatarFallback className="bg-primary/10">
-                  <Building2 className="h-5 w-5 text-primary" />
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm">Сообщество школ</p>
-                <p className="text-xs text-muted-foreground">
-                  42 участника онлайн
-                </p>
-              </div>
-            </div>
-
-            {/* Сообщения */}
-            <ScrollArea ref={scrollAreaRef} className="flex-1 overflow-auto">
-              <div className="space-y-3 p-4 pb-32">
-                {getCurrentMessages().map((msg) => (
-                  <div key={msg.id} className="flex gap-2">
-                    <Avatar className="h-8 w-8 shrink-0">
-                      <AvatarFallback className="text-xs">
-                        {msg.sender?.substring(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="bg-muted rounded-lg px-3 py-2">
-                        {msg.sender && msg.type === 'user' && (
-                          <p className="text-sm font-medium mb-1 text-primary">{msg.sender}</p>
-                        )}
-                        <p className="text-sm break-words">{msg.content}</p>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1 px-1">
-                        {msg.timestamp.toLocaleTimeString('ru-RU', { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-
-            {/* Поле ввода */}
-            <div className="p-3 border-t bg-background absolute inset-x-0 bottom-0">
-              <div className="flex gap-2 items-center">
-                <Input
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                  placeholder="Написать в сообщество..."
-                  disabled={isProcessing || isRecording}
-                  className="flex-1 h-9"
-                />
-                <Button 
-                  onClick={handleSendMessage}
-                  disabled={!message.trim() || isProcessing || isRecording}
-                  size="icon"
-                  className="shrink-0 h-9 w-9"
-                >
-                  {isProcessing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                </Button>
-                <Button
-                  onClick={isRecording ? stopRecording : startRecording}
-                  disabled={isProcessing}
-                  size="icon"
-                  variant={isRecording ? "destructive" : "outline"}
-                  className="shrink-0 h-9 w-9"
-                >
-                  {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                </Button>
-              </div>
-              {isRecording && (
-                <div className="mt-2 text-center">
-                  <div className="text-xs text-muted-foreground animate-pulse">
-                    🎤 Запись... Говорите сейчас
-                  </div>
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground mt-2 text-center">
-                Ваше сообщение увидят все участники сообщества
-              </p>
-            </div>
+          {/* Вкладка Сообщество - Корпоративные чаты */}
+          <TabsContent value="community" className="flex-1 m-0 overflow-hidden">
+            <CommunityTab onClose={onToggle} />
           </TabsContent>
         </Tabs>
       </SheetContent>
