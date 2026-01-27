@@ -14,11 +14,11 @@ interface ChatPresenceIndicatorProps {
   compact?: boolean;
 }
 
-// Animated reading eyes component - emoji style 👀
+// Animated reading eyes component - emoji style 👀 with blinking
 const ReadingEyes: React.FC<{ className?: string }> = ({ className = '' }) => (
   <div className={`flex items-center gap-[2px] ${className}`}>
     {/* Left eye - oval shape like 👀 */}
-    <div className="relative w-[9px] h-[11px] rounded-[45%] bg-white border border-slate-300 overflow-hidden shadow-sm">
+    <div className="relative w-[9px] h-[11px] rounded-[45%] bg-white border border-slate-300 overflow-hidden shadow-sm animate-blink origin-center">
       {/* Black pupil */}
       <div 
         className="absolute w-[5px] h-[5px] bg-slate-900 rounded-full animate-look-around"
@@ -26,7 +26,7 @@ const ReadingEyes: React.FC<{ className?: string }> = ({ className = '' }) => (
       />
     </div>
     {/* Right eye - oval shape like 👀 */}
-    <div className="relative w-[9px] h-[11px] rounded-[45%] bg-white border border-slate-300 overflow-hidden shadow-sm">
+    <div className="relative w-[9px] h-[11px] rounded-[45%] bg-white border border-slate-300 overflow-hidden shadow-sm animate-blink origin-center">
       {/* Black pupil */}
       <div 
         className="absolute w-[5px] h-[5px] bg-slate-900 rounded-full animate-look-around"
