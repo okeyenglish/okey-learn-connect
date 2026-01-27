@@ -10,6 +10,10 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
+  define: {
+    // Inject build timestamp for version tracking
+    __BUILD_TIMESTAMP__: JSON.stringify(new Date().toISOString().slice(0, 16)),
+  },
   plugins: [
     react(),
     mode === "development" && componentTagger(),

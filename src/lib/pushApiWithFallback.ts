@@ -107,13 +107,101 @@ async function callSelfHosted<T>(
   };
 }
 
+// Endpoints that should prefer self-hosted first due to auth incompatibility
+const SELF_HOSTED_FIRST_ENDPOINTS = [
+  'push-subscription-save',
+  'push-subscription-delete',
+  'portal-push-subscribe',
+  'portal-push-unsubscribe',
+];
+
 /**
  * Make a push-related API call with automatic fallback
  * 
- * PRIMARY: Lovable Cloud (igqdjqmohwsgyeuhitqg.supabase.co)
- * FALLBACK: Self-hosted (api.academyos.ru)
+ * For subscription endpoints: Self-hosted first (auth compatible), Cloud fallback
+ * For other endpoints: Lovable Cloud first (primary), Self-hosted fallback
  */
 export async function pushApiWithFallback<T = unknown>(
+  endpoint: string,
+  body?: unknown,
+  options: FallbackOptions = {}
+): Promise<PushApiResponse<T>> {
+  const { maxRetries = 1, fallbackEnabled = true, requireAuth = true } = options;
+
+  // Determine primary/fallback order based on endpoint
+  const useSelfHostedFirst = SELF_HOSTED_FIRST_ENDPOINTS.includes(endpoint);
+  
+  if (useSelfHostedFirst) {
+    // STRATEGY A: Self-hosted first for subscription endpoints
+    return await pushApiWithSelfHostedFirst<T>(endpoint, body, { maxRetries, fallbackEnabled, requireAuth });
+  } else {
+    // STRATEGY B: Lovable Cloud first for other endpoints
+    return await pushApiWithCloudFirst<T>(endpoint, body, { maxRetries, fallbackEnabled, requireAuth });
+  }
+}
+
+/**
+ * Self-hosted first strategy (for subscription endpoints)
+ */
+async function pushApiWithSelfHostedFirst<T>(
+  endpoint: string,
+  body?: unknown,
+  options: FallbackOptions = {}
+): Promise<PushApiResponse<T>> {
+  const { maxRetries = 1, fallbackEnabled = true, requireAuth = true } = options;
+
+  // 1. Try Self-hosted first (PRIMARY for subscriptions)
+  console.log(`[PushAPI] 🏠 ${endpoint} trying self-hosted first (subscription endpoint)`);
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const selfHostedResponse = await callSelfHosted<T>(endpoint, body, { requireAuth });
+
+    if (selfHostedResponse.success) {
+      lastSuccessfulSource = 'self-hosted';
+      console.log(`[PushAPI] ✅ ${endpoint} via self-hosted (primary)`);
+      return { success: true, data: selfHostedResponse.data, source: 'self-hosted' };
+    }
+
+    // Only retry on network/server errors, not client errors
+    if (selfHostedResponse.status && selfHostedResponse.status >= 400 && selfHostedResponse.status < 500) {
+      console.warn(`[PushAPI] ⚠️ ${endpoint} self-hosted client error (${selfHostedResponse.status}):`, selfHostedResponse.error);
+      break; // Don't retry client errors
+    }
+
+    console.warn(`[PushAPI] ⚠️ ${endpoint} self-hosted attempt ${attempt + 1} failed:`, selfHostedResponse.error);
+
+    if (attempt < maxRetries) {
+      await new Promise(r => setTimeout(r, 500));
+    }
+  }
+
+  // 2. Fallback to Lovable Cloud
+  if (fallbackEnabled) {
+    console.log(`[PushAPI] 🔄 Falling back to Lovable Cloud for: ${endpoint}`);
+
+    const cloudResponse = await callLovableCloud<T>(endpoint, body, { requireAuth });
+
+    if (cloudResponse.success) {
+      lastSuccessfulSource = 'lovable-cloud';
+      console.log(`[PushAPI] ✅ ${endpoint} via Lovable Cloud (fallback)`);
+      return { success: true, data: cloudResponse.data, source: 'lovable-cloud' };
+    }
+
+    console.error(`[PushAPI] ❌ ${endpoint} Lovable Cloud fallback failed:`, cloudResponse.error);
+    return { success: false, error: cloudResponse.error, source: 'lovable-cloud' };
+  }
+
+  return {
+    success: false,
+    error: 'All push API attempts failed',
+    source: 'self-hosted',
+  };
+}
+
+/**
+ * Lovable Cloud first strategy (for send/config endpoints)
+ */
+async function pushApiWithCloudFirst<T>(
   endpoint: string,
   body?: unknown,
   options: FallbackOptions = {}
