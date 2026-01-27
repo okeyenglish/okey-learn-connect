@@ -639,7 +639,8 @@ Deno.serve(async (req) => {
         sent: successful, 
         failed: failed.length,
         details: results,
-        duration: totalDuration
+        duration: totalDuration,
+        source: 'lovable-cloud',
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );

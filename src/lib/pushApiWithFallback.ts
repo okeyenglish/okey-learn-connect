@@ -159,3 +159,69 @@ export async function fetchVapidKeyWithFallback(): Promise<{
   console.warn('[PushAPI] Using hardcoded VAPID fallback');
   return { vapidKey: HARDCODED_VAPID, source: 'self-hosted' };
 }
+
+/**
+ * Send push notification with fallback to Lovable Cloud
+ * 
+ * @param userId - Target user ID (for CRM managers)
+ * @param payload - Notification payload
+ * @returns PushApiResponse with delivery result
+ */
+export async function sendPushWithFallback(
+  userId: string,
+  payload: { 
+    title: string; 
+    body: string; 
+    url?: string; 
+    tag?: string;
+    icon?: string;
+  }
+): Promise<PushApiResponse<{ sent?: number; failed?: number; total?: number }>> {
+  const response = await pushApiWithFallback<{ sent?: number; failed?: number; total?: number }>(
+    'send-push-notification',
+    { user_id: userId, payload },
+    { requireAuth: true }
+  );
+  
+  return response;
+}
+
+/**
+ * Send push notification to multiple users with fallback
+ */
+export async function sendPushToUsersWithFallback(
+  userIds: string[],
+  payload: { 
+    title: string; 
+    body: string; 
+    url?: string; 
+    tag?: string;
+    icon?: string;
+  }
+): Promise<PushApiResponse<{ sent?: number; failed?: number; total?: number }>> {
+  const response = await pushApiWithFallback<{ sent?: number; failed?: number; total?: number }>(
+    'send-push-notification',
+    { user_ids: userIds, payload },
+    { requireAuth: true }
+  );
+  
+  return response;
+}
+
+/**
+ * Send portal push notification (to clients via parent portal)
+ */
+export async function sendPortalPushWithFallback(
+  clientId: string,
+  title: string,
+  body: string,
+  options?: { url?: string; tag?: string }
+): Promise<PushApiResponse<{ statusCode?: number }>> {
+  const response = await pushApiWithFallback<{ statusCode?: number }>(
+    'portal-push-send',
+    { client_id: clientId, title, body, ...options },
+    { requireAuth: true }
+  );
+  
+  return response;
+}
