@@ -233,7 +233,7 @@ export const ChatListItem = React.memo(({
             <div className="flex items-center gap-1">
               {/* Presence indicator */}
               {hasPresence && (
-                <ChatPresenceIndicator presence={presenceInfo} compact />
+                <ChatPresenceIndicator presence={presenceInfo} compact clientName={chat.name} />
               )}
               <span className="text-[10px] text-muted-foreground font-medium">{chat.time}</span>
             </div>
