@@ -15,8 +15,9 @@ import { TeacherListItem } from './TeacherListItem';
 // Keep scroll position across re-renders / remounts (desktop teacher list)
 let teacherChatListScrollTop = 0;
 
-// Row height for virtualization (matches client chat list ~60px)
+// Row height for virtualization
 const ITEM_HEIGHT = 60;
+const PINNED_ITEM_HEIGHT = 76; // Extra height for "В работе" badge
 const GROUP_CHAT_HEIGHT = 60;
 
 export interface TeacherChatListProps {
@@ -141,7 +142,17 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
   const rowVirtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => scrollContainerRef.current,
-    estimateSize: (index) => items[index]?.type === 'group' ? GROUP_CHAT_HEIGHT : ITEM_HEIGHT,
+    estimateSize: (index) => {
+      const item = items[index];
+      if (item?.type === 'group') {
+        return isGroupChatPinned ? PINNED_ITEM_HEIGHT : GROUP_CHAT_HEIGHT;
+      }
+      if (item?.type === 'teacher') {
+        const isPinned = (pinCounts[item.teacher.id] || 0) > 0;
+        return isPinned ? PINNED_ITEM_HEIGHT : ITEM_HEIGHT;
+      }
+      return ITEM_HEIGHT;
+    },
     overscan: 10,
   });
 
