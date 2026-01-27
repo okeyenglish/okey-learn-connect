@@ -5,6 +5,7 @@ import {
   successResponse,
   errorResponse,
   getErrorMessage,
+  sendPushNotification,
   type SalebotWebhookPayload,
   type SalebotClientData,
   type MessengerTypeValue,
@@ -268,6 +269,39 @@ Deno.serve(async (req) => {
     }
 
     console.log('Message saved for client:', clientId, 'type:', isFromClient ? 'client' : 'manager')
+
+    // Send push notification for incoming messages
+    if (isFromClient) {
+      console.log('[salebot-webhook] Incoming message - sending push to admins/managers')
+      
+      // Get admin and manager users for this organization
+      const { data: roleUsers } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .in('role', ['admin', 'manager'])
+      
+      if (roleUsers && roleUsers.length > 0) {
+        const userIds = roleUsers.map(r => r.user_id)
+        const clientName = payload.client.name || `Клиент ${payload.client.id}`
+        const messagePreview = (payload.message || '').slice(0, 50) + ((payload.message?.length || 0) > 50 ? '...' : '')
+        
+        const pushResult = await sendPushNotification({
+          userIds,
+          payload: {
+            title: `💬 ${clientName}`,
+            body: messagePreview || 'Новое сообщение',
+            icon: '/pwa-192x192.png',
+            badge: '/pwa-192x192.png',
+            tag: `salebot-${clientId}`,
+            url: `/crm/chats/${clientId}`,
+          },
+        })
+        
+        console.log('[salebot-webhook] Push result:', pushResult)
+      } else {
+        console.log('[salebot-webhook] No admin/manager users found for push')
+      }
+    }
 
     // Update client's last_message_at and avatar
     const updateData: any = {
