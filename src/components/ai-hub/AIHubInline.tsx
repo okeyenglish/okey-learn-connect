@@ -505,7 +505,6 @@ export const AIHubInline = ({
                   <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full mr-1">
                     {corporateChatsList.length}
                   </Badge>
-                  <MassLinkTeacherProfilesModal onCompleted={() => queryClient.invalidateQueries({ queryKey: ['teacher-chats'] })} />
                   <CreateStaffGroupModal onGroupCreated={() => queryClient.invalidateQueries({ queryKey: ['internal-chats'] })} />
                 </div>
               </div>
