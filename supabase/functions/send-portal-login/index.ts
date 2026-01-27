@@ -5,10 +5,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface ResetPasswordRequest {
+interface SendLoginRequest {
   client_id: string;
-  phone: string;
+  phone?: string;
   first_name?: string;
+  messenger?: 'whatsapp' | 'telegram' | 'max' | 'sms';
+  telegram_user_id?: string;
+}
+
+// Creates a display-safe shortened URL representation
+function createDisplayUrl(fullUrl: string, baseUrl: string): string {
+  const url = new URL(fullUrl);
+  const token = url.searchParams.get('token') || '';
+  const shortCode = token.slice(0, 8);
+  return `${baseUrl.replace('https://', '')}/portal-login?...${shortCode}`;
 }
 
 Deno.serve(async (req) => {
@@ -58,12 +68,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    const body: ResetPasswordRequest = await req.json();
-    const { client_id, phone, first_name } = body;
+    const body: SendLoginRequest = await req.json();
+    const { client_id, phone, first_name, messenger = 'whatsapp', telegram_user_id } = body;
 
-    if (!client_id || !phone) {
+    if (!client_id) {
       return new Response(
-        JSON.stringify({ error: 'client_id and phone are required' }),
+        JSON.stringify({ error: 'client_id is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -94,50 +104,34 @@ Deno.serve(async (req) => {
     const magicToken = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    // Store magic link token
-    const { error: insertError } = await adminSupabase
-      .from('client_magic_links')
-      .insert({
-        client_id,
-        user_id: client.user_id,
+    // Store magic link token via client_invitations
+    const { error: inviteError } = await adminSupabase
+      .from('client_invitations')
+      .upsert({
         organization_id: profile.organization_id,
-        token: magicToken,
+        client_id,
+        invite_token: magicToken,
+        phone: phone || client.phone,
+        first_name: first_name || client.first_name || client.name,
+        status: 'pending',
         expires_at: expiresAt.toISOString(),
         created_by: user.id
+      }, {
+        onConflict: 'client_id'
       });
 
-    if (insertError) {
-      // If table doesn't exist, create it inline (for first run)
-      console.error('Error creating magic link:', insertError);
-      
-      // Fallback: use client_invitations with special type
-      const { error: inviteError } = await adminSupabase
-        .from('client_invitations')
-        .upsert({
-          organization_id: profile.organization_id,
-          client_id,
-          invite_token: magicToken,
-          phone,
-          first_name: first_name || client.first_name || client.name,
-          status: 'pending',
-          expires_at: expiresAt.toISOString(),
-          created_by: user.id
-        }, {
-          onConflict: 'client_id'
-        });
-
-      if (inviteError) {
-        console.error('Fallback invitation error:', inviteError);
-        return new Response(
-          JSON.stringify({ error: 'Failed to create reset link' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+    if (inviteError) {
+      console.error('Error creating magic link:', inviteError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to create login link' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Generate login URL (not exposed to manager)
+    // Generate login URL (not fully exposed to manager)
     const baseUrl = req.headers.get('origin') || 'https://newacademcrm.lovable.app';
     const loginUrl = `${baseUrl}/portal-login?token=${magicToken}`;
+    const displayUrl = createDisplayUrl(loginUrl, baseUrl);
 
     // Get organization name
     const { data: org } = await adminSupabase
@@ -146,40 +140,84 @@ Deno.serve(async (req) => {
       .eq('id', profile.organization_id)
       .single();
 
-    const message = `Здравствуйте${first_name ? `, ${first_name}` : ''}!\n\nВы можете войти в личный кабинет ${org?.name || 'школы'} по ссылке:\n${loginUrl}\n\nСсылка действительна 24 часа.`;
+    const clientFirstName = first_name || client.first_name || client.name?.split(' ')[0] || '';
+    const message = `${clientFirstName ? `${clientFirstName}, н` : 'Н'}аправляю Вам ссылку для входа в личный кабинет ${org?.name || 'школы'}.\n\nСсылка для входа:\n${loginUrl}\n\nСсылка действительна 24 часа.`;
 
-    // Send via WhatsApp (link is ONLY sent to client, not returned to manager)
+    // Send via selected messenger
     let sendResult = null;
-    try {
-      const wppResponse = await fetch(`${supabaseUrl}/functions/v1/whatsapp-send`, {
-        method: 'POST',
-        headers: {
-          'Authorization': authHeader,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          phone,
-          message,
-          organization_id: profile.organization_id
-        })
-      });
-      sendResult = await wppResponse.json();
-    } catch (e) {
-      console.error('WhatsApp send failed:', e);
+    const targetPhone = phone || client.phone;
+    const targetTelegramId = telegram_user_id || client.telegram_user_id;
+    
+    if (messenger === 'whatsapp' && targetPhone) {
+      try {
+        const wppResponse = await fetch(`${supabaseUrl}/functions/v1/whatsapp-send`, {
+          method: 'POST',
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            phone: targetPhone,
+            message,
+            organization_id: profile.organization_id
+          })
+        });
+        sendResult = await wppResponse.json();
+      } catch (e) {
+        console.error('WhatsApp send failed:', e);
+      }
+    } else if (messenger === 'telegram' && targetTelegramId) {
+      try {
+        const tgResponse = await fetch(`${supabaseUrl}/functions/v1/telegram-send`, {
+          method: 'POST',
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            chat_id: targetTelegramId,
+            text: message,
+            organization_id: profile.organization_id
+          })
+        });
+        sendResult = await tgResponse.json();
+      } catch (e) {
+        console.error('Telegram send failed:', e);
+      }
+    } else if (messenger === 'max' && targetPhone) {
+      try {
+        const maxResponse = await fetch(`${supabaseUrl}/functions/v1/max-send`, {
+          method: 'POST',
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            phone: targetPhone,
+            message,
+            organization_id: profile.organization_id
+          })
+        });
+        sendResult = await maxResponse.json();
+      } catch (e) {
+        console.error('MAX send failed:', e);
+      }
     }
 
     console.log('Portal login link sent:', {
       client_id,
-      phone,
+      phone: targetPhone,
+      messenger,
+      displayUrl,
       message_sent: !!sendResult?.success
     });
 
-    // IMPORTANT: Do NOT return the actual URL to the manager!
+    // Return shortened URL for display (not full URL)
     return new Response(
       JSON.stringify({
         success: true,
         message_sent: !!sendResult?.success,
-        // No invite_url returned for security
+        short_url: displayUrl
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
