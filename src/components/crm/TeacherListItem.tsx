@@ -185,18 +185,11 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
               {isPinned && <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />}
             </div>
             
-            {(isPinned || (isInWorkByOthers && pinnedByUserName)) && (
+            {isInWorkByOthers && pinnedByUserName && (
               <div className="flex items-center gap-1 flex-wrap mb-0.5">
-                {isPinned && (
-                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/50">
-                    В работе
-                  </Badge>
-                )}
-                {isInWorkByOthers && pinnedByUserName && (
-                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50">
-                    У {pinnedByUserName}
-                  </Badge>
-                )}
+                <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50">
+                  У {pinnedByUserName}
+                </Badge>
               </div>
             )}
             
