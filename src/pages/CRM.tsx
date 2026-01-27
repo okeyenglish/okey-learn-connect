@@ -83,6 +83,7 @@ import { useManagerBranches } from "@/hooks/useManagerBranches";
 import { useUserAllowedBranches } from "@/hooks/useUserAllowedBranches";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useAssistantMessages } from "@/hooks/useAssistantMessages";
+import { useStaffUnreadCount } from "@/hooks/useInternalStaffMessages";
 import {
   Search, 
   CheckSquare, 
@@ -441,6 +442,7 @@ const CRMContent = () => {
   const { canAccessBranch, hasRestrictions: hasManagerBranchRestrictions } = useManagerBranches();
   const { filterAllowedBranches, hasRestrictions: hasUserBranchRestrictions } = useUserAllowedBranches();
   const { unreadCount: assistantUnreadCount, markAllAsRead: markAssistantAsRead } = useAssistantMessages();
+  const { data: staffUnreadCount = 0 } = useStaffUnreadCount();
   const isMobile = useIsMobile();
   
   // Auto-manage right panel state based on screen size
@@ -4380,7 +4382,7 @@ const CRMContent = () => {
           onPaymentClick={() => setShowInvoiceModal(true)}
           onTaskClick={() => setShowAddTaskModal(true)}
           onEmployeeClick={handleMobileEmployeeClick}
-          chatOSUnreadCount={(corporateChats?.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0) || 0) + (teacherChats?.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0) || 0)}
+          chatOSUnreadCount={staffUnreadCount + (assistantUnreadCount || 0)}
           teachersUnreadCount={teacherChats?.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0) || 0}
           clientsUnreadCount={threads?.filter((t: any) => t.unread_count > 0).length || 0}
           kpiHasAlerts={false}
