@@ -11,6 +11,8 @@ const VAPID_PUBLIC_KEY = 'BNCGXWZNiciyztYDIZPXM_smN8mBxrfFPIG_ohpea-9H5B0Gl-zjfW
 // even if the browser already dropped the subscription locally.
 const LAST_ENDPOINT_STORAGE_PREFIX = 'push:last_endpoint:';
 const PUSH_DEBUG_UNTIL_KEY = 'push:debug_until';
+const PUSH_LAST_HEALTH_CHECK_KEY = 'push:last_health_check:';
+const HEALTH_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 function getLastEndpointStorageKey(userId: string) {
   return `${LAST_ENDPOINT_STORAGE_PREFIX}${userId}`;
@@ -569,6 +571,107 @@ export function usePushNotifications() {
       return subscribe();
     }
   }, [state.isSubscribed, subscribe, unsubscribe]);
+
+  // Auto health check every 24 hours - silently re-subscribe if subscription is stale
+  useEffect(() => {
+    if (!isSupported || !user || state.isLoading) return;
+    if (!state.isSubscribed) return;
+
+    const healthCheckKey = `${PUSH_LAST_HEALTH_CHECK_KEY}${user.id}`;
+    
+    const performHealthCheck = async () => {
+      try {
+        const lastCheck = safeLocalStorageGet(healthCheckKey);
+        const lastCheckTime = lastCheck ? parseInt(lastCheck, 10) : 0;
+        const now = Date.now();
+
+        // Skip if checked within last 24 hours
+        if (lastCheckTime && (now - lastCheckTime) < HEALTH_CHECK_INTERVAL_MS) {
+          console.log('[Push] Health check skipped - checked recently');
+          return;
+        }
+
+        console.log('[Push] Running subscription health check...');
+
+        const registration = await getSWRegistration();
+        if (!registration) {
+          console.warn('[Push] Health check: No SW registration');
+          return;
+        }
+
+        const subscription = await registration.pushManager.getSubscription();
+        
+        if (!subscription) {
+          // Subscription expired or was revoked - try to re-subscribe silently
+          console.log('[Push] Health check: Subscription expired, re-subscribing...');
+          
+          const vapidKey = await fetchVapidPublicKey();
+          const newSubscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
+          });
+
+          const subscriptionJson = newSubscription.toJSON();
+          
+          if (subscriptionJson.endpoint && subscriptionJson.keys?.p256dh && subscriptionJson.keys?.auth) {
+            // Save new subscription to server
+            const saveResponse = await selfHostedPost<{ success: boolean; error?: string }>('push-subscription-save', {
+              user_id: user.id,
+              endpoint: subscriptionJson.endpoint,
+              keys: {
+                p256dh: subscriptionJson.keys.p256dh,
+                auth: subscriptionJson.keys.auth,
+              },
+              user_agent: navigator.userAgent,
+            });
+
+            if (saveResponse.success) {
+              console.log('[Push] Health check: Re-subscribed successfully');
+              safeLocalStorageSet(getLastEndpointStorageKey(user.id), subscriptionJson.endpoint);
+            } else {
+              console.warn('[Push] Health check: Failed to save new subscription:', saveResponse.error);
+            }
+          }
+        } else {
+          // Subscription exists - verify it's still valid on server
+          const storedEndpoint = safeLocalStorageGet(getLastEndpointStorageKey(user.id));
+          
+          if (storedEndpoint && storedEndpoint !== subscription.endpoint) {
+            // Endpoint changed - update server
+            console.log('[Push] Health check: Endpoint changed, updating server...');
+            
+            const subscriptionJson = subscription.toJSON();
+            if (subscriptionJson.keys?.p256dh && subscriptionJson.keys?.auth) {
+              await selfHostedPost<{ success: boolean }>('push-subscription-save', {
+                user_id: user.id,
+                endpoint: subscription.endpoint,
+                keys: {
+                  p256dh: subscriptionJson.keys.p256dh,
+                  auth: subscriptionJson.keys.auth,
+                },
+                user_agent: navigator.userAgent,
+              });
+              safeLocalStorageSet(getLastEndpointStorageKey(user.id), subscription.endpoint);
+            }
+          }
+          
+          console.log('[Push] Health check: Subscription valid');
+        }
+
+        // Update last check time
+        safeLocalStorageSet(healthCheckKey, String(now));
+        
+      } catch (error) {
+        console.error('[Push] Health check failed:', error);
+        // Don't update lastCheck on error - will retry next time
+      }
+    };
+
+    // Run health check after a short delay (don't block initial render)
+    const timeoutId = setTimeout(performHealthCheck, 5000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [isSupported, user, state.isSubscribed, state.isLoading, getSWRegistration]);
 
   return {
     ...state,
