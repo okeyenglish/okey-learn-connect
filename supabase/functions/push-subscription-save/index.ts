@@ -26,12 +26,12 @@ Deno.serve(async (req) => {
     // - Accept anon key via `apikey` header OR `Authorization: Bearer <anon>`
     // - Also accept a VALID JWT issued by this backend (useful for internal tooling)
     // - Do NOT accept/validate JWTs from self-hosted instances (different signing keys)
-    const apiKeyHeader = req.headers.get("apikey");
+    const apiKeyHeader = req.headers.get("apikey")?.trim();
     const authHeader = req.headers.get("authorization") ?? req.headers.get("Authorization");
     const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
 
     const expectedAnonKey =
-      Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+      (Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY"))?.trim();
 
     if (!expectedAnonKey) {
       console.error("[push-subscription-save] Missing backend anon key env (SUPABASE_ANON_KEY/SUPABASE_PUBLISHABLE_KEY)");
@@ -45,24 +45,43 @@ Deno.serve(async (req) => {
       apiKeyHeader === expectedAnonKey || bearerToken === expectedAnonKey;
 
     let isValidBackendJwt = false;
-    if (!isAnonKeyAuth && bearerToken) {
-      try {
-        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        // Validate JWT claims against THIS backend's signing keys.
-        const supabaseAuth = createClient(supabaseUrl, expectedAnonKey, {
-          global: { headers: { Authorization: `Bearer ${bearerToken}` } },
-        });
-        const { data, error } = await supabaseAuth.auth.getClaims(bearerToken);
-        isValidBackendJwt = !error && !!data?.claims;
-      } catch (_e) {
-        isValidBackendJwt = false;
+    if (!isAnonKeyAuth) {
+      const tokensToValidate = [bearerToken, apiKeyHeader].filter(
+        (t): t is string => !!t
+      );
+
+      if (tokensToValidate.length) {
+        try {
+          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+          const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+          // Validate token claims against THIS backend's signing keys.
+          // Using service key here avoids relying on env anon key equality.
+          const supabaseAuth = createClient(supabaseUrl, supabaseServiceKey);
+
+          for (const token of tokensToValidate) {
+            const { data, error } = await supabaseAuth.auth.getClaims(token);
+            if (!error && data?.claims) {
+              isValidBackendJwt = true;
+              break;
+            }
+          }
+        } catch (_e) {
+          isValidBackendJwt = false;
+        }
       }
     }
 
     if (!isAnonKeyAuth && !isValidBackendJwt) {
+      const redact = (v: string | null | undefined) =>
+        v ? `${v.slice(0, 12)}…(len:${v.length})` : null;
+
       console.error("[push-subscription-save] Unauthorized: missing/invalid anon key or backend JWT", {
         hasApiKeyHeader: !!apiKeyHeader,
         hasAuthorization: !!authHeader,
+        apiKeyHeader: redact(apiKeyHeader),
+        bearerToken: redact(bearerToken),
+        expectedAnonKey: redact(expectedAnonKey),
       });
       return new Response(
         JSON.stringify({ error: "Unauthorized - invalid API key" }),
