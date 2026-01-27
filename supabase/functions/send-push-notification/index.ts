@@ -383,8 +383,7 @@ Deno.serve(async (req) => {
     const { data: subscriptions, error: fetchError } = await supabase
       .from('push_subscriptions')
       .select('*')
-      .in('user_id', uniqueUserIds)
-      .eq('is_active', true);
+      .in('user_id', uniqueUserIds);
 
     if (fetchError) {
       console.error('Error fetching subscriptions:', fetchError);
@@ -433,18 +432,20 @@ Deno.serve(async (req) => {
 
     const results = await Promise.all(
       subscriptionsToNotify.map(async (sub) => {
+        // Keys stored as JSONB object { p256dh, auth }
+        const keys = sub.keys as { p256dh: string; auth: string };
         const result = await sendWebPush(
-          { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
+          { endpoint: sub.endpoint, p256dh: keys.p256dh, auth: keys.auth },
           payload,
           vapidPublicKey,
           vapidPrivateKey
         );
 
         if (result.error === 'subscription_expired') {
-          console.log('Subscription expired, deactivating:', sub.id);
+          console.log('Subscription expired, deleting:', sub.id);
           await supabase
             .from('push_subscriptions')
-            .update({ is_active: false })
+            .delete()
             .eq('id', sub.id);
         }
 
