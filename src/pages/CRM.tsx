@@ -136,6 +136,7 @@ import {
 import { AnimatedLogo } from "@/components/AnimatedLogo";
 import { useTypingPresence } from "@/hooks/useTypingPresence";
 import { useChatPresenceList, useChatPresenceTracker } from "@/hooks/useChatPresence";
+import { useActiveCallPresence } from "@/hooks/useActiveCallPresence";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import { toast } from "sonner";
 import { useBulkActionUndo, BulkActionState } from "@/hooks/useBulkActionUndo";
@@ -447,7 +448,10 @@ const CRMContent = () => {
   const { presenceByClient } = useChatPresenceList();
   
   // Track current user's presence in the active chat
-  useChatPresenceTracker(activeChatId);
+  const { updatePresence } = useChatPresenceTracker(activeChatId);
+  
+  // Auto-update presence to 'on_call' when call is active
+  useActiveCallPresence(activeChatId, updatePresence);
   // Enable real-time updates for clients data
   useRealtimeClients();
   
