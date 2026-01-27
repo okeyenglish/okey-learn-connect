@@ -1,230 +1,252 @@
 
-# План: Жёсткая привязка Push-уведомлений к Self-Hosted Supabase
+
+# План: Lovable Cloud как Fallback для Push-уведомлений
 
 ## Текущая архитектура
 
 ```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              FRONTEND                                        │
+│                                                                              │
+│  usePushNotifications.ts                                                     │
+│  ├── selfHostedPost('portal-push-config')  → VAPID ключ                     │
+│  ├── selfHostedPost('push-subscription-save')  → сохранение подписки        │
+│  └── selfHostedPost('push-subscription-delete') → удаление подписки         │
+│                                                                              │
+│  Текущий flow: ТОЛЬКО self-hosted (api.academyos.ru)                        │
+│  Если self-hosted недоступен → ошибка                                        │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              FRONTEND                                       │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  usePushNotifications.ts (CRM)       usePortalPushNotifications.ts (Portal) │
-│  ├── VAPID: BNCGXWZNici... ✅        ├── VAPID: BMq-TnK0qX... ❌            │
-│  ├── subscribe → selfHostedPost       ├── subscribe → selfHostedPost         │
-│  └── Вызов: portal-push-config       └── Вызов: portal-push-config          │
-│                                                                             │
-│  PushDiagnostics.tsx                                                        │
-│  └── Вызов: portal-push-config, send-push-notification                     │
-│                                                                             │
-└─────────────────────────┬───────────────────────────────────────────────────┘
-                          │
-                          │ selfHostedApi (api.academyos.ru)
-                          ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                     SELF-HOSTED SUPABASE (api.academyos.ru)                 │
-├─────────────────────────────────────────────────────────────────────────────┤
+│                     SELF-HOSTED (api.academyos.ru)                          │
 │                                                                             │
 │  Edge Functions:                                                            │
-│  ├── portal-push-config      → Deno.env.get('VAPID_PUBLIC_KEY')            │
-│  ├── push-subscription-save  → push_subscriptions table                    │
-│  ├── push-subscription-delete → push_subscriptions table                   │
-│  └── send-push-notification  → VAPID signing + WebPush                     │
+│  ├── portal-push-config                                                     │
+│  ├── push-subscription-save                                                 │
+│  ├── push-subscription-delete                                               │
+│  └── send-push-notification                                                 │
 │                                                                             │
-│  Secrets (должны быть настроены на self-hosted):                           │
-│  ├── VAPID_PUBLIC_KEY  = BNCGXWZNici...                                    │
-│  ├── VAPID_PRIVATE_KEY = Ag3ubLQIi1H...                                    │
-│  ├── SUPABASE_URL                                                          │
-│  └── SUPABASE_SERVICE_ROLE_KEY                                             │
-│                                                                             │
-│  Database:                                                                  │
-│  └── push_subscriptions (endpoint, keys, user_id, updated_at)              │
-│                                                                             │
+│  Database: push_subscriptions                                               │
+│  Secrets: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY                               │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Обнаруженные проблемы
+## Новая архитектура с Fallback
 
-### 1. Несоответствие VAPID ключа в Portal хуке
-- **Файл**: `src/hooks/usePortalPushNotifications.ts`
-- **Проблема**: Строка 6 содержит неправильный fallback ключ `BMq-TnK0qX...`
-- **Правильный ключ**: `BNCGXWZNiciyztYDIZPXM_smN8mBxrfFPIG_ohpea-9H5B0Gl-zjfWkh7XJOemAh2iDQR87V3f54LQ12DRJfl6s`
-
-### 2. Отсутствие логирования при получении VAPID ключа
-- Функция `fetchVapidPublicKey` не сообщает, получила ли она ключ с сервера или использует fallback
-- Это критично для диагностики проблем
-
-### 3. Secrets на self-hosted сервере
-- Необходимо убедиться, что на `api.academyos.ru` установлены правильные VAPID ключи
-- Lovable Cloud secrets НЕ используются — всё работает через self-hosted
-
-### 4. Диагностика не показывает соответствие ключей
-- `PushDiagnostics.tsx` не сравнивает VAPID ключ подписки с ключом сервера
-
-## Детальный план изменений
-
-### Шаг 1: Синхронизация VAPID ключей в коде
-
-**Файл: `src/hooks/usePortalPushNotifications.ts`**
-
-Изменить строку 6:
-```typescript
-// БЫЛО:
-const VAPID_PUBLIC_KEY = 'BMq-TnK0qXtJGnxvEALqjPGqEFGvD7kQLLvDMvpL2vgL6qvXGHqpDqWqYqKqMqNqLqOq';
-
-// СТАНЕТ:
-const VAPID_PUBLIC_KEY = 'BNCGXWZNiciyztYDIZPXM_smN8mBxrfFPIG_ohpea-9H5B0Gl-zjfWkh7XJOemAh2iDQR87V3f54LQ12DRJfl6s';
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              FRONTEND                                        │
+│                                                                              │
+│  usePushNotifications.ts                                                     │
+│  ├── TRY: selfHostedPost('portal-push-config')                              │
+│  │   └── FALLBACK: supabase.functions.invoke('portal-push-config')          │
+│  ├── TRY: selfHostedPost('push-subscription-save')                          │
+│  │   └── FALLBACK: supabase.functions.invoke('push-subscription-save')      │
+│  └── ...                                                                     │
+│                                                                              │
+│  selfHostedApi.ts: Добавить pushApiWithFallback helper                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┴───────────────┐
+                    ▼                               ▼
+┌─────────────────────────────┐     ┌─────────────────────────────┐
+│   SELF-HOSTED (PRIMARY)     │     │   LOVABLE CLOUD (FALLBACK)  │
+│   api.academyos.ru          │     │   igqdjqmohwsgyeuhitqg      │
+│                             │     │                             │
+│   ✅ Основной бэкенд        │     │   📦 Резервный бэкенд       │
+│   ✅ База данных            │     │   📦 Те же Edge Functions   │
+│   ✅ VAPID ключи            │     │   📦 Свои VAPID ключи       │
+└─────────────────────────────┘     └─────────────────────────────┘
 ```
 
-### Шаг 2: Улучшить логирование в usePushNotifications
+## Важное ограничение
 
-**Файл: `src/hooks/usePushNotifications.ts`**
+VAPID ключи на self-hosted и Lovable Cloud **разные**:
+- Self-hosted: `BNCGXWZNici...`
+- Lovable Cloud: `BCqgfbaK1qd...` (или другой)
 
-Обновить функцию `fetchVapidPublicKey()` (строки 56-72):
+**Это означает**: подписка, созданная с ключом self-hosted, не будет работать через Lovable Cloud и наоборот.
+
+### Варианты решения:
+
+1. **Синхронизировать VAPID ключи** — установить одинаковые ключи на обоих серверах
+2. **Dual-subscription** — создавать подписку для обоих серверов (сложно, не рекомендуется)
+3. **Fallback только для конфигурации** — использовать Cloud только для получения VAPID ключа, остальное через self-hosted
+
+---
+
+## План реализации
+
+### Шаг 1: Синхронизировать VAPID ключи
+
+Для полноценного fallback необходимо, чтобы VAPID ключи совпадали.
+
+**Обновить в Lovable Cloud Secrets:**
+```
+VAPID_PUBLIC_KEY = BNCGXWZNiciyztYDIZPXM_smN8mBxrfFPIG_ohpea-9H5B0Gl-zjfWkh7XJOemAh2iDQR87V3f54LQ12DRJfl6s
+VAPID_PRIVATE_KEY = Ag3ubLQIi1HUDfzr9F3zdttibP6svYoMp1VQjBdRZ04
+```
+
+### Шаг 2: Создать helper для API с fallback
+
+**Новый файл: `src/lib/pushApiWithFallback.ts`**
+
+```typescript
+import { selfHostedPost } from './selfHostedApi';
+import { supabase } from '@/integrations/supabase/client';
+
+interface FallbackOptions {
+  maxRetries?: number;
+  fallbackEnabled?: boolean;
+}
+
+export async function pushApiWithFallback<T>(
+  endpoint: string,
+  body?: unknown,
+  options: FallbackOptions = {}
+): Promise<{ success: boolean; data?: T; error?: string; source: 'self-hosted' | 'lovable-cloud' }> {
+  const { maxRetries = 2, fallbackEnabled = true } = options;
+  
+  // Try self-hosted first
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await selfHostedPost<T>(endpoint, body, {
+        retry: { noRetry: true } // Disable internal retry for faster fallback
+      });
+      
+      if (res.success) {
+        return { success: true, data: res.data, source: 'self-hosted' };
+      }
+      
+      // Non-retryable error
+      if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
+        return { success: false, error: res.error, source: 'self-hosted' };
+      }
+    } catch (e) {
+      console.warn(`[Push] Self-hosted attempt ${attempt + 1} failed:`, e);
+    }
+  }
+  
+  // Fallback to Lovable Cloud
+  if (fallbackEnabled) {
+    console.log('[Push] Falling back to Lovable Cloud for:', endpoint);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke(endpoint, {
+        body: body as Record<string, unknown>
+      });
+      
+      if (error) {
+        return { success: false, error: error.message, source: 'lovable-cloud' };
+      }
+      
+      return { success: true, data: data as T, source: 'lovable-cloud' };
+    } catch (e) {
+      console.error('[Push] Lovable Cloud fallback failed:', e);
+      return { 
+        success: false, 
+        error: e instanceof Error ? e.message : 'Fallback failed',
+        source: 'lovable-cloud' 
+      };
+    }
+  }
+  
+  return { success: false, error: 'All attempts failed', source: 'self-hosted' };
+}
+```
+
+### Шаг 3: Обновить usePushNotifications.ts
+
+Заменить прямые вызовы `selfHostedPost` на `pushApiWithFallback`:
+
+```typescript
+// Было:
+const saveResponse = await selfHostedPost<{ success: boolean }>('push-subscription-save', {...});
+
+// Станет:
+const saveResponse = await pushApiWithFallback<{ success: boolean }>('push-subscription-save', {...});
+
+// Логирование источника:
+if (saveResponse.success) {
+  console.log(`[Push] Subscription saved via ${saveResponse.source}`);
+}
+```
+
+### Шаг 4: Обновить fetchVapidPublicKey с fallback
+
 ```typescript
 async function fetchVapidPublicKey(): Promise<string> {
+  // Try self-hosted first
   try {
-    const res = await selfHostedPost<{ success?: boolean; vapidPublicKey?: string; error?: string }>(
-      'portal-push-config',
-      undefined
-    );
-
-    const key = res.data?.vapidPublicKey;
-    if (res.success && typeof key === 'string' && key.length > 20) {
-      console.log('[Push] VAPID key from self-hosted server:', key.substring(0, 20) + '...');
-      return key;
+    const res = await selfHostedPost<{ vapidPublicKey?: string }>('portal-push-config', undefined, {
+      retry: { noRetry: true }
+    });
+    
+    if (res.success && res.data?.vapidPublicKey) {
+      console.log('[Push] VAPID from self-hosted');
+      return res.data.vapidPublicKey;
     }
-    console.warn('[Push] Self-hosted returned invalid VAPID, using fallback:', VAPID_PUBLIC_KEY.substring(0, 20) + '...');
   } catch (e) {
-    console.warn('[Push] Failed to fetch VAPID from self-hosted, using fallback:', e);
+    console.warn('[Push] Self-hosted VAPID fetch failed:', e);
   }
+  
+  // Fallback to Lovable Cloud
+  try {
+    const { data, error } = await supabase.functions.invoke('portal-push-config');
+    if (!error && data?.vapidPublicKey) {
+      console.log('[Push] VAPID from Lovable Cloud (fallback)');
+      return data.vapidPublicKey;
+    }
+  } catch (e) {
+    console.warn('[Push] Lovable Cloud VAPID fetch failed:', e);
+  }
+  
+  // Ultimate fallback to hardcoded
+  console.warn('[Push] Using hardcoded VAPID fallback');
   return VAPID_PUBLIC_KEY;
 }
 ```
 
-### Шаг 3: Расширить диагностику для проверки VAPID ключей
+### Шаг 5: Добавить индикатор источника в диагностику
 
 **Файл: `src/components/notifications/PushDiagnostics.tsx`**
 
-Добавить новый диагностический пункт `vapidMatch` для сравнения ключей:
+Добавить отображение какой сервер используется:
+- 🟢 Self-hosted (основной)
+- 🟡 Lovable Cloud (fallback)
 
-1. Добавить в `DiagnosticState`:
-```typescript
-vapidMatch: DiagnosticResult;
+---
+
+## Изменяемые файлы
+
+| Файл | Изменения |
+|------|-----------|
+| `src/lib/pushApiWithFallback.ts` | Новый файл — helper с fallback логикой |
+| `src/hooks/usePushNotifications.ts` | Использовать fallback для всех push операций |
+| `src/hooks/usePortalPushNotifications.ts` | Использовать fallback для portal операций |
+| `src/components/notifications/PushDiagnostics.tsx` | Показывать источник (self-hosted/cloud) |
+
+---
+
+## Предварительные действия (для пользователя)
+
+Чтобы fallback работал корректно, необходимо синхронизировать VAPID ключи:
+
+Обновить в Lovable Cloud secrets (через UI настроек):
+
+```
+VAPID_PUBLIC_KEY = BNCGXWZNiciyztYDIZPXM_smN8mBxrfFPIG_ohpea-9H5B0Gl-zjfWkh7XJOemAh2iDQR87V3f54LQ12DRJfl6s
+VAPID_PRIVATE_KEY = Ag3ubLQIi1HUDfzr9F3zdttibP6svYoMp1VQjBdRZ04
 ```
 
-2. Добавить в `initialState`:
-```typescript
-vapidMatch: { status: 'pending', message: 'VAPID ключи' },
-```
+---
 
-3. После проверки сервера добавить проверку соответствия VAPID:
-```typescript
-// 6. Check VAPID key match
-updateDiagnostic('vapidMatch', { status: 'checking' });
+## Ожидаемый результат
 
-try {
-  const registration = await navigator.serviceWorker.ready;
-  const subscription = await registration.pushManager.getSubscription();
-  
-  if (!subscription) {
-    updateDiagnostic('vapidMatch', {
-      status: 'warning',
-      message: 'Нет подписки для проверки',
-    });
-  } else {
-    // Get server VAPID key
-    const serverResponse = await selfHostedPost<{ vapidPublicKey?: string }>('portal-push-config');
-    const serverVapidKey = serverResponse.data?.vapidPublicKey;
-    
-    if (!serverVapidKey) {
-      updateDiagnostic('vapidMatch', {
-        status: 'warning',
-        message: 'Сервер не вернул VAPID ключ',
-      });
-    } else {
-      // Compare subscription's applicationServerKey with server key
-      const subKey = subscription.options?.applicationServerKey;
-      if (subKey) {
-        const subKeyArray = new Uint8Array(subKey as ArrayBuffer);
-        const subKeyB64 = btoa(String.fromCharCode(...subKeyArray))
-          .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-        
-        const keyMatch = subKeyB64 === serverVapidKey;
-        
-        updateDiagnostic('vapidMatch', {
-          status: keyMatch ? 'success' : 'error',
-          message: keyMatch ? 'Ключи совпадают' : 'Ключи НЕ совпадают!',
-          details: keyMatch 
-            ? `Сервер: ${serverVapidKey.substring(0, 15)}...`
-            : `Сервер: ${serverVapidKey.substring(0, 15)}... ≠ Подписка: ${subKeyB64.substring(0, 15)}...`,
-        });
-      } else {
-        updateDiagnostic('vapidMatch', {
-          status: 'warning',
-          message: 'Ключ подписки недоступен',
-        });
-      }
-    }
-  }
-} catch (err) {
-  updateDiagnostic('vapidMatch', {
-    status: 'error',
-    message: 'Ошибка проверки VAPID',
-    details: err instanceof Error ? err.message : 'Unknown',
-  });
-}
-```
+1. **Основной режим**: Push работает через self-hosted (api.academyos.ru)
+2. **При недоступности self-hosted**: автоматический переход на Lovable Cloud
+3. **Логирование**: в консоли видно какой сервер обработал запрос
+4. **Диагностика**: показывает текущий источник
+5. **Единые VAPID ключи**: подписки работают через оба сервера
 
-### Шаг 4: Добавить иконку для vapidMatch
-
-Добавить в функцию `getDiagnosticIcon`:
-```typescript
-case 'vapidMatch':
-  return <Key className="h-4 w-4" />;
-```
-
-И импортировать `Key` из lucide-react.
-
-## Действия на Self-Hosted сервере (для пользователя)
-
-После изменений в коде, необходимо на `api.academyos.ru` выполнить:
-
-```bash
-# 1. Проверить текущие ключи
-supabase secrets list | grep VAPID
-
-# 2. Если ключи отличаются от предоставленных, обновить:
-supabase secrets set VAPID_PUBLIC_KEY="BNCGXWZNiciyztYDIZPXM_smN8mBxrfFPIG_ohpea-9H5B0Gl-zjfWkh7XJOemAh2iDQR87V3f54LQ12DRJfl6s"
-supabase secrets set VAPID_PRIVATE_KEY="Ag3ubLQIi1HUDfzr9F3zdttibP6svYoMp1VQjBdRZ04"
-
-# 3. Перезапустить Edge Functions
-supabase functions deploy portal-push-config
-supabase functions deploy send-push-notification
-supabase functions deploy push-subscription-save
-supabase functions deploy push-subscription-delete
-```
-
-## Ожидаемые изменения в файлах
-
-| Файл | Тип изменения |
-|------|---------------|
-| `src/hooks/usePortalPushNotifications.ts` | Исправление VAPID ключа (строка 6) |
-| `src/hooks/usePushNotifications.ts` | Улучшение логирования fetchVapidPublicKey |
-| `src/components/notifications/PushDiagnostics.tsx` | Добавление проверки VAPID соответствия |
-
-## Результат
-
-После изменений:
-1. Оба хука (CRM и Portal) будут использовать одинаковый VAPID ключ
-2. Логирование покажет источник VAPID ключа (сервер или fallback)
-3. Диагностика покажет статус соответствия ключей
-4. Push-уведомления будут работать стабильно через self-hosted
-
-## Важно: Переподписка пользователей
-
-После синхронизации ключей существующие подписки с неправильными ключами станут невалидными. Система автоматически:
-1. Обнаружит несоответствие при health check (каждые 24 часа)
-2. Выполнит переподписку с правильным ключом
-3. Обновит данные на сервере
-
-Для немедленной переподписки пользователи могут использовать кнопку "Переподписаться" в диагностике.
