@@ -65,7 +65,7 @@ import { IndividualLessonsModal } from "@/components/individual-lessons/Individu
 import { MobileChatNavigation } from "@/components/crm/MobileChatNavigation";
 import { MobileNewChatModal } from "@/components/crm/MobileNewChatModal";
 import { AddEmployeeModal } from "@/components/employees/AddEmployeeModal";
-import { PerformanceMonitor } from "@/components/ui/PerformanceMonitor";
+
 import { EducationSubmenu } from "@/components/learning-groups/EducationSubmenu";
 import { usePinnedModalsDB, PinnedModal } from "@/hooks/usePinnedModalsDB";
 import { useChatStatesDB } from "@/hooks/useChatStatesDB";
@@ -4648,9 +4648,6 @@ const CRMContent = () => {
       
       {/* WhatsApp Status Notification */}
       <WhatsAppStatusNotification />
-      
-      {/* Performance Monitor (dev only) */}
-      <PerformanceMonitor />
       </div>
     </TooltipProvider>
   );
