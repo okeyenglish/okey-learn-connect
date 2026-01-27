@@ -363,6 +363,9 @@ verify_jwt = false
 [functions.complete-employee-onboarding]
 verify_jwt = false
 
+[functions.complete-teacher-onboarding]
+verify_jwt = false
+
 [functions.check-user-access]
 verify_jwt = false
 

@@ -107,6 +107,7 @@ const Install = lazy(() => import('./pages/Install'));
 const SystemMonitor = lazy(() => import('./pages/SystemMonitor'));
 const WebhookTest = lazy(() => import('./pages/WebhookTest'));
 const EmployeeOnboarding = lazy(() => import('./pages/employee/EmployeeOnboarding'));
+const TeacherOnboarding = lazy(() => import('./pages/teacher/TeacherOnboarding'));
 const DebugAccess = lazy(() => import('./pages/DebugAccess'));
 const OrgLayout = lazy(() => import('./pages/org/OrgLayout'));
 const OrgHome = lazy(() => import('./pages/org/OrgHome'));
@@ -529,6 +530,11 @@ const AppContent = () => {
           <Route path="/employee/onboarding/:token" element={
             <Suspense fallback={<LoadingComponent />}>
               <EmployeeOnboarding />
+            </Suspense>
+          } />
+          <Route path="/teacher/onboarding/:token" element={
+            <Suspense fallback={<LoadingComponent />}>
+              <TeacherOnboarding />
             </Suspense>
           } />
           <Route path="/debug-access" element={

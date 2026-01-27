@@ -950,6 +950,30 @@ export interface App {
   updated_at?: string;
 }
 
+// Приглашения преподавателей с magic link
+export type TeacherInvitationStatus = 'pending' | 'accepted' | 'expired' | 'cancelled';
+
+export interface TeacherInvitation {
+  id: string;
+  organization_id: string;
+  teacher_id: string;
+  first_name: string;
+  last_name: string | null;
+  phone: string | null;
+  email: string | null;
+  branch: string | null;
+  subjects: string[] | null;
+  categories: string[] | null;
+  invite_token: string;
+  token_expires_at: string;
+  status: TeacherInvitationStatus;
+  created_by: string | null;
+  terms_accepted_at: string | null;
+  profile_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface StudentAttendance {
   id: string;
   student_id: string;
