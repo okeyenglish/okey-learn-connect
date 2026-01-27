@@ -6,6 +6,7 @@ import {
   errorResponse,
   getErrorMessage,
   sendPushNotification,
+  getOrgAdminManagerUserIds,
   type OnlinePBXWebhookPayload,
   type OnlinePBXWebhookResponse,
 } from '../_shared/types.ts';
@@ -725,16 +726,11 @@ Deno.serve(async (req) => {
             }
           }
           
-          // Send push notification to all managers/admins
+          // Send push notification to managers/admins in this organization
           try {
-            const { data: chatUsers } = await supabase
-              .from('user_roles')
-              .select('user_id')
-              .in('role', ['admin', 'manager']);
+            const userIds = await getOrgAdminManagerUserIds(supabase, organizationId);
             
-            if (chatUsers && chatUsers.length > 0) {
-              const userIds = chatUsers.map((u: { user_id: string }) => u.user_id);
-              
+            if (userIds.length > 0) {
               await sendPushNotification({
                 userIds,
                 payload: {
@@ -745,7 +741,7 @@ Deno.serve(async (req) => {
                   tag: `missed-call-${newCallLog.id}`,
                 },
               });
-              console.log('Push notification sent for missed call');
+              console.log('Push notification sent for missed call to', userIds.length, 'users in org:', organizationId);
             }
           } catch (pushErr) {
             console.error('Error sending push notification for missed call:', pushErr);

@@ -4,6 +4,7 @@ import {
   handleCors,
   getErrorMessage,
   sendPushNotification,
+  getOrgAdminManagerUserIds,
   type WappiWebhook,
   type WappiMessage,
 } from '../_shared/types.ts'
@@ -344,15 +345,11 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
 
   console.log(`Saved incoming Wappi message from ${phoneNumber}: ${messageText}`)
 
-  // Send push notifications to managers/admins with chat access
+  // Send push notifications to managers/admins in this organization
   try {
-    const { data: chatUsers } = await supabase
-      .from('user_roles')
-      .select('user_id')
-      .in('role', ['admin', 'manager']);
+    const userIds = await getOrgAdminManagerUserIds(supabase, organizationId);
 
-    if (chatUsers && chatUsers.length > 0) {
-      const userIds = chatUsers.map((u: { user_id: string }) => u.user_id);
+    if (userIds.length > 0) {
       // Format: "Имя Фамилия" as title, message text as body
       const clientFullName = [client.first_name, client.last_name]
         .filter(Boolean).join(' ') || client.name || 'Клиент';
@@ -367,7 +364,7 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
           tag: `whatsapp-chat-${client.id}`,
         },
       });
-      console.log('Push notification sent for WhatsApp message');
+      console.log('Push notification sent for WhatsApp message to', userIds.length, 'users in org:', organizationId);
     }
   } catch (pushErr) {
     console.error('Error sending push notification:', pushErr);

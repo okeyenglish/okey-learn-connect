@@ -1884,3 +1884,35 @@ export async function sendPushNotification(params: SendPushParams): Promise<{ su
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
+
+// ============================================================================
+// Organization-scoped User Role Helpers
+// ============================================================================
+
+/**
+ * Get user IDs of admins/managers for a specific organization
+ * This ensures push notifications are only sent to users in the same organization
+ */
+export async function getOrgAdminManagerUserIds(
+  supabase: SupabaseClient,
+  organizationId: string
+): Promise<string[]> {
+  console.log('[getOrgAdminManagerUserIds] Fetching for org:', organizationId);
+  
+  // Join user_roles with profiles to filter by organization_id
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, user_roles!inner(role)')
+    .eq('organization_id', organizationId)
+    .in('user_roles.role', ['admin', 'manager']);
+
+  if (error) {
+    console.error('[getOrgAdminManagerUserIds] Error:', error);
+    return [];
+  }
+
+  const userIds = data?.map((p: { id: string }) => p.id) || [];
+  console.log('[getOrgAdminManagerUserIds] Found', userIds.length, 'users');
+  
+  return userIds;
+}

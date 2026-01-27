@@ -4,6 +4,7 @@ import {
   handleCors,
   getErrorMessage,
   sendPushNotification,
+  getOrgAdminManagerUserIds,
   type TelegramWappiWebhook,
   type TelegramWappiMessage,
 } from '../_shared/types.ts';
@@ -196,15 +197,11 @@ async function handleIncomingMessage(
 
   console.log('Incoming message saved successfully');
 
-  // Send push notifications to managers/admins
+  // Send push notifications to managers/admins in this organization
   try {
-    const { data: chatUsers } = await supabase
-      .from('user_roles')
-      .select('user_id')
-      .in('role', ['admin', 'manager']);
+    const userIds = await getOrgAdminManagerUserIds(supabase, organizationId);
 
-    if (chatUsers && chatUsers.length > 0) {
-      const userIds = chatUsers.map((u: { user_id: string }) => u.user_id);
+    if (userIds.length > 0) {
       // Format: "Имя Фамилия" as title, message text as body
       const clientFullName = client.first_name && client.last_name 
         ? `${client.first_name} ${client.last_name}`.trim()
@@ -220,7 +217,7 @@ async function handleIncomingMessage(
           tag: `telegram-chat-${client.id}`,
         },
       });
-      console.log('Push notification sent for Telegram message');
+      console.log('Push notification sent for Telegram message to', userIds.length, 'users in org:', organizationId);
     }
   } catch (pushErr) {
     console.error('Error sending push notification:', pushErr);
