@@ -38,10 +38,31 @@ interface PushNotificationData {
   url?: string;
   requireInteraction?: boolean;
   data?: Record<string, unknown>;
+  notification?: PushNotificationData; // FCM-like nested format
 }
 
 self.addEventListener('push', (event) => {
-  console.log('[SW] Push received at:', new Date().toISOString(), 'data:', event.data?.text()?.substring(0, 100));
+  const rawText = event.data?.text() || '';
+  const timestamp = new Date().toISOString();
+  
+  console.log('[SW] Push received at:', timestamp, 'raw:', rawText.substring(0, 200));
+  
+  // Store raw payload for diagnostics (keep last 5)
+  try {
+    const diagnostics = JSON.parse(self.indexedDB ? '[]' : '[]');
+    // Use postMessage to store in main thread since SW can't access localStorage directly
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+      clients.forEach(client => {
+        client.postMessage({
+          type: 'PUSH_RAW_PAYLOAD',
+          payload: rawText,
+          receivedAt: timestamp,
+        });
+      });
+    });
+  } catch (e) {
+    console.warn('[SW] Failed to store diagnostic:', e);
+  }
   
   const defaultData: PushNotificationData = {
     title: "O'KEY ENGLISH",
@@ -57,10 +78,18 @@ self.addEventListener('push', (event) => {
   try {
     if (event.data) {
       const payload = event.data.json() as PushNotificationData;
-      data = { ...defaultData, ...payload };
+      console.log('[SW] Parsed payload:', JSON.stringify(payload).substring(0, 200));
+      
+      // Support both flat format and nested notification format (FCM-like)
+      if (payload.notification && typeof payload.notification === 'object') {
+        const notif = payload.notification as PushNotificationData;
+        data = { ...defaultData, ...notif, data: payload.data || notif.data };
+      } else {
+        data = { ...defaultData, ...payload };
+      }
     }
   } catch (e) {
-    console.error('[SW] Error parsing push data:', e);
+    console.error('[SW] Error parsing push data:', e, 'raw:', rawText);
     // Try as text
     if (event.data) {
       data.body = event.data.text();
