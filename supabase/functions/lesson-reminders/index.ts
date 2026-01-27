@@ -253,6 +253,19 @@ Deno.serve(async (req) => {
           }
         };
 
+        // Get organization name for push notification
+        const { data: orgData } = await supabase
+          .from('lesson_sessions')
+          .select('organization_id, organizations!inner(name)')
+          .eq('id', lesson.id)
+          .single();
+        
+        const orgName = (orgData?.organizations as { name: string } | null)?.name || "O'KEY ENGLISH";
+        const isGroupLesson = groupName.toLowerCase().includes('группа') || 
+                              groupName.toLowerCase().includes('group') ||
+                              !groupName.toLowerCase().includes('инд');
+        const lessonType = isGroupLesson ? 'Групповое занятие' : 'Индивидуальное занятие';
+
         // Send Push notification
         if (settings.push_enabled && teacher.profile_id) {
           try {
@@ -260,8 +273,8 @@ Deno.serve(async (req) => {
               body: {
                 userId: teacher.profile_id,
                 payload: {
-                  title: `⏰ Занятие через ${Math.round(minutesUntilLesson)} мин`,
-                  body: reminderText,
+                  title: `🎓 Английский в ${orgName}`,
+                  body: `${lessonType} "${groupName}" через ${Math.round(minutesUntilLesson)} мин`,
                   icon: '/pwa-192x192.png',
                   url: '/teacher-portal?tab=schedule',
                   tag: `lesson-${lesson.id}-${Date.now()}`,

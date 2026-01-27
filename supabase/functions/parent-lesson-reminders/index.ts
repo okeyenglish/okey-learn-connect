@@ -228,8 +228,21 @@ Deno.serve(async (req) => {
 
         let notificationsSent = 0;
 
-        // Prepare message
-        const message = `👋 Напоминание!\n\n🎓 ${studentName} — занятие "${groupName}"\n📅 Сегодня в ${lesson.start_time}\n⏰ До начала ~${Math.round(minutesUntilLesson)} минут`;
+        // Get organization name
+        const { data: orgData } = await supabase
+          .from('organizations')
+          .select('name')
+          .eq('id', lesson.organization_id)
+          .single();
+
+        const orgName = orgData?.name || "O'KEY ENGLISH";
+        const firstName = student.first_name || studentName.split(' ')[0];
+        const isIndividual = groupName.toLowerCase().includes('инд') || 
+                             groupName.toLowerCase().includes('individual');
+        const lessonType = isIndividual ? 'индивидуальное' : 'групповое';
+
+        // Prepare message with improved format
+        const message = `📚 ${orgName}\n\nЖдём ${firstName} на ${lessonType} занятие через ${Math.round(minutesUntilLesson)} мин.\n⏰ Начало в ${lesson.start_time}`;
 
         // Log notification to history
         const logNotification = async (channel: string, status: string, externalId?: string, errorDetails?: string) => {

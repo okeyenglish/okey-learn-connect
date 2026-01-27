@@ -171,6 +171,40 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
   });
 
   console.log(`Saved incoming MAX message for client ${client.id}`);
+
+  // Send push notifications to managers/admins
+  try {
+    const { data: chatUsers } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .in('role', ['admin', 'manager']);
+
+    if (chatUsers && chatUsers.length > 0) {
+      const userIds = chatUsers.map((u: { user_id: string }) => u.user_id);
+      // Format: "Имя Фамилия" as title, message text as body
+      const clientFullName = client.first_name && client.last_name 
+        ? `${client.first_name} ${client.last_name}`.trim()
+        : client.name || senderName;
+      
+      const { messageText: msgText } = extractMessageContent(messageData);
+      
+      await supabase.functions.invoke('send-push-notification', {
+        body: {
+          userIds,
+          payload: {
+            title: clientFullName,
+            body: msgText.slice(0, 100) + (msgText.length > 100 ? '...' : ''),
+            icon: '/pwa-192x192.png',
+            url: `/crm?clientId=${client.id}`,
+            tag: `max-chat-${client.id}`,
+          },
+        },
+      });
+      console.log('Push notification sent for MAX message');
+    }
+  } catch (pushErr) {
+    console.error('Error sending push notification:', pushErr);
+  }
 }
 
 // Helper to extract message content from webhook data
