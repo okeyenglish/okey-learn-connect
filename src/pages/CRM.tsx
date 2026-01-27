@@ -4098,21 +4098,23 @@ const CRMContent = () => {
               />
             </div>
           ) : activeChatType === 'chatos' ? (
-            <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-              <AIHubInline 
-                context={{
-                  currentPage: 'crm',
-                  activeClientId: activeChatId,
-                  activeClientName: currentChatClientInfo.name,
-                  userBranch: profile?.branch || undefined,
-                  activeChatType
-                }}
-                onOpenChat={(clientId: string) => {
-                  handleChatClick(clientId, 'client');
-                }}
-                onBack={() => setActiveChatType('client')}
-              />
-            </Suspense>
+            <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden w-full">
+              <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                <AIHubInline 
+                  context={{
+                    currentPage: 'crm',
+                    activeClientId: activeChatId,
+                    activeClientName: currentChatClientInfo.name,
+                    userBranch: profile?.branch || undefined,
+                    activeChatType
+                  }}
+                  onOpenChat={(clientId: string) => {
+                    handleChatClick(clientId, 'client');
+                  }}
+                  onBack={() => setActiveChatType('client')}
+                />
+              </Suspense>
+            </div>
           ) : activeChatType === 'communities' ? (
             isMobile ? (
               <EmployeeKPISection className="flex-1" />
