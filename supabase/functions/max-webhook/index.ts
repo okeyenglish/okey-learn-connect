@@ -5,6 +5,7 @@ import {
   successResponse,
   errorResponse,
   getErrorMessage,
+  sendPushNotification,
   type MaxWebhookPayload,
   type MaxWebhookInstanceData,
   type MaxWebhookSenderData,
@@ -188,16 +189,14 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
       
       const { messageText: msgText } = extractMessageContent(messageData);
       
-      await supabase.functions.invoke('send-push-notification', {
-        body: {
-          userIds,
-          payload: {
-            title: clientFullName,
-            body: msgText.slice(0, 100) + (msgText.length > 100 ? '...' : ''),
-            icon: client.avatar_url || '/pwa-192x192.png',
-            url: `/crm?clientId=${client.id}`,
-            tag: `max-chat-${client.id}`,
-          },
+      await sendPushNotification({
+        userIds,
+        payload: {
+          title: clientFullName,
+          body: msgText.slice(0, 100) + (msgText.length > 100 ? '...' : ''),
+          icon: client.avatar_url || '/pwa-192x192.png',
+          url: `/crm?clientId=${client.id}`,
+          tag: `max-chat-${client.id}`,
         },
       });
       console.log('Push notification sent for MAX message');

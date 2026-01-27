@@ -1773,3 +1773,70 @@ export async function getOrganizationIdFromUser(
     return null;
   }
 }
+
+// ============================================================================
+// Self-Hosted Push Notification Helper
+// ============================================================================
+
+/**
+ * Self-hosted API configuration
+ * Push subscriptions are stored in self-hosted Supabase (api.academyos.ru)
+ * so we need to call send-push-notification there, not in Lovable Cloud
+ */
+const SELF_HOSTED_URL = 'https://api.academyos.ru';
+const SELF_HOSTED_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY5MDg4ODgzLCJleHAiOjE5MjY3Njg4ODN9.WEsCyaCdQvxzVObedC-A9hWTJUSwI_p9nCG1wlbaNEg';
+
+export interface PushPayload {
+  title: string;
+  body: string;
+  icon?: string;
+  badge?: string;
+  tag?: string;
+  url?: string;
+  data?: Record<string, unknown>;
+}
+
+export interface SendPushParams {
+  userId?: string;
+  userIds?: string[];
+  payload: PushPayload;
+}
+
+/**
+ * Send push notification via self-hosted API
+ * This should be used instead of supabase.functions.invoke('send-push-notification')
+ * because push subscriptions are stored in self-hosted database
+ */
+export async function sendPushNotification(params: SendPushParams): Promise<{ success: boolean; sent?: number; failed?: number; error?: string }> {
+  try {
+    console.log('[sendPushNotification] Calling self-hosted API...');
+    console.log('[sendPushNotification] Target users:', params.userIds?.length || (params.userId ? 1 : 0));
+    
+    const response = await fetch(`${SELF_HOSTED_URL}/functions/v1/send-push-notification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}`,
+      },
+      body: JSON.stringify(params),
+    });
+
+    const data = await response.json();
+    
+    console.log('[sendPushNotification] Response:', { status: response.status, data });
+    
+    if (!response.ok) {
+      console.error('[sendPushNotification] Failed:', data.error || response.statusText);
+      return { success: false, error: data.error || `HTTP ${response.status}` };
+    }
+
+    return {
+      success: true,
+      sent: data.sent || 0,
+      failed: data.failed || 0,
+    };
+  } catch (error) {
+    console.error('[sendPushNotification] Error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}

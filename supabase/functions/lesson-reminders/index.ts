@@ -4,7 +4,8 @@ import {
   successResponse, 
   errorResponse,
   getErrorMessage,
-  handleCors 
+  handleCors,
+  sendPushNotification,
 } from '../_shared/types.ts';
 
 interface TeacherNotificationSettings {
@@ -269,26 +270,24 @@ Deno.serve(async (req) => {
         // Send Push notification
         if (settings.push_enabled && teacher.profile_id) {
           try {
-            const { error: pushError } = await supabase.functions.invoke('send-push-notification', {
-              body: {
-                userId: teacher.profile_id,
-                payload: {
-                  title: `🎓 Английский в ${orgName}`,
-                  body: `${lessonType} "${groupName}" через ${Math.round(minutesUntilLesson)} мин`,
-                  icon: '/pwa-192x192.png',
-                  url: '/teacher-portal?tab=schedule',
-                  tag: `lesson-${lesson.id}-${Date.now()}`,
-                },
+            const pushResult = await sendPushNotification({
+              userId: teacher.profile_id,
+              payload: {
+                title: `🎓 Английский в ${orgName}`,
+                body: `${lessonType} "${groupName}" через ${Math.round(minutesUntilLesson)} мин`,
+                icon: '/pwa-192x192.png',
+                url: '/teacher-portal?tab=schedule',
+                tag: `lesson-${lesson.id}-${Date.now()}`,
               },
             });
 
-            if (!pushError) {
+            if (pushResult.success) {
               notificationsSent++;
               await logNotification('push', 'sent');
               console.log(`[lesson-reminders] Push sent for lesson ${lesson.id}`);
             } else {
-              await logNotification('push', 'failed', undefined, pushError.message);
-              console.error(`[lesson-reminders] Push error:`, pushError);
+              await logNotification('push', 'failed', undefined, pushResult.error);
+              console.error(`[lesson-reminders] Push error:`, pushResult.error);
             }
           } catch (err) {
             await logNotification('push', 'failed', undefined, String(err));

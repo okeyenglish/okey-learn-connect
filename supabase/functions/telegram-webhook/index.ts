@@ -3,6 +3,7 @@ import {
   corsHeaders,
   handleCors,
   getErrorMessage,
+  sendPushNotification,
   type TelegramWappiWebhook,
   type TelegramWappiMessage,
 } from '../_shared/types.ts';
@@ -209,16 +210,14 @@ async function handleIncomingMessage(
         ? `${client.first_name} ${client.last_name}`.trim()
         : client.name || senderName;
       
-      await supabase.functions.invoke('send-push-notification', {
-        body: {
-          userIds,
-          payload: {
-            title: clientFullName,
-            body: messageText.slice(0, 100) + (messageText.length > 100 ? '...' : ''),
-            icon: client.avatar_url || '/pwa-192x192.png',
-            url: `/crm?clientId=${client.id}`,
-            tag: `telegram-chat-${client.id}`,
-          },
+      await sendPushNotification({
+        userIds,
+        payload: {
+          title: clientFullName,
+          body: messageText.slice(0, 100) + (messageText.length > 100 ? '...' : ''),
+          icon: client.avatar_url || '/pwa-192x192.png',
+          url: `/crm?clientId=${client.id}`,
+          tag: `telegram-chat-${client.id}`,
         },
       });
       console.log('Push notification sent for Telegram message');
