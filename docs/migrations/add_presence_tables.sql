@@ -1,6 +1,7 @@
 -- Migration: Add typing_status and chat_presence tables for real-time presence indicators
 -- Run this on self-hosted Supabase (api.academyos.ru)
 -- Date: 2026-01-27
+-- IDEMPOTENT: Safe to run multiple times
 --
 -- These tables enable:
 -- 1. Typing indicators with draft preview in chat list
@@ -33,18 +34,21 @@ CREATE INDEX IF NOT EXISTS idx_typing_status_updated_at ON public.typing_status(
 -- Enable RLS
 ALTER TABLE public.typing_status ENABLE ROW LEVEL SECURITY;
 
--- Policies: All authenticated users can see typing status
+-- Policies (drop if exists, then create)
+DROP POLICY IF EXISTS "typing_status_select_all" ON public.typing_status;
 CREATE POLICY "typing_status_select_all" ON public.typing_status
   FOR SELECT TO authenticated USING (true);
 
--- Users can only manage their own typing status
+DROP POLICY IF EXISTS "typing_status_insert_own" ON public.typing_status;
 CREATE POLICY "typing_status_insert_own" ON public.typing_status
   FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "typing_status_update_own" ON public.typing_status;
 CREATE POLICY "typing_status_update_own" ON public.typing_status
   FOR UPDATE TO authenticated 
   USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "typing_status_delete_own" ON public.typing_status;
 CREATE POLICY "typing_status_delete_own" ON public.typing_status
   FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
@@ -75,18 +79,21 @@ CREATE INDEX IF NOT EXISTS idx_chat_presence_updated_at ON public.chat_presence(
 -- Enable RLS
 ALTER TABLE public.chat_presence ENABLE ROW LEVEL SECURITY;
 
--- Policies: All authenticated users can see presence
+-- Policies (drop if exists, then create)
+DROP POLICY IF EXISTS "chat_presence_select_all" ON public.chat_presence;
 CREATE POLICY "chat_presence_select_all" ON public.chat_presence
   FOR SELECT TO authenticated USING (true);
 
--- Users can only manage their own presence
+DROP POLICY IF EXISTS "chat_presence_insert_own" ON public.chat_presence;
 CREATE POLICY "chat_presence_insert_own" ON public.chat_presence
   FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "chat_presence_update_own" ON public.chat_presence;
 CREATE POLICY "chat_presence_update_own" ON public.chat_presence
   FOR UPDATE TO authenticated 
   USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "chat_presence_delete_own" ON public.chat_presence;
 CREATE POLICY "chat_presence_delete_own" ON public.chat_presence
   FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
@@ -96,7 +103,6 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.chat_presence TO authenticated;
 -- ============================================================
 -- 3. ENABLE REALTIME for both tables
 -- ============================================================
--- Note: If publication already has the table, this will error - that's OK
 DO $$
 BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.typing_status;
@@ -110,15 +116,6 @@ BEGIN
 EXCEPTION WHEN duplicate_object THEN
   RAISE NOTICE 'chat_presence already in publication';
 END $$;
-
--- ============================================================
--- 4. AUTO-CLEANUP: Remove stale records
--- ============================================================
--- You can run this periodically via pg_cron:
--- SELECT cron.schedule('cleanup-presence', '*/5 * * * *', $$
---   DELETE FROM public.typing_status WHERE updated_at < now() - interval '5 minutes';
---   DELETE FROM public.chat_presence WHERE updated_at < now() - interval '2 minutes';
--- $$);
 
 -- ============================================================
 -- Verification query (run after migration)
