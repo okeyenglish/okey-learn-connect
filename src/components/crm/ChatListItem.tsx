@@ -7,6 +7,7 @@ import { ChatContextMenu } from "./ChatContextMenu";
 interface TypingInfo {
   count: number;
   names: string[];
+  draftText?: string | null;
 }
 
 interface ChatListItemProps {
@@ -200,14 +201,21 @@ export const ChatListItem = React.memo(({
               </div>
               
               {isTyping ? (
-                <p className="text-xs text-orange-600 italic line-clamp-1 leading-relaxed flex items-center gap-1">
-                  <span className="inline-flex gap-0.5">
-                    <span className="w-1 h-1 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
-                    <span className="w-1 h-1 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
-                    <span className="w-1 h-1 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
-                  </span>
-                  <span className="truncate">{typingInfo?.names?.[0] || 'Менеджер'} печатает...</span>
-                </p>
+                <div className="text-xs text-orange-600 italic leading-relaxed">
+                  <div className="flex items-center gap-1">
+                    <span className="inline-flex gap-0.5">
+                      <span className="w-1 h-1 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
+                      <span className="w-1 h-1 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
+                      <span className="w-1 h-1 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
+                    </span>
+                    <span className="truncate">{typingInfo?.names?.[0] || 'Менеджер'} печатает...</span>
+                  </div>
+                  {typingInfo?.draftText && (
+                    <p className="text-[11px] text-orange-500/80 truncate mt-0.5 font-normal not-italic">
+                      «{typingInfo.draftText}»
+                    </p>
+                  )}
+                </div>
               ) : (
                 <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
                   {chat.lastMessage || "Нет сообщений"}
@@ -246,6 +254,8 @@ export const ChatListItem = React.memo(({
   const nextTypingCount = nextProps.typingInfo?.count ?? 0;
   const prevTypingName = prevProps.typingInfo?.names?.[0] ?? '';
   const nextTypingName = nextProps.typingInfo?.names?.[0] ?? '';
+  const prevDraftText = prevProps.typingInfo?.draftText ?? '';
+  const nextDraftText = nextProps.typingInfo?.draftText ?? '';
   
   return (
     prevProps.chat.id === nextProps.chat.id &&
@@ -263,7 +273,8 @@ export const ChatListItem = React.memo(({
     prevProps.foundInMessages === nextProps.foundInMessages &&
     prevProps.searchQuery === nextProps.searchQuery &&
     prevTypingCount === nextTypingCount &&
-    prevTypingName === nextTypingName
+    prevTypingName === nextTypingName &&
+    prevDraftText === nextDraftText
   );
 });
 
