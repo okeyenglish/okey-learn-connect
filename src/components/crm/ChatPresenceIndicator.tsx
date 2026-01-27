@@ -14,31 +14,23 @@ interface ChatPresenceIndicatorProps {
   compact?: boolean;
 }
 
-// Animated reading eyes component - cute and friendly
+// Animated reading eyes component - emoji style 👀
 const ReadingEyes: React.FC<{ className?: string }> = ({ className = '' }) => (
-  <div className={`flex items-center gap-[1px] ${className}`}>
-    {/* Left eye */}
-    <div className="relative w-[10px] h-[10px] rounded-full bg-gradient-to-b from-white to-slate-100 border border-blue-300/80 overflow-hidden shadow-sm animate-blink">
+  <div className={`flex items-center gap-[2px] ${className}`}>
+    {/* Left eye - oval shape like 👀 */}
+    <div className="relative w-[9px] h-[11px] rounded-[45%] bg-white border border-slate-300 overflow-hidden shadow-sm">
+      {/* Black pupil */}
       <div 
-        className="absolute w-[5px] h-[5px] bg-gradient-radial from-blue-400 to-blue-600 rounded-full animate-look-around shadow-inner"
-        style={{ top: '2px', left: '2px' }}
-      />
-      {/* Highlight */}
-      <div 
-        className="absolute w-[2px] h-[2px] bg-white rounded-full opacity-90"
-        style={{ top: '2px', left: '5px' }}
+        className="absolute w-[5px] h-[5px] bg-slate-900 rounded-full animate-look-around"
+        style={{ top: '3px', left: '2px' }}
       />
     </div>
-    {/* Right eye */}
-    <div className="relative w-[10px] h-[10px] rounded-full bg-gradient-to-b from-white to-slate-100 border border-blue-300/80 overflow-hidden shadow-sm animate-blink">
+    {/* Right eye - oval shape like 👀 */}
+    <div className="relative w-[9px] h-[11px] rounded-[45%] bg-white border border-slate-300 overflow-hidden shadow-sm">
+      {/* Black pupil */}
       <div 
-        className="absolute w-[5px] h-[5px] bg-gradient-radial from-blue-400 to-blue-600 rounded-full animate-look-around shadow-inner"
-        style={{ top: '2px', left: '2px' }}
-      />
-      {/* Highlight */}
-      <div 
-        className="absolute w-[2px] h-[2px] bg-white rounded-full opacity-90"
-        style={{ top: '2px', left: '5px' }}
+        className="absolute w-[5px] h-[5px] bg-slate-900 rounded-full animate-look-around"
+        style={{ top: '3px', left: '2px' }}
       />
     </div>
   </div>
