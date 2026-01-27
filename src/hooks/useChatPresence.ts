@@ -277,7 +277,7 @@ export const useChatPresenceList = () => {
       
       map[key].viewers.push({
         userId: record.user_id,
-        name: record.manager_name || 'Менеджер',
+        name: record.manager_name || 'Сотрудник',
         avatarUrl: record.manager_avatar_url,
         type: record.presence_type as PresenceType,
       });
@@ -312,7 +312,7 @@ export const useChatPresenceList = () => {
         const existingIdx = viewers.findIndex(v => v.userId === record.user_id);
         const viewer = {
           userId: record.user_id,
-          name: record.manager_name || 'Менеджер',
+          name: record.manager_name || 'Сотрудник',
           avatarUrl: record.manager_avatar_url,
           type: record.presence_type as PresenceType,
         };

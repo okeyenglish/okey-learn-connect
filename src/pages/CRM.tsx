@@ -343,6 +343,9 @@ const CRMContent = () => {
   
   // Trash dialog state
   const [trashDialogOpen, setTrashDialogOpen] = useState(false);
+  
+  // ChatOS - target staff user ID to auto-open a chat with
+  const [initialStaffUserId, setInitialStaffUserId] = useState<string | null>(null);
   const { data: deletedChats = [] } = useDeletedChats();
   
   // Критичные данные - загружаем ТОЛЬКО threads с infinite scroll (50 за раз)
@@ -1958,11 +1961,12 @@ const CRMContent = () => {
 
   // Обработчик для написания сообщения пользователю через ChatOS
   const handleMessageUser = useCallback((userId: string, userName: string) => {
-    // Переключаемся на ChatOS
+    // Set target staff user ID for AIHubInline to auto-open their chat
+    setInitialStaffUserId(userId);
+    // Switch to ChatOS
     setActiveChatType('chatos');
     setActiveTab('chats');
-    // TODO: можно добавить передачу userId в AIHubInline для автоматического открытия чата
-    toast.info(`Откройте чат с ${userName} в ChatOS`);
+    toast.info(`Открываем чат с ${userName}`);
   }, [setActiveTab, setActiveChatType]);
 
   const isAdmin = role === 'admin' || roles?.includes?.('admin');
@@ -4128,6 +4132,8 @@ const CRMContent = () => {
                     handleChatClick(clientId, 'client');
                   }}
                   onBack={() => setActiveChatType('client')}
+                  initialStaffUserId={initialStaffUserId}
+                  onClearInitialStaffUserId={() => setInitialStaffUserId(null)}
                 />
               </Suspense>
             </div>
