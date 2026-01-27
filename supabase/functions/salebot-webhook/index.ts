@@ -290,7 +290,7 @@ Deno.serve(async (req) => {
             icon: '/pwa-192x192.png',
             badge: '/pwa-192x192.png',
             tag: `chat-${clientId}-${Date.now()}`,
-            url: `/crm/chats/${clientId}`,
+            url: `/newcrm?clientId=${clientId}`,
           },
         })
         

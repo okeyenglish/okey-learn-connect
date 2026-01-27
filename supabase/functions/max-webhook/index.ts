@@ -192,7 +192,7 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
           title: clientFullName,
           body: msgText.slice(0, 100) + (msgText.length > 100 ? '...' : ''),
           icon: client.avatar_url || '/pwa-192x192.png',
-          url: `/crm?clientId=${client.id}`,
+          url: `/newcrm?clientId=${client.id}`,
           tag: `max-${client.id}-${Date.now()}`,
         },
       });

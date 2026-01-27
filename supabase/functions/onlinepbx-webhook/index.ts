@@ -746,7 +746,7 @@ Deno.serve(async (req) => {
                   title: '📞 Пропущенный звонок',
                   body: `${clientName} звонил в ${callTime}`,
                   icon: '/pwa-192x192.png',
-                  url: clientId ? `/crm?clientId=${clientId}&tab=calls` : '/crm?tab=calls',
+                  url: clientId ? `/newcrm?clientId=${clientId}&tab=calls` : '/newcrm?tab=calls',
                   tag: `missed-call-${newCallLog.id}`,
                 },
               });

@@ -366,7 +366,7 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
           title: clientFullName,
           body: messageText.slice(0, 100) + (messageText.length > 100 ? '...' : ''),
           icon: client.avatar_url || '/pwa-192x192.png',
-          url: `/crm?clientId=${client.id}`,
+          url: `/newcrm?clientId=${client.id}`,
           tag: `whatsapp-${client.id}-${Date.now()}`,
         },
       });
