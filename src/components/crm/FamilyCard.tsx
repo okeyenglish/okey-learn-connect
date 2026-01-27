@@ -18,6 +18,7 @@ import type { PhoneNumber as PhoneNumberType } from "@/types/phone";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { usePinnedModalsDB } from "@/hooks/usePinnedModalsDB";
 import { useOrganization } from "@/hooks/useOrganization";
+import { InviteToPortalButton } from "./InviteToPortalButton";
 import { 
   Users, 
   Phone, 
@@ -414,6 +415,16 @@ export const FamilyCard = ({
                   Филиал {selectedBranch}
                 </span>
               )}
+            </div>
+
+            {/* Portal Invitation Button */}
+            <div className="pt-2 border-t border-slate-100">
+              <InviteToPortalButton
+                clientId={activeMember.id}
+                clientName={activeMember.name}
+                phone={activeMember.phoneNumbers?.[0]?.phone || activeMember.phone}
+                firstName={activeMember.name.split(' ')[0]}
+              />
             </div>
 
           </div>
