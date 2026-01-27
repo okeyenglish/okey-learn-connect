@@ -22,7 +22,8 @@ import {
   Monitor,
   ArrowLeft,
   MessageCircle,
-  Search
+  Search,
+  Link2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { selfHostedPost } from '@/lib/selfHostedApi';
@@ -40,6 +41,7 @@ import {
 import { useStaffTypingIndicator } from '@/hooks/useStaffTypingIndicator';
 import { StaffTypingIndicator } from '@/components/ai-hub/StaffTypingIndicator';
 import { CreateStaffGroupModal } from '@/components/ai-hub/CreateStaffGroupModal';
+import { LinkTeacherProfileModal } from '@/components/ai-hub/LinkTeacherProfileModal';
 import VoiceAssistant from '@/components/VoiceAssistant';
 
 interface AIHubProps {
@@ -504,6 +506,23 @@ export const AIHub = ({
                 {activeChat.badge || activeChat.description}
               </p>
             </div>
+            
+            {/* Link profile button for teachers without profile */}
+            {activeChat.type === 'teacher' && activeChat.data && !(activeChat.data as TeacherChatItem).profileId && (
+              <LinkTeacherProfileModal
+                teacherId={(activeChat.data as TeacherChatItem).id}
+                teacherName={(activeChat.data as TeacherChatItem).fullName}
+                currentProfileId={(activeChat.data as TeacherChatItem).profileId}
+                onLinked={() => {
+                  queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
+                }}
+              >
+                <Button variant="outline" size="sm" className="gap-1.5 shrink-0">
+                  <Link2 className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Привязать</span>
+                </Button>
+              </LinkTeacherProfileModal>
+            )}
           </div>
 
           {/* Messages */}
