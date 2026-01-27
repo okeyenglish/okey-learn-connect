@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useTeacherChats, useEnsureTeacherClient, TeacherChatItem } from '@/hooks/useTeacherChats';
 import { useTeacherPinnedDB } from '@/hooks/useTeacherPinnedDB';
+import { useSharedTeacherChatStates } from '@/hooks/useSharedTeacherChatStates';
 import { useToast } from '@/hooks/use-toast';
 import { ChatArea } from './ChatArea';
 import { TeacherSchedulePanel } from './TeacherSchedulePanel';
@@ -70,6 +71,12 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   // Load teachers from teachers table using new hook
   const { teachers: dbTeachers, isLoading: isLoadingTeachers, totalTeachers, refetch: refetchTeachers } = useTeacherChats(null);
   const { findOrCreateClient } = useEnsureTeacherClient();
+  
+  // Get all teacher IDs for shared states hook
+  const teacherIds = useMemo(() => dbTeachers?.map(t => t.id) || [], [dbTeachers]);
+  
+  // Get shared states (in work by others)
+  const { isInWorkByOthers, getPinnedByUserName } = useSharedTeacherChatStates(teacherIds);
 
   const ensureClient = async (name: string, branch: string) => {
     const { data: found } = await supabase
@@ -374,6 +381,8 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     onMarkRead: handleMarkRead,
     onPinDialog: handlePinDialog,
     onDelete: handleDeleteChat,
+    isInWorkByOthers,
+    getPinnedByUserName,
     searchQuery,
     setSearchQuery,
     showFilters,
