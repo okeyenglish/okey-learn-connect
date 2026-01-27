@@ -47,6 +47,7 @@ import { ClientsList } from "@/components/crm/ClientsList";
 import { NewChatModal } from "@/components/crm/NewChatModal";
 import { DeleteChatDialog } from "@/components/crm/DeleteChatDialog";
 import { LinkChatToClientModal } from "@/components/crm/LinkChatToClientModal";
+import { ConvertToTeacherModal } from "@/components/crm/ConvertToTeacherModal";
 import { PinnedModalTabs } from "@/components/crm/PinnedModalTabs";
 import { WhatsAppStatusNotification } from "@/components/crm/WhatsAppStatusNotification";
 import { WhatsAppSessionsModal } from "@/components/crm/WhatsAppSessionsModal";
@@ -316,6 +317,13 @@ const CRMContent = () => {
   // State for delete and link modals
   const [deleteChatDialog, setDeleteChatDialog] = useState<{ open: boolean; chatId: string; chatName: string }>({ open: false, chatId: '', chatName: '' });
   const [linkChatModal, setLinkChatModal] = useState<{ open: boolean; chatId: string; chatName: string }>({ open: false, chatId: '', chatName: '' });
+  const [convertToTeacherModal, setConvertToTeacherModal] = useState<{ 
+    open: boolean; 
+    clientId: string; 
+    clientName: string; 
+    clientPhone?: string; 
+    clientEmail?: string; 
+  }>({ open: false, clientId: '', clientName: '' });
   const [isDeletingChat, setIsDeletingChat] = useState(false);
   const [selectedMessengerTab, setSelectedMessengerTab] = useState<{ tab: 'whatsapp' | 'telegram' | 'max'; ts: number } | undefined>(undefined);
   // Search query to pass to ChatArea when chat was found via message search
@@ -1528,7 +1536,27 @@ const CRMContent = () => {
     }
   }, [queryClient, activeChatId, linkChatModal.chatId, setActiveChatId]);
 
-  // Undo handler for bulk actions
+  // Convert to teacher handler
+  const handleConvertToTeacher = useCallback((chatId: string, chatName: string, phone?: string, email?: string) => {
+    setConvertToTeacherModal({ 
+      open: true, 
+      clientId: chatId, 
+      clientName: chatName,
+      clientPhone: phone,
+      clientEmail: email,
+    });
+  }, []);
+
+  const handleConvertToTeacherSuccess = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['teachers'] });
+    queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
+    queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+    queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
+    queryClient.invalidateQueries({ queryKey: ['clients'] });
+    // Switch to teachers tab and select the chat
+    setActiveTab('teachers');
+    setActiveChatId(null);
+  }, [queryClient, setActiveTab, setActiveChatId]);
   const handleBulkUndo = useCallback((actionState: BulkActionState) => {
     console.log('[CRM] Undoing bulk action:', actionState.action, 'for', actionState.chatIds.length, 'chats');
     
@@ -3297,6 +3325,7 @@ const CRMContent = () => {
                                 onPinDialog={() => handleChatAction(chat.id, 'pin')}
                                 onArchive={() => handleChatAction(chat.id, 'archive')}
                                 onBlock={() => handleChatAction(chat.id, 'block')}
+                                onConvertToTeacher={() => handleConvertToTeacher(chat.id, chat.name, chat.phone, (chat as any).email)}
                                 isPinned={chatState.isPinned}
                                 isArchived={chatState.isArchived}
                                 isUnread={displayUnread}
@@ -3838,6 +3867,10 @@ const CRMContent = () => {
                                             <DropdownMenuItem onClick={() => handleChatAction(chat.id, 'pin')}>
                                               <Pin className="mr-2 h-4 w-4 text-purple-600" />
                                               <span>Открепить диалог</span>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleConvertToTeacher(chat.id, chat.name, chat.phone, (chat as any).email)}>
+                                              <GraduationCap className="mr-2 h-4 w-4 text-purple-600" />
+                                              <span>Перевести в преподаватели</span>
                                             </DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => handleChatAction(chat.id, 'block')}>
                                               <Lock className="mr-2 h-4 w-4" />
@@ -4544,6 +4577,17 @@ const CRMContent = () => {
           </p>
         </DialogContent>
       </Dialog>
+      
+      {/* Convert to Teacher Modal */}
+      <ConvertToTeacherModal
+        open={convertToTeacherModal.open}
+        onClose={() => setConvertToTeacherModal({ open: false, clientId: '', clientName: '' })}
+        clientId={convertToTeacherModal.clientId}
+        clientName={convertToTeacherModal.clientName}
+        clientPhone={convertToTeacherModal.clientPhone}
+        clientEmail={convertToTeacherModal.clientEmail}
+        onSuccess={handleConvertToTeacherSuccess}
+      />
       
       {/* WhatsApp Status Notification */}
       <WhatsAppStatusNotification />
