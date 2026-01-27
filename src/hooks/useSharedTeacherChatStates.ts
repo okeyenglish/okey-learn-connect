@@ -66,32 +66,61 @@ export const useSharedTeacherChatStates = (teacherIds: string[] = []) => {
         });
       }
 
-      // Fetch all pins with user names - chunked
+      // Fetch all pins (no joins) - chunked
+      type TeacherPinRow = { teacher_id: string; user_id: string };
+      const allPinsFlat: TeacherPinRow[] = [];
+
       for (let i = 0; i < currentTeacherIds.length; i += CHUNK_SIZE) {
         const chunk = currentTeacherIds.slice(i, i + CHUNK_SIZE);
-        
-        const { data: allPins, error: allPinsError } = await supabase
+
+        const { data: pinsChunk, error: pinsError } = await supabase
           .from('teacher_chat_states')
-          .select('teacher_id, user_id, profiles:user_id(first_name, last_name)')
+          .select('teacher_id, user_id')
           .eq('is_pinned', true)
           .in('teacher_id', chunk);
 
-        if (allPinsError) {
-          console.error('Error fetching all teacher pins chunk:', allPinsError);
+        if (pinsError) {
+          console.error('Error fetching all teacher pins chunk:', pinsError);
           continue;
         }
 
-        (allPins || []).forEach((pin) => {
-          const existing = allPinsMap.get(pin.teacher_id) || [];
-          // profiles can be array or object depending on relationship
-          const profile = Array.isArray(pin.profiles) ? pin.profiles[0] : pin.profiles;
-          const userName = profile ? 
-            `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Пользователь' :
-            'Пользователь';
-          existing.push({ user_id: pin.user_id, user_name: userName });
-          allPinsMap.set(pin.teacher_id, existing);
+        (pinsChunk as TeacherPinRow[] | null)?.forEach((row) => {
+          if (row?.teacher_id && row?.user_id) allPinsFlat.push(row);
         });
       }
+
+      // Resolve user names from profiles in bulk
+      type ProfileRow = { id: string; first_name: string | null; last_name: string | null };
+      const userIdsToFetch = Array.from(
+        new Set(allPinsFlat.map((p) => p.user_id).filter((id) => !!id && id !== user.id))
+      );
+
+      const userNameById = new Map<string, string>();
+      for (let i = 0; i < userIdsToFetch.length; i += CHUNK_SIZE) {
+        const chunk = userIdsToFetch.slice(i, i + CHUNK_SIZE);
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name')
+          .in('id', chunk);
+
+        if (profilesError) {
+          console.error('Error fetching profiles chunk:', profilesError);
+          continue;
+        }
+
+        (profiles as ProfileRow[] | null)?.forEach((p) => {
+          const name = `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Пользователь';
+          userNameById.set(p.id, name);
+        });
+      }
+
+      // Build teacherId -> pins[] map
+      allPinsFlat.forEach((pin) => {
+        const existing = allPinsMap.get(pin.teacher_id) || [];
+        const userName = pin.user_id === user.id ? 'Вы' : (userNameById.get(pin.user_id) || 'Пользователь');
+        existing.push({ user_id: pin.user_id, user_name: userName });
+        allPinsMap.set(pin.teacher_id, existing);
+      });
 
       // Build final state map
       const statesMap: Record<string, SharedTeacherChatState> = {};
