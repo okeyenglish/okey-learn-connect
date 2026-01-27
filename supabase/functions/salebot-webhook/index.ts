@@ -295,6 +295,20 @@ Deno.serve(async (req) => {
         })
         
         console.log('[salebot-webhook] Push result:', pushResult)
+        
+        // Log push result for diagnostics
+        await supabase.from('webhook_logs').insert({
+          messenger_type: 'push-diagnostic',
+          event_type: 'push-sent',
+          webhook_data: {
+            clientId,
+            organizationId,
+            userIds,
+            pushResult,
+            timestamp: new Date().toISOString(),
+          },
+          processed: true
+        }).catch(e => console.error('[salebot-webhook] Failed to log push result:', e))
       } else {
         console.log('[salebot-webhook] No admin/manager users found for push in org:', organizationId)
       }
