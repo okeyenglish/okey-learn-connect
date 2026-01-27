@@ -3,6 +3,7 @@ import {
   corsHeaders,
   handleCors,
   getErrorMessage,
+  sendPushNotification,
   type WappiWebhook,
   type WappiMessage,
 } from '../_shared/types.ts'
@@ -356,18 +357,17 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
       const clientFullName = [client.first_name, client.last_name]
         .filter(Boolean).join(' ') || client.name || 'Клиент';
       
-      await supabase.functions.invoke('send-push-notification', {
-        body: {
-          userIds,
-          payload: {
-            title: clientFullName,
-            body: messageText.slice(0, 100) + (messageText.length > 100 ? '...' : ''),
-            icon: client.avatar_url || '/pwa-192x192.png',
-            url: `/crm?clientId=${client.id}`,
-            tag: `whatsapp-chat-${client.id}`,
-          },
+      await sendPushNotification({
+        userIds,
+        payload: {
+          title: clientFullName,
+          body: messageText.slice(0, 100) + (messageText.length > 100 ? '...' : ''),
+          icon: client.avatar_url || '/pwa-192x192.png',
+          url: `/crm?clientId=${client.id}`,
+          tag: `whatsapp-chat-${client.id}`,
         },
       });
+      console.log('Push notification sent for WhatsApp message');
     }
   } catch (pushErr) {
     console.error('Error sending push notification:', pushErr);

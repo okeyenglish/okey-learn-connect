@@ -5,6 +5,7 @@ import {
   successResponse,
   errorResponse,
   getErrorMessage,
+  sendPushNotification,
   type OnlinePBXWebhookPayload,
   type OnlinePBXWebhookResponse,
 } from '../_shared/types.ts';
@@ -734,16 +735,14 @@ Deno.serve(async (req) => {
             if (chatUsers && chatUsers.length > 0) {
               const userIds = chatUsers.map((u: { user_id: string }) => u.user_id);
               
-              await supabase.functions.invoke('send-push-notification', {
-                body: {
-                  userIds,
-                  payload: {
-                    title: '📞 Пропущенный звонок',
-                    body: `${clientName} звонил в ${callTime}`,
-                    icon: '/pwa-192x192.png',
-                    url: clientId ? `/crm?clientId=${clientId}&tab=calls` : '/crm?tab=calls',
-                    tag: `missed-call-${newCallLog.id}`,
-                  },
+              await sendPushNotification({
+                userIds,
+                payload: {
+                  title: '📞 Пропущенный звонок',
+                  body: `${clientName} звонил в ${callTime}`,
+                  icon: '/pwa-192x192.png',
+                  url: clientId ? `/crm?clientId=${clientId}&tab=calls` : '/crm?tab=calls',
+                  tag: `missed-call-${newCallLog.id}`,
                 },
               });
               console.log('Push notification sent for missed call');
