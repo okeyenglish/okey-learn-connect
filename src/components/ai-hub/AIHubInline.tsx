@@ -22,6 +22,7 @@ import {
   Search,
   Link2,
   ChevronDown,
+  X,
   ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -121,6 +122,8 @@ export const AIHubInline = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [chatSearchQuery, setChatSearchQuery] = useState('');
+  const [isChatSearchOpen, setIsChatSearchOpen] = useState(false);
   const [teacherClientId, setTeacherClientId] = useState<string | null>(null);
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
   
@@ -390,6 +393,26 @@ export const AIHubInline = ({
     return consultant?.placeholder || 'Введите сообщение...';
   };
 
+  // Highlight search matches in message text
+  const highlightText = (text: string, query: string): React.ReactNode => {
+    if (!query.trim()) return text;
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+    return parts.map((part, i) => 
+      part.toLowerCase() === query.toLowerCase() 
+        ? <mark key={i} className="bg-yellow-300 text-black rounded px-0.5">{part}</mark>
+        : part
+    );
+  };
+
+  // Filter messages based on chat search query
+  const getFilteredMessages = (msgs: ChatMessage[]) => {
+    if (!chatSearchQuery.trim()) return msgs;
+    return msgs.filter(m => 
+      m.content.toLowerCase().includes(chatSearchQuery.toLowerCase())
+    );
+  };
+
   // Filter by search query
   const searchFiltered = allChats.filter(item =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -489,14 +512,17 @@ export const AIHubInline = ({
   if (activeChat) {
     const isLoading = activeChat.type === 'teacher' ? staffDirectLoading : activeChat.type === 'group' ? staffGroupLoading : false;
     const currentMessages = getCurrentMessages();
+    const filteredMessages = getFilteredMessages(currentMessages);
+    const matchCount = chatSearchQuery.trim() ? filteredMessages.length : 0;
 
     return (
       <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-background">
+        {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
           <Button variant="ghost" size="icon" onClick={handleBack} className="h-8 w-8">
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <Avatar className="h-9 w-9">
+          <Avatar className="h-9 w-9 shrink-0">
             <AvatarFallback className={activeChat.iconBg}>
               <activeChat.icon className={`h-5 w-5 ${activeChat.iconColor}`} />
             </AvatarFallback>
@@ -505,6 +531,18 @@ export const AIHubInline = ({
             <p className="font-semibold text-sm truncate">{activeChat.name}</p>
             <p className="text-xs text-muted-foreground truncate">{activeChat.badge || activeChat.description}</p>
           </div>
+          {/* Search toggle button */}
+          <Button 
+            variant={isChatSearchOpen ? "secondary" : "ghost"} 
+            size="icon" 
+            onClick={() => {
+              setIsChatSearchOpen(!isChatSearchOpen);
+              if (isChatSearchOpen) setChatSearchQuery('');
+            }} 
+            className="h-8 w-8 shrink-0"
+          >
+            <Search className="h-4 w-4" />
+          </Button>
           {activeChat.type === 'teacher' && activeChat.data && !(activeChat.data as TeacherChatItem).profileId && (
             <LinkTeacherProfileModal
               teacherId={(activeChat.data as TeacherChatItem).id}
@@ -519,23 +557,59 @@ export const AIHubInline = ({
           )}
         </div>
 
+        {/* Search bar */}
+        {isChatSearchOpen && (
+          <div className="px-3 py-2 border-b bg-muted/30 shrink-0">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={chatSearchQuery}
+                onChange={(e) => setChatSearchQuery(e.target.value)}
+                placeholder="Поиск по сообщениям..."
+                className="h-8 text-sm pl-8 pr-8"
+                autoFocus
+              />
+              {chatSearchQuery && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => setChatSearchQuery('')}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+            {chatSearchQuery.trim() && (
+              <p className="text-xs text-muted-foreground mt-1.5 px-1">
+                {matchCount > 0 
+                  ? `Найдено: ${matchCount} ${matchCount === 1 ? 'сообщение' : matchCount < 5 ? 'сообщения' : 'сообщений'}`
+                  : 'Ничего не найдено'
+                }
+              </p>
+            )}
+          </div>
+        )}
+
         <ScrollArea ref={scrollAreaRef} className="flex-1 overflow-auto">
           <div className="space-y-3 p-4 pb-24">
             {isLoading ? (
               <div className="text-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
               </div>
-            ) : currentMessages.length === 0 ? (
+            ) : filteredMessages.length === 0 ? (
               <div className="text-center py-8">
                 <MessagesSquare className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
-                <p className="mt-2 text-sm text-muted-foreground">Нет сообщений</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {chatSearchQuery.trim() ? 'Сообщения не найдены' : 'Нет сообщений'}
+                </p>
               </div>
             ) : (
-              currentMessages.map((msg) => (
+              filteredMessages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 ${msg.type === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                     {msg.sender && msg.type !== 'user' && <p className="text-xs font-medium mb-1 opacity-70">{msg.sender}</p>}
-                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                    <p className="text-sm whitespace-pre-wrap">{highlightText(msg.content, chatSearchQuery)}</p>
                     <p className={`text-[10px] mt-1 ${msg.type === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                       {msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
                     </p>
