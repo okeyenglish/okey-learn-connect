@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { StudentsModal } from './StudentsModal';
+import { TelephonyModal } from '@/components/settings/TelephonyModal';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrganization } from '@/hooks/useOrganization';
 import { useToast } from '@/hooks/use-toast';
@@ -25,7 +26,8 @@ import {
   DollarSign,
   UserCheck,
   Briefcase,
-  HardDrive
+  HardDrive,
+  Phone
 } from 'lucide-react';
 
 export const UnifiedCRMHeader = () => {
@@ -36,6 +38,7 @@ export const UnifiedCRMHeader = () => {
   const { toast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [studentsModalOpen, setStudentsModalOpen] = useState(false);
+  const [telephonyModalOpen, setTelephonyModalOpen] = useState(false);
 
   // Get company name from organization branding or use default
   const companyName = organization?.branding?.companyName || organization?.name || "O'KEY ENGLISH";
@@ -301,6 +304,10 @@ export const UnifiedCRMHeader = () => {
                 <Home className="mr-2 h-4 w-4" />
                 <span>Главная</span>
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTelephonyModalOpen(true)}>
+                <Phone className="mr-2 h-4 w-4" />
+                <span>Телефония</span>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />
@@ -310,6 +317,9 @@ export const UnifiedCRMHeader = () => {
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Telephony Modal */}
+      <TelephonyModal open={telephonyModalOpen} onOpenChange={setTelephonyModalOpen} />
 
       {/* Мобильная навигация */}
       {mobileMenuOpen && (
