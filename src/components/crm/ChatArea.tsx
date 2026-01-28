@@ -3008,7 +3008,8 @@ export const ChatArea = ({
             {/* Bottom row: All icons fit screen on mobile */}
             <div ref={composerRef} className="flex items-center gap-1 w-full overflow-hidden">
               {/* Action icons - flex-shrink to fit available space */}
-              <div className="flex items-center gap-0.5 min-w-0 flex-shrink overflow-x-auto scrollbar-hide">
+              <div className="flex items-center gap-0.5 min-w-0 flex-shrink">
+                {/* Always visible: File upload */}
                 <FileUpload
                   ref={fileUploadRef}
                   key={`file-upload-${fileUploadResetKey}`}
@@ -3022,33 +3023,35 @@ export const ChatArea = ({
                   maxFiles={5}
                   maxSize={10}
                 />
-                <Button size="sm" variant="ghost" className="h-6 w-6 md:h-8 md:w-8 p-0" disabled={!!pendingMessage} onClick={() => setShowQuickResponsesModal(true)}>
+                {/* Quick responses - hidden on very small screens */}
+                <Button size="sm" variant="ghost" className="hidden xs:flex h-6 w-6 md:h-8 md:w-8 p-0" disabled={!!pendingMessage} onClick={() => setShowQuickResponsesModal(true)}>
                   <Zap className="h-4 w-4" />
                 </Button>
+                {/* Comment mode - hidden on very small screens */}
                 <Button 
                   size="sm" 
                   variant="ghost" 
-                  className={`h-6 w-6 md:h-8 md:w-8 p-0 ${commentMode ? "bg-yellow-100 text-yellow-700" : ""}`}
+                  className={`hidden sm:flex h-6 w-6 md:h-8 md:w-8 p-0 ${commentMode ? "bg-yellow-100 text-yellow-700" : ""}`}
                   disabled={!!pendingMessage}
                   onClick={() => setCommentMode(!commentMode)}
                   title="Режим комментариев"
                 >
                   <MessageCircle className="h-4 w-4" />
                 </Button>
-                {/* Bot and Mic only for client chats */}
+                {/* Bot and Mic only for client chats - hidden on small screens */}
                 {!simplifiedToolbar && (
                   <>
                     <Button 
                       size="sm" 
                       variant="ghost" 
-                      className={`h-6 w-6 md:h-8 md:w-8 p-0 ${gptGenerating ? "bg-blue-100 text-blue-700" : ""}`}
+                      className={`hidden sm:flex h-6 w-6 md:h-8 md:w-8 p-0 ${gptGenerating ? "bg-blue-100 text-blue-700" : ""}`}
                       disabled={!!pendingMessage || gptGenerating}
                       onClick={generateGPTResponse}
                       title="Генерировать ответ с помощью GPT"
                     >
                       <Bot className={`h-4 w-4 ${gptGenerating ? "animate-pulse" : ""}`} />
                     </Button>
-                    <Button size="sm" variant="ghost" className="h-6 w-6 md:h-8 md:w-8 p-0" disabled={!!pendingMessage}>
+                    <Button size="sm" variant="ghost" className="hidden md:flex h-6 w-6 md:h-8 md:w-8 p-0" disabled={!!pendingMessage}>
                       <Mic className="h-4 w-4" />
                     </Button>
                   </>
@@ -3332,12 +3335,53 @@ export const ChatArea = ({
                         <Button 
                           size="sm" 
                           variant="ghost" 
-                          className="h-8 w-8 p-0 xl:hidden"
+                          className="h-6 w-6 md:h-8 md:w-8 p-0 xl:hidden flex-shrink-0"
                         >
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48 bg-background z-50">
+                      <DropdownMenuContent align="end" className="w-52 bg-background z-50">
+                        {/* Show hidden icons on small screens */}
+                        <DropdownMenuItem
+                          onClick={() => setShowQuickResponsesModal(true)}
+                          disabled={!!pendingMessage}
+                          className="flex items-center gap-2 xs:hidden"
+                        >
+                          <Zap className="h-4 w-4" />
+                          <span>Быстрые ответы</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setCommentMode(!commentMode)}
+                          disabled={!!pendingMessage}
+                          className={`flex items-center gap-2 sm:hidden ${commentMode ? "text-yellow-700" : ""}`}
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                          <span>{commentMode ? "Выкл. комментарии" : "Комментарий"}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={generateGPTResponse}
+                          disabled={!!pendingMessage || gptGenerating}
+                          className={`flex items-center gap-2 sm:hidden ${gptGenerating ? "text-blue-700" : ""}`}
+                        >
+                          <Bot className={`h-4 w-4 ${gptGenerating ? "animate-pulse" : ""}`} />
+                          <span>GPT ответ</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={!!pendingMessage}
+                          className="flex items-center gap-2 md:hidden"
+                        >
+                          <Mic className="h-4 w-4" />
+                          <span>Голосовое</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setShowPaymentLinkModal(true)}
+                          disabled={!!pendingMessage}
+                          className="flex items-center gap-2 md:hidden"
+                        >
+                          <CreditCard className="h-4 w-4" />
+                          <span>Выставить счёт</span>
+                        </DropdownMenuItem>
+                        {/* Always shown in dropdown on non-xl screens */}
                         <DropdownMenuItem
                           onClick={() => message.trim() && setShowScheduleDialog(true)}
                           disabled={loading || !message.trim() || !!pendingMessage}
