@@ -187,6 +187,21 @@ Deno.serve(async (req) => {
       
       console.log('Content-Type:', contentType);
       console.log('Webhook data received:', JSON.stringify(webhookData, null, 2));
+      
+      // Debug: Log all recording-related fields for diagnostics
+      const recordingFields = ['download_url', 'record_url', 'record', 'recording_url', 'recordingUrl', 
+                               'audio_path', 'audio_url', 'link', 'record_link', 'file', 'file_url', 'mp3', 'wav'];
+      const foundRecordingFields: Record<string, string> = {};
+      for (const field of recordingFields) {
+        if ((webhookData as any)[field]) {
+          foundRecordingFields[field] = String((webhookData as any)[field]).substring(0, 100);
+        }
+      }
+      if (Object.keys(foundRecordingFields).length > 0) {
+        console.log('[onlinepbx-webhook] Recording fields found:', JSON.stringify(foundRecordingFields));
+      } else {
+        console.log('[onlinepbx-webhook] No recording URL fields found in webhook data');
+      }
 
       // STEP 1: Try to get organization from webhook key in URL (PRIMARY method)
       const url = new URL(req.url);
@@ -353,12 +368,22 @@ Deno.serve(async (req) => {
         // Update existing call log
         console.log('Updating existing call log:', callLog.id);
         
-        // Extract recording URL from webhook data
+        // Extract recording URL from webhook data - OnlinePBX can send it in various fields
         const recordingUrl = (webhookData as any).download_url || 
                             (webhookData as any).record_url ||
                             (webhookData as any).record ||
                             (webhookData as any).recording_url ||
-                            (webhookData as any).recordingUrl || null;
+                            (webhookData as any).recordingUrl ||
+                            (webhookData as any).audio_path ||
+                            (webhookData as any).audio_url ||
+                            (webhookData as any).link ||
+                            (webhookData as any).record_link ||
+                            (webhookData as any).file ||
+                            (webhookData as any).file_url ||
+                            (webhookData as any).mp3 ||
+                            (webhookData as any).wav || null;
+        
+        console.log('[onlinepbx-webhook] Recording URL from webhook:', recordingUrl ? recordingUrl.substring(0, 80) + '...' : 'none');
         
         const updateData: any = {
           status,
@@ -644,12 +669,22 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Extract recording URL from webhook data
+        // Extract recording URL from webhook data - OnlinePBX can send it in various fields
         const recordingUrl = (webhookData as any).download_url || 
                             (webhookData as any).record_url ||
                             (webhookData as any).record ||
                             (webhookData as any).recording_url ||
-                            (webhookData as any).recordingUrl || null;
+                            (webhookData as any).recordingUrl ||
+                            (webhookData as any).audio_path ||
+                            (webhookData as any).audio_url ||
+                            (webhookData as any).link ||
+                            (webhookData as any).record_link ||
+                            (webhookData as any).file ||
+                            (webhookData as any).file_url ||
+                            (webhookData as any).mp3 ||
+                            (webhookData as any).wav || null;
+        
+        console.log('[onlinepbx-webhook] Recording URL for new call:', recordingUrl ? recordingUrl.substring(0, 80) + '...' : 'none');
 
         const newCallData: any = {
           client_id: clientId,
