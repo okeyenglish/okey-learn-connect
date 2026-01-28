@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, MapPin, Palette, CreditCard, Users, Bell } from 'lucide-react';
+import { Building2, MapPin, Palette, CreditCard, Users, Bell, Phone } from 'lucide-react';
 import { OrganizationSettings } from './OrganizationSettings';
 import { BranchesSettings } from './BranchesSettings';
 import { BrandingSettings } from './BrandingSettings';
 import { SubscriptionSettings } from './SubscriptionSettings';
 import { UserManagementSettings } from './UserManagementSettings';
 import { NotificationSettings } from './NotificationSettings';
+import { TelephonySettings } from './TelephonySettings';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface SettingsModalProps {
@@ -31,7 +32,7 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
         <ScrollArea className="max-h-[calc(90vh-120px)]">
           <div className="px-6 pb-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-              <TabsList className="grid w-full grid-cols-6">
+              <TabsList className="grid w-full grid-cols-7">
                 <TabsTrigger value="organization" className="gap-2">
                   <Building2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Организация</span>
@@ -47,6 +48,10 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
                 <TabsTrigger value="notifications" className="gap-2">
                   <Bell className="h-4 w-4" />
                   <span className="hidden sm:inline">Уведомления</span>
+                </TabsTrigger>
+                <TabsTrigger value="telephony" className="gap-2">
+                  <Phone className="h-4 w-4" />
+                  <span className="hidden sm:inline">Телефония</span>
                 </TabsTrigger>
                 <TabsTrigger value="subscription" className="gap-2">
                   <CreditCard className="h-4 w-4" />
@@ -72,6 +77,10 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
 
               <TabsContent value="notifications" className="space-y-4">
                 <NotificationSettings />
+              </TabsContent>
+
+              <TabsContent value="telephony" className="space-y-4">
+                <TelephonySettings />
               </TabsContent>
 
               <TabsContent value="subscription" className="space-y-4">
