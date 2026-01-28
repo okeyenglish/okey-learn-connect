@@ -657,7 +657,7 @@ export const AIHub = ({
   // Main chat list (flat, no folders)
   return (
     <Sheet open={isOpen} onOpenChange={onToggle}>
-      <SheetContent side="right" className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden max-w-full box-border">
+      <SheetContent side="right" className="w-full sm:w-[400px] sm:max-w-[400px] h-full p-0 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0 max-w-full overflow-hidden">
           <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -719,18 +719,18 @@ export const AIHub = ({
                   <button
                     key={item.id}
                     onClick={() => handleSelectChat(item)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left animate-in fade-in slide-in-from-top-1 duration-200 max-w-full overflow-hidden"
+                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left animate-in fade-in slide-in-from-top-1 duration-200 overflow-hidden box-border"
                   >
                     <Avatar className="h-11 w-11 shrink-0">
                       <AvatarFallback className={item.iconBg}>
                         <item.icon className={`h-5 w-5 ${item.iconColor}`} />
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                      <div className="flex items-center justify-between">
-                        <p className="font-medium text-sm truncate">{item.name}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm truncate flex-1 min-w-0">{item.name}</span>
                         {(item.unreadCount || 0) > 0 && (
-                          <Badge variant="destructive" className="ml-2 text-xs">
+                          <Badge variant="destructive" className="text-xs shrink-0">
                             {item.unreadCount}
                           </Badge>
                         )}
@@ -778,7 +778,7 @@ export const AIHub = ({
                     <button
                       key={`${item.type}-${item.id}`}
                       onClick={() => handleSelectChat(item)}
-                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left max-w-full overflow-hidden"
+                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left overflow-hidden box-border"
                     >
                       <Avatar className="h-11 w-11 shrink-0">
                         <AvatarFallback className={item.iconBg}>
@@ -791,11 +791,11 @@ export const AIHub = ({
                           )}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="flex-1 min-w-0 overflow-hidden">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium text-sm truncate">{item.name}</p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm truncate flex-1 min-w-0">{item.name}</span>
                           {(item.unreadCount || 0) > 0 && (
-                            <Badge variant="destructive" className="ml-2 text-xs">
+                            <Badge variant="destructive" className="text-xs shrink-0">
                               {item.unreadCount}
                             </Badge>
                           )}
