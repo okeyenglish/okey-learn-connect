@@ -18,7 +18,7 @@ import {
   GraduationCap,
   Monitor,
   ArrowLeft,
-  MessageCircle,
+  MessagesSquare,
   Search,
   Link2,
   ChevronDown,
@@ -527,7 +527,7 @@ export const AIHubInline = ({
               </div>
             ) : currentMessages.length === 0 ? (
               <div className="text-center py-8">
-                <MessageCircle className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
+                <MessagesSquare className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
                 <p className="mt-2 text-sm text-muted-foreground">Нет сообщений</p>
               </div>
             ) : (
@@ -589,9 +589,9 @@ export const AIHubInline = ({
 
   // Main chat list - matching client/teacher list design
   return (
-    <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-background">
+    <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-background max-w-full box-border">
       {/* Search bar and branch filter */}
-      <div className="p-2 border-b shrink-0 space-y-2">
+      <div className="p-2 border-b shrink-0 space-y-2 max-w-full overflow-hidden">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
@@ -618,8 +618,8 @@ export const AIHubInline = ({
         </Select>
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="px-2 py-1 space-y-1">
+      <ScrollArea className="flex-1 overflow-x-hidden">
+        <div className="px-2 py-1 space-y-1 max-w-full overflow-hidden box-border">
           {(chatsLoading || teachersLoading) && (
             <div className="text-center py-4">
               <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
@@ -646,9 +646,9 @@ export const AIHubInline = ({
                 <button 
                   key={item.id} 
                   onClick={() => handleSelectChat(item)} 
-                  className="w-full p-2.5 text-left rounded-lg transition-all duration-200 mb-1 border select-none bg-card hover:bg-accent/30 hover:shadow-sm border-border/50"
+                  className="w-full p-2.5 text-left rounded-lg transition-all duration-200 mb-1 border select-none bg-card hover:bg-accent/30 hover:shadow-sm border-border/50 max-w-full overflow-hidden"
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start justify-between gap-2 max-w-full overflow-hidden">
                     <div className="flex items-start gap-2 flex-1 min-w-0">
                       <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30">
                         <AvatarFallback className="bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))]">
@@ -662,7 +662,7 @@ export const AIHubInline = ({
                           </p>
                           <Badge variant="secondary" className="text-[10px] h-4 px-1 shrink-0">AI</Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
+                        <p className="text-xs text-muted-foreground truncate leading-relaxed">
                           {item.lastMessage || item.description}
                         </p>
                       </div>
@@ -778,10 +778,10 @@ export const AIHubInline = ({
                   <button 
                     key={`${item.type}-${item.id}`} 
                     onClick={() => handleSelectChat(item)} 
-                    className="w-full p-2.5 text-left rounded-lg transition-all duration-200 mb-1 border select-none bg-card hover:bg-accent/30 hover:shadow-sm border-border/50"
+                    className="w-full p-2.5 text-left rounded-lg transition-all duration-200 mb-1 border select-none bg-card hover:bg-accent/30 hover:shadow-sm border-border/50 max-w-full overflow-hidden"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-start gap-2 flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2 max-w-full overflow-hidden">
+                      <div className="flex items-start gap-2 flex-1 min-w-0 overflow-hidden">
                         <div className="relative">
                           <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30">
                             <AvatarFallback className="bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))] text-sm font-medium">
@@ -809,7 +809,7 @@ export const AIHubInline = ({
                               </Badge>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
+                          <p className="text-xs text-muted-foreground truncate leading-relaxed">
                             {isOnline ? (
                               <span className="text-green-600 flex items-center gap-1">
                                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />

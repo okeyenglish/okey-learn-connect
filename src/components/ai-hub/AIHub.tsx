@@ -21,7 +21,7 @@ import {
   GraduationCap,
   Monitor,
   ArrowLeft,
-  MessageCircle,
+  MessagesSquare,
   Search,
   Link2,
   ChevronDown,
@@ -542,7 +542,7 @@ export const AIHub = ({
                 </div>
               ) : currentMessages.length === 0 ? (
                 <div className="text-center py-8">
-                  <MessageCircle className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
+                  <MessagesSquare className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
                   <p className="mt-2 text-sm text-muted-foreground">Нет сообщений</p>
                 </div>
               ) : (
@@ -657,15 +657,15 @@ export const AIHub = ({
   // Main chat list (flat, no folders)
   return (
     <Sheet open={isOpen} onOpenChange={onToggle}>
-      <SheetContent side="right" className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden">
+      <SheetContent side="right" className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden max-w-full box-border">
         {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
-          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-            <MessageCircle className="h-5 w-5 text-primary" />
+        <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0 max-w-full overflow-hidden">
+          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <MessagesSquare className="h-5 w-5 text-primary" />
           </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="font-semibold">Мессенджер</h2>
-            <p className="text-xs text-muted-foreground">Чаты и AI-помощники</p>
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <h2 className="font-semibold truncate">ChatOS</h2>
+            <p className="text-xs text-muted-foreground truncate">Чаты и AI-помощники</p>
           </div>
         </div>
 
@@ -682,8 +682,8 @@ export const AIHub = ({
           </div>
         </div>
 
-        <ScrollArea className="flex-1">
-          <div className="p-2 space-y-1">
+        <ScrollArea className="flex-1 overflow-x-hidden">
+          <div className="p-2 space-y-1 max-w-full overflow-hidden box-border">
             {/* Loading state */}
             {(chatsLoading || teachersLoading) && (
               <div className="text-center py-4">
@@ -719,14 +719,14 @@ export const AIHub = ({
                   <button
                     key={item.id}
                     onClick={() => handleSelectChat(item)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left animate-in fade-in slide-in-from-top-1 duration-200"
+                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left animate-in fade-in slide-in-from-top-1 duration-200 max-w-full overflow-hidden"
                   >
-                    <Avatar className="h-11 w-11">
+                    <Avatar className="h-11 w-11 shrink-0">
                       <AvatarFallback className={item.iconBg}>
                         <item.icon className={`h-5 w-5 ${item.iconColor}`} />
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 overflow-hidden">
                       <div className="flex items-center justify-between">
                         <p className="font-medium text-sm truncate">{item.name}</p>
                         {(item.unreadCount || 0) > 0 && (
@@ -778,9 +778,9 @@ export const AIHub = ({
                     <button
                       key={`${item.type}-${item.id}`}
                       onClick={() => handleSelectChat(item)}
-                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left"
+                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left max-w-full overflow-hidden"
                     >
-                      <Avatar className="h-11 w-11">
+                      <Avatar className="h-11 w-11 shrink-0">
                         <AvatarFallback className={item.iconBg}>
                           {isTeacher && teacher ? (
                             <span className="text-sm font-medium text-green-600">
@@ -791,7 +791,7 @@ export const AIHub = ({
                           )}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 overflow-hidden">
                         <div className="flex items-center justify-between">
                           <p className="font-medium text-sm truncate">{item.name}</p>
                           {(item.unreadCount || 0) > 0 && (
