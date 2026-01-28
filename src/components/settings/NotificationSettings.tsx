@@ -1,18 +1,25 @@
 import { useState, useEffect } from 'react';
-import { Volume2, VolumeX, Vibrate, Bell, BellRing } from 'lucide-react';
+import { Volume2, VolumeX, Vibrate, Bell, BellRing, MessageSquare, BellOff } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useNotificationSettings, invalidateSettingsCache } from '@/hooks/useNotificationSettings';
 import { playNotificationSound, type NotificationSoundType } from '@/hooks/useNotificationSound';
 import { useBrowserNotifications } from '@/hooks/useBrowserNotifications';
 import { toast } from 'sonner';
 
+const MESSENGERS = [
+  { id: 'whatsapp', label: 'WhatsApp', emoji: '💬' },
+  { id: 'telegram', label: 'Telegram', emoji: '✈️' },
+  { id: 'max', label: 'MAX', emoji: '📨' },
+] as const;
+
 export const NotificationSettings = () => {
-  const { settings, isLoaded, saveSettings, toggleSound, toggleVibration } = useNotificationSettings();
+  const { settings, isLoaded, saveSettings, toggleSound, toggleVibration, toggleMessengerMute, isMessengerMuted } = useNotificationSettings();
   const { isSupported, requestPermission } = useBrowserNotifications();
   const [browserPermission, setBrowserPermission] = useState<NotificationPermission>('default');
 
@@ -35,6 +42,11 @@ export const NotificationSettings = () => {
 
   const handleToggleVibration = () => {
     toggleVibration();
+    invalidateSettingsCache();
+  };
+
+  const handleToggleMessenger = (messengerId: string) => {
+    toggleMessengerMute(messengerId);
     invalidateSettingsCache();
   };
 
@@ -198,6 +210,40 @@ export const NotificationSettings = () => {
               onCheckedChange={handleToggleVibration}
             />
           </div>
+        </div>
+
+        {/* Messenger sound settings */}
+        <div className="pt-4 border-t">
+          <div className="flex items-center gap-3 mb-4">
+            <BellOff className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <Label className="font-medium">Отключить звук для мессенджеров</Label>
+              <p className="text-sm text-muted-foreground">
+                Выберите мессенджеры, для которых не нужны звуковые уведомления
+              </p>
+            </div>
+          </div>
+          <div className="pl-8 space-y-3">
+            {MESSENGERS.map((messenger) => (
+              <div key={messenger.id} className="flex items-center gap-3">
+                <Checkbox
+                  id={`mute-${messenger.id}`}
+                  checked={isMessengerMuted(messenger.id)}
+                  onCheckedChange={() => handleToggleMessenger(messenger.id)}
+                />
+                <Label htmlFor={`mute-${messenger.id}`} className="flex items-center gap-2 cursor-pointer">
+                  <span>{messenger.emoji}</span>
+                  <span>{messenger.label}</span>
+                  {isMessengerMuted(messenger.id) && (
+                    <Badge variant="secondary" className="text-xs">Без звука</Badge>
+                  )}
+                </Label>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground mt-3 pl-8">
+            💡 Также можно отключить звук для отдельных чатов через контекстное меню (ПКМ на чате)
+          </p>
         </div>
 
         {/* Browser notifications */}

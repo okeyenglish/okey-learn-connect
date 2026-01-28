@@ -7,6 +7,8 @@ export interface NotificationSettings {
   soundVolume: number; // 0-1
   vibrationEnabled: boolean;
   missedCallNotificationsEnabled: boolean;
+  mutedMessengers: string[]; // e.g., ['whatsapp', 'telegram', 'max']
+  mutedChats: string[]; // client IDs
 }
 
 const DEFAULT_SETTINGS: NotificationSettings = {
@@ -14,6 +16,8 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   soundVolume: 0.5,
   vibrationEnabled: true,
   missedCallNotificationsEnabled: true,
+  mutedMessengers: [],
+  mutedChats: [],
 };
 
 /**
@@ -67,6 +71,30 @@ export const useNotificationSettings = () => {
     saveSettings({ missedCallNotificationsEnabled: !settings.missedCallNotificationsEnabled });
   }, [settings.missedCallNotificationsEnabled, saveSettings]);
 
+  const toggleMessengerMute = useCallback((messenger: string) => {
+    const current = settings.mutedMessengers || [];
+    const updated = current.includes(messenger)
+      ? current.filter(m => m !== messenger)
+      : [...current, messenger];
+    saveSettings({ mutedMessengers: updated });
+  }, [settings.mutedMessengers, saveSettings]);
+
+  const toggleChatMute = useCallback((clientId: string) => {
+    const current = settings.mutedChats || [];
+    const updated = current.includes(clientId)
+      ? current.filter(id => id !== clientId)
+      : [...current, clientId];
+    saveSettings({ mutedChats: updated });
+  }, [settings.mutedChats, saveSettings]);
+
+  const isChatMuted = useCallback((clientId: string) => {
+    return (settings.mutedChats || []).includes(clientId);
+  }, [settings.mutedChats]);
+
+  const isMessengerMuted = useCallback((messenger: string) => {
+    return (settings.mutedMessengers || []).includes(messenger);
+  }, [settings.mutedMessengers]);
+
   return {
     settings,
     isLoaded,
@@ -75,6 +103,10 @@ export const useNotificationSettings = () => {
     setVolume,
     toggleVibration,
     toggleMissedCallNotifications,
+    toggleMessengerMute,
+    toggleChatMute,
+    isChatMuted,
+    isMessengerMuted,
   };
 };
 
