@@ -204,9 +204,9 @@ Deno.serve(async (req) => {
       }
       
       // Log full webhook to webhook_logs for debugging specific calls
-      const rawFrom = (webhookData as any).from || (webhookData as any).src || (webhookData as any).caller_number || '';
-      const rawTo = (webhookData as any).to || (webhookData as any).dst || (webhookData as any).called_number || '';
-      const phoneForLog = rawFrom || rawTo;
+      const logRawFrom = (webhookData as any).from || (webhookData as any).src || (webhookData as any).caller_number || '';
+      const logRawTo = (webhookData as any).to || (webhookData as any).dst || (webhookData as any).called_number || '';
+      const phoneForLog = logRawFrom || logRawTo;
       
       // Store raw webhook for debugging - non-blocking
       try {
@@ -216,8 +216,8 @@ Deno.serve(async (req) => {
           webhook_data: {
             ...webhookData,
             _recording_fields_found: foundRecordingFields,
-            _phone_from: rawFrom,
-            _phone_to: rawTo,
+            _phone_from: logRawFrom,
+            _phone_to: logRawTo,
             _received_at: new Date().toISOString()
           },
           processed: true,
