@@ -16,6 +16,8 @@ import { IndividualLessonModal } from "@/components/teacher/IndividualLessonModa
 import { useLearningGroups } from "@/hooks/useLearningGroups";
 import type { PhoneNumber as PhoneNumberType } from "@/types/phone";
 import { supabase } from "@/integrations/supabase/typedClient";
+import { selfHostedPost } from "@/lib/selfHostedApi";
+import { toast } from "sonner";
 import { usePinnedModalsDB } from "@/hooks/usePinnedModalsDB";
 import { useOrganization } from "@/hooks/useOrganization";
 import { InviteToPortalButton } from "./InviteToPortalButton";
@@ -284,6 +286,25 @@ export const FamilyCard = ({
     // Switch to chats for this phone number
   };
 
+  const handlePhoneCall = async (phone: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error('Пользователь не авторизован');
+      return;
+    }
+    
+    const response = await selfHostedPost<{ success: boolean; error?: string }>('onlinepbx-call', { 
+      to_number: phone,
+      from_user: user.id
+    });
+    
+    if (response.success && response.data?.success) {
+      toast.success('Звонок инициирован. Поднимите трубку.');
+    } else {
+      toast.error(response.data?.error || response.error || 'Ошибка звонка');
+    }
+  };
+
   const getActivePhone = () => {
     if (!activeMember) return null;
     const phones = activeMember.phoneNumbers || [];
@@ -386,6 +407,7 @@ export const FamilyCard = ({
                 handlePhoneClick(phoneId);
                 onOpenChat?.(activeMember.id, messenger);
               }}
+              onCallClick={handlePhoneCall}
             />
             
             <div className="flex items-center gap-2">

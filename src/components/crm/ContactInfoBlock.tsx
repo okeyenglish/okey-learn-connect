@@ -50,12 +50,14 @@ interface ContactInfoBlockProps {
   phoneNumbers: PhoneNumberData[];
   email?: string;
   onMessengerClick?: (phoneId: string, messenger: 'whatsapp' | 'telegram' | 'max') => void;
+  onCallClick?: (phone: string) => void;
 }
 
 export const ContactInfoBlock = ({ 
   phoneNumbers, 
   email,
-  onMessengerClick 
+  onMessengerClick,
+  onCallClick
 }: ContactInfoBlockProps) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   
@@ -123,7 +125,26 @@ export const ContactInfoBlock = ({
           
           return (
             <div key={phoneNumber.id} className="flex items-center gap-2 group">
-              <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className={`p-0.5 rounded transition-colors flex-shrink-0 ${
+                      onCallClick 
+                        ? 'hover:bg-green-50 hover:text-green-600 cursor-pointer' 
+                        : 'cursor-default'
+                    }`}
+                    onClick={() => onCallClick?.(phoneNumber.phone)}
+                    disabled={!onCallClick}
+                  >
+                    <Phone className={`h-3.5 w-3.5 transition-colors ${
+                      onCallClick ? 'text-muted-foreground hover:text-green-600' : 'text-muted-foreground'
+                    }`} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  {onCallClick ? 'Позвонить через OnlinePBX' : 'Телефон'}
+                </TooltipContent>
+              </Tooltip>
               
               <span 
                 className="text-sm font-medium cursor-pointer hover:text-primary transition-colors"
