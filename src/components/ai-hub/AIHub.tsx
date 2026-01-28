@@ -74,7 +74,16 @@ interface ChatMessage {
 }
 
 type ConsultantType = 'lawyer' | 'accountant' | 'marketer' | 'hr' | 'methodist' | 'it';
-type ChatType = 'assistant' | ConsultantType | 'group' | 'teacher';
+type ChatType = 'assistant' | ConsultantType | 'group' | 'teacher' | 'staff';
+
+interface StaffMember {
+  id: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  avatar_url?: string;
+  branch?: string;
+}
 
 interface ChatItem {
   id: string;
@@ -87,8 +96,8 @@ interface ChatItem {
   badge?: string;
   unreadCount?: number;
   lastMessage?: string;
-  // For groups/teachers
-  data?: InternalChat | TeacherChatItem;
+  // For groups/teachers/staff
+  data?: InternalChat | TeacherChatItem | StaffMember;
 }
 
 export const AIHub = ({ 
@@ -122,10 +131,12 @@ export const AIHub = ({
   const { data: staffMembers } = useStaffMembers();
   
   // Staff messaging hooks - for staff direct messages using new internal_staff_messages table
-  // Use profile_id for direct messaging with teachers (links to profiles/auth.users)
+  // Use profile_id for direct messaging with teachers/staff (links to profiles/auth.users)
   const selectedStaffProfileId = activeChat?.type === 'teacher' 
     ? (activeChat.data as TeacherChatItem)?.profileId || ''
-    : '';
+    : activeChat?.type === 'staff'
+      ? (activeChat.data as StaffMember)?.id || ''
+      : '';
   const { data: staffDirectMessages, isLoading: staffDirectLoading } = useStaffDirectMessages(selectedStaffProfileId);
   const { data: staffGroupMessages, isLoading: staffGroupLoading } = useStaffGroupMessages(
     activeChat?.type === 'group' ? activeChat.id : ''
@@ -261,8 +272,27 @@ export const AIHub = ({
     data: teacher,
   }));
 
+  // Staff members (managers, methodists, etc.) - exclude those already shown as teachers
+  const teacherProfileIds = teachers.filter(t => t.profileId).map(t => t.profileId as string);
+  const teacherProfileIdsSet = new Set(teacherProfileIds);
+  const staffChatItems: ChatItem[] = (staffMembers || [])
+    .filter(staff => !teacherProfileIdsSet.has(staff.id)) // Exclude users already shown as teachers
+    .map(staff => {
+      const fullName = [staff.first_name, staff.last_name].filter(Boolean).join(' ') || staff.email || 'Сотрудник';
+      return {
+        id: staff.id,
+        type: 'staff' as ChatType,
+        name: fullName,
+        description: staff.branch || staff.email || 'Сотрудник',
+        icon: Users,
+        iconBg: 'bg-blue-500/10',
+        iconColor: 'text-blue-600',
+        data: staff,
+      };
+    });
+
   // Combined flat list
-  const allChats = [...aiChats, ...groupChatItems, ...teacherChatItems];
+  const allChats = [...aiChats, ...groupChatItems, ...teacherChatItems, ...staffChatItems];
 
   // Initialize greeting messages for consultants
   useEffect(() => {
@@ -675,6 +705,9 @@ export const AIHub = ({
         if (item.type === 'group') {
           return (item.data as InternalChat)?.branch === selectedBranch;
         }
+        if (item.type === 'staff') {
+          return (item.data as StaffMember)?.branch === selectedBranch;
+        }
         return true; // AI chats always show
       });
 
@@ -683,7 +716,7 @@ export const AIHub = ({
     ['assistant', 'lawyer', 'accountant', 'marketer', 'hr', 'methodist', 'it'].includes(c.type)
   );
   const corporateChatsListFiltered = branchFilteredChats.filter(c => 
-    c.type === 'group' || c.type === 'teacher'
+    c.type === 'group' || c.type === 'teacher' || c.type === 'staff'
   );
 
   // Main chat list - EXACT copy of mobile AIHubInline layout
@@ -798,6 +831,9 @@ export const AIHub = ({
                       if (item.type === 'teacher') {
                         return (item.data as TeacherChatItem)?.profileId === onlineUser.id;
                       }
+                      if (item.type === 'staff') {
+                        return (item.data as StaffMember)?.id === onlineUser.id;
+                      }
                       return false;
                     });
                     
@@ -847,11 +883,14 @@ export const AIHub = ({
                 
                 {corporateChatsListFiltered.map((item) => {
                   const isTeacher = item.type === 'teacher';
+                  const isStaff = item.type === 'staff';
+                  const isGroup = item.type === 'group';
                   const teacher = isTeacher ? (item.data as TeacherChatItem) : null;
+                  const staff = isStaff ? (item.data as StaffMember) : null;
                   const hasUnread = (item.unreadCount || 0) > 0;
                   
                   // Check if user is online
-                  const userProfileId = isTeacher ? teacher?.profileId : null;
+                  const userProfileId = isTeacher ? teacher?.profileId : isStaff ? staff?.id : null;
                   const isOnline = userProfileId ? isUserOnline(userProfileId) : false;
                   const lastSeenText = userProfileId && !isOnline ? getLastSeenFormatted(userProfileId) : null;
                   
@@ -859,6 +898,8 @@ export const AIHub = ({
                   let initials = '';
                   if (isTeacher && teacher) {
                     initials = `${teacher.lastName?.[0] || ''}${teacher.firstName?.[0] || ''}`.toUpperCase() || '•';
+                  } else if (isStaff && staff) {
+                    initials = `${staff.last_name?.[0] || ''}${staff.first_name?.[0] || ''}`.toUpperCase() || '•';
                   }
                   
                   return (
@@ -871,7 +912,7 @@ export const AIHub = ({
                         <div className="relative shrink-0">
                           <Avatar className="h-9 w-9 ring-2 ring-border/30">
                             <AvatarFallback className="bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))] text-sm font-medium">
-                              {isTeacher && teacher ? initials : <item.icon className="h-4 w-4" />}
+                              {(isTeacher || isStaff) ? initials : <item.icon className="h-4 w-4" />}
                             </AvatarFallback>
                           </Avatar>
                           {isOnline && (
@@ -886,6 +927,11 @@ export const AIHub = ({
                             {isTeacher && teacher?.branch && (
                               <Badge variant="outline" className="text-[9px] h-4 px-1.5 shrink-0 font-normal bg-green-50 text-green-700 border-green-200">
                                 {teacher.branch}
+                              </Badge>
+                            )}
+                            {isStaff && staff?.branch && (
+                              <Badge variant="outline" className="text-[9px] h-4 px-1.5 shrink-0 font-normal bg-blue-50 text-blue-700 border-blue-200">
+                                {staff.branch}
                               </Badge>
                             )}
                           </div>
