@@ -1,7 +1,15 @@
-import { FileText, Handshake, Target, Flag, Clock, ChevronRight } from "lucide-react";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { useState } from "react";
+import { FileText, Handshake, Target, Flag, Clock, ChevronRight, Pencil, Save, Loader2, Plus, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { selfHostedPost } from "@/lib/selfHostedApi";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ActionItem {
   task: string;
@@ -10,6 +18,8 @@ interface ActionItem {
 }
 
 interface CallSummaryPreviewProps {
+  callId: string;
+  clientId: string;
   summary?: string | null;
   agreements?: string | null;
   manualActionItems?: ActionItem[] | null;
@@ -40,14 +50,26 @@ const getPriorityConfig = (priority: string) => {
 };
 
 export const CallSummaryPreview: React.FC<CallSummaryPreviewProps> = ({
+  callId,
+  clientId,
   summary,
   agreements,
   manualActionItems,
   className
 }) => {
-  const hasContent = summary || agreements || (manualActionItems && manualActionItems.length > 0);
+  const queryClient = useQueryClient();
+  const [isOpen, setIsOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  
+  // Edit state
+  const [editSummary, setEditSummary] = useState(summary || "");
+  const [editAgreements, setEditAgreements] = useState(agreements || "");
+  const [editActionItems, setEditActionItems] = useState<ActionItem[]>(manualActionItems || []);
+  const [newTask, setNewTask] = useState("");
+  const [newPriority, setNewPriority] = useState<'high' | 'medium' | 'low'>('medium');
 
-  if (!hasContent) return null;
+  const hasContent = summary || agreements || (manualActionItems && manualActionItems.length > 0);
 
   // Calculate task counts by priority
   const taskCounts = {
@@ -57,115 +79,278 @@ export const CallSummaryPreview: React.FC<CallSummaryPreviewProps> = ({
   };
   const totalTasks = (manualActionItems?.length || 0);
 
-  return (
-    <HoverCard openDelay={200} closeDelay={100}>
-      <HoverCardTrigger asChild>
-        <div 
-          className={cn(
-            "flex items-center gap-1.5 p-1.5 bg-muted/60 rounded-md cursor-pointer hover:bg-muted/80 transition-colors",
-            className
-          )}
-        >
-          {/* Summary indicator */}
-          {summary && (
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <FileText className="h-3 w-3 text-primary" />
-            </div>
-          )}
-          
-          {/* Agreements indicator */}
-          {agreements && (
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <Handshake className="h-3 w-3 text-green-600" />
-            </div>
-          )}
-          
-          {/* Tasks indicator */}
-          {totalTasks > 0 && (
-            <div className="flex items-center gap-0.5">
-              <Target className="h-3 w-3 text-orange-600" />
-              <span className="text-[10px] font-medium text-orange-700">{totalTasks}</span>
-              {taskCounts.high > 0 && (
-                <span className="text-[10px] text-red-600">🔴{taskCounts.high}</span>
-              )}
-            </div>
-          )}
-          
-          <ChevronRight className="h-3 w-3 text-muted-foreground/50" />
-        </div>
-      </HoverCardTrigger>
+  const startEditing = () => {
+    setEditSummary(summary || "");
+    setEditAgreements(agreements || "");
+    setEditActionItems(manualActionItems || []);
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setNewTask("");
+  };
+
+  const addTask = () => {
+    if (!newTask.trim()) return;
+    setEditActionItems([...editActionItems, { task: newTask.trim(), priority: newPriority }]);
+    setNewTask("");
+    setNewPriority('medium');
+  };
+
+  const removeTask = (index: number) => {
+    setEditActionItems(editActionItems.filter((_, i) => i !== index));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const data = {
+        callId,
+        summary: editSummary.trim() || null,
+        agreements: editAgreements.trim() || null,
+        manual_action_items: editActionItems.length > 0 ? editActionItems : null
+      };
+
+      const response = await selfHostedPost<{ success: boolean }>('update-call-summary', data);
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to save');
+      }
+
+      toast.success("Сохранено");
+      setIsEditing(false);
       
-      <HoverCardContent 
+      // Invalidate call logs to refresh data
+      queryClient.invalidateQueries({ queryKey: ['call-logs-infinite', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['call-logs', clientId] });
+      
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Error saving call summary:', error);
+      toast.error("Не удалось сохранить");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Show trigger even without content (for adding new data)
+  const showEmptyTrigger = !hasContent;
+
+  return (
+    <Popover open={isOpen} onOpenChange={(open) => {
+      setIsOpen(open);
+      if (!open) {
+        setIsEditing(false);
+        setNewTask("");
+      }
+    }}>
+      <PopoverTrigger asChild>
+        {showEmptyTrigger ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn("h-6 px-2 text-xs text-muted-foreground hover:text-foreground gap-1", className)}
+          >
+            <Plus className="h-3 w-3" />
+            Добавить заметку
+          </Button>
+        ) : (
+          <div 
+            className={cn(
+              "flex items-center gap-1.5 p-1.5 bg-muted/60 rounded-md cursor-pointer hover:bg-muted/80 transition-colors",
+              className
+            )}
+          >
+            {summary && <FileText className="h-3 w-3 text-primary" />}
+            {agreements && <Handshake className="h-3 w-3 text-green-600" />}
+            {totalTasks > 0 && (
+              <div className="flex items-center gap-0.5">
+                <Target className="h-3 w-3 text-orange-600" />
+                <span className="text-[10px] font-medium text-orange-700">{totalTasks}</span>
+                {taskCounts.high > 0 && (
+                  <span className="text-[10px] text-red-600">🔴{taskCounts.high}</span>
+                )}
+              </div>
+            )}
+            <ChevronRight className="h-3 w-3 text-muted-foreground/50" />
+          </div>
+        )}
+      </PopoverTrigger>
+      
+      <PopoverContent 
         align="start" 
         side="bottom"
-        className="w-80 p-3 space-y-3"
+        className="w-80 p-3"
+        onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        {/* Summary section */}
-        {summary && (
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
-              <FileText className="h-3 w-3" />
-              Резюме
+        {isEditing ? (
+          /* Edit Mode */
+          <div className="space-y-3">
+            {/* Summary */}
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-medium text-primary">
+                <FileText className="h-3 w-3" />
+                Резюме
+              </label>
+              <Textarea
+                placeholder="О чём говорили..."
+                value={editSummary}
+                onChange={(e) => setEditSummary(e.target.value)}
+                rows={2}
+                className="resize-none text-xs"
+              />
             </div>
-            <p className="text-xs text-muted-foreground leading-relaxed line-clamp-4">
-              {summary}
-            </p>
-          </div>
-        )}
-        
-        {/* Agreements section */}
-        {agreements && (
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-green-700">
-              <Handshake className="h-3 w-3" />
-              Договорённости
+
+            {/* Agreements */}
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-medium text-green-700">
+                <Handshake className="h-3 w-3" />
+                Договорённости
+              </label>
+              <Textarea
+                placeholder="О чём договорились..."
+                value={editAgreements}
+                onChange={(e) => setEditAgreements(e.target.value)}
+                rows={2}
+                className="resize-none text-xs bg-green-50/50"
+              />
             </div>
-            <p className="text-xs text-muted-foreground leading-relaxed line-clamp-4 bg-green-50/50 p-2 rounded">
-              {agreements}
-            </p>
-          </div>
-        )}
-        
-        {/* Tasks section */}
-        {totalTasks > 0 && (
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-orange-700">
-              <Target className="h-3 w-3" />
-              Задачи ({totalTasks})
-            </div>
-            <div className="space-y-1">
-              {manualActionItems?.slice(0, 5).map((item, index) => {
-                const config = getPriorityConfig(item.priority);
-                return (
-                  <div 
-                    key={index}
-                    className="flex items-start gap-1.5 text-xs"
-                  >
-                    <Badge 
-                      variant="outline" 
-                      className={cn("h-4 px-1 py-0 text-[10px] shrink-0", config.badge)}
-                    >
-                      {config.icon || config.label}
-                    </Badge>
-                    <span className="text-muted-foreground line-clamp-1">
-                      {item.task}
-                    </span>
-                  </div>
-                );
-              })}
-              {manualActionItems && manualActionItems.length > 5 && (
-                <p className="text-[10px] text-muted-foreground/70 italic">
-                  +{manualActionItems.length - 5} ещё...
-                </p>
+
+            {/* Tasks */}
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-medium text-orange-700">
+                <Target className="h-3 w-3" />
+                Задачи ({editActionItems.length})
+              </label>
+              
+              {editActionItems.length > 0 && (
+                <div className="space-y-1 max-h-24 overflow-y-auto">
+                  {editActionItems.map((item, index) => {
+                    const config = getPriorityConfig(item.priority);
+                    return (
+                      <div key={index} className="flex items-center gap-1 text-xs bg-muted/50 rounded p-1">
+                        <Badge variant="outline" className={cn("h-4 px-1 py-0 text-[10px] shrink-0", config.badge)}>
+                          {config.icon || config.label}
+                        </Badge>
+                        <span className="flex-1 truncate">{item.task}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4 text-muted-foreground hover:text-destructive"
+                          onClick={() => removeTask(index)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
+
+              <div className="flex gap-1">
+                <Input
+                  placeholder="Новая задача..."
+                  value={newTask}
+                  onChange={(e) => setNewTask(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addTask()}
+                  className="flex-1 h-7 text-xs"
+                />
+                <Select value={newPriority} onValueChange={(v) => setNewPriority(v as 'high' | 'medium' | 'low')}>
+                  <SelectTrigger className="w-16 h-7 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">🔴</SelectItem>
+                    <SelectItem value="medium">🟠</SelectItem>
+                    <SelectItem value="low">🔵</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={addTask} disabled={!newTask.trim()}>
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={cancelEditing}>
+                Отмена
+              </Button>
+              <Button size="sm" className="h-7 text-xs" onClick={handleSave} disabled={saving}>
+                {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
+                Сохранить
+              </Button>
             </div>
           </div>
+        ) : (
+          /* View Mode */
+          <div className="space-y-3">
+            {/* Edit button */}
+            <div className="flex justify-end">
+              <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={startEditing}>
+                <Pencil className="h-3 w-3" />
+                Редактировать
+              </Button>
+            </div>
+
+            {!hasContent && (
+              <p className="text-xs text-muted-foreground text-center py-4">
+                Нет записей. Нажмите "Редактировать" чтобы добавить.
+              </p>
+            )}
+
+            {/* Summary */}
+            {summary && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
+                  <FileText className="h-3 w-3" />
+                  Резюме
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {summary}
+                </p>
+              </div>
+            )}
+            
+            {/* Agreements */}
+            {agreements && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-green-700">
+                  <Handshake className="h-3 w-3" />
+                  Договорённости
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed bg-green-50/50 p-2 rounded">
+                  {agreements}
+                </p>
+              </div>
+            )}
+            
+            {/* Tasks */}
+            {totalTasks > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-orange-700">
+                  <Target className="h-3 w-3" />
+                  Задачи ({totalTasks})
+                </div>
+                <div className="space-y-1">
+                  {manualActionItems?.map((item, index) => {
+                    const config = getPriorityConfig(item.priority);
+                    return (
+                      <div key={index} className="flex items-start gap-1.5 text-xs">
+                        <Badge variant="outline" className={cn("h-4 px-1 py-0 text-[10px] shrink-0", config.badge)}>
+                          {config.icon || config.label}
+                        </Badge>
+                        <span className="text-muted-foreground">{item.task}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         )}
-        
-        <p className="text-[10px] text-muted-foreground/60 italic pt-1 border-t">
-          Нажмите 👁 для подробностей
-        </p>
-      </HoverCardContent>
-    </HoverCard>
+      </PopoverContent>
+    </Popover>
   );
 };

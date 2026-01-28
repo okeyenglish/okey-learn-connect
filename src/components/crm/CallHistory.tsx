@@ -279,6 +279,8 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
 
             {/* Manual summary/agreements/tasks preview */}
             <CallSummaryPreview 
+              callId={call.id}
+              clientId={clientId}
               summary={call.summary}
               agreements={call.agreements}
               manualActionItems={call.manual_action_items}
