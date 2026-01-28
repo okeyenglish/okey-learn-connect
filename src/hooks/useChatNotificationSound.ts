@@ -11,6 +11,7 @@ interface ChatMessagePayload {
   message_type: string;
   message_text: string;
   messenger_type?: string;
+  messenger?: string;
   sender_name?: string;
   created_at: string;
 }
@@ -70,6 +71,19 @@ export const useChatNotificationSound = (
           const settings = getNotificationSettings();
           if (!settings.soundEnabled) {
             console.log('[ChatNotificationSound] Sound disabled in settings');
+            return;
+          }
+
+          // Check if this messenger is muted
+          const messengerType = newMessage.messenger_type || newMessage.messenger || '';
+          if (settings.mutedMessengers?.includes(messengerType)) {
+            console.log('[ChatNotificationSound] Messenger muted:', messengerType);
+            return;
+          }
+
+          // Check if this specific chat is muted
+          if (settings.mutedChats?.includes(newMessage.client_id)) {
+            console.log('[ChatNotificationSound] Chat muted:', newMessage.client_id?.slice(0, 8));
             return;
           }
 

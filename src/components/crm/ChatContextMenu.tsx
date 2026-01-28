@@ -14,7 +14,9 @@ import {
   Trash2,
   Lock,
   Link2,
-  GraduationCap
+  GraduationCap,
+  BellOff,
+  Bell
 } from "lucide-react";
 
 interface ChatContextMenuProps {
@@ -27,9 +29,11 @@ interface ChatContextMenuProps {
   onDelete?: () => void;
   onLinkToClient?: () => void;
   onConvertToTeacher?: () => void;
+  onToggleMute?: () => void;
   isPinned?: boolean;
   isArchived?: boolean;
   isUnread?: boolean;
+  isMuted?: boolean;
 }
 
 export const ChatContextMenu = ({ 
@@ -42,9 +46,11 @@ export const ChatContextMenu = ({
   onDelete,
   onLinkToClient,
   onConvertToTeacher,
+  onToggleMute,
   isPinned = false,
   isArchived = false,
-  isUnread = false
+  isUnread = false,
+  isMuted = false
 }: ChatContextMenuProps) => {
   const clearNativeSelection = () => {
     try {
@@ -90,6 +96,22 @@ export const ChatContextMenu = ({
           <Pin className="mr-2 h-4 w-4" />
           {isPinned ? 'Открепить диалог' : 'Закрепить диалог'}
         </ContextMenuItem>
+        
+        {onToggleMute && (
+          <ContextMenuItem onClick={onToggleMute} className="cursor-pointer">
+            {isMuted ? (
+              <>
+                <Bell className="mr-2 h-4 w-4" />
+                Включить звук
+              </>
+            ) : (
+              <>
+                <BellOff className="mr-2 h-4 w-4" />
+                Отключить звук
+              </>
+            )}
+          </ContextMenuItem>
+        )}
         
         <ContextMenuSeparator />
         
