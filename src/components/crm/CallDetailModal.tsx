@@ -4,12 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, Clock, Calendar, User, MessageSquare, Sparkles, Save, Loader2, RefreshCw } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, Clock, Calendar, User, MessageSquare, Sparkles, Save, Loader2, RefreshCw, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
 import { CallEvaluationCard, type AiCallEvaluation } from "./CallEvaluationCard";
+import { ManualCallSummary, type ManualCallData } from "./ManualCallSummary";
 import { selfHostedPost } from '@/lib/selfHostedApi';
 
 interface CallDetailModalProps {
@@ -27,6 +29,8 @@ interface CallLog {
   started_at: string;
   ended_at: string | null;
   summary: string | null;
+  agreements: string | null;
+  manual_action_items: ManualCallData['manual_action_items'];
   notes: string | null;
   recording_url: string | null;
   transcription: string | null;
@@ -330,63 +334,93 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({
             </CardContent>
           </Card>
 
-          {/* AI Evaluation */}
-          {call.ai_evaluation ? (
-            <CallEvaluationCard 
-              evaluation={call.ai_evaluation} 
-              transcription={call.transcription}
-            />
-          ) : (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5" />
-                    AI-анализ звонка
-                  </div>
-                  {call.recording_url && (
-                    <Button
-                      onClick={generateSummary}
-                      disabled={generatingSummary}
-                      size="sm"
-                      variant="outline"
-                    >
-                      {generatingSummary ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          Анализируем...
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                          Запустить анализ
-                        </>
+          {/* Tabs for AI Analysis / Manual Summary */}
+          <Tabs defaultValue={call.ai_evaluation ? "ai" : "manual"} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="ai" className="gap-2">
+                <Sparkles className="h-4 w-4" />
+                AI-анализ
+              </TabsTrigger>
+              <TabsTrigger value="manual" className="gap-2">
+                <FileText className="h-4 w-4" />
+                Резюме и задачи
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="ai" className="mt-4">
+              {/* AI Evaluation */}
+              {call.ai_evaluation ? (
+                <CallEvaluationCard 
+                  evaluation={call.ai_evaluation} 
+                  transcription={call.transcription}
+                />
+              ) : (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-5 w-5" />
+                        AI-анализ звонка
+                      </div>
+                      {call.recording_url && (
+                        <Button
+                          onClick={generateSummary}
+                          disabled={generatingSummary}
+                          size="sm"
+                          variant="outline"
+                        >
+                          {generatingSummary ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              Анализируем...
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              Запустить анализ
+                            </>
+                          )}
+                        </Button>
                       )}
-                    </Button>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {call.summary ? (
-                  <div className="p-4 bg-muted rounded-lg">
-                    <p className="text-sm leading-relaxed">{call.summary}</p>
-                  </div>
-                ) : call.recording_url ? (
-                  <div className="text-center py-4 text-muted-foreground">
-                    <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">Анализ звонка ещё не выполнен</p>
-                    <p className="text-xs">Нажмите кнопку выше для запуска AI-анализа</p>
-                  </div>
-                ) : (
-                  <div className="text-center py-4 text-muted-foreground">
-                    <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">Запись звонка недоступна</p>
-                    <p className="text-xs">AI-анализ возможен только при наличии записи разговора</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {call.recording_url ? (
+                      <div className="text-center py-4 text-muted-foreground">
+                        <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">Анализ звонка ещё не выполнен</p>
+                        <p className="text-xs">Нажмите кнопку выше для запуска AI-анализа</p>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground">
+                        <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">Запись звонка недоступна</p>
+                        <p className="text-xs">AI-анализ возможен только при наличии записи разговора</p>
+                        <p className="text-xs mt-2">Используйте вкладку «Резюме и задачи» для ручного ввода</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="manual" className="mt-4">
+              <ManualCallSummary
+                callId={call.id}
+                initialData={{
+                  summary: call.summary,
+                  agreements: call.agreements,
+                  manual_action_items: call.manual_action_items
+                }}
+                onSaved={(data) => {
+                  setCall(prev => prev ? { 
+                    ...prev, 
+                    ...data 
+                  } : null);
+                }}
+              />
+            </TabsContent>
+          </Tabs>
 
           {/* Notes */}
           <Card>
