@@ -682,8 +682,8 @@ export const AIHub = ({
           </div>
         </div>
 
-        <ScrollArea className="flex-1 overflow-x-hidden">
-          <div className="p-2 space-y-1 max-w-full overflow-hidden box-border">
+        <ScrollArea className="flex-1 overflow-x-hidden w-full">
+          <div className="p-2 space-y-1 w-full overflow-hidden">
             {/* Loading state */}
             {(chatsLoading || teachersLoading) && (
               <div className="text-center py-4">
