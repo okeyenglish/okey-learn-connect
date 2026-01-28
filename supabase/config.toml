@@ -428,3 +428,9 @@ verify_jwt = false
 
 [functions.push-subscription-delete]
 verify_jwt = false
+
+[functions.fetch-call-recording]
+verify_jwt = true
+
+[functions.update-call-summary]
+verify_jwt = true

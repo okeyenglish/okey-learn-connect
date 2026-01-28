@@ -763,6 +763,39 @@ Deno.serve(async (req) => {
           }
         }
         
+        // If answered call without recording URL - schedule delayed fetch from OnlinePBX API
+        // OnlinePBX often doesn't send recording URL in webhook, need to fetch it separately
+        if (status === 'answered' && !recordingUrl) {
+          console.log('[onlinepbx-webhook] Scheduling delayed recording fetch for call:', newCallLog.id);
+          
+          try {
+            // Delay fetch by 30 seconds to allow OnlinePBX to process recording
+            const fetchRecordingPromise = new Promise<void>(async (resolve) => {
+              await new Promise(r => setTimeout(r, 30000)); // 30 second delay
+              
+              try {
+                await supabase.functions.invoke('fetch-call-recording', { 
+                  body: { 
+                    callLogId: newCallLog.id,
+                    phoneNumber: selectedPhone,
+                    externalCallId: externalCallId
+                  } 
+                });
+                console.log('[onlinepbx-webhook] Delayed recording fetch completed for:', newCallLog.id);
+              } catch (e) {
+                console.error('[onlinepbx-webhook] Delayed recording fetch error:', e);
+              }
+              resolve();
+            });
+            
+            if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+              EdgeRuntime.waitUntil(fetchRecordingPromise);
+            }
+          } catch (e) {
+            console.error('[onlinepbx-webhook] Error scheduling recording fetch:', e);
+          }
+        }
+        
         // Notify about missed calls
         if (status === 'missed' && direction === 'incoming') {
           console.log('Missed incoming call, creating notification and push');
