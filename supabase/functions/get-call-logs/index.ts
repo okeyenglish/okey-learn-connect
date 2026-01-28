@@ -7,9 +7,10 @@ const corsHeaders = {
 };
 
 interface CallLogsRequest {
-  action: 'list' | 'get' | 'history';
+  action: 'list' | 'get' | 'history' | 'search';
   clientId?: string;
   callId?: string;
+  phoneNumber?: string;
   limit?: number;
   offset?: number;
   filters?: {
@@ -72,9 +73,37 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body: CallLogsRequest = await req.json().catch(() => ({ action: 'list' }));
-    const { action = 'list', clientId, callId, limit = 100, offset = 0, filters } = body;
+    const { action = 'list', clientId, callId, phoneNumber, limit = 100, offset = 0, filters } = body;
 
-    console.log(`[get-call-logs] Action: ${action}, org: ${organizationId}, clientId: ${clientId}`);
+    console.log(`[get-call-logs] Action: ${action}, org: ${organizationId}, clientId: ${clientId}, phone: ${phoneNumber}`);
+
+    // Search by phone number action
+    if (action === 'search' && phoneNumber) {
+      const digits = phoneNumber.replace(/\D/g, '');
+      const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
+      
+      console.log('[get-call-logs] Searching calls by phone:', last10);
+      
+      const { data, error } = await supabase
+        .from('call_logs')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .ilike('phone_number', `%${last10}%`)
+        .order('started_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          calls: data || [], 
+          total: data?.length || 0,
+          searchedPhone: last10
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (action === 'get' && callId) {
       // Get single call with details

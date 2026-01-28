@@ -202,6 +202,33 @@ Deno.serve(async (req) => {
       } else {
         console.log('[onlinepbx-webhook] No recording URL fields found in webhook data');
       }
+      
+      // Log full webhook to webhook_logs for debugging specific calls
+      const rawFrom = (webhookData as any).from || (webhookData as any).src || (webhookData as any).caller_number || '';
+      const rawTo = (webhookData as any).to || (webhookData as any).dst || (webhookData as any).called_number || '';
+      const phoneForLog = rawFrom || rawTo;
+      
+      // Store raw webhook for debugging - non-blocking
+      try {
+        supabase.from('webhook_logs').insert({
+          messenger_type: 'onlinepbx',
+          event_type: 'raw_webhook',
+          webhook_data: {
+            ...webhookData,
+            _recording_fields_found: foundRecordingFields,
+            _phone_from: rawFrom,
+            _phone_to: rawTo,
+            _received_at: new Date().toISOString()
+          },
+          processed: true,
+        }).then(() => {
+          console.log('[onlinepbx-webhook] Raw webhook logged for phone:', phoneForLog);
+        }).catch(e => {
+          console.warn('[onlinepbx-webhook] Failed to log raw webhook:', e);
+        });
+      } catch (e) {
+        console.warn('[onlinepbx-webhook] Failed to schedule raw webhook logging:', e);
+      }
 
       // STEP 1: Try to get organization from webhook key in URL (PRIMARY method)
       const url = new URL(req.url);
