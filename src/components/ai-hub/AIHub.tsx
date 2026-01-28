@@ -682,8 +682,8 @@ export const AIHub = ({
           </div>
         </div>
 
-        <ScrollArea className="flex-1 overflow-x-hidden w-full">
-          <div className="p-2 space-y-1 w-full overflow-hidden">
+        <ScrollArea className="flex-1 w-full">
+          <div className="py-2 space-y-1 w-full">
             {/* Loading state */}
             {(chatsLoading || teachersLoading) && (
               <div className="text-center py-4">
@@ -719,7 +719,7 @@ export const AIHub = ({
                   <button
                     key={item.id}
                     onClick={() => handleSelectChat(item)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left animate-in fade-in slide-in-from-top-1 duration-200 overflow-hidden box-border"
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
                   >
                     <Avatar className="h-11 w-11 shrink-0">
                       <AvatarFallback className={item.iconBg}>
@@ -778,7 +778,7 @@ export const AIHub = ({
                     <button
                       key={`${item.type}-${item.id}`}
                       onClick={() => handleSelectChat(item)}
-                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left overflow-hidden box-border"
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
                     >
                       <Avatar className="h-11 w-11 shrink-0">
                         <AvatarFallback className={item.iconBg}>
