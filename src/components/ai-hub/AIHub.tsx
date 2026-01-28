@@ -693,37 +693,27 @@ export const AIHub = ({
     c.type === 'group' || c.type === 'teacher'
   );
 
-  // Main chat list (flat, no folders)
+  // Main chat list - EXACT copy of mobile AIHubInline layout
   return (
     <Sheet open={isOpen} onOpenChange={onToggle}>
       <SheetContent side="right" className="w-full sm:w-[400px] sm:max-w-[400px] h-full p-0 flex flex-col overflow-hidden">
-        {/* Search row with close button */}
-        <div className="px-4 pt-4 pb-2 space-y-2 shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Поиск по имени, телефону..."
-                className="pl-9 h-10 rounded-full border-border"
-              />
-            </div>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={onToggle}
-              className="h-10 w-10 shrink-0"
-            >
-              <X className="h-5 w-5" />
-            </Button>
+        {/* Search bar and branch filter - EXACT mobile styles */}
+        <div className="p-2 border-b shrink-0 space-y-2 max-w-full overflow-hidden">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+              value={searchQuery} 
+              onChange={(e) => setSearchQuery(e.target.value)} 
+              placeholder="Поиск по имени, телефону..." 
+              className="h-8 text-sm pl-8"
+            />
           </div>
           
-          {/* Branch filter */}
+          {/* Branch filter - same as mobile */}
           <select
             value={selectedBranch}
             onChange={(e) => setSelectedBranch(e.target.value)}
-            className="w-full h-10 px-4 rounded-full border border-border bg-background text-sm"
+            className="w-full h-8 px-3 border border-border bg-background text-sm rounded-md"
           >
             <option value="all">Все филиалы</option>
             {allBranches.map(branch => (
@@ -732,128 +722,167 @@ export const AIHub = ({
           </select>
         </div>
 
-        <ScrollArea className="flex-1 w-full">
-          <div className="w-full">
-            {/* Loading state */}
+        <ScrollArea className="flex-1 overflow-x-hidden">
+          <div className="px-2 py-1 space-y-1 max-w-full overflow-hidden box-border">
             {(chatsLoading || teachersLoading) && (
               <div className="text-center py-4">
                 <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
               </div>
             )}
 
-            {/* AI Chats Section - Collapsible */}
+            {/* AI Helpers Section - EXACT mobile layout */}
             {aiChatsListFiltered.length > 0 && (
-              <>
-                <button
-                  onClick={toggleAiSection}
-                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors"
+              <div className="space-y-1">
+                <button 
+                  onClick={toggleAiSection} 
+                  className="w-full px-3 py-2 flex items-center justify-between hover:bg-muted/30 transition-colors rounded-lg"
                 >
                   <div className="flex items-center gap-2">
-                    <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${aiSectionExpanded ? 'rotate-90' : ''}`} />
-                    <span className="text-sm font-medium">AI Помощники</span>
+                    {aiSectionExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                    <span className="text-sm font-medium text-muted-foreground">AI Помощники</span>
                   </div>
-                  <Badge variant="outline" className="rounded-full h-6 min-w-[24px] flex items-center justify-center text-xs">
+                  <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full">
                     {aiChatsListFiltered.length}
                   </Badge>
                 </button>
                 
                 {aiSectionExpanded && aiChatsListFiltered.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => handleSelectChat(item)}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                  <button 
+                    key={item.id} 
+                    onClick={() => handleSelectChat(item)} 
+                    className="w-full p-2.5 text-left rounded-lg transition-all duration-200 mb-1 border select-none bg-card hover:bg-accent/30 hover:shadow-sm border-border/50 max-w-full overflow-hidden"
                   >
-                    <Avatar className="h-11 w-11 shrink-0">
-                      <AvatarFallback className={item.iconBg}>
-                        <item.icon className={`h-5 w-5 ${item.iconColor}`} />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <span className="font-medium text-sm block truncate">{item.name}</span>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {item.lastMessage || item.description}
-                      </p>
+                    <div className="flex items-start justify-between gap-2 max-w-full overflow-hidden">
+                      <div className="flex items-start gap-2 flex-1 min-w-0">
+                        <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30">
+                          <AvatarFallback className="bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))]">
+                            <item.icon className="h-4 w-4" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <div className="flex items-center gap-1.5 mb-0">
+                            <p className={`text-sm ${(item.unreadCount || 0) > 0 ? 'font-semibold' : 'font-medium'} truncate`}>
+                              {item.name}
+                            </p>
+                            <Badge variant="secondary" className="text-[10px] h-4 px-1 shrink-0">AI</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed overflow-hidden">
+                            <span className="block truncate">{item.lastMessage || item.description}</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                        <span className="text-[10px] text-muted-foreground font-medium">
+                          {item.lastMessage ? 'Сейчас' : ''}
+                        </span>
+                        {(item.unreadCount || 0) > 0 && (
+                          <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm">
+                            <span className="font-semibold">{item.unreadCount}</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </button>
                 ))}
-              </>
+              </div>
             )}
 
-            {/* Online Staff Section */}
+            {/* Online Staff Section - EXACT mobile layout */}
             {onlineStaff.length > 0 && (
-              <div className="px-4 py-3">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="h-2.5 w-2.5 rounded-full bg-green-500" />
-                  <span className="text-sm font-medium">Сейчас онлайн</span>
-                  <Badge className="rounded-full h-5 min-w-[20px] flex items-center justify-center text-xs bg-green-100 text-green-700 border-0">
+              <div className="space-y-1">
+                <div className="px-3 py-2 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                  <span className="text-sm font-medium text-muted-foreground">Сейчас онлайн</span>
+                  <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full bg-green-50 text-green-700 border-green-200">
                     {onlineStaff.length}
                   </Badge>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {onlineStaff.map(staff => (
+                
+                <div className="flex flex-wrap gap-1.5 px-3 pb-2">
+                  {onlineStaff.map((staff) => (
                     <button
                       key={staff.id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 border border-green-200 hover:bg-green-100 transition-colors"
                       onClick={() => handleSelectChat(staff.chatItem)}
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-50 hover:bg-green-100 border border-green-200 transition-colors"
                     >
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {staff.firstName?.[0]}{staff.lastName?.[0]}
+                      <Avatar className="h-5 w-5">
+                        <AvatarFallback className="text-[10px] bg-green-100 text-green-700">
+                          {staff.lastName?.[0]}{staff.firstName?.[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-xs font-medium text-green-700 max-w-[80px] truncate">
+                        {staff.firstName}
                       </span>
-                      <span className="text-sm text-green-700">{staff.firstName}</span>
-                      <div className="h-2 w-2 rounded-full bg-green-500" />
+                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Corporate Chats Section (Groups + Teachers) */}
+            {/* Staff & Groups Section - EXACT mobile layout */}
             {corporateChatsListFiltered.length > 0 && (
-              <>
-                <div className="px-4 py-3 flex items-center justify-between">
-                  <span className="text-sm font-medium">Сотрудники и группы</span>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="rounded-full h-6 min-w-[24px] flex items-center justify-center text-xs">
+              <div className="space-y-1">
+                <div className="px-3 py-2 flex items-center justify-between">
+                  <span className="text-sm font-medium text-muted-foreground">Сотрудники и группы</span>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full mr-1">
                       {corporateChatsListFiltered.length}
                     </Badge>
-                    <CreateStaffGroupModal 
-                      onGroupCreated={() => {
-                        queryClient.invalidateQueries({ queryKey: ['internal-chats'] });
-                      }}
-                    />
+                    <CreateStaffGroupModal onGroupCreated={() => queryClient.invalidateQueries({ queryKey: ['internal-chats'] })} />
                   </div>
                 </div>
+                
                 {corporateChatsListFiltered.map((item) => {
                   const isTeacher = item.type === 'teacher';
                   const teacher = isTeacher ? (item.data as TeacherChatItem) : null;
+                  const hasUnread = (item.unreadCount || 0) > 0;
+                  
+                  // Calculate initials
+                  let initials = '';
+                  if (isTeacher && teacher) {
+                    initials = `${teacher.lastName?.[0] || ''}${teacher.firstName?.[0] || ''}`.toUpperCase() || '•';
+                  }
                   
                   return (
-                    <button
-                      key={`${item.type}-${item.id}`}
-                      onClick={() => handleSelectChat(item)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                    <button 
+                      key={`${item.type}-${item.id}`} 
+                      onClick={() => handleSelectChat(item)} 
+                      className="w-full p-2.5 text-left rounded-lg transition-all duration-200 mb-1 border select-none bg-card hover:bg-accent/30 hover:shadow-sm border-border/50 overflow-hidden box-border"
                     >
-                      <Avatar className="h-11 w-11 shrink-0">
-                        <AvatarFallback className={item.iconBg}>
-                          {isTeacher && teacher ? (
-                            <span className="text-sm font-medium text-green-600">
-                              {teacher.firstName?.[0]}{teacher.lastName?.[0]}
+                      <div className="flex items-start gap-2 w-full overflow-hidden">
+                        <Avatar className="h-9 w-9 ring-2 ring-border/30 shrink-0">
+                          <AvatarFallback className="bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))] text-sm font-medium">
+                            {isTeacher && teacher ? initials : <item.icon className="h-4 w-4" />}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <div className="flex items-center gap-1.5 mb-0 overflow-hidden">
+                            <span className={`text-sm ${hasUnread ? 'font-semibold' : 'font-medium'} truncate flex-1 min-w-0`}>
+                              {item.name}
                             </span>
-                          ) : (
-                            <item.icon className={`h-5 w-5 ${item.iconColor}`} />
+                            {isTeacher && teacher?.branch && (
+                              <Badge variant="outline" className="text-[9px] h-4 px-1.5 shrink-0 font-normal bg-green-50 text-green-700 border-green-200">
+                                {teacher.branch}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed overflow-hidden">
+                            <span className="block truncate">{item.lastMessage || item.description}</span>
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-0.5 shrink-0 ml-auto">
+                          {hasUnread && (
+                            <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm">
+                              <span className="font-semibold">{item.unreadCount}</span>
+                            </span>
                           )}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <span className="font-medium text-sm block truncate">{item.name}</span>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {item.lastMessage || item.description}
-                        </p>
+                        </div>
                       </div>
                     </button>
                   );
                 })}
-              </>
+              </div>
             )}
 
             {/* Empty state */}
