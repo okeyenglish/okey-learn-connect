@@ -29,5 +29,4 @@ WHERE table_schema = 'public'
   AND table_name = 'call_logs' 
   AND column_name IN ('hangup_cause', 'tags');
 
--- Done!
-\echo '✅ Migration complete: hangup_cause and tags columns added to call_logs'
+-- ✅ Migration complete: hangup_cause and tags columns added to call_logs
