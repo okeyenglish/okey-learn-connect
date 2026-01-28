@@ -239,16 +239,22 @@ Deno.serve(async (req) => {
       console.log('[fetch-call-recording] Updated call log with:', Object.keys(updateData));
 
       // Trigger analysis if we now have recording and duration
-      if (recordingUrl && updateData.duration_seconds && updateData.duration_seconds > 30 && callLog.status === 'answered') {
-        console.log('[fetch-call-recording] Triggering call analysis');
+      const shouldAnalyze = recordingUrl && updateData.duration_seconds && updateData.duration_seconds > 30 && callLog.status === 'answered';
+      console.log('[fetch-call-recording] Analysis check: hasRecording=', !!recordingUrl, 'duration=', updateData.duration_seconds, 'status=', callLog.status, 'shouldAnalyze=', shouldAnalyze);
+      
+      if (shouldAnalyze) {
+        console.log('[fetch-call-recording] ✓ Triggering call analysis for:', callLogId);
         
         try {
-          supabase.functions.invoke('analyze-call', { 
+          const result = await supabase.functions.invoke('analyze-call', { 
             body: { callId: callLogId } 
-          }).catch(e => console.error('[fetch-call-recording] Analysis error:', e));
+          });
+          console.log('[fetch-call-recording] analyze-call result:', JSON.stringify(result.data || result.error));
         } catch (e) {
           console.error('[fetch-call-recording] Failed to trigger analysis:', e);
         }
+      } else {
+        console.log('[fetch-call-recording] ✗ Skipping analysis: conditions not met');
       }
     }
 
