@@ -722,7 +722,7 @@ export const AIHub = ({
   // Main chat list - EXACT copy of mobile AIHubInline layout
   return (
     <Sheet open={isOpen} onOpenChange={onToggle}>
-      <SheetContent side="right" className="w-full sm:w-[400px] sm:max-w-[400px] h-full p-0 flex flex-col overflow-hidden">
+      <SheetContent side="right" hideCloseButton className="w-full sm:w-[400px] sm:max-w-[400px] h-full p-0 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="px-4 py-3 border-b shrink-0 flex items-center justify-between">
           <div className="flex items-center gap-3">
