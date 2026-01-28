@@ -19,6 +19,11 @@ interface CallLogsRequest {
     dateFrom?: string;
     dateTo?: string;
     managerId?: string;
+    hangupCause?: string;
+    tags?: string[];
+    hasAiEvaluation?: boolean;
+    minScore?: number;
+    maxScore?: number;
   };
 }
 
@@ -224,6 +229,21 @@ serve(async (req) => {
     }
     if (filters?.dateTo) {
       query = query.lte('started_at', filters.dateTo);
+    }
+    // New filters for hangup_cause and tags
+    if (filters?.hangupCause) {
+      query = query.eq('hangup_cause', filters.hangupCause);
+    }
+    if (filters?.tags && filters.tags.length > 0) {
+      // Filter calls that have ANY of the specified tags
+      query = query.overlaps('tags', filters.tags);
+    }
+    if (filters?.hasAiEvaluation !== undefined) {
+      if (filters.hasAiEvaluation) {
+        query = query.not('ai_evaluation', 'is', null);
+      } else {
+        query = query.is('ai_evaluation', null);
+      }
     }
 
     const { data, error, count } = await query;
