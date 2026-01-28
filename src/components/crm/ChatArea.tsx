@@ -3006,9 +3006,9 @@ export const ChatArea = ({
             />
             
             {/* Bottom row: All icons fit screen on mobile */}
-            <div ref={composerRef} className="flex items-center gap-0.5 w-full">
-              {/* Action icons */}
-              <div className="flex items-center gap-0.5 flex-1 min-w-0">
+            <div ref={composerRef} className="flex items-center gap-1 w-full overflow-hidden">
+              {/* Action icons - flex-shrink to fit available space */}
+              <div className="flex items-center gap-0.5 min-w-0 flex-shrink overflow-x-auto scrollbar-hide">
                 <FileUpload
                   ref={fileUploadRef}
                   key={`file-upload-${fileUploadResetKey}`}
@@ -3377,10 +3377,11 @@ export const ChatArea = ({
                     </DropdownMenu>
                   </>
                 )}
+              </div>
               
               {/* Send button - wider and taller for better tap target */}
               <Button 
-                className={`h-12 min-w-[88px] px-6 rounded-xl xl:h-[40px] xl:px-6 xl:gap-2 xl:rounded-md ml-auto shrink-0 ${
+                className={`h-12 min-w-[56px] md:min-w-[88px] px-3 md:px-6 rounded-xl xl:h-[40px] xl:px-6 xl:gap-2 xl:rounded-md flex-shrink-0 ${
                   commentMode ? "bg-yellow-500 hover:bg-yellow-600" : ""
                 }`}
                 onClick={handleSendMessage}
@@ -3390,7 +3391,6 @@ export const ChatArea = ({
                 <Send className="h-5 w-5 shrink-0" />
                 <span className="hidden xl:inline">Отправить</span>
               </Button>
-              </div>
             </div>
           </div>
         </div>
