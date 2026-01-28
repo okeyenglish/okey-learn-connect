@@ -28,6 +28,7 @@ import { SyncDashboard } from "./SyncDashboard";
 import { PaymentTerminalsSettings } from "@/components/settings/PaymentTerminalsSettings";
 import { BranchesSettings } from "@/components/settings/BranchesSettings";
 import { OnlinePBXSettings } from "./OnlinePBXSettings";
+import { TelephonySection } from "./TelephonySection";
 import { WebhooksDirectory } from "./WebhooksDirectory";
 import { SystemMonitorPanel } from "./SystemMonitorPanel";
 import { TrialRequestsManager } from "./TrialRequestsManager";
@@ -69,7 +70,7 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
       case "messengers":
         return <MessengersSettings />;
       case "telephony":
-        return <OnlinePBXSettings />;
+        return <TelephonySection />;
       case "textbooks":
         return <TextbookManager />;
       case "references":
