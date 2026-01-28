@@ -21,7 +21,7 @@ import {
   GraduationCap,
   Monitor,
   ArrowLeft,
-  MessagesSquare,
+  Sparkles,
   Search,
   Link2,
   ChevronDown,
@@ -542,7 +542,7 @@ export const AIHub = ({
                 </div>
               ) : currentMessages.length === 0 ? (
                 <div className="text-center py-8">
-                  <MessagesSquare className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
+                  <Sparkles className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
                   <p className="mt-2 text-sm text-muted-foreground">Нет сообщений</p>
                 </div>
               ) : (
@@ -661,7 +661,7 @@ export const AIHub = ({
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0 max-w-full overflow-hidden">
           <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-            <MessagesSquare className="h-5 w-5 text-primary" />
+            <Sparkles className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0 overflow-hidden">
             <h2 className="font-semibold truncate">ChatOS</h2>

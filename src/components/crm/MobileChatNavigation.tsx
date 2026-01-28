@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MessageSquare, GraduationCap, Plus, Users, BarChart3, CreditCard, ListTodo, UserPlus, Briefcase, QrCode } from "lucide-react";
+import { Sparkles, GraduationCap, Plus, Users, BarChart3, CreditCard, ListTodo, UserPlus, Briefcase, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -155,7 +155,7 @@ export const MobileChatNavigation = ({
 
         <div className="flex items-center justify-around h-16 px-1">
           <NavButton
-            icon={MessageSquare}
+            icon={Sparkles}
             label="ChatOS"
             onClick={onChatOSClick}
             unreadCount={chatOSUnreadCount}
