@@ -239,7 +239,7 @@ Deno.serve(async (req) => {
       console.log('[fetch-call-recording] Updated call log with:', Object.keys(updateData));
 
       // Trigger analysis if we now have recording and duration
-      const shouldAnalyze = recordingUrl && updateData.duration_seconds && updateData.duration_seconds > 30 && callLog.status === 'answered';
+      const shouldAnalyze = recordingUrl && updateData.duration_seconds && updateData.duration_seconds >= 1 && callLog.status === 'answered';
       console.log('[fetch-call-recording] Analysis check: hasRecording=', !!recordingUrl, 'duration=', updateData.duration_seconds, 'status=', callLog.status, 'shouldAnalyze=', shouldAnalyze);
       
       if (shouldAnalyze) {
