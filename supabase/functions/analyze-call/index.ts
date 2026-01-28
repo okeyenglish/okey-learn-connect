@@ -11,6 +11,32 @@ interface AnalyzeCallRequest {
   callId: string;
 }
 
+// Автоматические теги для категоризации звонков
+type CallTag = 
+  | 'hot_lead'           // Горячий лид - готов записаться
+  | 'warm_lead'          // Тёплый лид - интересуется, но не готов
+  | 'cold_lead'          // Холодный лид - низкий интерес
+  | 'callback_requested' // Клиент просил перезвонить
+  | 'price_objection'    // Возражение по цене
+  | 'time_objection'     // Нет времени/неудобное расписание
+  | 'competitor_mention' // Упоминал конкурентов
+  | 'complaint'          // Жалоба/негатив
+  | 'trial_booked'       // Записан на пробный урок
+  | 'info_request'       // Запрос информации
+  | 'wrong_number'       // Ошибочный номер
+  | 'spam_robot'         // Спам/робот
+  | 'no_contact'         // Не удалось связаться
+  | 'short_call'         // Короткий звонок (< 30 сек)
+  | 'dropped_call'       // Сброшен/прерван
+  | 'positive_feedback'  // Положительный отзыв
+  | 'existing_client'    // Действующий клиент
+  | 'renewal_interest'   // Интерес к продлению
+  | 'group_inquiry'      // Запрос по групповым занятиям
+  | 'individual_inquiry' // Запрос по индивидуальным
+  | 'adult_student'      // Взрослый ученик
+  | 'child_student'      // Ребёнок
+  | 'urgent';            // Срочный вопрос
+
 interface AiCallEvaluation {
   overall_score: number;
   scores: {
@@ -23,6 +49,12 @@ interface AiCallEvaluation {
   summary: string;
   call_purpose: string;
   call_result: string;
+  call_outcome: 'success' | 'partial' | 'failed' | 'neutral'; // Результат звонка
+  tags: CallTag[];                // Автоматические теги
+  sentiment: 'positive' | 'neutral' | 'negative'; // Настроение клиента
+  lead_temperature: 'hot' | 'warm' | 'cold' | 'none'; // Температура лида
+  recommended_action: string;     // Рекомендуемое следующее действие
+  hangup_analysis?: string;       // Анализ причины завершения (для коротких звонков)
   key_points: string[];
   strengths: string[];
   improvements: string[];
@@ -35,35 +67,135 @@ interface AiCallEvaluation {
   model_used: string;
 }
 
-const SYSTEM_PROMPT = `Ты директор по продажам в школе английского языка с 15-летним опытом управления командой менеджеров. 
-Твоя задача - оценить качество работы менеджера по звонку и дать конкретные рекомендации.
+// Маппинг hangup_cause на понятные описания
+const HANGUP_CAUSE_MAP: Record<string, string> = {
+  'UNALLOCATED_NUMBER': 'Несуществующий номер',
+  'NO_ROUTE_TRANSIT_NET': 'Нет транзитного маршрута',
+  'NO_ROUTE_DESTINATION': 'Нет заданного маршрута',
+  'CHANNEL_UNACCEPTABLE': 'Отказ не принят',
+  'NORMAL_CLEARING': 'Нормальное завершение звонка',
+  'USER_BUSY': 'Абонент занят',
+  'NO_USER_RESPONSE': 'Абонент не ответил',
+  'NO_ANSWER': 'Нет ответа',
+  'SUBSCRIBER_ABSENT': 'Абонент не в сети',
+  'CALL_REJECTED': 'Вызов отклонен',
+  'NUMBER_CHANGED': 'Номер изменился',
+  'REDIRECTION_TO_NEW_DESTINATION': 'Вызов переадресован',
+  'EXCHANGE_ROUTING_ERROR': 'Ошибка оператора',
+  'DESTINATION_OUT_OF_ORDER': 'Нет заданного маршрута',
+  'INVALID_NUMBER_FORMAT': 'Ошибка в номере',
+  'ORIGINATOR_CANCEL': 'Вызов отменен',
+  'MANAGER_REQUEST': 'Завершен через API',
+  'BLIND_TRANSFER': 'Безусловный перевод',
+  'ATTENDED_TRANSFER': 'Условный перевод',
+  'PICKED_OFF': 'Перехвачен',
+  'USER_NOT_REGISTERED': 'Абонент не зарегистрирован',
+  'PROGRESS_TIMEOUT': 'Время ожидания вышло',
+  'GATEWAY_DOWN': 'Внешний номер не зарегистрирован',
+};
 
-Оцени разговор по критериям от 1 до 10:
+const SYSTEM_PROMPT = `Ты директор по продажам в школе английского языка O'KEY English с 15-летним опытом.
+Твоя задача - комплексно оценить звонок и дать чёткие рекомендации.
 
-1. **Приветствие (greeting)**: Представился ли менеджер, назвал ли школу, был ли доброжелательный тон, вызвал ли расположение.
+## ОЦЕНКА ПО КРИТЕРИЯМ (1-10):
 
-2. **Выявление потребностей (needs_identification)**: Задавал ли открытые вопросы, выяснил ли возраст ребенка, цели обучения, текущий уровень, ожидания родителей.
+1. **Приветствие (greeting)**: 
+   - 9-10: Идеальное представление, тёплый тон, вызвал доверие
+   - 7-8: Хорошее приветствие, назвал себя и школу
+   - 5-6: Формальное приветствие без энтузиазма
+   - 3-4: Не представился полностью или сухой тон
+   - 1-2: Не представился, грубый тон
 
-3. **Презентация услуг (product_presentation)**: Рассказал ли о форматах обучения, преимуществах школы, методике, квалификации преподавателей, ответил ли на вопросы клиента.
+2. **Выявление потребностей (needs_identification)**: 
+   - 9-10: Открытые вопросы, понял цели, возраст, уровень, ожидания
+   - 7-8: Выяснил основное, но упустил детали
+   - 5-6: Задал пару вопросов, но не глубоко
+   - 3-4: Почти не спрашивал, сразу перешёл к презентации
+   - 1-2: Вообще не выяснял потребности
 
-4. **Работа с возражениями (objection_handling)**: Как отвечал на сомнения о цене, времени, качестве, конкурентах. Использовал ли технику "да, и...", приводил ли аргументы.
+3. **Презентация услуг (product_presentation)**: 
+   - 9-10: Подробно рассказал о преимуществах, методике, адаптировал под потребности
+   - 7-8: Хорошо презентовал основные услуги
+   - 5-6: Стандартная презентация без персонализации
+   - 3-4: Поверхностно, много упущено
+   - 1-2: Не презентовал вообще
 
-5. **Закрытие (closing)**: Предложил ли конкретный следующий шаг (записаться на пробный урок, прийти на встречу), использовал ли альтернативный выбор, получил ли согласие.
+4. **Работа с возражениями (objection_handling)**: 
+   - 9-10: Профессионально обработал все возражения, убедил
+   - 7-8: Хорошо ответил на большинство сомнений
+   - 5-6: Частично обработал, но не убедил
+   - 3-4: Игнорировал или плохо отвечал на возражения
+   - 1-2: Возражения остались без ответа, клиент недоволен
 
-КРИТИЧЕСКИ ВАЖНО: Если по итогу разговора нужно что-то сделать (перезвонить клиенту в определённое время, отправить расписание, уточнить наличие мест в группе, связаться с другим родителем, подготовить информацию) - ОБЯЗАТЕЛЬНО укажи это в action_items с приоритетом и примерным сроком.
+5. **Закрытие (closing)**: 
+   - 9-10: Чёткий призыв к действию, получил согласие, назначил дату
+   - 7-8: Предложил следующий шаг, но без конкретики
+   - 5-6: Слабый призыв к действию
+   - 3-4: Не пытался закрыть сделку
+   - 1-2: Завершил разговор без результата
 
-Приоритеты:
-- high: Нужно сделать сегодня/срочно (например, перезвонить в оговоренное время)
-- medium: Нужно сделать в ближайшие 1-2 дня
-- low: Можно сделать в течение недели
+## АВТОМАТИЧЕСКИЕ ТЕГИ (tags):
+Выбери ВСЕ подходящие теги из списка:
+- hot_lead: готов записаться сейчас
+- warm_lead: интересуется, думает
+- cold_lead: низкий интерес
+- callback_requested: просил перезвонить
+- price_objection: возражал по цене
+- time_objection: неудобное время/расписание
+- competitor_mention: упоминал другие школы
+- complaint: жалоба/негатив
+- trial_booked: записался на пробный урок
+- info_request: просто узнавал информацию
+- wrong_number: ошибочный номер
+- spam_robot: спам/автообзвон
+- no_contact: не удалось связаться
+- short_call: короткий звонок < 30 сек
+- dropped_call: сброшен/прерван
+- positive_feedback: похвалил школу
+- existing_client: уже ученик школы
+- renewal_interest: хочет продлить обучение
+- group_inquiry: интересуют группы
+- individual_inquiry: интересуют индивидуальные
+- adult_student: взрослый ученик
+- child_student: ребёнок
+- urgent: срочный вопрос
 
-Будь конкретен и конструктивен. Отмечай и сильные стороны, и зоны роста. Резюме должно быть кратким (2-3 предложения), ключевые моменты - до 5 пунктов.`;
+## НАСТРОЕНИЕ КЛИЕНТА (sentiment):
+- positive: доброжелательный, заинтересованный, благодарный
+- neutral: спокойный, деловой
+- negative: раздражённый, недовольный, агрессивный
+
+## ТЕМПЕРАТУРА ЛИДА (lead_temperature):
+- hot: готов купить сейчас, высокий интерес
+- warm: интересуется, но нужно время/информация
+- cold: низкий интерес, скорее всего не купит
+- none: не лид (спам, ошибка, существующий клиент)
+
+## РЕЗУЛЬТАТ ЗВОНКА (call_outcome):
+- success: цель достигнута (записан, решил вопрос)
+- partial: частичный успех (заинтересован, обещал подумать)
+- failed: неудача (отказ, негатив, не связались)
+- neutral: информационный звонок без продажи
+
+## РЕКОМЕНДУЕМОЕ ДЕЙСТВИЕ (recommended_action):
+Одно конкретное действие: "Перезвонить через 2 дня", "Отправить расписание в WhatsApp", "Передать руководителю" и т.д.
+
+## АНАЛИЗ ЗАВЕРШЕНИЯ (hangup_analysis):
+Если звонок был коротким или не состоялся, объясни причину и дай рекомендацию.
+
+## ЗАДАЧИ (action_items):
+КРИТИЧЕСКИ ВАЖНО! Если нужно что-то сделать:
+- high: сегодня/срочно (перезвонить в назначенное время)
+- medium: 1-2 дня
+- low: в течение недели
+
+Будь конкретен. Резюме = 2-3 предложения. Ключевые моменты ≤ 5 пунктов.`;
 
 const EVALUATION_TOOL = {
   type: "function" as const,
   function: {
     name: "evaluate_call",
-    description: "Оценить качество телефонного звонка менеджера по продажам",
+    description: "Комплексная оценка телефонного звонка с тегами, скорингом и рекомендациями",
     parameters: {
       type: "object",
       properties: {
@@ -91,17 +223,55 @@ const EVALUATION_TOOL = {
         },
         call_purpose: { 
           type: "string",
-          description: "Цель звонка (например: запись на пробный урок, консультация по курсам)"
+          description: "Цель звонка"
         },
         call_result: { 
           type: "string",
-          description: "Результат звонка (например: записан на пробный, отложил решение, отказ)"
+          description: "Результат звонка"
+        },
+        call_outcome: {
+          type: "string",
+          enum: ["success", "partial", "failed", "neutral"],
+          description: "Статус результата: success=цель достигнута, partial=частично, failed=неудача, neutral=информационный"
+        },
+        tags: {
+          type: "array",
+          items: { 
+            type: "string",
+            enum: [
+              "hot_lead", "warm_lead", "cold_lead", "callback_requested",
+              "price_objection", "time_objection", "competitor_mention", "complaint",
+              "trial_booked", "info_request", "wrong_number", "spam_robot",
+              "no_contact", "short_call", "dropped_call", "positive_feedback",
+              "existing_client", "renewal_interest", "group_inquiry", "individual_inquiry",
+              "adult_student", "child_student", "urgent"
+            ]
+          },
+          description: "Автоматические теги для категоризации звонка"
+        },
+        sentiment: {
+          type: "string",
+          enum: ["positive", "neutral", "negative"],
+          description: "Настроение клиента во время разговора"
+        },
+        lead_temperature: {
+          type: "string",
+          enum: ["hot", "warm", "cold", "none"],
+          description: "Температура лида"
+        },
+        recommended_action: {
+          type: "string",
+          description: "Одно конкретное рекомендуемое действие"
+        },
+        hangup_analysis: {
+          type: "string",
+          description: "Анализ причины завершения звонка (особенно для коротких/неотвеченных)"
         },
         key_points: { 
           type: "array", 
           items: { type: "string" }, 
           maxItems: 5,
-          description: "Ключевые моменты разговора (возраст ребенка, интересы, предпочтения по времени)"
+          description: "Ключевые моменты разговора"
         },
         strengths: { 
           type: "array", 
@@ -122,14 +292,18 @@ const EVALUATION_TOOL = {
             properties: {
               task: { type: "string", description: "Что нужно сделать" },
               priority: { type: "string", enum: ["high", "medium", "low"] },
-              deadline: { type: "string", description: "Срок выполнения (опционально)" }
+              deadline: { type: "string", description: "Срок выполнения" }
             },
             required: ["task", "priority"]
           },
-          description: "Задачи, которые нужно выполнить по итогам звонка"
+          description: "Задачи по итогам звонка"
         }
       },
-      required: ["overall_score", "scores", "summary", "call_purpose", "call_result", "key_points", "strengths", "improvements", "action_items"]
+      required: [
+        "overall_score", "scores", "summary", "call_purpose", "call_result",
+        "call_outcome", "tags", "sentiment", "lead_temperature", "recommended_action",
+        "key_points", "strengths", "improvements", "action_items"
+      ]
     }
   }
 };
@@ -186,8 +360,46 @@ async function transcribeAudio(audioUrl: string, openaiApiKey: string): Promise<
   return transcription;
 }
 
-async function analyzeWithGPT(transcription: string, openaiApiKey: string): Promise<AiCallEvaluation> {
-  console.log('[analyze-call] Analyzing transcription with GPT-4o-mini...');
+interface CallContext {
+  transcription: string;
+  duration_seconds?: number;
+  direction?: string;
+  status?: string;
+  hangup_cause?: string;
+}
+
+async function analyzeWithGPT(context: CallContext, openaiApiKey: string): Promise<AiCallEvaluation> {
+  console.log('[analyze-call] Analyzing with GPT-4o-mini...');
+  
+  // Build context message
+  let userMessage = `Проанализируй следующий телефонный звонок:\n\n`;
+  
+  // Add call metadata
+  const metadata: string[] = [];
+  if (context.duration_seconds !== undefined) {
+    metadata.push(`Длительность: ${context.duration_seconds} сек`);
+  }
+  if (context.direction) {
+    metadata.push(`Направление: ${context.direction === 'incoming' ? 'входящий' : 'исходящий'}`);
+  }
+  if (context.status) {
+    metadata.push(`Статус: ${context.status}`);
+  }
+  if (context.hangup_cause) {
+    const causeDescription = HANGUP_CAUSE_MAP[context.hangup_cause] || context.hangup_cause;
+    metadata.push(`Причина завершения: ${causeDescription} (${context.hangup_cause})`);
+  }
+  
+  if (metadata.length > 0) {
+    userMessage += `**Метаданные звонка:**\n${metadata.join('\n')}\n\n`;
+  }
+  
+  // Add special instructions for short/failed calls
+  if (context.duration_seconds !== undefined && context.duration_seconds < 30) {
+    userMessage += `**ВАЖНО:** Это короткий звонок (< 30 сек). Учти причину завершения при анализе. Если нет транскрипции или она пустая - определи теги и рекомендации на основе метаданных.\n\n`;
+  }
+  
+  userMessage += `**Транскрипция:**\n${context.transcription || '(транскрипция отсутствует)'}`;
   
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -199,7 +411,7 @@ async function analyzeWithGPT(transcription: string, openaiApiKey: string): Prom
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: `Проанализируй следующую транскрипцию телефонного разговора менеджера с клиентом:\n\n${transcription}` }
+        { role: 'user', content: userMessage }
       ],
       tools: [EVALUATION_TOOL],
       tool_choice: { type: 'function', function: { name: 'evaluate_call' } },
@@ -257,10 +469,10 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false }
     });
     
-    // Get call log with recording URL
+    // Get call log with recording URL and hangup_cause
     const { data: callLog, error: fetchError } = await supabase
       .from('call_logs')
-      .select('id, recording_url, transcription, ai_evaluation, duration_seconds, phone_number, direction, status')
+      .select('id, recording_url, transcription, ai_evaluation, duration_seconds, phone_number, direction, status, hangup_cause')
       .eq('id', callId)
       .maybeSingle();
     
@@ -280,44 +492,61 @@ Deno.serve(async (req) => {
       } as unknown as Record<string, unknown>);
     }
     
-    if (!callLog.recording_url) {
-      console.log('[analyze-call] No recording URL for call:', callId);
-      return errorResponse('No recording URL available', 400);
+    // For very short calls without recording, we can still analyze based on metadata
+    const hasRecording = !!callLog.recording_url;
+    const isShortCall = callLog.duration_seconds !== null && callLog.duration_seconds < 30;
+    
+    console.log('[analyze-call] Call info: hasRecording=', hasRecording, 'duration=', callLog.duration_seconds, 'hangup_cause=', callLog.hangup_cause);
+    
+    // Step 1: Transcribe audio (if available)
+    let transcription: string = '';
+    
+    if (hasRecording) {
+      if (callLog.transcription) {
+        console.log('[analyze-call] Using existing transcription');
+        transcription = callLog.transcription;
+      } else {
+        try {
+          transcription = await transcribeAudio(callLog.recording_url!, openaiApiKey);
+          
+          // Save transcription immediately
+          await supabase
+            .from('call_logs')
+            .update({ transcription })
+            .eq('id', callId);
+          
+          console.log('[analyze-call] Transcription saved');
+        } catch (transcribeError) {
+          console.error('[analyze-call] Transcription failed:', transcribeError);
+          // Continue with empty transcription for metadata-based analysis
+        }
+      }
     }
     
-    console.log('[analyze-call] Processing call with recording:', callLog.recording_url);
-    
-    // Step 1: Transcribe audio
-    let transcription: string;
-    if (callLog.transcription) {
-      console.log('[analyze-call] Using existing transcription');
-      transcription = callLog.transcription;
-    } else {
-      transcription = await transcribeAudio(callLog.recording_url, openaiApiKey);
-      
-      // Save transcription immediately
-      await supabase
-        .from('call_logs')
-        .update({ transcription })
-        .eq('id', callId);
-      
-      console.log('[analyze-call] Transcription saved');
-    }
-    
-    if (!transcription || transcription.trim().length < 10) {
-      console.log('[analyze-call] Transcription too short, skipping analysis');
-      return errorResponse('Transcription too short for meaningful analysis', 400);
+    // If no transcription and not a short call, skip analysis
+    if (!transcription && !isShortCall && !callLog.hangup_cause) {
+      console.log('[analyze-call] No transcription and no metadata for analysis');
+      return errorResponse('No recording or metadata available for analysis', 400);
     }
     
     // Step 2: Analyze with GPT
-    const evaluation = await analyzeWithGPT(transcription, openaiApiKey);
+    const context: CallContext = {
+      transcription,
+      duration_seconds: callLog.duration_seconds ?? undefined,
+      direction: callLog.direction ?? undefined,
+      status: callLog.status ?? undefined,
+      hangup_cause: callLog.hangup_cause ?? undefined,
+    };
     
-    // Step 3: Save evaluation
+    const evaluation = await analyzeWithGPT(context, openaiApiKey);
+    
+    // Step 3: Save evaluation with tags
     const { error: updateError } = await supabase
       .from('call_logs')
       .update({ 
         ai_evaluation: evaluation,
-        summary: evaluation.summary
+        summary: evaluation.summary,
+        tags: evaluation.tags || [],
       })
       .eq('id', callId);
     
@@ -327,7 +556,9 @@ Deno.serve(async (req) => {
     }
     
     console.log('[analyze-call] Analysis complete. Overall score:', evaluation.overall_score);
-    console.log('[analyze-call] Action items:', evaluation.action_items.length);
+    console.log('[analyze-call] Tags:', evaluation.tags);
+    console.log('[analyze-call] Lead temperature:', evaluation.lead_temperature);
+    console.log('[analyze-call] Action items:', evaluation.action_items?.length || 0);
     
     // Step 4: Create notifications for action items
     if (evaluation.action_items && evaluation.action_items.length > 0) {
