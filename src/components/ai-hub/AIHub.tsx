@@ -21,7 +21,7 @@ import {
   GraduationCap,
   Monitor,
   ArrowLeft,
-  Sparkles,
+  MessagesSquare,
   Search,
   Link2,
   ChevronDown,
@@ -575,7 +575,7 @@ export const AIHub = ({
                 </div>
               ) : currentMessages.length === 0 ? (
                 <div className="text-center py-8">
-                  <Sparkles className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
+                  <MessagesSquare className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
                   <p className="mt-2 text-sm text-muted-foreground">Нет сообщений</p>
                 </div>
               ) : (
@@ -723,7 +723,23 @@ export const AIHub = ({
   return (
     <Sheet open={isOpen} onOpenChange={onToggle}>
       <SheetContent side="right" className="w-full sm:w-[400px] sm:max-w-[400px] h-full p-0 flex flex-col overflow-hidden">
-        {/* Search bar and branch filter - EXACT mobile styles */}
+        {/* Header */}
+        <div className="px-4 py-3 border-b shrink-0 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <MessagesSquare className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold">ChatOS</h2>
+              <p className="text-xs text-muted-foreground">Чаты и AI-помощники</p>
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onToggle} className="h-8 w-8">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        {/* Search bar and branch filter */}
         <div className="p-2 border-b shrink-0 space-y-2 max-w-full overflow-hidden">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
