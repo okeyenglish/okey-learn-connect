@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { FileText, Handshake, Target, Flag, Clock, ChevronRight, Pencil, Save, Loader2, Plus, X } from "lucide-react";
+import { FileText, Handshake, Target, Flag, Clock, ChevronRight, Pencil, Save, Loader2, Plus, X, Check, ArrowUp, ArrowDown } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { selfHostedPost } from "@/lib/selfHostedApi";
 import { toast } from "sonner";
@@ -102,6 +103,12 @@ export const CallSummaryPreview: React.FC<CallSummaryPreviewProps> = ({
     setEditActionItems(editActionItems.filter((_, i) => i !== index));
   };
 
+  const changePriority = (index: number, newPriority: 'high' | 'medium' | 'low') => {
+    const updated = [...editActionItems];
+    updated[index] = { ...updated[index], priority: newPriority };
+    setEditActionItems(updated);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -131,6 +138,57 @@ export const CallSummaryPreview: React.FC<CallSummaryPreviewProps> = ({
       toast.error("Не удалось сохранить");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Quick action: complete task (remove from list)
+  const handleCompleteTask = async (index: number) => {
+    const updatedItems = (manualActionItems || []).filter((_, i) => i !== index);
+    
+    try {
+      const response = await selfHostedPost<{ success: boolean }>('update-call-summary', {
+        callId,
+        summary: summary || null,
+        agreements: agreements || null,
+        manual_action_items: updatedItems.length > 0 ? updatedItems : null
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to save');
+      }
+
+      toast.success("Задача выполнена");
+      queryClient.invalidateQueries({ queryKey: ['call-logs-infinite', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['call-logs', clientId] });
+    } catch (error) {
+      console.error('Error completing task:', error);
+      toast.error("Не удалось обновить");
+    }
+  };
+
+  // Quick action: change task priority
+  const handleChangePriority = async (index: number, newPriority: 'high' | 'medium' | 'low') => {
+    const updatedItems = [...(manualActionItems || [])];
+    updatedItems[index] = { ...updatedItems[index], priority: newPriority };
+    
+    try {
+      const response = await selfHostedPost<{ success: boolean }>('update-call-summary', {
+        callId,
+        summary: summary || null,
+        agreements: agreements || null,
+        manual_action_items: updatedItems
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to save');
+      }
+
+      toast.success("Приоритет изменён");
+      queryClient.invalidateQueries({ queryKey: ['call-logs-infinite', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['call-logs', clientId] });
+    } catch (error) {
+      console.error('Error changing priority:', error);
+      toast.error("Не удалось обновить");
     }
   };
 
@@ -337,11 +395,55 @@ export const CallSummaryPreview: React.FC<CallSummaryPreviewProps> = ({
                   {manualActionItems?.map((item, index) => {
                     const config = getPriorityConfig(item.priority);
                     return (
-                      <div key={index} className="flex items-start gap-1.5 text-xs">
-                        <Badge variant="outline" className={cn("h-4 px-1 py-0 text-[10px] shrink-0", config.badge)}>
-                          {config.icon || config.label}
-                        </Badge>
-                        <span className="text-muted-foreground">{item.task}</span>
+                      <div key={index} className="flex items-center gap-1 text-xs group">
+                        {/* Priority dropdown */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className={cn("h-5 w-5 p-0 shrink-0", config.badge)}
+                            >
+                              {config.icon || <span className="text-[10px]">{config.label}</span>}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="min-w-[120px]">
+                            <DropdownMenuItem 
+                              onClick={() => handleChangePriority(index, 'high')}
+                              className="text-red-700"
+                            >
+                              <Flag className="h-3 w-3 mr-2" />
+                              Срочно
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleChangePriority(index, 'medium')}
+                              className="text-orange-700"
+                            >
+                              <Clock className="h-3 w-3 mr-2" />
+                              Важно
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleChangePriority(index, 'low')}
+                              className="text-blue-700"
+                            >
+                              <ArrowDown className="h-3 w-3 mr-2" />
+                              Обычно
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        
+                        <span className="flex-1 text-muted-foreground truncate">{item.task}</span>
+                        
+                        {/* Complete button */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-green-600 hover:text-green-700 hover:bg-green-50"
+                          onClick={() => handleCompleteTask(index)}
+                          title="Выполнено"
+                        >
+                          <Check className="h-3 w-3" />
+                        </Button>
                       </div>
                     );
                   })}
