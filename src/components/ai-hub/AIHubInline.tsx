@@ -908,7 +908,7 @@ export const AIHubInline = ({
                       key={onlineUser.id}
                       onClick={() => matchingChat && handleSelectChat(matchingChat)}
                       disabled={!matchingChat}
-                      className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-50 hover:bg-green-100 border border-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-green-50 hover:bg-green-100 border border-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       title={matchingChat ? `Написать ${onlineUser.name}` : onlineUser.name}
                     >
                       <Avatar className="h-5 w-5">
