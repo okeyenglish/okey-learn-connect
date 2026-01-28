@@ -14,6 +14,9 @@ export interface StaffMessage {
   group_chat_id?: string;
   message_text: string;
   message_type: string;
+  file_url?: string;
+  file_name?: string;
+  file_type?: string;
   is_read: boolean;
   created_at: string;
   updated_at: string;
@@ -163,6 +166,9 @@ export const useSendStaffMessage = () => {
       group_chat_id?: string;
       message_text: string;
       message_type?: string;
+      file_url?: string;
+      file_name?: string;
+      file_type?: string;
     }) => {
       if (!user?.id || !profile?.organization_id) {
         throw new Error('User not authenticated');
@@ -177,6 +183,9 @@ export const useSendStaffMessage = () => {
           group_chat_id: messageData.group_chat_id || null,
           message_text: messageData.message_text,
           message_type: messageData.message_type || 'text',
+          file_url: messageData.file_url || null,
+          file_name: messageData.file_name || null,
+          file_type: messageData.file_type || null,
         })
         .select()
         .single();
