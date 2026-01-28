@@ -654,36 +654,78 @@ export const AIHub = ({
     );
   }
 
+  // Get unique branches for filter
+  const allBranches = Array.from(new Set([
+    ...teacherChatItems.map(t => (t.data as TeacherChatItem)?.branch).filter(Boolean),
+    ...groupChatItems.map(g => (g.data as InternalChat)?.branch).filter(Boolean),
+  ])) as string[];
+
+  const [selectedBranch, setSelectedBranch] = useState<string>('all');
+
+  // Filter by branch
+  const branchFilteredChats = selectedBranch === 'all' 
+    ? filteredChats 
+    : filteredChats.filter(item => {
+        if (item.type === 'teacher') {
+          return (item.data as TeacherChatItem)?.branch === selectedBranch;
+        }
+        if (item.type === 'group') {
+          return (item.data as InternalChat)?.branch === selectedBranch;
+        }
+        return true; // AI chats always show
+      });
+
+  // Get online staff members (simulate with last activity or real presence data)
+  // Online staff - use teachers with profileId as proxy for active staff
+  const onlineStaff = teacherChatItems
+    .filter(t => (t.data as TeacherChatItem)?.profileId)
+    .slice(0, 5)
+    .map(t => {
+      const teacher = t.data as TeacherChatItem;
+      return { id: teacher.profileId!, firstName: teacher.firstName, lastName: teacher.lastName, chatItem: t };
+    });
+
+  // Re-filter lists with branch
+  const aiChatsListFiltered = branchFilteredChats.filter(c => 
+    ['assistant', 'lawyer', 'accountant', 'marketer', 'hr', 'methodist', 'it'].includes(c.type)
+  );
+  const corporateChatsListFiltered = branchFilteredChats.filter(c => 
+    c.type === 'group' || c.type === 'teacher'
+  );
+
   // Main chat list (flat, no folders)
   return (
     <Sheet open={isOpen} onOpenChange={onToggle}>
       <SheetContent side="right" className="w-full sm:w-[400px] sm:max-w-[400px] h-full p-0 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0 max-w-full overflow-hidden">
-          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-            <Sparkles className="h-5 w-5 text-primary" />
-          </div>
-          <div className="flex-1 min-w-0 overflow-hidden">
-            <h2 className="font-semibold truncate">ChatOS</h2>
-            <p className="text-xs text-muted-foreground truncate">Чаты и AI-помощники</p>
-          </div>
-        </div>
-
         {/* Search */}
-        <div className="px-4 py-2 border-b">
+        <div className="px-4 pt-4 pb-2 space-y-2 shrink-0">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Поиск чатов..."
-              className="pl-9 h-9"
+              placeholder="Поиск по имени, телефону..."
+              className="pl-9 h-10 rounded-full border-border"
             />
           </div>
+          
+          {/* Branch filter */}
+          {allBranches.length > 0 && (
+            <select
+              value={selectedBranch}
+              onChange={(e) => setSelectedBranch(e.target.value)}
+              className="w-full h-10 px-4 rounded-full border border-border bg-background text-sm"
+            >
+              <option value="all">Все филиалы</option>
+              {allBranches.map(branch => (
+                <option key={branch} value={branch}>{branch}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         <ScrollArea className="flex-1 w-full">
-          <div className="py-2 space-y-1 w-full">
+          <div className="py-2 w-full">
             {/* Loading state */}
             {(chatsLoading || teachersLoading) && (
               <div className="text-center py-4">
@@ -692,30 +734,26 @@ export const AIHub = ({
             )}
 
             {/* AI Chats Section - Collapsible */}
-            {aiChatsList.length > 0 && (
+            {aiChatsListFiltered.length > 0 && (
               <>
                 <button
                   onClick={toggleAiSection}
-                  className="w-full px-3 py-2 flex items-center justify-between hover:bg-muted/50 rounded-md transition-colors"
+                  className="w-full px-4 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors"
                 >
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    AI Помощники
-                  </p>
-                  <div className="flex items-center gap-1.5">
-                    {assistantUnread > 0 && (
-                      <Badge variant="destructive" className="text-xs h-5 min-w-[20px] flex items-center justify-center">
-                        {assistantUnread}
-                      </Badge>
-                    )}
+                  <div className="flex items-center gap-2">
                     {aiSectionExpanded ? (
                       <ChevronDown className="h-4 w-4 text-muted-foreground" />
                     ) : (
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     )}
+                    <span className="text-sm font-medium">AI Помощники</span>
                   </div>
+                  <Badge variant="outline" className="text-xs h-6 min-w-[24px] rounded-full">
+                    {aiChatsListFiltered.length}
+                  </Badge>
                 </button>
                 
-                {aiSectionExpanded && aiChatsList.map((item) => (
+                {aiSectionExpanded && aiChatsListFiltered.map((item) => (
                   <button
                     key={item.id}
                     onClick={() => handleSelectChat(item)}
@@ -738,25 +776,49 @@ export const AIHub = ({
                       <p className="text-xs text-muted-foreground truncate">
                         {item.lastMessage || item.description}
                       </p>
-                      {item.badge && (
-                        <Badge variant="secondary" className="mt-1 text-xs">
-                          {item.badge}
-                        </Badge>
-                      )}
                     </div>
                   </button>
                 ))}
               </>
             )}
 
+            {/* Online Staff Section */}
+            {onlineStaff.length > 0 && (
+              <div className="px-4 py-3 border-t">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="h-2 w-2 rounded-full bg-green-500" />
+                  <span className="text-sm font-medium">Сейчас онлайн</span>
+                  <Badge variant="secondary" className="text-xs h-5 min-w-[20px] rounded-full bg-green-100 text-green-700">
+                    {onlineStaff.length}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {onlineStaff.map(staff => (
+                    <button
+                      key={staff.id}
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-50 border border-green-200 hover:bg-green-100 transition-colors"
+                      onClick={() => handleSelectChat(staff.chatItem)}
+                    >
+                      <span className="text-xs font-medium text-green-700">
+                        {staff.firstName?.[0]}{staff.lastName?.[0]}
+                      </span>
+                      <span className="text-xs text-green-600">{staff.firstName}</span>
+                      <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Corporate Chats Section (Groups + Teachers) */}
-            {corporateChatsList.length > 0 && (
+            {corporateChatsListFiltered.length > 0 && (
               <>
-                <div className="px-3 py-2 mt-2 flex items-center justify-between">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Сотрудники и группы
-                  </p>
+                <div className="px-4 py-2 mt-2 flex items-center justify-between border-t">
+                  <span className="text-sm font-medium">Сотрудники и группы</span>
                   <div className="flex items-center gap-1">
+                    <Badge variant="outline" className="text-xs h-6 min-w-[24px] rounded-full">
+                      {corporateChatsListFiltered.length}
+                    </Badge>
                     <MassLinkTeacherProfilesModal 
                       onCompleted={() => {
                         queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
@@ -769,7 +831,7 @@ export const AIHub = ({
                     />
                   </div>
                 </div>
-                {corporateChatsList.map((item) => {
+                {corporateChatsListFiltered.map((item) => {
                   // For teachers, show initials
                   const isTeacher = item.type === 'teacher';
                   const teacher = isTeacher ? (item.data as TeacherChatItem) : null;
@@ -811,7 +873,7 @@ export const AIHub = ({
             )}
 
             {/* Empty state */}
-            {filteredChats.length === 0 && !chatsLoading && !teachersLoading && (
+            {branchFilteredChats.length === 0 && !chatsLoading && !teachersLoading && (
               <div className="text-center py-8 text-muted-foreground">
                 {searchQuery ? 'Ничего не найдено' : 'Нет доступных чатов'}
               </div>
