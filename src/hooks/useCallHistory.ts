@@ -1,6 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { selfHostedPost } from "@/lib/selfHostedApi";
 
+export interface CallLogActionItem {
+  task: string;
+  priority: 'high' | 'medium' | 'low';
+  deadline?: string;
+}
+
 export interface CallLog {
   id: string;
   phone_number: string;
@@ -19,6 +25,8 @@ export interface CallLog {
   is_viewed?: boolean | null;
   viewed_at?: string | null;
   viewed_by?: string | null;
+  agreements?: string | null;
+  manual_action_items?: CallLogActionItem[] | null;
 }
 
 interface CallLogsResponse {
