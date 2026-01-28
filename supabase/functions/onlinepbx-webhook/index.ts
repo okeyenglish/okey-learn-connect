@@ -453,6 +453,10 @@ Deno.serve(async (req) => {
         if (recordingUrl && !callLog.recording_url) {
           updateData.recording_url = recordingUrl;
         }
+        // Save hangup_cause for call analysis
+        if (hangupCause) {
+          updateData.hangup_cause = hangupCause;
+        }
 
         const { error: updateError } = await supabase
           .from('call_logs')
@@ -506,6 +510,7 @@ Deno.serve(async (req) => {
             if (durationSeconds !== null) updateData.duration_seconds = durationSeconds;
             if (webhookData.end_time) updateData.ended_at = new Date(webhookData.end_time).toISOString();
             if (externalCallId) updateData.external_call_id = externalCallId;
+            if (hangupCause) updateData.hangup_cause = hangupCause;
             
             await supabase.from('call_logs').update(updateData).eq('id', recentCall.id);
           }
@@ -752,7 +757,8 @@ Deno.serve(async (req) => {
           organization_id: organizationId,
           recording_url: recordingUrl,
           manager_id: managerId,
-          manager_name: managerName
+          manager_name: managerName,
+          hangup_cause: hangupCause || null
         };
 
         if (webhookData.end_time) {
