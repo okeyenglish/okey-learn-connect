@@ -1,149 +1,91 @@
 
-# План: Диагностика OnlinePBX для Self-Hosted Supabase
+
+# План: Исправление синтаксической ошибки в onlinepbx-webhook
 
 ## Проблема
 
-Звонок с номера 79269084335 не отображается в CRM. Без доступа к серверу невозможно понять:
-- Пришёл ли webhook от OnlinePBX
-- Как он был обработан
-- Почему звонок не появился в базе
+Edge Function `onlinepbx-webhook` не запускается на self-hosted сервере из-за синтаксической ошибки:
+
+```
+Uncaught SyntaxError: Identifier 'rawFrom' has already been declared
+at file:///...onlinepbx-webhook/index.ts:304:13
+```
+
+### Причина ошибки
+
+Переменные `rawFrom` и `rawTo` объявлены **дважды** в одной области видимости (внутри блока `if (req.method === 'POST')`):
+
+1. **Строки 207-209** — для логирования raw webhook:
+```typescript
+const rawFrom = (webhookData as any).from || (webhookData as any).src || ...;
+const rawTo = (webhookData as any).to || (webhookData as any).dst || ...;
+const phoneForLog = rawFrom || rawTo;
+```
+
+2. **Строки 364-365** — для обработки звонка:
+```typescript
+const rawFrom = (webhookData as any).caller || webhookData.from || ...;
+const rawTo = (webhookData as any).callee || webhookData.to || ...;
+```
 
 ## Решение
 
-Создать Edge Function `onlinepbx-diagnostics` и UI-панель диагностики прямо в настройках OnlinePBX.
+Переименовать первый набор переменных (для логирования) чтобы избежать конфликта:
+- `rawFrom` → `logRawFrom`
+- `rawTo` → `logRawTo`
+- Обновить использование этих переменных в блоке записи в webhook_logs
 
-## Архитектура
+## Изменения в файле
 
-```text
-┌──────────────────────────────────────────────────────────────┐
-│  Настройки OnlinePBX (OnlinePBXSettings.tsx)                 │
-├──────────────────────────────────────────────────────────────┤
-│  [Настройки] [Диагностика]                                   │
-├──────────────────────────────────────────────────────────────┤
-│  🔍 Поиск по номеру: [79269084335] [Искать]                  │
-├──────────────────────────────────────────────────────────────┤
-│  Последние Webhooks (webhook_logs):                          │
-│  ┌──────────────────────────────────────────────────────────┐│
-│  │ Время      │ Тип         │ Номер      │ Статус │ Данные  ││
-│  │ 16:55:23   │ raw_webhook │ 7926...    │ ✓      │ [JSON]  ││
-│  │ 16:50:01   │ raw_webhook │ 7926...    │ ✓      │ [JSON]  ││
-│  └──────────────────────────────────────────────────────────┘│
-├──────────────────────────────────────────────────────────────┤
-│  Последние звонки (call_logs):                               │
-│  ┌──────────────────────────────────────────────────────────┐│
-│  │ Время   │ Номер      │ Статус   │ Запись │ AI-анализ    ││
-│  │ 16:55   │ 7926...    │ answered │ ✓      │ ✗            ││
-│  └──────────────────────────────────────────────────────────┘│
-└──────────────────────────────────────────────────────────────┘
-```
+### Файл: `supabase/functions/onlinepbx-webhook/index.ts`
 
-## Файлы для создания/изменения
-
-### 1. Новый Edge Function: `supabase/functions/onlinepbx-diagnostics/index.ts`
-
-**Функционал:**
-- Получение последних 20 записей из `webhook_logs` (type = 'onlinepbx')
-- Получение последних 20 записей из `call_logs`
-- Поиск по номеру телефона в обеих таблицах
-- Возврат raw webhook data для отладки
-
-**Эндпоинты:**
-- `POST { action: 'webhooks' }` → последние webhooks
-- `POST { action: 'calls' }` → последние звонки
-- `POST { action: 'search', phone: '79269084335' }` → поиск по номеру
-
-### 2. Новый компонент: `src/components/admin/OnlinePBXDiagnostics.tsx`
-
-**Функционал:**
-- Поле поиска по номеру телефона
-- Таблица последних webhooks с возможностью раскрыть JSON
-- Таблица последних звонков с индикаторами (запись, анализ)
-- Кнопки "Обновить" и "Запустить анализ" для конкретного звонка
-
-### 3. Изменение: `src/components/admin/OnlinePBXSettings.tsx`
-
-**Добавить:**
-- Tabs компонент с вкладками "Настройки" и "Диагностика"
-- Импорт и отрисовка `OnlinePBXDiagnostics` на второй вкладке
-
-### 4. Изменение: `supabase/config.toml`
-
-**Добавить:**
-- Регистрацию новой функции `onlinepbx-diagnostics` с `verify_jwt = false`
-
-## Технические детали
-
-### Edge Function: onlinepbx-diagnostics
-
+**Строки 207-221 — До:**
 ```typescript
-// Запрос webhooks
-POST /onlinepbx-diagnostics
-{ action: 'webhooks', limit: 20 }
-
-// Ответ
-{
-  success: true,
-  webhooks: [
-    {
-      id: 'uuid',
-      created_at: '2026-01-28T16:55:23Z',
-      event_type: 'raw_webhook',
-      webhook_data: { /* raw OnlinePBX payload */ },
-      processed: true
-    }
-  ]
-}
-
-// Запрос поиска
-POST /onlinepbx-diagnostics
-{ action: 'search', phone: '79269084335' }
-
-// Ответ
-{
-  success: true,
-  webhooks: [...],
-  calls: [
-    {
-      id: 'uuid',
-      phone_number: '+7 (926) 908-43-35',
-      status: 'answered',
-      duration_seconds: 145,
-      recording_url: 'https://...',
-      ai_evaluation: null,
-      started_at: '2026-01-28T16:55:00Z'
-    }
-  ]
-}
+const rawFrom = (webhookData as any).from || (webhookData as any).src || (webhookData as any).caller_number || '';
+const rawTo = (webhookData as any).to || (webhookData as any).dst || (webhookData as any).called_number || '';
+const phoneForLog = rawFrom || rawTo;
+...
+  _phone_from: rawFrom,
+  _phone_to: rawTo,
 ```
 
-### UI компонент: OnlinePBXDiagnostics
+**После:**
+```typescript
+const logRawFrom = (webhookData as any).from || (webhookData as any).src || (webhookData as any).caller_number || '';
+const logRawTo = (webhookData as any).to || (webhookData as any).dst || (webhookData as any).called_number || '';
+const phoneForLog = logRawFrom || logRawTo;
+...
+  _phone_from: logRawFrom,
+  _phone_to: logRawTo,
+```
 
-Использует:
-- `selfHostedPost` для запросов к self-hosted API
-- `Tabs`, `Table`, `Badge`, `Button`, `Input` из shadcn/ui
-- `Collapsible` для раскрытия JSON данных
-- `Dialog` для просмотра полного JSON webhook
+## Деплой на Self-Hosted
 
-### Взаимодействие с CallDetailModal
+После применения изменений в Lovable, нужно:
 
-Уже есть кнопка "Запустить анализ" в `CallDetailModal` (строки 366-383), которая вызывает `selfHostedPost('analyze-call', { callId })`. Диагностическая панель будет показывать статус анализа и позволит запустить его из списка.
+1. **Скопировать обновлённые функции на сервер:**
+```bash
+rsync -avz --delete \
+  ./supabase/functions/ \
+  automation@api.academyos.ru:/home/automation/supabase-project/volumes/functions/
+```
 
-## Порядок реализации
+2. **Перезапустить Edge Runtime:**
+```bash
+ssh automation@api.academyos.ru "cd /home/automation/supabase-project && docker compose restart functions"
+```
 
-1. Создать `onlinepbx-diagnostics/index.ts`
-2. Обновить `supabase/config.toml`
-3. Создать `OnlinePBXDiagnostics.tsx`
-4. Обновить `OnlinePBXSettings.tsx` с табами
+3. **Проверить логи:**
+```bash
+docker compose logs --tail 20 functions
+```
 
-## Результат
+4. **Отправить тестовый webhook от OnlinePBX**
 
-После реализации можно будет:
+## Ожидаемый результат
 
-1. Открыть "Настройки" → "Телефония (OnlinePBX)" → вкладка "Диагностика"
-2. Ввести номер `79269084335` и нажать "Искать"
-3. Увидеть:
-   - Пришёл ли webhook от OnlinePBX (и его raw данные)
-   - Создался ли call_log
-   - Есть ли запись разговора
-   - Выполнен ли AI-анализ
-4. При необходимости — запустить анализ вручную
+- Функция `onlinepbx-webhook` успешно запустится
+- Webhook от OnlinePBX будет обработан
+- Звонок появится в `call_logs`
+- Диагностическая панель покажет данные
+
