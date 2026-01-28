@@ -775,7 +775,7 @@ Deno.serve(async (req) => {
         // Trigger automatic call analysis for answered calls > 30 seconds with recording
         console.log('[onlinepbx-webhook] Analysis check: duration=', durationSeconds, 'status=', status, 'hasRecording=', !!recordingUrl);
         
-        if (durationSeconds && durationSeconds > 30 && status === 'answered' && recordingUrl) {
+        if (durationSeconds && durationSeconds >= 1 && status === 'answered' && recordingUrl) {
           console.log('[onlinepbx-webhook] ✓ Triggering automatic call analysis for:', newCallLog.id);
           try {
             // Use EdgeRuntime.waitUntil for background processing if available
