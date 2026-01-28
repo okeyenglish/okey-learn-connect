@@ -662,8 +662,8 @@ export const AIHubInline = ({
                           </p>
                           <Badge variant="secondary" className="text-[10px] h-4 px-1 shrink-0">AI</Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground truncate leading-relaxed">
-                          {item.lastMessage || item.description}
+                        <p className="text-xs text-muted-foreground leading-relaxed overflow-hidden">
+                          <span className="block truncate">{item.lastMessage || item.description}</span>
                         </p>
                       </div>
                     </div>
@@ -775,15 +775,14 @@ export const AIHubInline = ({
                 }
                 
                 return (
-                  <button 
-                    key={`${item.type}-${item.id}`} 
-                    onClick={() => handleSelectChat(item)} 
-                    className="w-full p-2.5 text-left rounded-lg transition-all duration-200 mb-1 border select-none bg-card hover:bg-accent/30 hover:shadow-sm border-border/50 max-w-full overflow-hidden"
-                  >
-                    <div className="flex items-start justify-between gap-2 max-w-full overflow-hidden">
-                      <div className="flex items-start gap-2 flex-1 min-w-0 overflow-hidden">
-                        <div className="relative">
-                          <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30">
+                    <button 
+                      key={`${item.type}-${item.id}`} 
+                      onClick={() => handleSelectChat(item)} 
+                      className="w-full p-2.5 text-left rounded-lg transition-all duration-200 mb-1 border select-none bg-card hover:bg-accent/30 hover:shadow-sm border-border/50 overflow-hidden box-border"
+                    >
+                      <div className="flex items-start gap-2 w-full overflow-hidden">
+                        <div className="relative shrink-0">
+                          <Avatar className="h-9 w-9 ring-2 ring-border/30">
                             <AvatarFallback className="bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))] text-sm font-medium">
                               {isTeacher || isStaff ? initials : <item.icon className="h-4 w-4" />}
                             </AvatarFallback>
@@ -793,10 +792,10 @@ export const AIHubInline = ({
                           )}
                         </div>
                         <div className="flex-1 min-w-0 overflow-hidden">
-                          <div className="flex items-center gap-1.5 mb-0">
-                            <p className={`text-sm ${hasUnread ? 'font-semibold' : 'font-medium'} truncate`}>
+                          <div className="flex items-center gap-1.5 mb-0 overflow-hidden">
+                            <span className={`text-sm ${hasUnread ? 'font-semibold' : 'font-medium'} truncate flex-1 min-w-0`}>
                               {item.name}
-                            </p>
+                            </span>
                             {/* Branch badge for teachers and staff */}
                             {(isTeacher && teacher?.branch) && (
                               <Badge variant="outline" className="text-[9px] h-4 px-1.5 shrink-0 font-normal bg-green-50 text-green-700 border-green-200">
@@ -809,32 +808,31 @@ export const AIHubInline = ({
                               </Badge>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground truncate leading-relaxed">
+                          <div className="text-xs text-muted-foreground leading-relaxed overflow-hidden">
                             {isOnline ? (
                               <span className="text-green-600 flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full shrink-0" />
                                 Онлайн
                               </span>
                             ) : lastSeenText ? (
-                              <span className="text-muted-foreground/70">{lastSeenText}</span>
+                              <span className="text-muted-foreground/70 block truncate">{lastSeenText}</span>
                             ) : (
-                              item.lastMessage || item.description
+                              <span className="block truncate">{item.lastMessage || item.description}</span>
                             )}
-                          </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-0.5 shrink-0 ml-auto">
+                          <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap">
+                            {formatTime(lastMsgTime)}
+                          </span>
+                          {hasUnread && (
+                            <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm">
+                              <span className="font-semibold">{item.unreadCount}</span>
+                            </span>
+                          )}
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                        <span className="text-[10px] text-muted-foreground font-medium">
-                          {formatTime(lastMsgTime)}
-                        </span>
-                        {hasUnread && (
-                          <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm">
-                            <span className="font-semibold">{item.unreadCount}</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
+                    </button>
                 );
               })}
             </div>
