@@ -773,21 +773,33 @@ Deno.serve(async (req) => {
         console.log('Created call log:', newCallLog.id, 'for org:', organizationId, 'status:', status, 'recording:', !!recordingUrl);
         
         // Trigger automatic call analysis for answered calls > 30 seconds with recording
+        console.log('[onlinepbx-webhook] Analysis check: duration=', durationSeconds, 'status=', status, 'hasRecording=', !!recordingUrl);
+        
         if (durationSeconds && durationSeconds > 30 && status === 'answered' && recordingUrl) {
-          console.log('Triggering automatic call analysis for:', newCallLog.id);
+          console.log('[onlinepbx-webhook] ✓ Triggering automatic call analysis for:', newCallLog.id);
           try {
             // Use EdgeRuntime.waitUntil for background processing if available
-            const analyzePromise = supabase.functions.invoke('analyze-call', { 
-              body: { callId: newCallLog.id } 
-            }).catch(e => console.error('Auto-analysis error:', e));
+            const analyzePromise = (async () => {
+              try {
+                console.log('[onlinepbx-webhook] Invoking analyze-call function...');
+                const result = await supabase.functions.invoke('analyze-call', { 
+                  body: { callId: newCallLog.id } 
+                });
+                console.log('[onlinepbx-webhook] analyze-call result:', JSON.stringify(result.data || result.error));
+              } catch (e) {
+                console.error('[onlinepbx-webhook] analyze-call invocation error:', e);
+              }
+            })();
             
             // Don't await - let it run in background
             if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
               EdgeRuntime.waitUntil(analyzePromise);
             }
           } catch (e) {
-            console.error('Error triggering analysis:', e);
+            console.error('[onlinepbx-webhook] Error triggering analysis:', e);
           }
+        } else {
+          console.log('[onlinepbx-webhook] ✗ Skipping analysis: conditions not met');
         }
         
         // If answered call without recording URL - schedule delayed fetch from OnlinePBX API
