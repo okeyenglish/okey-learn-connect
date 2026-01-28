@@ -746,10 +746,15 @@ export const AIHub = ({
               <>
                 <button
                   onClick={toggleAiSection}
-                  className="w-full px-4 py-3 flex items-center gap-2 hover:bg-muted/50 transition-colors border-b"
+                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors"
                 >
-                  <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${aiSectionExpanded ? 'rotate-90' : ''}`} />
-                  <span className="text-sm font-medium">AI Помощники</span>
+                  <div className="flex items-center gap-2">
+                    <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${aiSectionExpanded ? 'rotate-90' : ''}`} />
+                    <span className="text-sm font-medium">AI Помощники</span>
+                  </div>
+                  <Badge variant="outline" className="rounded-full h-6 min-w-[24px] flex items-center justify-center text-xs">
+                    {aiChatsListFiltered.length}
+                  </Badge>
                 </button>
                 
                 {aiSectionExpanded && aiChatsListFiltered.map((item) => (
@@ -774,11 +779,49 @@ export const AIHub = ({
               </>
             )}
 
+            {/* Online Staff Section */}
+            {onlineStaff.length > 0 && (
+              <div className="px-4 py-3">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                  <span className="text-sm font-medium">Сейчас онлайн</span>
+                  <Badge className="rounded-full h-5 min-w-[20px] flex items-center justify-center text-xs bg-green-100 text-green-700 border-0">
+                    {onlineStaff.length}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {onlineStaff.map(staff => (
+                    <button
+                      key={staff.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 border border-green-200 hover:bg-green-100 transition-colors"
+                      onClick={() => handleSelectChat(staff.chatItem)}
+                    >
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {staff.firstName?.[0]}{staff.lastName?.[0]}
+                      </span>
+                      <span className="text-sm text-green-700">{staff.firstName}</span>
+                      <div className="h-2 w-2 rounded-full bg-green-500" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Corporate Chats Section (Groups + Teachers) */}
             {corporateChatsListFiltered.length > 0 && (
               <>
-                <div className="px-4 py-3 border-b">
+                <div className="px-4 py-3 flex items-center justify-between">
                   <span className="text-sm font-medium">Сотрудники и группы</span>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="rounded-full h-6 min-w-[24px] flex items-center justify-center text-xs">
+                      {corporateChatsListFiltered.length}
+                    </Badge>
+                    <CreateStaffGroupModal 
+                      onGroupCreated={() => {
+                        queryClient.invalidateQueries({ queryKey: ['internal-chats'] });
+                      }}
+                    />
+                  </div>
                 </div>
                 {corporateChatsListFiltered.map((item) => {
                   const isTeacher = item.type === 'teacher';
