@@ -84,6 +84,7 @@ import { useUserAllowedBranches } from "@/hooks/useUserAllowedBranches";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useAssistantMessages } from "@/hooks/useAssistantMessages";
 import { useStaffUnreadCount } from "@/hooks/useInternalStaffMessages";
+import { useChatNotificationSound } from "@/hooks/useChatNotificationSound";
 import {
   Search, 
   CheckSquare, 
@@ -446,6 +447,9 @@ const CRMContent = () => {
   const { data: staffUnreadCount = 0 } = useStaffUnreadCount();
   const { isUserOnline } = useStaffOnlinePresence();
   const isMobile = useIsMobile();
+  
+  // Play notification sound when new incoming messages arrive
+  useChatNotificationSound(activeChatId);
   
   // Auto-manage right panel state based on screen size
   useEffect(() => {
