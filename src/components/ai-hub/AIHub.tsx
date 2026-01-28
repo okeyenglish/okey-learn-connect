@@ -38,7 +38,8 @@ import {
   useStaffDirectMessages, 
   useStaffGroupMessages, 
   useSendStaffMessage, 
-  useStaffMembers 
+  useStaffMembers,
+  useStaffConversationPreviews
 } from '@/hooks/useInternalStaffMessages';
 import { useStaffTypingIndicator } from '@/hooks/useStaffTypingIndicator';
 import { StaffTypingIndicator } from '@/components/ai-hub/StaffTypingIndicator';
@@ -46,6 +47,7 @@ import { CreateStaffGroupModal } from '@/components/ai-hub/CreateStaffGroupModal
 import { LinkTeacherProfileModal } from '@/components/ai-hub/LinkTeacherProfileModal';
 import { MassLinkTeacherProfilesModal } from '@/components/ai-hub/MassLinkTeacherProfilesModal';
 import VoiceAssistant from '@/components/VoiceAssistant';
+import { useStaffOnlinePresence } from '@/hooks/useStaffOnlinePresence';
 import { usePersistedSections } from '@/hooks/usePersistedSections';
 
 interface AIHubProps {
@@ -116,6 +118,7 @@ export const AIHub = ({
   // Data hooks
   const { data: internalChats, isLoading: chatsLoading } = useInternalChats();
   const { teachers, totalUnread: teachersUnread, isLoading: teachersLoading } = useTeacherChats(null);
+  const { onlineUsers, isUserOnline, getLastSeenFormatted, onlineCount } = useStaffOnlinePresence();
   const { data: staffMembers } = useStaffMembers();
   
   // Staff messaging hooks - for staff direct messages using new internal_staff_messages table
@@ -675,16 +678,6 @@ export const AIHub = ({
         return true; // AI chats always show
       });
 
-  // Get online staff members (simulate with last activity or real presence data)
-  // Online staff - use teachers with profileId as proxy for active staff
-  const onlineStaff = teacherChatItems
-    .filter(t => (t.data as TeacherChatItem)?.profileId)
-    .slice(0, 5)
-    .map(t => {
-      const teacher = t.data as TeacherChatItem;
-      return { id: teacher.profileId!, firstName: teacher.firstName, lastName: teacher.lastName, chatItem: t };
-    });
-
   // Re-filter lists with branch
   const aiChatsListFiltered = branchFilteredChats.filter(c => 
     ['assistant', 'lawyer', 'accountant', 'marketer', 'hr', 'methodist', 'it'].includes(c.type)
@@ -787,35 +780,54 @@ export const AIHub = ({
               </div>
             )}
 
-            {/* Online Staff Section - EXACT mobile layout */}
-            {onlineStaff.length > 0 && (
+            {/* Online Staff Section - using real presence data */}
+            {onlineCount > 0 && (
               <div className="space-y-1">
                 <div className="px-3 py-2 flex items-center gap-2">
                   <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                   <span className="text-sm font-medium text-muted-foreground">Сейчас онлайн</span>
                   <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full bg-green-50 text-green-700 border-green-200">
-                    {onlineStaff.length}
+                    {onlineCount}
                   </Badge>
                 </div>
                 
                 <div className="flex flex-wrap gap-1.5 px-3 pb-2">
-                  {onlineStaff.map((staff) => (
-                    <button
-                      key={staff.id}
-                      onClick={() => handleSelectChat(staff.chatItem)}
-                      className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-50 hover:bg-green-100 border border-green-200 transition-colors"
-                    >
-                      <Avatar className="h-5 w-5">
-                        <AvatarFallback className="text-[10px] bg-green-100 text-green-700">
-                          {staff.lastName?.[0]}{staff.firstName?.[0]}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-xs font-medium text-green-700 max-w-[80px] truncate">
-                        {staff.firstName}
-                      </span>
-                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                    </button>
-                  ))}
+                  {onlineUsers.map((onlineUser) => {
+                    // Find matching chat item for this online user
+                    const matchingChat = corporateChatsListFiltered.find(item => {
+                      if (item.type === 'teacher') {
+                        return (item.data as TeacherChatItem)?.profileId === onlineUser.id;
+                      }
+                      return false;
+                    });
+                    
+                    const initials = onlineUser.name
+                      .split(' ')
+                      .map(n => n[0])
+                      .join('')
+                      .toUpperCase()
+                      .slice(0, 2) || '•';
+                    
+                    return (
+                      <button
+                        key={onlineUser.id}
+                        onClick={() => matchingChat && handleSelectChat(matchingChat)}
+                        disabled={!matchingChat}
+                        className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-50 hover:bg-green-100 border border-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={matchingChat ? `Написать ${onlineUser.name}` : onlineUser.name}
+                      >
+                        <Avatar className="h-5 w-5">
+                          <AvatarFallback className="text-[10px] bg-green-100 text-green-700">
+                            {initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-xs font-medium text-green-700 max-w-[80px] truncate">
+                          {onlineUser.name.split(' ')[0]}
+                        </span>
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -838,6 +850,11 @@ export const AIHub = ({
                   const teacher = isTeacher ? (item.data as TeacherChatItem) : null;
                   const hasUnread = (item.unreadCount || 0) > 0;
                   
+                  // Check if user is online
+                  const userProfileId = isTeacher ? teacher?.profileId : null;
+                  const isOnline = userProfileId ? isUserOnline(userProfileId) : false;
+                  const lastSeenText = userProfileId && !isOnline ? getLastSeenFormatted(userProfileId) : null;
+                  
                   // Calculate initials
                   let initials = '';
                   if (isTeacher && teacher) {
@@ -851,11 +868,16 @@ export const AIHub = ({
                       className="w-full p-2.5 text-left rounded-lg transition-all duration-200 mb-1 border select-none bg-card hover:bg-accent/30 hover:shadow-sm border-border/50 overflow-hidden box-border"
                     >
                       <div className="flex items-start gap-2 w-full overflow-hidden">
-                        <Avatar className="h-9 w-9 ring-2 ring-border/30 shrink-0">
-                          <AvatarFallback className="bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))] text-sm font-medium">
-                            {isTeacher && teacher ? initials : <item.icon className="h-4 w-4" />}
-                          </AvatarFallback>
-                        </Avatar>
+                        <div className="relative shrink-0">
+                          <Avatar className="h-9 w-9 ring-2 ring-border/30">
+                            <AvatarFallback className="bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))] text-sm font-medium">
+                              {isTeacher && teacher ? initials : <item.icon className="h-4 w-4" />}
+                            </AvatarFallback>
+                          </Avatar>
+                          {isOnline && (
+                            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
+                          )}
+                        </div>
                         <div className="flex-1 min-w-0 overflow-hidden">
                           <div className="flex items-center gap-1.5 mb-0 overflow-hidden">
                             <span className={`text-sm ${hasUnread ? 'font-semibold' : 'font-medium'} truncate flex-1 min-w-0`}>
@@ -867,9 +889,18 @@ export const AIHub = ({
                               </Badge>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground leading-relaxed overflow-hidden">
-                            <span className="block truncate">{item.lastMessage || item.description}</span>
-                          </p>
+                          <div className="text-xs text-muted-foreground leading-relaxed overflow-hidden">
+                            {isOnline ? (
+                              <span className="text-green-600 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full shrink-0" />
+                                Онлайн
+                              </span>
+                            ) : lastSeenText ? (
+                              <span className="text-muted-foreground/70 block truncate">{lastSeenText}</span>
+                            ) : (
+                              <span className="block truncate">{item.lastMessage || item.description}</span>
+                            )}
+                          </div>
                         </div>
                         <div className="flex flex-col items-end gap-0.5 shrink-0 ml-auto">
                           {hasUnread && (
