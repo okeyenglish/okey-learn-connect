@@ -697,35 +697,43 @@ export const AIHub = ({
   return (
     <Sheet open={isOpen} onOpenChange={onToggle}>
       <SheetContent side="right" className="w-full sm:w-[400px] sm:max-w-[400px] h-full p-0 flex flex-col overflow-hidden">
-        {/* Search */}
+        {/* Search row with close button */}
         <div className="px-4 pt-4 pb-2 space-y-2 shrink-0">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Поиск по имени, телефону..."
-              className="pl-9 h-10 rounded-full border-border"
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Поиск по имени, телефону..."
+                className="pl-9 h-10 rounded-full border-border"
+              />
+            </div>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={onToggle}
+              className="h-10 w-10 shrink-0"
+            >
+              <X className="h-5 w-5" />
+            </Button>
           </div>
           
           {/* Branch filter */}
-          {allBranches.length > 0 && (
-            <select
-              value={selectedBranch}
-              onChange={(e) => setSelectedBranch(e.target.value)}
-              className="w-full h-10 px-4 rounded-full border border-border bg-background text-sm"
-            >
-              <option value="all">Все филиалы</option>
-              {allBranches.map(branch => (
-                <option key={branch} value={branch}>{branch}</option>
-              ))}
-            </select>
-          )}
+          <select
+            value={selectedBranch}
+            onChange={(e) => setSelectedBranch(e.target.value)}
+            className="w-full h-10 px-4 rounded-full border border-border bg-background text-sm"
+          >
+            <option value="all">Все филиалы</option>
+            {allBranches.map(branch => (
+              <option key={branch} value={branch}>{branch}</option>
+            ))}
+          </select>
         </div>
 
         <ScrollArea className="flex-1 w-full">
-          <div className="py-2 w-full">
+          <div className="w-full">
             {/* Loading state */}
             {(chatsLoading || teachersLoading) && (
               <div className="text-center py-4">
@@ -738,19 +746,10 @@ export const AIHub = ({
               <>
                 <button
                   onClick={toggleAiSection}
-                  className="w-full px-4 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors"
+                  className="w-full px-4 py-3 flex items-center gap-2 hover:bg-muted/50 transition-colors border-b"
                 >
-                  <div className="flex items-center gap-2">
-                    {aiSectionExpanded ? (
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    <span className="text-sm font-medium">AI Помощники</span>
-                  </div>
-                  <Badge variant="outline" className="text-xs h-6 min-w-[24px] rounded-full">
-                    {aiChatsListFiltered.length}
-                  </Badge>
+                  <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${aiSectionExpanded ? 'rotate-90' : ''}`} />
+                  <span className="text-sm font-medium">AI Помощники</span>
                 </button>
                 
                 {aiSectionExpanded && aiChatsListFiltered.map((item) => (
@@ -765,14 +764,7 @@ export const AIHub = ({
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm truncate flex-1 min-w-0">{item.name}</span>
-                        {(item.unreadCount || 0) > 0 && (
-                          <Badge variant="destructive" className="text-xs shrink-0">
-                            {item.unreadCount}
-                          </Badge>
-                        )}
-                      </div>
+                      <span className="font-medium text-sm block truncate">{item.name}</span>
                       <p className="text-xs text-muted-foreground truncate">
                         {item.lastMessage || item.description}
                       </p>
@@ -782,57 +774,13 @@ export const AIHub = ({
               </>
             )}
 
-            {/* Online Staff Section */}
-            {onlineStaff.length > 0 && (
-              <div className="px-4 py-3 border-t">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span className="text-sm font-medium">Сейчас онлайн</span>
-                  <Badge variant="secondary" className="text-xs h-5 min-w-[20px] rounded-full bg-green-100 text-green-700">
-                    {onlineStaff.length}
-                  </Badge>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {onlineStaff.map(staff => (
-                    <button
-                      key={staff.id}
-                      className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-50 border border-green-200 hover:bg-green-100 transition-colors"
-                      onClick={() => handleSelectChat(staff.chatItem)}
-                    >
-                      <span className="text-xs font-medium text-green-700">
-                        {staff.firstName?.[0]}{staff.lastName?.[0]}
-                      </span>
-                      <span className="text-xs text-green-600">{staff.firstName}</span>
-                      <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Corporate Chats Section (Groups + Teachers) */}
             {corporateChatsListFiltered.length > 0 && (
               <>
-                <div className="px-4 py-2 mt-2 flex items-center justify-between border-t">
+                <div className="px-4 py-3 border-b">
                   <span className="text-sm font-medium">Сотрудники и группы</span>
-                  <div className="flex items-center gap-1">
-                    <Badge variant="outline" className="text-xs h-6 min-w-[24px] rounded-full">
-                      {corporateChatsListFiltered.length}
-                    </Badge>
-                    <MassLinkTeacherProfilesModal 
-                      onCompleted={() => {
-                        queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
-                      }}
-                    />
-                    <CreateStaffGroupModal 
-                      onGroupCreated={() => {
-                        queryClient.invalidateQueries({ queryKey: ['internal-chats'] });
-                      }}
-                    />
-                  </div>
                 </div>
                 {corporateChatsListFiltered.map((item) => {
-                  // For teachers, show initials
                   const isTeacher = item.type === 'teacher';
                   const teacher = isTeacher ? (item.data as TeacherChatItem) : null;
                   
@@ -854,14 +802,7 @@ export const AIHub = ({
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm truncate flex-1 min-w-0">{item.name}</span>
-                          {(item.unreadCount || 0) > 0 && (
-                            <Badge variant="destructive" className="text-xs shrink-0">
-                              {item.unreadCount}
-                            </Badge>
-                          )}
-                        </div>
+                        <span className="font-medium text-sm block truncate">{item.name}</span>
                         <p className="text-xs text-muted-foreground truncate">
                           {item.lastMessage || item.description}
                         </p>
