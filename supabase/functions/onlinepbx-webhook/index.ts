@@ -295,12 +295,29 @@ Deno.serve(async (req) => {
       }
 
       // Map OnlinePBX event/status to our status
+      // OnlinePBX events: call_start, call_user_start, call_answered, call_end, call_missed, call_transfer_answered
       const mapStatus = (event: string | undefined, hangupCause: string | undefined, pbxStatus: string | undefined): string => {
         const eventLower = (event || '').toLowerCase();
-        if (eventLower.includes('missed') || eventLower === 'call_missed') return 'missed';
-        if (eventLower.includes('answered') || eventLower === 'call_answered') return 'answered';
-        if (eventLower.includes('busy') || eventLower === 'call_busy') return 'busy';
-        if (eventLower.includes('failed') || eventLower === 'call_failed') return 'failed';
+        
+        // Direct event mapping from OnlinePBX
+        if (eventLower === 'call_missed') return 'missed';
+        if (eventLower === 'call_answered') return 'answered';
+        if (eventLower === 'call_end') {
+          // For call_end, check hangup_cause to determine actual status
+          const cause = (hangupCause || '').toUpperCase();
+          if (cause === 'NORMAL_CLEARING') return 'answered';
+          if (cause === 'USER_BUSY') return 'busy';
+          if (cause === 'NO_ANSWER' || cause === 'ORIGINATOR_CANCEL' || cause === 'CALL_REJECTED' || cause === 'NO_USER_RESPONSE') return 'missed';
+          if (cause === 'UNALLOCATED_NUMBER' || cause === 'SUBSCRIBER_ABSENT') return 'failed';
+          return 'answered'; // Default for call_end
+        }
+        if (eventLower === 'call_start' || eventLower === 'call_user_start') return 'initiated';
+        
+        // Legacy fallback for includes-based matching
+        if (eventLower.includes('missed')) return 'missed';
+        if (eventLower.includes('answered')) return 'answered';
+        if (eventLower.includes('busy')) return 'busy';
+        if (eventLower.includes('failed')) return 'failed';
         
         const hangupMap: { [key: string]: string } = {
           'NORMAL_CLEARING': 'answered',
@@ -343,8 +360,9 @@ Deno.serve(async (req) => {
         direction = 'incoming' as any;
       }
       
-      const rawFrom = webhookData.from || (webhookData as any).src || (webhookData as any).caller_number || (webhookData as any).caller || (webhookData as any).callerid;
-      const rawTo = webhookData.to || (webhookData as any).dst || (webhookData as any).called_number || (webhookData as any).callee || (webhookData as any).calledid;
+      // OnlinePBX uses 'caller' and 'callee' according to docs
+      const rawFrom = (webhookData as any).caller || webhookData.from || (webhookData as any).src || (webhookData as any).caller_number || (webhookData as any).callerid;
+      const rawTo = (webhookData as any).callee || webhookData.to || (webhookData as any).dst || (webhookData as any).called_number || (webhookData as any).calledid;
       const selectedPhone = direction === 'incoming' ? (rawFrom || rawTo) : (rawTo || rawFrom);
       
       const normalizePhone = (p?: string) => {
@@ -363,7 +381,15 @@ Deno.serve(async (req) => {
       };
       
       const normalizedPhone = normalizePhone(selectedPhone);
-      const durationSeconds = (typeof webhookData.duration === 'string' ? parseInt(webhookData.duration) : webhookData.duration) || null;
+      
+      // OnlinePBX uses 'dialog_duration' for actual talk time, 'call_duration' for total
+      // Prefer dialog_duration as it's the actual conversation length
+      const dialogDuration = (webhookData as any).dialog_duration;
+      const callDuration = (webhookData as any).call_duration || webhookData.duration;
+      const durationRaw = dialogDuration || callDuration;
+      const durationSeconds = durationRaw ? (typeof durationRaw === 'string' ? parseInt(durationRaw) : durationRaw) : null;
+      
+      console.log('[onlinepbx-webhook] Duration fields: dialog_duration=', dialogDuration, 'call_duration=', callDuration, '-> using:', durationSeconds);
 
       if (!normalizedPhone) {
         console.log('No phone number found in webhook data');
@@ -374,8 +400,9 @@ Deno.serve(async (req) => {
       }
 
       // Try to find existing call log by call_id
+      // OnlinePBX uses 'uuid' as unique call identifier according to docs
       let callLog = null;
-      const externalCallId = (webhookData as any).call_id || (webhookData as any).callid || (webhookData as any)['call-id'] || (webhookData as any).uniqueid || (webhookData as any).uid;
+      const externalCallId = (webhookData as any).uuid || (webhookData as any).call_id || (webhookData as any).callid || (webhookData as any)['call-id'] || (webhookData as any).uniqueid || (webhookData as any).uid;
       
       if (externalCallId) {
         console.log('Looking for existing call log with external_call_id:', externalCallId);
