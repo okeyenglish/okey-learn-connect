@@ -1,10 +1,15 @@
 import { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Download, ZoomIn, ZoomOut, RotateCw, Loader2, ChevronLeft, ChevronRight, CloudOff, Cloud } from 'lucide-react';
+import { X, Download, ZoomIn, ZoomOut, RotateCw, Loader2, ChevronLeft, ChevronRight, CloudOff, Cloud, Share2, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useImageGalleryCache } from '@/hooks/useImageCache';
-
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 export interface GalleryImage {
   src: string;
   alt: string;
@@ -106,6 +111,13 @@ export const ImageLightbox = memo(({
   // Two-finger double tap state for reset
   const lastTwoFingerTapRef = useRef<number>(0);
   const [showResetIndicator, setShowResetIndicator] = useState(false);
+  
+  // Long press context menu state
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  const [showCopiedIndicator, setShowCopiedIndicator] = useState(false);
+  const longPressStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const currentImage = gallery[currentIndex];
   const hasMultipleImages = gallery.length > 1;
@@ -226,6 +238,9 @@ export const ImageLightbox = memo(({
       if (zoomIndicatorTimeoutRef.current) {
         clearTimeout(zoomIndicatorTimeoutRef.current);
       }
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
     };
   }, []);
 
@@ -303,6 +318,106 @@ export const ImageLightbox = memo(({
     }
   }, [onDownload, currentImage]);
 
+  // Long press handlers for context menu
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    longPressStartRef.current = null;
+  }, []);
+
+  const handleLongPressStart = useCallback((x: number, y: number) => {
+    cancelLongPress();
+    longPressStartRef.current = { x, y };
+    
+    longPressTimerRef.current = setTimeout(() => {
+      // Trigger haptic feedback if available
+      if ('vibrate' in navigator) {
+        navigator.vibrate(50);
+      }
+      setContextMenuPosition({ x, y });
+      setShowContextMenu(true);
+      longPressTimerRef.current = null;
+    }, 500); // 500ms long press threshold
+  }, [cancelLongPress]);
+
+  const handleLongPressMove = useCallback((x: number, y: number) => {
+    if (longPressStartRef.current && longPressTimerRef.current) {
+      const dx = Math.abs(x - longPressStartRef.current.x);
+      const dy = Math.abs(y - longPressStartRef.current.y);
+      // Cancel if moved more than 10px
+      if (dx > 10 || dy > 10) {
+        cancelLongPress();
+      }
+    }
+  }, [cancelLongPress]);
+
+  // Context menu actions
+  const handleShare = useCallback(async () => {
+    setShowContextMenu(false);
+    if (!currentImage?.src) return;
+    
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: currentImage.alt || 'Изображение',
+          url: currentImage.src,
+        });
+      } else {
+        // Fallback: copy link
+        await navigator.clipboard.writeText(currentImage.src);
+        setShowCopiedIndicator(true);
+        setTimeout(() => setShowCopiedIndicator(false), 1500);
+      }
+    } catch (err) {
+      console.log('Share cancelled or failed:', err);
+    }
+  }, [currentImage]);
+
+  const handleCopyImage = useCallback(async () => {
+    setShowContextMenu(false);
+    if (!currentImage?.src) return;
+    
+    try {
+      // Try to copy image to clipboard
+      const response = await fetch(currentImage.src.replace(/^http:\/\//i, 'https://'), {
+        mode: 'cors',
+        credentials: 'omit',
+      });
+      const blob = await response.blob();
+      
+      if (navigator.clipboard && 'write' in navigator.clipboard) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            [blob.type]: blob,
+          }),
+        ]);
+        setShowCopiedIndicator(true);
+        setTimeout(() => setShowCopiedIndicator(false), 1500);
+      } else {
+        // Fallback: copy URL
+        await navigator.clipboard.writeText(currentImage.src);
+        setShowCopiedIndicator(true);
+        setTimeout(() => setShowCopiedIndicator(false), 1500);
+      }
+    } catch (err) {
+      console.log('Copy failed, trying URL fallback:', err);
+      try {
+        await navigator.clipboard.writeText(currentImage.src);
+        setShowCopiedIndicator(true);
+        setTimeout(() => setShowCopiedIndicator(false), 1500);
+      } catch {
+        console.log('Copy URL also failed');
+      }
+    }
+  }, [currentImage]);
+
+  const handleContextMenuDownload = useCallback(() => {
+    setShowContextMenu(false);
+    handleDownloadCurrent();
+  }, [handleDownloadCurrent]);
+
   // Reset all transformations (zoom, rotation, pan)
   const resetAllTransformations = useCallback(() => {
     setScale(1);
@@ -344,6 +459,9 @@ export const ImageLightbox = memo(({
     if (e.touches.length === 1) {
       const touch = e.touches[0];
       
+      // Start long press detection
+      handleLongPressStart(touch.clientX, touch.clientY);
+      
       // If zoomed, start panning
       if (isZoomed) {
         lastPanPosition.current = { x: touch.clientX, y: touch.clientY };
@@ -360,12 +478,13 @@ export const ImageLightbox = memo(({
       setIsDragging(true);
       setDragDirection(null);
     }
-  }, [scale, isZoomed, resetAllTransformations]);
+  }, [scale, isZoomed, resetAllTransformations, handleLongPressStart]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     // Handle pinch-to-zoom
     if (e.touches.length === 2 && isPinching && initialPinchDistance.current) {
       e.preventDefault();
+      cancelLongPress();
       const currentDistance = getDistance(e.touches[0], e.touches[1]);
       const scaleChange = currentDistance / initialPinchDistance.current;
       const newScale = Math.min(Math.max(initialPinchScale.current * scaleChange, 0.5), 4);
@@ -380,6 +499,9 @@ export const ImageLightbox = memo(({
       const deltaX = touch.clientX - lastPanPosition.current.x;
       const deltaY = touch.clientY - lastPanPosition.current.y;
       const deltaTime = now - lastTouchTimeRef.current;
+      
+      // Cancel long press on movement
+      handleLongPressMove(touch.clientX, touch.clientY);
       
       // Calculate velocity for momentum
       if (deltaTime > 0) {
@@ -412,6 +534,10 @@ export const ImageLightbox = memo(({
     
     const currentX = e.touches[0].clientX;
     const currentY = e.touches[0].clientY;
+    
+    // Cancel long press on movement
+    handleLongPressMove(currentX, currentY);
+    
     const diffX = currentX - touchStart.x;
     const diffY = currentY - touchStart.y;
 
@@ -430,9 +556,12 @@ export const ImageLightbox = memo(({
       // Vertical swipe down to close
       setTranslateY(diffY);
     }
-  }, [touchStart, isDragging, dragDirection, hasMultipleImages, isPinching, isZoomed, scale, applyRubberBand]);
+  }, [touchStart, isDragging, dragDirection, hasMultipleImages, isPinching, isZoomed, scale, applyRubberBand, cancelLongPress, handleLongPressMove]);
 
   const handleTouchEnd = useCallback(() => {
+    // Cancel long press on touch end
+    cancelLongPress();
+    
     // End pinch
     if (isPinching) {
       setIsPinching(false);
@@ -564,7 +693,7 @@ export const ImageLightbox = memo(({
     setTranslateY(0);
     setIsDragging(false);
     setDragDirection(null);
-  }, [isPinching, isZoomed, dragDirection, translateX, translateY, hasMultipleImages, currentIndex, gallery.length, goToPrevious, goToNext, onClose, scale, clampPanOffset, panOffset]);
+  }, [isPinching, isZoomed, dragDirection, translateX, translateY, hasMultipleImages, currentIndex, gallery.length, goToPrevious, goToNext, onClose, scale, clampPanOffset, panOffset, cancelLongPress]);
 
   // Reset zoom on double tap or button
   const resetZoom = useCallback(() => {
@@ -920,13 +1049,76 @@ export const ImageLightbox = memo(({
         </div>
       )}
 
+      {/* Context menu (long press) */}
+      {showContextMenu && (
+        <div 
+          className="fixed inset-0 z-30"
+          onClick={() => setShowContextMenu(false)}
+          onTouchStart={() => setShowContextMenu(false)}
+        >
+          <div 
+            className="absolute bg-popover border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-200"
+            style={{
+              left: Math.min(contextMenuPosition.x, window.innerWidth - 200),
+              top: Math.min(contextMenuPosition.y, window.innerHeight - 180),
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
+            <div className="py-1">
+              {onDownload && (
+                <button
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-accent transition-colors"
+                  onClick={handleContextMenuDownload}
+                >
+                  <Download className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-sm font-medium">Скачать</span>
+                </button>
+              )}
+              <button
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-accent transition-colors"
+                onClick={handleShare}
+              >
+                <Share2 className="h-5 w-5 text-muted-foreground" />
+                <span className="text-sm font-medium">Поделиться</span>
+              </button>
+              <button
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-accent transition-colors"
+                onClick={handleCopyImage}
+              >
+                <Copy className="h-5 w-5 text-muted-foreground" />
+                <span className="text-sm font-medium">Копировать</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Copied indicator */}
+      <div
+        className={cn(
+          "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40",
+          "pointer-events-none transition-all duration-300 ease-out",
+          showCopiedIndicator 
+            ? "opacity-100 scale-100" 
+            : "opacity-0 scale-75"
+        )}
+      >
+        <div className="bg-black/70 backdrop-blur-sm text-white px-5 py-3 rounded-2xl flex items-center gap-3 shadow-xl">
+          <Check className="h-6 w-6 text-green-400" />
+          <span className="text-lg font-medium">
+            Скопировано
+          </span>
+        </div>
+      </div>
+
       {/* Swipe hints for mobile */}
       <div className="absolute bottom-4 left-0 right-0 text-center text-white/50 text-xs pointer-events-none">
         {isZoomed || rotation !== 0
-          ? "2×тап 2 пальцами — сброс всего • 2×тап по краю — к границе"
+          ? "Долгий тап — меню • 2×тап 2 пальцами — сброс"
           : hasMultipleImages 
-            ? "Свайп влево/вправо — листать • 2×тап 2 пальцами — сброс"
-            : "Щипок — зум • 2×тап 2 пальцами — сброс"
+            ? "Долгий тап — меню • Свайп — листать"
+            : "Долгий тап — меню • Щипок — зум"
         }
       </div>
     </div>
