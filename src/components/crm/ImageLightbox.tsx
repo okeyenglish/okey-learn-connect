@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from 'react';
+import { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Download, ZoomIn, ZoomOut, RotateCw, Loader2, ChevronLeft, ChevronRight, CloudOff, Cloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,19 @@ interface ImageLightboxProps {
   onDownload?: (src: string) => void;
   downloadLoading?: boolean;
 }
+
+/** Calculate distance between two touch points */
+const getDistance = (touch1: React.Touch, touch2: React.Touch): number => {
+  const dx = touch1.clientX - touch2.clientX;
+  const dy = touch1.clientY - touch2.clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+};
+
+/** Calculate center point between two touches */
+const getCenter = (touch1: React.Touch, touch2: React.Touch): { x: number; y: number } => ({
+  x: (touch1.clientX + touch2.clientX) / 2,
+  y: (touch1.clientY + touch2.clientY) / 2,
+});
 
 /**
  * Mobile-friendly fullscreen image lightbox with gallery support
@@ -68,10 +81,20 @@ export const ImageLightbox = memo(({
   const [translateY, setTranslateY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [dragDirection, setDragDirection] = useState<'horizontal' | 'vertical' | null>(null);
+  
+  // Pinch-to-zoom state
+  const [isPinching, setIsPinching] = useState(false);
+  const initialPinchDistance = useRef<number | null>(null);
+  const initialPinchScale = useRef<number>(1);
+  
+  // Pan state when zoomed
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const lastPanPosition = useRef<{ x: number; y: number } | null>(null);
 
   const currentImage = gallery[currentIndex];
   const hasMultipleImages = gallery.length > 1;
   const allCached = cachedCount === totalCount && totalCount > 0;
+  const isZoomed = scale > 1;
 
   // Reset state when opening or changing image
   useEffect(() => {
@@ -99,6 +122,9 @@ export const ImageLightbox = memo(({
     setHasError(false);
     setScale(1);
     setRotation(0);
+    setPanOffset({ x: 0, y: 0 });
+    initialPinchDistance.current = null;
+    initialPinchScale.current = 1;
   }, [currentIndex]);
 
   // Handle keyboard navigation
@@ -157,20 +183,67 @@ export const ImageLightbox = memo(({
     }
   }, [onDownload, currentImage]);
 
-  // Touch handlers for swipe gestures
+  // Touch handlers for swipe and pinch gestures
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (scale !== 1) return; // Disable swipe when zoomed
+    // Pinch-to-zoom: two finger touch
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const distance = getDistance(e.touches[0], e.touches[1]);
+      initialPinchDistance.current = distance;
+      initialPinchScale.current = scale;
+      setIsPinching(true);
+      setIsDragging(false);
+      return;
+    }
     
-    setTouchStart({
-      x: e.touches[0].clientX,
-      y: e.touches[0].clientY
-    });
-    setIsDragging(true);
-    setDragDirection(null);
-  }, [scale]);
+    // Single finger touch
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      
+      // If zoomed, start panning
+      if (isZoomed) {
+        lastPanPosition.current = { x: touch.clientX, y: touch.clientY };
+        return;
+      }
+      
+      // Otherwise, start drag for swipe gestures
+      setTouchStart({
+        x: touch.clientX,
+        y: touch.clientY
+      });
+      setIsDragging(true);
+      setDragDirection(null);
+    }
+  }, [scale, isZoomed]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!touchStart || !isDragging || scale !== 1) return;
+    // Handle pinch-to-zoom
+    if (e.touches.length === 2 && isPinching && initialPinchDistance.current) {
+      e.preventDefault();
+      const currentDistance = getDistance(e.touches[0], e.touches[1]);
+      const scaleChange = currentDistance / initialPinchDistance.current;
+      const newScale = Math.min(Math.max(initialPinchScale.current * scaleChange, 0.5), 4);
+      setScale(newScale);
+      return;
+    }
+    
+    // Handle panning when zoomed
+    if (e.touches.length === 1 && isZoomed && lastPanPosition.current) {
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - lastPanPosition.current.x;
+      const deltaY = touch.clientY - lastPanPosition.current.y;
+      
+      setPanOffset(prev => ({
+        x: prev.x + deltaX,
+        y: prev.y + deltaY
+      }));
+      
+      lastPanPosition.current = { x: touch.clientX, y: touch.clientY };
+      return;
+    }
+    
+    // Handle swipe gestures when not zoomed
+    if (!touchStart || !isDragging || isZoomed) return;
     
     const currentX = e.touches[0].clientX;
     const currentY = e.touches[0].clientY;
@@ -192,9 +265,28 @@ export const ImageLightbox = memo(({
       // Vertical swipe down to close
       setTranslateY(diffY);
     }
-  }, [touchStart, isDragging, scale, dragDirection, hasMultipleImages]);
+  }, [touchStart, isDragging, dragDirection, hasMultipleImages, isPinching, isZoomed]);
 
   const handleTouchEnd = useCallback(() => {
+    // End pinch
+    if (isPinching) {
+      setIsPinching(false);
+      initialPinchDistance.current = null;
+      
+      // Reset pan offset if scale is back to 1
+      if (scale <= 1) {
+        setPanOffset({ x: 0, y: 0 });
+        setScale(1);
+      }
+      return;
+    }
+    
+    // End panning
+    if (isZoomed) {
+      lastPanPosition.current = null;
+      return;
+    }
+    
     const threshold = 80;
 
     if (dragDirection === 'horizontal' && hasMultipleImages) {
@@ -212,7 +304,13 @@ export const ImageLightbox = memo(({
     setTranslateY(0);
     setIsDragging(false);
     setDragDirection(null);
-  }, [dragDirection, translateX, translateY, hasMultipleImages, currentIndex, gallery.length, goToPrevious, goToNext, onClose]);
+  }, [isPinching, isZoomed, dragDirection, translateX, translateY, hasMultipleImages, currentIndex, gallery.length, goToPrevious, goToNext, onClose, scale]);
+
+  // Reset zoom on double tap or button
+  const resetZoom = useCallback(() => {
+    setScale(1);
+    setPanOffset({ x: 0, y: 0 });
+  }, []);
 
   // Handle backdrop click
   const handleBackdropClick = useCallback((e: React.MouseEvent) => {
@@ -235,10 +333,14 @@ export const ImageLightbox = memo(({
   const handleDoubleTap = useCallback(() => {
     const now = Date.now();
     if (now - lastTap < 300) {
-      setScale(prev => prev === 1 ? 2 : 1);
+      if (scale > 1) {
+        resetZoom();
+      } else {
+        setScale(2);
+      }
     }
     setLastTap(now);
-  }, [lastTap]);
+  }, [lastTap, scale, resetZoom]);
 
   if (!isOpen || gallery.length === 0) return null;
 
@@ -386,10 +488,10 @@ export const ImageLightbox = memo(({
       <div
         className={cn(
           "relative max-w-full max-h-full flex items-center justify-center p-4",
-          isDragging ? "transition-none" : "transition-transform duration-200"
+          (isDragging || isPinching) ? "transition-none" : "transition-transform duration-200"
         )}
         style={{
-          transform: `translateX(${translateX}px) translateY(${translateY}px) scale(${scale}) rotate(${rotation}deg)`,
+          transform: `translateX(${translateX + panOffset.x}px) translateY(${translateY + panOffset.y}px) scale(${scale}) rotate(${rotation}deg)`,
         }}
         onClick={handleDoubleTap}
       >
@@ -456,9 +558,11 @@ export const ImageLightbox = memo(({
 
       {/* Swipe hints for mobile */}
       <div className="absolute bottom-4 left-0 right-0 text-center text-white/50 text-xs pointer-events-none">
-        {hasMultipleImages 
-          ? "Свайп влево/вправо — листать • Вниз — закрыть"
-          : "Проведите вниз чтобы закрыть"
+        {isZoomed 
+          ? "Двойной тап — сбросить зум • Щипок — масштаб"
+          : hasMultipleImages 
+            ? "Свайп влево/вправо — листать • Щипок — зум"
+            : "Щипок — зум • Свайп вниз — закрыть"
         }
       </div>
     </div>
