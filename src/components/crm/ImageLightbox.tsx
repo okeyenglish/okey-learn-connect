@@ -545,6 +545,11 @@ export const ImageLightbox = memo(({
   const handleCropCancel = useCallback(() => {
     setShowCropOverlay(false);
   }, []);
+
+  // Handle rotation change from crop overlay
+  const handleCropRotationChange = useCallback((newRotation: number) => {
+    setRotation(newRotation);
+  }, []);
   const resetAllTransformations = useCallback(() => {
     setScale(1);
     setRotation(0);
@@ -1313,6 +1318,7 @@ export const ImageLightbox = memo(({
           imageSrc={currentImage.src}
           imageAlt={currentImage.alt || 'image'}
           rotation={rotation}
+          onRotationChange={handleCropRotationChange}
           onCropComplete={handleCropComplete}
           onCancel={handleCropCancel}
         />

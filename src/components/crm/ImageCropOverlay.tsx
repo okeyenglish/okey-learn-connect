@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, memo } from 'react';
-import { X, Check, Move, Undo2 } from 'lucide-react';
+import { X, Check, Move, Undo2, RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -14,6 +14,7 @@ interface ImageCropOverlayProps {
   imageSrc: string;
   imageAlt: string;
   rotation: number;
+  onRotationChange?: (newRotation: number) => void;
   onCropComplete: (croppedImageBlob: Blob) => void;
   onCancel: () => void;
 }
@@ -24,6 +25,7 @@ export const ImageCropOverlay = memo(({
   imageSrc,
   imageAlt,
   rotation,
+  onRotationChange,
   onCropComplete,
   onCancel,
 }: ImageCropOverlayProps) => {
@@ -32,6 +34,9 @@ export const ImageCropOverlay = memo(({
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
   const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
+  
+  // Local rotation state for preview
+  const [localRotation, setLocalRotation] = useState(rotation);
   
   // Crop area state (relative to displayed image)
   const [cropArea, setCropArea] = useState<CropArea>({ x: 0, y: 0, width: 0, height: 0 });
@@ -214,7 +219,19 @@ export const ImageCropOverlay = memo(({
     setCropArea(previousState);
   }, [cropHistory]);
 
-  // Apply crop and generate cropped image
+  // Handle rotation
+  const handleRotate = useCallback(() => {
+    const newRotation = (localRotation + 90) % 360;
+    setLocalRotation(newRotation);
+    onRotationChange?.(newRotation);
+    
+    // Reset crop area when rotating (since image dimensions change)
+    if (imageRef.current && containerRef.current) {
+      // Re-initialize crop area after rotation
+      setImageLoaded(false);
+      setTimeout(() => setImageLoaded(true), 50);
+    }
+  }, [localRotation, onRotationChange]);
   const handleApplyCrop = useCallback(async () => {
     if (!imageRef.current || isProcessing) return;
     
@@ -239,7 +256,7 @@ export const ImageCropOverlay = memo(({
       if (!ctx) throw new Error('Canvas context not available');
       
       // Handle rotation
-      const radians = (rotation * Math.PI) / 180;
+      const radians = (localRotation * Math.PI) / 180;
       const sin = Math.abs(Math.sin(radians));
       const cos = Math.abs(Math.cos(radians));
       
@@ -323,20 +340,36 @@ export const ImageCropOverlay = memo(({
             <span className="text-white/60 text-xs">{cropHistory.length}</span>
           )}
         </div>
-        <span className="text-white font-medium">Обрезка</span>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleApplyCrop}
-          disabled={isProcessing}
-          className="text-white hover:bg-white/20"
-        >
-          {isProcessing ? (
-            <div className="h-6 w-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            <Check className="h-6 w-6" />
+        <div className="flex items-center gap-2">
+          <span className="text-white font-medium">Обрезка</span>
+          {localRotation !== 0 && (
+            <span className="text-white/60 text-xs">{localRotation}°</span>
           )}
-        </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleRotate}
+            className="text-white hover:bg-white/20"
+            title="Повернуть на 90°"
+          >
+            <RotateCw className="h-5 w-5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleApplyCrop}
+            disabled={isProcessing}
+            className="text-white hover:bg-white/20"
+          >
+            {isProcessing ? (
+              <div className="h-6 w-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Check className="h-6 w-6" />
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Image container */}
@@ -345,7 +378,8 @@ export const ImageCropOverlay = memo(({
           ref={imageRef}
           src={imageSrc.replace(/^http:\/\//i, 'https://')}
           alt={imageAlt}
-          className="max-w-full max-h-full object-contain"
+          className="max-w-full max-h-full object-contain transition-transform duration-300"
+          style={{ transform: `rotate(${localRotation}deg)` }}
           crossOrigin="anonymous"
           referrerPolicy="no-referrer"
           onLoad={handleImageLoad}
