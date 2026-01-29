@@ -457,14 +457,22 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                   </div>
                 )}
                 
-                {/* Attached file - messenger style for images */}
+                {/* Attached file - messenger style for media */}
                 {message !== '[Сообщение удалено]' && fileUrl && fileName && fileType && (
-                  <div className={fileType.startsWith('image/') || fileType.startsWith('video/') ? '' : 'mt-2'}>
+                  <div className={
+                    fileType.startsWith('image/') || fileType.startsWith('video/') || fileType.startsWith('audio/') 
+                      ? '' 
+                      : 'mt-2'
+                  }>
                     <OptimizedAttachedFile
                       url={fileUrl}
                       name={fileName}
                       type={fileType}
-                      className={fileType.startsWith('image/') || fileType.startsWith('video/') ? '' : 'max-w-xs'}
+                      className={
+                        fileType.startsWith('image/') || fileType.startsWith('video/') || fileType.startsWith('audio/') 
+                          ? '' 
+                          : 'max-w-xs'
+                      }
                       chatId={whatsappChatId}
                       messageId={externalMessageId}
                     />
