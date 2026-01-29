@@ -102,6 +102,10 @@ export const ImageLightbox = memo(({
   const [showZoomIndicator, setShowZoomIndicator] = useState(false);
   const zoomIndicatorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const previousScaleRef = useRef<number>(1);
+  
+  // Two-finger double tap state for reset
+  const lastTwoFingerTapRef = useRef<number>(0);
+  const [showResetIndicator, setShowResetIndicator] = useState(false);
 
   const currentImage = gallery[currentIndex];
   const hasMultipleImages = gallery.length > 1;
@@ -299,11 +303,35 @@ export const ImageLightbox = memo(({
     }
   }, [onDownload, currentImage]);
 
+  // Reset all transformations (zoom, rotation, pan)
+  const resetAllTransformations = useCallback(() => {
+    setScale(1);
+    setRotation(0);
+    setPanOffset({ x: 0, y: 0 });
+    rawPanOffsetRef.current = { x: 0, y: 0 };
+    setShowResetIndicator(true);
+    setTimeout(() => setShowResetIndicator(false), 1200);
+  }, []);
+
   // Touch handlers for swipe and pinch gestures
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    // Pinch-to-zoom: two finger touch
+    // Two finger touch - check for double tap to reset, or start pinch
     if (e.touches.length === 2) {
       e.preventDefault();
+      
+      const now = Date.now();
+      const timeSinceLastTwoFingerTap = now - lastTwoFingerTapRef.current;
+      
+      // Check for two-finger double tap (within 400ms)
+      if (timeSinceLastTwoFingerTap < 400) {
+        // Two-finger double tap detected - reset all transformations
+        resetAllTransformations();
+        lastTwoFingerTapRef.current = 0;
+        return;
+      }
+      
+      lastTwoFingerTapRef.current = now;
+      
       const distance = getDistance(e.touches[0], e.touches[1]);
       initialPinchDistance.current = distance;
       initialPinchScale.current = scale;
@@ -332,7 +360,7 @@ export const ImageLightbox = memo(({
       setIsDragging(true);
       setDragDirection(null);
     }
-  }, [scale, isZoomed]);
+  }, [scale, isZoomed, resetAllTransformations]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     // Handle pinch-to-zoom
@@ -559,6 +587,7 @@ export const ImageLightbox = memo(({
     setHasError(true);
     setIsLoaded(true);
   }, []);
+
 
   // Double tap handling with edge detection
   const [lastTap, setLastTap] = useState(0);
@@ -798,6 +827,24 @@ export const ImageLightbox = memo(({
         </div>
       </div>
 
+      {/* Reset transformations indicator */}
+      <div
+        className={cn(
+          "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20",
+          "pointer-events-none transition-all duration-300 ease-out",
+          showResetIndicator 
+            ? "opacity-100 scale-100" 
+            : "opacity-0 scale-75"
+        )}
+      >
+        <div className="bg-black/70 backdrop-blur-sm text-white px-5 py-3 rounded-2xl flex items-center gap-3 shadow-xl">
+          <RotateCw className="h-6 w-6" />
+          <span className="text-lg font-medium">
+            Сброс
+          </span>
+        </div>
+      </div>
+
       {/* Image container */}
       <div
         className={cn(
@@ -875,11 +922,11 @@ export const ImageLightbox = memo(({
 
       {/* Swipe hints for mobile */}
       <div className="absolute bottom-4 left-0 right-0 text-center text-white/50 text-xs pointer-events-none">
-        {isZoomed 
-          ? "2×тап по краю — к границе • 2×тап в центре — сброс"
+        {isZoomed || rotation !== 0
+          ? "2×тап 2 пальцами — сброс всего • 2×тап по краю — к границе"
           : hasMultipleImages 
-            ? "Свайп влево/вправо — листать • Щипок — зум"
-            : "Щипок — зум • Свайп вниз — закрыть"
+            ? "Свайп влево/вправо — листать • 2×тап 2 пальцами — сброс"
+            : "Щипок — зум • 2×тап 2 пальцами — сброс"
         }
       </div>
     </div>
