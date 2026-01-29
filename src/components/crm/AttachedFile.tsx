@@ -1,11 +1,11 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { File, Image, Video, Music, FileText, Download, ExternalLink, Play, Pause, Volume2, VolumeX, Maximize2, Loader2, FileAudio, MessageSquareText, Trash2 } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useWhatsAppFile } from '@/hooks/useWhatsAppFile';
 import { useAudioTranscription } from '@/hooks/useAudioTranscription';
 import { PDFViewer } from '@/components/PDFViewer';
+import { ImageLightbox } from './ImageLightbox';
 
 interface AttachedFileProps {
   url: string;
@@ -281,113 +281,94 @@ export const AttachedFile = ({ url, name, type, size, className, chatId, message
   }
 
   if (type.startsWith('image/')) {
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    
+    const handleOpenLightbox = useCallback(() => {
+      setIsLightboxOpen(true);
+    }, []);
+    
+    const handleCloseLightbox = useCallback(() => {
+      setIsLightboxOpen(false);
+    }, []);
+
     return (
-      <Card className={`p-3 max-w-sm ${className}`}>
-        <div className="flex items-center gap-3 mb-2">
-          <div className="flex-shrink-0 text-muted-foreground">
-            {getFileIcon()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate" title={name}>
-              {name}
-            </p>
-            {size && (
-              <p className="text-xs text-muted-foreground">
-                {formatFileSize(size)}
+      <>
+        <Card className={`p-3 max-w-sm ${className}`}>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="flex-shrink-0 text-muted-foreground">
+              {getFileIcon()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate" title={name}>
+                {name}
               </p>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 w-6 p-0"
-                  title="Увеличить"
-                >
-                  <Maximize2 className="h-3 w-3" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] p-0">
-                <div className="relative">
-                  <img
-                    src={realUrl}
-                    alt={name}
-                    className="w-full h-auto max-h-[85vh] object-contain"
-                    onError={handleMediaError}
-                  />
-                  <Button
-                    onClick={handleDownload}
-                    className="absolute top-4 right-4 bg-black/50 hover:bg-black/70"
-                    size="sm"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Скачать
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-            {!onRemove && (
+              {size && (
+                <p className="text-xs text-muted-foreground">
+                  {formatFileSize(size)}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
               <Button
                 size="sm"
                 variant="ghost"
                 className="h-6 w-6 p-0"
-                onClick={handleDownload}
-                title="Скачать"
-                disabled={downloadLoading}
+                title="Увеличить"
+                onClick={handleOpenLightbox}
               >
-                {downloadLoading ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Download className="h-3 w-3" />
-                )}
+                <Maximize2 className="h-3 w-3" />
               </Button>
-            )}
-            {onRemove && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                onClick={onRemove}
-                title="Удалить"
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            )}
-          </div>
-        </div>
-        
-        <div className="mt-2">
-          <Dialog>
-            <DialogTrigger asChild>
-              <img
-                src={realUrl}
-                alt={name}
-                className="max-w-full max-h-32 rounded cursor-pointer object-cover hover:opacity-80 transition-opacity"
-                onError={handleMediaError}
-              />
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] p-0">
-              <div className="relative">
-                <img
-                  src={realUrl}
-                  alt={name}
-                  className="w-full h-auto max-h-[85vh] object-contain"
-                />
+              {!onRemove && (
                 <Button
-                  onClick={handleDownload}
-                  className="absolute top-4 right-4 bg-black/50 hover:bg-black/70"
                   size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0"
+                  onClick={handleDownload}
+                  title="Скачать"
+                  disabled={downloadLoading}
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  Скачать
+                  {downloadLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Download className="h-3 w-3" />
+                  )}
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </Card>
+              )}
+              {onRemove && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                  onClick={onRemove}
+                  title="Удалить"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+          </div>
+          
+          <div className="mt-2">
+            <img
+              src={realUrl}
+              alt={name}
+              className="max-w-full max-h-32 rounded cursor-pointer object-cover hover:opacity-80 active:opacity-60 transition-opacity"
+              onError={handleMediaError}
+              onClick={handleOpenLightbox}
+            />
+          </div>
+        </Card>
+        
+        {/* Mobile-friendly fullscreen lightbox */}
+        <ImageLightbox
+          src={realUrl}
+          alt={name}
+          isOpen={isLightboxOpen}
+          onClose={handleCloseLightbox}
+          onDownload={handleDownload}
+          downloadLoading={downloadLoading}
+        />
+      </>
     );
   }
 
