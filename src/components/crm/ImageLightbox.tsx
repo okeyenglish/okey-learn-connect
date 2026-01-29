@@ -90,11 +90,41 @@ export const ImageLightbox = memo(({
   // Pan state when zoomed
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const lastPanPosition = useRef<{ x: number; y: number } | null>(null);
+  const imageContainerRef = useRef<HTMLDivElement>(null);
 
   const currentImage = gallery[currentIndex];
   const hasMultipleImages = gallery.length > 1;
   const allCached = cachedCount === totalCount && totalCount > 0;
   const isZoomed = scale > 1;
+
+  /**
+   * Clamp pan offset to keep image within screen bounds
+   * Returns the constrained offset values
+   */
+  const clampPanOffset = useCallback((offsetX: number, offsetY: number, currentScale: number): { x: number; y: number } => {
+    if (currentScale <= 1) return { x: 0, y: 0 };
+    
+    // Get viewport dimensions
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // Estimate image dimensions (use container or default)
+    const imageWidth = Math.min(viewportWidth - 32, 800); // accounting for padding
+    const imageHeight = Math.min(viewportHeight - 128, 600); // accounting for toolbars
+    
+    // Calculate how much the image extends beyond viewport when scaled
+    const scaledWidth = imageWidth * currentScale;
+    const scaledHeight = imageHeight * currentScale;
+    
+    // Maximum pan distance is half the overflow on each side
+    const maxPanX = Math.max(0, (scaledWidth - viewportWidth) / 2);
+    const maxPanY = Math.max(0, (scaledHeight - viewportHeight) / 2);
+    
+    return {
+      x: Math.max(-maxPanX, Math.min(maxPanX, offsetX)),
+      y: Math.max(-maxPanY, Math.min(maxPanY, offsetY)),
+    };
+  }, []);
 
   // Reset state when opening or changing image
   useEffect(() => {
@@ -233,10 +263,12 @@ export const ImageLightbox = memo(({
       const deltaX = touch.clientX - lastPanPosition.current.x;
       const deltaY = touch.clientY - lastPanPosition.current.y;
       
-      setPanOffset(prev => ({
-        x: prev.x + deltaX,
-        y: prev.y + deltaY
-      }));
+      setPanOffset(prev => {
+        const newX = prev.x + deltaX;
+        const newY = prev.y + deltaY;
+        // Apply clamping to keep image in bounds
+        return clampPanOffset(newX, newY, scale);
+      });
       
       lastPanPosition.current = { x: touch.clientX, y: touch.clientY };
       return;
@@ -265,7 +297,7 @@ export const ImageLightbox = memo(({
       // Vertical swipe down to close
       setTranslateY(diffY);
     }
-  }, [touchStart, isDragging, dragDirection, hasMultipleImages, isPinching, isZoomed]);
+  }, [touchStart, isDragging, dragDirection, hasMultipleImages, isPinching, isZoomed, scale, clampPanOffset]);
 
   const handleTouchEnd = useCallback(() => {
     // End pinch
@@ -273,17 +305,21 @@ export const ImageLightbox = memo(({
       setIsPinching(false);
       initialPinchDistance.current = null;
       
-      // Reset pan offset if scale is back to 1
+      // Reset pan offset if scale is back to 1, otherwise clamp to bounds
       if (scale <= 1) {
         setPanOffset({ x: 0, y: 0 });
         setScale(1);
+      } else {
+        // Clamp pan offset after pinch ends
+        setPanOffset(prev => clampPanOffset(prev.x, prev.y, scale));
       }
       return;
     }
     
-    // End panning
+    // End panning - ensure final position is clamped
     if (isZoomed) {
       lastPanPosition.current = null;
+      setPanOffset(prev => clampPanOffset(prev.x, prev.y, scale));
       return;
     }
     
@@ -304,7 +340,7 @@ export const ImageLightbox = memo(({
     setTranslateY(0);
     setIsDragging(false);
     setDragDirection(null);
-  }, [isPinching, isZoomed, dragDirection, translateX, translateY, hasMultipleImages, currentIndex, gallery.length, goToPrevious, goToNext, onClose, scale]);
+  }, [isPinching, isZoomed, dragDirection, translateX, translateY, hasMultipleImages, currentIndex, gallery.length, goToPrevious, goToNext, onClose, scale, clampPanOffset]);
 
   // Reset zoom on double tap or button
   const resetZoom = useCallback(() => {
