@@ -37,6 +37,13 @@ const getDistance = (touch1: React.Touch, touch2: React.Touch): number => {
   return Math.sqrt(dx * dx + dy * dy);
 };
 
+/** Calculate angle between two touch points (in degrees) */
+const getAngle = (touch1: React.Touch, touch2: React.Touch): number => {
+  const dx = touch2.clientX - touch1.clientX;
+  const dy = touch2.clientY - touch1.clientY;
+  return Math.atan2(dy, dx) * (180 / Math.PI);
+};
+
 /** Calculate center point between two touches */
 const getCenter = (touch1: React.Touch, touch2: React.Touch): { x: number; y: number } => ({
   x: (touch1.clientX + touch2.clientX) / 2,
@@ -87,10 +94,12 @@ export const ImageLightbox = memo(({
   const [isDragging, setIsDragging] = useState(false);
   const [dragDirection, setDragDirection] = useState<'horizontal' | 'vertical' | null>(null);
   
-  // Pinch-to-zoom state
+  // Pinch-to-zoom and rotate state
   const [isPinching, setIsPinching] = useState(false);
   const initialPinchDistance = useRef<number | null>(null);
   const initialPinchScale = useRef<number>(1);
+  const initialPinchAngle = useRef<number | null>(null);
+  const initialPinchRotation = useRef<number>(0);
   
   // Pan state when zoomed
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -227,6 +236,8 @@ export const ImageLightbox = memo(({
     }
     initialPinchDistance.current = null;
     initialPinchScale.current = 1;
+    initialPinchAngle.current = null;
+    initialPinchRotation.current = 0;
   }, [currentIndex]);
 
   // Cleanup momentum animation on unmount
@@ -448,8 +459,11 @@ export const ImageLightbox = memo(({
       lastTwoFingerTapRef.current = now;
       
       const distance = getDistance(e.touches[0], e.touches[1]);
+      const angle = getAngle(e.touches[0], e.touches[1]);
       initialPinchDistance.current = distance;
       initialPinchScale.current = scale;
+      initialPinchAngle.current = angle;
+      initialPinchRotation.current = rotation;
       setIsPinching(true);
       setIsDragging(false);
       return;
@@ -478,17 +492,30 @@ export const ImageLightbox = memo(({
       setIsDragging(true);
       setDragDirection(null);
     }
-  }, [scale, isZoomed, resetAllTransformations, handleLongPressStart]);
+  }, [scale, rotation, isZoomed, resetAllTransformations, handleLongPressStart, panOffset]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    // Handle pinch-to-zoom
-    if (e.touches.length === 2 && isPinching && initialPinchDistance.current) {
+    // Handle pinch-to-zoom and rotate
+    if (e.touches.length === 2 && isPinching && initialPinchDistance.current !== null && initialPinchAngle.current !== null) {
       e.preventDefault();
       cancelLongPress();
+      
+      // Calculate new scale
       const currentDistance = getDistance(e.touches[0], e.touches[1]);
       const scaleChange = currentDistance / initialPinchDistance.current;
       const newScale = Math.min(Math.max(initialPinchScale.current * scaleChange, 0.5), 4);
       setScale(newScale);
+      
+      // Calculate new rotation
+      const currentAngle = getAngle(e.touches[0], e.touches[1]);
+      let angleDelta = currentAngle - initialPinchAngle.current;
+      
+      // Normalize angle delta to avoid sudden jumps
+      if (angleDelta > 180) angleDelta -= 360;
+      if (angleDelta < -180) angleDelta += 360;
+      
+      const newRotation = initialPinchRotation.current + angleDelta;
+      setRotation(newRotation);
       return;
     }
     
@@ -556,7 +583,7 @@ export const ImageLightbox = memo(({
       // Vertical swipe down to close
       setTranslateY(diffY);
     }
-  }, [touchStart, isDragging, dragDirection, hasMultipleImages, isPinching, isZoomed, scale, applyRubberBand, cancelLongPress, handleLongPressMove]);
+  }, [touchStart, isDragging, dragDirection, hasMultipleImages, isPinching, isZoomed, scale, rotation, applyRubberBand, cancelLongPress, handleLongPressMove]);
 
   const handleTouchEnd = useCallback(() => {
     // Cancel long press on touch end
@@ -566,6 +593,7 @@ export const ImageLightbox = memo(({
     if (isPinching) {
       setIsPinching(false);
       initialPinchDistance.current = null;
+      initialPinchAngle.current = null;
       
       // Reset pan offset if scale is back to 1, otherwise snap back with animation
       if (scale <= 1) {
@@ -1117,8 +1145,8 @@ export const ImageLightbox = memo(({
         {isZoomed || rotation !== 0
           ? "Долгий тап — меню • 2×тап 2 пальцами — сброс"
           : hasMultipleImages 
-            ? "Долгий тап — меню • Свайп — листать"
-            : "Долгий тап — меню • Щипок — зум"
+            ? "Долгий тап — меню • Свайп — листать • Вращение 2 пальцами — поворот"
+            : "Долгий тап — меню • Щипок — зум • Вращение 2 пальцами — поворот"
         }
       </div>
     </div>
