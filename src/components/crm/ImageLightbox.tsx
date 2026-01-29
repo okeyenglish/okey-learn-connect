@@ -1,50 +1,76 @@
 import { useState, useEffect, useCallback, memo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Download, ZoomIn, ZoomOut, RotateCw, Loader2 } from 'lucide-react';
+import { X, Download, ZoomIn, ZoomOut, RotateCw, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-interface ImageLightboxProps {
+export interface GalleryImage {
   src: string;
   alt: string;
+}
+
+interface ImageLightboxProps {
+  /** Single image source (legacy support) */
+  src?: string;
+  /** Single image alt (legacy support) */
+  alt?: string;
+  /** Array of images for gallery mode */
+  images?: GalleryImage[];
+  /** Initial image index in gallery mode */
+  initialIndex?: number;
   isOpen: boolean;
   onClose: () => void;
-  onDownload?: () => void;
+  onDownload?: (src: string) => void;
   downloadLoading?: boolean;
 }
 
 /**
- * Mobile-friendly fullscreen image lightbox
+ * Mobile-friendly fullscreen image lightbox with gallery support
  * - Uses portal to render at document root
  * - Touch-friendly with pinch-to-zoom support
+ * - Swipe left/right to navigate between images
  * - Swipe down to close
  * - Proper handling for iOS Safari
  */
 export const ImageLightbox = memo(({
   src,
   alt,
+  images,
+  initialIndex = 0,
   isOpen,
   onClose,
   onDownload,
   downloadLoading = false,
 }: ImageLightboxProps) => {
+  // Convert single image to gallery format
+  const gallery: GalleryImage[] = images || (src ? [{ src, alt: alt || '' }] : []);
+  
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [scale, setScale] = useState(1);
   const [rotation, setRotation] = useState(0);
-  const [startY, setStartY] = useState<number | null>(null);
+  
+  // Touch state for gestures
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const [translateX, setTranslateX] = useState(0);
   const [translateY, setTranslateY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [dragDirection, setDragDirection] = useState<'horizontal' | 'vertical' | null>(null);
 
-  // Reset state when opening
+  const currentImage = gallery[currentIndex];
+  const hasMultipleImages = gallery.length > 1;
+
+  // Reset state when opening or changing image
   useEffect(() => {
     if (isOpen) {
+      setCurrentIndex(initialIndex);
       setIsLoaded(false);
       setHasError(false);
       setScale(1);
       setRotation(0);
+      setTranslateX(0);
       setTranslateY(0);
-      // Prevent body scroll when lightbox is open
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -53,19 +79,53 @@ export const ImageLightbox = memo(({
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isOpen]);
+  }, [isOpen, initialIndex]);
 
-  // Handle escape key
+  // Reset loading state when changing images
+  useEffect(() => {
+    setIsLoaded(false);
+    setHasError(false);
+    setScale(1);
+    setRotation(0);
+  }, [currentIndex]);
+
+  // Handle keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
+      if (!isOpen) return;
+      
+      switch (e.key) {
+        case 'Escape':
+          onClose();
+          break;
+        case 'ArrowLeft':
+          if (hasMultipleImages && currentIndex > 0) {
+            setCurrentIndex(prev => prev - 1);
+          }
+          break;
+        case 'ArrowRight':
+          if (hasMultipleImages && currentIndex < gallery.length - 1) {
+            setCurrentIndex(prev => prev + 1);
+          }
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, hasMultipleImages, currentIndex, gallery.length]);
+
+  const goToPrevious = useCallback(() => {
+    if (currentIndex > 0) {
+      setCurrentIndex(prev => prev - 1);
+    }
+  }, [currentIndex]);
+
+  const goToNext = useCallback(() => {
+    if (currentIndex < gallery.length - 1) {
+      setCurrentIndex(prev => prev + 1);
+    }
+  }, [currentIndex, gallery.length]);
 
   const handleZoomIn = useCallback(() => {
     setScale(prev => Math.min(prev + 0.5, 4));
@@ -79,34 +139,68 @@ export const ImageLightbox = memo(({
     setRotation(prev => (prev + 90) % 360);
   }, []);
 
-  // Touch handlers for swipe-to-close
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (scale === 1) {
-      setStartY(e.touches[0].clientY);
-      setIsDragging(true);
+  const handleDownloadCurrent = useCallback(() => {
+    if (onDownload && currentImage) {
+      onDownload(currentImage.src);
     }
+  }, [onDownload, currentImage]);
+
+  // Touch handlers for swipe gestures
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (scale !== 1) return; // Disable swipe when zoomed
+    
+    setTouchStart({
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY
+    });
+    setIsDragging(true);
+    setDragDirection(null);
   }, [scale]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (startY !== null && isDragging && scale === 1) {
-      const currentY = e.touches[0].clientY;
-      const diff = currentY - startY;
-      // Only allow dragging down
-      if (diff > 0) {
-        setTranslateY(diff);
+    if (!touchStart || !isDragging || scale !== 1) return;
+    
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+    const diffX = currentX - touchStart.x;
+    const diffY = currentY - touchStart.y;
+
+    // Determine drag direction on first significant movement
+    if (!dragDirection) {
+      if (Math.abs(diffX) > 10 || Math.abs(diffY) > 10) {
+        setDragDirection(Math.abs(diffX) > Math.abs(diffY) ? 'horizontal' : 'vertical');
       }
+      return;
     }
-  }, [startY, isDragging, scale]);
+
+    if (dragDirection === 'horizontal' && hasMultipleImages) {
+      // Horizontal swipe for gallery navigation
+      setTranslateX(diffX);
+    } else if (dragDirection === 'vertical' && diffY > 0) {
+      // Vertical swipe down to close
+      setTranslateY(diffY);
+    }
+  }, [touchStart, isDragging, scale, dragDirection, hasMultipleImages]);
 
   const handleTouchEnd = useCallback(() => {
-    if (translateY > 100) {
-      // Close if dragged more than 100px
+    const threshold = 80;
+
+    if (dragDirection === 'horizontal' && hasMultipleImages) {
+      if (translateX > threshold && currentIndex > 0) {
+        goToPrevious();
+      } else if (translateX < -threshold && currentIndex < gallery.length - 1) {
+        goToNext();
+      }
+    } else if (dragDirection === 'vertical' && translateY > 100) {
       onClose();
     }
-    setStartY(null);
+
+    setTouchStart(null);
+    setTranslateX(0);
     setTranslateY(0);
     setIsDragging(false);
-  }, [translateY, onClose]);
+    setDragDirection(null);
+  }, [dragDirection, translateX, translateY, hasMultipleImages, currentIndex, gallery.length, goToPrevious, goToNext, onClose]);
 
   // Handle backdrop click
   const handleBackdropClick = useCallback((e: React.MouseEvent) => {
@@ -134,9 +228,10 @@ export const ImageLightbox = memo(({
     setLastTap(now);
   }, [lastTap]);
 
-  if (!isOpen) return null;
+  if (!isOpen || gallery.length === 0) return null;
 
   const opacity = Math.max(0, 1 - translateY / 200);
+  const normalizedSrc = currentImage?.src?.replace(/^http:\/\//i, 'https://') || '';
 
   const lightboxContent = (
     <div
@@ -181,13 +276,20 @@ export const ImageLightbox = memo(({
           </Button>
         </div>
 
+        {/* Image counter */}
+        {hasMultipleImages && (
+          <div className="absolute left-1/2 -translate-x-1/2 text-white text-sm font-medium bg-black/30 px-3 py-1 rounded-full">
+            {currentIndex + 1} / {gallery.length}
+          </div>
+        )}
+
         <div className="flex items-center gap-2">
           {onDownload && (
             <Button
               variant="ghost"
               size="icon"
               className="h-10 w-10 text-white hover:bg-white/20"
-              onClick={onDownload}
+              onClick={handleDownloadCurrent}
               disabled={downloadLoading}
             >
               {downloadLoading ? (
@@ -208,6 +310,38 @@ export const ImageLightbox = memo(({
         </div>
       </div>
 
+      {/* Navigation arrows (desktop & tablet) */}
+      {hasMultipleImages && (
+        <>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "absolute left-2 top-1/2 -translate-y-1/2 z-10 h-12 w-12 text-white hover:bg-white/20 transition-opacity",
+              "hidden sm:flex",
+              currentIndex === 0 && "opacity-30 cursor-not-allowed"
+            )}
+            onClick={goToPrevious}
+            disabled={currentIndex === 0}
+          >
+            <ChevronLeft className="h-8 w-8" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "absolute right-2 top-1/2 -translate-y-1/2 z-10 h-12 w-12 text-white hover:bg-white/20 transition-opacity",
+              "hidden sm:flex",
+              currentIndex === gallery.length - 1 && "opacity-30 cursor-not-allowed"
+            )}
+            onClick={goToNext}
+            disabled={currentIndex === gallery.length - 1}
+          >
+            <ChevronRight className="h-8 w-8" />
+          </Button>
+        </>
+      )}
+
       {/* Image container */}
       <div
         className={cn(
@@ -215,7 +349,7 @@ export const ImageLightbox = memo(({
           isDragging ? "transition-none" : "transition-transform duration-200"
         )}
         style={{
-          transform: `translateY(${translateY}px) scale(${scale}) rotate(${rotation}deg)`,
+          transform: `translateX(${translateX}px) translateY(${translateY}px) scale(${scale}) rotate(${rotation}deg)`,
         }}
         onClick={handleDoubleTap}
       >
@@ -230,14 +364,14 @@ export const ImageLightbox = memo(({
         {hasError && (
           <div className="text-white text-center p-4">
             <p className="text-lg mb-2">Не удалось загрузить изображение</p>
-            <p className="text-sm text-white/70">{alt}</p>
+            <p className="text-sm text-white/70">{currentImage?.alt}</p>
           </div>
         )}
 
         {/* Image */}
         <img
-          src={src?.replace(/^http:\/\//i, 'https://') || ''}
-          alt={alt}
+          src={normalizedSrc}
+          alt={currentImage?.alt || ''}
           className={cn(
             "max-w-full max-h-[calc(100vh-8rem)] object-contain select-none",
             "touch-manipulation",
@@ -254,14 +388,42 @@ export const ImageLightbox = memo(({
         />
       </div>
 
-      {/* Swipe hint for mobile */}
-      <div className="absolute bottom-6 left-0 right-0 text-center text-white/50 text-xs pointer-events-none">
-        Проведите вниз чтобы закрыть
+      {/* Thumbnail strip for gallery */}
+      {hasMultipleImages && (
+        <div className="absolute bottom-16 left-0 right-0 flex justify-center gap-2 px-4 overflow-x-auto">
+          {gallery.map((img, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentIndex(idx)}
+              className={cn(
+                "w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all",
+                idx === currentIndex 
+                  ? "border-white opacity-100 scale-110" 
+                  : "border-transparent opacity-50 hover:opacity-75"
+              )}
+            >
+              <img
+                src={img.src?.replace(/^http:\/\//i, 'https://') || ''}
+                alt={img.alt}
+                className="w-full h-full object-cover"
+                crossOrigin="anonymous"
+                referrerPolicy="no-referrer"
+              />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Swipe hints for mobile */}
+      <div className="absolute bottom-4 left-0 right-0 text-center text-white/50 text-xs pointer-events-none">
+        {hasMultipleImages 
+          ? "Свайп влево/вправо — листать • Вниз — закрыть"
+          : "Проведите вниз чтобы закрыть"
+        }
       </div>
     </div>
   );
 
-  // Render portal at document body to avoid z-index issues
   return createPortal(lightboxContent, document.body);
 });
 

@@ -6,6 +6,7 @@ import { useWhatsAppFile } from '@/hooks/useWhatsAppFile';
 import { useAudioTranscription } from '@/hooks/useAudioTranscription';
 import { PDFViewer } from '@/components/PDFViewer';
 import { ImageLightbox } from './ImageLightbox';
+import { useChatGallery } from './ChatGalleryContext';
 
 interface AttachedFileProps {
   url: string;
@@ -16,9 +17,12 @@ interface AttachedFileProps {
   chatId?: string;
   messageId?: string;
   onRemove?: () => void;
+  /** Unique ID for gallery registration */
+  galleryId?: string;
 }
 
-export const AttachedFile = ({ url, name, type, size, className, chatId, messageId, onRemove }: AttachedFileProps) => {
+export const AttachedFile = ({ url, name, type, size, className, chatId, messageId, onRemove, galleryId }: AttachedFileProps) => {
+  const gallery = useChatGallery();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -282,10 +286,24 @@ export const AttachedFile = ({ url, name, type, size, className, chatId, message
 
   if (type.startsWith('image/')) {
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const imageId = galleryId || messageId || `image-${url}`;
+    
+    // Register image with gallery context if available
+    useEffect(() => {
+      if (gallery && realUrl) {
+        gallery.registerImage(imageId, { src: realUrl, alt: name });
+        return () => gallery.unregisterImage(imageId);
+      }
+    }, [gallery, imageId, realUrl, name]);
     
     const handleOpenLightbox = useCallback(() => {
-      setIsLightboxOpen(true);
-    }, []);
+      // If gallery context is available, use it for multi-image navigation
+      if (gallery) {
+        gallery.openGallery(imageId);
+      } else {
+        setIsLightboxOpen(true);
+      }
+    }, [gallery, imageId]);
     
     const handleCloseLightbox = useCallback(() => {
       setIsLightboxOpen(false);
@@ -359,15 +377,17 @@ export const AttachedFile = ({ url, name, type, size, className, chatId, message
           </div>
         </Card>
         
-        {/* Mobile-friendly fullscreen lightbox */}
-        <ImageLightbox
-          src={realUrl}
-          alt={name}
-          isOpen={isLightboxOpen}
-          onClose={handleCloseLightbox}
-          onDownload={handleDownload}
-          downloadLoading={downloadLoading}
-        />
+        {/* Fallback lightbox when not using gallery context */}
+        {!gallery && (
+          <ImageLightbox
+            src={realUrl}
+            alt={name}
+            isOpen={isLightboxOpen}
+            onClose={handleCloseLightbox}
+            onDownload={handleDownload}
+            downloadLoading={downloadLoading}
+          />
+        )}
       </>
     );
   }

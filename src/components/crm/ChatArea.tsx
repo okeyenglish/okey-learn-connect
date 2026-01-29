@@ -30,6 +30,7 @@ import { ForwardMessageModal } from "./ForwardMessageModal";
 import { QuickResponsesModal } from "./QuickResponsesModal";
 import { FileUpload, FileUploadRef } from "./FileUpload";
 import { AttachedFile } from "./AttachedFile";
+import { ChatGalleryProvider } from "./ChatGalleryContext";
 import { InlinePendingGPTResponse } from "./InlinePendingGPTResponse";
 import { TextFormatToolbar } from "./TextFormatToolbar";
 import { CallHistory } from "./CallHistory";
@@ -1939,32 +1940,33 @@ export const ChatArea = ({
   const isLastMessageIncoming = lastMessage ? lastMessage.type === 'client' : false;
 
   return (
-    <div 
-      className="flex-1 bg-background flex flex-col min-w-0 min-h-0 relative"
-      onDragOver={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDragOver(true);
-      }}
-      onDragLeave={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+    <ChatGalleryProvider>
+      <div 
+        className="flex-1 bg-background flex flex-col min-w-0 min-h-0 relative"
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragOver(true);
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setIsDragOver(false);
+          }
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
           setIsDragOver(false);
-        }
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDragOver(false);
-        
-        const files = Array.from(e.dataTransfer.files);
-        if (files.length > 0 && fileUploadRef.current) {
-          console.log('File dropped, uploading:', files.map(f => f.name));
-          fileUploadRef.current.uploadFiles(files);
-        }
-      }}
-    >
+          
+          const files = Array.from(e.dataTransfer.files);
+          if (files.length > 0 && fileUploadRef.current) {
+            console.log('File dropped, uploading:', files.map(f => f.name));
+            fileUploadRef.current.uploadFiles(files);
+          }
+        }}
+      >
       {/* Chat Header */}
       <div className={`border-b shrink-0 relative ${isMobile ? 'bg-background' : 'p-3'}`}>
         {/* Mobile: Compact header with contact info and actions on the same line */}
@@ -3503,6 +3505,7 @@ export const ChatArea = ({
         onDecline={() => respondToRequest(false)}
       />
 
-    </div>
+      </div>
+    </ChatGalleryProvider>
   );
 };

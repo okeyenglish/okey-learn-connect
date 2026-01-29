@@ -6,6 +6,7 @@ import { useWhatsAppFile } from '@/hooks/useWhatsAppFile';
 import { useAudioTranscription } from '@/hooks/useAudioTranscription';
 import { LazyImage } from './LazyImage';
 import { ImageLightbox } from './ImageLightbox';
+import { useChatGallery } from './ChatGalleryContext';
 
 // Lazy load PDF viewer - it's heavy
 const PDFViewer = lazy(() => import('@/components/PDFViewer').then(m => ({ default: m.PDFViewer })));
@@ -18,6 +19,8 @@ interface OptimizedAttachedFileProps {
   className?: string;
   chatId?: string;
   messageId?: string;
+  /** Unique ID for gallery registration */
+  galleryId?: string;
 }
 
 /**
@@ -35,8 +38,10 @@ export const OptimizedAttachedFile = memo(({
   size, 
   className, 
   chatId, 
-  messageId 
+  messageId,
+  galleryId
 }: OptimizedAttachedFileProps) => {
+  const gallery = useChatGallery();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -283,10 +288,24 @@ export const OptimizedAttachedFile = memo(({
   // Optimized image with lazy loading and mobile-friendly lightbox
   if (type.startsWith('image/')) {
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const imageId = galleryId || messageId || `image-${url}`;
+    
+    // Register image with gallery context if available
+    useEffect(() => {
+      if (gallery && realUrl) {
+        gallery.registerImage(imageId, { src: realUrl, alt: name });
+        return () => gallery.unregisterImage(imageId);
+      }
+    }, [gallery, imageId, realUrl, name]);
     
     const handleOpenLightbox = useCallback(() => {
-      setIsLightboxOpen(true);
-    }, []);
+      // If gallery context is available, use it for multi-image navigation
+      if (gallery) {
+        gallery.openGallery(imageId);
+      } else {
+        setIsLightboxOpen(true);
+      }
+    }, [gallery, imageId]);
     
     const handleCloseLightbox = useCallback(() => {
       setIsLightboxOpen(false);
@@ -352,15 +371,17 @@ export const OptimizedAttachedFile = memo(({
           </div>
         </Card>
         
-        {/* Mobile-friendly fullscreen lightbox */}
-        <ImageLightbox
-          src={realUrl}
-          alt={name}
-          isOpen={isLightboxOpen}
-          onClose={handleCloseLightbox}
-          onDownload={handleDownload}
-          downloadLoading={downloadLoading}
-        />
+        {/* Fallback lightbox when not using gallery context */}
+        {!gallery && (
+          <ImageLightbox
+            src={realUrl}
+            alt={name}
+            isOpen={isLightboxOpen}
+            onClose={handleCloseLightbox}
+            onDownload={handleDownload}
+            downloadLoading={downloadLoading}
+          />
+        )}
       </>
     );
   }
