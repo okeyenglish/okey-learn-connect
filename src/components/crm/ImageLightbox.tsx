@@ -92,6 +92,7 @@ export const ImageLightbox = memo(({
   const [isAnimatingSnapBack, setIsAnimatingSnapBack] = useState(false);
   const [isMomentumAnimating, setIsMomentumAnimating] = useState(false);
   const lastPanPosition = useRef<{ x: number; y: number } | null>(null);
+  const rawPanOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 }); // Unclamped offset for rubber band
   const velocityRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const lastTouchTimeRef = useRef<number>(0);
   const momentumAnimationRef = useRef<number | null>(null);
@@ -103,33 +104,71 @@ export const ImageLightbox = memo(({
   const isZoomed = scale > 1;
 
   /**
+   * Get pan bounds for image at current scale
+   */
+  const getPanBounds = useCallback((currentScale: number): { maxX: number; maxY: number } => {
+    if (currentScale <= 1) return { maxX: 0, maxY: 0 };
+    
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const imageWidth = Math.min(viewportWidth - 32, 800);
+    const imageHeight = Math.min(viewportHeight - 128, 600);
+    const scaledWidth = imageWidth * currentScale;
+    const scaledHeight = imageHeight * currentScale;
+    
+    return {
+      maxX: Math.max(0, (scaledWidth - viewportWidth) / 2),
+      maxY: Math.max(0, (scaledHeight - viewportHeight) / 2),
+    };
+  }, []);
+
+  /**
    * Clamp pan offset to keep image within screen bounds
    * Returns the constrained offset values
    */
   const clampPanOffset = useCallback((offsetX: number, offsetY: number, currentScale: number): { x: number; y: number } => {
     if (currentScale <= 1) return { x: 0, y: 0 };
     
-    // Get viewport dimensions
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    
-    // Estimate image dimensions (use container or default)
-    const imageWidth = Math.min(viewportWidth - 32, 800); // accounting for padding
-    const imageHeight = Math.min(viewportHeight - 128, 600); // accounting for toolbars
-    
-    // Calculate how much the image extends beyond viewport when scaled
-    const scaledWidth = imageWidth * currentScale;
-    const scaledHeight = imageHeight * currentScale;
-    
-    // Maximum pan distance is half the overflow on each side
-    const maxPanX = Math.max(0, (scaledWidth - viewportWidth) / 2);
-    const maxPanY = Math.max(0, (scaledHeight - viewportHeight) / 2);
+    const { maxX, maxY } = getPanBounds(currentScale);
     
     return {
-      x: Math.max(-maxPanX, Math.min(maxPanX, offsetX)),
-      y: Math.max(-maxPanY, Math.min(maxPanY, offsetY)),
+      x: Math.max(-maxX, Math.min(maxX, offsetX)),
+      y: Math.max(-maxY, Math.min(maxY, offsetY)),
     };
-  }, []);
+  }, [getPanBounds]);
+
+  /**
+   * Apply rubber band effect - allows going beyond bounds with resistance
+   * Returns position with rubber band applied
+   */
+  const applyRubberBand = useCallback((offsetX: number, offsetY: number, currentScale: number): { x: number; y: number } => {
+    if (currentScale <= 1) return { x: 0, y: 0 };
+    
+    const { maxX, maxY } = getPanBounds(currentScale);
+    const rubberBandFactor = 0.3; // How much resistance (lower = more resistance)
+    
+    let x = offsetX;
+    let y = offsetY;
+    
+    // Apply rubber band effect when beyond bounds
+    if (offsetX > maxX) {
+      const overflow = offsetX - maxX;
+      x = maxX + overflow * rubberBandFactor;
+    } else if (offsetX < -maxX) {
+      const overflow = -maxX - offsetX;
+      x = -maxX - overflow * rubberBandFactor;
+    }
+    
+    if (offsetY > maxY) {
+      const overflow = offsetY - maxY;
+      y = maxY + overflow * rubberBandFactor;
+    } else if (offsetY < -maxY) {
+      const overflow = -maxY - offsetY;
+      y = -maxY - overflow * rubberBandFactor;
+    }
+    
+    return { x, y };
+  }, [getPanBounds]);
 
   // Reset state when opening or changing image
   useEffect(() => {
@@ -158,6 +197,7 @@ export const ImageLightbox = memo(({
     setScale(1);
     setRotation(0);
     setPanOffset({ x: 0, y: 0 });
+    rawPanOffsetRef.current = { x: 0, y: 0 };
     setIsMomentumAnimating(false);
     velocityRef.current = { x: 0, y: 0 };
     if (momentumAnimationRef.current) {
@@ -253,6 +293,8 @@ export const ImageLightbox = memo(({
       // If zoomed, start panning
       if (isZoomed) {
         lastPanPosition.current = { x: touch.clientX, y: touch.clientY };
+        // Initialize raw offset from current clamped position
+        rawPanOffsetRef.current = { ...panOffset };
         return;
       }
       
@@ -297,12 +339,15 @@ export const ImageLightbox = memo(({
       }
       lastTouchTimeRef.current = now;
       
-      setPanOffset(prev => {
-        const newX = prev.x + deltaX;
-        const newY = prev.y + deltaY;
-        // Apply clamping to keep image in bounds
-        return clampPanOffset(newX, newY, scale);
-      });
+      // Update raw offset (unclamped) and apply rubber band effect
+      rawPanOffsetRef.current = {
+        x: rawPanOffsetRef.current.x + deltaX,
+        y: rawPanOffsetRef.current.y + deltaY,
+      };
+      
+      // Apply rubber band effect for visual feedback
+      const rubberBandOffset = applyRubberBand(rawPanOffsetRef.current.x, rawPanOffsetRef.current.y, scale);
+      setPanOffset(rubberBandOffset);
       
       lastPanPosition.current = { x: touch.clientX, y: touch.clientY };
       return;
@@ -331,7 +376,7 @@ export const ImageLightbox = memo(({
       // Vertical swipe down to close
       setTranslateY(diffY);
     }
-  }, [touchStart, isDragging, dragDirection, hasMultipleImages, isPinching, isZoomed, scale, clampPanOffset]);
+  }, [touchStart, isDragging, dragDirection, hasMultipleImages, isPinching, isZoomed, scale, applyRubberBand]);
 
   const handleTouchEnd = useCallback(() => {
     // End pinch
@@ -339,18 +384,19 @@ export const ImageLightbox = memo(({
       setIsPinching(false);
       initialPinchDistance.current = null;
       
-      // Reset pan offset if scale is back to 1, otherwise clamp to bounds with animation
+      // Reset pan offset if scale is back to 1, otherwise snap back with animation
       if (scale <= 1) {
         setIsAnimatingSnapBack(true);
         setPanOffset({ x: 0, y: 0 });
+        rawPanOffsetRef.current = { x: 0, y: 0 };
         setScale(1);
         setTimeout(() => setIsAnimatingSnapBack(false), 300);
       } else {
-        // Clamp pan offset after pinch ends with smooth animation
-        const currentOffset = panOffset;
-        const clampedOffset = clampPanOffset(currentOffset.x, currentOffset.y, scale);
+        // Snap back to clamped position with smooth animation
+        const clampedOffset = clampPanOffset(rawPanOffsetRef.current.x, rawPanOffsetRef.current.y, scale);
+        rawPanOffsetRef.current = clampedOffset;
         
-        // Only animate if position changed (was out of bounds)
+        const currentOffset = panOffset;
         if (clampedOffset.x !== currentOffset.x || clampedOffset.y !== currentOffset.y) {
           setIsAnimatingSnapBack(true);
           setPanOffset(clampedOffset);
@@ -360,7 +406,7 @@ export const ImageLightbox = memo(({
       return;
     }
     
-    // End panning - apply momentum scrolling
+    // End panning - apply momentum scrolling or snap back
     if (isZoomed) {
       lastPanPosition.current = null;
       
@@ -377,7 +423,8 @@ export const ImageLightbox = memo(({
         }
         
         let currentVelocity = { ...velocity };
-        const friction = 0.95; // Deceleration factor
+        let rawOffset = { ...rawPanOffsetRef.current };
+        const friction = 0.95;
         const minVelocity = 0.1;
         
         const animate = () => {
@@ -391,9 +438,11 @@ export const ImageLightbox = memo(({
             setIsMomentumAnimating(false);
             velocityRef.current = { x: 0, y: 0 };
             
-            // Final snap-back check
+            // Final snap-back to clamped position
+            const clamped = clampPanOffset(rawOffset.x, rawOffset.y, scale);
+            rawPanOffsetRef.current = clamped;
+            
             setPanOffset(prev => {
-              const clamped = clampPanOffset(prev.x, prev.y, scale);
               if (clamped.x !== prev.x || clamped.y !== prev.y) {
                 setIsAnimatingSnapBack(true);
                 setTimeout(() => setIsAnimatingSnapBack(false), 300);
@@ -403,28 +452,36 @@ export const ImageLightbox = memo(({
             return;
           }
           
-          // Update position
-          setPanOffset(prev => {
-            const newX = prev.x + currentVelocity.x;
-            const newY = prev.y + currentVelocity.y;
-            const clamped = clampPanOffset(newX, newY, scale);
-            
-            // Reduce velocity if hitting bounds
-            if (clamped.x !== newX) currentVelocity.x *= 0.3;
-            if (clamped.y !== newY) currentVelocity.y *= 0.3;
-            
-            return clamped;
-          });
+          // Update raw position
+          rawOffset.x += currentVelocity.x;
+          rawOffset.y += currentVelocity.y;
+          
+          // Clamp for display
+          const clamped = clampPanOffset(rawOffset.x, rawOffset.y, scale);
+          
+          // Reduce velocity when hitting bounds
+          if (clamped.x !== rawOffset.x) {
+            currentVelocity.x *= 0.3;
+            rawOffset.x = clamped.x; // Reset to bounds
+          }
+          if (clamped.y !== rawOffset.y) {
+            currentVelocity.y *= 0.3;
+            rawOffset.y = clamped.y;
+          }
+          
+          setPanOffset(clamped);
+          rawPanOffsetRef.current = rawOffset;
           
           momentumAnimationRef.current = requestAnimationFrame(animate);
         };
         
         momentumAnimationRef.current = requestAnimationFrame(animate);
       } else {
-        // No momentum - just snap back if needed
-        const currentOffset = panOffset;
-        const clampedOffset = clampPanOffset(currentOffset.x, currentOffset.y, scale);
+        // No momentum - snap back from rubber band position
+        const clampedOffset = clampPanOffset(rawPanOffsetRef.current.x, rawPanOffsetRef.current.y, scale);
+        rawPanOffsetRef.current = clampedOffset;
         
+        const currentOffset = panOffset;
         if (clampedOffset.x !== currentOffset.x || clampedOffset.y !== currentOffset.y) {
           setIsAnimatingSnapBack(true);
           setPanOffset(clampedOffset);
