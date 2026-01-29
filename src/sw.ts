@@ -27,6 +27,54 @@ precacheAndRoute(Array.isArray(wbManifest) ? wbManifest : []);
 // Clean up old caches
 cleanupOutdatedCaches();
 
+// ============= IMAGE CACHING FOR OFFLINE =============
+const IMAGE_CACHE_NAME = 'chat-images-v1';
+
+// Intercept image requests and serve from cache if available
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  
+  // Only handle image requests
+  const isImage = 
+    event.request.destination === 'image' ||
+    /\.(jpg|jpeg|png|gif|webp|svg|bmp)(\?.*)?$/i.test(url.pathname);
+  
+  // Skip non-image requests and same-origin requests (handled by Workbox)
+  if (!isImage || url.origin === self.location.origin) {
+    return;
+  }
+
+  event.respondWith(
+    caches.open(IMAGE_CACHE_NAME).then(async (cache) => {
+      // Try cache first
+      const cachedResponse = await cache.match(event.request);
+      if (cachedResponse) {
+        console.log('[SW] Image cache hit:', url.pathname.substring(0, 50));
+        return cachedResponse;
+      }
+
+      // If not in cache, try network
+      try {
+        const networkResponse = await fetch(event.request);
+        // Don't cache error responses
+        if (networkResponse.ok) {
+          // Cache the response for future use
+          cache.put(event.request, networkResponse.clone());
+          console.log('[SW] Image cached from network:', url.pathname.substring(0, 50));
+        }
+        return networkResponse;
+      } catch (error) {
+        console.warn('[SW] Image fetch failed:', url.pathname.substring(0, 50), error);
+        // Return a placeholder or error response
+        return new Response('Image not available offline', { 
+          status: 503, 
+          statusText: 'Service Unavailable' 
+        });
+      }
+    })
+  );
+});
+
 // ============= PUSH NOTIFICATIONS =============
 
 // Types for push notification data

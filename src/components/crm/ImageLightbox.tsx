@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, memo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Download, ZoomIn, ZoomOut, RotateCw, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Download, ZoomIn, ZoomOut, RotateCw, Loader2, ChevronLeft, ChevronRight, CloudOff, Cloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useImageGalleryCache } from '@/hooks/useImageCache';
 
 export interface GalleryImage {
   src: string;
@@ -45,6 +46,16 @@ export const ImageLightbox = memo(({
   // Convert single image to gallery format
   const gallery: GalleryImage[] = images || (src ? [{ src, alt: alt || '' }] : []);
   
+  // Image caching for offline viewing
+  const galleryUrls = gallery.map(img => img.src).filter(Boolean);
+  const { 
+    cachedCount, 
+    totalCount, 
+    isPreloading, 
+    preloadAll, 
+    getCachedUrl 
+  } = useImageGalleryCache(galleryUrls);
+  
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -60,6 +71,7 @@ export const ImageLightbox = memo(({
 
   const currentImage = gallery[currentIndex];
   const hasMultipleImages = gallery.length > 1;
+  const allCached = cachedCount === totalCount && totalCount > 0;
 
   // Reset state when opening or changing image
   useEffect(() => {
@@ -231,7 +243,9 @@ export const ImageLightbox = memo(({
   if (!isOpen || gallery.length === 0) return null;
 
   const opacity = Math.max(0, 1 - translateY / 200);
-  const normalizedSrc = currentImage?.src?.replace(/^http:\/\//i, 'https://') || '';
+  const originalSrc = currentImage?.src?.replace(/^http:\/\//i, 'https://') || '';
+  // Use cached URL if available
+  const normalizedSrc = getCachedUrl(originalSrc) || originalSrc;
 
   const lightboxContent = (
     <div
@@ -284,6 +298,32 @@ export const ImageLightbox = memo(({
         )}
 
         <div className="flex items-center gap-2">
+          {/* Cache button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "h-10 w-10 text-white hover:bg-white/20 relative",
+              allCached && "text-green-400"
+            )}
+            onClick={preloadAll}
+            disabled={isPreloading || allCached}
+            title={allCached ? "Все изображения сохранены" : "Сохранить для офлайн"}
+          >
+            {isPreloading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : allCached ? (
+              <Cloud className="h-5 w-5" />
+            ) : (
+              <CloudOff className="h-5 w-5" />
+            )}
+            {totalCount > 1 && !allCached && (
+              <span className="absolute -bottom-1 -right-1 text-[10px] bg-white/20 rounded-full px-1">
+                {cachedCount}/{totalCount}
+              </span>
+            )}
+          </Button>
+          
           {onDownload && (
             <Button
               variant="ghost"
