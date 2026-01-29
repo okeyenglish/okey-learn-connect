@@ -24,6 +24,243 @@ interface SendPushRequest {
   payload: PushPayload;
 }
 
+interface PushSubscription {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  keys: { p256dh?: string; auth?: string; device_token?: string } | null;
+  device_token?: string;
+  subscription_type?: 'web' | 'fcm' | 'apns';
+  user_agent?: string;
+  updated_at?: string;
+}
+
+// ============= FCM (Firebase Cloud Messaging) for Native Push =============
+
+interface FCMMessage {
+  message: {
+    token: string;
+    notification: {
+      title: string;
+      body: string;
+    };
+    data?: Record<string, string>;
+    android?: {
+      priority: 'high' | 'normal';
+      notification: {
+        icon?: string;
+        color?: string;
+        sound?: string;
+        tag?: string;
+        click_action?: string;
+      };
+    };
+    apns?: {
+      headers: {
+        'apns-priority': string;
+      };
+      payload: {
+        aps: {
+          alert: {
+            title: string;
+            body: string;
+          };
+          sound?: string;
+          badge?: number;
+          'thread-id'?: string;
+          'mutable-content'?: number;
+        };
+      };
+    };
+  };
+}
+
+/**
+ * Get OAuth2 access token for Firebase using service account
+ */
+async function getFirebaseAccessToken(serviceAccount: {
+  client_email: string;
+  private_key: string;
+  token_uri?: string;
+}): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const exp = now + 3600; // 1 hour
+
+  // JWT header
+  const header = { alg: 'RS256', typ: 'JWT' };
+  
+  // JWT claims
+  const claims = {
+    iss: serviceAccount.client_email,
+    sub: serviceAccount.client_email,
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: exp,
+    scope: 'https://www.googleapis.com/auth/firebase.messaging',
+  };
+
+  // Encode header and claims
+  const encoder = new TextEncoder();
+  const headerB64 = btoa(JSON.stringify(header)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  const claimsB64 = btoa(JSON.stringify(claims)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  const unsignedToken = `${headerB64}.${claimsB64}`;
+
+  // Import private key and sign
+  const privateKeyPem = serviceAccount.private_key;
+  const pemHeader = '-----BEGIN PRIVATE KEY-----';
+  const pemFooter = '-----END PRIVATE KEY-----';
+  const pemContents = privateKeyPem
+    .replace(pemHeader, '')
+    .replace(pemFooter, '')
+    .replace(/\s/g, '');
+  
+  const binaryKey = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+  
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    binaryKey,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5',
+    cryptoKey,
+    encoder.encode(unsignedToken)
+  );
+
+  const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+
+  const jwt = `${unsignedToken}.${signatureB64}`;
+
+  // Exchange JWT for access token
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: jwt,
+    }),
+  });
+
+  if (!tokenResponse.ok) {
+    const errorText = await tokenResponse.text();
+    throw new Error(`Failed to get Firebase access token: ${errorText}`);
+  }
+
+  const tokenData = await tokenResponse.json();
+  return tokenData.access_token;
+}
+
+/**
+ * Send push notification via Firebase Cloud Messaging (FCM) HTTP v1 API
+ */
+async function sendFCMPush(
+  deviceToken: string,
+  payload: PushPayload,
+  subscriptionType: 'fcm' | 'apns',
+  firebaseProjectId: string,
+  accessToken: string
+): Promise<{ success: boolean; error?: string; statusCode?: number }> {
+  const logPrefix = `[FCM:${subscriptionType}]`;
+  
+  try {
+    console.log(`${logPrefix} Sending to token: ${deviceToken.substring(0, 30)}...`);
+    
+    // Convert payload data to string values (FCM requires string values in data)
+    const dataPayload: Record<string, string> = {};
+    if (payload.url) dataPayload.url = payload.url;
+    if (payload.tag) dataPayload.tag = payload.tag;
+    if (payload.data) {
+      Object.entries(payload.data).forEach(([key, value]) => {
+        dataPayload[key] = typeof value === 'string' ? value : JSON.stringify(value);
+      });
+    }
+
+    const fcmMessage: FCMMessage = {
+      message: {
+        token: deviceToken,
+        notification: {
+          title: payload.title,
+          body: payload.body || '',
+        },
+        data: Object.keys(dataPayload).length > 0 ? dataPayload : undefined,
+        android: {
+          priority: 'high',
+          notification: {
+            icon: payload.icon || 'ic_notification',
+            color: '#4F46E5',
+            sound: 'default',
+            tag: payload.tag,
+            click_action: 'FLUTTER_NOTIFICATION_CLICK',
+          },
+        },
+        apns: {
+          headers: {
+            'apns-priority': '10',
+          },
+          payload: {
+            aps: {
+              alert: {
+                title: payload.title,
+                body: payload.body || '',
+              },
+              sound: 'default',
+              badge: 1,
+              'thread-id': payload.tag,
+              'mutable-content': 1,
+            },
+          },
+        },
+      },
+    };
+
+    const fcmUrl = `https://fcm.googleapis.com/v1/projects/${firebaseProjectId}/messages:send`;
+    
+    const response = await fetch(fcmUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(fcmMessage),
+    });
+
+    console.log(`${logPrefix} Response status: ${response.status}`);
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log(`${logPrefix} ✅ Successfully sent, message name: ${result.name}`);
+      return { success: true, statusCode: response.status };
+    }
+
+    const errorData = await response.json();
+    console.error(`${logPrefix} ❌ FCM error:`, JSON.stringify(errorData));
+
+    // Handle specific FCM error codes
+    const fcmError = errorData.error;
+    if (fcmError) {
+      const errorCode = fcmError.details?.[0]?.errorCode || fcmError.code;
+      
+      // Token expired or invalid
+      if (errorCode === 'UNREGISTERED' || errorCode === 'INVALID_ARGUMENT') {
+        console.warn(`${logPrefix} Token is invalid/expired`);
+        return { success: false, error: 'subscription_expired', statusCode: response.status };
+      }
+    }
+
+    return { success: false, error: fcmError?.message || 'FCM send failed', statusCode: response.status };
+    
+  } catch (error) {
+    console.error(`${logPrefix} Exception:`, error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown FCM error' };
+  }
+}
+
 // ============= ECDH + AES-GCM Encryption for Web Push (RFC 8291) =============
 
 function base64UrlToUint8Array(base64Url: string): Uint8Array {
@@ -434,12 +671,14 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
     const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
+    const firebaseServiceAccountJson = Deno.env.get('FIREBASE_SERVICE_ACCOUNT');
 
     console.log(`[${requestId}] ENV Check:`);
     console.log(`[${requestId}]   - SUPABASE_URL: ${supabaseUrl ? '✅ set' : '❌ MISSING'}`);
     console.log(`[${requestId}]   - SUPABASE_SERVICE_ROLE_KEY: ${supabaseServiceKey ? '✅ set (' + supabaseServiceKey.length + ' chars)' : '❌ MISSING'}`);
     console.log(`[${requestId}]   - VAPID_PUBLIC_KEY: ${vapidPublicKey ? '✅ set (' + vapidPublicKey.length + ' chars)' : '❌ MISSING'}`);
     console.log(`[${requestId}]   - VAPID_PRIVATE_KEY: ${vapidPrivateKey ? '✅ set (' + vapidPrivateKey.length + ' chars)' : '❌ MISSING'}`);
+    console.log(`[${requestId}]   - FIREBASE_SERVICE_ACCOUNT: ${firebaseServiceAccountJson ? '✅ set' : '⚠️ not set (FCM disabled)'}`);
 
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error(`[${requestId}] ❌ FATAL: Missing Supabase configuration`);
@@ -449,6 +688,24 @@ Deno.serve(async (req) => {
     if (!vapidPublicKey || !vapidPrivateKey) {
       console.error(`[${requestId}] ❌ FATAL: Missing VAPID keys`);
       throw new Error('Missing VAPID keys - please configure VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY secrets');
+    }
+
+    // Parse Firebase service account if available
+    let firebaseServiceAccount: { client_email: string; private_key: string; project_id: string } | null = null;
+    let firebaseAccessToken: string | null = null;
+    
+    if (firebaseServiceAccountJson) {
+      try {
+        firebaseServiceAccount = JSON.parse(firebaseServiceAccountJson);
+        console.log(`[${requestId}]   - Firebase project: ${firebaseServiceAccount?.project_id || 'unknown'}`);
+        
+        // Get Firebase access token
+        console.log(`[${requestId}] Getting Firebase access token...`);
+        firebaseAccessToken = await getFirebaseAccessToken(firebaseServiceAccount!);
+        console.log(`[${requestId}]   ✅ Firebase access token obtained`);
+      } catch (parseError) {
+        console.error(`[${requestId}] ⚠️ Failed to parse FIREBASE_SERVICE_ACCOUNT:`, parseError);
+      }
     }
 
     // VAPID diagnostic logging
@@ -534,117 +791,68 @@ Deno.serve(async (req) => {
       );
     }
 
-    // === STEP 5: Filter subscriptions for test pushes ===
-    console.log(`[${requestId}] Step 5: Filtering subscriptions...`);
+    // === STEP 5: Categorize subscriptions ===
+    console.log(`[${requestId}] Step 5: Categorizing subscriptions...`);
     
-    // For test pushes, use "fresh + fallback" strategy:
-    // 1. Sort by updated_at (freshest first)
-    // 2. Try the freshest subscription first
-    // 3. If it fails, try the next one, and so on
-    // 4. Stop at first success (or exhaust all subscriptions)
-    const isTestPush = typeof payload.tag === 'string' && payload.tag.startsWith('test-');
+    const webSubscriptions: PushSubscription[] = [];
+    const nativeSubscriptions: PushSubscription[] = [];
     
-    console.log(`[${requestId}] isTestPush: ${isTestPush}, tag: ${payload.tag}`);
-    
-    // Log detailed subscription info
-    subscriptions.forEach((sub, idx) => {
-      const keys = sub.keys as { p256dh: string; auth: string } | null;
-      const endpointHost = new URL(sub.endpoint).hostname;
+    (subscriptions as PushSubscription[]).forEach((sub, idx) => {
+      const subType = sub.subscription_type || 'web';
+      const keys = sub.keys as { p256dh?: string; auth?: string; device_token?: string } | null;
+      
       console.log(`[${requestId}] 📱 Subscription #${idx + 1}:`);
       console.log(`[${requestId}]     - ID: ${sub.id}`);
       console.log(`[${requestId}]     - User: ${sub.user_id}`);
-      console.log(`[${requestId}]     - Endpoint host: ${endpointHost}`);
-      console.log(`[${requestId}]     - Endpoint: ${sub.endpoint.substring(0, 80)}...`);
-      console.log(`[${requestId}]     - Keys present: p256dh=${!!keys?.p256dh}, auth=${!!keys?.auth}`);
-      console.log(`[${requestId}]     - User agent: ${sub.user_agent?.substring(0, 60) || 'N/A'}...`);
+      console.log(`[${requestId}]     - Type: ${subType}`);
+      
+      if (subType === 'fcm' || subType === 'apns') {
+        const deviceToken = sub.device_token || keys?.device_token;
+        console.log(`[${requestId}]     - Device token: ${deviceToken ? deviceToken.substring(0, 30) + '...' : 'N/A'}`);
+        if (deviceToken) {
+          nativeSubscriptions.push(sub);
+        } else {
+          console.warn(`[${requestId}]     ⚠️ Native subscription without device_token, skipping`);
+        }
+      } else {
+        const endpointHost = sub.endpoint ? new URL(sub.endpoint).hostname : 'unknown';
+        console.log(`[${requestId}]     - Endpoint host: ${endpointHost}`);
+        console.log(`[${requestId}]     - Keys present: p256dh=${!!keys?.p256dh}, auth=${!!keys?.auth}`);
+        webSubscriptions.push(sub);
+      }
+      
       console.log(`[${requestId}]     - Updated at: ${sub.updated_at}`);
     });
+
+    console.log(`[${requestId}] Subscription breakdown:`);
+    console.log(`[${requestId}]   - Web Push: ${webSubscriptions.length}`);
+    console.log(`[${requestId}]   - Native (FCM/APNs): ${nativeSubscriptions.length}`);
 
     // === STEP 6: Send push notifications ===
     console.log(`[${requestId}] Step 6: Sending push notifications...`);
 
-    let results: Array<{ subscriptionId: string; userId: string; success: boolean; error?: string; statusCode?: number }>;
+    const isTestPush = typeof payload.tag === 'string' && payload.tag.startsWith('test-');
+    console.log(`[${requestId}] isTestPush: ${isTestPush}, tag: ${payload.tag}`);
 
-    if (isTestPush) {
-      // === TEST PUSH: Fresh + Fallback Strategy ===
-      console.log(`[${requestId}] 🧪 Using FRESH + FALLBACK strategy for test push`);
-      
-      // Sort subscriptions by updated_at (freshest first)
-      const sortedSubs = [...subscriptions].sort((a, b) => {
-        const aTime = a.updated_at ? Date.parse(String(a.updated_at)) : 0;
-        const bTime = b.updated_at ? Date.parse(String(b.updated_at)) : 0;
-        return bTime - aTime; // Descending - freshest first
-      });
-      
-      console.log(`[${requestId}] Sorted ${sortedSubs.length} subscriptions by freshness`);
-      
-      results = [];
-      let successCount = 0;
-      
-      for (let idx = 0; idx < sortedSubs.length; idx++) {
-        const sub = sortedSubs[idx];
-        const subStartTime = Date.now();
-        const keys = sub.keys as { p256dh: string; auth: string };
-        
-        console.log(`[${requestId}] 📤 [${idx + 1}/${sortedSubs.length}] Trying subscription (user: ${sub.user_id}, updated: ${sub.updated_at})...`);
-        
-        if (!keys?.p256dh || !keys?.auth) {
-          console.error(`[${requestId}] ❌ Subscription has invalid keys, skipping...`);
-          results.push({ subscriptionId: sub.id, userId: sub.user_id, success: false, error: 'Invalid keys' });
-          continue;
-        }
-        
-        const result = await sendWebPush(
-          { endpoint: sub.endpoint, p256dh: keys.p256dh, auth: keys.auth },
-          payload,
-          vapidPublicKey,
-          vapidPrivateKey
-        );
+    const results: Array<{ subscriptionId: string; userId: string; type: string; success: boolean; error?: string; statusCode?: number }> = [];
 
-        const subDuration = Date.now() - subStartTime;
+    // === Send to Web Push subscriptions ===
+    if (webSubscriptions.length > 0) {
+      console.log(`[${requestId}] 🌐 Sending to ${webSubscriptions.length} Web Push subscriptions...`);
+      
+      if (isTestPush) {
+        // Fresh + Fallback for test push
+        const sortedSubs = [...webSubscriptions].sort((a, b) => {
+          const aTime = a.updated_at ? Date.parse(String(a.updated_at)) : 0;
+          const bTime = b.updated_at ? Date.parse(String(b.updated_at)) : 0;
+          return bTime - aTime;
+        });
         
-        if (result.success) {
-          console.log(`[${requestId}] ✅ SUCCESS on subscription #${idx + 1} (${result.statusCode}) in ${subDuration}ms`);
-          results.push({ subscriptionId: sub.id, userId: sub.user_id, ...result });
-          successCount++;
-          // Stop on first success - we don't want to spam all devices with test notifications
-          console.log(`[${requestId}] 🎯 Test push delivered successfully, stopping (fresh+fallback complete)`);
-          break;
-        } else {
-          console.error(`[${requestId}] ❌ FAILED on subscription #${idx + 1} - ${result.error} (${result.statusCode}) in ${subDuration}ms`);
-          results.push({ subscriptionId: sub.id, userId: sub.user_id, ...result });
-          
-          // Delete expired subscriptions
-          if (result.error === 'subscription_expired') {
-            console.log(`[${requestId}] 🗑️ Deleting expired subscription: ${sub.id}`);
-            await supabase
-              .from('push_subscriptions')
-              .delete()
-              .eq('id', sub.id);
-          }
-          
-          // Continue to next subscription (fallback)
-          console.log(`[${requestId}] ⏭️ Falling back to next subscription...`);
-        }
-      }
-      
-      if (successCount === 0) {
-        console.warn(`[${requestId}] ⚠️ All ${sortedSubs.length} subscriptions failed for test push`);
-      }
-    } else {
-      // === REGULAR PUSH: Send to all subscriptions in parallel ===
-      console.log(`[${requestId}] 📢 Sending to ALL ${subscriptions.length} subscriptions in parallel`);
-      
-      results = await Promise.all(
-        subscriptions.map(async (sub, idx) => {
-          const subStartTime = Date.now();
-          console.log(`[${requestId}] 📤 Sending to subscription #${idx + 1}...`);
-          
+        for (const sub of sortedSubs) {
           const keys = sub.keys as { p256dh: string; auth: string };
-          
           if (!keys?.p256dh || !keys?.auth) {
-            console.error(`[${requestId}] ❌ Subscription #${idx + 1} has invalid keys`);
-            return { subscriptionId: sub.id, userId: sub.user_id, success: false, error: 'Invalid keys' };
+            results.push({ subscriptionId: sub.id, userId: sub.user_id, type: 'web', success: false, error: 'Invalid keys' });
+            continue;
           }
           
           const result = await sendWebPush(
@@ -653,26 +861,94 @@ Deno.serve(async (req) => {
             vapidPublicKey,
             vapidPrivateKey
           );
-
-          const subDuration = Date.now() - subStartTime;
+          
+          results.push({ subscriptionId: sub.id, userId: sub.user_id, type: 'web', ...result });
           
           if (result.success) {
-            console.log(`[${requestId}] ✅ Subscription #${idx + 1}: SUCCESS (${result.statusCode}) in ${subDuration}ms`);
-          } else {
-            console.error(`[${requestId}] ❌ Subscription #${idx + 1}: FAILED - ${result.error} (${result.statusCode}) in ${subDuration}ms`);
+            console.log(`[${requestId}] ✅ Web push delivered, stopping test`);
+            break;
+          }
+          
+          if (result.error === 'subscription_expired') {
+            await supabase.from('push_subscriptions').delete().eq('id', sub.id);
+          }
+        }
+      } else {
+        // Send to all in parallel
+        const webResults = await Promise.all(
+          webSubscriptions.map(async (sub) => {
+            const keys = sub.keys as { p256dh: string; auth: string };
+            if (!keys?.p256dh || !keys?.auth) {
+              return { subscriptionId: sub.id, userId: sub.user_id, type: 'web', success: false, error: 'Invalid keys' };
+            }
+            
+            const result = await sendWebPush(
+              { endpoint: sub.endpoint, p256dh: keys.p256dh, auth: keys.auth },
+              payload,
+              vapidPublicKey,
+              vapidPrivateKey
+            );
             
             if (result.error === 'subscription_expired') {
-              console.log(`[${requestId}] 🗑️ Deleting expired subscription: ${sub.id}`);
-              await supabase
-                .from('push_subscriptions')
-                .delete()
-                .eq('id', sub.id);
+              await supabase.from('push_subscriptions').delete().eq('id', sub.id);
             }
-          }
+            
+            return { subscriptionId: sub.id, userId: sub.user_id, type: 'web', ...result };
+          })
+        );
+        results.push(...webResults);
+      }
+    }
 
-          return { subscriptionId: sub.id, userId: sub.user_id, ...result };
-        })
-      );
+    // === Send to Native (FCM/APNs) subscriptions ===
+    if (nativeSubscriptions.length > 0) {
+      if (!firebaseServiceAccount || !firebaseAccessToken) {
+        console.warn(`[${requestId}] ⚠️ Skipping ${nativeSubscriptions.length} native subscriptions - FIREBASE_SERVICE_ACCOUNT not configured`);
+        nativeSubscriptions.forEach(sub => {
+          results.push({ 
+            subscriptionId: sub.id, 
+            userId: sub.user_id, 
+            type: sub.subscription_type || 'native',
+            success: false, 
+            error: 'FCM not configured' 
+          });
+        });
+      } else {
+        console.log(`[${requestId}] 📱 Sending to ${nativeSubscriptions.length} Native subscriptions via FCM...`);
+        
+        const nativeResults = await Promise.all(
+          nativeSubscriptions.map(async (sub) => {
+            const deviceToken = sub.device_token || (sub.keys as { device_token?: string })?.device_token;
+            const subType = (sub.subscription_type || 'fcm') as 'fcm' | 'apns';
+            
+            if (!deviceToken) {
+              return { 
+                subscriptionId: sub.id, 
+                userId: sub.user_id, 
+                type: subType,
+                success: false, 
+                error: 'Missing device token' 
+              };
+            }
+            
+            const result = await sendFCMPush(
+              deviceToken,
+              payload,
+              subType,
+              firebaseServiceAccount!.project_id,
+              firebaseAccessToken!
+            );
+            
+            if (result.error === 'subscription_expired') {
+              console.log(`[${requestId}] 🗑️ Deleting expired native subscription: ${sub.id}`);
+              await supabase.from('push_subscriptions').delete().eq('id', sub.id);
+            }
+            
+            return { subscriptionId: sub.id, userId: sub.user_id, type: subType, ...result };
+          })
+        );
+        results.push(...nativeResults);
+      }
     }
 
     // === STEP 7: Compile results ===
@@ -680,15 +956,18 @@ Deno.serve(async (req) => {
     const failed = results.filter(r => !r.success);
     const totalDuration = Date.now() - startTime;
 
+    const webSuccess = results.filter(r => r.type === 'web' && r.success).length;
+    const nativeSuccess = results.filter(r => (r.type === 'fcm' || r.type === 'apns') && r.success).length;
+
     console.log(`\n[${requestId}] ========== RESULTS ==========`);
-    console.log(`[${requestId}] ✅ Successful: ${successful}`);
+    console.log(`[${requestId}] ✅ Successful: ${successful} (Web: ${webSuccess}, Native: ${nativeSuccess})`);
     console.log(`[${requestId}] ❌ Failed: ${failed.length}`);
     console.log(`[${requestId}] ⏱️ Total duration: ${totalDuration}ms`);
     
     if (failed.length > 0) {
       console.log(`[${requestId}] Failed details:`);
       failed.forEach((f, i) => {
-        console.log(`[${requestId}]   [${i + 1}] User: ${f.userId}, Error: ${f.error}, Status: ${f.statusCode}`);
+        console.log(`[${requestId}]   [${i + 1}] User: ${f.userId}, Type: ${f.type}, Error: ${f.error}, Status: ${f.statusCode}`);
       });
     }
     
@@ -699,6 +978,10 @@ Deno.serve(async (req) => {
         success: true, 
         sent: successful, 
         failed: failed.length,
+        breakdown: {
+          web: { sent: webSuccess, total: webSubscriptions.length },
+          native: { sent: nativeSuccess, total: nativeSubscriptions.length },
+        },
         details: results,
         duration: totalDuration,
         source: 'lovable-cloud',
