@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { PushNotifications, PushNotificationSchema, ActionPerformed, Token, RegistrationError } from '@capacitor/push-notifications';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import { isNativePlatform, getPlatform } from '@/lib/capacitorPlatform';
 
 export interface NativePushNotificationState {
@@ -17,6 +17,7 @@ export interface NativePushNotificationState {
 /**
  * Hook for managing native push notifications on iOS/Android via Capacitor
  * Uses FCM (Firebase Cloud Messaging) for both platforms
+ * Registers tokens with self-hosted Supabase (api.academyos.ru)
  */
 export function useNativePushNotifications() {
   const { user } = useAuth();
@@ -131,29 +132,28 @@ export function useNativePushNotifications() {
     };
   }, [user?.id]);
 
-  // Save device token to the server
+  // Save device token to self-hosted server
   const saveTokenToServer = async (userId: string, token: string) => {
     try {
       const platform = getPlatform();
       const subscriptionType = platform === 'ios' ? 'apns' : 'fcm';
       
-      console.log(`[NativePush] Saving ${subscriptionType} token to server for user:`, userId);
+      console.log(`[NativePush] Saving ${subscriptionType} token to self-hosted server for user:`, userId);
       
-      const { error } = await supabase.functions.invoke('native-push-register', {
-        body: {
-          user_id: userId,
-          device_token: token,
-          subscription_type: subscriptionType,
-          user_agent: navigator.userAgent,
-        },
+      const response = await selfHostedPost<{ success: boolean }>('native-push-register', {
+        user_id: userId,
+        device_token: token,
+        subscription_type: subscriptionType,
+        user_agent: navigator.userAgent,
+        action: 'register',
       });
 
-      if (error) {
-        console.error('[NativePush] Error saving token:', error);
-        throw error;
+      if (!response.success) {
+        console.error('[NativePush] Error saving token:', response.error);
+        throw new Error(response.error || 'Failed to save token');
       }
 
-      console.log('[NativePush] Token saved successfully');
+      console.log('[NativePush] Token saved successfully to self-hosted server');
     } catch (error) {
       console.error('[NativePush] Failed to save token to server:', error);
       toast.error('Не удалось сохранить регистрацию уведомлений');
@@ -216,16 +216,14 @@ export function useNativePushNotifications() {
     setState(prev => ({ ...prev, isLoading: true }));
 
     try {
-      // Remove registration from server
-      const { error } = await supabase.functions.invoke('native-push-register', {
-        body: {
-          user_id: user.id,
-          action: 'unregister',
-        },
+      // Remove registration from self-hosted server
+      const response = await selfHostedPost<{ success: boolean }>('native-push-register', {
+        user_id: user.id,
+        action: 'unregister',
       });
 
-      if (error) {
-        console.error('[NativePush] Error unregistering:', error);
+      if (!response.success) {
+        console.error('[NativePush] Error unregistering:', response.error);
       }
 
       // Unregister from FCM/APNs
