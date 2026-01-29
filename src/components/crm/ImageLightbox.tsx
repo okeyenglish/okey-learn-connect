@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Download, ZoomIn, ZoomOut, RotateCw, Loader2, ChevronLeft, ChevronRight, CloudOff, Cloud, Share2, Copy, Check } from 'lucide-react';
+import { X, Download, ZoomIn, ZoomOut, RotateCw, Loader2, ChevronLeft, ChevronRight, CloudOff, Cloud, Share2, Copy, Check, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useImageGalleryCache } from '@/hooks/useImageCache';
@@ -126,6 +126,8 @@ export const ImageLightbox = memo(({
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
   const [showCopiedIndicator, setShowCopiedIndicator] = useState(false);
+  const [showSavedIndicator, setShowSavedIndicator] = useState(false);
+  const [isSavingWithTransforms, setIsSavingWithTransforms] = useState(false);
   const longPressStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const currentImage = gallery[currentIndex];
@@ -428,6 +430,88 @@ export const ImageLightbox = memo(({
     setShowContextMenu(false);
     handleDownloadCurrent();
   }, [handleDownloadCurrent]);
+
+  // Save image with current transformations (rotation, scale)
+  const handleSaveWithTransformations = useCallback(async () => {
+    setShowContextMenu(false);
+    if (!currentImage?.src) return;
+    
+    setIsSavingWithTransforms(true);
+    
+    try {
+      // Load the original image
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = currentImage.src.replace(/^http:\/\//i, 'https://');
+      });
+      
+      // Calculate output dimensions based on rotation
+      const radians = (rotation * Math.PI) / 180;
+      const sin = Math.abs(Math.sin(radians));
+      const cos = Math.abs(Math.cos(radians));
+      
+      // Apply scale to dimensions
+      const scaledWidth = img.width * scale;
+      const scaledHeight = img.height * scale;
+      
+      // Calculate bounding box after rotation
+      const outputWidth = Math.ceil(scaledWidth * cos + scaledHeight * sin);
+      const outputHeight = Math.ceil(scaledWidth * sin + scaledHeight * cos);
+      
+      // Create canvas with calculated dimensions
+      const canvas = document.createElement('canvas');
+      canvas.width = outputWidth;
+      canvas.height = outputHeight;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas context not available');
+      
+      // Move to center, apply transformations, draw image
+      ctx.translate(outputWidth / 2, outputHeight / 2);
+      ctx.rotate(radians);
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      
+      // Convert to blob and download
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          console.error('Failed to create blob');
+          setIsSavingWithTransforms(false);
+          return;
+        }
+        
+        // Create download link
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        
+        // Generate filename with transformation info
+        const originalName = currentImage.alt || 'image';
+        const rotationSuffix = rotation !== 0 ? `_rot${Math.round(rotation)}` : '';
+        const scaleSuffix = scale !== 1 ? `_${Math.round(scale * 100)}pct` : '';
+        a.download = `${originalName}${rotationSuffix}${scaleSuffix}.png`;
+        
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        setIsSavingWithTransforms(false);
+        setShowSavedIndicator(true);
+        setTimeout(() => setShowSavedIndicator(false), 1500);
+      }, 'image/png');
+      
+    } catch (err) {
+      console.error('Failed to save image with transformations:', err);
+      setIsSavingWithTransforms(false);
+      // Fallback to regular download
+      handleDownloadCurrent();
+    }
+  }, [currentImage, rotation, scale, handleDownloadCurrent]);
 
   // Reset all transformations (zoom, rotation, pan)
   const resetAllTransformations = useCallback(() => {
@@ -1103,6 +1187,23 @@ export const ImageLightbox = memo(({
                   <span className="text-sm font-medium">Скачать</span>
                 </button>
               )}
+              {/* Show "Save with transformations" only if there are transformations */}
+              {(rotation !== 0 || scale !== 1) && (
+                <button
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-accent transition-colors"
+                  onClick={handleSaveWithTransformations}
+                  disabled={isSavingWithTransforms}
+                >
+                  {isSavingWithTransforms ? (
+                    <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
+                  ) : (
+                    <Save className="h-5 w-5 text-muted-foreground" />
+                  )}
+                  <span className="text-sm font-medium">
+                    {isSavingWithTransforms ? 'Сохранение...' : 'Сохранить с трансформацией'}
+                  </span>
+                </button>
+              )}
               <button
                 className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-accent transition-colors"
                 onClick={handleShare}
@@ -1136,6 +1237,24 @@ export const ImageLightbox = memo(({
           <Check className="h-6 w-6 text-green-400" />
           <span className="text-lg font-medium">
             Скопировано
+          </span>
+        </div>
+      </div>
+
+      {/* Saved indicator */}
+      <div
+        className={cn(
+          "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40",
+          "pointer-events-none transition-all duration-300 ease-out",
+          showSavedIndicator 
+            ? "opacity-100 scale-100" 
+            : "opacity-0 scale-75"
+        )}
+      >
+        <div className="bg-black/70 backdrop-blur-sm text-white px-5 py-3 rounded-2xl flex items-center gap-3 shadow-xl">
+          <Save className="h-6 w-6 text-green-400" />
+          <span className="text-lg font-medium">
+            Сохранено
           </span>
         </div>
       </div>
