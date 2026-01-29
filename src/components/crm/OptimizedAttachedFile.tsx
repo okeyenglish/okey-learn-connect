@@ -1,6 +1,6 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { File, Image, Video, Music, FileText, Download, ExternalLink, Play, Pause, Volume2, VolumeX, Maximize2, Loader2, FileAudio, MessageSquareText } from 'lucide-react';
+import { File, Image, Video, Music, FileText, Download, ExternalLink, Play, Pause, Volume2, VolumeX, Loader2, MessageSquareText } from 'lucide-react';
 import { useState, useRef, useEffect, memo, lazy, Suspense, useCallback } from 'react';
 import { useWhatsAppFile } from '@/hooks/useWhatsAppFile';
 import { useAudioTranscription } from '@/hooks/useAudioTranscription';
@@ -51,10 +51,37 @@ export const OptimizedAttachedFile = memo(({
   const [urlError, setUrlError] = useState(false);
   const [transcription, setTranscription] = useState<string | null>(null);
   const [showTranscription, setShowTranscription] = useState(false);
+  // Image-specific state (moved here to avoid conditional hook calls)
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { downloadFile, loading: downloadLoading } = useWhatsAppFile();
   const { transcribeAudio, loading: transcriptionLoading } = useAudioTranscription();
+  
+  // Image gallery ID
+  const imageId = galleryId || messageId || `image-${url}`;
+  
+  // Register image with gallery context if available (only for images)
+  useEffect(() => {
+    if (type.startsWith('image/') && gallery && realUrl) {
+      gallery.registerImage(imageId, { src: realUrl, alt: name });
+      return () => gallery.unregisterImage(imageId);
+    }
+  }, [type, gallery, imageId, realUrl, name]);
+  
+  // Lightbox handlers (always defined, only used for images)
+  const handleOpenLightbox = useCallback(() => {
+    if (gallery) {
+      gallery.openGallery(imageId);
+    } else {
+      setIsLightboxOpen(true);
+    }
+  }, [gallery, imageId]);
+  
+  const handleCloseLightbox = useCallback(() => {
+    setIsLightboxOpen(false);
+  }, []);
 
   const getFileIcon = () => {
     if (type.startsWith('image/')) return <Image className="h-4 w-4" />;
@@ -286,90 +313,52 @@ export const OptimizedAttachedFile = memo(({
   }
 
   // Optimized image with lazy loading and mobile-friendly lightbox
+  // Messenger-style: show image directly without card wrapper
   if (type.startsWith('image/')) {
-    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-    const imageId = galleryId || messageId || `image-${url}`;
-    
-    // Register image with gallery context if available
-    useEffect(() => {
-      if (gallery && realUrl) {
-        gallery.registerImage(imageId, { src: realUrl, alt: name });
-        return () => gallery.unregisterImage(imageId);
-      }
-    }, [gallery, imageId, realUrl, name]);
-    
-    const handleOpenLightbox = useCallback(() => {
-      // If gallery context is available, use it for multi-image navigation
-      if (gallery) {
-        gallery.openGallery(imageId);
-      } else {
-        setIsLightboxOpen(true);
-      }
-    }, [gallery, imageId]);
-    
-    const handleCloseLightbox = useCallback(() => {
-      setIsLightboxOpen(false);
-    }, []);
-
     return (
       <>
-        <Card className={`p-3 max-w-sm ${className}`}>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex-shrink-0 text-muted-foreground">
-              {getFileIcon()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate" title={name}>
-                {name}
-              </p>
-              {size && (
-                <p className="text-xs text-muted-foreground">
-                  {formatFileSize(size)}
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0"
-                title="Увеличить"
-                onClick={handleOpenLightbox}
-              >
-                <Maximize2 className="h-3 w-3" />
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0"
-                onClick={handleDownload}
-                title="Скачать"
-                disabled={downloadLoading}
-              >
-                {downloadLoading ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Download className="h-3 w-3" />
-                )}
-              </Button>
-            </div>
-          </div>
+        {/* Messenger-style image display - no card, just rounded image */}
+        <div 
+          className={`relative overflow-hidden rounded-xl cursor-pointer group ${className}`}
+          onClick={handleOpenLightbox}
+          style={{ maxWidth: '280px' }}
+        >
+          {/* Loading skeleton */}
+          {!imageLoaded && (
+            <div className="absolute inset-0 bg-muted animate-pulse rounded-xl" style={{ minHeight: '120px' }} />
+          )}
           
-          {/* Optimized thumbnail with lazy loading */}
-          <div className="mt-2">
-            <div 
-              className="cursor-pointer hover:opacity-80 transition-opacity active:opacity-60"
-              onClick={handleOpenLightbox}
+          {/* Image */}
+          <LazyImage
+            src={realUrl}
+            alt={name}
+            className={`w-full h-auto rounded-xl object-cover transition-opacity duration-200 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+            onLoad={() => setImageLoaded(true)}
+            onError={handleMediaError}
+          />
+          
+          {/* Hover overlay with actions - only on desktop */}
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded-xl pointer-events-none" />
+          <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-7 w-7 p-0 bg-black/50 hover:bg-black/70 border-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDownload();
+              }}
+              title="Скачать"
+              disabled={downloadLoading}
             >
-              <LazyImage
-                src={realUrl}
-                alt={name}
-                className="max-w-full max-h-32 rounded"
-                onError={handleMediaError}
-              />
-            </div>
+              {downloadLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
+              ) : (
+                <Download className="h-3.5 w-3.5 text-white" />
+              )}
+            </Button>
           </div>
-        </Card>
+        </div>
         
         {/* Fallback lightbox when not using gallery context */}
         {!gallery && (
@@ -544,41 +533,14 @@ export const OptimizedAttachedFile = memo(({
     );
   }
 
-  // Video with lazy loading
+  // Video with lazy loading - messenger style
   if (type.startsWith('video/')) {
     return (
-      <Card className={`p-3 max-w-md ${className}`}>
-        <div className="flex items-center gap-3 mb-2">
-          <div className="flex-shrink-0 text-muted-foreground">
-            {getFileIcon()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate" title={name}>
-              {name}
-            </p>
-            {size && (
-              <p className="text-xs text-muted-foreground">
-                {formatFileSize(size)}
-              </p>
-            )}
-          </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-6 w-6 p-0"
-            onClick={handleDownload}
-            title="Скачать"
-            disabled={downloadLoading}
-          >
-            {downloadLoading ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Download className="h-3 w-3" />
-            )}
-          </Button>
-        </div>
-        
-        <div className="relative aspect-video bg-black rounded overflow-hidden">
+      <div 
+        className={`relative overflow-hidden rounded-xl ${className}`}
+        style={{ maxWidth: '280px' }}
+      >
+        <div className="relative aspect-video bg-black rounded-xl overflow-hidden">
           <video
             ref={videoRef}
             src={realUrl}
@@ -631,10 +593,25 @@ export const OptimizedAttachedFile = memo(({
                   <Volume2 className="h-3 w-3" />
                 )}
               </Button>
+              
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 w-6 p-0 text-white hover:bg-white/20"
+                onClick={handleDownload}
+                title="Скачать"
+                disabled={downloadLoading}
+              >
+                {downloadLoading ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Download className="h-3 w-3" />
+                )}
+              </Button>
             </div>
           </div>
         </div>
-      </Card>
+      </div>
     );
   }
 
