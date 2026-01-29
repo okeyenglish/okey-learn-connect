@@ -18,7 +18,7 @@ import { useViewedMissedCalls } from "@/hooks/useViewedMissedCalls";
 import { useChatMessagesOptimized, useMessageStatusRealtime } from "@/hooks/useChatMessagesOptimized";
 import { useTeacherChatMessages } from "@/hooks/useTeacherChats";
 import { useAutoRetryMessages } from "@/hooks/useAutoRetryMessages";
-import { useAutoCacheImages } from "@/hooks/useAutoCacheImages";
+import { useAutoCacheImages, ImageCacheProgress } from "@/hooks/useAutoCacheImages";
 import { useCallLogsRealtime } from "@/hooks/useCallLogsRealtime";
 import { ChatMessage } from "./ChatMessage";
 import { DateSeparator, shouldShowDateSeparator } from "./DateSeparator";
@@ -37,6 +37,7 @@ import { TextFormatToolbar } from "./TextFormatToolbar";
 import { CallHistory } from "./CallHistory";
 import { NewMessageIndicator } from "./NewMessageIndicator";
 import { ChatSearchBar } from "./ChatSearchBar";
+import { ImageCacheIndicator } from "./ImageCacheIndicator";
 import { SendPaymentLinkModal } from "./SendPaymentLinkModal";
 import { SendRetryIndicator } from "./SendRetryIndicator";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
@@ -186,7 +187,7 @@ export const ChatArea = ({
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   
   // Auto-cache images for offline viewing
-  useAutoCacheImages(messagesData?.messages, !loadingMessages);
+  const imageCacheProgress = useAutoCacheImages(messagesData?.messages, !loadingMessages);
   
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
@@ -1988,7 +1989,10 @@ export const ChatArea = ({
                 </Button>
               )}
               <div className="flex-1 min-w-0">
-                <h2 className="font-semibold text-sm text-foreground truncate">{displayName}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-semibold text-sm text-foreground truncate">{displayName}</h2>
+                  <ImageCacheIndicator progress={imageCacheProgress} compact />
+                </div>
                 <p className="text-xs text-muted-foreground truncate">{clientPhone}</p>
                 {isOtherUserTyping && typingInfo && (
                   <p className="text-xs text-orange-600 italic animate-pulse">
@@ -2087,7 +2091,10 @@ export const ChatArea = ({
           <div className="flex items-start justify-between gap-4 p-3">
             <div className="flex items-center gap-3">
               <div>
-                <h2 className="font-semibold text-base">{displayName}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-semibold text-base">{displayName}</h2>
+                  <ImageCacheIndicator progress={imageCacheProgress} />
+                </div>
                 <p className="text-sm text-muted-foreground">{clientPhone}</p>
               </div>
             </div>
