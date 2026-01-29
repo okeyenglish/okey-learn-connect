@@ -89,6 +89,7 @@ export const ImageLightbox = memo(({
   
   // Pan state when zoomed
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isAnimatingSnapBack, setIsAnimatingSnapBack] = useState(false);
   const lastPanPosition = useRef<{ x: number; y: number } | null>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
@@ -305,21 +306,40 @@ export const ImageLightbox = memo(({
       setIsPinching(false);
       initialPinchDistance.current = null;
       
-      // Reset pan offset if scale is back to 1, otherwise clamp to bounds
+      // Reset pan offset if scale is back to 1, otherwise clamp to bounds with animation
       if (scale <= 1) {
+        setIsAnimatingSnapBack(true);
         setPanOffset({ x: 0, y: 0 });
         setScale(1);
+        setTimeout(() => setIsAnimatingSnapBack(false), 300);
       } else {
-        // Clamp pan offset after pinch ends
-        setPanOffset(prev => clampPanOffset(prev.x, prev.y, scale));
+        // Clamp pan offset after pinch ends with smooth animation
+        const currentOffset = panOffset;
+        const clampedOffset = clampPanOffset(currentOffset.x, currentOffset.y, scale);
+        
+        // Only animate if position changed (was out of bounds)
+        if (clampedOffset.x !== currentOffset.x || clampedOffset.y !== currentOffset.y) {
+          setIsAnimatingSnapBack(true);
+          setPanOffset(clampedOffset);
+          setTimeout(() => setIsAnimatingSnapBack(false), 300);
+        }
       }
       return;
     }
     
-    // End panning - ensure final position is clamped
+    // End panning - ensure final position is clamped with smooth animation
     if (isZoomed) {
       lastPanPosition.current = null;
-      setPanOffset(prev => clampPanOffset(prev.x, prev.y, scale));
+      
+      const currentOffset = panOffset;
+      const clampedOffset = clampPanOffset(currentOffset.x, currentOffset.y, scale);
+      
+      // Animate snap-back if position was out of bounds
+      if (clampedOffset.x !== currentOffset.x || clampedOffset.y !== currentOffset.y) {
+        setIsAnimatingSnapBack(true);
+        setPanOffset(clampedOffset);
+        setTimeout(() => setIsAnimatingSnapBack(false), 300);
+      }
       return;
     }
     
@@ -340,7 +360,7 @@ export const ImageLightbox = memo(({
     setTranslateY(0);
     setIsDragging(false);
     setDragDirection(null);
-  }, [isPinching, isZoomed, dragDirection, translateX, translateY, hasMultipleImages, currentIndex, gallery.length, goToPrevious, goToNext, onClose, scale, clampPanOffset]);
+  }, [isPinching, isZoomed, dragDirection, translateX, translateY, hasMultipleImages, currentIndex, gallery.length, goToPrevious, goToNext, onClose, scale, clampPanOffset, panOffset]);
 
   // Reset zoom on double tap or button
   const resetZoom = useCallback(() => {
@@ -524,10 +544,13 @@ export const ImageLightbox = memo(({
       <div
         className={cn(
           "relative max-w-full max-h-full flex items-center justify-center p-4",
-          (isDragging || isPinching) ? "transition-none" : "transition-transform duration-200"
+          (isDragging || isPinching) && !isAnimatingSnapBack 
+            ? "transition-none" 
+            : "transition-transform duration-200 ease-out"
         )}
         style={{
           transform: `translateX(${translateX + panOffset.x}px) translateY(${translateY + panOffset.y}px) scale(${scale}) rotate(${rotation}deg)`,
+          transition: isAnimatingSnapBack ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : undefined,
         }}
         onClick={handleDoubleTap}
       >
