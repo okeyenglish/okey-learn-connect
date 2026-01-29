@@ -97,6 +97,11 @@ export const ImageLightbox = memo(({
   const lastTouchTimeRef = useRef<number>(0);
   const momentumAnimationRef = useRef<number | null>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Zoom indicator state
+  const [showZoomIndicator, setShowZoomIndicator] = useState(false);
+  const zoomIndicatorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const previousScaleRef = useRef<number>(1);
 
   const currentImage = gallery[currentIndex];
   const hasMultipleImages = gallery.length > 1;
@@ -214,8 +219,29 @@ export const ImageLightbox = memo(({
       if (momentumAnimationRef.current) {
         cancelAnimationFrame(momentumAnimationRef.current);
       }
+      if (zoomIndicatorTimeoutRef.current) {
+        clearTimeout(zoomIndicatorTimeoutRef.current);
+      }
     };
   }, []);
+
+  // Show zoom indicator when scale changes
+  useEffect(() => {
+    if (scale !== previousScaleRef.current) {
+      previousScaleRef.current = scale;
+      setShowZoomIndicator(true);
+      
+      // Clear existing timeout
+      if (zoomIndicatorTimeoutRef.current) {
+        clearTimeout(zoomIndicatorTimeoutRef.current);
+      }
+      
+      // Hide indicator after 1.5 seconds
+      zoomIndicatorTimeoutRef.current = setTimeout(() => {
+        setShowZoomIndicator(false);
+      }, 1500);
+    }
+  }, [scale]);
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -753,6 +779,24 @@ export const ImageLightbox = memo(({
           </Button>
         </>
       )}
+
+      {/* Zoom level indicator */}
+      <div
+        className={cn(
+          "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20",
+          "pointer-events-none transition-all duration-300 ease-out",
+          showZoomIndicator 
+            ? "opacity-100 scale-100" 
+            : "opacity-0 scale-75"
+        )}
+      >
+        <div className="bg-black/70 backdrop-blur-sm text-white px-5 py-3 rounded-2xl flex items-center gap-3 shadow-xl">
+          <ZoomIn className="h-6 w-6" />
+          <span className="text-2xl font-semibold tabular-nums">
+            {Math.round(scale * 100)}%
+          </span>
+        </div>
+      </div>
 
       {/* Image container */}
       <div
