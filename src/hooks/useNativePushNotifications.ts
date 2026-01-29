@@ -247,6 +247,31 @@ export function useNativePushNotifications() {
     }
   }, [user]);
 
+  // Toggle subscription
+  const toggle = useCallback(async (): Promise<boolean> => {
+    if (state.isSubscribed) {
+      return unsubscribe();
+    } else {
+      return subscribe();
+    }
+  }, [state.isSubscribed, subscribe, unsubscribe]);
+
+  // Refresh subscription status
+  const refresh = useCallback(async () => {
+    if (!isNativePlatform()) return;
+    
+    try {
+      const result = await PushNotifications.checkPermissions();
+      setState(prev => ({
+        ...prev,
+        permission: result.receive === 'granted' ? 'granted' : 
+                   result.receive === 'denied' ? 'denied' : 'default',
+      }));
+    } catch (error) {
+      console.error('[NativePush] Error refreshing status:', error);
+    }
+  }, []);
+
   // Get delivery channel info
   const getDeliveredNotifications = useCallback(async () => {
     if (!isNativePlatform()) return [];
@@ -275,6 +300,8 @@ export function useNativePushNotifications() {
     ...state,
     subscribe,
     unsubscribe,
+    toggle,
+    refresh,
     getDeliveredNotifications,
     removeAllDeliveredNotifications,
   };

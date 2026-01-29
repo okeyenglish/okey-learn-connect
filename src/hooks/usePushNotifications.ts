@@ -4,6 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { pushApiWithFallback, fetchVapidKeyWithFallback, getLastPushApiSource, type PushApiSource } from '@/lib/pushApiWithFallback';
+import { isNativePlatform, getPlatform } from '@/lib/capacitorPlatform';
+import { useNativePushNotifications } from '@/hooks/useNativePushNotifications';
 
 // VAPID public key - must match the VAPID_PUBLIC_KEY in Supabase secrets
 const VAPID_PUBLIC_KEY = 'BNCGXWZNiciyztYDIZPXM_smN8mBxrfFPIG_ohpea-9H5B0Gl-zjfWkh7XJOemAh2iDQR87V3f54LQ12DRJfl6s';
@@ -81,6 +83,10 @@ export interface PushNotificationState {
   permission: NotificationPermission | 'default';
   isSubscribed: boolean;
   isLoading: boolean;
+  /** Platform type: 'web', 'ios', or 'android' */
+  platform?: 'web' | 'ios' | 'android';
+  /** Subscription type: 'web', 'fcm', or 'apns' */
+  subscriptionType?: 'web' | 'fcm' | 'apns';
 }
 
 /** Diagnostic info structure for SW errors */
@@ -96,7 +102,48 @@ interface SWDiagnostics {
   diagError?: string;
 }
 
+/**
+ * Unified Push Notifications Hook
+ * 
+ * Automatically selects between:
+ * - Native Push (FCM/APNs via Capacitor) for iOS/Android apps
+ * - Web Push (VAPID/Service Worker) for browser/PWA
+ * 
+ * Provides a consistent API regardless of platform.
+ */
 export function usePushNotifications() {
+  // Detect platform
+  const platform = getPlatform();
+  const isNative = isNativePlatform();
+  
+  // Use native push hook for iOS/Android
+  const nativePush = useNativePushNotifications();
+  
+  // Web push implementation
+  const webPush = useWebPushNotifications();
+  
+  // Return appropriate implementation based on platform
+  if (isNative) {
+    console.log(`[Push] Using Native Push for platform: ${platform}`);
+    return {
+      ...nativePush,
+      platform,
+      subscriptionType: platform === 'ios' ? 'apns' as const : 'fcm' as const,
+    };
+  }
+  
+  console.log('[Push] Using Web Push for browser');
+  return {
+    ...webPush,
+    platform: 'web' as const,
+    subscriptionType: 'web' as const,
+  };
+}
+
+/**
+ * Web Push implementation (existing logic extracted into separate hook)
+ */
+function useWebPushNotifications() {
   // === ALL HOOKS FIRST (unconditional, stable order) ===
   const { user } = useAuth();
   const lastSWErrorRef = useRef<SWDiagnostics | null>(null);
@@ -128,6 +175,8 @@ export function usePushNotifications() {
     permission: initialPermission,
     isSubscribed: false,
     isLoading: true,
+    platform: 'web',
+    subscriptionType: 'web',
   }));
 
   // Helper to get SW registration with activation/ready handling
@@ -272,6 +321,8 @@ export function usePushNotifications() {
           permission: Notification.permission,
           isSubscribed: false,
           isLoading: false,
+          platform: 'web',
+          subscriptionType: 'web',
         });
         return;
       }
@@ -282,6 +333,8 @@ export function usePushNotifications() {
         permission: Notification.permission,
         isSubscribed: !!subscription,
         isLoading: false,
+        platform: 'web',
+        subscriptionType: 'web',
       });
     } catch (error) {
       console.error('Error checking push subscription:', error);
@@ -537,6 +590,7 @@ export function usePushNotifications() {
           auth: subscriptionJson.keys.auth,
         },
         user_agent: navigator.userAgent,
+        subscription_type: 'web', // Explicitly mark as web subscription
       });
 
       if (!saveResponse.success || saveResponse.error) {
@@ -609,7 +663,7 @@ export function usePushNotifications() {
         }
       } else {
         // No local subscription (often happens when browser already invalidated it).
-        // Try to delete last known endpoint from server to avoid “all subscriptions expired”.
+        // Try to delete last known endpoint from server to avoid "all subscriptions expired".
         const storedKey = getLastEndpointStorageKey(user.id);
         const storedEndpoint = safeLocalStorageGet(storedKey);
         if (storedEndpoint) {
@@ -699,6 +753,7 @@ export function usePushNotifications() {
                 auth: subscriptionJson.keys.auth,
               },
               user_agent: navigator.userAgent,
+              subscription_type: 'web',
             });
 
             if (saveResponse.success) {
@@ -751,6 +806,7 @@ export function usePushNotifications() {
                     auth: subscriptionJson.keys.auth,
                   },
                   user_agent: navigator.userAgent,
+                  subscription_type: 'web',
                 });
                 
                 if (saveResponse.success) {
@@ -781,6 +837,7 @@ export function usePushNotifications() {
                     auth: subscriptionJson.keys.auth,
                   },
                   user_agent: navigator.userAgent,
+                  subscription_type: 'web',
                 });
                 safeLocalStorageSet(getLastEndpointStorageKey(user.id), subscription.endpoint);
               }
@@ -813,3 +870,6 @@ export function usePushNotifications() {
     refresh: checkSubscription,
   };
 }
+
+// Export the web-only hook for direct usage if needed
+export { useWebPushNotifications };
