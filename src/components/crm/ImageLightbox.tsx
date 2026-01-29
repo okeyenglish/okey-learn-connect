@@ -90,7 +90,11 @@ export const ImageLightbox = memo(({
   // Pan state when zoomed
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isAnimatingSnapBack, setIsAnimatingSnapBack] = useState(false);
+  const [isMomentumAnimating, setIsMomentumAnimating] = useState(false);
   const lastPanPosition = useRef<{ x: number; y: number } | null>(null);
+  const velocityRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const lastTouchTimeRef = useRef<number>(0);
+  const momentumAnimationRef = useRef<number | null>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
   const currentImage = gallery[currentIndex];
@@ -154,9 +158,24 @@ export const ImageLightbox = memo(({
     setScale(1);
     setRotation(0);
     setPanOffset({ x: 0, y: 0 });
+    setIsMomentumAnimating(false);
+    velocityRef.current = { x: 0, y: 0 };
+    if (momentumAnimationRef.current) {
+      cancelAnimationFrame(momentumAnimationRef.current);
+      momentumAnimationRef.current = null;
+    }
     initialPinchDistance.current = null;
     initialPinchScale.current = 1;
   }, [currentIndex]);
+
+  // Cleanup momentum animation on unmount
+  useEffect(() => {
+    return () => {
+      if (momentumAnimationRef.current) {
+        cancelAnimationFrame(momentumAnimationRef.current);
+      }
+    };
+  }, []);
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -261,8 +280,22 @@ export const ImageLightbox = memo(({
     // Handle panning when zoomed
     if (e.touches.length === 1 && isZoomed && lastPanPosition.current) {
       const touch = e.touches[0];
+      const now = performance.now();
       const deltaX = touch.clientX - lastPanPosition.current.x;
       const deltaY = touch.clientY - lastPanPosition.current.y;
+      const deltaTime = now - lastTouchTimeRef.current;
+      
+      // Calculate velocity for momentum
+      if (deltaTime > 0) {
+        const velocityX = deltaX / deltaTime * 16; // normalize to ~60fps
+        const velocityY = deltaY / deltaTime * 16;
+        // Smooth velocity with exponential moving average
+        velocityRef.current = {
+          x: velocityX * 0.6 + velocityRef.current.x * 0.4,
+          y: velocityY * 0.6 + velocityRef.current.y * 0.4,
+        };
+      }
+      lastTouchTimeRef.current = now;
       
       setPanOffset(prev => {
         const newX = prev.x + deltaX;
@@ -327,19 +360,79 @@ export const ImageLightbox = memo(({
       return;
     }
     
-    // End panning - ensure final position is clamped with smooth animation
+    // End panning - apply momentum scrolling
     if (isZoomed) {
       lastPanPosition.current = null;
       
-      const currentOffset = panOffset;
-      const clampedOffset = clampPanOffset(currentOffset.x, currentOffset.y, scale);
+      const velocity = velocityRef.current;
+      const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
       
-      // Animate snap-back if position was out of bounds
-      if (clampedOffset.x !== currentOffset.x || clampedOffset.y !== currentOffset.y) {
-        setIsAnimatingSnapBack(true);
-        setPanOffset(clampedOffset);
-        setTimeout(() => setIsAnimatingSnapBack(false), 300);
+      // Only apply momentum if speed is significant
+      if (speed > 0.5) {
+        setIsMomentumAnimating(true);
+        
+        // Cancel any existing animation
+        if (momentumAnimationRef.current) {
+          cancelAnimationFrame(momentumAnimationRef.current);
+        }
+        
+        let currentVelocity = { ...velocity };
+        const friction = 0.95; // Deceleration factor
+        const minVelocity = 0.1;
+        
+        const animate = () => {
+          // Apply friction
+          currentVelocity.x *= friction;
+          currentVelocity.y *= friction;
+          
+          // Stop when velocity is negligible
+          const currentSpeed = Math.sqrt(currentVelocity.x ** 2 + currentVelocity.y ** 2);
+          if (currentSpeed < minVelocity) {
+            setIsMomentumAnimating(false);
+            velocityRef.current = { x: 0, y: 0 };
+            
+            // Final snap-back check
+            setPanOffset(prev => {
+              const clamped = clampPanOffset(prev.x, prev.y, scale);
+              if (clamped.x !== prev.x || clamped.y !== prev.y) {
+                setIsAnimatingSnapBack(true);
+                setTimeout(() => setIsAnimatingSnapBack(false), 300);
+              }
+              return clamped;
+            });
+            return;
+          }
+          
+          // Update position
+          setPanOffset(prev => {
+            const newX = prev.x + currentVelocity.x;
+            const newY = prev.y + currentVelocity.y;
+            const clamped = clampPanOffset(newX, newY, scale);
+            
+            // Reduce velocity if hitting bounds
+            if (clamped.x !== newX) currentVelocity.x *= 0.3;
+            if (clamped.y !== newY) currentVelocity.y *= 0.3;
+            
+            return clamped;
+          });
+          
+          momentumAnimationRef.current = requestAnimationFrame(animate);
+        };
+        
+        momentumAnimationRef.current = requestAnimationFrame(animate);
+      } else {
+        // No momentum - just snap back if needed
+        const currentOffset = panOffset;
+        const clampedOffset = clampPanOffset(currentOffset.x, currentOffset.y, scale);
+        
+        if (clampedOffset.x !== currentOffset.x || clampedOffset.y !== currentOffset.y) {
+          setIsAnimatingSnapBack(true);
+          setPanOffset(clampedOffset);
+          setTimeout(() => setIsAnimatingSnapBack(false), 300);
+        }
       }
+      
+      velocityRef.current = { x: 0, y: 0 };
       return;
     }
     
@@ -544,7 +637,7 @@ export const ImageLightbox = memo(({
       <div
         className={cn(
           "relative max-w-full max-h-full flex items-center justify-center p-4",
-          (isDragging || isPinching) && !isAnimatingSnapBack 
+          (isDragging || isPinching || isMomentumAnimating) && !isAnimatingSnapBack 
             ? "transition-none" 
             : "transition-transform duration-200 ease-out"
         )}
