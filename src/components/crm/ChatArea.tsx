@@ -18,6 +18,7 @@ import { useViewedMissedCalls } from "@/hooks/useViewedMissedCalls";
 import { useChatMessagesOptimized, useMessageStatusRealtime } from "@/hooks/useChatMessagesOptimized";
 import { useTeacherChatMessages } from "@/hooks/useTeacherChats";
 import { useAutoRetryMessages } from "@/hooks/useAutoRetryMessages";
+import { useAutoCacheImages } from "@/hooks/useAutoCacheImages";
 import { useCallLogsRealtime } from "@/hooks/useCallLogsRealtime";
 import { ChatMessage } from "./ChatMessage";
 import { DateSeparator, shouldShowDateSeparator } from "./DateSeparator";
@@ -183,6 +184,9 @@ export const ChatArea = ({
 
   const hasMoreMessages = messagesData?.hasMore ?? false;
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
+  
+  // Auto-cache images for offline viewing
+  useAutoCacheImages(messagesData?.messages, !loadingMessages);
   
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());

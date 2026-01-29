@@ -10,6 +10,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useChatMessages, useSendMessage, useMarkAsRead, useRealtimeMessages } from '@/hooks/useChatMessages';
 import { useMarkChatMessagesAsRead } from '@/hooks/useMessageReadStatus';
 import { useTypingStatus } from '@/hooks/useTypingStatus';
+import { useAutoCacheImages } from '@/hooks/useAutoCacheImages';
 import { toast } from "sonner";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import { supabase } from '@/integrations/supabase/typedClient';
@@ -281,6 +282,10 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
 
   const clientId = resolvedClientId || '';
   const { messages } = useChatMessages(clientId);
+  
+  // Auto-cache images for offline viewing
+  useAutoCacheImages(messages, messages.length > 0);
+  
   const sendMessage = useSendMessage();
   const markAsRead = useMarkAsRead();
   const { updateTypingStatus, getTypingMessage, getTypingInfo, isOtherUserTyping } = useTypingStatus(clientId);

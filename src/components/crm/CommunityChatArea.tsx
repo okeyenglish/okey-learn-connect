@@ -9,6 +9,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useSendMessage, useMarkAsRead, useRealtimeMessages } from '@/hooks/useChatMessages';
 import { useChatMessagesOptimized } from '@/hooks/useChatMessagesOptimized';
 import { useTypingStatus } from '@/hooks/useTypingStatus';
+import { useAutoCacheImages } from '@/hooks/useAutoCacheImages';
 import { toast } from "sonner";
 import { useCommunityChats, CommunityChat } from '@/hooks/useCommunityChats';
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -60,6 +61,10 @@ export const CommunityChatArea = ({ onMessageChange, selectedCommunityId = null,
   const { data: messagesData, isLoading: messagesLoading } = useChatMessagesOptimized(clientId, 30);
   const messages = messagesData?.messages || [];
   const hasMoreMessages = messagesData?.hasMore || false;
+  
+  // Auto-cache images for offline viewing
+  useAutoCacheImages(messages, !messagesLoading);
+  
   const sendMessage = useSendMessage();
   const markAsRead = useMarkAsRead();
   const { updateTypingStatus, getTypingMessage, getTypingInfo, isOtherUserTyping } = useTypingStatus(clientId);
