@@ -375,83 +375,92 @@ export const OptimizedAttachedFile = memo(({
     );
   }
 
-  // Voice message (ogg/opus)
+  // Voice message (ogg/opus) - WhatsApp style
   if (type.startsWith('audio/')) {
     const isVoiceMessage = type.includes('ogg') || type.includes('opus') || name === 'Голосовое сообщение';
     
     if (isVoiceMessage) {
       return (
-        <Card className={`p-2 max-w-xs ${className}`}>
+        <div className={`flex flex-col gap-1 ${className}`} style={{ minWidth: '200px', maxWidth: '260px' }}>
           <div className="flex items-center gap-2">
+            {/* Play button - WhatsApp style */}
             <Button
               size="sm"
               variant="ghost"
-              className="h-8 w-8 p-0 rounded bg-green-100 hover:bg-green-200"
+              className="h-10 w-10 p-0 rounded-full bg-primary/10 hover:bg-primary/20 flex-shrink-0"
               onClick={toggleAudioPlayback}
             >
               {isPlaying ? (
-                <Pause className="h-4 w-4 text-green-600" />
+                <Pause className="h-5 w-5 text-primary" />
               ) : (
-                <Play className="h-4 w-4 text-green-600" />
+                <Play className="h-5 w-5 text-primary ml-0.5" />
               )}
             </Button>
             
-            <div className="flex-1">
-              <div className="flex items-center gap-1 mb-1">
-                <div className="flex space-x-1">
-                  {[...Array(20)].map((_, i) => (
+            {/* Waveform visualization */}
+            <div className="flex-1 flex flex-col gap-1">
+              <div className="flex items-center gap-0.5 h-6">
+                {[...Array(24)].map((_, i) => {
+                  const heightPercent = Math.sin(i * 0.5) * 50 + 50; // Simulated waveform
+                  const isActive = i < (progress / 100 * 24);
+                  return (
                     <div
                       key={i}
-                      className={`w-1 rounded transition-all duration-75 ${
-                        isPlaying && i < (progress / 5) 
-                          ? 'bg-green-500 h-4' 
-                          : 'bg-gray-300 h-2'
+                      className={`w-1 rounded-full transition-all duration-75 ${
+                        isActive ? 'bg-primary' : 'bg-muted-foreground/30'
                       }`}
+                      style={{ 
+                        height: `${Math.max(20, heightPercent)}%`,
+                        minHeight: '4px'
+                      }}
                     />
-                  ))}
-                </div>
+                  );
+                })}
               </div>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-[11px] text-muted-foreground">
                 {duration > 0 ? formatTime(isPlaying ? currentTime : duration) : '0:00'}
               </div>
             </div>
             
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-6 w-6 p-0"
-              onClick={handleDownload}
-              title="Скачать"
-            >
-              <Download className="h-3 w-3" />
-            </Button>
-
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-6 w-6 p-0"
-              onClick={handleTranscribe}
-              disabled={transcriptionLoading}
-              title={transcription ? (showTranscription ? "Скрыть текст" : "Показать текст") : "Распознать речь"}
-            >
-              {transcriptionLoading ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <MessageSquareText className="h-3 w-3" />
-              )}
-            </Button>
+            {/* Action buttons */}
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0"
+                onClick={handleTranscribe}
+                disabled={transcriptionLoading}
+                title={transcription ? (showTranscription ? "Скрыть текст" : "Показать текст") : "Распознать речь"}
+              >
+                {transcriptionLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <MessageSquareText className="h-3.5 w-3.5 text-muted-foreground" />
+                )}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0"
+                onClick={handleDownload}
+                title="Скачать"
+              >
+                <Download className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            </div>
           </div>
           
+          {/* Transcription */}
           {transcription && showTranscription && (
-            <div className="mt-2 pt-2 border-t border-gray-200">
-              <p className="text-xs text-muted-foreground text-left leading-relaxed">
+            <div className="pt-1.5 border-t border-border/50">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 {transcription}
               </p>
             </div>
           )}
           
           <audio ref={audioRef} src={realUrl} preload="metadata" onError={handleMediaError} />
-        </Card>
+        </div>
       );
     }
 
