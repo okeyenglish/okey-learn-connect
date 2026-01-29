@@ -1,91 +1,263 @@
 
+# План: Интеграция нативных Push-уведомлений через Capacitor
 
-# План: Исправление синтаксической ошибки в onlinepbx-webhook
+## Обзор
 
-## Проблема
+Добавление нативных push-уведомлений для iOS (APNs) и Android (FCM) в дополнение к существующим Web Push уведомлениям. Система будет автоматически определять платформу и использовать соответствующий механизм доставки.
 
-Edge Function `onlinepbx-webhook` не запускается на self-hosted сервере из-за синтаксической ошибки:
+---
 
+## Архитектура решения
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                    Фронтенд (React)                         │
+├─────────────────────────────────────────────────────────────┤
+│  useNativePushNotifications.ts                              │
+│    ├── Определение платформы (iOS/Android/Web)              │
+│    ├── Для Native: @capacitor/push-notifications            │
+│    └── Для Web: существующий usePushNotifications           │
+├─────────────────────────────────────────────────────────────┤
+│  usePushNotifications.ts (обновлённый)                      │
+│    └── Унифицированный интерфейс для всех платформ          │
+└─────────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Бэкенд (Edge Functions)                   │
+├─────────────────────────────────────────────────────────────┤
+│  native-push-register                                        │
+│    └── Сохранение FCM/APNs токена в push_subscriptions       │
+├─────────────────────────────────────────────────────────────┤
+│  send-push-notification (обновлённый)                        │
+│    ├── Web Push → VAPID/Web Push Protocol                    │
+│    └── Native → Firebase Admin SDK                           │
+└─────────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│               Firebase Cloud Messaging (FCM)                 │
+│  ├── Android → напрямую                                      │
+│  └── iOS → через APNs (автоматически)                        │
+└─────────────────────────────────────────────────────────────┘
 ```
-Uncaught SyntaxError: Identifier 'rawFrom' has already been declared
-at file:///...onlinepbx-webhook/index.ts:304:13
+
+---
+
+## Что будет сделано
+
+### 1. Установка зависимостей
+
+**Новый пакет:**
+```json
+"@capacitor/push-notifications": "^7.0.0"
 ```
 
-### Причина ошибки
+### 2. Создание утилиты определения платформы
 
-Переменные `rawFrom` и `rawTo` объявлены **дважды** в одной области видимости (внутри блока `if (req.method === 'POST')`):
+**Новый файл: `src/lib/capacitorPlatform.ts`**
 
-1. **Строки 207-209** — для логирования raw webhook:
 ```typescript
-const rawFrom = (webhookData as any).from || (webhookData as any).src || ...;
-const rawTo = (webhookData as any).to || (webhookData as any).dst || ...;
-const phoneForLog = rawFrom || rawTo;
+import { Capacitor } from '@capacitor/core';
+
+export type Platform = 'ios' | 'android' | 'web';
+
+export function getPlatform(): Platform {
+  if (!Capacitor.isNativePlatform()) {
+    return 'web';
+  }
+  return Capacitor.getPlatform() as 'ios' | 'android';
+}
+
+export function isNativePlatform(): boolean {
+  return Capacitor.isNativePlatform();
+}
+
+export function isIOS(): boolean {
+  return getPlatform() === 'ios';
+}
+
+export function isAndroid(): boolean {
+  return getPlatform() === 'android';
+}
 ```
 
-2. **Строки 364-365** — для обработки звонка:
+### 3. Создание хука для нативных push-уведомлений
+
+**Новый файл: `src/hooks/useNativePushNotifications.ts`**
+
+Основные функции:
+- Регистрация устройства в FCM/APNs
+- Получение device token
+- Обработка входящих уведомлений
+- Обработка нажатий на уведомления (deep linking)
+
 ```typescript
-const rawFrom = (webhookData as any).caller || webhookData.from || ...;
-const rawTo = (webhookData as any).callee || webhookData.to || ...;
+// Пример структуры
+export function useNativePushNotifications() {
+  const [token, setToken] = useState<string | null>(null);
+  const [isRegistered, setIsRegistered] = useState(false);
+  
+  // Listeners для push событий
+  useEffect(() => {
+    // registration - получение токена
+    // pushNotificationReceived - уведомление получено
+    // pushNotificationActionPerformed - клик по уведомлению
+  }, []);
+  
+  const register = async () => {
+    // Проверка разрешений
+    // Регистрация в FCM/APNs
+    // Отправка токена на сервер
+  };
+  
+  return { token, isRegistered, register, unregister };
+}
 ```
 
-## Решение
+### 4. Обновление основного хука usePushNotifications
 
-Переименовать первый набор переменных (для логирования) чтобы избежать конфликта:
-- `rawFrom` → `logRawFrom`
-- `rawTo` → `logRawTo`
-- Обновить использование этих переменных в блоке записи в webhook_logs
+**Изменения в `src/hooks/usePushNotifications.ts`:**
 
-## Изменения в файле
+- Добавление определения платформы
+- Условное использование Web Push или Native Push
+- Унификация интерфейса для компонентов UI
 
-### Файл: `supabase/functions/onlinepbx-webhook/index.ts`
-
-**Строки 207-221 — До:**
 ```typescript
-const rawFrom = (webhookData as any).from || (webhookData as any).src || (webhookData as any).caller_number || '';
-const rawTo = (webhookData as any).to || (webhookData as any).dst || (webhookData as any).called_number || '';
-const phoneForLog = rawFrom || rawTo;
-...
-  _phone_from: rawFrom,
-  _phone_to: rawTo,
+export function usePushNotifications() {
+  const platform = getPlatform();
+  
+  // На нативной платформе используем Capacitor
+  if (platform !== 'web') {
+    return useNativePushNotifications();
+  }
+  
+  // На вебе - существующая Web Push логика
+  return useWebPushNotifications();
+}
 ```
 
-**После:**
+### 5. Edge Function для регистрации нативных токенов
+
+**Новый файл: `supabase/functions/native-push-register/index.ts`**
+
+Функции:
+- Сохранение FCM/APNs токена в таблицу `push_subscriptions`
+- Тип подписки: `fcm` или `apns`
+- Связь с `user_id`
+
+### 6. Обновление Edge Function отправки уведомлений
+
+**Изменения в существующей функции `send-push-notification`:**
+
 ```typescript
-const logRawFrom = (webhookData as any).from || (webhookData as any).src || (webhookData as any).caller_number || '';
-const logRawTo = (webhookData as any).to || (webhookData as any).dst || (webhookData as any).called_number || '';
-const phoneForLog = logRawFrom || logRawTo;
-...
-  _phone_from: logRawFrom,
-  _phone_to: logRawTo,
+// Определение типа подписки
+if (subscription.type === 'fcm' || subscription.type === 'apns') {
+  // Отправка через Firebase Admin SDK
+  await sendViaFCM(subscription.token, payload);
+} else {
+  // Отправка через Web Push Protocol
+  await sendViaWebPush(subscription.endpoint, keys, payload);
+}
 ```
 
-## Деплой на Self-Hosted
+### 7. Обновление схемы базы данных
 
-После применения изменений в Lovable, нужно:
+**Миграция для `push_subscriptions`:**
 
-1. **Скопировать обновлённые функции на сервер:**
-```bash
-rsync -avz --delete \
-  ./supabase/functions/ \
-  automation@api.academyos.ru:/home/automation/supabase-project/volumes/functions/
+```sql
+-- Добавление колонки для типа подписки
+ALTER TABLE push_subscriptions 
+ADD COLUMN IF NOT EXISTS subscription_type TEXT 
+DEFAULT 'web' 
+CHECK (subscription_type IN ('web', 'fcm', 'apns'));
+
+-- Добавление колонки для device token (FCM/APNs)
+ALTER TABLE push_subscriptions 
+ADD COLUMN IF NOT EXISTS device_token TEXT;
+
+-- Индекс для быстрого поиска
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_type 
+ON push_subscriptions(subscription_type);
 ```
 
-2. **Перезапустить Edge Runtime:**
-```bash
-ssh automation@api.academyos.ru "cd /home/automation/supabase-project && docker compose restart functions"
+### 8. Обработка Deep Linking
+
+При клике на уведомление:
+- Парсинг `url` из data payload
+- Навигация к соответствующему экрану
+- Интеграция с react-router-dom
+
+---
+
+## Изменяемые файлы
+
+| Файл | Действие | Описание |
+|------|----------|----------|
+| `package.json` | Изменение | Добавление `@capacitor/push-notifications` |
+| `src/lib/capacitorPlatform.ts` | Создание | Утилиты определения платформы |
+| `src/hooks/useNativePushNotifications.ts` | Создание | Хук для нативных push |
+| `src/hooks/usePushNotifications.ts` | Изменение | Унификация Web/Native |
+| `supabase/functions/native-push-register/index.ts` | Создание | Регистрация токенов |
+| `supabase/functions/send-push-notification/index.ts` | Изменение | Поддержка FCM |
+
+---
+
+## Требования для публикации
+
+### Firebase (обязательно для обеих платформ)
+
+1. Создать проект в Firebase Console
+2. Добавить приложения iOS и Android
+3. Скачать конфигурационные файлы:
+   - **Android:** `google-services.json` → `android/app/`
+   - **iOS:** `GoogleService-Info.plist` → `ios/App/App/`
+4. Получить Firebase Server Key для бэкенда
+
+### iOS (дополнительно)
+
+1. Apple Developer Account ($99/год)
+2. Создать APNs Key в Apple Developer Portal
+3. Загрузить `.p8` ключ в Firebase
+
+### Android
+
+Никаких дополнительных действий — FCM работает "из коробки" после добавления `google-services.json`
+
+---
+
+## Секреты для Edge Functions
+
+Необходимо добавить секрет `FIREBASE_SERVICE_ACCOUNT` с JSON-ключом сервисного аккаунта Firebase:
+
+```json
+{
+  "type": "service_account",
+  "project_id": "your-project",
+  "private_key": "...",
+  "client_email": "..."
+}
 ```
 
-3. **Проверить логи:**
-```bash
-docker compose logs --tail 20 functions
-```
+---
 
-4. **Отправить тестовый webhook от OnlinePBX**
+## Последовательность внедрения
 
-## Ожидаемый результат
+1. ✅ Установить `@capacitor/push-notifications`
+2. ✅ Создать `capacitorPlatform.ts`
+3. ✅ Создать `useNativePushNotifications.ts`
+4. ✅ Обновить `usePushNotifications.ts`
+5. ✅ Создать Edge Function `native-push-register`
+6. ✅ Обновить Edge Function `send-push-notification`
+7. 📋 Создать Firebase проект (выполняется пользователем)
+8. 📋 Добавить конфигурационные файлы (локально после экспорта)
+9. 📋 Добавить секрет Firebase в Lovable Cloud
 
-- Функция `onlinepbx-webhook` успешно запустится
-- Webhook от OnlinePBX будет обработан
-- Звонок появится в `call_logs`
-- Диагностическая панель покажет данные
+---
 
+## Совместимость
+
+- ✅ Существующие Web Push уведомления продолжат работать
+- ✅ PWA функциональность не затрагивается
+- ✅ Единый UI для управления уведомлениями на всех платформах
+- ✅ Существующие подписки не будут затронуты
