@@ -534,19 +534,83 @@ export const ImageLightbox = memo(({
     setIsLoaded(true);
   }, []);
 
-  // Double tap to zoom
+  // Double tap handling with edge detection
   const [lastTap, setLastTap] = useState(0);
-  const handleDoubleTap = useCallback(() => {
+  const lastTapPositionRef = useRef<{ x: number; y: number } | null>(null);
+  
+  const handleDoubleTap = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     const now = Date.now();
+    
+    // Get tap position
+    let tapX: number, tapY: number;
+    if ('touches' in e && e.touches.length > 0) {
+      tapX = e.touches[0].clientX;
+      tapY = e.touches[0].clientY;
+    } else if ('clientX' in e) {
+      tapX = e.clientX;
+      tapY = e.clientY;
+    } else {
+      return;
+    }
+    
     if (now - lastTap < 300) {
+      // It's a double tap
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const edgeThreshold = viewportWidth * 0.25; // 25% from edges
+      const topBottomThreshold = viewportHeight * 0.25;
+      
+      // If zoomed, check if tapping on edge to pan to that edge
       if (scale > 1) {
+        const { maxX, maxY } = getPanBounds(scale);
+        const isLeftEdge = tapX < edgeThreshold;
+        const isRightEdge = tapX > viewportWidth - edgeThreshold;
+        const isTopEdge = tapY < topBottomThreshold;
+        const isBottomEdge = tapY > viewportHeight - topBottomThreshold;
+        
+        // If tapping on an edge, pan to that edge
+        if (isLeftEdge || isRightEdge || isTopEdge || isBottomEdge) {
+          let newX = panOffset.x;
+          let newY = panOffset.y;
+          
+          if (isLeftEdge && maxX > 0) {
+            newX = maxX; // Pan to show left edge of image
+          } else if (isRightEdge && maxX > 0) {
+            newX = -maxX; // Pan to show right edge of image
+          }
+          
+          if (isTopEdge && maxY > 0) {
+            newY = maxY; // Pan to show top edge of image
+          } else if (isBottomEdge && maxY > 0) {
+            newY = -maxY; // Pan to show bottom edge of image
+          }
+          
+          // Animate to new position
+          if (newX !== panOffset.x || newY !== panOffset.y) {
+            setIsAnimatingSnapBack(true);
+            setPanOffset({ x: newX, y: newY });
+            rawPanOffsetRef.current = { x: newX, y: newY };
+            setTimeout(() => setIsAnimatingSnapBack(false), 300);
+            setLastTap(0);
+            lastTapPositionRef.current = null;
+            return;
+          }
+        }
+        
+        // If tapping in center while zoomed, reset zoom
         resetZoom();
       } else {
+        // Not zoomed - zoom to 2x
         setScale(2);
       }
+      
+      setLastTap(0);
+      lastTapPositionRef.current = null;
+    } else {
+      setLastTap(now);
+      lastTapPositionRef.current = { x: tapX, y: tapY };
     }
-    setLastTap(now);
-  }, [lastTap, scale, resetZoom]);
+  }, [lastTap, scale, resetZoom, getPanBounds, panOffset]);
 
   if (!isOpen || gallery.length === 0) return null;
 
@@ -768,7 +832,7 @@ export const ImageLightbox = memo(({
       {/* Swipe hints for mobile */}
       <div className="absolute bottom-4 left-0 right-0 text-center text-white/50 text-xs pointer-events-none">
         {isZoomed 
-          ? "Двойной тап — сбросить зум • Щипок — масштаб"
+          ? "2×тап по краю — к границе • 2×тап в центре — сброс"
           : hasMultipleImages 
             ? "Свайп влево/вправо — листать • Щипок — зум"
             : "Щипок — зум • Свайп вниз — закрыть"
