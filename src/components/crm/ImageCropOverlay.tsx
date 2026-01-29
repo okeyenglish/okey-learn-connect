@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, memo } from 'react';
-import { X, Check, Move } from 'lucide-react';
+import { X, Check, Move, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -35,6 +35,7 @@ export const ImageCropOverlay = memo(({
   
   // Crop area state (relative to displayed image)
   const [cropArea, setCropArea] = useState<CropArea>({ x: 0, y: 0, width: 0, height: 0 });
+  const [cropHistory, setCropHistory] = useState<CropArea[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeHandle, setResizeHandle] = useState<ResizeHandle | null>(null);
@@ -46,6 +47,7 @@ export const ImageCropOverlay = memo(({
     y: number; 
     crop: CropArea;
   } | null>(null);
+  const pendingHistoryRef = useRef<CropArea | null>(null);
 
   // Initialize crop area when image loads
   useEffect(() => {
@@ -142,12 +144,18 @@ export const ImageCropOverlay = memo(({
   }, [isDragging, isResizing, resizeHandle, imageDimensions, cropArea.width, cropArea.height]);
 
   const handleEnd = useCallback(() => {
+    // Save to history when drag/resize ends (if there was a change)
+    if ((isDragging || isResizing) && pendingHistoryRef.current) {
+      setCropHistory(prev => [...prev, pendingHistoryRef.current!]);
+      pendingHistoryRef.current = null;
+    }
+    
     setIsDragging(false);
     setIsResizing(false);
     setResizeHandle(null);
     dragStartRef.current = null;
     resizeStartRef.current = null;
-  }, []);
+  }, [isDragging, isResizing]);
 
   // Mouse event handlers
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -171,6 +179,9 @@ export const ImageCropOverlay = memo(({
 
   // Start dragging the crop area
   const startDrag = useCallback((clientX: number, clientY: number) => {
+    // Save current state for potential undo
+    pendingHistoryRef.current = { ...cropArea };
+    
     setIsDragging(true);
     dragStartRef.current = {
       x: clientX,
@@ -178,10 +189,13 @@ export const ImageCropOverlay = memo(({
       cropX: cropArea.x,
       cropY: cropArea.y,
     };
-  }, [cropArea.x, cropArea.y]);
+  }, [cropArea]);
 
   // Start resizing
   const startResize = useCallback((handle: ResizeHandle, clientX: number, clientY: number) => {
+    // Save current state for potential undo
+    pendingHistoryRef.current = { ...cropArea };
+    
     setIsResizing(true);
     setResizeHandle(handle);
     resizeStartRef.current = {
@@ -190,6 +204,15 @@ export const ImageCropOverlay = memo(({
       crop: { ...cropArea },
     };
   }, [cropArea]);
+
+  // Undo last change
+  const handleUndo = useCallback(() => {
+    if (cropHistory.length === 0) return;
+    
+    const previousState = cropHistory[cropHistory.length - 1];
+    setCropHistory(prev => prev.slice(0, -1));
+    setCropArea(previousState);
+  }, [cropHistory]);
 
   // Apply crop and generate cropped image
   const handleApplyCrop = useCallback(async () => {
@@ -274,14 +297,32 @@ export const ImageCropOverlay = memo(({
     >
       {/* Header */}
       <div className="flex items-center justify-between p-4 bg-black/50">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onCancel}
-          className="text-white hover:bg-white/20"
-        >
-          <X className="h-6 w-6" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onCancel}
+            className="text-white hover:bg-white/20"
+          >
+            <X className="h-6 w-6" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleUndo}
+            disabled={cropHistory.length === 0}
+            className={cn(
+              "text-white hover:bg-white/20",
+              cropHistory.length === 0 && "opacity-40"
+            )}
+            title="Отменить"
+          >
+            <Undo2 className="h-5 w-5" />
+          </Button>
+          {cropHistory.length > 0 && (
+            <span className="text-white/60 text-xs">{cropHistory.length}</span>
+          )}
+        </div>
         <span className="text-white font-medium">Обрезка</span>
         <Button
           variant="ghost"
