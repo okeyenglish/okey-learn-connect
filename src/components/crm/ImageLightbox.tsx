@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Download, ZoomIn, ZoomOut, RotateCw, Loader2, ChevronLeft, ChevronRight, CloudOff, Cloud, Share2, Copy, Check, Save } from 'lucide-react';
+import { X, Download, ZoomIn, ZoomOut, RotateCw, Loader2, ChevronLeft, ChevronRight, CloudOff, Cloud, Share2, Copy, Check, Save, Crop } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useImageGalleryCache } from '@/hooks/useImageCache';
+import { ImageCropOverlay } from './ImageCropOverlay';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -128,6 +129,7 @@ export const ImageLightbox = memo(({
   const [showCopiedIndicator, setShowCopiedIndicator] = useState(false);
   const [showSavedIndicator, setShowSavedIndicator] = useState(false);
   const [isSavingWithTransforms, setIsSavingWithTransforms] = useState(false);
+  const [showCropOverlay, setShowCropOverlay] = useState(false);
   const longPressStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const currentImage = gallery[currentIndex];
@@ -513,7 +515,36 @@ export const ImageLightbox = memo(({
     }
   }, [currentImage, rotation, scale, handleDownloadCurrent]);
 
-  // Reset all transformations (zoom, rotation, pan)
+  // Open crop overlay
+  const handleOpenCrop = useCallback(() => {
+    setShowContextMenu(false);
+    setShowCropOverlay(true);
+  }, []);
+
+  // Handle cropped image completion
+  const handleCropComplete = useCallback((croppedBlob: Blob) => {
+    // Download the cropped image
+    const url = URL.createObjectURL(croppedBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    
+    const originalName = currentImage?.alt || 'image';
+    a.download = `${originalName}_cropped.png`;
+    
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    setShowCropOverlay(false);
+    setShowSavedIndicator(true);
+    setTimeout(() => setShowSavedIndicator(false), 1500);
+  }, [currentImage]);
+
+  // Cancel crop
+  const handleCropCancel = useCallback(() => {
+    setShowCropOverlay(false);
+  }, []);
   const resetAllTransformations = useCallback(() => {
     setScale(1);
     setRotation(0);
@@ -1218,6 +1249,13 @@ export const ImageLightbox = memo(({
                 <Copy className="h-5 w-5 text-muted-foreground" />
                 <span className="text-sm font-medium">Копировать</span>
               </button>
+              <button
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-accent transition-colors"
+                onClick={handleOpenCrop}
+              >
+                <Crop className="h-5 w-5 text-muted-foreground" />
+                <span className="text-sm font-medium">Обрезать</span>
+              </button>
             </div>
           </div>
         </div>
@@ -1268,6 +1306,17 @@ export const ImageLightbox = memo(({
             : "Долгий тап — меню • Щипок — зум • Вращение 2 пальцами — поворот"
         }
       </div>
+
+      {/* Crop overlay */}
+      {showCropOverlay && currentImage && (
+        <ImageCropOverlay
+          imageSrc={currentImage.src}
+          imageAlt={currentImage.alt || 'image'}
+          rotation={rotation}
+          onCropComplete={handleCropComplete}
+          onCancel={handleCropCancel}
+        />
+      )}
     </div>
   );
 
