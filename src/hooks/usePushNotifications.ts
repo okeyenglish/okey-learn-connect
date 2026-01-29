@@ -110,29 +110,48 @@ interface SWDiagnostics {
  * - Web Push (VAPID/Service Worker) for browser/PWA
  * 
  * Provides a consistent API regardless of platform.
+ * 
+ * IMPORTANT: We detect platform at module load time (not inside hook)
+ * to ensure consistent hook call order across renders.
  */
+
+// Detect platform once at module load
+const DETECTED_PLATFORM = getPlatform();
+const IS_NATIVE_PLATFORM = isNativePlatform();
+
 export function usePushNotifications() {
-  // Detect platform
-  const platform = getPlatform();
-  const isNative = isNativePlatform();
+  // For native platforms, use native push implementation
+  // For web, use web push implementation
+  // We use the module-level constants to ensure consistent behavior
   
-  // Use native push hook for iOS/Android
-  const nativePush = useNativePushNotifications();
-  
-  // Web push implementation
-  const webPush = useWebPushNotifications();
-  
-  // Return appropriate implementation based on platform
-  if (isNative) {
-    console.log(`[Push] Using Native Push for platform: ${platform}`);
-    return {
-      ...nativePush,
-      platform,
-      subscriptionType: platform === 'ios' ? 'apns' as const : 'fcm' as const,
-    };
+  if (IS_NATIVE_PLATFORM) {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    return useNativePushImpl();
   }
   
-  console.log('[Push] Using Web Push for browser');
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  return useWebPushImpl();
+}
+
+/**
+ * Native Push Implementation Wrapper
+ */
+function useNativePushImpl() {
+  const nativePush = useNativePushNotifications();
+  
+  return {
+    ...nativePush,
+    platform: DETECTED_PLATFORM,
+    subscriptionType: DETECTED_PLATFORM === 'ios' ? 'apns' as const : 'fcm' as const,
+  };
+}
+
+/**
+ * Web Push Implementation Wrapper
+ */
+function useWebPushImpl() {
+  const webPush = useWebPushNotifications();
+  
   return {
     ...webPush,
     platform: 'web' as const,
