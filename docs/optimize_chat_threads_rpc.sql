@@ -9,7 +9,7 @@ ON public.chat_messages (client_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_chat_messages_client_unread_partial 
 ON public.chat_messages (client_id, messenger) 
-WHERE is_read = false AND direction = 'incoming';
+WHERE is_read = false AND message_type = 'client';
 
 CREATE INDEX IF NOT EXISTS idx_clients_id_active 
 ON public.clients (id) 
@@ -88,7 +88,7 @@ AS $$
     FROM public.chat_messages
     WHERE client_id = c.id 
       AND is_read = false 
-      AND direction = 'incoming'
+      AND message_type = 'client'
   ) unread ON true
   -- Get avatar from client_avatars if exists
   LEFT JOIN LATERAL (
