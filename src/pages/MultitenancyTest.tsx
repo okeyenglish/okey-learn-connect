@@ -8,6 +8,7 @@ import { CheckCircle, XCircle, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { getCurrentOrganizationId } from "@/lib/organizationHelpers";
 import { getErrorMessage } from '@/lib/errorUtils';
+import { useAuth } from "@/hooks/useAuth";
 
 interface TestResult {
   name: string;
@@ -19,21 +20,17 @@ interface TestResult {
 export default function MultitenancyTest() {
   const [testing, setTesting] = useState(false);
   const [results, setResults] = useState<TestResult[]>([]);
+  const { user, profile } = useAuth();
 
-  const { data: currentUser } = useQuery({
-    queryKey: ["current-user-test"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-
-      const { data: profile } = await supabase.from("profiles")
-        .select("organization_id, first_name, last_name")
-        .eq("id", user.id)
-        .single();
-
-      return { ...user, profile };
-    },
-  });
+  // Build currentUser object from auth context
+  const currentUser = user ? {
+    ...user,
+    profile: profile ? {
+      organization_id: (profile as any)?.organization_id,
+      first_name: (profile as any)?.first_name,
+      last_name: (profile as any)?.last_name,
+    } : null
+  } : null;
 
   const { data: organizationInfo } = useQuery({
     queryKey: ["organization-info"],

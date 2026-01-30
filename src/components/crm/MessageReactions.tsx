@@ -4,7 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useGroupedReactions, useAddReaction, useRemoveReaction } from "@/hooks/useMessageReactions";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/typedClient";
+import { useAuth } from "@/hooks/useAuth";
 
 interface MessageReactionsProps {
   messageId: string;
@@ -17,6 +17,7 @@ const POPULAR_EMOJIS = ['👍', '👎', '❤️', '😂', '😮', '😢', '🔥'
 
 export const MessageReactions = ({ messageId, showAddButton = true, className }: MessageReactionsProps) => {
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const { user } = useAuth();
   
   const { data: groupedReactions, isLoading } = useGroupedReactions(messageId);
   const addReactionMutation = useAddReaction();
@@ -24,7 +25,6 @@ export const MessageReactions = ({ messageId, showAddButton = true, className }:
 
   const handleEmojiClick = async (emoji: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       const myUserId = user?.id;
 
       // Проверяем, есть ли какая-то реакция текущего пользователя

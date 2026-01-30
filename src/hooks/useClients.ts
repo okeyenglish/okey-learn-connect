@@ -68,7 +68,7 @@ export const useClients = (enabled: boolean = true) => {
     staleTime: 60000, // Cache for 1 minute to reduce DB load
     gcTime: 300000, // Keep in cache for 5 minutes
     queryFn: async (): Promise<Client[]> => {
-      console.log('Fetching clients...', { userId: supabase.auth.getUser() });
+      console.log('Fetching clients...');
       try {
         // OPTIMIZED: Limited query to prevent timeout on large datasets (27K+ clients)
         // Use useSearchClients for full search functionality

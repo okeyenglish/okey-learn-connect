@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle, Clock, AlertTriangle, Wifi, Mic, Shield, Network } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/typedClient';
+import { getCachedUserId } from '@/lib/authHelpers';
 
 type DiagnosticStatus = 'pending' | 'success' | 'error' | 'warning';
 
@@ -211,9 +212,9 @@ export const WebRTCDiagnostics: React.FC<WebRTCDiagnosticsProps> = ({
 
   const saveBestWebSocketURL = async (url: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.from('profiles').update({ sip_ws_url: url }).eq('id', user.id);
+      const userId = await getCachedUserId();
+      if (userId) {
+        await supabase.from('profiles').update({ sip_ws_url: url }).eq('id', userId);
         console.log('Saved best WebSocket URL:', url);
       }
     } catch (error) {
