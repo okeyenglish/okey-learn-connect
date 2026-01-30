@@ -134,4 +134,55 @@ export const ChatSwitchIndicator = ({ visible }: { visible: boolean }) => {
   );
 };
 
+/**
+ * Messenger tab switching overlay with smooth animation
+ */
+export const MessengerTabLoadingOverlay = ({ 
+  visible, 
+  messengerType 
+}: { 
+  visible: boolean;
+  messengerType?: 'whatsapp' | 'telegram' | 'max' | 'chatos' | 'email' | 'calls';
+}) => {
+  if (!visible) return null;
+  
+  const getMessengerColor = () => {
+    switch (messengerType) {
+      case 'whatsapp': return 'bg-green-500';
+      case 'telegram': return 'bg-blue-500';
+      case 'max': return 'bg-purple-500';
+      case 'chatos': return 'bg-teal-500';
+      case 'email': return 'bg-orange-500';
+      case 'calls': return 'bg-rose-500';
+      default: return 'bg-primary';
+    }
+  };
+  
+  const getMessengerLabel = () => {
+    switch (messengerType) {
+      case 'whatsapp': return 'WhatsApp';
+      case 'telegram': return 'Telegram';
+      case 'max': return 'Max';
+      case 'chatos': return 'ChatOS';
+      case 'email': return 'Email';
+      case 'calls': return 'Звонки';
+      default: return 'Загрузка';
+    }
+  };
+  
+  return (
+    <div className="absolute inset-0 bg-background/40 backdrop-blur-[2px] flex items-center justify-center z-10 animate-in fade-in duration-150">
+      <div className="flex flex-col items-center gap-3 p-4 bg-background/80 rounded-xl shadow-lg border border-border/50">
+        <div className="relative">
+          <div className={`h-8 w-8 rounded-full ${getMessengerColor()} opacity-20 animate-ping`} />
+          <div className={`absolute inset-0 h-8 w-8 rounded-full ${getMessengerColor()} flex items-center justify-center`}>
+            <div className="h-3 w-3 rounded-full bg-white animate-pulse" />
+          </div>
+        </div>
+        <span className="text-sm font-medium text-foreground/80">{getMessengerLabel()}</span>
+      </div>
+    </div>
+  );
+};
+
 export default MessageSkeleton;
