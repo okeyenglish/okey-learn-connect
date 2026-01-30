@@ -57,6 +57,7 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
   const [analyzingCallIds, setAnalyzingCallIds] = useState<Set<string>>(new Set());
   const [fetchingRecordingIds, setFetchingRecordingIds] = useState<Set<string>>(new Set());
   const [autoAnalyzedCallIds, setAutoAnalyzedCallIds] = useState<Set<string>>(new Set());
+  const [autoFetchedRecordingIds, setAutoFetchedRecordingIds] = useState<Set<string>>(new Set());
   
   const queryClient = useQueryClient();
   
@@ -285,6 +286,43 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
     }
   }, [fetchingRecordingIds, clientId, queryClient]);
 
+  // Auto-fetch recordings for answered calls missing recording_url
+  useEffect(() => {
+    if (!calls.length) return;
+
+    const candidates = calls.filter(call =>
+      call.status === 'answered' &&
+      !call.recording_url &&
+      !!call.duration_seconds &&
+      call.duration_seconds > 0 &&
+      !autoFetchedRecordingIds.has(call.id) &&
+      !fetchingRecordingIds.has(call.id)
+    );
+
+    if (candidates.length === 0) return;
+
+    const batch = candidates.slice(0, 3);
+    setAutoFetchedRecordingIds(prev => {
+      const next = new Set(prev);
+      batch.forEach(c => next.add(c.id));
+      return next;
+    });
+
+    const run = async () => {
+      for (const call of batch) {
+        try {
+          await handleFetchRecording(call.id);
+          await new Promise(resolve => setTimeout(resolve, 800));
+        } catch {
+          // keep silent; manual button still available
+        }
+      }
+    };
+
+    const timeoutId = setTimeout(run, 800);
+    return () => clearTimeout(timeoutId);
+  }, [calls, autoFetchedRecordingIds, fetchingRecordingIds, handleFetchRecording]);
+
   // Auto-analyze calls that have recordings but no AI evaluation
   useEffect(() => {
     if (!calls.length) return;
@@ -300,19 +338,17 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
     
     if (callsToAnalyze.length === 0) return;
     
-    // Mark as queued to prevent duplicate requests
+    const batch = callsToAnalyze.slice(0, 3);
+    // Mark only the batch as queued to avoid blocking further calls
     setAutoAnalyzedCallIds(prev => {
       const next = new Set(prev);
-      callsToAnalyze.forEach(c => next.add(c.id));
+      batch.forEach(c => next.add(c.id));
       return next;
     });
     
     // Analyze sequentially with delay to avoid rate limiting
     const analyzeSequentially = async () => {
-      for (const call of callsToAnalyze.slice(0, 3)) { // Max 3 at a time
-        // Check if component still mounted and call not already being analyzed
-        if (analyzingCallIds.has(call.id)) continue;
-        
+      for (const call of batch) {
         try {
           console.log('[AutoAnalyze] Starting analysis for call:', call.id);
           await handleAnalyzeCall(call.id);
