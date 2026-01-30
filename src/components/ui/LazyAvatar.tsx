@@ -10,10 +10,12 @@ interface LazyAvatarProps {
   alt?: string;
   /** Fallback text (usually initials) */
   fallback?: string;
-  /** Additional class names */
+  /** Additional class names for Avatar wrapper */
   className?: string;
-  /** Avatar size - maps to standard sizes */
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  /** Additional class names for fallback */
+  fallbackClassName?: string;
+  /** Avatar size - maps to standard sizes (ignored if className provides size) */
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'custom';
   /** Root margin for lazy loading trigger */
   rootMargin?: string;
   /** Skip lazy loading and load immediately */
@@ -25,6 +27,7 @@ const sizeClasses = {
   md: 'h-10 w-10 text-sm',
   lg: 'h-12 w-12 text-base',
   xl: 'h-16 w-16 text-lg',
+  custom: '', // No default size, use className
 };
 
 /**
@@ -45,6 +48,7 @@ export const LazyAvatar = React.memo(function LazyAvatar({
   alt = 'Avatar',
   fallback = '?',
   className,
+  fallbackClassName,
   size = 'md',
   rootMargin = '100px',
   eager = false,
@@ -55,9 +59,13 @@ export const LazyAvatar = React.memo(function LazyAvatar({
     eager,
   });
 
+  const avatarClassName = size === 'custom' 
+    ? className 
+    : cn(sizeClasses[size], className);
+
   return (
     <div ref={ref as React.RefObject<HTMLDivElement>} className="inline-block">
-      <Avatar className={cn(sizeClasses[size], className)}>
+      <Avatar className={avatarClassName}>
         {isTriggered && lazySrc && (
           <AvatarImage
             src={lazySrc}
@@ -70,8 +78,9 @@ export const LazyAvatar = React.memo(function LazyAvatar({
         )}
         <AvatarFallback
           className={cn(
-            'transition-opacity duration-200',
-            isLoaded && lazySrc ? 'opacity-0' : 'opacity-100'
+            'transition-opacity duration-200 text-sm font-medium',
+            isLoaded && lazySrc ? 'opacity-0' : 'opacity-100',
+            fallbackClassName
           )}
         >
           {fallback}
