@@ -420,7 +420,17 @@ export default function HolihopeImport() {
         ),
       ]);
 
-      if (!result.success) throw new Error(result.error || 'Ошибка вызова функции');
+      console.log(`[HolihopeImport] API response for ${step.action}:`, { 
+        success: result.success, 
+        status: result.status,
+        error: result.error,
+        hasData: !!result.data 
+      });
+
+      if (!result.success) {
+        console.error(`[HolihopeImport] API error for ${step.action}:`, result.error, 'Status:', result.status);
+        throw new Error(result.error || 'Ошибка вызова функции');
+      }
       const data = result.data;
 
       // Check if edge function returned "already running" response
