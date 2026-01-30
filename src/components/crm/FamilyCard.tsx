@@ -360,7 +360,7 @@ export const FamilyCard = ({
                   {getRelationshipLabel(activeMember.relationship, activeMember)}
                 </p>
                 {/* Show messenger ID under name */}
-                {(activeMember.telegramUserId || activeMember.telegramChatId || activeMember.whatsappChatId) && (
+                {(activeMember.telegramUserId || activeMember.telegramChatId || activeMember.whatsappChatId || activeMember.maxChatId) && (
                   <p className="text-xs text-muted-foreground/70 font-mono">
                     {activeMember.telegramUserId 
                       ? `TG: ${activeMember.telegramUserId}` 
@@ -368,7 +368,9 @@ export const FamilyCard = ({
                         ? `TG: ${activeMember.telegramChatId}` 
                         : activeMember.whatsappChatId 
                           ? `WA: ${activeMember.whatsappChatId.replace('@c.us', '')}` 
-                          : null}
+                          : activeMember.maxChatId 
+                            ? `MAX: ${activeMember.maxChatId.replace('@c.us', '')}` 
+                            : null}
                   </p>
                 )}
               </div>
