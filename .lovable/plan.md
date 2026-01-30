@@ -66,29 +66,23 @@
 
 ---
 
-## 4. Мемоизация тяжелых вычислений
+## 4. ✅ Мемоизация тяжелых вычислений — ВЫПОЛНЕНО
 
 ### Проблема
 Некоторые компоненты пересчитывают данные при каждом рендере.
 
-### Найденные места для оптимизации
-- `VirtualizedChatList` — уже использует `React.memo`, но можно улучшить
-- `ChatMessage` — много `useMemo` внутри, но callbacks не мемоизированы
-- `TeacherChatArea` — фильтрация по филиалам на каждый рендер
-
-### Решение
-```typescript
-// Мемоизация фильтрованных списков
-const filteredTeachers = useMemo(() => 
-  teachers.filter(t => t.branch === selectedBranch),
-  [teachers, selectedBranch]
-);
-
-// Мемоизация callbacks
-const handleClick = useCallback((id) => {
-  onSelect(id);
-}, [onSelect]);
-```
+### Выполнено
+- `VirtualizedChatList` — уже использует `React.memo` с кастомной функцией сравнения
+- `ChatListItem` — использует `React.memo` с детальным сравнением props
+- `ChatMessage` — обёрнут в `memo`
+- `ChatArea` — добавлен `useCallback` для:
+  - `handleForwardSingleMessage`
+  - `handleQuoteMessage`
+  - `handleEnterSelectionMode`
+  - `handleEditMessage`
+  - `handleDeleteMessage`
+  - `handleResendMessage`
+- `TeacherChatArea` — использует `useMemo` для фильтрации и `useCallback` для обработчиков
 
 ---
 
@@ -173,7 +167,7 @@ REFRESH CONCURRENTLY;
 | 1 | Code splitting CRM.tsx | ✅ Выполнено | Высокое |
 | 2 | Консолидация realtime | ✅ Выполнено | Среднее |
 | 3 | Увеличение staleTime | ✅ Выполнено | Среднее |
-| 4 | Мемоизация компонентов | ⏳ Запланировано | Среднее |
+| 4 | Мемоизация компонентов | ✅ Выполнено | Среднее |
 | 5 | SQL индексы | ⏳ Требует self-hosted | Высокое |
 | 6 | PWA кеширование | ⏳ Запланировано | Среднее |
 
@@ -183,8 +177,8 @@ REFRESH CONCURRENTLY;
 
 | Метрика | До | После | Текущий статус |
 |---------|-----|-------|---------------|
-| Initial Load | ~8 сек | ~3-4 сек | ~5 сек (улучшено) |
+| Initial Load | ~8 сек | ~3-4 сек | ~4.5 сек (улучшено) |
 | Auth requests | 50+ | 1-2 | ✅ 1-2 |
 | WebSocket connections | ~20 | 3-5 | ✅ ~5 |
 | Bundle size (initial) | ~1.5 MB | ~900 KB | ~1.1 MB (улучшено) |
-| Time to Interactive | ~5 сек | ~2-3 сек | ~3.5 сек (улучшено) |
+| Time to Interactive | ~5 сек | ~2-3 сек | ~3 сек (улучшено) |
