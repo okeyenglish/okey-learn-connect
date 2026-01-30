@@ -8,8 +8,8 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_client_id_created_desc
 ON public.chat_messages (client_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_chat_messages_client_unread_partial 
-ON public.chat_messages (client_id, messenger_type) 
-WHERE is_read = false AND message_type = 'client';
+ON public.chat_messages (client_id) 
+WHERE COALESCE(is_read, false) = false AND message_type = 'client';
 
 CREATE INDEX IF NOT EXISTS idx_clients_id_active 
 ON public.clients (id) 
@@ -47,17 +47,26 @@ SET search_path = public
 AS $$
   SELECT 
     c.id as client_id,
-    c.name as client_name,
-    c.first_name,
-    c.last_name,
-    c.middle_name,
-    c.phone,
-    c.email,
-    c.whatsapp_id,
-    c.telegram_user_id,
-    c.salebot_client_id,
-    c.branch,
-    CASE WHEN c.is_active THEN 'active' ELSE 'inactive' END as status,
+    COALESCE(to_jsonb(c)->>'name', to_jsonb(c)->>'client_name') as client_name,
+    to_jsonb(c)->>'first_name' as first_name,
+    to_jsonb(c)->>'last_name' as last_name,
+    to_jsonb(c)->>'middle_name' as middle_name,
+    to_jsonb(c)->>'phone' as phone,
+    to_jsonb(c)->>'email' as email,
+    COALESCE(
+      to_jsonb(c)->>'whatsapp_id',
+      to_jsonb(c)->>'whatsapp_chat_id',
+      to_jsonb(c)->>'whatsapp_chat',
+      to_jsonb(c)->>'whatsapp'
+    ) as whatsapp_id,
+    COALESCE(
+      to_jsonb(c)->>'telegram_user_id',
+      to_jsonb(c)->>'telegram_chat_id',
+      to_jsonb(c)->>'telegram_chat'
+    ) as telegram_user_id,
+    to_jsonb(c)->>'salebot_client_id' as salebot_client_id,
+    COALESCE(to_jsonb(c)->>'branch', to_jsonb(c)->>'branch_name') as branch,
+    CASE WHEN COALESCE((to_jsonb(c)->>'is_active')::boolean, true) THEN 'active' ELSE 'inactive' END as status,
     lm.message_text as last_message_content,
     lm.created_at as last_message_at,
     lm.messenger_type as last_messenger,
@@ -66,12 +75,20 @@ AS $$
     COALESCE(unread.telegram, 0) as unread_telegram,
     COALESCE(unread.max_count, 0) as unread_max,
     COALESCE(unread.salebot, 0) as unread_salebot,
-    c.avatar_url
+    COALESCE(
+      to_jsonb(c)->>'avatar_url',
+      to_jsonb(c)->>'whatsapp_avatar_url',
+      to_jsonb(c)->>'telegram_avatar_url',
+      to_jsonb(c)->>'max_avatar_url'
+    ) as avatar_url
   FROM unnest(p_client_ids) AS cid(id)
   JOIN public.clients c ON c.id = cid.id
   -- Get last message using LATERAL (much faster than correlated subquery)
   LEFT JOIN LATERAL (
-    SELECT cm.message_text, cm.created_at, cm.messenger_type
+    SELECT 
+      COALESCE(to_jsonb(cm)->>'message_text', to_jsonb(cm)->>'content') as message_text,
+      cm.created_at,
+      COALESCE(to_jsonb(cm)->>'messenger_type', to_jsonb(cm)->>'messenger') as messenger_type
     FROM public.chat_messages cm
     WHERE cm.client_id = c.id
     ORDER BY cm.created_at DESC
@@ -81,13 +98,21 @@ AS $$
   LEFT JOIN LATERAL (
     SELECT 
       COUNT(*) as total,
-      COUNT(*) FILTER (WHERE messenger_type = 'whatsapp') as whatsapp,
-      COUNT(*) FILTER (WHERE messenger_type = 'telegram') as telegram,
-      COUNT(*) FILTER (WHERE messenger_type = 'max') as max_count,
-      COUNT(*) FILTER (WHERE messenger_type = 'salebot') as salebot
+      COUNT(*) FILTER (
+        WHERE COALESCE(to_jsonb(chat_messages)->>'messenger_type', to_jsonb(chat_messages)->>'messenger') = 'whatsapp'
+      ) as whatsapp,
+      COUNT(*) FILTER (
+        WHERE COALESCE(to_jsonb(chat_messages)->>'messenger_type', to_jsonb(chat_messages)->>'messenger') = 'telegram'
+      ) as telegram,
+      COUNT(*) FILTER (
+        WHERE COALESCE(to_jsonb(chat_messages)->>'messenger_type', to_jsonb(chat_messages)->>'messenger') = 'max'
+      ) as max_count,
+      COUNT(*) FILTER (
+        WHERE COALESCE(to_jsonb(chat_messages)->>'messenger_type', to_jsonb(chat_messages)->>'messenger') = 'salebot'
+      ) as salebot
     FROM public.chat_messages
     WHERE client_id = c.id 
-      AND is_read = false 
+      AND COALESCE(is_read, false) = false 
       AND message_type = 'client'
   ) unread ON true
 $$;
