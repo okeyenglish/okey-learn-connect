@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 interface FamilyCardWrapperProps {
   clientId: string;
   onOpenChat?: (clientId: string, messengerType?: 'whatsapp' | 'telegram' | 'max') => void;
+  activeMessengerTab?: 'whatsapp' | 'telegram' | 'max';
 }
 
 // Fetch or create family group ID for a client
@@ -114,7 +115,7 @@ const fetchFamilyGroupId = async (clientId: string): Promise<string | null> => {
   return group.id;
 };
 
-export const FamilyCardWrapper = ({ clientId, onOpenChat }: FamilyCardWrapperProps) => {
+export const FamilyCardWrapper = ({ clientId, onOpenChat, activeMessengerTab }: FamilyCardWrapperProps) => {
   // Use React Query for caching and deduplication
   const { data: familyGroupId, isLoading, error } = useQuery({
     queryKey: ['family-group-id', clientId],
@@ -152,6 +153,7 @@ export const FamilyCardWrapper = ({ clientId, onOpenChat }: FamilyCardWrapperPro
         onCall={(memberId) => console.log('Call member:', memberId)}
         onPhoneSwitch={(phoneId) => console.log('Switch phone:', phoneId)}
         activePhoneId="1"
+        activeMessengerTab={activeMessengerTab}
       />
     </div>
   );

@@ -4217,6 +4217,7 @@ const CRMContent = () => {
                   }
                   handleChatClick(memberId, 'client');
                 }}
+                activeMessengerTab={selectedMessengerTab?.tab}
               />
             )}
           </div>
@@ -4234,6 +4235,7 @@ const CRMContent = () => {
                   }
                   handleChatClick(memberId, 'client');
                 }}
+                activeMessengerTab={selectedMessengerTab?.tab}
               />
             )}
           </SheetContent>

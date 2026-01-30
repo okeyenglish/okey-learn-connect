@@ -45,6 +45,7 @@ interface FamilyCardProps {
   onCall?: (memberId: string) => void;
   onPhoneSwitch?: (phoneId: string) => void;
   activePhoneId?: string;
+  activeMessengerTab?: 'whatsapp' | 'telegram' | 'max';
 }
 
 export const FamilyCard = ({ 
@@ -54,7 +55,8 @@ export const FamilyCard = ({
   onOpenChat,
   onCall,
   onPhoneSwitch,
-  activePhoneId: propActivePhoneId = '1'
+  activePhoneId: propActivePhoneId = '1',
+  activeMessengerTab = 'whatsapp'
 }: FamilyCardProps) => {
   const [activeTab, setActiveTab] = useState("children");
   const { pinModal, unpinModal, isPinned } = usePinnedModalsDB();
@@ -359,20 +361,38 @@ export const FamilyCard = ({
                 <p className="text-sm text-muted-foreground">
                   {getRelationshipLabel(activeMember.relationship, activeMember)}
                 </p>
-                {/* Show messenger ID under name */}
-                {(activeMember.telegramUserId || activeMember.telegramChatId || activeMember.whatsappChatId || activeMember.maxChatId) && (
-                  <p className="text-xs text-muted-foreground/70 font-mono">
-                    {activeMember.telegramUserId 
-                      ? `TG: ${activeMember.telegramUserId}` 
-                      : activeMember.telegramChatId 
-                        ? `TG: ${activeMember.telegramChatId}` 
-                        : activeMember.whatsappChatId 
-                          ? `WA: ${activeMember.whatsappChatId.replace('@c.us', '')}` 
-                          : activeMember.maxChatId 
-                            ? `MAX: ${activeMember.maxChatId.replace('@c.us', '')}` 
-                            : null}
-                  </p>
-                )}
+                {/* Show messenger ID based on active tab */}
+                {(() => {
+                  const getMessengerInfo = () => {
+                    if (activeMessengerTab === 'telegram') {
+                      if (activeMember.telegramUserId) return `TG ID: ${activeMember.telegramUserId}`;
+                      if (activeMember.telegramChatId) return `TG: ${activeMember.telegramChatId}`;
+                      // Fallback: show primary phone for telegram
+                      const primaryPhone = activeMember.phoneNumbers?.find(p => p.isPrimary);
+                      if (primaryPhone?.phone) return `TG тел: ${primaryPhone.phone}`;
+                      return null;
+                    }
+                    if (activeMessengerTab === 'whatsapp') {
+                      if (activeMember.whatsappChatId) return `WA: ${activeMember.whatsappChatId.replace('@c.us', '')}`;
+                      // Fallback: show primary phone for whatsapp
+                      const primaryPhone = activeMember.phoneNumbers?.find(p => p.isPrimary);
+                      if (primaryPhone?.phone) return `WA тел: ${primaryPhone.phone}`;
+                      return null;
+                    }
+                    if (activeMessengerTab === 'max') {
+                      if (activeMember.maxChatId) return `MAX: ${activeMember.maxChatId.replace('@c.us', '')}`;
+                      // Fallback: show primary phone for max
+                      const primaryPhone = activeMember.phoneNumbers?.find(p => p.isPrimary);
+                      if (primaryPhone?.phone) return `MAX тел: ${primaryPhone.phone}`;
+                      return null;
+                    }
+                    return null;
+                  };
+                  const info = getMessengerInfo();
+                  return info ? (
+                    <p className="text-xs text-muted-foreground/70 font-mono">{info}</p>
+                  ) : null;
+                })()}
               </div>
             </div>
             <div className="flex items-center gap-1">
