@@ -13,7 +13,7 @@ WHERE is_read = false AND message_type = 'client';
 
 CREATE INDEX IF NOT EXISTS idx_clients_id_active 
 ON public.clients (id) 
-WHERE status != 'deleted';
+WHERE is_active = true;
 
 -- Step 2: Optimized RPC function using LATERAL joins
 CREATE OR REPLACE FUNCTION public.get_chat_threads_by_client_ids(p_client_ids uuid[])
@@ -29,7 +29,7 @@ RETURNS TABLE (
   telegram_user_id text,
   salebot_client_id text,
   branch text,
-  status text,
+  is_active boolean,
   last_message_content text,
   last_message_at timestamptz,
   last_messenger_type text,
@@ -57,7 +57,7 @@ AS $$
     c.telegram_user_id,
     c.salebot_client_id,
     c.branch,
-    c.status,
+    c.is_active,
     lm.content as last_message_content,
     lm.created_at as last_message_at,
     lm.messenger_type as last_messenger_type,
