@@ -496,14 +496,39 @@ export const FamilyCard = ({
               }}
               onCallClick={handlePhoneCall}
               onPhoneSave={async (phone) => {
-                // Save phone to client record
+                // Save phone to client record and create client_phone_numbers entry
                 try {
-                  const { error } = await supabase
+                  // 1. Update client.phone
+                  const { error: clientError } = await supabase
                     .from('clients')
                     .update({ phone })
                     .eq('id', activeMember.id);
                   
-                  if (error) throw error;
+                  if (clientError) throw clientError;
+                  
+                  // 2. Check if phone already exists in client_phone_numbers
+                  const { data: existingPhones } = await supabase
+                    .from('client_phone_numbers')
+                    .select('id')
+                    .eq('client_id', activeMember.id)
+                    .eq('phone', phone);
+                  
+                  // 3. If not exists, create new record
+                  if (!existingPhones?.length) {
+                    const { error: phoneError } = await supabase
+                      .from('client_phone_numbers')
+                      .insert({
+                        client_id: activeMember.id,
+                        phone,
+                        is_primary: true,
+                        phone_type: 'mobile',
+                      });
+                    
+                    if (phoneError) {
+                      console.warn('Failed to create phone record:', phoneError);
+                      // Don't throw - client.phone was updated successfully
+                    }
+                  }
                   
                   // Refetch data to update UI
                   refetch();
