@@ -269,6 +269,19 @@ const fetchFamilyData = async (familyGroupId: string): Promise<FamilyGroup> => {
 
   const rpcData = data as unknown as RpcResponse;
   
+  // Debug log to see raw RPC data
+  console.log('[useFamilyData] Raw RPC response:', {
+    family_group: rpcData.family_group?.id,
+    members_count: rpcData.members?.length,
+    first_member: rpcData.members?.[0] ? {
+      name: rpcData.members[0].name,
+      phone: rpcData.members[0].phone,
+      telegram_chat_id: rpcData.members[0].telegram_chat_id,
+      telegram_user_id: rpcData.members[0].telegram_user_id,
+      whatsapp_chat_id: rpcData.members[0].whatsapp_chat_id,
+    } : null,
+  });
+  
   if (!rpcData.family_group) {
     throw new Error('Family group not found');
   }
