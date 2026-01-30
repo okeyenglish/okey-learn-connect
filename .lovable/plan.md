@@ -168,8 +168,29 @@ REFRESH CONCURRENTLY;
 | 2 | Консолидация realtime | ✅ Выполнено | Среднее |
 | 3 | Увеличение staleTime | ✅ Выполнено | Среднее |
 | 4 | Мемоизация компонентов | ✅ Выполнено | Среднее |
-| 5 | SQL индексы | ⏳ Требует self-hosted | Высокое |
+| 5 | SQL индексы | ✅ Скрипты готовы | Высокое |
 | 6 | PWA кеширование | ⏳ Запланировано | Среднее |
+
+---
+
+## SQL-оптимизации для self-hosted
+
+Скрипты для выполнения на api.academyos.ru находятся в `docs/sql-optimizations/`:
+
+1. **optimize_chat_messages_indexes.sql** — partial indexes для chat_messages:
+   - `idx_chat_messages_recent_7d` — сообщения за последние 7 дней
+   - `idx_chat_messages_unread_incoming` — непрочитанные входящие
+   - `idx_chat_messages_client_latest` — последние сообщения по клиентам
+   - BRIN index для time-series данных
+
+2. **create_chat_threads_mv.sql** — materialized view для списка чатов:
+   - `chat_threads_mv` — предагрегированные данные чатов
+   - `get_chat_threads_from_mv()` — быстрый RPC с пагинацией
+   - `get_unread_threads_from_mv()` — только непрочитанные
+   - Cron job для автоматического обновления каждую минуту
+
+3. **create_teacher_chat_threads_mv.sql** — MV для учителей
+4. **optimize_teacher_chat_messages.sql** — оптимизация для RPC учителей
 
 ---
 
@@ -182,3 +203,4 @@ REFRESH CONCURRENTLY;
 | WebSocket connections | ~20 | 3-5 | ✅ ~5 |
 | Bundle size (initial) | ~1.5 MB | ~900 KB | ~1.1 MB (улучшено) |
 | Time to Interactive | ~5 сек | ~2-3 сек | ~3 сек (улучшено) |
+| Chat threads query | ~2-3 сек | ~50-100 мс | ⏳ После применения MV |
