@@ -56,6 +56,7 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [analyzingCallIds, setAnalyzingCallIds] = useState<Set<string>>(new Set());
   const [fetchingRecordingIds, setFetchingRecordingIds] = useState<Set<string>>(new Set());
+  const [autoAnalyzedCallIds, setAutoAnalyzedCallIds] = useState<Set<string>>(new Set());
   
   const queryClient = useQueryClient();
   
@@ -284,6 +285,50 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
     }
   }, [fetchingRecordingIds, clientId, queryClient]);
 
+  // Auto-analyze calls that have recordings but no AI evaluation
+  useEffect(() => {
+    if (!calls.length) return;
+    
+    // Find calls that need auto-analysis
+    const callsToAnalyze = calls.filter(call => 
+      call.status === 'answered' &&
+      call.recording_url &&
+      !call.ai_evaluation &&
+      !autoAnalyzedCallIds.has(call.id) &&
+      !analyzingCallIds.has(call.id)
+    );
+    
+    if (callsToAnalyze.length === 0) return;
+    
+    // Mark as queued to prevent duplicate requests
+    setAutoAnalyzedCallIds(prev => {
+      const next = new Set(prev);
+      callsToAnalyze.forEach(c => next.add(c.id));
+      return next;
+    });
+    
+    // Analyze sequentially with delay to avoid rate limiting
+    const analyzeSequentially = async () => {
+      for (const call of callsToAnalyze.slice(0, 3)) { // Max 3 at a time
+        // Check if component still mounted and call not already being analyzed
+        if (analyzingCallIds.has(call.id)) continue;
+        
+        try {
+          console.log('[AutoAnalyze] Starting analysis for call:', call.id);
+          await handleAnalyzeCall(call.id);
+          // Small delay between requests
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (error) {
+          console.error('[AutoAnalyze] Failed:', error);
+        }
+      }
+    };
+    
+    // Run after a short delay to not block initial render
+    const timeoutId = setTimeout(analyzeSequentially, 2000);
+    return () => clearTimeout(timeoutId);
+  }, [calls, autoAnalyzedCallIds, analyzingCallIds, handleAnalyzeCall]);
+
   const renderCallItem = (call: CallLog, showUnviewedIndicator: boolean = false) => {
     const hasAiEvaluation = call.ai_evaluation && typeof call.ai_evaluation === 'object' && (call.ai_evaluation as any).overall_score !== undefined;
     const canAnalyze = call.status === 'answered' && call.recording_url && !hasAiEvaluation;
@@ -401,7 +446,7 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
                 className="mt-2"
               />
 
-              {/* AI Evaluation badge OR Analyze button */}
+              {/* AI Evaluation badge OR Analyzing indicator OR Analyze button */}
               <div className="mt-2 flex items-center gap-2 flex-wrap">
                 {hasAiEvaluation && (
                   <Badge 
@@ -419,28 +464,27 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
                   </Badge>
                 )}
                 
-                {canAnalyze && (
+                {/* Show analyzing indicator (auto or manual) */}
+                {isAnalyzing && (
+                  <Badge variant="outline" className="text-xs gap-1 animate-pulse">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Анализируем...
+                  </Badge>
+                )}
+                
+                {/* Manual analyze button - only if not already analyzing and no evaluation */}
+                {canAnalyze && !isAnalyzing && (
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleAnalyzeCall(call.id);
                     }}
-                    disabled={isAnalyzing}
-                    className="h-6 text-xs gap-1"
+                    className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground"
                   >
-                    {isAnalyzing ? (
-                      <>
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Анализ...
-                      </>
-                    ) : (
-                      <>
-                        <Wand2 className="h-3 w-3" />
-                        AI анализ
-                      </>
-                    )}
+                    <Wand2 className="h-3 w-3" />
+                    Анализ
                   </Button>
                 )}
               </div>
