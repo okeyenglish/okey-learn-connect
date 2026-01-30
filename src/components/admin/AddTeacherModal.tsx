@@ -130,7 +130,7 @@ export const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ onTeacherAdded
           .insert({
             profile_id: existingProfileId,
             first_name: formData.firstName,
-            last_name: formData.lastName,
+            last_name: formData.lastName || '', // NOT NULL на self-hosted
             email: formData.email,
             phone: formData.phone ? normalizePhone(formData.phone) : null,
             branch: formData.branch,
@@ -171,7 +171,7 @@ export const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ onTeacherAdded
           .from('teachers')
           .insert({
             first_name: formData.firstName,
-            last_name: formData.lastName || null,
+            last_name: formData.lastName || '', // NOT NULL на self-hosted
             email: formData.email || null,
             phone: formData.phone ? normalizePhone(formData.phone) : null,
             branch: formData.branch || null,

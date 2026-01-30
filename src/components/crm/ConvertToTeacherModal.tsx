@@ -122,7 +122,7 @@ export function ConvertToTeacherModal({
         .from('teachers')
         .insert({
           first_name: firstName.trim(),
-          last_name: lastName.trim() || null,
+          last_name: lastName.trim() || '', // NOT NULL на self-hosted
           phone: phone.trim() || null,
           email: email.trim() || null,
           organization_id: organizationId,

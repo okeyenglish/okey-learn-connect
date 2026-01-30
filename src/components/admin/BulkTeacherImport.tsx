@@ -247,7 +247,7 @@ export const BulkTeacherImport: React.FC = () => {
             .insert({
               profile_id: existingProfileId,
               first_name: teacher.firstName,
-              last_name: teacher.lastName || null,
+              last_name: teacher.lastName || '', // NOT NULL на self-hosted
               email: teacher.email || null,
               phone: teacher.phone ? normalizePhone(teacher.phone) : null,
               branch: teacher.branch || null,
@@ -279,7 +279,7 @@ export const BulkTeacherImport: React.FC = () => {
             .from('teachers')
             .insert({
               first_name: teacher.firstName,
-              last_name: teacher.lastName || null,
+              last_name: teacher.lastName || '', // NOT NULL на self-hosted
               email: teacher.email || null,
               phone: teacher.phone ? normalizePhone(teacher.phone) : null,
               branch: teacher.branch || null,
