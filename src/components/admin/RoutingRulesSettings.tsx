@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import { supabaseTyped as supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { getErrorMessage } from '@/lib/errorUtils';
 
 interface RoutingRule {
@@ -70,6 +71,7 @@ export const RoutingRulesSettings = () => {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingRule, setEditingRule] = useState<RoutingRule | null>(null);
   const { toast } = useToast();
+  const { user, profile } = useAuth();
 
   // Form state
   const [formName, setFormName] = useState('');
@@ -172,22 +174,15 @@ export const RoutingRulesSettings = () => {
         if (error) throw error;
         toast({ title: 'Успешно', description: 'Правило обновлено' });
       } else {
-        // Get user's organization first
-        const { data: { user } } = await supabase.auth.getUser();
+        // Use organization_id from AuthProvider profile
+        const organizationId = (profile as any)?.organization_id;
         if (!user) throw new Error('Not authenticated');
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (!profile?.organization_id) throw new Error('No organization');
+        if (!organizationId) throw new Error('No organization');
 
         const { error } = await supabase
           .from('routing_rules')
           .insert({
-            organization_id: profile.organization_id,
+            organization_id: organizationId,
             name: formName,
             description: formDescription || null,
             channel_type: formChannelType,

@@ -1,11 +1,13 @@
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
 import { selfHostedPost } from "@/lib/selfHostedApi";
 
 export const useWhatsAppFile = () => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { user, profile } = useAuth();
 
   const downloadFile = async (chatId: string, messageId: string): Promise<string | null> => {
     setLoading(true);
@@ -20,16 +22,11 @@ export const useWhatsAppFile = () => {
       const provider = settingsData?.provider || 'greenapi';
       const functionName = provider === 'wpp' ? 'wpp-download' : 'download-whatsapp-file';
 
-      // Get organization_id from profile
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('id', user?.id)
-        .single();
+      // Use organization_id from profile via AuthProvider
+      const organizationId = (profile as any)?.organization_id;
 
       const body = provider === 'wpp' 
-        ? { messageId, organizationId: profile?.organization_id }
+        ? { messageId, organizationId }
         : { chatId, idMessage: messageId };
 
       const response = await selfHostedPost<{ downloadUrl?: string }>(functionName, body);

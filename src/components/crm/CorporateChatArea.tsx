@@ -16,6 +16,7 @@ import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { AddCorporateChatModal } from './AddCorporateChatModal';
 import { useMessageDrafts } from '@/hooks/useMessageDrafts';
+import { useAuth } from '@/hooks/useAuth';
 
 interface CorporateChatAreaProps {
   onMessageChange?: (hasUnsaved: boolean) => void;
@@ -34,6 +35,8 @@ const branches = [
 ];
 
 export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, embedded = false }: CorporateChatAreaProps) => {
+  const { user, profile } = useAuth();
+  
   // Determine chat ID for drafts (use branch or custom chat id)
   const [activeBranch, setActiveBranch] = useState<string | null>(selectedBranchId);
   const [selectedCustomChatId, setSelectedCustomChatId] = useState<string | null>(null);
@@ -51,19 +54,16 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
   const [customChats, setCustomChats] = useState<any[]>([]);
   const [isLoadingCustomChats, setIsLoadingCustomChats] = useState(true);
 
-  // Загружаем кастомные чаты
+  // Get user branch from AuthProvider
+  const userBranch = profile?.branch;
+
+  // Загружаем кастомные чаты using profile from AuthProvider
   useEffect(() => {
     const loadCustomChats = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('branch')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (!profile?.branch) return;
+      if (!userBranch) {
+        setIsLoadingCustomChats(false);
+        return;
+      }
 
       const { data: clients, error } = await supabase
         .from('clients')
@@ -78,7 +78,7 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
             is_read
           )
         `)
-        .eq('branch', profile.branch)
+        .eq('branch', userBranch)
         .ilike('name', 'Кастомный чат -%');
 
       if (error) {
@@ -111,10 +111,12 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
     };
 
     loadCustomChats();
-  }, []);
+  }, [userBranch]);
 
   // Real-time обновление списка кастомных чатов при изменении данных клиента
   useEffect(() => {
+    if (!userBranch) return;
+    
     const channel = supabase
       .channel('custom-chats-changes')
       .on(
@@ -127,17 +129,6 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
         },
         async () => {
           // Перезагружаем список кастомных чатов при любом изменении
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) return;
-
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('branch')
-            .eq('id', user.id)
-            .maybeSingle();
-
-          if (!profile?.branch) return;
-
           const { data: clients, error } = await supabase
             .from('clients')
             .select(`
@@ -151,7 +142,7 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
                 is_read
               )
             `)
-            .eq('branch', profile.branch)
+            .eq('branch', userBranch)
             .ilike('name', 'Кастомный чат -%');
 
           if (error) {

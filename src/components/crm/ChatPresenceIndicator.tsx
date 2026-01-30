@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import type { PresenceInfo, PresenceType } from '@/hooks/useChatPresence';
 
 interface ChatPresenceIndicatorProps {
@@ -78,27 +79,21 @@ const QuickMessageInput: React.FC<{
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const { toast } = useToast();
+  const { user, profile } = useAuth();
 
   const handleSend = async () => {
     if (!message.trim()) return;
     
     setSending(true);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) throw new Error('Not authenticated');
+      if (!user) throw new Error('Not authenticated');
 
-      // Get sender profile
-      const { data: senderProfile } = await supabase
-        .from('profiles')
-        .select('first_name, last_name, organization_id')
-        .eq('id', userData.user.id)
-        .maybeSingle();
-
-      if (!senderProfile?.organization_id) {
+      const organizationId = (profile as any)?.organization_id;
+      if (!organizationId) {
         throw new Error('No organization found');
       }
 
-      const senderName = [senderProfile.first_name, senderProfile.last_name]
+      const senderName = [profile?.first_name, profile?.last_name]
         .filter(Boolean).join(' ') || 'Коллега';
 
       // Create contextual message for internal staff messaging
@@ -110,8 +105,8 @@ const QuickMessageInput: React.FC<{
       const { error: insertError } = await (supabase as any)
         .from('internal_staff_messages')
         .insert({
-          organization_id: senderProfile.organization_id,
-          sender_id: userData.user.id,
+          organization_id: organizationId,
+          sender_id: user.id,
           recipient_user_id: recipientId,
           message_text: contextMessage,
           message_type: 'text',

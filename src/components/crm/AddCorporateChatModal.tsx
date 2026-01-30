@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabaseTyped as supabase } from "@/integrations/supabase/typedClient";
+import { useAuth } from "@/hooks/useAuth";
 
 interface AddCorporateChatModalProps {
   onChatAdded?: () => void;
@@ -16,26 +17,14 @@ export const AddCorporateChatModal = ({ onChatAdded }: AddCorporateChatModalProp
   const [chatName, setChatName] = useState("");
   const [userBranch, setUserBranch] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { profile } = useAuth();
 
-  // Загружаем филиал текущего пользователя
+  // Sync user branch from AuthProvider (eliminates getUser() call)
   useEffect(() => {
-    const loadUserBranch = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('branch')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      setUserBranch(profile?.branch || null);
-    };
-    
-    if (open) {
-      loadUserBranch();
+    if (open && profile) {
+      setUserBranch(profile.branch || null);
     }
-  }, [open]);
+  }, [open, profile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

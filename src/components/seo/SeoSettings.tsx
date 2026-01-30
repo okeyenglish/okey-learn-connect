@@ -7,8 +7,10 @@ import { Settings, Send, CheckCircle, XCircle, Sparkles, RefreshCw, TrendingUp }
 import { supabase } from "@/integrations/supabase/typedClient";
 import { toast } from "sonner";
 import { selfHostedPost } from '@/lib/selfHostedApi';
+import { useAuth } from '@/hooks/useAuth';
 
 const SeoSettings = () => {
+  const { profile } = useAuth();
   const [testUrl, setTestUrl] = useState("");
   const [isTestingIndexNow, setIsTestingIndexNow] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -30,24 +32,13 @@ const SeoSettings = () => {
   const [isAutoClustering, setIsAutoClustering] = useState(false);
   const [clusterResult, setClusterResult] = useState<any>(null);
 
+  // Sync organization_id from AuthProvider (eliminates getUser() call)
   useEffect(() => {
-    const fetchProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('id', user.id)
-          .single();
-        
-        if (profile?.organization_id) {
-          setOrganizationId(profile.organization_id);
-        }
-      }
-    };
-    
-    fetchProfile();
-  }, []);
+    const orgId = (profile as any)?.organization_id;
+    if (orgId) {
+      setOrganizationId(orgId);
+    }
+  }, [profile]);
 
   const handleTestIndexNow = async () => {
     if (!testUrl) {

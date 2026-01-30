@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 interface IdempotentPaymentParams {
   student_id: string;
@@ -22,11 +23,10 @@ interface IdempotentPaymentParams {
 export const useIdempotentPayment = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (paymentData: IdempotentPaymentParams) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      
       // Generate idempotency key if not provided
       const idempotencyKey = `payment_${paymentData.student_id}_${paymentData.payment_date}_${paymentData.amount}_${Date.now()}`;
 
