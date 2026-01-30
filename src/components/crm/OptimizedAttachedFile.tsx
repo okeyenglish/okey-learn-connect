@@ -24,6 +24,77 @@ interface OptimizedAttachedFileProps {
 }
 
 /**
+ * Get MIME type from file extension as fallback
+ */
+function getMimeTypeFromExtension(filename: string): string | null {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  if (!ext) return null;
+  
+  const mimeMap: Record<string, string> = {
+    // Images
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+    'svg': 'image/svg+xml',
+    'bmp': 'image/bmp',
+    'ico': 'image/x-icon',
+    // Videos
+    'mp4': 'video/mp4',
+    'webm': 'video/webm',
+    'mov': 'video/quicktime',
+    'avi': 'video/x-msvideo',
+    'mkv': 'video/x-matroska',
+    '3gp': 'video/3gpp',
+    // Audio
+    'mp3': 'audio/mpeg',
+    'wav': 'audio/wav',
+    'ogg': 'audio/ogg',
+    'opus': 'audio/opus',
+    'm4a': 'audio/mp4',
+    'aac': 'audio/aac',
+    'flac': 'audio/flac',
+    // Documents
+    'pdf': 'application/pdf',
+    'doc': 'application/msword',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xls': 'application/vnd.ms-excel',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'txt': 'text/plain',
+  };
+  
+  return mimeMap[ext] || null;
+}
+
+/**
+ * Determine effective MIME type from provided type, filename, or URL
+ */
+function getEffectiveMimeType(type: string, name: string, url: string): string {
+  // If type looks valid (contains /), use it
+  if (type && type.includes('/')) {
+    return type;
+  }
+  
+  // Try to get from filename
+  const fromName = getMimeTypeFromExtension(name);
+  if (fromName) return fromName;
+  
+  // Try to get from URL (extract filename from URL)
+  try {
+    const urlPath = new URL(url).pathname;
+    const urlFilename = urlPath.split('/').pop() || '';
+    const fromUrl = getMimeTypeFromExtension(urlFilename);
+    if (fromUrl) return fromUrl;
+  } catch {
+    // Invalid URL, ignore
+  }
+  
+  // Return original type or default
+  return type || 'application/octet-stream';
+}
+
+/**
  * Optimized version of AttachedFile with:
  * - Lazy loading for images using IntersectionObserver
  * - Lazy loading for PDF viewer component
@@ -41,6 +112,9 @@ export const OptimizedAttachedFile = memo(({
   messageId,
   galleryId
 }: OptimizedAttachedFileProps) => {
+  // Determine effective MIME type (use extension as fallback)
+  const effectiveType = getEffectiveMimeType(type, name, url);
+  
   const gallery = useChatGallery();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -64,7 +138,7 @@ export const OptimizedAttachedFile = memo(({
   
   // Register image with gallery context if available (only for images)
   useEffect(() => {
-    if (type.startsWith('image/') && gallery && realUrl) {
+    if (effectiveType.startsWith('image/') && gallery && realUrl) {
       gallery.registerImage(imageId, { src: realUrl, alt: name });
       return () => gallery.unregisterImage(imageId);
     }
@@ -84,10 +158,10 @@ export const OptimizedAttachedFile = memo(({
   }, []);
 
   const getFileIcon = () => {
-    if (type.startsWith('image/')) return <Image className="h-4 w-4" />;
-    if (type.startsWith('video/')) return <Video className="h-4 w-4" />;
-    if (type.startsWith('audio/')) return <Music className="h-4 w-4" />;
-    if (type.includes('pdf') || type.includes('document') || type.includes('text')) {
+    if (effectiveType.startsWith('image/')) return <Image className="h-4 w-4" />;
+    if (effectiveType.startsWith('video/')) return <Video className="h-4 w-4" />;
+    if (effectiveType.startsWith('audio/')) return <Music className="h-4 w-4" />;
+    if (effectiveType.includes('pdf') || effectiveType.includes('document') || effectiveType.includes('text')) {
       return <FileText className="h-4 w-4" />;
     }
     return <File className="h-4 w-4" />;
@@ -258,7 +332,7 @@ export const OptimizedAttachedFile = memo(({
   }, []);
 
   // PDF files with lazy loaded viewer
-  if (type.includes('pdf')) {
+  if (effectiveType.includes('pdf')) {
     return (
       <Card className={`p-3 max-w-sm ${className}`}>
         <div className="flex items-center gap-3">
@@ -314,7 +388,7 @@ export const OptimizedAttachedFile = memo(({
 
   // Optimized image with lazy loading and mobile-friendly lightbox
   // Messenger-style: show image directly without card wrapper
-  if (type.startsWith('image/')) {
+  if (effectiveType.startsWith('image/')) {
     return (
       <>
         {/* Messenger-style image display - no card, just rounded image */}
@@ -376,8 +450,8 @@ export const OptimizedAttachedFile = memo(({
   }
 
   // Voice message (ogg/opus) - WhatsApp style
-  if (type.startsWith('audio/')) {
-    const isVoiceMessage = type.includes('ogg') || type.includes('opus') || name === 'Голосовое сообщение';
+  if (effectiveType.startsWith('audio/')) {
+    const isVoiceMessage = effectiveType.includes('ogg') || effectiveType.includes('opus') || name === 'Голосовое сообщение';
     
     if (isVoiceMessage) {
       return (
@@ -543,7 +617,7 @@ export const OptimizedAttachedFile = memo(({
   }
 
   // Video with lazy loading - messenger style
-  if (type.startsWith('video/')) {
+  if (effectiveType.startsWith('video/')) {
     return (
       <div 
         className={`relative overflow-hidden rounded-xl ${className}`}

@@ -458,18 +458,20 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                 )}
                 
                 {/* Attached file - messenger style for media */}
-                {message !== '[Сообщение удалено]' && fileUrl && fileName && fileType && (
+                {message !== '[Сообщение удалено]' && fileUrl && fileName && (
                   <div className={
-                    fileType.startsWith('image/') || fileType.startsWith('video/') || fileType.startsWith('audio/') 
+                    (fileType?.startsWith('image/') || fileType?.startsWith('video/') || fileType?.startsWith('audio/') ||
+                     /\.(jpg|jpeg|png|gif|webp|mp4|webm|mov|mp3|ogg|opus|m4a)$/i.test(fileName))
                       ? '' 
                       : 'mt-2'
                   }>
                     <OptimizedAttachedFile
                       url={fileUrl}
                       name={fileName}
-                      type={fileType}
+                      type={fileType || ''}
                       className={
-                        fileType.startsWith('image/') || fileType.startsWith('video/') || fileType.startsWith('audio/') 
+                        (fileType?.startsWith('image/') || fileType?.startsWith('video/') || fileType?.startsWith('audio/') ||
+                         /\.(jpg|jpeg|png|gif|webp|mp4|webm|mov|mp3|ogg|opus|m4a)$/i.test(fileName))
                           ? '' 
                           : 'max-w-xs'
                       }
