@@ -91,7 +91,6 @@ export function ConvertToTeacherModal({
               teacher_id: matchingTeacher.id,
               client_id: clientId,
               organization_id: organizationId,
-              is_primary: true,
               link_type: 'merged',
             }, {
               onConflict: 'teacher_id,client_id',
@@ -143,7 +142,6 @@ export function ConvertToTeacherModal({
           teacher_id: teacherData.id,
           client_id: clientId,
           organization_id: organizationId,
-          is_primary: true,
           link_type: 'converted',
         }, {
           onConflict: 'teacher_id,client_id',
