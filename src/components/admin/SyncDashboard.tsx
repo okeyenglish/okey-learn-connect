@@ -2157,6 +2157,35 @@ export function SyncDashboard() {
                   </div>
                 </div>
               </div>
+              
+              {/* Resync Mode Stats - shown when resync is active or has progress */}
+              {(importProgress?.resyncMode || (importProgress?.resyncOffset ?? 0) > 0 || (importProgress?.resyncTotalClients ?? 0) > 0) && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="col-span-full text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">
+                    📊 Resync режим {importProgress?.resyncMode ? '(активен)' : '(завершён)'}
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Resync offset</div>
+                    <div className="text-xl font-bold text-blue-600">{importProgress?.resyncOffset || 0}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Resync total clients</div>
+                    <div className="text-xl font-bold text-blue-600">{importProgress?.resyncTotalClients || 0}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Новых сообщений</div>
+                    <div className="text-xl font-bold text-green-600">{importProgress?.resyncNewMessages || 0}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Прогресс</div>
+                    <div className="text-xl font-bold">
+                      {importProgress?.resyncTotalClients 
+                        ? `${Math.round((importProgress.resyncOffset / importProgress.resyncTotalClients) * 100)}%` 
+                        : '—'}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* List ID Settings */}
               <div className="flex gap-2 items-end">
