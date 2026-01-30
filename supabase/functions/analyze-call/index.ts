@@ -5,6 +5,7 @@ import {
   successResponse,
   errorResponse,
   getErrorMessage,
+  getOpenAIApiKey,
 } from '../_shared/types.ts';
 
 interface AnalyzeCallRequest {
@@ -458,16 +459,18 @@ Deno.serve(async (req) => {
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-    
-    if (!openaiApiKey) {
-      console.error('[analyze-call] OPENAI_API_KEY not configured');
-      return errorResponse('OpenAI API key not configured', 500);
-    }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { autoRefreshToken: false, persistSession: false }
     });
+    
+    // Get OpenAI API key from DB (messenger_settings) or env fallback
+    const openaiApiKey = await getOpenAIApiKey(supabase);
+    
+    if (!openaiApiKey) {
+      console.error('[analyze-call] OpenAI API key not configured');
+      return errorResponse('OpenAI API key not configured. Please set up in AI settings or add OPENAI_API_KEY to environment.', 500);
+    }
     
     // Get call log with recording URL and hangup_cause
     const { data: callLog, error: fetchError } = await supabase
