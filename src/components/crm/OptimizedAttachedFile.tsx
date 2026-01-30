@@ -356,75 +356,73 @@ export const OptimizedAttachedFile = memo(({
     };
   }, []);
 
-  // PDF files with lazy loaded viewer - messenger style with thumbnail preview
+  // PDF files - WhatsApp style with large thumbnail preview
   if (effectiveType.includes('pdf')) {
     return (
-      <Suspense fallback={<div className="h-40 bg-muted animate-pulse rounded-xl" />}>
-        <div className={`rounded-xl overflow-hidden bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/30 dark:to-red-900/20 border border-red-200/50 dark:border-red-800/30 ${className}`} style={{ maxWidth: '260px' }}>
-          <PDFViewer 
-            url={realUrl} 
-            fileName={name}
-            trigger={
-              <div className="cursor-pointer group">
-                {/* PDF Thumbnail Preview */}
-                <div className="relative w-full bg-white dark:bg-gray-900 overflow-hidden" style={{ height: '160px' }}>
-                  <iframe
-                    src={`${realUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-                    className="w-full h-full border-0 pointer-events-none"
-                    title={`Превью: ${name}`}
-                    style={{ 
-                      transform: 'scale(0.5)', 
-                      transformOrigin: 'top left',
-                      width: '200%',
-                      height: '200%'
-                    }}
-                  />
-                  {/* Overlay for click handling */}
-                  <div className="absolute inset-0 bg-transparent group-hover:bg-black/5 transition-colors" />
-                  {/* Open indicator */}
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="bg-black/60 text-white rounded-full p-1.5">
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </div>
-                  </div>
+      <Suspense fallback={<div className="h-56 bg-muted animate-pulse rounded-xl" />}>
+        <PDFViewer 
+          url={realUrl} 
+          fileName={name}
+          trigger={
+            <div 
+              className={`rounded-xl overflow-hidden cursor-pointer group ${className}`} 
+              style={{ maxWidth: '280px' }}
+            >
+              {/* Large PDF Thumbnail Preview - WhatsApp style */}
+              <div className="relative w-full bg-white dark:bg-gray-100 rounded-t-xl overflow-hidden" style={{ minHeight: '180px' }}>
+                <iframe
+                  src={`${realUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH&page=1`}
+                  className="w-full border-0 pointer-events-none bg-white"
+                  title={`Превью: ${name}`}
+                  style={{ 
+                    height: '360px',
+                    marginTop: '-20px'
+                  }}
+                />
+                {/* Gradient overlay at bottom for smooth transition */}
+                <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent" />
+                {/* Hover overlay */}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
+              </div>
+              
+              {/* PDF Info Footer - WhatsApp style */}
+              <div className="flex items-center gap-3 p-3 bg-muted/50 dark:bg-muted/30 rounded-b-xl">
+                {/* PDF Icon */}
+                <div className="flex-shrink-0 w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center">
+                  <span className="text-white text-[10px] font-bold">PDF</span>
                 </div>
                 
-                {/* PDF Info Footer */}
-                <div className="flex items-center gap-2 p-2 border-t border-red-200/50 dark:border-red-800/30">
-                  <FileText className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate text-foreground" title={name}>
-                      {name.length > 22 ? `${name.slice(0, 19)}...` : name}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      PDF {size ? `• ${formatFileSize(size)}` : ''}
-                    </p>
-                  </div>
+                {/* File info */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate text-foreground" title={name}>
+                    {name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {size ? `${formatFileSize(size)} • ` : ''}pdf
+                  </p>
                 </div>
+                
+                {/* Download button */}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0 flex-shrink-0 text-muted-foreground hover:text-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDownload();
+                  }}
+                  disabled={downloadLoading}
+                >
+                  {downloadLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                </Button>
               </div>
-            }
-          />
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-1 px-2 pb-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDownload();
-              }}
-              disabled={downloadLoading}
-            >
-              {downloadLoading ? (
-                <Loader2 className="h-3 w-3 animate-spin mr-1" />
-              ) : (
-                <Download className="h-3 w-3 mr-1" />
-              )}
-              Скачать
-            </Button>
-          </div>
-        </div>
+            </div>
+          }
+        />
       </Suspense>
     );
   }
