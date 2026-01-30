@@ -22,10 +22,10 @@ export interface PresenceInfo {
   }>;
 }
 
-// Heartbeat interval - update presence every 30 seconds
-const HEARTBEAT_INTERVAL = 30_000;
-// Stale threshold - consider presence stale after 60 seconds
-const STALE_THRESHOLD_MS = 60_000;
+// Heartbeat interval - update presence every 60 seconds (reduced for performance)
+const HEARTBEAT_INTERVAL = 60_000;
+// Stale threshold - consider presence stale after 90 seconds
+const STALE_THRESHOLD_MS = 90_000;
 
 /**
  * Hook to track current user's presence in a specific chat
@@ -348,8 +348,8 @@ export const useChatPresenceList = () => {
       )
       .subscribe();
 
-    // Refresh periodically to clear stale entries
-    const refreshInterval = setInterval(fetchPresence, 30_000);
+    // Refresh periodically to clear stale entries (every 60 seconds for performance)
+    const refreshInterval = setInterval(fetchPresence, 60_000);
 
     return () => {
       clearInterval(refreshInterval);

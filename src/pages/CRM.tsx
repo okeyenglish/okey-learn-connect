@@ -590,23 +590,7 @@ const CRMContent = () => {
   const leadsCount = totalLeadsCount;
   const studentsCount = totalStudentsCount ?? (students?.length ?? 0);
   
-  // Детальная диагностика счётчиков
-  useEffect(() => {
-    console.log('[CRM Counters] Подробная информация:', { 
-      tasksCount, 
-      unreadTotal, 
-      leadsCount, 
-      studentsCount,
-      totalStudentsCount,
-      studentsLoading,
-      studentsArrayLength: students?.length,
-      activeGroupStudentsCount: activeGroupStudents.length,
-      activeIndividualLessonsCount: activeIndividualLessons.length,
-      activeStudentIdsSize: activeStudentIds.size,
-      firstStudents: students?.slice(0, 3).map(s => ({ id: s.id, name: s.name, status: s.status })),
-      lastStudents: students?.slice(-3).map(s => ({ id: s.id, name: s.name, status: s.status }))
-    });
-  }, [students, tasksCount, unreadTotal, leadsCount, studentsCount, totalStudentsCount, studentsLoading, activeGroupStudents, activeIndividualLessons, activeStudentIds]);
+  // Debug logging removed for performance
   const getMenuCount = (label: string) => {
     if (label === "Мои задачи") return tasksCount;
     if (label === "Заявки") return unreadTotal;
@@ -926,8 +910,8 @@ const CRMContent = () => {
   // Update document title with unread count and flash on new messages
   useDocumentTitle(allUnreadCount, undefined, hasNewMessage);
 
-  // Системные чаты (корпоративные как одна запись)
-  const systemChats = [
+  // Системные чаты (мемоизированы для предотвращения лишних пересчётов allChats)
+  const systemChats = useMemo(() => [
     {
       id: 'corporate',
       name: 'Корпоративный чат',
@@ -961,7 +945,8 @@ const CRMContent = () => {
       timestamp: latestCommunity?.lastMessageTime ? new Date(latestCommunity.lastMessageTime).getTime() : 0,
       avatar_url: null,
     },
-  ];
+  ], [latestCorporate, corporateUnread, latestTeacher, teacherUnread, latestCommunity, communityUnread]);
+  
   const threadClientIdsSet = useMemo(() => new Set((threads || []).map(t => t.client_id)), [threads]);
 
   // Функция для форматирования имени клиента
@@ -1095,13 +1080,7 @@ const CRMContent = () => {
     ...clientChatsWithoutThreads
   ], [systemChats, threads, typingByClient, clientChatsWithoutThreads]);
 
-  console.log('[CRM] allChats constructed:', {
-    total: allChats.length,
-    systemChats: systemChats.length,
-    threadChats: threads.length,
-    clientsWithoutThreads: clientChatsWithoutThreads.length,
-    sample: allChats.slice(0, 5).map(c => ({ id: c.id, name: c.name, type: c.type }))
-  });
+  // Debug logging removed for performance
 
   // === UNIFIED SEARCH: 1 RPC вместо 3 отдельных запросов ===
   const { 
@@ -1118,14 +1097,7 @@ const CRMContent = () => {
     return new Set(allSearchClientIdsArray);
   }, [allSearchClientIdsArray]);
   
-  // Debug logging for all search types
-  console.log('[CRM] Search state:', { 
-    query: chatSearchQuery, 
-    phoneIds: phoneSearchClientIds.length,
-    nameIds: nameSearchClientIds.length,
-    messageIds: messageSearchClientIds.length,
-    totalUniqueIds: allSearchClientIds.size
-  });
+  // Debug logging removed for performance
   
   // Load full thread data for search results that are not in loaded threads
   const { data: phoneSearchThreads = [], isLoading: phoneThreadsLoading } = usePhoneSearchThreads(allSearchClientIdsArray, threadClientIdsSet);
@@ -1133,24 +1105,13 @@ const CRMContent = () => {
   // Load pinned chat threads that are NOT in the loaded threads
   const { data: pinnedChatThreads = [], isLoading: pinnedThreadsLoading } = usePinnedChatThreads(pinnedChatIds, threadClientIdsSet);
   
-  console.log('[CRM] Search threads loaded:', {
-    threadsLoaded: phoneSearchThreads.length,
-    isLoading: phoneThreadsLoading,
-    pinnedThreadsLoaded: pinnedChatThreads.length
-  });
+  // Debug logging removed for performance
   
   // Combined search loading state
   const isSearchLoading = chatSearchQuery.length >= 2 && (unifiedSearchLoading || phoneThreadsLoading);
   
   // Merge search threads and pinned threads into allChats
   const allChatsWithPhoneSearch = useMemo(() => {
-    console.log('[CRM] allChatsWithSearch recalc:', {
-      searchThreadsCount: phoneSearchThreads.length,
-      pinnedThreadsCount: pinnedChatThreads.length,
-      allChatsCount: allChats.length,
-      allSearchClientIds: allSearchClientIds.size,
-    });
-    
     const existingIds = new Set(allChats.map(c => c.id));
     
     // Helper to convert thread to chat format
@@ -1195,12 +1156,7 @@ const CRMContent = () => {
       .filter(thread => !existingIds.has(thread.client_id))
       .map(thread => threadToChat(thread, messageSearchClientIds.includes(thread.client_id)));
     
-    if (pinnedChatsFromThreads.length > 0 || searchChats.length > 0) {
-      console.log('[CRM] Adding threads:', {
-        pinned: pinnedChatsFromThreads.length,
-        search: searchChats.length
-      });
-    }
+    // Debug logging removed for performance
     
     return [...allChats, ...pinnedChatsFromThreads, ...searchChats];
   }, [allChats, phoneSearchThreads, pinnedChatThreads, allSearchClientIds, phoneThreadsLoading, messageSearchClientIds]);
@@ -1282,11 +1238,7 @@ const CRMContent = () => {
       return (b.timestamp || 0) - (a.timestamp || 0);
     });
 
-  console.log('[CRM] filteredChats after filters:', {
-    count: filteredChats.length,
-    searchQuery: chatSearchQuery,
-    sample: filteredChats.slice(0, 5).map(c => ({ id: c.id, name: c.name, lastMessage: c.lastMessage?.substring(0, 20) }))
-  });
+  // Debug logging removed for performance
 
   // Use client status hook for lead detection - memoize to prevent unnecessary re-renders
   const clientIds = useMemo(() => 

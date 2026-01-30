@@ -3,11 +3,11 @@ import { QueryClient } from "@tanstack/react-query";
 // Оптимизированная конфигурация React Query
 export const queryConfig = {
   queries: {
-    // Данные считаются свежими 30 секунд
-    staleTime: 30 * 1000,
+    // Данные считаются свежими 60 секунд (увеличено для снижения нагрузки)
+    staleTime: 60 * 1000,
     
-    // Кэш хранится 5 минут
-    gcTime: 5 * 60 * 1000,
+    // Кэш хранится 10 минут
+    gcTime: 10 * 60 * 1000,
     
     // Не рефетчить при фокусе окна для стабильности UI
     refetchOnWindowFocus: false,
@@ -32,28 +32,28 @@ export const createOptimizedQueryClient = () => {
 
 // Специальные конфигурации для разных типов запросов
 export const chatQueryConfig = {
-  staleTime: 30 * 1000, // Сообщения кешируются 30 сек
-  gcTime: 10 * 60 * 1000, // Кэш сообщений 10 минут
+  staleTime: 60 * 1000, // Сообщения кешируются 60 сек (есть realtime)
+  gcTime: 15 * 60 * 1000, // Кэш сообщений 15 минут
   refetchOnWindowFocus: false, // Не рефетчить при фокусе - используем real-time
   refetchOnReconnect: true, // Но рефетчить при reconnect
 };
 
 export const chatListQueryConfig = {
-  staleTime: 30 * 1000, // Список чатов обновляется раз в 30 сек (есть realtime)
-  gcTime: 10 * 60 * 1000, // Кэш 10 минут
+  staleTime: 60 * 1000, // Список чатов обновляется раз в 60 сек (есть realtime)
+  gcTime: 15 * 60 * 1000, // Кэш 15 минут
   refetchOnWindowFocus: false, // Не рефетчить при фокусе - есть realtime
 };
 
 // Конфигурация для chat_states - данные редко меняются
 export const chatStatesQueryConfig = {
-  staleTime: 60 * 1000, // 60 секунд - данные о pin редко меняются
-  gcTime: 15 * 60 * 1000, // 15 минут
+  staleTime: 5 * 60 * 1000, // 5 минут - данные о pin редко меняются
+  gcTime: 30 * 60 * 1000, // 30 минут
   refetchOnWindowFocus: false,
 };
 
 export const staticDataQueryConfig = {
-  staleTime: 5 * 60 * 1000, // Статичные данные свежи 5 минут
-  gcTime: 30 * 60 * 1000, // Кэш 30 минут
+  staleTime: 10 * 60 * 1000, // Статичные данные свежи 10 минут
+  gcTime: 60 * 60 * 1000, // Кэш 1 час
   refetchOnWindowFocus: false,
   refetchOnReconnect: false,
 };
