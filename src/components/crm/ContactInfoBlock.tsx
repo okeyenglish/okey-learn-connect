@@ -52,13 +52,22 @@ interface ContactInfoBlockProps {
   email?: string;
   onMessengerClick?: (phoneId: string, messenger: 'whatsapp' | 'telegram' | 'max') => void;
   onCallClick?: (phone: string) => void;
+  // Client-level messenger data (fallback when phone-level data is missing)
+  clientTelegramChatId?: string | null;
+  clientTelegramUserId?: number | null;
+  clientWhatsappChatId?: string | null;
+  clientMaxChatId?: string | null;
 }
 
 export const ContactInfoBlock = ({ 
   phoneNumbers, 
   email,
   onMessengerClick,
-  onCallClick
+  onCallClick,
+  clientTelegramChatId,
+  clientTelegramUserId,
+  clientWhatsappChatId,
+  clientMaxChatId,
 }: ContactInfoBlockProps) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   
@@ -76,19 +85,27 @@ export const ContactInfoBlock = ({
   };
 
   const getMessengerStatus = (phoneNumber: PhoneNumberData, messenger: 'whatsapp' | 'telegram' | 'max') => {
-    // For single number - all enabled messengers are active
-    if (isSingleNumber) {
-      if (messenger === 'whatsapp') return phoneNumber.isWhatsappEnabled || !!phoneNumber.whatsappChatId;
-      if (messenger === 'telegram') return phoneNumber.isTelegramEnabled || !!phoneNumber.telegramChatId;
-      if (messenger === 'max') return !!phoneNumber.maxChatId;
+    // Check phone-level first, then client-level fallback
+    if (messenger === 'whatsapp') {
+      return phoneNumber.isWhatsappEnabled || !!phoneNumber.whatsappChatId || !!clientWhatsappChatId;
+    }
+    if (messenger === 'telegram') {
+      return phoneNumber.isTelegramEnabled || !!phoneNumber.telegramChatId || !!phoneNumber.telegramUserId || !!clientTelegramChatId || !!clientTelegramUserId;
+    }
+    if (messenger === 'max') {
+      return !!phoneNumber.maxChatId || !!clientMaxChatId;
     }
     
-    // For multiple numbers - check actual chat IDs
-    if (messenger === 'whatsapp') return !!phoneNumber.whatsappChatId;
-    if (messenger === 'telegram') return !!phoneNumber.telegramChatId;
-    if (messenger === 'max') return !!phoneNumber.maxChatId;
-    
     return false;
+  };
+
+  // Get messenger ID for display (phone-level or client-level)
+  const getTelegramId = (phoneNumber: PhoneNumberData): string | number | null => {
+    return phoneNumber.telegramUserId || phoneNumber.telegramChatId || clientTelegramUserId || clientTelegramChatId || null;
+  };
+  
+  const getWhatsappId = (phoneNumber: PhoneNumberData): string | null => {
+    return phoneNumber.whatsappChatId || clientWhatsappChatId || null;
   };
 
   const handleMessengerClick = (phoneId: string, messenger: 'whatsapp' | 'telegram' | 'max', isActive: boolean) => {
@@ -183,8 +200,8 @@ export const ContactInfoBlock = ({
                       <div>
                         <div>Открыть WhatsApp чат</div>
                         <div className="text-muted-foreground mt-0.5">
-                          {phoneNumber.whatsappChatId 
-                            ? `ID: ${phoneNumber.whatsappChatId.replace('@c.us', '')}` 
+                          {getWhatsappId(phoneNumber) 
+                            ? `ID: ${String(getWhatsappId(phoneNumber)).replace('@c.us', '')}` 
                             : `Тел: ${phoneNumber.phone}`}
                         </div>
                       </div>
@@ -207,11 +224,12 @@ export const ContactInfoBlock = ({
                       <div>
                         <div>Открыть Telegram чат</div>
                         <div className="text-muted-foreground mt-0.5">
-                          {phoneNumber.telegramUserId 
-                            ? `ID: ${phoneNumber.telegramUserId}` 
-                            : phoneNumber.phone 
-                              ? `Тел: ${phoneNumber.phone}` 
-                              : phoneNumber.telegramChatId || 'Подключен'}
+                          {(() => {
+                            const tgId = getTelegramId(phoneNumber);
+                            if (tgId) return `ID: ${tgId}`;
+                            if (phoneNumber.phone) return `Тел: ${phoneNumber.phone}`;
+                            return 'Подключен';
+                          })()}
                         </div>
                       </div>
                     ) : 'Telegram не подключен'}

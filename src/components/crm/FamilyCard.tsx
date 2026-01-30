@@ -359,6 +359,18 @@ export const FamilyCard = ({
                 <p className="text-sm text-muted-foreground">
                   {getRelationshipLabel(activeMember.relationship, activeMember)}
                 </p>
+                {/* Show messenger ID under name */}
+                {(activeMember.telegramUserId || activeMember.telegramChatId || activeMember.whatsappChatId) && (
+                  <p className="text-xs text-muted-foreground/70 font-mono">
+                    {activeMember.telegramUserId 
+                      ? `TG: ${activeMember.telegramUserId}` 
+                      : activeMember.telegramChatId 
+                        ? `TG: ${activeMember.telegramChatId}` 
+                        : activeMember.whatsappChatId 
+                          ? `WA: ${activeMember.whatsappChatId.replace('@c.us', '')}` 
+                          : null}
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -403,6 +415,10 @@ export const FamilyCard = ({
                 maxChatId: p.maxChatId,
               }))}
               email={activeMember.email}
+              clientTelegramChatId={activeMember.telegramChatId}
+              clientTelegramUserId={activeMember.telegramUserId}
+              clientWhatsappChatId={activeMember.whatsappChatId}
+              clientMaxChatId={activeMember.maxChatId}
               onMessengerClick={(phoneId, messenger) => {
                 // Set the active phone and open chat with correct messenger type
                 handlePhoneClick(phoneId);
