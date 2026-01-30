@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, Search, X, CheckCheck, ArrowUp, ArrowDown, Loader2, WifiOff, RefreshCw } from "lucide-react";
+import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, Search, X, CheckCheck, ArrowUp, ArrowDown, Loader2, WifiOff, RefreshCw, Wand2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,7 +14,10 @@ import type { CallLog } from "@/hooks/useCallHistory";
 import { CallDetailModal } from "./CallDetailModal";
 import { useUnviewedMissedCallsCount, useViewedMissedCalls } from "@/hooks/useViewedMissedCalls";
 import { CallSummaryPreview } from "./CallSummaryPreview";
-
+import { CallRecordingPlayer } from "./CallRecordingPlayer";
+import { selfHostedPost } from "@/lib/selfHostedApi";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "@/hooks/use-toast";
 interface CallHistoryProps {
   clientId: string;
 }
@@ -51,6 +54,9 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMarkingAll, setIsMarkingAll] = useState(false);
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
+  const [analyzingCallIds, setAnalyzingCallIds] = useState<Set<string>>(new Set());
+  
+  const queryClient = useQueryClient();
   
   // Ref for intersection observer (infinite scroll)
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -203,112 +209,212 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
     setModalOpen(true);
   };
 
-  const renderCallItem = (call: CallLog, showUnviewedIndicator: boolean = false) => (
-    <div key={call.id} className="relative">
-      {showUnviewedIndicator && (
-        <span 
-          className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-destructive rounded-full animate-pulse"
-          title="Непросмотренный пропущенный звонок"
-        />
-      )}
-      <div className="flex items-start justify-between space-x-3">
-        <div className="flex items-start space-x-3 flex-1 min-w-0">
-          <div className="flex-shrink-0 pt-0.5 relative">
-            {getCallIcon(call)}
-            {showUnviewedIndicator && (
-              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-destructive rounded-full" />
-            )}
-          </div>
-          
-          <div className="flex-1 min-w-0 space-y-1">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-foreground">
-                  {getDirectionLabel(call.direction)}
-                </span>
-                {getCallStatusBadge(call)}
-                {showUnviewedIndicator && (
-                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
-                    Новый
-                  </Badge>
+  // AI Analysis handler
+  const handleAnalyzeCall = useCallback(async (callId: string) => {
+    if (analyzingCallIds.has(callId)) return;
+    
+    setAnalyzingCallIds(prev => new Set(prev).add(callId));
+    
+    try {
+      const response = await selfHostedPost('analyze-call', { callId });
+      
+      if (!response.success) {
+        if (response.status === 429) {
+          toast({
+            title: "Превышен лимит запросов",
+            description: "Попробуйте позже",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Ошибка анализа",
+            description: response.error || "Не удалось проанализировать звонок",
+            variant: "destructive"
+          });
+        }
+        return;
+      }
+      
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['call-logs', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['infinite-call-logs', clientId] });
+      
+      toast({
+        title: "Анализ завершён",
+        description: "AI-оценка добавлена к звонку",
+      });
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось проанализировать звонок",
+        variant: "destructive"
+      });
+    } finally {
+      setAnalyzingCallIds(prev => {
+        const next = new Set(prev);
+        next.delete(callId);
+        return next;
+      });
+    }
+  }, [analyzingCallIds, clientId, queryClient]);
+
+  const renderCallItem = (call: CallLog, showUnviewedIndicator: boolean = false) => {
+    const hasAiEvaluation = call.ai_evaluation && typeof call.ai_evaluation === 'object' && (call.ai_evaluation as any).overall_score !== undefined;
+    const canAnalyze = call.status === 'answered' && call.recording_url && !hasAiEvaluation;
+    const isAnalyzing = analyzingCallIds.has(call.id);
+    
+    return (
+      <div key={call.id} className="relative">
+        {showUnviewedIndicator && (
+          <span 
+            className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-destructive rounded-full animate-pulse"
+            title="Непросмотренный пропущенный звонок"
+          />
+        )}
+        <div className="flex items-start justify-between space-x-3">
+          <div className="flex items-start space-x-3 flex-1 min-w-0">
+            <div className="flex-shrink-0 pt-0.5 relative">
+              {getCallIcon(call)}
+              {showUnviewedIndicator && (
+                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-destructive rounded-full" />
+              )}
+            </div>
+            
+            <div className="flex-1 min-w-0 space-y-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-foreground">
+                    {getDirectionLabel(call.direction)}
+                  </span>
+                  {getCallStatusBadge(call)}
+                  {showUnviewedIndicator && (
+                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
+                      Новый
+                    </Badge>
+                  )}
+                </div>
+                
+                {call.duration_seconds !== null && call.status === 'answered' && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    {formatDuration(call.duration_seconds)}
+                  </div>
                 )}
               </div>
               
-              {call.duration_seconds !== null && call.status === 'answered' && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  {formatDuration(call.duration_seconds)}
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Calendar className="h-3 w-3" />
+                {format(new Date(call.started_at), "dd MMM, HH:mm", { locale: ru })}
+              </div>
+              
+              <div className="text-xs text-muted-foreground truncate">
+                {call.phone_number}
+              </div>
+
+              {call.manager_name && (
+                <div className="flex items-center gap-1 text-xs text-primary mt-1">
+                  <User className="h-3 w-3" />
+                  <span>{call.manager_name}</span>
+                </div>
+              )}
+
+              {/* AI Summary - показываем если есть */}
+              {call.summary && (
+                <div className="mt-2 p-2 bg-muted/50 rounded-md">
+                  <p className="text-xs text-foreground line-clamp-2">
+                    💬 {call.summary}
+                  </p>
+                </div>
+              )}
+
+              {/* Audio Recording Player */}
+              {call.recording_url && call.status === 'answered' && (
+                <div className="mt-2">
+                  <CallRecordingPlayer 
+                    recordingUrl={call.recording_url}
+                    duration={call.duration_seconds}
+                    compact
+                  />
+                </div>
+              )}
+
+              {/* Manual summary/agreements/tasks preview */}
+              <CallSummaryPreview 
+                callId={call.id}
+                clientId={clientId}
+                summary={call.summary}
+                agreements={call.agreements}
+                manualActionItems={call.manual_action_items}
+                className="mt-2"
+              />
+
+              {/* AI Evaluation badge OR Analyze button */}
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
+                {hasAiEvaluation && (
+                  <Badge 
+                    variant="secondary" 
+                    className={`text-xs ${
+                      (call.ai_evaluation as any).overall_score >= 8 
+                        ? 'bg-green-100 text-green-800 border-green-200'
+                        : (call.ai_evaluation as any).overall_score >= 6
+                        ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                        : 'bg-red-100 text-red-800 border-red-200'
+                    }`}
+                  >
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    AI: {(call.ai_evaluation as any).overall_score}/10
+                  </Badge>
+                )}
+                
+                {canAnalyze && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAnalyzeCall(call.id);
+                    }}
+                    disabled={isAnalyzing}
+                    className="h-6 text-xs gap-1"
+                  >
+                    {isAnalyzing ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Анализ...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="h-3 w-3" />
+                        AI анализ
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+              
+              {call.notes && (
+                <div className="flex items-start gap-1 text-xs text-muted-foreground mt-1">
+                  <MessageSquare className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                  <span className="line-clamp-1">{call.notes}</span>
                 </div>
               )}
             </div>
             
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Calendar className="h-3 w-3" />
-              {format(new Date(call.started_at), "dd MMM, HH:mm", { locale: ru })}
+            <div className="flex-shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => openCallDetail(call.id)}
+                className="h-8 w-8 p-0"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
             </div>
-            
-            <div className="text-xs text-muted-foreground truncate">
-              {call.phone_number}
-            </div>
-
-            {call.manager_name && (
-              <div className="flex items-center gap-1 text-xs text-primary mt-1">
-                <User className="h-3 w-3" />
-                <span>{call.manager_name}</span>
-              </div>
-            )}
-
-            {/* AI Evaluation badge */}
-            {call.status === 'answered' && call.ai_evaluation && typeof call.ai_evaluation === 'object' && (call.ai_evaluation as any).overall_score !== undefined && (
-              <div className="mt-2">
-                <Badge 
-                  variant="secondary" 
-                  className={`text-xs ${
-                    (call.ai_evaluation as any).overall_score >= 8 
-                      ? 'bg-green-100 text-green-800 border-green-200'
-                      : (call.ai_evaluation as any).overall_score >= 6
-                      ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
-                      : 'bg-red-100 text-red-800 border-red-200'
-                  }`}
-                >
-                  <Sparkles className="h-3 w-3 mr-1" />
-                  Оценка: {(call.ai_evaluation as any).overall_score}/10
-                </Badge>
-              </div>
-            )}
-
-            {/* Manual summary/agreements/tasks preview */}
-            <CallSummaryPreview 
-              callId={call.id}
-              clientId={clientId}
-              summary={call.summary}
-              agreements={call.agreements}
-              manualActionItems={call.manual_action_items}
-              className="mt-2"
-            />
-            
-            {call.notes && (
-              <div className="flex items-start gap-1 text-xs text-muted-foreground mt-1">
-                <MessageSquare className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                <span className="line-clamp-1">{call.notes}</span>
-              </div>
-            )}
-          </div>
-          
-          <div className="flex-shrink-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => openCallDetail(call.id)}
-              className="h-8 w-8 p-0"
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   if (isLoading) {
     return (
