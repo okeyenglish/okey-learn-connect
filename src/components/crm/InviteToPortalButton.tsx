@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -39,6 +39,10 @@ interface InvitationStatus {
 
 type MessengerType = 'whatsapp' | 'telegram' | 'max' | 'sms';
 
+// Module-level flag to avoid повторных 400/404 на каждом монтировании компонента,
+// если портал-схема не установлена в этой БД.
+let portalStatusChecksSupported: boolean | null = null;
+
 const messengerLabels: Record<MessengerType, string> = {
   whatsapp: 'WhatsApp',
   telegram: 'Telegram',
@@ -65,26 +69,70 @@ export const InviteToPortalButton = ({
   const [invitationStatus, setInvitationStatus] = useState<InvitationStatus>({ status: 'not_invited' });
   const [isCheckingStatus, setIsCheckingStatus] = useState(true);
   const [selectedMessenger, setSelectedMessenger] = useState<MessengerType>('whatsapp');
+  // В некоторых инстансах БД нет таблиц/полей портала (client_invitations, clients.portal_enabled/user_id).
+  // Чтобы не спамить ошибками и не добавлять лишнюю задержку на каждый рендер карточки,
+  // пробуем один раз и дальше отключаем проверку статуса, оставляя возможность отправить приглашение.
+  const statusCheckSupportedRef = useRef(portalStatusChecksSupported ?? true);
   const [actionResult, setActionResult] = useState<{
     success: boolean;
     message_sent?: boolean;
     short_url?: string;
   } | null>(null);
 
+  const isMissingColumnError = (err: any) => {
+    const message = String(err?.message || '');
+    return err?.code === '42703' || /column\s+.+\s+does not exist/i.test(message);
+  };
+
+  const isMissingTableError = (err: any) => {
+    const message = String(err?.message || '');
+    return err?.code === 'PGRST205' || /Could not find the table/i.test(message);
+  };
+
+  const disableStatusChecks = useCallback(() => {
+    statusCheckSupportedRef.current = false;
+    portalStatusChecksSupported = false;
+  }, []);
+
   // Check invitation status on mount
   useEffect(() => {
+    if (!clientId) return;
+    if (!statusCheckSupportedRef.current) {
+      // Статус недоступен — не блокируем UI проверкой
+      setIsCheckingStatus(false);
+      setInvitationStatus({ status: 'not_invited' });
+      return;
+    }
     checkInvitationStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
 
   const checkInvitationStatus = async () => {
     setIsCheckingStatus(true);
     try {
       // First check if client has portal_enabled (registered)
-      const { data: client } = await supabase
+      const { data: client, error: clientError } = await supabase
         .from('clients')
         .select('portal_enabled, user_id')
         .eq('id', clientId)
         .single();
+
+      // Если в схеме нет этих колонок — просто отключаем проверку статуса.
+      // (Приглашение всё равно отправляется через backend endpoint.)
+      if (clientError) {
+        if (isMissingColumnError(clientError)) {
+          disableStatusChecks();
+          setInvitationStatus({ status: 'not_invited' });
+          return;
+        }
+        throw clientError;
+      }
+
+      if (!client) {
+        // Клиент не найден — считаем, что приглашения нет
+        setInvitationStatus({ status: 'not_invited' });
+        return;
+      }
 
       if (client?.portal_enabled && client?.user_id) {
         setInvitationStatus({ 
@@ -96,13 +144,28 @@ export const InviteToPortalButton = ({
       }
 
       // Check for pending invitation
-      const { data: invitation } = await supabase
+      const { data: invitation, error: invitationError } = await supabase
         .from('client_invitations')
         .select('status, created_at, completed_at')
         .eq('client_id', clientId)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+
+      // Аналогично: если таблицы нет — отключаем проверку статуса.
+      if (invitationError) {
+        if (isMissingTableError(invitationError)) {
+          disableStatusChecks();
+          setInvitationStatus({ status: 'not_invited' });
+          return;
+        }
+        throw invitationError;
+      }
+
+      if (!invitation) {
+        setInvitationStatus({ status: 'not_invited' });
+        return;
+      }
 
       if (invitation) {
         if (invitation.status === 'completed') {

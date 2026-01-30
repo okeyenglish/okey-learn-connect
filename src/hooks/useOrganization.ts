@@ -44,6 +44,15 @@ export interface OrganizationBranch {
 export const useOrganization = () => {
   const { profile } = useAuth();
 
+  // Организация/филиалы редко меняются — держим в кеше подольше,
+  // чтобы не добавлять лишние запросы при открытии карточек/чатов.
+  const orgQueryDefaults = {
+    staleTime: 5 * 60 * 1000, // 5 минут
+    gcTime: 30 * 60 * 1000, // 30 минут
+    refetchOnWindowFocus: false,
+    retry: 1,
+  } as const;
+
   const { data: organization, isLoading: organizationLoading } = useQuery({
     queryKey: ['organization', profile?.organization_id],
     queryFn: async () => {
@@ -59,6 +68,7 @@ export const useOrganization = () => {
       return data as Organization;
     },
     enabled: !!profile?.organization_id,
+    ...orgQueryDefaults,
   });
 
   const { data: branches = [], isLoading: branchesLoading } = useQuery({
@@ -85,6 +95,7 @@ export const useOrganization = () => {
       return uniqueBranches;
     },
     enabled: !!profile?.organization_id,
+    ...orgQueryDefaults,
   });
 
   const getBranchById = (branchId: string) => {
