@@ -489,14 +489,20 @@ export const ChatArea = ({
   }, []);
   
   // Функция для прокрутки к концу чата (для активного мессенджера)
-  const scrollToBottom = (smooth = true, tab?: string) => {
+  const scrollToBottom = useCallback((smooth = true, tab?: string) => {
     const t = tab || activeMessengerTab;
-    const targetRef = t === 'max' ? maxEndRef : t === 'telegram' ? telegramEndRef : whatsappEndRef;
+    const targetRef = 
+      t === 'max' ? maxEndRef : 
+      t === 'telegram' ? telegramEndRef : 
+      t === 'chatos' ? chatosEndRef :
+      whatsappEndRef;
 
-    targetRef.current?.scrollIntoView({
-      behavior: smooth ? "smooth" : "instant",
-    });
-  };
+    if (targetRef.current) {
+      targetRef.current.scrollIntoView({
+        behavior: smooth ? "smooth" : "instant",
+      });
+    }
+  }, [activeMessengerTab]);
 
   // displayName is now computed directly from clientName, no need for state
 
@@ -634,11 +640,14 @@ export const ChatArea = ({
     setActiveMessengerTab(tab);
     setInitialTabSet(clientId);
     // после установки вкладки — прокручиваем именно её к последнему сообщению
-    setTimeout(() => scrollToBottom(false, tab), 0);
+    // после установки вкладки — прокручиваем именно её к последнему сообщению
+    requestAnimationFrame(() => {
+      setTimeout(() => scrollToBottom(false, tab), 100);
+    });
     
     // НЕ помечаем автоматически сообщения как прочитанные
     // Менеджер должен явно нажать "Не требует ответа" или отправить сообщение
-  }, [clientId, unreadLoading, unreadFetching, lastUnreadMessenger, initialTabSet, messagesData?.messages, loadingMessages, initialMessengerTab]);
+  }, [clientId, unreadLoading, unreadFetching, lastUnreadMessenger, initialTabSet, messagesData?.messages, loadingMessages, initialMessengerTab, scrollToBottom]);
 
   // Handle external messenger tab switch (from clicking messenger icon in FamilyCard)
   useEffect(() => {
@@ -646,9 +655,12 @@ export const ChatArea = ({
       // User clicked a specific messenger icon - force switch
       console.log('[ChatArea] Switching to messenger tab from external click:', initialMessengerTab, 'ts:', messengerTabTimestamp);
       setActiveMessengerTab(initialMessengerTab);
-      setTimeout(() => scrollToBottom(false, initialMessengerTab), 0);
+      // Прокрутка к последнему сообщению после рендера
+      requestAnimationFrame(() => {
+        setTimeout(() => scrollToBottom(false, initialMessengerTab), 100);
+      });
     }
-  }, [messengerTabTimestamp]); // Only react to timestamp changes
+  }, [messengerTabTimestamp, scrollToBottom]); // Only react to timestamp changes
 
   // Mark messages as read when switching tabs - только прокрутка, НЕ отметка прочитанности
   const handleTabChange = async (newTab: string) => {
@@ -659,11 +671,14 @@ export const ChatArea = ({
     setActiveMessengerTab(newTab);
     
     // при переключении вкладки сразу показываем последние сообщения
-    setTimeout(() => {
-      scrollToBottom(false, newTab);
-      // End transition after scroll completes
-      setIsTabTransitioning(false);
-    }, 50);
+    // Используем requestAnimationFrame + небольшую задержку для гарантии рендера
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        scrollToBottom(false, newTab);
+        // End transition after scroll completes
+        setIsTabTransitioning(false);
+      }, 100);
+    });
     
     // При переходе на вкладку "Звонки" помечаем пропущенные звонки как просмотренные
     if (newTab === 'calls') {
