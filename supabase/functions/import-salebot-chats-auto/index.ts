@@ -81,6 +81,26 @@ async function checkAndIncrementApiUsage(supabase: any, incrementBy: number = 1)
   };
 }
 
+// Helper: Map Salebot client_type to messenger_type
+function getMessengerTypeFromClientType(clientType: number | null | undefined): string {
+  switch (clientType) {
+    case 1:   // Telegram
+    case 16:  // Telegram Bot
+    case 21:  // Telegram Personal
+      return 'telegram';
+    case 6:   // WhatsApp
+      return 'whatsapp';
+    case 20:  // Max (VK Teams)
+      return 'max';
+    case 0:   // VK
+      return 'vk';
+    case 2:   // Viber
+      return 'viber';
+    default:
+      return 'telegram'; // Default to telegram for unknown types
+  }
+}
+
 function isRetryableStatus(status: number): boolean {
   return status === 408 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
 }
@@ -400,7 +420,7 @@ async function handleSyncWithSalebotIds(
   // Get ONLY clients that have salebot_client_id
   const { data: localClients, error: clientsError } = await supabase
     .from('clients')
-    .select('id, name, salebot_client_id')
+    .select('id, name, salebot_client_id, salebot_client_type')
     .not('salebot_client_id', 'is', null)
     .order('created_at', { ascending: true })
     .range(resyncOffset, resyncOffset + clientBatchSize - 1);
@@ -508,7 +528,7 @@ async function handleSyncWithSalebotIds(
           is_outgoing: !msg.client_replica,
           is_read: true,
           created_at: date.toISOString(),
-          messenger_type: 'whatsapp',
+          messenger_type: getMessengerTypeFromClientType(client.salebot_client_type),
           salebot_message_id: msg.id.toString(),
         });
       }
@@ -740,7 +760,7 @@ async function handleSyncNewClientsOnly(
           is_outgoing: !msg.client_replica,
           is_read: true,
           created_at: date.toISOString(),
-          messenger_type: 'whatsapp',
+          messenger_type: getMessengerTypeFromClientType(client.salebot_client_type),
           salebot_message_id: msg.id.toString(),
         });
       }
@@ -868,6 +888,7 @@ async function handleResyncMessages(
       id, 
       name, 
       salebot_client_id,
+      salebot_client_type,
       phone_numbers:client_phone_numbers(phone)
     `)
     .order('created_at', { ascending: true })
@@ -1013,7 +1034,7 @@ async function handleResyncMessages(
           is_outgoing: !msg.client_replica,
           is_read: true,
           created_at: date.toISOString(),
-          messenger_type: 'whatsapp',
+          messenger_type: getMessengerTypeFromClientType(client.salebot_client_type),
           salebot_message_id: msg.id.toString(),
         });
       }
@@ -1270,7 +1291,7 @@ Deno.serve(async (req) => {
       // Get clients with salebot_client_id
       const { data: localClients, error: clientsError } = await supabase
         .from('clients')
-        .select('id, name, salebot_client_id')
+        .select('id, name, salebot_client_id, salebot_client_type')
         .not('salebot_client_id', 'is', null)
         .order('created_at', { ascending: true })
         .range(resyncOffset, resyncOffset + BATCH_SIZE - 1);
@@ -1456,7 +1477,7 @@ Deno.serve(async (req) => {
                 is_outgoing: !msg.client_replica,
                 is_read: true,
                 created_at: date.toISOString(),
-                messenger_type: 'whatsapp',
+                messenger_type: getMessengerTypeFromClientType(client.salebot_client_type),
                 salebot_message_id: msg.id.toString(),
               });
             }
@@ -2142,7 +2163,7 @@ Deno.serve(async (req) => {
               is_outgoing: !msg.client_replica,
               is_read: true,
               created_at: date.toISOString(),
-              messenger_type: 'whatsapp',
+              messenger_type: getMessengerTypeFromClientType(salebotClient.client_type),
               salebot_message_id: msg.id.toString(),
             });
           }
@@ -2228,7 +2249,7 @@ Deno.serve(async (req) => {
       // Обработка клиентов из нашей базы
       const { data: clients } = await supabase
         .from('clients')
-        .select('id, name, phone_numbers:client_phone_numbers(phone)')
+        .select('id, name, salebot_client_type, phone_numbers:client_phone_numbers(phone)')
         .not('phone_numbers', 'is', null)
         .range(currentOffset, currentOffset + clientBatchSize - 1);
 
@@ -2346,7 +2367,7 @@ Deno.serve(async (req) => {
                 is_outgoing: !msg.client_replica,
                 is_read: true,
                 created_at: date.toISOString(),
-                messenger_type: 'whatsapp',
+                messenger_type: getMessengerTypeFromClientType(client.salebot_client_type),
                 salebot_message_id: msg.id.toString(),
               });
             }
