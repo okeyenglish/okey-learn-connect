@@ -1958,6 +1958,7 @@ const CRMContent = () => {
     { icon: HardDrive, label: "Диск" },
     { icon: DollarSign, label: "Финансы" },
     { icon: BarChart3, label: "Отчёты" },
+    { icon: BarChart3, label: "KPI" },
     { icon: MessageCircle, label: "Уведомления" },
     { icon: MessageSquare, label: "WhatsApp" },
     { icon: Settings, label: "Настройки" },
@@ -2156,6 +2157,11 @@ const CRMContent = () => {
                           {openModal === item.label && item.label === "Отчёты" && (
                             <div className="h-full">
                               <AnalyticsSection />
+                            </div>
+                          )}
+                          {openModal === item.label && item.label === "KPI" && (
+                            <div className="h-full">
+                              <EmployeeKPISection />
                             </div>
                           )}
                           {openModal === item.label && item.label === "Уведомления" && (
