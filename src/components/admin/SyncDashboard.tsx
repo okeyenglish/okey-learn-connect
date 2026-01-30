@@ -157,6 +157,12 @@ export function SyncDashboard() {
   const [pollInterval, setPollInterval] = useState(10000); // Start at 10s
   const [lastStatsRefresh, setLastStatsRefresh] = useState<number>(0);
 
+  // Ref to track organizationId for interval functions (avoid closure issues)
+  const organizationIdRef = useRef(organizationId);
+  useEffect(() => {
+    organizationIdRef.current = organizationId;
+  }, [organizationId]);
+
   const fetchProgressOnly = async () => {
     try {
       // Get Salebot progress (lightweight)
@@ -259,6 +265,8 @@ export function SyncDashboard() {
 
   // Fetch DB stats manually (heavy queries) - not on auto-refresh
   const fetchDbStats = async () => {
+    // Use ref to get current organizationId (avoids closure issues in intervals)
+    const currentOrgId = organizationIdRef.current;
     try {
       const [clientsRes, studentsRes, messagesRes, familyRes, clientsWithIdRes, clientsWithoutIdRes, clientsWithoutMessagesRes] = await Promise.all([
         supabase.from('clients').select('id', { count: 'exact', head: true }),
@@ -268,8 +276,8 @@ export function SyncDashboard() {
         supabase.from('clients').select('id', { count: 'exact', head: true }).not('salebot_client_id', 'is', null),
         supabase.from('clients').select('id', { count: 'exact', head: true }).is('salebot_client_id', null),
         // Get count of clients with salebot_id but without imported messages
-        organizationId 
-          ? supabase.rpc('count_clients_without_imported_messages', { p_org_id: organizationId })
+        currentOrgId 
+          ? supabase.rpc('count_clients_without_imported_messages', { p_org_id: currentOrgId })
           : Promise.resolve({ data: 0, error: null })
       ]);
 
@@ -295,9 +303,11 @@ export function SyncDashboard() {
 
   // Quick refresh of clients without messages count (separate from full stats)
   const refreshClientsWithoutMessagesCount = async () => {
-    if (!organizationId) return;
+    // Use ref to get current organizationId (avoids closure issues in intervals)
+    const currentOrgId = organizationIdRef.current;
+    if (!currentOrgId) return;
     try {
-      const { data, error } = await supabase.rpc('count_clients_without_imported_messages', { p_org_id: organizationId });
+      const { data, error } = await supabase.rpc('count_clients_without_imported_messages', { p_org_id: currentOrgId });
       if (!error && data !== null) {
         setClientsWithoutMessages(data as number);
       }
@@ -305,6 +315,13 @@ export function SyncDashboard() {
       console.error('Error refreshing clients without messages count:', error);
     }
   };
+
+  // Re-fetch stats when organizationId becomes available
+  useEffect(() => {
+    if (organizationId) {
+      fetchDbStats();
+    }
+  }, [organizationId]);
 
   useEffect(() => {
     // Initial fetch
