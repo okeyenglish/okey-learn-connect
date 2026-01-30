@@ -1,15 +1,20 @@
 -- ============================================
 -- Очистка невалидных whatsapp_id в clients и client_phone_numbers
--- Выполнить на self-hosted Supabase (api.academyos.ru)
+-- Для self-hosted Supabase (api.academyos.ru)
 -- ============================================
 -- 
--- Проблема: в поле whatsapp_id/whatsapp_chat_id хранятся Telegram User ID
+-- Проблема: в поле whatsapp_chat_id хранятся Telegram User ID
 -- вместо реальных WhatsApp номеров. Telegram ID - это числа >10 цифр,
 -- не начинающиеся с типичных телефонных кодов (7, 8, 1, 44 и т.д.)
 --
 -- Правильный WhatsApp ID: "79161234567@c.us" или "79161234567"
 -- Неправильный (Telegram ID): "75000001223" (13+ цифр, не телефонный формат)
 -- ============================================
+
+-- 0. ПРОВЕРКА СТРУКТУРЫ ТАБЛИЦ
+-- Сначала проверьте какие колонки есть:
+-- SELECT column_name FROM information_schema.columns WHERE table_name = 'clients' AND table_schema = 'public';
+-- SELECT column_name FROM information_schema.columns WHERE table_name = 'client_phone_numbers' AND table_schema = 'public';
 
 -- 1. ФУНКЦИЯ ВАЛИДАЦИИ WhatsApp ID
 -- Проверяет что это реальный телефонный номер, а не Telegram ID
@@ -96,35 +101,19 @@ $$;
 -- 2. ДИАГНОСТИКА - Посмотрим что будет очищено
 -- ============================================
 
--- 2.1 Невалидные whatsapp_id в clients
-SELECT 
-  c.id,
-  c.name,
-  c.whatsapp_id,
-  c.telegram_user_id,
-  length(regexp_replace(c.whatsapp_id, '\D', '', 'g')) as digits_count,
-  CASE 
-    WHEN c.telegram_user_id IS NOT NULL AND c.telegram_user_id = c.whatsapp_id 
-    THEN 'Точное совпадение с telegram_user_id'
-    WHEN length(regexp_replace(c.whatsapp_id, '\D', '', 'g')) > 11 
-    THEN 'Слишком длинный (скорее всего Telegram ID)'
-    ELSE 'Невалидный формат'
-  END as reason
-FROM clients c
-WHERE c.whatsapp_id IS NOT NULL 
-  AND c.whatsapp_id != ''
-  AND NOT is_valid_whatsapp_id(c.whatsapp_id)
-ORDER BY c.created_at DESC
-LIMIT 50;
-
--- 2.2 Невалидные whatsapp_chat_id в client_phone_numbers
+-- 2.1 Невалидные whatsapp_chat_id в client_phone_numbers
 SELECT 
   cpn.id,
   cpn.client_id,
   c.name as client_name,
   cpn.phone,
   cpn.whatsapp_chat_id,
-  length(regexp_replace(cpn.whatsapp_chat_id, '\D', '', 'g')) as digits_count
+  length(regexp_replace(cpn.whatsapp_chat_id, '\D', '', 'g')) as digits_count,
+  CASE 
+    WHEN length(regexp_replace(cpn.whatsapp_chat_id, '\D', '', 'g')) > 11 
+    THEN 'Слишком длинный (скорее всего Telegram ID)'
+    ELSE 'Невалидный формат'
+  END as reason
 FROM client_phone_numbers cpn
 JOIN clients c ON c.id = cpn.client_id
 WHERE cpn.whatsapp_chat_id IS NOT NULL 
@@ -133,15 +122,7 @@ WHERE cpn.whatsapp_chat_id IS NOT NULL
 ORDER BY c.created_at DESC
 LIMIT 50;
 
--- 2.3 Подсчёт затронутых записей
-SELECT 
-  'clients.whatsapp_id' as table_field,
-  COUNT(*) as invalid_count
-FROM clients
-WHERE whatsapp_id IS NOT NULL 
-  AND whatsapp_id != ''
-  AND NOT is_valid_whatsapp_id(whatsapp_id)
-UNION ALL
+-- 2.2 Подсчёт затронутых записей
 SELECT 
   'client_phone_numbers.whatsapp_chat_id' as table_field,
   COUNT(*) as invalid_count
@@ -156,13 +137,6 @@ WHERE whatsapp_chat_id IS NOT NULL
 
 /*
 -- 3.1 Создаём бэкап перед очисткой
-CREATE TABLE IF NOT EXISTS clients_whatsapp_backup AS
-SELECT id, whatsapp_id, telegram_user_id, phone, updated_at
-FROM clients
-WHERE whatsapp_id IS NOT NULL 
-  AND whatsapp_id != ''
-  AND NOT is_valid_whatsapp_id(whatsapp_id);
-
 CREATE TABLE IF NOT EXISTS client_phone_numbers_whatsapp_backup AS
 SELECT id, client_id, phone, whatsapp_chat_id, updated_at
 FROM client_phone_numbers
@@ -170,16 +144,7 @@ WHERE whatsapp_chat_id IS NOT NULL
   AND whatsapp_chat_id != ''
   AND NOT is_valid_whatsapp_id(whatsapp_chat_id);
 
--- 3.2 Очищаем clients.whatsapp_id
-UPDATE clients
-SET 
-  whatsapp_id = NULL,
-  updated_at = now()
-WHERE whatsapp_id IS NOT NULL 
-  AND whatsapp_id != ''
-  AND NOT is_valid_whatsapp_id(whatsapp_id);
-
--- 3.3 Очищаем client_phone_numbers.whatsapp_chat_id
+-- 3.2 Очищаем client_phone_numbers.whatsapp_chat_id
 UPDATE client_phone_numbers
 SET 
   whatsapp_chat_id = NULL,
@@ -188,10 +153,8 @@ WHERE whatsapp_chat_id IS NOT NULL
   AND whatsapp_chat_id != ''
   AND NOT is_valid_whatsapp_id(whatsapp_chat_id);
 
--- 3.4 Проверяем результат
-SELECT 'Очищено clients: ' || COUNT(*) as result FROM clients_whatsapp_backup
-UNION ALL
-SELECT 'Очищено phone_numbers: ' || COUNT(*) FROM client_phone_numbers_whatsapp_backup;
+-- 3.3 Проверяем результат
+SELECT 'Очищено phone_numbers: ' || COUNT(*) as result FROM client_phone_numbers_whatsapp_backup;
 */
 
 -- ============================================
@@ -199,19 +162,6 @@ SELECT 'Очищено phone_numbers: ' || COUNT(*) FROM client_phone_numbers_wh
 -- ============================================
 
 /*
--- Очистка clients
-WITH cleaned_clients AS (
-  UPDATE clients
-  SET 
-    whatsapp_id = NULL,
-    updated_at = now()
-  WHERE whatsapp_id IS NOT NULL 
-    AND whatsapp_id != ''
-    AND NOT is_valid_whatsapp_id(whatsapp_id)
-  RETURNING id
-)
-SELECT 'Очищено clients.whatsapp_id: ' || COUNT(*) FROM cleaned_clients;
-
 -- Очистка client_phone_numbers
 WITH cleaned_phones AS (
   UPDATE client_phone_numbers
@@ -231,5 +181,4 @@ SELECT 'Очищено client_phone_numbers.whatsapp_chat_id: ' || COUNT(*) FROM
 -- ============================================
 
 -- Убедиться что невалидных не осталось:
--- SELECT COUNT(*) FROM clients WHERE whatsapp_id IS NOT NULL AND NOT is_valid_whatsapp_id(whatsapp_id);
 -- SELECT COUNT(*) FROM client_phone_numbers WHERE whatsapp_chat_id IS NOT NULL AND NOT is_valid_whatsapp_id(whatsapp_chat_id);
