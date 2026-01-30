@@ -399,6 +399,7 @@ export const FamilyCard = ({
                 isTelegramEnabled: p.isTelegramEnabled,
                 whatsappChatId: p.whatsappChatId,
                 telegramChatId: p.telegramChatId,
+                telegramUserId: p.telegramUserId,
                 maxChatId: p.maxChatId,
               }))}
               email={activeMember.email}
