@@ -1,5 +1,6 @@
 import React from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { LazyAvatar, getAvatarInitials } from "@/components/ui/LazyAvatar";
 import { Badge } from "@/components/ui/badge";
 import { Pin, MessageSquare, MessageCircle } from "lucide-react";
 import { ChatContextMenu } from "./ChatContextMenu";
@@ -160,33 +161,27 @@ export const ChatListItem = React.memo(({
               />
             )}
             
-            <Avatar className={`h-9 w-9 flex-shrink-0 ring-2 transition-all ${
-              isPinned 
-                ? 'ring-orange-200 shadow-sm' 
-                : 'ring-border/30'
-            }`}>
-            {chat.avatar_url && chat.avatar_url.trim() !== '' && (
-                <AvatarImage 
-                  src={chat.avatar_url} 
-                  alt={chat.name}
-                />
-              )}
-              <AvatarFallback 
-                className={`text-sm font-medium ${
-                  isPinned 
-                    ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white' 
-                    : 'bg-primary/15 text-primary'
-                }`}
-              >
-                {chat.name
-                  ?.split(' ')
-                  .map(n => n[0])
-                  .filter(Boolean)
-                  .join('')
-                  .slice(0, 2)
-                  .toUpperCase() || '?'}
-              </AvatarFallback>
-            </Avatar>
+            <LazyAvatar
+              src={chat.avatar_url}
+              alt={chat.name}
+              fallback={chat.name
+                ?.split(' ')
+                .map(n => n[0])
+                .filter(Boolean)
+                .join('')
+                .slice(0, 2)
+                .toUpperCase() || '?'}
+              size="custom"
+              className={`h-9 w-9 flex-shrink-0 ring-2 transition-all ${
+                isPinned 
+                  ? 'ring-orange-200 shadow-sm' 
+                  : 'ring-border/30'
+              }`}
+              fallbackClassName={isPinned 
+                ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white' 
+                : 'bg-primary/15 text-primary'}
+              rootMargin="200px"
+            />
             
               <div className="flex-1 min-w-0 overflow-hidden">
               <div className="flex items-center gap-1.5 mb-0">
