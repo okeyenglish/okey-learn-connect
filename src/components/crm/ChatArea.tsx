@@ -715,7 +715,9 @@ export const ChatArea = ({
     managerName: managerName,
     fileUrl: msg.file_url,
     fileName: msg.file_name,
-    fileType: msg.file_type,
+    fileType: msg.file_type || msg.media_type,
+    // Message type hint for media detection (imageMessage, videoMessage, etc.)
+    messageTypeHint: msg.media_type || msg.content_type || msg.raw_message_type,
     whatsappChatId: msg.whatsapp_chat_id,
     externalMessageId: msg.external_message_id,
     messengerType: msg.messenger_type || 'whatsapp',
@@ -2440,6 +2442,7 @@ export const ChatArea = ({
                             fileUrl={msg.fileUrl}
                             fileName={msg.fileName}
                             fileType={msg.fileType}
+                            messageTypeHint={msg.messageTypeHint}
                             whatsappChatId={msg.whatsappChatId}
                             externalMessageId={msg.externalMessageId}
                             showAvatar={showAvatar}
@@ -2581,6 +2584,7 @@ export const ChatArea = ({
                             fileUrl={msg.fileUrl}
                             fileName={msg.fileName}
                             fileType={msg.fileType}
+                            messageTypeHint={msg.messageTypeHint}
                             externalMessageId={msg.externalMessageId}
                             showAvatar={showAvatar}
                             showName={showName}
@@ -2680,6 +2684,7 @@ export const ChatArea = ({
                             fileUrl={msg.fileUrl}
                             fileName={msg.fileName}
                             fileType={msg.fileType}
+                            messageTypeHint={msg.messageTypeHint}
                             whatsappChatId={msg.whatsappChatId}
                             externalMessageId={msg.externalMessageId}
                             showAvatar={showAvatar}
@@ -2794,6 +2799,7 @@ export const ChatArea = ({
                             fileUrl={msg.fileUrl}
                             fileName={msg.fileName}
                             fileType={msg.fileType}
+                            messageTypeHint={msg.messageTypeHint}
                             externalMessageId={msg.externalMessageId}
                             showAvatar={showAvatar}
                             showName={showName}

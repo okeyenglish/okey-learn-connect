@@ -70,6 +70,8 @@ interface ChatMessageProps {
   fileUrl?: string;
   fileName?: string;
   fileType?: string;
+  /** Message type from messenger (imageMessage, videoMessage, etc.) */
+  messageTypeHint?: string;
   whatsappChatId?: string;
   externalMessageId?: string;
   showAvatar?: boolean;
@@ -86,7 +88,7 @@ interface ChatMessageProps {
   isJustSent?: boolean;
 }
 
-const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, onResendMessage, onCancelRetry, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, whatsappChatId, externalMessageId, showAvatar = true, showName = true, isLastInGroup = true, onForwardMessage, onEnterSelectionMode, onQuoteMessage, isHighlighted = false, searchQuery, animationIndex, isJustSent = false }: ChatMessageProps) => {
+const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, onResendMessage, onCancelRetry, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, messageTypeHint, whatsappChatId, externalMessageId, showAvatar = true, showName = true, isLastInGroup = true, onForwardMessage, onEnterSelectionMode, onQuoteMessage, isHighlighted = false, searchQuery, animationIndex, isJustSent = false }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
 
@@ -461,6 +463,8 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                 {message !== '[Сообщение удалено]' && fileUrl && fileName && (
                   <div className={
                     (fileType?.startsWith('image/') || fileType?.startsWith('video/') || fileType?.startsWith('audio/') ||
+                     messageTypeHint?.toLowerCase().includes('image') || messageTypeHint?.toLowerCase().includes('video') ||
+                     messageTypeHint?.toLowerCase().includes('audio') || messageTypeHint === 'ptt' ||
                      /\.(jpg|jpeg|png|gif|webp|mp4|webm|mov|mp3|ogg|opus|m4a)$/i.test(fileName))
                       ? '' 
                       : 'mt-2'
@@ -469,8 +473,11 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                       url={fileUrl}
                       name={fileName}
                       type={fileType || ''}
+                      messageType={messageTypeHint}
                       className={
                         (fileType?.startsWith('image/') || fileType?.startsWith('video/') || fileType?.startsWith('audio/') ||
+                         messageTypeHint?.toLowerCase().includes('image') || messageTypeHint?.toLowerCase().includes('video') ||
+                         messageTypeHint?.toLowerCase().includes('audio') || messageTypeHint === 'ptt' ||
                          /\.(jpg|jpeg|png|gif|webp|mp4|webm|mov|mp3|ogg|opus|m4a)$/i.test(fileName))
                           ? '' 
                           : 'max-w-xs'

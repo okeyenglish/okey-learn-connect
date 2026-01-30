@@ -21,6 +21,8 @@ interface OptimizedAttachedFileProps {
   messageId?: string;
   /** Unique ID for gallery registration */
   galleryId?: string;
+  /** Message type from WhatsApp/Telegram (e.g., imageMessage, videoMessage) */
+  messageType?: string;
 }
 
 /**
@@ -68,13 +70,35 @@ function getMimeTypeFromExtension(filename: string): string | null {
 }
 
 /**
- * Determine effective MIME type from provided type, filename, or URL
+ * Detect MIME type from message_type patterns (WhatsApp/Telegram style)
+ * E.g., "imageMessage", "videoMessage", "audioMessage", "ptt" (push-to-talk voice)
  */
-function getEffectiveMimeType(type: string, name: string, url: string): string {
-  // If type looks valid (contains /), use it
-  if (type && type.includes('/')) {
+function getMimeTypeFromMessageType(messageType: string | undefined | null): string | null {
+  if (!messageType) return null;
+  
+  const lower = messageType.toLowerCase();
+  
+  if (lower.includes('image') || lower === 'photo') return 'image/jpeg';
+  if (lower.includes('video')) return 'video/mp4';
+  if (lower.includes('audio') || lower === 'ptt' || lower === 'voice') return 'audio/ogg';
+  if (lower.includes('document') || lower.includes('file')) return 'application/octet-stream';
+  if (lower.includes('pdf')) return 'application/pdf';
+  
+  return null;
+}
+
+/**
+ * Determine effective MIME type from provided type, filename, URL, or message type
+ */
+function getEffectiveMimeType(type: string, name: string, url: string, messageType?: string): string {
+  // If type looks valid and specific (contains / and isn't octet-stream), use it
+  if (type && type.includes('/') && !type.includes('octet-stream')) {
     return type;
   }
+  
+  // Try to get from message type pattern (imageMessage, videoMessage, etc.)
+  const fromMessageType = getMimeTypeFromMessageType(messageType);
+  if (fromMessageType && !fromMessageType.includes('octet-stream')) return fromMessageType;
   
   // Try to get from filename
   const fromName = getMimeTypeFromExtension(name);
@@ -110,10 +134,11 @@ export const OptimizedAttachedFile = memo(({
   className, 
   chatId, 
   messageId,
-  galleryId
+  galleryId,
+  messageType
 }: OptimizedAttachedFileProps) => {
-  // Determine effective MIME type (use extension as fallback)
-  const effectiveType = getEffectiveMimeType(type, name, url);
+  // Determine effective MIME type (use extension, messageType as fallback)
+  const effectiveType = getEffectiveMimeType(type, name, url, messageType);
   
   const gallery = useChatGallery();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -331,58 +356,56 @@ export const OptimizedAttachedFile = memo(({
     };
   }, []);
 
-  // PDF files with lazy loaded viewer
+  // PDF files with lazy loaded viewer - messenger style
   if (effectiveType.includes('pdf')) {
     return (
-      <Card className={`p-3 max-w-sm ${className}`}>
-        <div className="flex items-center gap-3">
-          <div className="flex-shrink-0 text-muted-foreground">
-            {getFileIcon()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate" title={name}>
-              {name}
-            </p>
-            {size && (
-              <p className="text-xs text-muted-foreground">
-                {formatFileSize(size)}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            <Suspense fallback={<Loader2 className="h-3 w-3 animate-spin" />}>
-              <PDFViewer 
-                url={realUrl} 
-                fileName={name}
-                trigger={
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 w-6 p-0"
-                    title="Открыть PDF"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                  </Button>
-                }
-              />
-            </Suspense>
+      <Suspense fallback={<div className="h-16 bg-muted animate-pulse rounded-xl" />}>
+        <div className={`rounded-xl overflow-hidden bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/30 dark:to-red-900/20 border border-red-200/50 dark:border-red-800/30 ${className}`} style={{ maxWidth: '260px' }}>
+          <PDFViewer 
+            url={realUrl} 
+            fileName={name}
+            trigger={
+              <div className="cursor-pointer group">
+                {/* PDF Preview Header */}
+                <div className="flex items-center gap-3 p-3">
+                  <div className="flex-shrink-0 w-10 h-10 bg-red-500/10 rounded-lg flex items-center justify-center">
+                    <FileText className="h-5 w-5 text-red-600 dark:text-red-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate text-foreground" title={name}>
+                      {name.length > 25 ? `${name.slice(0, 22)}...` : name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      PDF документ {size ? `• ${formatFileSize(size)}` : ''}
+                    </p>
+                  </div>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                </div>
+              </div>
+            }
+          />
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-1 px-3 pb-2">
             <Button
               size="sm"
               variant="ghost"
-              className="h-6 w-6 p-0"
-              onClick={handleDownload}
-              title="Скачать"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDownload();
+              }}
               disabled={downloadLoading}
             >
               {downloadLoading ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
               ) : (
-                <Download className="h-3 w-3" />
+                <Download className="h-3 w-3 mr-1" />
               )}
+              Скачать
             </Button>
           </div>
         </div>
-      </Card>
+      </Suspense>
     );
   }
 
