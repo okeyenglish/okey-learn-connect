@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/typedClient";
+import { useAuth } from "@/hooks/useAuth";
 import type { StudentOperationLog as DBStudentOperationLog } from "@/integrations/supabase/database.types";
 
 export interface StudentOperationLog extends DBStudentOperationLog {
@@ -37,11 +38,10 @@ export const useStudentOperationLogs = (studentId: string) => {
 
 export const useLogStudentOperation = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (log: Omit<StudentOperationLog, 'id' | 'performed_at' | 'performer'>) => {
-      const { data: { user } } = await supabase.auth.getUser();
-
       const { data, error } = await supabase
         .from('student_operation_logs')
         .insert([{

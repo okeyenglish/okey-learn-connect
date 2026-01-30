@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
+import { useAuth } from '@/hooks/useAuth';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 export type PresenceType = 'viewing' | 'on_call' | 'idle';
@@ -35,6 +36,7 @@ const STALE_THRESHOLD_MS = 90_000;
 const IDLE_TIMEOUT_MS = 2 * 60 * 1000;
 
 export const useChatPresenceTracker = (clientId: string | null) => {
+  const { user, profile } = useAuth();
   const currentUserIdRef = useRef<string | null>(null);
   const managerNameRef = useRef<string | null>(null);
   const avatarUrlRef = useRef<string | null>(null);
@@ -72,22 +74,15 @@ export const useChatPresenceTracker = (clientId: string | null) => {
     };
   }, [resetIdleTimer]);
 
-  // Load current user info once and update presence immediately after
+  // Sync user info from AuthProvider (eliminates getUser() call)
   useEffect(() => {
-    (async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      currentUserIdRef.current = userData.user?.id ?? null;
-
-      if (currentUserIdRef.current) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('first_name, last_name, avatar_url')
-          .eq('id', currentUserIdRef.current)
-          .maybeSingle();
-        
-        const name = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ');
+    if (user) {
+      currentUserIdRef.current = user.id;
+      
+      if (profile) {
+        const name = [profile.first_name, profile.last_name].filter(Boolean).join(' ');
         managerNameRef.current = name || null;
-        avatarUrlRef.current = profile?.avatar_url || null;
+        avatarUrlRef.current = profile.avatar_url || null;
         profileLoadedRef.current = true;
 
         // If there was a pending presence update, do it now with correct name
@@ -95,10 +90,10 @@ export const useChatPresenceTracker = (clientId: string | null) => {
           const targetClientId = pendingClientIdRef.current;
           pendingClientIdRef.current = null;
           // Re-upsert with correct name
-          await supabase
+          supabase
             .from('chat_presence')
             .upsert({
-              user_id: currentUserIdRef.current,
+              user_id: user.id,
               client_id: targetClientId,
               presence_type: 'viewing',
               manager_name: managerNameRef.current,
@@ -107,8 +102,8 @@ export const useChatPresenceTracker = (clientId: string | null) => {
             }, { onConflict: 'user_id,client_id' });
         }
       }
-    })();
-  }, []);
+    }
+  }, [user, profile]);
 
   // Update presence in database - clears all other presence first to ensure only one active chat
   const updatePresence = useCallback(async (targetClientId: string, type: PresenceType = 'viewing') => {
@@ -240,16 +235,14 @@ export const useChatPresenceTracker = (clientId: string | null) => {
  * Returns a map of clientId -> PresenceInfo
  */
 export const useChatPresenceList = () => {
+  const { user } = useAuth();
   const [presenceByClient, setPresenceByClient] = useState<Record<string, PresenceInfo>>({});
   const currentUserIdRef = useRef<string | null>(null);
 
-  // Get current user ID
+  // Sync user ID from AuthProvider (eliminates getUser() call)
   useEffect(() => {
-    (async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      currentUserIdRef.current = userData.user?.id ?? null;
-    })();
-  }, []);
+    currentUserIdRef.current = user?.id ?? null;
+  }, [user]);
 
   // Fetch all active presence records
   const fetchPresence = useCallback(async () => {

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import type { StudentTag, StudentTagAssignment } from "@/integrations/supabase/database.types";
 
 export type { StudentTag, StudentTagAssignment };
@@ -78,11 +79,10 @@ export const useCreateTag = () => {
 export const useAssignTag = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({ studentId, tagId }: { studentId: string; tagId: string }) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      
       const { data, error } = await supabase
         .from('student_tag_assignments')
         .insert([{

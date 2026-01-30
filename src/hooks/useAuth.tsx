@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { buildPermissionsForRoles, isAdmin, AppRole as RoleFromPerms } from '@/lib/permissions';
+import { setCachedUserId, clearAuthCache } from '@/lib/authHelpers';
 
 type AppRole = RoleFromPerms;
 
@@ -260,7 +261,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           setRoles([]);
           setRolesLoading(false);
           setPermissions({});
+          // Clear auth cache on logout
+          clearAuthCache();
         }
+        
+        // Sync userId cache with AuthProvider
+        setCachedUserId(session?.user?.id ?? null);
         
         setLoading(false);
       }
