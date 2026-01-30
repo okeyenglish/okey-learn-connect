@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import type { MessageReaction as DBMessageReaction } from '@/integrations/supabase/database.types';
 
 export interface MessageReactionWithDetails extends Omit<DBMessageReaction, 'user_id' | 'user_type'> {
@@ -93,16 +94,17 @@ export const useMessageReactions = (messageId: string) => {
 export const useAddReaction = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
-      const { data: userData } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
       
       const { data, error } = await supabase
         .from('message_reactions')
         .upsert({
           message_id: messageId,
-          user_id: userData.user?.id || '',
+          user_id: user.id,
           user_type: 'manager',
           emoji: emoji,
         }, {
@@ -140,16 +142,17 @@ export const useAddReaction = () => {
 export const useRemoveReaction = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (messageId: string) => {
-      const { data: userData } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
       
       const { error } = await supabase
         .from('message_reactions')
         .delete()
         .eq('message_id', messageId)
-        .eq('user_id', userData.user?.id || '');
+        .eq('user_id', user.id);
 
       if (error) {
         console.error('Error removing reaction:', error);
@@ -178,13 +181,14 @@ export const useRemoveReaction = () => {
 export const useGroupedReactions = (messageId: string) => {
   const { data: reactions, ...query } = useMessageReactions(messageId);
   
+  const { user } = useAuth();
+  
   return useQuery({
-    queryKey: ['grouped_reactions', messageId, reactions],
+    queryKey: ['grouped_reactions', messageId, reactions, user?.id],
     queryFn: async () => {
       if (!reactions) return [];
       
-      // Получаем текущего пользователя для проверки
-      const { data: { user } } = await supabase.auth.getUser();
+      // Используем user из useAuth вместо getUser()
       const currentUserId = user?.id;
       
       const groupedReactions = reactions.reduce((acc, reaction) => {

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 
 /** DB row for profile */
@@ -123,19 +124,14 @@ export const useTeacherMessages = () => {
     },
   });
 
+  const { user } = useAuth();
+  const { profile } = useAuth();
+
   // Создание сообщения преподавателем
   const createMessageMutation = useMutation({
     mutationFn: async (messageData: CreateTeacherMessageData) => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Пользователь не авторизован');
 
-      const { data: profileRaw } = await supabase
-        .from('profiles')
-        .select('first_name, last_name')
-        .eq('id', user.id)
-        .single();
-
-      const profile = profileRaw as unknown as ProfileRow | null;
       const teacherName = profile 
         ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
         : 'Преподаватель';
@@ -186,7 +182,6 @@ export const useTeacherMessages = () => {
       status: 'approved' | 'rejected'; 
       moderationNotes?: string; 
     }) => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Пользователь не авторизован');
 
       const { data, error } = await supabase

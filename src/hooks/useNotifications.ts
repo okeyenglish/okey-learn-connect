@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import type { Json } from '@/integrations/supabase/database.types';
 
 export interface Notification {
@@ -99,16 +100,15 @@ export const useAllNotifications = (filters?: {
 export const useCreateNotification = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (notification: Partial<Notification>) => {
-      const { data: user } = await supabase.auth.getUser();
-      
       const { data, error } = await supabase
         .from('notifications')
         .insert({
           ...notification,
-          created_by: user.user?.id,
+          created_by: user?.id,
         })
         .select()
         .single();
@@ -179,11 +179,10 @@ export const useBroadcastCampaigns = (filters?: { status?: string }) => {
 export const useCreateBroadcastCampaign = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (campaign: Partial<BroadcastCampaign>) => {
-      const { data: user } = await supabase.auth.getUser();
-
       // Получаем получателей
       const { data: recipients, error: recipientsError } = await supabase.rpc(
         'get_campaign_recipients',
@@ -201,7 +200,7 @@ export const useCreateBroadcastCampaign = () => {
         .insert({
           ...campaign,
           total_recipients: recipientRows.length,
-          created_by: user.user?.id,
+          created_by: user?.id,
         })
         .select()
         .single();
@@ -230,6 +229,7 @@ export const useCreateBroadcastCampaign = () => {
 export const useLaunchCampaign = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (campaignId: string) => {
@@ -255,8 +255,6 @@ export const useLaunchCampaign = () => {
 
       if (recipientsError) throw recipientsError;
 
-      const { data: user } = await supabase.auth.getUser();
-
       const recipientRows = (recipients || []) as RecipientRow[];
 
       // Создаём уведомления для всех получателей
@@ -269,7 +267,7 @@ export const useLaunchCampaign = () => {
         status: 'sent',
         delivery_method: campaignData.delivery_method,
         sent_at: new Date().toISOString(),
-        created_by: user.user?.id || '',
+        created_by: user?.id || '',
         metadata: { campaign_id: campaignId } as Json,
       }));
 
