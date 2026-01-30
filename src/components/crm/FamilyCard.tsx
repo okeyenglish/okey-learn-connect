@@ -38,6 +38,7 @@ import {
   GraduationCap,
   Edit2
 } from "lucide-react";
+import { isValidWhatsappId, formatWhatsappIdForDisplay } from "@/utils/messengerIdValidation";
 
 interface FamilyCardProps {
   familyGroupId: string;
@@ -410,7 +411,17 @@ export const FamilyCard = ({
                       return null;
                     }
                     if (activeMessengerTab === 'whatsapp') {
-                      if (activeMember.whatsappChatId) return `WA: ${activeMember.whatsappChatId.replace('@c.us', '')}`;
+                      // Validate WhatsApp ID - don't show Telegram IDs here
+                      if (activeMember.whatsappChatId && isValidWhatsappId(activeMember.whatsappChatId)) {
+                        return `WA: ${formatWhatsappIdForDisplay(activeMember.whatsappChatId)}`;
+                      }
+                      // Check phone numbers for valid whatsapp_chat_id
+                      const phoneWithWhatsapp = activeMember.phoneNumbers?.find(
+                        p => p.whatsappChatId && isValidWhatsappId(p.whatsappChatId)
+                      );
+                      if (phoneWithWhatsapp?.whatsappChatId) {
+                        return `WA: ${formatWhatsappIdForDisplay(phoneWithWhatsapp.whatsappChatId)}`;
+                      }
                       // Fallback: show primary phone for whatsapp
                       const primaryPhone = activeMember.phoneNumbers?.find(p => p.isPrimary);
                       if (primaryPhone?.phone) return `WA тел: ${primaryPhone.phone}`;
