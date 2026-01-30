@@ -97,20 +97,32 @@ export const ContactInfoBlock = ({
     return null;
   };
 
-  // Create virtual phone number from client-level messenger data if no phone numbers exist
+  // Create virtual phone number from client-level messenger data if no real phone numbers exist
   const effectivePhoneNumbers = useMemo(() => {
-    if (phoneNumbers.length > 0) {
-      return phoneNumbers;
+    // Check if we have any real phone numbers (non-empty phone strings)
+    const hasRealPhones = phoneNumbers.some(p => p.phone && p.phone.trim() !== '');
+    
+    if (hasRealPhones) {
+      // Filter out empty phone entries but keep ones with messenger data
+      return phoneNumbers.filter(p => p.phone || p.whatsappChatId || p.telegramChatId || p.telegramUserId);
     }
     
     // Try to extract phone from WhatsApp chat ID
     const extractedPhone = extractPhoneFromWhatsappId(clientWhatsappChatId);
     
-    if (extractedPhone || clientTelegramChatId || clientTelegramUserId || clientMaxChatId) {
+    // Also try from phone numbers with whatsappChatId but empty phone
+    const phoneWithWhatsapp = phoneNumbers.find(p => p.whatsappChatId && !p.phone);
+    const extractedFromPhoneRecord = phoneWithWhatsapp 
+      ? extractPhoneFromWhatsappId(phoneWithWhatsapp.whatsappChatId)
+      : null;
+    
+    const finalPhone = extractedPhone || extractedFromPhoneRecord || '';
+    
+    if (finalPhone || clientTelegramChatId || clientTelegramUserId || clientWhatsappChatId || clientMaxChatId) {
       // Create a virtual phone entry for messenger-only contacts
       return [{
         id: 'virtual-messenger-contact',
-        phone: extractedPhone || '', // May be empty if only Telegram/MAX
+        phone: finalPhone,
         isPrimary: true,
         isWhatsappEnabled: !!clientWhatsappChatId,
         isTelegramEnabled: !!clientTelegramChatId || !!clientTelegramUserId,
