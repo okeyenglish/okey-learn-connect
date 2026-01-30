@@ -7,9 +7,9 @@
 CREATE INDEX IF NOT EXISTS idx_chat_messages_client_id_created_desc 
 ON public.chat_messages (client_id, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_chat_messages_client_unread_partial 
-ON public.chat_messages (client_id) 
-WHERE COALESCE(is_read, false) = false AND message_type = 'client';
+-- Note: idx_chat_messages_client_unread_partial already exists with:
+-- WHERE (is_read = false) AND (message_type = 'client')
+-- RPC must use the same condition to leverage this index
 
 CREATE INDEX IF NOT EXISTS idx_clients_id_active 
 ON public.clients (id) 
@@ -112,7 +112,7 @@ AS $$
       ) as salebot
     FROM public.chat_messages
     WHERE client_id = c.id 
-      AND COALESCE(is_read, false) = false 
+      AND is_read = false 
       AND message_type = 'client'
   ) unread ON true
 $$;
