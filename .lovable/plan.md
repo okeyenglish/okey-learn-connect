@@ -1,181 +1,96 @@
 
-# План: Добавление organization_id в таблицу teachers для мультитенантности
 
-## Проблема
+# План: Исправление обновления счётчика clientsWithoutMessages в SyncDashboard
 
-Таблица `teachers` на self-hosted инстансе не содержит колонку `organization_id`. Это критическая проблема:
+## Обнаруженная проблема
 
-1. **Отсутствует изоляция данных** — преподаватели всех организаций видны всем пользователям
-2. **Код ломается при создании** — `TeacherRegistration.tsx`, `ConvertToTeacherModal.tsx` и другие компоненты пытаются записать `organization_id`, которого нет
-3. **RLS-политики не работают** — без колонки невозможно ограничить доступ по организации
-4. **Дубликаты появляются глобально** — без organization_id триггеры проверяют уникальность телефона по всей базе, а не внутри организации
+Счётчик "Новые клиенты для импорта" (11 206 / 11 208) не обновляется по двум причинам:
 
----
+1. **Проблема closure**: Функция `refreshClientsWithoutMessagesCount` захватывает значение `organizationId` на момент создания `useEffect`. Когда `organizationId` меняется с `undefined` на реальное значение, функция в интервале продолжает использовать старое значение.
 
-## Что нужно сделать
+2. **Отсутствие перезапуска `fetchDbStats`**: При изменении `organizationId` вызывается только `startPolling()`, но `fetchDbStats()` не вызывается повторно с новым `organizationId`.
 
-### Шаг 1: SQL-миграция для добавления organization_id в teachers
+## Решение
 
-Создать файл `docs/migrations/20250130_add_teachers_organization_id.sql`:
+### Шаг 1: Использовать `useCallback` для функций, зависящих от `organizationId`
 
-```text
-┌────────────────────────────────────────────────────────────┐
-│  1. ALTER TABLE teachers ADD COLUMN organization_id UUID   │
-│  2. Заполнить существующих преподавателей:                 │
-│     - через profile_id → profiles.organization_id         │
-│     - или через teacher_invitations                        │
-│  3. Сделать колонку NOT NULL после заполнения              │
-│  4. Создать индекс idx_teachers_organization_id            │
-│  5. Добавить RLS-политики по organization_id               │
-└────────────────────────────────────────────────────────────┘
+Обернуть `fetchDbStats` и `refreshClientsWithoutMessagesCount` в `useCallback` с зависимостью от `organizationId`, чтобы они всегда использовали актуальное значение.
+
+### Шаг 2: Добавить явный перезапуск при изменении `organizationId`
+
+В `useEffect` добавить вызов `fetchDbStats()` при каждом изменении `organizationId` (не только при монтировании).
+
+### Шаг 3: Использовать `useRef` для хранения актуального `organizationId`
+
+Альтернативный подход — использовать `useRef`, чтобы интервальные функции всегда получали актуальное значение без пересоздания интервалов.
+
+## Изменения в файлах
+
+### `src/components/admin/SyncDashboard.tsx`
+
+```typescript
+// 1. Добавить useRef для organizationId (избегаем проблему closure)
+const organizationIdRef = useRef(organizationId);
+useEffect(() => {
+  organizationIdRef.current = organizationId;
+}, [organizationId]);
+
+// 2. Обновить fetchDbStats использовать ref
+const fetchDbStats = async () => {
+  const currentOrgId = organizationIdRef.current;  // ← использовать ref
+  try {
+    const [/* ... */] = await Promise.all([
+      // ... другие запросы
+      currentOrgId 
+        ? supabase.rpc('count_clients_without_imported_messages', { p_org_id: currentOrgId })
+        : Promise.resolve({ data: 0, error: null })
+    ]);
+    // ...
+  } catch (error) {
+    console.error('Error fetching DB stats:', error);
+  }
+};
+
+// 3. Обновить refreshClientsWithoutMessagesCount
+const refreshClientsWithoutMessagesCount = async () => {
+  const currentOrgId = organizationIdRef.current;  // ← использовать ref
+  if (!currentOrgId) return;
+  try {
+    const { data, error } = await supabase.rpc('count_clients_without_imported_messages', { 
+      p_org_id: currentOrgId 
+    });
+    if (!error && data !== null) {
+      setClientsWithoutMessages(data as number);
+    }
+  } catch (error) {
+    console.error('Error refreshing clients without messages count:', error);
+  }
+};
+
+// 4. Добавить отдельный useEffect для перезагрузки при получении organizationId
+useEffect(() => {
+  if (organizationId) {
+    // Когда organizationId становится доступным, перезагружаем статистику
+    fetchDbStats();
+  }
+}, [organizationId]);
 ```
-
-### Шаг 2: Обновить database.types.ts
-
-Добавить `organization_id: string;` в интерфейс `Teacher`.
-
-### Шаг 3: Обновить триггеры проверки дубликатов
-
-Вернуть фильтрацию по `organization_id` в:
-- `check_teacher_phone_duplicate()`
-- `find_duplicate_teachers()`
-
-### Шаг 4: Обновить фронтенд-код
-
-| Файл | Что изменить |
-|------|--------------|
-| `AddTeacherModal.tsx` | Добавить `organization_id` в insert |
-| `BulkTeacherImport.tsx` | Добавить `organization_id` в insert |
-| `useTeachers.ts` | Опционально: явная фильтрация (RLS должен справляться) |
-
----
 
 ## Технические детали
 
-### SQL-миграция
+### Почему `useRef`?
 
-```sql
--- 1. Добавляем колонку (nullable для безопасного обновления)
-ALTER TABLE public.teachers 
-ADD COLUMN IF NOT EXISTS organization_id UUID;
+Интервальные функции создаются один раз и сохраняют ссылку на значения через closure. Когда `organizationId` меняется, функция в интервале не "видит" новое значение. `useRef` решает эту проблему, поскольку ref.current всегда указывает на актуальное значение.
 
--- 2. Заполняем из profiles (через profile_id)
-UPDATE teachers t
-SET organization_id = p.organization_id
-FROM profiles p
-WHERE t.profile_id = p.id
-  AND t.organization_id IS NULL
-  AND p.organization_id IS NOT NULL;
+### Альтернатива: `useCallback` + пересоздание интервалов
 
--- 3. Заполняем из teacher_invitations (для незарегистрированных)
-UPDATE teachers t
-SET organization_id = ti.organization_id
-FROM teacher_invitations ti
-WHERE t.id = ti.teacher_id
-  AND t.organization_id IS NULL
-  AND ti.organization_id IS NOT NULL;
-
--- 4. Для оставшихся — назначаем дефолтную организацию
--- (заменить 'YOUR-ORG-UUID' на реальный ID основной организации)
-UPDATE teachers
-SET organization_id = 'YOUR-ORG-UUID'
-WHERE organization_id IS NULL;
-
--- 5. Делаем NOT NULL
-ALTER TABLE public.teachers
-ALTER COLUMN organization_id SET NOT NULL;
-
--- 6. Создаём индекс
-CREATE INDEX IF NOT EXISTS idx_teachers_organization_id 
-ON teachers(organization_id);
-
--- 7. Добавляем Foreign Key (опционально)
--- ALTER TABLE teachers 
--- ADD CONSTRAINT fk_teachers_organization
--- FOREIGN KEY (organization_id) REFERENCES organizations(id);
-```
-
-### Обновление RLS-политик
-
-```sql
--- Политика для SELECT
-DROP POLICY IF EXISTS "Users can view teachers in their organization" ON teachers;
-CREATE POLICY "Users can view teachers in their organization"
-  ON teachers FOR SELECT
-  USING (organization_id = get_user_organization_id());
-
--- Политика для INSERT
-DROP POLICY IF EXISTS "Users can create teachers in their organization" ON teachers;
-CREATE POLICY "Users can create teachers in their organization"
-  ON teachers FOR INSERT
-  WITH CHECK (organization_id = get_user_organization_id());
-```
-
-### Обновление триггеров дубликатов
-
-```sql
--- Вернуть фильтрацию по organization_id
-SELECT id INTO v_existing_id
-FROM teachers
-WHERE organization_id = NEW.organization_id  -- ← вернуть эту строку
-  AND id != COALESCE(NEW.id, '00000000-...'::uuid)
-  AND normalize_phone(phone) = v_normalized_phone
-  AND COALESCE(is_active, true) = true
-LIMIT 1;
-```
-
-### Изменение database.types.ts
-
-```typescript
-export interface Teacher {
-  id: string;
-  profile_id: string | null;
-  first_name: string;
-  last_name: string;
-  email: string | null;
-  phone: string | null;
-  branch: string | null;
-  subjects: string[] | null;
-  categories: string[] | null;
-  organization_id: string;  // ← ДОБАВИТЬ
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-```
-
-### Изменение AddTeacherModal.tsx
-
-```typescript
-const { data: teacher, error: teacherError } = await supabase
-  .from('teachers')
-  .insert({
-    first_name: formData.firstName,
-    // ...
-    organization_id: organizationId,  // ← ДОБАВИТЬ
-  })
-  .select('id')
-  .single();
-```
-
----
+Можно использовать `useCallback` с зависимостью `[organizationId]`, но это приведёт к пересозданию интервалов каждый раз при изменении зависимости — менее эффективно.
 
 ## Результат
 
-После выполнения:
-1. ✅ Каждый преподаватель принадлежит конкретной организации
-2. ✅ RLS-политики корректно изолируют данные
-3. ✅ Дубликаты проверяются внутри одной организации
-4. ✅ Код создания преподавателей работает корректно
+После исправления:
+1. При первой загрузке страницы, если `organizationId` ещё не загружен — функция корректно подождёт
+2. Когда `organizationId` становится доступным — `fetchDbStats()` вызовется автоматически
+3. Интервал `refreshClientsWithoutMessagesCount` будет использовать актуальный `organizationId`
+4. Счётчик будет обновляться каждые 30 секунд корректно
 
----
-
-## Файлы для изменения
-
-| Файл | Действие |
-|------|----------|
-| `docs/migrations/20250130_add_teachers_organization_id.sql` | Создать |
-| `docs/migrations/20250130_add_phone_uniqueness_constraints.sql` | Обновить (вернуть org_id) |
-| `src/integrations/supabase/database.types.ts` | Обновить интерфейс Teacher |
-| `src/components/admin/AddTeacherModal.tsx` | Добавить organization_id |
-| `src/components/admin/BulkTeacherImport.tsx` | Добавить organization_id |
