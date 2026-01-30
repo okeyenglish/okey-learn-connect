@@ -48,6 +48,7 @@ interface ChatListItemProps {
   searchQuery?: string;
   typingInfo?: TypingInfo | null;
   presenceInfo?: PresenceInfo | null;
+  isNewMessage?: boolean; // Флаг для подсветки нового сообщения
   onChatClick: () => void;
   onMarkUnread: () => void;
   onMarkRead?: () => void;
@@ -103,6 +104,7 @@ export const ChatListItem = React.memo(({
   searchQuery,
   typingInfo,
   presenceInfo,
+  isNewMessage,
   onChatClick,
   onMarkUnread,
   onMarkRead,
@@ -140,7 +142,9 @@ export const ChatListItem = React.memo(({
             : isActive 
               ? 'bg-accent/50 shadow-sm border-accent' 
               : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
-        } ${bulkSelectMode && isSelected ? 'ring-2 ring-primary ring-offset-1' : ''}`}
+        } ${bulkSelectMode && isSelected ? 'ring-2 ring-primary ring-offset-1' : ''} ${
+          isNewMessage ? 'new-message-glow' : ''
+        }`}
         onClick={() => {
           if (bulkSelectMode && onBulkSelect) {
             onBulkSelect();
@@ -312,6 +316,7 @@ export const ChatListItem = React.memo(({
     prevProps.isInWorkByOthers === nextProps.isInWorkByOthers &&
     prevProps.foundInMessages === nextProps.foundInMessages &&
     prevProps.searchQuery === nextProps.searchQuery &&
+    prevProps.isNewMessage === nextProps.isNewMessage &&
     prevTypingCount === nextTypingCount &&
     prevTypingName === nextTypingName &&
     prevDraftText === nextDraftText &&

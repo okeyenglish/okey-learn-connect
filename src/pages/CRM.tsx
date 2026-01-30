@@ -30,6 +30,7 @@ import { useStudentsLazy } from "@/hooks/useStudentsLazy";
 import { useStudentsCount } from "@/hooks/useStudentsCount";
 import { useLeadsCount } from "@/hooks/useLeadsCount";
 import { useTasksLazy } from "@/hooks/useTasksLazy";
+import { useNewMessageHighlight } from "@/hooks/useNewMessageHighlight";
 import { ChatArea } from "@/components/crm/ChatArea";
 import { CorporateChatArea } from "@/components/crm/CorporateChatArea";
 import { TeacherChatArea } from "@/components/crm/TeacherChatArea";
@@ -478,6 +479,7 @@ const CRMContent = () => {
   }, []);
   const { typingByClient } = useTypingPresence();
   const { presenceByClient } = useChatPresenceList();
+  const { newMessageClientIds } = useNewMessageHighlight();
   
   // Track current user's presence in the active chat
   const { updatePresence } = useChatPresenceTracker(activeChatId);
@@ -3550,6 +3552,7 @@ const CRMContent = () => {
                           searchQuery={chatSearchQuery}
                           typingByClient={typingByClient}
                           presenceByClient={presenceByClient}
+                          newMessageClientIds={newMessageClientIds}
                           onChatClick={handleChatClick}
                           onChatAction={handleChatAction}
                           onBulkSelect={handleBulkSelectToggle}
@@ -3599,6 +3602,7 @@ const CRMContent = () => {
                         searchQuery={chatSearchQuery}
                         typingByClient={typingByClient}
                         presenceByClient={presenceByClient}
+                        newMessageClientIds={newMessageClientIds}
                         onChatClick={handleChatClick}
                         onChatAction={handleChatAction}
                         onBulkSelect={handleBulkSelectToggle}
@@ -3984,6 +3988,7 @@ const CRMContent = () => {
                           searchQuery={chatSearchQuery}
                           typingByClient={typingByClient}
                           presenceByClient={presenceByClient}
+                          newMessageClientIds={newMessageClientIds}
                           onChatClick={handleChatClick}
                           onChatAction={handleChatAction}
                           onBulkSelect={handleBulkSelectToggle}
@@ -4035,6 +4040,7 @@ const CRMContent = () => {
                         searchQuery={chatSearchQuery}
                         typingByClient={typingByClient}
                         presenceByClient={presenceByClient}
+                        newMessageClientIds={newMessageClientIds}
                         onChatClick={handleChatClick}
                         onChatAction={handleChatAction}
                         onBulkSelect={handleBulkSelectToggle}
