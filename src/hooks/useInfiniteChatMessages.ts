@@ -4,48 +4,31 @@ import { ChatMessage } from './useChatMessages';
 
 const PAGE_SIZE = 50;
 
-interface MessageWithClient extends ChatMessage {
-  clients?: {
-    avatar_url?: string | null;
-    whatsapp_chat_id?: string | null;
-  } | null;
-}
-
 export const useInfiniteChatMessages = (clientId: string) => {
   return useInfiniteQuery({
     queryKey: ['chat-messages-infinite', clientId],
     queryFn: async ({ pageParam = 0 }) => {
-      // Try with avatar join first
-      const primary = await supabase
+      // Optimized: no JOIN on clients, avatars fetched separately
+      const { data, error, count } = await supabase
         .from('chat_messages')
         .select(`
-          *,
-          clients(avatar_url, whatsapp_chat_id)
+          id, client_id, message_text, message_type, system_type, is_read,
+          created_at, file_url, file_name, file_type, external_message_id,
+          messenger_type, call_duration, message_status
         `, { count: 'exact' })
         .eq('client_id', clientId)
         .order('created_at', { ascending: false })
         .range(pageParam, pageParam + PAGE_SIZE - 1);
       
-      let data: MessageWithClient[] = (primary.data as MessageWithClient[] | null) || [];
-      let count = primary.count;
-      
-      // Fallback if join fails due to RLS
-      if (primary.error || (!data.length && pageParam === 0)) {
-        console.warn('[useInfiniteChatMessages] Join failed, falling back:', primary.error?.message);
-        const fallback = await supabase
-          .from('chat_messages')
-          .select('*', { count: 'exact' })
-          .eq('client_id', clientId)
-          .order('created_at', { ascending: false })
-          .range(pageParam, pageParam + PAGE_SIZE - 1);
-        
-        if (fallback.error) throw fallback.error;
-        data = (fallback.data as ChatMessage[] | null) || [];
-        count = fallback.count;
+      if (error) {
+        console.error('[useInfiniteChatMessages] Query failed:', error.message);
+        throw error;
       }
+
+      const messages = (data || []) as ChatMessage[];
       
       return {
-        messages: (data as ChatMessage[]).reverse(),
+        messages: messages.reverse(),
         nextCursor: pageParam + PAGE_SIZE,
         hasMore: (count ?? 0) > pageParam + PAGE_SIZE
       };

@@ -23,20 +23,13 @@ import { useMemo, useCallback } from 'react';
 
 const PAGE_SIZE = 50;
 
-// ============ Типы для JOIN результата ============
+// ============ Optimized select without JOIN ============
+// Avatars are fetched separately via useClientAvatars to avoid slow cross-table lookups
 
-interface ChatMessageWithClient extends ChatMessage {
-  clients?: {
-    avatar_url?: string | null;
-    whatsapp_chat_id?: string | null;
-  } | null;
-}
-
-// ============ Join select строка для сообщений ============
-
-const MESSAGE_WITH_CLIENT_SELECT = `
-  *,
-  clients(avatar_url, whatsapp_chat_id)
+const MESSAGE_SELECT = `
+  id, client_id, message_text, message_type, system_type, is_read,
+  created_at, file_url, file_name, file_type, external_message_id,
+  messenger_type, call_duration, message_status
 `;
 
 // ============ Основной типизированный хук ============
@@ -61,45 +54,25 @@ export const useInfiniteChatMessagesTyped = (clientId: string) => {
   const query = useInfiniteQuery({
     queryKey: ['chat-messages-infinite-typed', clientId],
     queryFn: async ({ pageParam = 0 }): Promise<InfinitePageData<ChatMessage>> => {
-      // Попытка с JOIN на clients для получения аватара
-      const { data: primaryData, error: primaryError, count } = await supabase
+      // Optimized: no JOIN, just message fields for fast loading
+      const { data, error, count } = await supabase
         .from('chat_messages')
-        .select(MESSAGE_WITH_CLIENT_SELECT, { count: 'exact' })
+        .select(MESSAGE_SELECT, { count: 'exact' })
         .eq('client_id', clientId)
         .order('created_at', { ascending: false })
         .range(pageParam, pageParam + PAGE_SIZE);
 
-      // Fallback если JOIN не прошёл из-за RLS
-      if (primaryError || (!primaryData?.length && pageParam === 0)) {
-        console.warn('[useInfiniteChatMessagesTyped] Join failed, using fallback:', primaryError?.message);
-        
-        const { data: fallbackData, error: fallbackError, count: fallbackCount } = await supabase
-          .from('chat_messages')
-          .select('*', { count: 'exact' })
-          .eq('client_id', clientId)
-          .order('created_at', { ascending: false })
-          .range(pageParam, pageParam + PAGE_SIZE);
-
-        if (fallbackError) throw new Error(fallbackError.message);
-
-        const items = (fallbackData || []) as ChatMessage[];
-        const total = fallbackCount ?? 0;
-        const hasMore = total > pageParam + PAGE_SIZE;
-
-        return {
-          items: items.reverse(), // Хронологический порядок
-          nextCursor: pageParam + PAGE_SIZE,
-          hasMore,
-          total,
-        };
+      if (error) {
+        console.error('[useInfiniteChatMessagesTyped] Query failed:', error.message);
+        throw new Error(error.message);
       }
 
-      const items = (primaryData as ChatMessageWithClient[]) || [];
+      const items = (data || []) as ChatMessage[];
       const total = count ?? 0;
       const hasMore = total > pageParam + PAGE_SIZE;
 
       return {
-        items: (items as ChatMessage[]).reverse(),
+        items: items.reverse(), // Хронологический порядок
         nextCursor: pageParam + PAGE_SIZE,
         hasMore,
         total,

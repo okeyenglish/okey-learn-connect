@@ -42,53 +42,23 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
       const analyticsStart = performance.now();
       
       try {
-        // Self-hosted schema uses: message_text, message_type, messenger_type, file_url, etc.
+        // Optimized: removed JOIN on clients - avatars are fetched separately via useClientAvatars
+        // This reduces query time significantly (no cross-table lookup)
         const { data, error } = await supabase
           .from('chat_messages')
           .select(`
             id, client_id, message_text, message_type, system_type, is_read,
             created_at, file_url, file_name, file_type, external_message_id,
-            messenger_type, call_duration, message_status, metadata,
-            clients(avatar_url, telegram_avatar_url, whatsapp_avatar_url, max_avatar_url)
+            messenger_type, call_duration, message_status
           `)
           .eq('client_id', clientId)
           .order('created_at', { ascending: false })
           .limit(limit + 1);
 
         if (error) {
-          // Fallback without join if RLS blocks it
-          console.warn('[useChatMessagesOptimized] Join failed, falling back:', error.message);
-          const fallback = await supabase
-            .from('chat_messages')
-            .select('id, client_id, message_text, message_type, system_type, is_read, created_at, file_url, file_name, file_type, external_message_id, messenger_type, call_duration, message_status')
-            .eq('client_id', clientId)
-            .order('created_at', { ascending: false })
-            .limit(limit + 1);
-
-          if (fallback.error) {
-            endMetric(metricId, 'failed', { error: fallback.error.message });
-            throw fallback.error;
-          }
-
-          const fallbackMessages = fallback.data || [];
-          const hasMore = fallbackMessages.length > limit;
-          const messages = hasMore ? fallbackMessages.slice(0, limit) : fallbackMessages;
-          const reversed = (messages as ChatMessage[]).reverse();
-
-          // Update in-memory cache
-          messageCache.set(clientId, { messages: reversed, timestamp: Date.now() });
-
-          // Track for performance analytics
-          performanceAnalytics.trackQuery({
-            table: 'chat_messages',
-            operation: 'SELECT',
-            duration: performance.now() - analyticsStart,
-            source: 'useChatMessagesOptimized.fallback',
-            rowCount: messages.length,
-          });
-
-          endMetric(metricId, 'completed', { msgCount: messages.length, fallback: true });
-          return { messages: reversed, hasMore, totalCount: messages.length };
+          console.error('[useChatMessagesOptimized] Query failed:', error.message);
+          endMetric(metricId, 'failed', { error: error.message });
+          throw error;
         }
 
         const allData = data || [];
