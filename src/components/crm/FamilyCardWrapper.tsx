@@ -2,6 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FamilyCard } from "./FamilyCard";
 import { FamilyCardSkeleton } from "./FamilyCardSkeleton";
 import { supabase } from "@/integrations/supabase/typedClient";
+import { normalizePhone } from "@/utils/phoneNormalization";
 import { useQuery } from "@tanstack/react-query";
 
 interface FamilyCardWrapperProps {
@@ -10,22 +11,145 @@ interface FamilyCardWrapperProps {
   activeMessengerTab?: 'whatsapp' | 'telegram' | 'max';
 }
 
-// Fetch or create family group ID using single RPC call
-const fetchFamilyGroupId = async (clientId: string): Promise<string | null> => {
+// Flag to track if new RPC is available
+let useNewRpc = true;
+
+// Legacy fallback: sequential queries
+const fetchFamilyGroupIdLegacy = async (clientId: string): Promise<string | null> => {
   const startTime = performance.now();
   
-  // Single RPC call replaces 5-7 sequential queries
-  const { data, error } = await supabase
-    .rpc('get_or_create_family_group_id', { p_client_id: clientId });
+  // Step 1: Check if client already has a family group
+  const { data: existingMember, error: memberError } = await supabase
+    .from('family_members')
+    .select('family_group_id')
+    .eq('client_id', clientId)
+    .limit(1)
+    .single();
 
-  console.log(`[FamilyCardWrapper] RPC completed in ${(performance.now() - startTime).toFixed(0)}ms`);
+  if (!memberError && existingMember?.family_group_id) {
+    console.log(`[FamilyCardWrapper] Found existing group in ${(performance.now() - startTime).toFixed(0)}ms`);
+    return existingMember.family_group_id;
+  }
 
-  if (error) {
-    console.error('[FamilyCardWrapper] RPC error:', error);
+  // Step 2: Get client phone to find or create group
+  const { data: client } = await supabase
+    .from('clients')
+    .select('name, first_name, last_name, phone')
+    .eq('id', clientId)
+    .single();
+
+  // Step 3: Try to find existing group by phone
+  if (client?.phone) {
+    const phoneNorm = normalizePhone(client.phone);
+    if (phoneNorm) {
+      const { data: existingGroups } = await supabase
+        .from('family_members')
+        .select(`
+          family_group_id,
+          clients!inner (phone)
+        `)
+        .eq('clients.phone', phoneNorm)
+        .limit(1);
+
+      if (existingGroups?.length && existingGroups[0].family_group_id) {
+        const groupId = existingGroups[0].family_group_id;
+        
+        // Link client to existing group
+        await supabase.from('family_members').insert({
+          family_group_id: groupId,
+          client_id: clientId,
+          relationship_type: 'parent',
+          is_primary_contact: false,
+        });
+
+        console.log(`[FamilyCardWrapper] Linked to existing group in ${(performance.now() - startTime).toFixed(0)}ms`);
+        return groupId;
+      }
+    }
+  }
+
+  // Step 4: Create new family group
+  let groupName = 'Семья клиента';
+  if (client?.last_name) {
+    groupName = `Семья ${client.last_name}`;
+  } else if (client?.name) {
+    const parts = client.name.split(' ');
+    groupName = `Семья ${parts[0] || 'клиента'}`;
+  }
+
+  const { data: group, error: groupError } = await supabase
+    .from('family_groups')
+    .insert({ name: groupName })
+    .select('id')
+    .single();
+
+  if (groupError) {
+    console.error('[FamilyCardWrapper] Error creating group:', groupError);
     return null;
   }
 
-  return data as string | null;
+  // Link client to new group
+  await supabase.from('family_members').insert({
+    family_group_id: group.id,
+    client_id: clientId,
+    relationship_type: 'main',
+    is_primary_contact: true,
+  });
+
+  // Ensure phone number exists
+  if (client?.phone) {
+    const { data: existingPhones } = await supabase
+      .from('client_phone_numbers')
+      .select('id')
+      .eq('client_id', clientId)
+      .limit(1);
+
+    if (!existingPhones?.length) {
+      await supabase.from('client_phone_numbers').insert({
+        client_id: clientId,
+        phone: client.phone,
+        is_primary: true,
+      });
+    }
+  }
+
+  console.log(`[FamilyCardWrapper] Created new group (legacy) in ${(performance.now() - startTime).toFixed(0)}ms`);
+  return group.id;
+};
+
+// New optimized RPC with fallback
+const fetchFamilyGroupId = async (clientId: string): Promise<string | null> => {
+  const startTime = performance.now();
+  
+  // Try new RPC first if available
+  if (useNewRpc) {
+    try {
+      const { data, error } = await supabase
+        .rpc('get_or_create_family_group_id', { p_client_id: clientId });
+
+      if (error) {
+        // If function doesn't exist, fall back to legacy
+        if (error.message?.includes('function') || error.code === '42883' || error.code === 'PGRST202') {
+          console.warn('[FamilyCardWrapper] New RPC not available, using legacy method');
+          useNewRpc = false;
+          return fetchFamilyGroupIdLegacy(clientId);
+        }
+        console.error('[FamilyCardWrapper] RPC error:', error);
+        // For other errors, also try legacy
+        return fetchFamilyGroupIdLegacy(clientId);
+      }
+
+      console.log(`[FamilyCardWrapper] RPC completed in ${(performance.now() - startTime).toFixed(0)}ms`);
+      return data as string | null;
+    } catch (err) {
+      console.warn('[FamilyCardWrapper] RPC failed, falling back to legacy:', err);
+      useNewRpc = false;
+      return fetchFamilyGroupIdLegacy(clientId);
+    }
+  }
+
+  // Use legacy method
+  return fetchFamilyGroupIdLegacy(clientId);
 };
 
 export const FamilyCardWrapper = ({ clientId, onOpenChat, activeMessengerTab }: FamilyCardWrapperProps) => {
