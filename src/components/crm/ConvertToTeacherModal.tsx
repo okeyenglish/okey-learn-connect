@@ -67,7 +67,57 @@ export function ConvertToTeacherModal({
     setIsLoading(true);
     
     try {
-      // 1. Create teacher record
+      const normalizedPhone = phone.trim().replace(/\D/g, '');
+      
+      // Check for existing teacher with same phone
+      if (normalizedPhone.length >= 10) {
+        const last10Digits = normalizedPhone.slice(-10);
+        const { data: existingTeachers } = await supabase
+          .from('teachers')
+          .select('id, first_name, last_name, phone')
+          .eq('organization_id', organizationId)
+          .not('phone', 'is', null);
+        
+        const matchingTeacher = existingTeachers?.find(t => {
+          const tPhone = t.phone?.replace(/\D/g, '') || '';
+          return tPhone.length >= 10 && tPhone.slice(-10) === last10Digits;
+        });
+        
+        if (matchingTeacher) {
+          // Link to existing teacher instead of creating duplicate
+          const { error: linkError } = await supabase
+            .from('teacher_client_links')
+            .upsert({
+              teacher_id: matchingTeacher.id,
+              client_id: clientId,
+              organization_id: organizationId,
+              is_primary: true,
+              link_type: 'merged',
+            }, {
+              onConflict: 'teacher_id,client_id',
+            });
+
+          if (linkError) {
+            console.error('Error linking to existing teacher:', linkError);
+          }
+
+          queryClient.invalidateQueries({ queryKey: ['teachers'] });
+          queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
+          queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+          queryClient.invalidateQueries({ queryKey: ['teacher-client-links'] });
+
+          toast.success(`Привязано к существующему преподавателю: ${matchingTeacher.first_name} ${matchingTeacher.last_name || ''}`.trim(), {
+            description: 'Найден преподаватель с таким же номером телефона',
+          });
+
+          onSuccess?.();
+          onClose();
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // 1. Create teacher record (no duplicate found)
       const { data: teacherData, error: teacherError } = await supabase
         .from('teachers')
         .insert({
