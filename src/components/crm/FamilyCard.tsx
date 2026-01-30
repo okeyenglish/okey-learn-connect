@@ -13,7 +13,7 @@ import { useFamilyData, FamilyMember, Student } from "@/hooks/useFamilyData";
 import { FamilyCardSkeleton } from "./FamilyCardSkeleton";
 import { GroupDetailModal } from "@/components/learning-groups/GroupDetailModal";
 import { IndividualLessonModal } from "@/components/teacher/IndividualLessonModal";
-import { useLearningGroups } from "@/hooks/useLearningGroups";
+import type { LearningGroup } from "@/hooks/useLearningGroups";
 import type { PhoneNumber as PhoneNumberType } from "@/types/phone";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { selfHostedPost } from "@/lib/selfHostedApi";
@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { usePinnedModalsDB } from "@/hooks/usePinnedModalsDB";
 import { useOrganization } from "@/hooks/useOrganization";
 import { InviteToPortalButton } from "./InviteToPortalButton";
+import { useQuery } from "@tanstack/react-query";
 import { 
   Users, 
   Phone, 
@@ -74,8 +75,43 @@ export const FamilyCard = ({
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedCourseType, setSelectedCourseType] = useState<'group' | 'individual' | null>(null);
   const { familyData, loading, error, refetch } = useFamilyData(familyGroupId);
-  const { groups: allGroups } = useLearningGroups();
   const { branches: organizationBranches } = useOrganization();
+
+  // ВАЖНО: не грузим все learning_groups при открытии карточки.
+  // Данные группы подтягиваем только когда пользователь нажал на курс.
+  const { data: selectedGroup, isLoading: selectedGroupLoading } = useQuery({
+    queryKey: ['learning-group', selectedCourseId],
+    enabled: selectedCourseType === 'group' && !!selectedCourseId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<LearningGroup | null> => {
+      if (!selectedCourseId) return null;
+
+      const { data, error } = await supabase
+        .from('learning_groups')
+        .select(`
+          *,
+          courses:course_id (
+            title
+          )
+        `)
+        .eq('id', selectedCourseId)
+        .single();
+
+      if (error) throw error;
+
+      // Приводим к LearningGroup (как в useLearningGroups), но без полной загрузки списка
+      const row = data as unknown as Record<string, any>;
+      const mapped: LearningGroup = {
+        ...(row as any),
+        category: (row.category ?? 'all') as any,
+        group_type: (row.group_type ?? 'general') as any,
+        status: (row.status ?? 'active') as any,
+        course_name: row.courses?.title ?? row.course_name ?? undefined,
+      };
+
+      return mapped;
+    },
+  });
   
   // Normalize branch name from Hollihope format to organization_branches format
   const normalizeBranchName = (branch?: string | null): string | null => {
@@ -111,7 +147,7 @@ export const FamilyCard = ({
     }
   }, [familyData, activeMemberId, organizationBranches]);
   
-  const selectedGroup = allGroups?.find(g => g.id === selectedCourseId) || null;
+  // selectedGroup берём из lazy-query выше (а не из allGroups)
   
   if (loading) {
     return <FamilyCardSkeleton />;
@@ -714,7 +750,7 @@ export const FamilyCard = ({
         />
       )}
 
-      {selectedCourseType === 'group' && selectedGroup && (
+      {selectedCourseType === 'group' && selectedGroup && !selectedGroupLoading && (
         <GroupDetailModal
           group={selectedGroup}
           open={true}
