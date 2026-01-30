@@ -1692,24 +1692,24 @@ export const ChatArea = ({
   };
 
   // Функция для пересылки одного сообщения через контекстное меню
-  const handleForwardSingleMessage = (messageId: string) => {
+  const handleForwardSingleMessage = useCallback((messageId: string) => {
     setSelectedMessages(new Set([messageId]));
     setShowForwardModal(true);
-  };
+  }, []);
 
   // Функция для цитирования текста
-  const handleQuoteMessage = (text: string) => {
+  const handleQuoteMessage = useCallback((text: string) => {
     setQuotedText(text);
     // Фокус на поле ввода
     setTimeout(() => {
       textareaRef.current?.focus();
     }, 100);
-  };
+  }, []);
 
   // Функция для включения режима множественного выбора через контекстное меню
-  const handleEnterSelectionMode = () => {
+  const handleEnterSelectionMode = useCallback(() => {
     setIsSelectionMode(true);
-  };
+  }, []);
 
   const handleForwardMessages = async (recipients: Array<{id: string, type: 'client' | 'teacher' | 'corporate', name: string}>) => {
     const messagesToForward = messages.filter(msg => selectedMessages.has(msg.id));
@@ -1777,7 +1777,7 @@ export const ChatArea = ({
   };
 
   // Функция для редактирования сообщения
-  const handleEditMessage = async (messageId: string, newMessage: string) => {
+  const handleEditMessage = useCallback(async (messageId: string, newMessage: string) => {
     // Find message to check messenger type
     const msg = messages.find(m => m.id === messageId);
     const isMaxMessage = msg?.messengerType === 'max';
@@ -1795,10 +1795,10 @@ export const ChatArea = ({
       // Invalidate React Query cache to refetch messages with updated content
       queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
     }
-  };
+  }, [messages, clientId, editMaxMessage, editMessage, toast, queryClient]);
 
   // Функция для удаления сообщения
-  const handleDeleteMessage = async (messageId: string) => {
+  const handleDeleteMessage = useCallback(async (messageId: string) => {
     // Find message to check messenger type
     const msg = messages.find(m => m.id === messageId);
     const isMaxMessage = msg?.messengerType === 'max';
@@ -1811,10 +1811,10 @@ export const ChatArea = ({
       // Invalidate React Query cache to refetch messages
       queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
     }
-  };
+  }, [messages, clientId, deleteMaxMessage, deleteMessage, queryClient]);
 
   // Функция для повторной отправки сообщения с ошибкой
-  const handleResendMessage = async (messageId: string) => {
+  const handleResendMessage = useCallback(async (messageId: string) => {
     // Find the failed message
     const msg = messages.find(m => m.id === messageId);
     if (!msg) {
@@ -1897,7 +1897,7 @@ export const ChatArea = ({
         variant: "destructive",
       });
     }
-  };
+  }, [messages, clientId, resetRetryState, queryClient, toast, sendMaxMessage, sendTelegramMessage, sendFileMessage, sendTextMessage]);
 
   // Mock tasks data - in real app this would come from props or API
   const clientTasks = [
