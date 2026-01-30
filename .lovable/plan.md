@@ -1,102 +1,157 @@
 
-# План: Добавление AI-резюме и записи звонков в карточки CRM
 
-## Статус: ✅ Реализовано
+# План: Импорт только клиентов без истории сообщений из Salebot
 
-## Текущее состояние
+## Резюме
 
-Система уже имеет всю необходимую backend-инфраструктуру:
-- Edge function `analyze-call` — транскрипция + GPT-анализ звонка
-- Edge function `fetch-call-recording` — получение записи из OnlinePBX  
-- Edge function `generate-call-summary` — генерация простого резюме
-- Компонент `CallEvaluationCard` — полное отображение AI-оценки
-- Модальное окно `CallDetailModal` — детали с AI-анализом
+Функционал импорта только для клиентов без истории сообщений **уже реализован** в Edge Function (`sync_new_clients_only` режим), но **RPC функции отсутствуют на self-hosted инстансе**. Также нужно исправить привязку мессенджера (все сообщения импортируются как WhatsApp).
 
-**Проблема**: в карточке звонка (список) не отображается:
-- AI-резюме или summary
-- Мини-плеер для записи разговора
-- Кнопка запуска анализа
+---
 
-## Задачи реализации
+## Что уже работает
 
-### 1. Компонент CallRecordingPlayer
-**Файл**: `src/components/crm/CallRecordingPlayer.tsx`
+- Режим `sync_new_clients_only` в Edge Function
+- Кнопка "Импорт новых" в интерфейсе SyncDashboard
+- Счётчик клиентов без импортированных сообщений
 
-Мини-аудиоплеер для записи звонка:
-- Кнопка play/pause
-- Прогресс-бар
-- Длительность
-- Кнопка скачивания
-- Обработка ошибок загрузки
+---
 
-### 2. Обновление renderCallItem в CallHistory.tsx
-**Файл**: `src/components/crm/CallHistory.tsx`
+## Что не работает на self-hosted
 
-Добавить в карточку звонка:
-- **Резюме** — если `call.summary` существует, показать его текстом под датой
-- **Запись** — если `call.recording_url`, показать CallRecordingPlayer
-- **AI-оценка badge** — если `call.ai_evaluation`, показать краткий score (уже есть)
-- **Кнопка анализа** — если есть запись но нет AI-оценки, показать "Анализировать"
+1. RPC функции `get_clients_without_imported_messages` и `count_clients_without_imported_messages` не созданы
+2. Все импортируемые сообщения получают `messenger_type: 'whatsapp'` вместо реального типа мессенджера
 
-### 3. Интеграция с fetch-call-recording
-При открытии карточки звонка проверять наличие записи:
-- Если `recording_url` отсутствует, автоматически вызвать `fetch-call-recording`
-- Показать индикатор загрузки
-- Обновить данные после получения записи
+---
 
-### 4. Кнопка быстрого AI-анализа
-Добавить в `CallSummaryPreview` или карточку:
-- Кнопка "AI ✨" для запуска `analyze-call`
-- Индикатор загрузки во время анализа
-- Обновление после завершения
+## Шаги реализации
 
-## Визуальное расположение
+### Шаг 1: SQL миграция для self-hosted
+
+Создать файл `docs/migrations/20250130_add_import_rpc_functions.sql`:
 
 ```text
-┌─────────────────────────────────────────────────────────┐
-│ 📞 Исходящий  [Состоялся]                    ⏱ 22с  👁 │
-│ 📅 30 янв., 15:47                                      │
-│ 79161168882                                            │
-│                                                        │
-│ 💬 "Клиент интересовался курсами для ребёнка..."       │ ← резюме
-│                                                        │
-│ 🎵 [▶ 0:00 ━━━━━━━━━━ 0:22]  ⬇️                        │ ← плеер
-│                                                        │
-│ [📝 Резюме] [🔹 Договорённости] [📋 3 задачи]          │ ← preview
-│                                                        │
-│ [✨ AI: 8.5/10]  или  [✨ Анализировать]               │ ← AI badge/button
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  get_clients_without_imported_messages(p_org_id, offset, limit)  │
+│  ─────────────────────────────────────────────────────────────  │
+│  Возвращает клиентов с salebot_client_id,                       │
+│  у которых нет сообщений с salebot_message_id                   │
+├──────────────────────────────────────────────────────────────┤
+│  count_clients_without_imported_messages(p_org_id)              │
+│  ─────────────────────────────────────────────────────────────  │
+│  Подсчёт таких клиентов для UI                                  │
+└──────────────────────────────────────────────────────────────┘
 ```
+
+### Шаг 2: Исправить определение мессенджера в импорте
+
+Обновить `import-salebot-chats-auto/index.ts`:
+- Использовать `salebot_client_type` клиента для определения `messenger_type`
+- Добавить функцию маппинга (аналогично webhook)
+
+```text
+┌─────────────────┐      ┌─────────────────────────┐
+│ salebot_client_type │ ──▶ │ messenger_type          │
+├─────────────────┤      ├─────────────────────────┤
+│ 1, 16, 21       │      │ telegram                │
+│ 6               │      │ whatsapp                │
+│ 20              │      │ max                     │
+│ 0               │      │ vk                      │
+│ 2               │      │ viber                   │
+│ default         │      │ telegram                │
+└─────────────────┘      └─────────────────────────┘
+```
+
+---
 
 ## Технические детали
 
-### CallRecordingPlayer компонент
-- Использовать нативный `<audio>` с кастомным UI
-- Обработка ошибок для внешних URL (OnlinePBX)
-- Lazy loading — не загружать audio пока не нажали play
-- Размер: компактный, inline
+### SQL функции для self-hosted:
 
-### Оптимизации
-- Мемоизация CallRecordingPlayer через React.memo
-- useCallback для обработчиков в CallHistory
-- Не блокировать рендер при fetch-call-recording
+```sql
+-- Функция для получения клиентов без импортированных сообщений
+CREATE OR REPLACE FUNCTION get_clients_without_imported_messages(
+  p_org_id UUID,
+  p_offset INT DEFAULT 0,
+  p_limit INT DEFAULT 20
+)
+RETURNS TABLE(id UUID, name TEXT, salebot_client_id BIGINT) 
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT c.id, c.name, c.salebot_client_id
+  FROM clients c
+  WHERE c.organization_id = p_org_id
+    AND c.salebot_client_id IS NOT NULL
+    AND NOT EXISTS (
+      SELECT 1 FROM chat_messages m 
+      WHERE m.client_id = c.id 
+        AND m.salebot_message_id IS NOT NULL
+    )
+  ORDER BY c.created_at
+  OFFSET p_offset
+  LIMIT p_limit;
+$$;
 
-### Обработка ошибок
-- Запись недоступна → показать badge "Запись не найдена"
-- AI анализ failed → показать toast с ошибкой
-- Rate limit (429) → показать сообщение "Попробуйте позже"
+-- Функция для подсчёта
+CREATE OR REPLACE FUNCTION count_clients_without_imported_messages(p_org_id UUID)
+RETURNS INT
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT COUNT(*)::INT
+  FROM clients c
+  WHERE c.organization_id = p_org_id
+    AND c.salebot_client_id IS NOT NULL
+    AND NOT EXISTS (
+      SELECT 1 FROM chat_messages m 
+      WHERE m.client_id = c.id 
+        AND m.salebot_message_id IS NOT NULL
+    );
+$$;
+```
 
-## Порядок реализации
+### Изменения в Edge Function:
 
-1. Создать `CallRecordingPlayer.tsx`
-2. Добавить отображение `summary` в `renderCallItem`
-3. Интегрировать `CallRecordingPlayer` в карточку
-4. Добавить кнопку "Анализировать" с вызовом `analyze-call`
-5. Добавить автоматический `fetch-call-recording` при отсутствии записи
-6. Тестирование на реальных звонках
+```typescript
+// Добавить функцию маппинга (аналог из salebot-webhook)
+function getMessengerTypeFromClientType(clientType: number | null): string {
+  switch (clientType) {
+    case 1: case 16: case 21: return 'telegram';
+    case 6: return 'whatsapp';
+    case 20: return 'max';
+    case 0: return 'vk';
+    case 2: return 'viber';
+    default: return 'telegram';
+  }
+}
 
-## Зависимости
+// В handleSyncNewClientsOnly - получать salebot_client_type
+const { data: localClients } = await supabase
+  .rpc('get_clients_without_imported_messages', {...})
 
-- Существующие hooks: `useCallHistory`, `useInfiniteCallHistory`
-- Edge functions: `analyze-call`, `fetch-call-recording`, `get-call-logs`
-- API: `selfHostedPost` для вызова функций
+// При создании сообщений использовать правильный тип
+chatMessages.push({
+  ...
+  messenger_type: getMessengerTypeFromClientType(client.salebot_client_type),
+  ...
+});
+```
+
+---
+
+## Результат
+
+После применения:
+1. Режим "Импорт новых" будет работать на self-hosted
+2. Сообщения будут привязываться к правильному мессенджеру (Telegram, WhatsApp, и т.д.)
+3. Переписка Зары из Telegram останется в Telegram, а не в WhatsApp
+
+---
+
+## Файлы для изменения
+
+| Файл | Действие |
+|------|----------|
+| `docs/migrations/20250130_add_import_rpc_functions.sql` | Создать |
+| `supabase/functions/import-salebot-chats-auto/index.ts` | Изменить |
+
