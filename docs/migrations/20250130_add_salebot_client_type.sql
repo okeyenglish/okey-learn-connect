@@ -24,17 +24,21 @@ ON public.clients(salebot_client_type)
 WHERE salebot_client_type IS NOT NULL;
 
 -- 3. Backfill existing clients based on their connected messengers
--- Clients with telegram_user_id but no whatsapp_id -> likely Telegram (type 1)
-UPDATE public.clients
-SET salebot_client_type = 1
-WHERE salebot_client_type IS NULL
-  AND telegram_user_id IS NOT NULL
-  AND (whatsapp_id IS NULL OR whatsapp_id = '');
+-- NOTE: Adjust column names based on your self-hosted schema
+-- Run these separately after checking which columns exist:
 
--- Clients with whatsapp_id but no telegram_user_id -> likely WhatsApp (type 6)
-UPDATE public.clients
-SET salebot_client_type = 6
-WHERE salebot_client_type IS NULL
-  AND whatsapp_id IS NOT NULL
-  AND whatsapp_id != ''
-  AND (telegram_user_id IS NULL OR telegram_user_id = '');
+-- Option A: If you have telegram_chat_id column
+-- UPDATE public.clients
+-- SET salebot_client_type = 1
+-- WHERE salebot_client_type IS NULL
+--   AND telegram_chat_id IS NOT NULL;
+
+-- Option B: If you have whatsapp_chat_id column  
+-- UPDATE public.clients
+-- SET salebot_client_type = 6
+-- WHERE salebot_client_type IS NULL
+--   AND whatsapp_chat_id IS NOT NULL;
+
+-- To check which columns exist in your clients table:
+-- SELECT column_name FROM information_schema.columns 
+-- WHERE table_name = 'clients' AND table_schema = 'public';
