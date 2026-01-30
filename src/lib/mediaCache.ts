@@ -10,6 +10,7 @@ const CACHE_NAMES = {
   videos: 'chat-media-videos-v1',
   audio: 'chat-media-audio-v1',
   documents: 'chat-media-documents-v1',
+  pdfThumbnails: 'chat-pdf-thumbnails-v1',
 } as const;
 
 // Cache limits (in MB)
