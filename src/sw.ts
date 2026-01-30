@@ -3,10 +3,9 @@ import { precacheAndRoute, cleanupOutdatedCaches, PrecacheEntry } from 'workbox-
 
 declare const self: ServiceWorkerGlobalScope;
 
-// ===== MARKER: push-support-v6 =====
-// This marker confirms that the custom SW code is deployed
-// v6: Enhanced iOS Safari compatibility - explicit title handling
-console.log('[SW] push-support-v6 loaded at', new Date().toISOString());
+// ===== MARKER: push-support-v7 =====
+// v7: Added stale-while-revalidate for API caching + offline support
+console.log('[SW] push-support-v7 loaded at', new Date().toISOString());
 
 // Force immediate activation - critical for iOS PWA updates
 self.addEventListener('install', () => {
@@ -27,52 +26,212 @@ precacheAndRoute(Array.isArray(wbManifest) ? wbManifest : []);
 // Clean up old caches
 cleanupOutdatedCaches();
 
-// ============= IMAGE CACHING FOR OFFLINE =============
+// ============= CACHE NAMES =============
+const API_CACHE_NAME = 'api-cache-v1';
+const STATIC_CACHE_NAME = 'static-cache-v1';
 const IMAGE_CACHE_NAME = 'chat-images-v1';
 
-// Intercept image requests and serve from cache if available
+// Cache expiration: 24 hours for API, 7 days for static
+const API_CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
+const STATIC_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+// API endpoints to cache with stale-while-revalidate
+const API_PATTERNS = [
+  /\/rest\/v1\/organizations/,
+  /\/rest\/v1\/profiles/,
+  /\/rest\/v1\/teachers/,
+  /\/rest\/v1\/learning_groups/,
+  /\/rest\/v1\/messenger_settings/,
+  /\/functions\/v1\/get-organization-data/,
+  /\/functions\/v1\/get-branches/,
+];
+
+// Check if URL matches any API pattern
+function isApiRequest(url: URL): boolean {
+  return API_PATTERNS.some(pattern => pattern.test(url.pathname));
+}
+
+// Check if URL is a Supabase request (for API caching)
+function isSupabaseRequest(url: URL): boolean {
+  return url.hostname.includes('supabase') || 
+         url.hostname.includes('academyos.ru') ||
+         url.pathname.includes('/rest/v1/') ||
+         url.pathname.includes('/functions/v1/');
+}
+
+// Check if request is cacheable (GET only, no auth-sensitive)
+function isCacheableRequest(request: Request, url: URL): boolean {
+  if (request.method !== 'GET') return false;
+  
+  // Skip auth endpoints
+  if (url.pathname.includes('/auth/')) return false;
+  
+  // Skip realtime
+  if (url.pathname.includes('/realtime/')) return false;
+  
+  return true;
+}
+
+// Clean expired entries from cache
+async function cleanExpiredCache(cacheName: string, maxAge: number): Promise<void> {
+  try {
+    const cache = await caches.open(cacheName);
+    const requests = await cache.keys();
+    const now = Date.now();
+    
+    for (const request of requests) {
+      const response = await cache.match(request);
+      if (response) {
+        const cachedTime = response.headers.get('sw-cached-at');
+        if (cachedTime && (now - parseInt(cachedTime, 10)) > maxAge) {
+          await cache.delete(request);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[SW] Failed to clean cache:', e);
+  }
+}
+
+// Add timestamp header to response for expiration tracking
+function addCacheHeaders(response: Response): Response {
+  const headers = new Headers(response.headers);
+  headers.set('sw-cached-at', Date.now().toString());
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+// ============= STALE-WHILE-REVALIDATE FOR API =============
+// Strategy: Return cached response immediately, then update cache in background
+
+async function staleWhileRevalidate(request: Request, cacheName: string): Promise<Response> {
+  const cache = await caches.open(cacheName);
+  const cachedResponse = await cache.match(request);
+  
+  // Start network request in background
+  const networkPromise = fetch(request).then(async (networkResponse) => {
+    if (networkResponse.ok) {
+      // Clone and add cache timestamp
+      const responseToCache = addCacheHeaders(networkResponse.clone());
+      await cache.put(request, responseToCache);
+      console.log('[SW] API cache updated:', request.url.substring(0, 60));
+    }
+    return networkResponse;
+  }).catch((error) => {
+    console.warn('[SW] Network request failed:', request.url.substring(0, 60), error);
+    return null;
+  });
+
+  // If we have cached response, return it immediately
+  if (cachedResponse) {
+    console.log('[SW] API cache hit (stale-while-revalidate):', request.url.substring(0, 60));
+    // Don't await - let it update in background
+    networkPromise.catch(() => {});
+    return cachedResponse;
+  }
+
+  // No cache, wait for network
+  const networkResponse = await networkPromise;
+  if (networkResponse) {
+    return networkResponse;
+  }
+
+  // Both cache and network failed
+  return new Response(JSON.stringify({ error: 'Offline', cached: false }), {
+    status: 503,
+    statusText: 'Service Unavailable',
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+// ============= NETWORK-FIRST FOR STATIC ASSETS =============
+async function networkFirst(request: Request, cacheName: string): Promise<Response> {
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse.ok) {
+      const cache = await caches.open(cacheName);
+      const responseToCache = addCacheHeaders(networkResponse.clone());
+      await cache.put(request, responseToCache);
+    }
+    return networkResponse;
+  } catch (error) {
+    const cache = await caches.open(cacheName);
+    const cachedResponse = await cache.match(request);
+    if (cachedResponse) {
+      console.log('[SW] Static cache hit (offline):', request.url.substring(0, 60));
+      return cachedResponse;
+    }
+    throw error;
+  }
+}
+
+// ============= CACHE-FIRST FOR IMAGES =============
+async function cacheFirstImages(request: Request): Promise<Response> {
+  const cache = await caches.open(IMAGE_CACHE_NAME);
+  const cachedResponse = await cache.match(request);
+  
+  if (cachedResponse) {
+    console.log('[SW] Image cache hit:', request.url.substring(0, 50));
+    return cachedResponse;
+  }
+
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse.ok) {
+      cache.put(request, networkResponse.clone());
+      console.log('[SW] Image cached from network:', request.url.substring(0, 50));
+    }
+    return networkResponse;
+  } catch (error) {
+    console.warn('[SW] Image fetch failed:', request.url.substring(0, 50), error);
+    return new Response('Image not available offline', {
+      status: 503,
+      statusText: 'Service Unavailable',
+    });
+  }
+}
+
+// ============= MAIN FETCH HANDLER =============
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-  
-  // Only handle image requests
-  const isImage = 
-    event.request.destination === 'image' ||
-    /\.(jpg|jpeg|png|gif|webp|svg|bmp)(\?.*)?$/i.test(url.pathname);
-  
-  // Skip non-image requests and same-origin requests (handled by Workbox)
-  if (!isImage || url.origin === self.location.origin) {
+  const request = event.request;
+
+  // Skip non-GET requests
+  if (request.method !== 'GET') return;
+
+  // Skip chrome-extension, etc.
+  if (!url.protocol.startsWith('http')) return;
+
+  // 1. Handle API requests with stale-while-revalidate
+  if (isSupabaseRequest(url) && isApiRequest(url) && isCacheableRequest(request, url)) {
+    event.respondWith(staleWhileRevalidate(request, API_CACHE_NAME));
     return;
   }
 
-  event.respondWith(
-    caches.open(IMAGE_CACHE_NAME).then(async (cache) => {
-      // Try cache first
-      const cachedResponse = await cache.match(event.request);
-      if (cachedResponse) {
-        console.log('[SW] Image cache hit:', url.pathname.substring(0, 50));
-        return cachedResponse;
-      }
+  // 2. Handle images (external) with cache-first
+  const isImage =
+    request.destination === 'image' ||
+    /\.(jpg|jpeg|png|gif|webp|svg|bmp)(\?.*)?$/i.test(url.pathname);
 
-      // If not in cache, try network
-      try {
-        const networkResponse = await fetch(event.request);
-        // Don't cache error responses
-        if (networkResponse.ok) {
-          // Cache the response for future use
-          cache.put(event.request, networkResponse.clone());
-          console.log('[SW] Image cached from network:', url.pathname.substring(0, 50));
-        }
-        return networkResponse;
-      } catch (error) {
-        console.warn('[SW] Image fetch failed:', url.pathname.substring(0, 50), error);
-        // Return a placeholder or error response
-        return new Response('Image not available offline', { 
-          status: 503, 
-          statusText: 'Service Unavailable' 
-        });
-      }
-    })
-  );
+  if (isImage && url.origin !== self.location.origin) {
+    event.respondWith(cacheFirstImages(request));
+    return;
+  }
+
+  // 3. Handle static assets (fonts, external scripts) with network-first
+  const isStaticAsset =
+    request.destination === 'font' ||
+    /\.(woff2?|ttf|otf)(\?.*)?$/i.test(url.pathname);
+
+  if (isStaticAsset && url.origin !== self.location.origin) {
+    event.respondWith(networkFirst(request, STATIC_CACHE_NAME));
+    return;
+  }
+
+  // Let other requests pass through to Workbox precache or network
 });
 
 // ============= PUSH NOTIFICATIONS =============
@@ -258,6 +417,27 @@ self.addEventListener('message', (event) => {
 
 // ============= ACTIVATE =============
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating service worker with push support');
-  event.waitUntil(self.clients.claim());
+  console.log('[SW] Activating service worker with push + API caching');
+  
+  event.waitUntil(
+    Promise.all([
+      self.clients.claim(),
+      // Clean expired caches on activation
+      cleanExpiredCache(API_CACHE_NAME, API_CACHE_MAX_AGE),
+      cleanExpiredCache(STATIC_CACHE_NAME, STATIC_CACHE_MAX_AGE),
+    ])
+  );
+});
+
+// ============= PERIODIC CACHE CLEANUP =============
+// Clean caches every hour via message from main thread
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'CLEANUP_CACHES') {
+    Promise.all([
+      cleanExpiredCache(API_CACHE_NAME, API_CACHE_MAX_AGE),
+      cleanExpiredCache(STATIC_CACHE_NAME, STATIC_CACHE_MAX_AGE),
+    ]).then(() => {
+      console.log('[SW] Cache cleanup completed');
+    });
+  }
 });
