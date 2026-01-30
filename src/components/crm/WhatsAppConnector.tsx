@@ -6,6 +6,7 @@ import { Loader2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getErrorMessage } from '@/lib/errorUtils';
 import { selfHostedPost } from '@/lib/selfHostedApi';
+import { useAuth } from '@/hooks/useAuth';
 
 type WppStatus = 'connected' | 'disconnected' | 'qr_issued' | 'qr_pending' | 'pairing' | 'syncing';
 
@@ -18,6 +19,7 @@ export function WhatsAppConnector() {
   const [diagnostics, setDiagnostics] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const { profile } = useAuth();
 
   // Backoff для обработки ошибок
   const backoffRef = useRef(2000);
@@ -88,27 +90,19 @@ export function WhatsAppConnector() {
 
       // Fallback: check DB for recent QR if not in response
       if (!qrCode && response.data.status !== 'connected') {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('organization_id')
-            .eq('id', user.id)
+        const authProfile = profile as any;
+        if (authProfile?.organization_id) {
+          const { data: sessionData } = await supabase
+            .from('whatsapp_sessions')
+            .select('last_qr_b64, last_qr_at')
+            .eq('organization_id', authProfile.organization_id)
             .single();
 
-          if (profile?.organization_id) {
-            const { data: sessionData } = await supabase
-              .from('whatsapp_sessions')
-              .select('last_qr_b64, last_qr_at')
-              .eq('organization_id', profile.organization_id)
-              .single();
-
-            if (sessionData?.last_qr_b64 && sessionData?.last_qr_at) {
-              const qrAge = (Date.now() - new Date(sessionData.last_qr_at).getTime()) / 1000;
-              if (qrAge < 45) {
-                qrCode = sessionData.last_qr_b64;
-                console.log('Using QR from DB (age: ' + qrAge.toFixed(1) + 's)');
-              }
+          if (sessionData?.last_qr_b64 && sessionData?.last_qr_at) {
+            const qrAge = (Date.now() - new Date(sessionData.last_qr_at).getTime()) / 1000;
+            if (qrAge < 45) {
+              qrCode = sessionData.last_qr_b64;
+              console.log('Using QR from DB (age: ' + qrAge.toFixed(1) + 's)');
             }
           }
         }

@@ -5,6 +5,7 @@ import { getErrorMessage } from '@/lib/errorUtils';
 import { selfHostedPost, selfHostedGet, RetryConfig } from '@/lib/selfHostedApi';
 import type { MessengerSettings as MessengerSettingsDB } from '@/integrations/supabase/database.types';
 import { useApiRetryStatus } from '@/hooks/useApiRetryStatus';
+import { getCachedUserId } from '@/lib/authHelpers';
 
 interface SendMessageParams {
   clientId: string;
@@ -162,14 +163,14 @@ export const useWhatsApp = () => {
   const updateMessengerSettings = useCallback(async (settings: Partial<WhatsAppSettings>) => {
     setLoading(true);
     try {
-      // Get user's organization_id for multi-tenant isolation
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) throw new Error('Пользователь не авторизован');
+      // Get user's organization_id using cached userId
+      const userId = await getCachedUserId();
+      if (!userId) throw new Error('Пользователь не авторизован');
 
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('id', userData.user.id)
+        .eq('id', userId)
         .single();
 
       if (!profile?.organization_id) throw new Error('Organization ID не найден');

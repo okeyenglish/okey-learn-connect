@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 // Document interface with all fields used in the application
 export interface Document {
@@ -45,10 +46,10 @@ export const useDocuments = (folderPath: string = '/') => {
 export const useCreateDocument = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (document: Omit<DocumentInsert, 'owner_id'>) => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
       const insertData = {
@@ -167,6 +168,7 @@ export const useDeleteDocument = () => {
 export const useUploadDocument = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({ 
@@ -180,7 +182,6 @@ export const useUploadDocument = () => {
       description?: string; 
       folderPath: string;
     }) => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
       // Upload to storage

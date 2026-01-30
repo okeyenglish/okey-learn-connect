@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link, Outlet, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { getCachedUserId } from "@/lib/authHelpers";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
@@ -49,20 +50,22 @@ export default function ParentPortalLayout() {
 
   const checkAuth = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const userId = await getCachedUserId();
       
-      if (!user) {
+      if (!userId) {
         navigate("/auth");
         return;
       }
 
+      // Get user data for display
+      const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
 
       // Get client info
       const { data: clientData } = await supabase
         .from("clients")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("portal_enabled", true)
         .single();
 

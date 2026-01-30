@@ -9,6 +9,7 @@ import { useWhatsApp } from '@/hooks/useWhatsApp';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { Loader2, CheckCircle, XCircle, Send, Edit, Trash2, Download } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errorUtils';
+import { useAuth } from '@/hooks/useAuth';
 
 export const WppTestPanel = () => {
   const { toast } = useToast();
@@ -32,6 +33,7 @@ export const WppTestPanel = () => {
     delete?: boolean;
     download?: boolean;
   }>({});
+  const { profile } = useAuth();
 
   // Load current provider on mount
   useEffect(() => {
@@ -212,15 +214,9 @@ export const WppTestPanel = () => {
   // Test download file
   const testDownloadFile = async () => {
     try {
-      // Get org ID
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('id', user?.id)
-        .single();
-
-      if (!profile?.organization_id) {
+      // Get org ID from auth context
+      const authProfile = profile as any;
+      if (!authProfile?.organization_id) {
         throw new Error('Organization ID не найден');
       }
 
