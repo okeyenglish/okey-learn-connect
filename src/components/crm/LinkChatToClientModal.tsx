@@ -500,48 +500,78 @@ export const LinkChatToClientModal = ({
         }
       }
 
-      // Transfer students from current client to target client
-      console.log("Transferring students from", chatClientId, "to", selectedClientId);
-      const { data: studentsToTransfer, error: studentsQueryError } = await supabase
-        .from("students")
-        .select("id")
-        .eq("client_id", chatClientId);
-      
-      if (studentsQueryError) {
-        console.error("Error querying students:", studentsQueryError);
-      } else if (studentsToTransfer && studentsToTransfer.length > 0) {
-        console.log("Found students to transfer:", studentsToTransfer.length);
-        const { error: studentsTransferError } = await supabase
-          .from("students")
-          .update({ client_id: selectedClientId })
-          .eq("client_id", chatClientId);
-        
-        if (studentsTransferError) {
-          console.error("Error transferring students:", studentsTransferError);
-          // Don't throw - continue with other operations
-        } else {
-          console.log("Students transferred successfully");
-        }
-      }
+      // Transfer family links (self-hosted schema): students are connected via family_group_id,
+      // and clients are connected to the same family_group via family_members.
+      // So we must move family_members rows from old client -> target client.
+      try {
+        console.log("Transferring family_members from", chatClientId, "to", selectedClientId);
 
-      // Transfer family_members links if table exists
-      const { error: familyTransferError } = await supabase
-        .from("family_members" as any)
-        .update({ client_id: selectedClientId })
-        .eq("client_id", chatClientId);
-      
-      if (familyTransferError) {
-        // Table might not exist - that's OK
-        console.log("Family members transfer skipped or failed:", familyTransferError.message);
-      } else {
-        console.log("Family members transferred successfully");
+        const { data: oldFamilyLinks, error: oldFamilyErr } = await supabase
+          .from("family_members")
+          .select("id, family_group_id")
+          .eq("client_id", chatClientId);
+
+        if (oldFamilyErr) {
+          console.log("family_members query failed (skipping):", oldFamilyErr.message);
+        } else if (oldFamilyLinks && oldFamilyLinks.length > 0) {
+          const { data: targetFamilyLinks, error: targetFamilyErr } = await supabase
+            .from("family_members")
+            .select("family_group_id")
+            .eq("client_id", selectedClientId);
+
+          const targetGroupIds = new Set(
+            (targetFamilyLinks || []).map((x: any) => x.family_group_id)
+          );
+
+          const memberIdsToDelete: string[] = [];
+          const groupIdsToUpdate = new Set<string>();
+
+          for (const link of oldFamilyLinks as any[]) {
+            if (!link?.family_group_id) continue;
+            if (targetGroupIds.has(link.family_group_id)) {
+              memberIdsToDelete.push(link.id);
+            } else {
+              groupIdsToUpdate.add(link.family_group_id);
+            }
+          }
+
+          // 1) Update links where target doesn't already have the group
+          if (groupIdsToUpdate.size > 0) {
+            const { error: updateErr } = await supabase
+              .from("family_members")
+              .update({ client_id: selectedClientId })
+              .eq("client_id", chatClientId)
+              .in("family_group_id", Array.from(groupIdsToUpdate));
+
+            if (updateErr) {
+              console.log("family_members update failed (continuing):", updateErr.message);
+            }
+          }
+
+          // 2) Delete duplicate links where target already has the group
+          if (memberIdsToDelete.length > 0) {
+            const { error: deleteErr } = await supabase
+              .from("family_members")
+              .delete()
+              .in("id", memberIdsToDelete);
+
+            if (deleteErr) {
+              console.log("family_members delete duplicates failed (continuing):", deleteErr.message);
+            }
+          }
+
+          console.log("family_members transferred (or deduped)");
+        }
+      } catch (e: any) {
+        // Don't block merge if family schema differs on some installations
+        console.log("family_members transfer skipped:", e?.message || e);
       }
 
       // Deactivate the old client
       console.log("Deactivating old client:", chatClientId);
       const { error: deactivateError } = await supabase
         .from("clients")
-        .update({ status: 'merged' })
+        .update({ is_active: false })
         .eq("id", chatClientId);
 
       if (deactivateError) {
