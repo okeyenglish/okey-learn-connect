@@ -25,6 +25,7 @@ import { useUnifiedSearch } from "@/hooks/useUnifiedSearch";
 import { useClientStatus } from "@/hooks/useClientStatus";
 import { useRealtimeMessages, useMarkAsRead, useMarkAsUnread } from "@/hooks/useChatMessages";
 import { useChatThreadsInfinite } from "@/hooks/useChatThreadsInfinite";
+import { useTeacherLinkedClientIds } from "@/hooks/useTeacherLinkedClientIds";
 import { useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
 import { useStudentsLazy } from "@/hooks/useStudentsLazy";
 import { useStudentsCount } from "@/hooks/useStudentsCount";
@@ -374,6 +375,8 @@ const CRMContent = () => {
   const { corporateChats, teacherChats, isLoading: systemChatsLoading } = useSystemChatMessages();
   const { communityChats, totalUnread: communityUnread, latestCommunity, isLoading: communityLoading } = useCommunityChats();
   
+  // Get client IDs linked to teachers - these should appear in Teachers folder, not clients list
+  const { linkedClientIdsSet: teacherLinkedClientIds } = useTeacherLinkedClientIds();
   // Клиенты загружаются лениво - только при необходимости (поиск, модалы)
   const clientsNeeded = modals.openModal === "Ученики" || modals.openModal === "Лиды" || chatSearchQuery.length > 0;
   const { clients, isLoading: clientsLoading } = useClients(clientsNeeded);
@@ -1045,8 +1048,14 @@ const CRMContent = () => {
   const allChats = useMemo(() => [
     ...systemChats,
     // Только реальные клиентские чаты из threads (без загрузки всех clients)
+    // Исключаем клиентов, связанных с преподавателями (они в папке "Преподаватели")
     ...threads
       .filter(thread => {
+        // Исключаем клиентов, связанных с преподавателями через teacher_client_links
+        if (teacherLinkedClientIds.has(thread.client_id)) {
+          return false;
+        }
+        
         const nameForCheck = formatClientDisplayName(thread.client_name ?? '', thread.first_name, thread.last_name);
         return (
           !nameForCheck.includes('Корпоративный чат') &&
@@ -1089,7 +1098,7 @@ const CRMContent = () => {
       }),
     // Клиенты без сообщений не показываются при первой загрузке
     ...clientChatsWithoutThreads
-  ], [systemChats, threads, typingByClient, clientChatsWithoutThreads]);
+  ], [systemChats, threads, typingByClient, clientChatsWithoutThreads, teacherLinkedClientIds]);
 
   // Debug logging removed for performance
 

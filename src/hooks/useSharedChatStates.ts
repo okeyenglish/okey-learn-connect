@@ -66,17 +66,16 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
         });
       }
 
-      // Получаем все закрепления других пользователей с именами - chunked
+      // Получаем все закрепления других пользователей - chunked (без join на profiles)
+      const otherUserIds = new Set<string>();
+      const chatIdToUserIdMap = new Map<string, string>();
+      
       for (let i = 0; i < currentChatIds.length; i += CHUNK_SIZE) {
         const chunk = currentChatIds.slice(i, i + CHUNK_SIZE);
         
         const { data: otherPins, error: pinsError } = await supabase
           .from('chat_states')
-          .select(`
-            chat_id,
-            user_id,
-            profiles!chat_states_user_id_fkey(first_name, last_name)
-          `)
+          .select('chat_id, user_id')
           .eq('is_pinned', true)
           .neq('user_id', user.id)
           .in('chat_id', chunk);
@@ -87,20 +86,44 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
         }
 
         (otherPins || []).forEach((pin: any) => {
-          const profile = pin.profiles;
-          const userName = profile 
-            ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Менеджер'
-            : 'Менеджер';
-          
+          otherUserIds.add(pin.user_id);
           // Сохраняем первого закрепившего (если несколько)
-          if (!pinnedByMap.has(pin.chat_id)) {
-            pinnedByMap.set(pin.chat_id, { 
-              user_id: pin.user_id, 
-              user_name: userName 
-            });
+          if (!chatIdToUserIdMap.has(pin.chat_id)) {
+            chatIdToUserIdMap.set(pin.chat_id, pin.user_id);
           }
         });
       }
+      
+      // Загружаем профили отдельным запросом (без FK join)
+      const userIdsArray = Array.from(otherUserIds);
+      const userNamesMap = new Map<string, string>();
+      
+      if (userIdsArray.length > 0) {
+        for (let i = 0; i < userIdsArray.length; i += CHUNK_SIZE) {
+          const chunk = userIdsArray.slice(i, i + CHUNK_SIZE);
+          
+          const { data: profiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name')
+            .in('id', chunk);
+          
+          if (!profilesError && profiles) {
+            profiles.forEach((profile: any) => {
+              const userName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Менеджер';
+              userNamesMap.set(profile.id, userName);
+            });
+          }
+        }
+      }
+      
+      // Собираем pinnedByMap с именами
+      chatIdToUserIdMap.forEach((userId, chatId) => {
+        const userName = userNamesMap.get(userId) || 'Менеджер';
+        pinnedByMap.set(chatId, { 
+          user_id: userId, 
+          user_name: userName 
+        });
+      });
 
       // Собираем итоговую карту только для запрошенных chatIds
       const chatStatesMap: Record<string, SharedChatState> = {};

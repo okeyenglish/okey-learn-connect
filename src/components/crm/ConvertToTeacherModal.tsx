@@ -103,7 +103,9 @@ export function ConvertToTeacherModal({
           queryClient.invalidateQueries({ queryKey: ['teachers'] });
           queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
           queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+          queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
           queryClient.invalidateQueries({ queryKey: ['teacher-client-links'] });
+          queryClient.invalidateQueries({ queryKey: ['teacher-linked-client-ids'] });
 
           toast.success(`Привязано к существующему преподавателю: ${matchingTeacher.first_name} ${matchingTeacher.last_name || ''}`.trim(), {
             description: 'Найден преподаватель с таким же номером телефона',
@@ -159,6 +161,7 @@ export function ConvertToTeacherModal({
       queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['teacher-client-links'] });
+      queryClient.invalidateQueries({ queryKey: ['teacher-linked-client-ids'] });
 
       toast.success(`${firstName} ${lastName} теперь преподаватель`, {
         description: 'Чат перемещён в раздел "Преподаватели"',
