@@ -100,12 +100,13 @@ export function ConvertToTeacherModal({
             console.error('Error linking to existing teacher:', linkError);
           }
 
+          // Force refetch immediately to update UI
+          await queryClient.refetchQueries({ queryKey: ['teacher-linked-client-ids'] });
           queryClient.invalidateQueries({ queryKey: ['teachers'] });
           queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
           queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
           queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
           queryClient.invalidateQueries({ queryKey: ['teacher-client-links'] });
-          queryClient.invalidateQueries({ queryKey: ['teacher-linked-client-ids'] });
 
           toast.success(`Привязано к существующему преподавателю: ${matchingTeacher.first_name} ${matchingTeacher.last_name || ''}`.trim(), {
             description: 'Найден преподаватель с таким же номером телефона',
@@ -154,14 +155,16 @@ export function ConvertToTeacherModal({
         // Non-critical, continue
       }
 
-      // 3. Invalidate relevant queries
+      // 3. Force refetch teacher-linked-client-ids immediately to update UI
+      await queryClient.refetchQueries({ queryKey: ['teacher-linked-client-ids'] });
+      
+      // 4. Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
       queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
       queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
       queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['teacher-client-links'] });
-      queryClient.invalidateQueries({ queryKey: ['teacher-linked-client-ids'] });
 
       toast.success(`${firstName} ${lastName} теперь преподаватель`, {
         description: 'Чат перемещён в раздел "Преподаватели"',
