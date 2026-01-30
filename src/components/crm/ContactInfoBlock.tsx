@@ -2,7 +2,7 @@ import { Phone, Mail, Copy, Check, Star, Edit2, Save, X } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Input } from "@/components/ui/input";
+import { MaskedPhoneInput, extractPhoneDigits, isValidRussianPhone, formatPhoneInput } from "@/components/ui/masked-phone-input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -162,7 +162,9 @@ export const ContactInfoBlock = ({
   };
 
   const handleStartEdit = (phone: string) => {
-    setEditedPhone(phone);
+    // Format existing phone for edit
+    const formatted = phone ? formatPhoneInput(phone) : '';
+    setEditedPhone(formatted);
     setIsEditing(true);
   };
 
@@ -172,14 +174,14 @@ export const ContactInfoBlock = ({
   };
 
   const handleSavePhone = () => {
-    const cleanPhone = editedPhone.replace(/\D/g, '');
-    if (cleanPhone.length >= 10 && cleanPhone.length <= 15) {
+    if (isValidRussianPhone(editedPhone)) {
+      const cleanPhone = extractPhoneDigits(editedPhone);
       onPhoneSave?.(cleanPhone);
       setIsEditing(false);
       setEditedPhone("");
       toast.success("Номер сохранён");
     } else {
-      toast.error("Введите корректный номер телефона");
+      toast.error("Введите корректный номер: +7 (XXX) XXX-XX-XX");
     }
   };
 
@@ -224,11 +226,10 @@ export const ContactInfoBlock = ({
               {isEditing && phoneNumber.isVirtual ? (
                 <div className="flex items-center gap-2 flex-1">
                   <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  <Input
+                  <MaskedPhoneInput
                     value={editedPhone}
-                    onChange={(e) => setEditedPhone(e.target.value)}
+                    onChange={setEditedPhone}
                     className="h-7 text-sm flex-1"
-                    placeholder="+7 (___) ___-__-__"
                     autoFocus
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleSavePhone();
