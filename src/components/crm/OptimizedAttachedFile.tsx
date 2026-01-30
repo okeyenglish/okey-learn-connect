@@ -7,6 +7,7 @@ import { useAudioTranscription } from '@/hooks/useAudioTranscription';
 import { LazyImage } from './LazyImage';
 import { ImageLightbox } from './ImageLightbox';
 import { useChatGallery } from './ChatGalleryContext';
+import { PDFThumbnail } from './PDFThumbnail';
 
 // Lazy load PDF viewer - it's heavy
 const PDFViewer = lazy(() => import('@/components/PDFViewer').then(m => ({ default: m.PDFViewer })));
@@ -370,27 +371,12 @@ export const OptimizedAttachedFile = memo(({
             >
               {/* PDF Thumbnail Preview - clean without toolbar */}
               <div 
-                className="relative w-full bg-white overflow-hidden"
-                style={{ height: '200px' }}
+                className="relative w-full bg-background overflow-hidden"
+                style={{ height: '170px' }}
               >
-                {/* Use object tag to embed PDF without browser toolbar */}
-                <object
-                  data={`${realUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH,0`}
-                  type="application/pdf"
-                  className="w-full h-full pointer-events-none"
-                  style={{ 
-                    transform: 'scale(1.1)',
-                    transformOrigin: 'top center',
-                    marginTop: '-10px'
-                  }}
-                >
-                  {/* Fallback for browsers that don't support object */}
-                  <div className="flex items-center justify-center h-full bg-gray-50">
-                    <FileText className="h-16 w-16 text-red-400" />
-                  </div>
-                </object>
+                <PDFThumbnail url={realUrl} height={170} onError={handleMediaError} />
                 {/* Gradient overlay at bottom */}
-                <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+                <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-background to-transparent pointer-events-none" />
                 {/* Hover overlay */}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors pointer-events-none" />
               </div>
@@ -398,8 +384,8 @@ export const OptimizedAttachedFile = memo(({
               {/* PDF Info Footer - WhatsApp style */}
               <div className="flex items-center gap-3 p-2.5 bg-muted/40 dark:bg-muted/30">
                 {/* PDF Icon */}
-                <div className="flex-shrink-0 w-9 h-9 bg-red-500 rounded-lg flex items-center justify-center">
-                  <span className="text-white text-[9px] font-bold">PDF</span>
+                <div className="flex-shrink-0 w-9 h-9 bg-destructive rounded-lg flex items-center justify-center">
+                  <span className="text-destructive-foreground text-[9px] font-bold">PDF</span>
                 </div>
                 
                 {/* File info */}
