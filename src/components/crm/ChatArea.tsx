@@ -24,7 +24,7 @@ import { ChatMessage } from "./ChatMessage";
 import { DateSeparator, shouldShowDateSeparator } from "./DateSeparator";
 import { SalebotCallbackMessage, isSalebotCallback, isHiddenSalebotMessage, isSuccessPayment } from "./SalebotCallbackMessage";
 import { ClientTasks } from "./ClientTasks";
-import { MessageSkeleton, ChatSwitchIndicator } from "./MessageSkeleton";
+import { MessageSkeleton, ChatSwitchIndicator, MessengerTabLoadingOverlay } from "./MessageSkeleton";
 import { AddTaskModal } from "./AddTaskModal";
 import { CreateInvoiceModal } from "./CreateInvoiceModal";
 import { ForwardMessageModal } from "./ForwardMessageModal";
@@ -2349,16 +2349,19 @@ export const ChatArea = ({
           </TabsList>
           
           <TabsContent value="whatsapp" ref={whatsappScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
+            {/* Tab switching overlay */}
+            <MessengerTabLoadingOverlay visible={isTabTransitioning} messengerType="whatsapp" />
+            
             <NewMessageIndicator
               scrollContainerRef={whatsappScrollRef}
               bottomRef={whatsappEndRef}
               newMessagesCount={whatsappMessages.length}
             />
             <div className="space-y-1">
-              {loadingMessages || isTabTransitioning || isChatSwitching ? (
+              {loadingMessages || isChatSwitching ? (
                 <ChatSwitchIndicator visible={isChatSwitching && !loadingMessages} />
               ) : null}
-              {loadingMessages || isTabTransitioning ? (
+              {loadingMessages ? (
                 <MessageSkeleton count={6} animated />
               ) : whatsappMessages.length > 0 ? (
                 <>
@@ -2521,13 +2524,16 @@ export const ChatArea = ({
             </TabsContent>
           
           <TabsContent value="telegram" ref={telegramScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
+            {/* Tab switching overlay */}
+            <MessengerTabLoadingOverlay visible={isTabTransitioning} messengerType="telegram" />
+            
             <NewMessageIndicator
               scrollContainerRef={telegramScrollRef}
               bottomRef={telegramEndRef}
               newMessagesCount={telegramMessages.length}
             />
             <div className="space-y-1">
-              {loadingMessages || isTabTransitioning ? (
+              {loadingMessages ? (
                 <MessageSkeleton count={6} animated />
               ) : telegramMessages.length > 0 ? (
                 <>
@@ -2621,13 +2627,16 @@ export const ChatArea = ({
           </TabsContent>
           
           <TabsContent value="max" ref={maxScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
+            {/* Tab switching overlay */}
+            <MessengerTabLoadingOverlay visible={isTabTransitioning} messengerType="max" />
+            
             <NewMessageIndicator
               scrollContainerRef={maxScrollRef}
               bottomRef={maxEndRef}
               newMessagesCount={maxMessages.length}
             />
             <div className="space-y-1">
-              {loadingMessages || isTabTransitioning ? (
+              {loadingMessages ? (
                 <MessageSkeleton count={6} animated />
               ) : maxMessages.length > 0 ? (
                 <>
@@ -2739,13 +2748,16 @@ export const ChatArea = ({
           </TabsContent>
           
           <TabsContent value="chatos" ref={chatosScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
+            {/* Tab switching overlay */}
+            <MessengerTabLoadingOverlay visible={isTabTransitioning} messengerType="chatos" />
+            
             <NewMessageIndicator
               scrollContainerRef={chatosScrollRef}
               bottomRef={chatosEndRef}
               newMessagesCount={chatosMessages.length}
             />
             <div className="space-y-1">
-              {loadingMessages || isTabTransitioning ? (
+              {loadingMessages ? (
                 <MessageSkeleton count={6} animated />
               ) : chatosMessages.length > 0 ? (
                 <>
