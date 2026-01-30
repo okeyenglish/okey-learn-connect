@@ -495,9 +495,11 @@ export const FamilyCard = ({
                 onOpenChat?.(activeMember.id, messenger);
               }}
               onCallClick={handlePhoneCall}
-              onPhoneSave={async (phone) => {
-                // Save phone to client record and create client_phone_numbers entry
+              onPhoneSave={async (data) => {
+                // Save phone to client record and create client_phone_numbers entry with messenger data
                 try {
+                  const { phone, whatsappChatId, telegramChatId, telegramUserId } = data;
+                  
                   // 1. Update client.phone
                   const { error: clientError } = await supabase
                     .from('clients')
@@ -513,20 +515,61 @@ export const FamilyCard = ({
                     .eq('client_id', activeMember.id)
                     .eq('phone', phone);
                   
-                  // 3. If not exists, create new record
+                  // 3. If not exists, create new record with messenger data
                   if (!existingPhones?.length) {
+                    const phoneRecord: Record<string, unknown> = {
+                      client_id: activeMember.id,
+                      phone,
+                      is_primary: true,
+                      phone_type: 'mobile',
+                    };
+                    
+                    // Add WhatsApp data if available
+                    if (whatsappChatId) {
+                      phoneRecord.whatsapp_chat_id = whatsappChatId;
+                      phoneRecord.is_whatsapp_enabled = true;
+                    }
+                    
+                    // Add Telegram data if available
+                    if (telegramChatId) {
+                      phoneRecord.telegram_chat_id = telegramChatId;
+                      phoneRecord.is_telegram_enabled = true;
+                    }
+                    if (telegramUserId) {
+                      phoneRecord.telegram_user_id = telegramUserId;
+                      phoneRecord.is_telegram_enabled = true;
+                    }
+                    
                     const { error: phoneError } = await supabase
                       .from('client_phone_numbers')
-                      .insert({
-                        client_id: activeMember.id,
-                        phone,
-                        is_primary: true,
-                        phone_type: 'mobile',
-                      });
+                      .insert(phoneRecord);
                     
                     if (phoneError) {
                       console.warn('Failed to create phone record:', phoneError);
                       // Don't throw - client.phone was updated successfully
+                    }
+                  } else {
+                    // 4. If exists, update with messenger data
+                    const updateData: Record<string, unknown> = {};
+                    
+                    if (whatsappChatId) {
+                      updateData.whatsapp_chat_id = whatsappChatId;
+                      updateData.is_whatsapp_enabled = true;
+                    }
+                    if (telegramChatId) {
+                      updateData.telegram_chat_id = telegramChatId;
+                      updateData.is_telegram_enabled = true;
+                    }
+                    if (telegramUserId) {
+                      updateData.telegram_user_id = telegramUserId;
+                      updateData.is_telegram_enabled = true;
+                    }
+                    
+                    if (Object.keys(updateData).length > 0) {
+                      await supabase
+                        .from('client_phone_numbers')
+                        .update(updateData)
+                        .eq('id', existingPhones[0].id);
                     }
                   }
                   

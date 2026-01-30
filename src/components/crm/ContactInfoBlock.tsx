@@ -50,12 +50,19 @@ export interface PhoneNumberData {
   isVirtual?: boolean; // Flag to identify virtual (extracted) contacts
 }
 
+interface PhoneSaveData {
+  phone: string;
+  whatsappChatId?: string | null;
+  telegramChatId?: string | null;
+  telegramUserId?: number | null;
+}
+
 interface ContactInfoBlockProps {
   phoneNumbers: PhoneNumberData[];
   email?: string;
   onMessengerClick?: (phoneId: string, messenger: 'whatsapp' | 'telegram' | 'max') => void;
   onCallClick?: (phone: string) => void;
-  onPhoneSave?: (phone: string) => void; // Callback to save new/edited phone
+  onPhoneSave?: (data: PhoneSaveData) => void; // Callback to save new/edited phone with messenger data
   // Client-level messenger data (fallback when phone-level data is missing)
   clientTelegramChatId?: string | null;
   clientTelegramUserId?: number | null;
@@ -176,7 +183,13 @@ export const ContactInfoBlock = ({
   const handleSavePhone = () => {
     if (isValidRussianPhone(editedPhone)) {
       const cleanPhone = extractPhoneDigits(editedPhone);
-      onPhoneSave?.(cleanPhone);
+      // Pass phone with messenger data from client-level
+      onPhoneSave?.({
+        phone: cleanPhone,
+        whatsappChatId: clientWhatsappChatId,
+        telegramChatId: clientTelegramChatId,
+        telegramUserId: clientTelegramUserId,
+      });
       setIsEditing(false);
       setEditedPhone("");
       toast.success("Номер сохранён");
