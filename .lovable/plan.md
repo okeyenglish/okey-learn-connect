@@ -1,129 +1,221 @@
 
+# План оптимизации производительности AcademyOS
 
-# План оптимизации: Устранение дублирующих auth-запросов
+## Текущее состояние
 
-## Обнаруженная проблема
+После выполненного рефакторинга auth-запросов (50 → 1-2) система уже получила значительное улучшение. Анализ кодовой базы показал следующие области для дальнейшей оптимизации:
 
-При загрузке страницы происходит **~50 одинаковых сетевых запросов** к `/auth/v1/user` за 8 секунд. Это вызвано тем, что 52 файла вызывают `supabase.auth.getUser()` напрямую, игнорируя централизованный `AuthProvider`.
+---
 
-### Влияние на производительность:
-- Каждый `getUser()` = 1 сетевой запрос (~50-150ms)
-- 50 параллельных запросов = блокировка сети + нагрузка на сервер
-- Это **основная причина** ощущения "медленной загрузки"
+## 1. Оптимизация Bundle Size (Code Splitting)
 
-## Решение
+### Проблема
+Файл `CRM.tsx` содержит **4652 строки** — это монолитный компонент с множеством импортов, загружающийся целиком при старте.
 
-### Фаза 1: Создать централизованный хелпер для получения userId
+### Решение
+- Разбить `CRM.tsx` на отдельные модули по функциональным зонам
+- Вынести тяжелые компоненты (модальные окна, формы) в lazy-load
+- Использовать динамические импорты для редко используемых функций
 
-Создать `src/lib/authHelpers.ts`:
+### Технические детали
 ```typescript
-// Кэшированный userId для mutation-функций
-let cachedUserId: string | null = null;
-let cacheTimestamp = 0;
-const CACHE_TTL = 5 * 60 * 1000; // 5 минут
+// Текущее (загружается сразу):
+import { ScheduleModal } from "@/components/schedule/ScheduleModal";
 
-export const getCachedUserId = async (): Promise<string | null> => {
-  const now = Date.now();
-  if (cachedUserId && (now - cacheTimestamp) < CACHE_TTL) {
-    return cachedUserId;
-  }
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  cachedUserId = user?.id ?? null;
-  cacheTimestamp = now;
-  return cachedUserId;
+// Оптимизировано (загружается по требованию):
+const ScheduleModal = lazy(() => 
+  import("@/components/schedule/ScheduleModal")
+);
+```
+
+### Ожидаемый результат
+- Уменьшение initial bundle на 30-40%
+- Ускорение First Contentful Paint на 1-2 секунды
+
+---
+
+## 2. Консолидация Realtime-подписок
+
+### Текущее состояние
+Найдено **46 файлов** с `.subscribe()` вызовами — это создает множество WebSocket соединений.
+
+### Уже реализовано
+`useOrganizationRealtimeMessages` — единая подписка на уровне CRM для chat_messages.
+
+### Дополнительная оптимизация
+- Консолидировать подписки для:
+  - `lesson_sessions` (3 отдельные подписки)
+  - `tasks` (3 подписки)
+  - `chat_states` (2 подписки)
+- Создать единый `RealtimeHub` для управления всеми подписками
+
+### Технические детали
+```typescript
+// Централизованный хаб подписок
+const useRealtimeHub = () => {
+  // Одна подписка на несколько таблиц
+  supabase.channel('app-realtime')
+    .on('postgres_changes', { table: 'chat_messages' }, ...)
+    .on('postgres_changes', { table: 'tasks' }, ...)
+    .on('postgres_changes', { table: 'lesson_sessions' }, ...)
+    .subscribe();
 };
-
-// Сброс при logout
-export const clearAuthCache = () => {
-  cachedUserId = null;
-  cacheTimestamp = 0;
-};
 ```
 
-### Фаза 2: Рефакторинг хуков (по приоритету)
+### Ожидаемый результат
+- Сокращение WebSocket соединений с ~20 до 3-5
+- Снижение нагрузки на сервер
 
-**Высокий приоритет** (вызываются при загрузке страницы):
+---
 
-| Файл | Паттерн | Исправление |
-|------|---------|-------------|
-| `useChatPresence.ts` | `getUser()` в useEffect | Принимать `userId` как параметр |
-| `useMessageReadStatus.ts` | `getUser()` в mutation | Использовать `useAuth().user` |
-| `useMessageReactions.ts` | 3x `getUser()` в mutations | Использовать `useAuth().user` |
-| `useTeacherMessages.ts` | `getUser()` в mutations | Использовать `useAuth().user` |
+## 3. Оптимизация React Query кеширования
 
-**Средний приоритет** (вызываются по действию):
+### Проблема
+Разные хуки используют разные настройки кеширования, некоторые слишком агрессивно инвалидируют кеш.
 
-| Файл | Исправление |
-|------|-------------|
-| `useNotifications.ts` | Заменить на `getCachedUserId()` |
-| `useStudentTags.ts` | Использовать `useAuth().user` |
-| `useStudentOperationLogs.ts` | Использовать `useAuth().user` |
-
-### Фаза 3: Обновить AuthProvider
-
-Добавить синхронизацию кэша при изменении auth-состояния:
+### Текущие проблемные места
 ```typescript
-// В onAuthStateChange:
-if (session?.user) {
-  setCachedUserId(session.user.id);
-} else {
-  clearAuthCache();
-}
+// Слишком частое обновление (каждые 10 сек)
+staleTime: 10 * 1000  // chat-threads-unread-priority
+refetchInterval: 60000  // assistant messages
+
+// Отсутствие кеширования
+staleTime: 0  // message-read-status
 ```
 
-## Технические детали
+### Решение
+- Увеличить `staleTime` для редко меняющихся данных
+- Использовать `select` для извлечения только нужных полей
+- Применить `placeholderData` для мгновенного отображения
 
-### Паттерн #1: Хуки с useEffect
+### Изменения
+| Хук | Было | Станет |
+|-----|------|--------|
+| chat-threads-unread | 10s | 30s |
+| manager-branches | 5 min | 30 min |
+| students | 5 min | 10 min |
+
+---
+
+## 4. Мемоизация тяжелых вычислений
+
+### Проблема
+Некоторые компоненты пересчитывают данные при каждом рендере.
+
+### Найденные места для оптимизации
+- `VirtualizedChatList` — уже использует `React.memo`, но можно улучшить
+- `ChatMessage` — много `useMemo` внутри, но callbacks не мемоизированы
+- `TeacherChatArea` — фильтрация по филиалам на каждый рендер
+
+### Решение
 ```typescript
-// БЫЛО:
-useEffect(() => {
-  const { data } = await supabase.auth.getUser();
-  userId = data.user?.id;
-});
+// Мемоизация фильтрованных списков
+const filteredTeachers = useMemo(() => 
+  teachers.filter(t => t.branch === selectedBranch),
+  [teachers, selectedBranch]
+);
 
-// СТАЛО (вариант А - props):
-const { user } = useAuth();
-useEffect(() => {
-  if (!user) return;
-  // использовать user.id
-}, [user]);
-
-// СТАЛО (вариант Б - опциональный параметр):
-export const useChatPresence = (userId?: string) => {
-  const { user } = useAuth();
-  const effectiveUserId = userId ?? user?.id;
+// Мемоизация callbacks
+const handleClick = useCallback((id) => {
+  onSelect(id);
+}, [onSelect]);
 ```
 
-### Паттерн #2: Mutations
+---
+
+## 5. Отложенная загрузка данных
+
+### Текущая проблема
+При загрузке CRM сразу запрашиваются:
+- Все клиенты
+- Все студенты  
+- Все задачи
+- Все группы
+
+### Решение
+Уже частично реализовано через `useStudentsLazy`, но можно расширить:
+
 ```typescript
-// БЫЛО:
-mutationFn: async (data) => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
-  // ...
-}
-
-// СТАЛО:
-const { user } = useAuth();
-mutationFn: async (data) => {
-  if (!user) throw new Error('Not authenticated');
-  // использовать user.id напрямую
-}
+// Загружать данные только при открытии соответствующего раздела
+const { students } = useStudentsLazy(activeTab === 'students');
+const { tasks } = useTasksLazy(activeTab === 'tasks');
 ```
 
-## Ожидаемый результат
+### Дополнительно
+- Использовать intersection observer для lazy-load секций
+- Prefetch данных при hover на вкладку
 
-| Метрика | До | После |
-|---------|-----|-------|
-| Запросы `/auth/v1/user` | ~50 | 1-2 |
-| Время загрузки | +3-5 сек | -3-5 сек |
-| Нагрузка на сеть | Высокая | Минимальная |
+---
 
-## Шаги реализации
+## 6. Оптимизация SQL-запросов
 
-1. Создать `authHelpers.ts` с кэшированием
-2. Обновить `AuthProvider` для синхронизации кэша
-3. Рефакторить 10 файлов высокого приоритета
-4. Рефакторить остальные 42 файла по мере работы над ними
+### Текущее состояние
+Используются RPC-функции:
+- `get_chat_threads_paginated` — пагинация тредов
+- `get_chat_threads_fast` — быстрая загрузка
+- `get_family_data_optimized` — данные семьи
 
+### Дополнительные оптимизации для self-hosted
+```sql
+-- Добавить partial indexes для часто используемых фильтров
+CREATE INDEX idx_chat_messages_recent 
+ON chat_messages (created_at DESC) 
+WHERE created_at > NOW() - INTERVAL '7 days';
+
+-- Materialized view для списка чатов
+CREATE MATERIALIZED VIEW chat_threads_mv AS
+SELECT ... 
+REFRESH CONCURRENTLY;
+```
+
+---
+
+## 7. Оптимизация изображений и медиа
+
+### Текущее состояние
+Реализовано кеширование через `mediaCache.ts` с лимитами:
+- Видео: 500 МБ
+- Изображения: 200 МБ
+- Аудио: 100 МБ
+
+### Дополнительные улучшения
+- Добавить lazy loading для аватаров в списке чатов
+- Использовать blur placeholder при загрузке
+- Конвертировать изображения в WebP на сервере
+
+---
+
+## 8. Service Worker оптимизация (PWA)
+
+### Текущее состояние
+Настроен `vite-plugin-pwa` и `workbox-precaching`.
+
+### Улучшения
+- Кешировать API-ответы для offline работы
+- Добавить stale-while-revalidate для статических ресурсов
+- Background sync для отложенных операций
+
+---
+
+## Приоритеты реализации
+
+| Приоритет | Оптимизация | Сложность | Влияние |
+|-----------|-------------|-----------|---------|
+| 1 | Code splitting CRM.tsx | Средняя | Высокое |
+| 2 | Консолидация realtime | Средняя | Среднее |
+| 3 | Увеличение staleTime | Низкая | Среднее |
+| 4 | Мемоизация компонентов | Низкая | Среднее |
+| 5 | SQL индексы | Низкая | Высокое |
+| 6 | PWA кеширование | Средняя | Среднее |
+
+---
+
+## Ожидаемые результаты после всех оптимизаций
+
+| Метрика | Текущее | После оптимизации |
+|---------|---------|-------------------|
+| Initial Load | ~8 сек | ~3-4 сек |
+| Auth requests | 1-2 | 1-2 (уже оптимизировано) |
+| WebSocket connections | ~20 | 3-5 |
+| Bundle size (initial) | ~1.5 MB | ~900 KB |
+| Time to Interactive | ~5 сек | ~2-3 сек |
