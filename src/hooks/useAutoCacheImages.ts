@@ -278,12 +278,13 @@ export function useAutoCacheImages(
       console.log(`[AutoCache] Starting to cache ${sorted.length} media files...`);
       cacheQueueRef.current = sorted;
       
+      const requestIdle = (window as any).requestIdleCallback as
+        | undefined
+        | ((cb: () => void, opts?: { timeout?: number }) => void);
+
       // Use requestIdleCallback for background processing
-      if ('requestIdleCallback' in window) {
-        window.requestIdleCallback(
-          () => cacheMediaSequentially(sorted),
-          { timeout: 10000 }
-        );
+      if (typeof requestIdle === 'function') {
+        requestIdle(() => cacheMediaSequentially(sorted), { timeout: 10000 });
       } else {
         setTimeout(() => cacheMediaSequentially(sorted), 500);
       }

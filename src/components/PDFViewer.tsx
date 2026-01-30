@@ -66,10 +66,10 @@ export const PDFViewer = ({ url, fileName, trigger, className }: PDFViewerProps)
           </DialogTitle>
         </DialogHeader>
         
-        <div className="px-6 pb-6 flex-1">
-          <div className="bg-gray-100 rounded-lg overflow-hidden" style={{ height: '70vh' }}>
+          <div className="px-6 pb-6 flex-1">
+          <div className="bg-muted rounded-lg overflow-hidden" style={{ height: '70vh' }}>
             <iframe
-              src={`${url}#toolbar=1&navpanes=1&scrollbar=1`}
+              src={`${url}#toolbar=0&navpanes=0&scrollbar=1&view=FitH&page=1`}
               width="100%"
               height="100%"
               title={fileName}

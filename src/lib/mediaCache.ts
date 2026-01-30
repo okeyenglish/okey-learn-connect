@@ -277,11 +277,18 @@ function scheduleCleanup(): void {
   if (cleanupScheduled) return;
   cleanupScheduled = true;
 
-  if ('requestIdleCallback' in window) {
-    window.requestIdleCallback(() => {
-      cleanupCache();
-      cleanupScheduled = false;
-    }, { timeout: 30000 });
+  const requestIdle = (window as any).requestIdleCallback as
+    | undefined
+    | ((cb: () => void, opts?: { timeout?: number }) => void);
+
+  if (typeof requestIdle === 'function') {
+    requestIdle(
+      () => {
+        cleanupCache();
+        cleanupScheduled = false;
+      },
+      { timeout: 30000 }
+    );
   } else {
     setTimeout(() => {
       cleanupCache();
