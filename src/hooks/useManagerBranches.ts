@@ -33,7 +33,8 @@ export function useManagerBranches() {
       return (data || []) as ManagerBranch[];
     },
     enabled: !!user?.id,
-    staleTime: 5 * 60 * 1000, // 5 минут
+    staleTime: 30 * 60 * 1000, // 30 минут - данные о филиалах редко меняются
+    gcTime: 60 * 60 * 1000, // 1 час в кеше
   });
 
   // Админы всегда видят все (проверяем role, который может быть из допустимых значений)

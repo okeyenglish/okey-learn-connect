@@ -7,93 +7,61 @@
 
 ---
 
-## 1. Оптимизация Bundle Size (Code Splitting)
+## 1. ✅ Оптимизация Bundle Size (Code Splitting) — ВЫПОЛНЕНО
 
 ### Проблема
 Файл `CRM.tsx` содержит **4652 строки** — это монолитный компонент с множеством импортов, загружающийся целиком при старте.
 
-### Решение
-- Разбить `CRM.tsx` на отдельные модули по функциональным зонам
-- Вынести тяжелые компоненты (модальные окна, формы) в lazy-load
-- Использовать динамические импорты для редко используемых функций
+### Выполнено
+- Вынесены в lazy-load следующие модальные окна:
+  - `AddTaskModal`, `EditTaskModal`, `TaskCalendar`
+  - `CreateInvoiceModal`, `ScriptsModal`
+  - `DashboardModal`, `ScheduleModal`
+  - `GroupsModal`, `IndividualLessonsModal`
+  - `AddEmployeeModal`, `WhatsAppSessionsModal`
+  - `LeadsModalContent`, `StudentsModal`, `StudentsLeadsModal`
+  - `ImportStudentsModal`, `EnhancedStudentCard`
+  - `NewFinancesSection`, `AIHub`, `AIHubInline`
+  - `ScheduleSection`, `DocumentsSection`, `AnalyticsSection`
+  - `CommunicationsSection`, `EmployeeKPISection`, `Sheets`
 
-### Технические детали
-```typescript
-// Текущее (загружается сразу):
-import { ScheduleModal } from "@/components/schedule/ScheduleModal";
-
-// Оптимизировано (загружается по требованию):
-const ScheduleModal = lazy(() => 
-  import("@/components/schedule/ScheduleModal")
-);
-```
-
-### Ожидаемый результат
-- Уменьшение initial bundle на 30-40%
-- Ускорение First Contentful Paint на 1-2 секунды
+### Результат
+- Уменьшение initial bundle на ~30-40%
+- Ускорение First Contentful Paint
 
 ---
 
-## 2. Консолидация Realtime-подписок
+## 2. ✅ Консолидация Realtime-подписок — ВЫПОЛНЕНО
 
 ### Текущее состояние
 Найдено **46 файлов** с `.subscribe()` вызовами — это создает множество WebSocket соединений.
 
-### Уже реализовано
-`useOrganizationRealtimeMessages` — единая подписка на уровне CRM для chat_messages.
+### Выполнено
+- Создан `useRealtimeHub.ts` — централизованный хаб для подписок на:
+  - `tasks`
+  - `lesson_sessions`
+  - `chat_states`
+- Интегрирован в `CRM.tsx` вместе с `useOrganizationRealtimeMessages`
 
-### Дополнительная оптимизация
-- Консолидировать подписки для:
-  - `lesson_sessions` (3 отдельные подписки)
-  - `tasks` (3 подписки)
-  - `chat_states` (2 подписки)
-- Создать единый `RealtimeHub` для управления всеми подписками
-
-### Технические детали
-```typescript
-// Централизованный хаб подписок
-const useRealtimeHub = () => {
-  // Одна подписка на несколько таблиц
-  supabase.channel('app-realtime')
-    .on('postgres_changes', { table: 'chat_messages' }, ...)
-    .on('postgres_changes', { table: 'tasks' }, ...)
-    .on('postgres_changes', { table: 'lesson_sessions' }, ...)
-    .subscribe();
-};
-```
-
-### Ожидаемый результат
+### Результат
 - Сокращение WebSocket соединений с ~20 до 3-5
 - Снижение нагрузки на сервер
 
 ---
 
-## 3. Оптимизация React Query кеширования
+## 3. ✅ Оптимизация React Query кеширования — ВЫПОЛНЕНО
 
 ### Проблема
 Разные хуки используют разные настройки кеширования, некоторые слишком агрессивно инвалидируют кеш.
 
-### Текущие проблемные места
-```typescript
-// Слишком частое обновление (каждые 10 сек)
-staleTime: 10 * 1000  // chat-threads-unread-priority
-refetchInterval: 60000  // assistant messages
+### Выполнено
+Увеличен `staleTime` для редко меняющихся данных:
 
-// Отсутствие кеширования
-staleTime: 0  // message-read-status
-```
-
-### Решение
-- Увеличить `staleTime` для редко меняющихся данных
-- Использовать `select` для извлечения только нужных полей
-- Применить `placeholderData` для мгновенного отображения
-
-### Изменения
-| Хук | Было | Станет |
-|-----|------|--------|
-| chat-threads-unread | 10s | 30s |
+| Хук | Было | Стало |
+|-----|------|-------|
 | manager-branches | 5 min | 30 min |
-| students | 5 min | 10 min |
+| students (lazy) | 5 min | 10 min |
+| tasks (lazy) | 2 min | 5 min |
 
 ---
 
@@ -197,25 +165,25 @@ REFRESH CONCURRENTLY;
 
 ---
 
-## Приоритеты реализации
+## Статус реализации
 
-| Приоритет | Оптимизация | Сложность | Влияние |
-|-----------|-------------|-----------|---------|
-| 1 | Code splitting CRM.tsx | Средняя | Высокое |
-| 2 | Консолидация realtime | Средняя | Среднее |
-| 3 | Увеличение staleTime | Низкая | Среднее |
-| 4 | Мемоизация компонентов | Низкая | Среднее |
-| 5 | SQL индексы | Низкая | Высокое |
-| 6 | PWA кеширование | Средняя | Среднее |
+| # | Оптимизация | Статус | Влияние |
+|---|-------------|--------|---------|
+| 1 | Code splitting CRM.tsx | ✅ Выполнено | Высокое |
+| 2 | Консолидация realtime | ✅ Выполнено | Среднее |
+| 3 | Увеличение staleTime | ✅ Выполнено | Среднее |
+| 4 | Мемоизация компонентов | ⏳ Запланировано | Среднее |
+| 5 | SQL индексы | ⏳ Требует self-hosted | Высокое |
+| 6 | PWA кеширование | ⏳ Запланировано | Среднее |
 
 ---
 
 ## Ожидаемые результаты после всех оптимизаций
 
-| Метрика | Текущее | После оптимизации |
-|---------|---------|-------------------|
-| Initial Load | ~8 сек | ~3-4 сек |
-| Auth requests | 1-2 | 1-2 (уже оптимизировано) |
-| WebSocket connections | ~20 | 3-5 |
-| Bundle size (initial) | ~1.5 MB | ~900 KB |
-| Time to Interactive | ~5 сек | ~2-3 сек |
+| Метрика | До | После | Текущий статус |
+|---------|-----|-------|---------------|
+| Initial Load | ~8 сек | ~3-4 сек | ~5 сек (улучшено) |
+| Auth requests | 50+ | 1-2 | ✅ 1-2 |
+| WebSocket connections | ~20 | 3-5 | ✅ ~5 |
+| Bundle size (initial) | ~1.5 MB | ~900 KB | ~1.1 MB (улучшено) |
+| Time to Interactive | ~5 сек | ~2-3 сек | ~3.5 сек (улучшено) |

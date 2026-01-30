@@ -24,7 +24,8 @@ export const useTasksLazy = (enabled: boolean = false) => {
       return data as Task[];
     },
     enabled, // Only fetch when explicitly enabled
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes - есть realtime для обновлений
+    gcTime: 15 * 60 * 1000, // 15 minutes cache
   });
 
   return {
