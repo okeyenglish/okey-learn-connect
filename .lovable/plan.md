@@ -1,263 +1,129 @@
 
-# План: Интеграция нативных Push-уведомлений через Capacitor
 
-## Обзор
+# План оптимизации: Устранение дублирующих auth-запросов
 
-Добавление нативных push-уведомлений для iOS (APNs) и Android (FCM) в дополнение к существующим Web Push уведомлениям. Система будет автоматически определять платформу и использовать соответствующий механизм доставки.
+## Обнаруженная проблема
 
----
+При загрузке страницы происходит **~50 одинаковых сетевых запросов** к `/auth/v1/user` за 8 секунд. Это вызвано тем, что 52 файла вызывают `supabase.auth.getUser()` напрямую, игнорируя централизованный `AuthProvider`.
 
-## Архитектура решения
+### Влияние на производительность:
+- Каждый `getUser()` = 1 сетевой запрос (~50-150ms)
+- 50 параллельных запросов = блокировка сети + нагрузка на сервер
+- Это **основная причина** ощущения "медленной загрузки"
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                    Фронтенд (React)                         │
-├─────────────────────────────────────────────────────────────┤
-│  useNativePushNotifications.ts                              │
-│    ├── Определение платформы (iOS/Android/Web)              │
-│    ├── Для Native: @capacitor/push-notifications            │
-│    └── Для Web: существующий usePushNotifications           │
-├─────────────────────────────────────────────────────────────┤
-│  usePushNotifications.ts (обновлённый)                      │
-│    └── Унифицированный интерфейс для всех платформ          │
-└─────────────────────────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Бэкенд (Edge Functions)                   │
-├─────────────────────────────────────────────────────────────┤
-│  native-push-register                                        │
-│    └── Сохранение FCM/APNs токена в push_subscriptions       │
-├─────────────────────────────────────────────────────────────┤
-│  send-push-notification (обновлённый)                        │
-│    ├── Web Push → VAPID/Web Push Protocol                    │
-│    └── Native → Firebase Admin SDK                           │
-└─────────────────────────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────┐
-│               Firebase Cloud Messaging (FCM)                 │
-│  ├── Android → напрямую                                      │
-│  └── iOS → через APNs (автоматически)                        │
-└─────────────────────────────────────────────────────────────┘
-```
+## Решение
 
----
+### Фаза 1: Создать централизованный хелпер для получения userId
 
-## Что будет сделано
-
-### 1. Установка зависимостей
-
-**Новый пакет:**
-```json
-"@capacitor/push-notifications": "^7.0.0"
-```
-
-### 2. Создание утилиты определения платформы
-
-**Новый файл: `src/lib/capacitorPlatform.ts`**
-
+Создать `src/lib/authHelpers.ts`:
 ```typescript
-import { Capacitor } from '@capacitor/core';
+// Кэшированный userId для mutation-функций
+let cachedUserId: string | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 минут
 
-export type Platform = 'ios' | 'android' | 'web';
-
-export function getPlatform(): Platform {
-  if (!Capacitor.isNativePlatform()) {
-    return 'web';
-  }
-  return Capacitor.getPlatform() as 'ios' | 'android';
-}
-
-export function isNativePlatform(): boolean {
-  return Capacitor.isNativePlatform();
-}
-
-export function isIOS(): boolean {
-  return getPlatform() === 'ios';
-}
-
-export function isAndroid(): boolean {
-  return getPlatform() === 'android';
-}
-```
-
-### 3. Создание хука для нативных push-уведомлений
-
-**Новый файл: `src/hooks/useNativePushNotifications.ts`**
-
-Основные функции:
-- Регистрация устройства в FCM/APNs
-- Получение device token
-- Обработка входящих уведомлений
-- Обработка нажатий на уведомления (deep linking)
-
-```typescript
-// Пример структуры
-export function useNativePushNotifications() {
-  const [token, setToken] = useState<string | null>(null);
-  const [isRegistered, setIsRegistered] = useState(false);
-  
-  // Listeners для push событий
-  useEffect(() => {
-    // registration - получение токена
-    // pushNotificationReceived - уведомление получено
-    // pushNotificationActionPerformed - клик по уведомлению
-  }, []);
-  
-  const register = async () => {
-    // Проверка разрешений
-    // Регистрация в FCM/APNs
-    // Отправка токена на сервер
-  };
-  
-  return { token, isRegistered, register, unregister };
-}
-```
-
-### 4. Обновление основного хука usePushNotifications
-
-**Изменения в `src/hooks/usePushNotifications.ts`:**
-
-- Добавление определения платформы
-- Условное использование Web Push или Native Push
-- Унификация интерфейса для компонентов UI
-
-```typescript
-export function usePushNotifications() {
-  const platform = getPlatform();
-  
-  // На нативной платформе используем Capacitor
-  if (platform !== 'web') {
-    return useNativePushNotifications();
+export const getCachedUserId = async (): Promise<string | null> => {
+  const now = Date.now();
+  if (cachedUserId && (now - cacheTimestamp) < CACHE_TTL) {
+    return cachedUserId;
   }
   
-  // На вебе - существующая Web Push логика
-  return useWebPushNotifications();
-}
+  const { data: { user } } = await supabase.auth.getUser();
+  cachedUserId = user?.id ?? null;
+  cacheTimestamp = now;
+  return cachedUserId;
+};
+
+// Сброс при logout
+export const clearAuthCache = () => {
+  cachedUserId = null;
+  cacheTimestamp = 0;
+};
 ```
 
-### 5. Edge Function для регистрации нативных токенов
+### Фаза 2: Рефакторинг хуков (по приоритету)
 
-**Новый файл: `supabase/functions/native-push-register/index.ts`**
+**Высокий приоритет** (вызываются при загрузке страницы):
 
-Функции:
-- Сохранение FCM/APNs токена в таблицу `push_subscriptions`
-- Тип подписки: `fcm` или `apns`
-- Связь с `user_id`
+| Файл | Паттерн | Исправление |
+|------|---------|-------------|
+| `useChatPresence.ts` | `getUser()` в useEffect | Принимать `userId` как параметр |
+| `useMessageReadStatus.ts` | `getUser()` в mutation | Использовать `useAuth().user` |
+| `useMessageReactions.ts` | 3x `getUser()` в mutations | Использовать `useAuth().user` |
+| `useTeacherMessages.ts` | `getUser()` в mutations | Использовать `useAuth().user` |
 
-### 6. Обновление Edge Function отправки уведомлений
+**Средний приоритет** (вызываются по действию):
 
-**Изменения в существующей функции `send-push-notification`:**
+| Файл | Исправление |
+|------|-------------|
+| `useNotifications.ts` | Заменить на `getCachedUserId()` |
+| `useStudentTags.ts` | Использовать `useAuth().user` |
+| `useStudentOperationLogs.ts` | Использовать `useAuth().user` |
 
+### Фаза 3: Обновить AuthProvider
+
+Добавить синхронизацию кэша при изменении auth-состояния:
 ```typescript
-// Определение типа подписки
-if (subscription.type === 'fcm' || subscription.type === 'apns') {
-  // Отправка через Firebase Admin SDK
-  await sendViaFCM(subscription.token, payload);
+// В onAuthStateChange:
+if (session?.user) {
+  setCachedUserId(session.user.id);
 } else {
-  // Отправка через Web Push Protocol
-  await sendViaWebPush(subscription.endpoint, keys, payload);
+  clearAuthCache();
 }
 ```
 
-### 7. Обновление схемы базы данных
+## Технические детали
 
-**Миграция для `push_subscriptions`:**
+### Паттерн #1: Хуки с useEffect
+```typescript
+// БЫЛО:
+useEffect(() => {
+  const { data } = await supabase.auth.getUser();
+  userId = data.user?.id;
+});
 
-```sql
--- Добавление колонки для типа подписки
-ALTER TABLE push_subscriptions 
-ADD COLUMN IF NOT EXISTS subscription_type TEXT 
-DEFAULT 'web' 
-CHECK (subscription_type IN ('web', 'fcm', 'apns'));
+// СТАЛО (вариант А - props):
+const { user } = useAuth();
+useEffect(() => {
+  if (!user) return;
+  // использовать user.id
+}, [user]);
 
--- Добавление колонки для device token (FCM/APNs)
-ALTER TABLE push_subscriptions 
-ADD COLUMN IF NOT EXISTS device_token TEXT;
-
--- Индекс для быстрого поиска
-CREATE INDEX IF NOT EXISTS idx_push_subscriptions_type 
-ON push_subscriptions(subscription_type);
+// СТАЛО (вариант Б - опциональный параметр):
+export const useChatPresence = (userId?: string) => {
+  const { user } = useAuth();
+  const effectiveUserId = userId ?? user?.id;
 ```
 
-### 8. Обработка Deep Linking
+### Паттерн #2: Mutations
+```typescript
+// БЫЛО:
+mutationFn: async (data) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+  // ...
+}
 
-При клике на уведомление:
-- Парсинг `url` из data payload
-- Навигация к соответствующему экрану
-- Интеграция с react-router-dom
-
----
-
-## Изменяемые файлы
-
-| Файл | Действие | Описание |
-|------|----------|----------|
-| `package.json` | Изменение | Добавление `@capacitor/push-notifications` |
-| `src/lib/capacitorPlatform.ts` | Создание | Утилиты определения платформы |
-| `src/hooks/useNativePushNotifications.ts` | Создание | Хук для нативных push |
-| `src/hooks/usePushNotifications.ts` | Изменение | Унификация Web/Native |
-| `supabase/functions/native-push-register/index.ts` | Создание | Регистрация токенов |
-| `supabase/functions/send-push-notification/index.ts` | Изменение | Поддержка FCM |
-
----
-
-## Требования для публикации
-
-### Firebase (обязательно для обеих платформ)
-
-1. Создать проект в Firebase Console
-2. Добавить приложения iOS и Android
-3. Скачать конфигурационные файлы:
-   - **Android:** `google-services.json` → `android/app/`
-   - **iOS:** `GoogleService-Info.plist` → `ios/App/App/`
-4. Получить Firebase Server Key для бэкенда
-
-### iOS (дополнительно)
-
-1. Apple Developer Account ($99/год)
-2. Создать APNs Key в Apple Developer Portal
-3. Загрузить `.p8` ключ в Firebase
-
-### Android
-
-Никаких дополнительных действий — FCM работает "из коробки" после добавления `google-services.json`
-
----
-
-## Секреты для Edge Functions
-
-Необходимо добавить секрет `FIREBASE_SERVICE_ACCOUNT` с JSON-ключом сервисного аккаунта Firebase:
-
-```json
-{
-  "type": "service_account",
-  "project_id": "your-project",
-  "private_key": "...",
-  "client_email": "..."
+// СТАЛО:
+const { user } = useAuth();
+mutationFn: async (data) => {
+  if (!user) throw new Error('Not authenticated');
+  // использовать user.id напрямую
 }
 ```
 
----
+## Ожидаемый результат
 
-## Последовательность внедрения
+| Метрика | До | После |
+|---------|-----|-------|
+| Запросы `/auth/v1/user` | ~50 | 1-2 |
+| Время загрузки | +3-5 сек | -3-5 сек |
+| Нагрузка на сеть | Высокая | Минимальная |
 
-1. ✅ Установить `@capacitor/push-notifications`
-2. ✅ Создать `capacitorPlatform.ts`
-3. ✅ Создать `useNativePushNotifications.ts`
-4. ✅ Обновить `usePushNotifications.ts`
-5. ✅ Создать Edge Function `native-push-register`
-6. ✅ Обновить Edge Function `send-push-notification`
-7. 📋 Создать Firebase проект (выполняется пользователем)
-8. 📋 Добавить конфигурационные файлы (локально после экспорта)
-9. 📋 Добавить секрет Firebase в Lovable Cloud
+## Шаги реализации
 
----
+1. Создать `authHelpers.ts` с кэшированием
+2. Обновить `AuthProvider` для синхронизации кэша
+3. Рефакторить 10 файлов высокого приоритета
+4. Рефакторить остальные 42 файла по мере работы над ними
 
-## Совместимость
-
-- ✅ Существующие Web Push уведомления продолжат работать
-- ✅ PWA функциональность не затрагивается
-- ✅ Единый UI для управления уведомлениями на всех платформах
-- ✅ Существующие подписки не будут затронуты
