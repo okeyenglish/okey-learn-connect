@@ -11,6 +11,7 @@ AS $$
 $$;
 
 -- 2. Функция проверки дублирования преподавателя при INSERT/UPDATE
+-- ВАЖНО: Проверяет уникальность телефона ВНУТРИ организации
 CREATE OR REPLACE FUNCTION public.check_teacher_phone_duplicate()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -29,16 +30,17 @@ BEGIN
     RETURN NEW;
   END IF;
   
-  -- Ищем существующего преподавателя с таким же телефоном
+  -- Ищем существующего преподавателя с таким же телефоном В ТОЙ ЖЕ ОРГАНИЗАЦИИ
   SELECT id INTO v_existing_id
   FROM teachers
-  WHERE id != COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::uuid)
+  WHERE organization_id = NEW.organization_id
+    AND id != COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::uuid)
     AND normalize_phone(phone) = v_normalized_phone
     AND COALESCE(is_active, true) = true
   LIMIT 1;
   
   IF v_existing_id IS NOT NULL THEN
-    RAISE EXCEPTION 'Преподаватель с таким телефоном уже существует (ID: %)', v_existing_id
+    RAISE EXCEPTION 'Преподаватель с таким телефоном уже существует в организации (ID: %)', v_existing_id
       USING ERRCODE = 'unique_violation';
   END IF;
   
@@ -96,9 +98,10 @@ CREATE TRIGGER check_client_phone_duplicate_trigger
   FOR EACH ROW
   EXECUTE FUNCTION check_client_phone_duplicate();
 
--- 6. Функция для поиска и объединения существующих дубликатов преподавателей (без organization_id)
-CREATE OR REPLACE FUNCTION public.find_duplicate_teachers()
+-- 6. Функция для поиска и объединения существующих дубликатов преподавателей (с organization_id)
+CREATE OR REPLACE FUNCTION public.find_duplicate_teachers(p_org_id UUID DEFAULT NULL)
 RETURNS TABLE(
+  organization_id UUID,
   normalized_phone TEXT,
   teacher_ids UUID[],
   teacher_names TEXT[],
@@ -110,15 +113,17 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
   SELECT 
+    t.organization_id,
     normalize_phone(phone) as normalized_phone,
     ARRAY_AGG(id ORDER BY created_at) as teacher_ids,
     ARRAY_AGG(COALESCE(last_name || ' ' || first_name, first_name) ORDER BY created_at) as teacher_names,
     COUNT(*) as duplicate_count
-  FROM teachers
+  FROM teachers t
   WHERE COALESCE(is_active, true) = true
     AND phone IS NOT NULL
     AND LENGTH(normalize_phone(phone)) >= 10
-  GROUP BY normalize_phone(phone)
+    AND (p_org_id IS NULL OR t.organization_id = p_org_id)
+  GROUP BY t.organization_id, normalize_phone(phone)
   HAVING COUNT(*) > 1
   ORDER BY duplicate_count DESC;
 $$;

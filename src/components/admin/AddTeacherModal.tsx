@@ -136,6 +136,7 @@ export const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ onTeacherAdded
             branch: formData.branch,
             subjects: formData.subjects,
             categories: formData.categories,
+            organization_id: organizationId,
             is_active: true,
           })
           .select('id')
@@ -176,6 +177,7 @@ export const AddTeacherModal: React.FC<AddTeacherModalProps> = ({ onTeacherAdded
             branch: formData.branch || null,
             subjects: formData.subjects,
             categories: formData.categories,
+            organization_id: organizationId,
             is_active: true,
             profile_id: null, // Будет заполнено при онбординге
           })
