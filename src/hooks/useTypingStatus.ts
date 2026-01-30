@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
+import { useAuth } from '@/hooks/useAuth';
 import type { TypingStatus } from '@/integrations/supabase/database.types';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { useThrottle } from './useThrottle';
@@ -17,6 +18,7 @@ type TypingStatusWithName = TypingStatus;
 // OPTIMIZED: Uses payload directly instead of refresh() SELECT queries
 // With fallback polling for unstable realtime connections
 export const useTypingStatus = (clientId: string) => {
+  const { user, profile } = useAuth();
   const [typingUsers, setTypingUsers] = useState<TypingStatusWithName[]>([]);
   const [isCurrentUserTyping, setIsCurrentUserTyping] = useState(false);
   const currentUserIdRef = useRef<string | null>(null);
@@ -27,23 +29,17 @@ export const useTypingStatus = (clientId: string) => {
   const realtimeWorkingRef = useRef(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load current user and manager name once
+  // Sync user info from AuthProvider (eliminates getUser() call)
   useEffect(() => {
-    (async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      currentUserIdRef.current = userData.user?.id ?? null;
-
-      if (currentUserIdRef.current) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('first_name,last_name')
-          .eq('id', currentUserIdRef.current)
-          .maybeSingle();
-        const n = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ');
-        if (n) managerNameRef.current = n;
+    if (user) {
+      currentUserIdRef.current = user.id;
+      
+      if (profile) {
+        const name = [profile.first_name, profile.last_name].filter(Boolean).join(' ');
+        if (name) managerNameRef.current = name;
       }
-    })();
-  }, []);
+    }
+  }, [user, profile]);
 
   // Fetch typing users - used for both initial load and fallback polling
   const fetchTypingUsers = useCallback(async () => {

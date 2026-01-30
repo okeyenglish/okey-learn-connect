@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface TakeoverRequest {
   id: string;
@@ -30,6 +31,7 @@ interface TakeoverBroadcastPayload {
  */
 export const useChatTakeover = (clientId: string | null) => {
   const { toast } = useToast();
+  const { user, profile } = useAuth();
   const [pendingRequest, setPendingRequest] = useState<TakeoverRequest | null>(null);
   const [incomingRequest, setIncomingRequest] = useState<TakeoverRequest | null>(null);
   const [receivedDraft, setReceivedDraft] = useState<string | null>(null);
@@ -37,24 +39,17 @@ export const useChatTakeover = (clientId: string | null) => {
   const currentUserIdRef = useRef<string | null>(null);
   const currentUserNameRef = useRef<string>('Менеджер');
 
-  // Get current user info
+  // Sync user info from AuthProvider (eliminates getUser() call)
   useEffect(() => {
-    (async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      currentUserIdRef.current = userData.user?.id ?? null;
-
-      if (currentUserIdRef.current) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('first_name, last_name')
-          .eq('id', currentUserIdRef.current)
-          .maybeSingle();
-
-        const name = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ');
+    if (user) {
+      currentUserIdRef.current = user.id;
+      
+      if (profile) {
+        const name = [profile.first_name, profile.last_name].filter(Boolean).join(' ');
         if (name) currentUserNameRef.current = name;
       }
-    })();
-  }, []);
+    }
+  }, [user, profile]);
 
   // Subscribe to takeover channel
   useEffect(() => {

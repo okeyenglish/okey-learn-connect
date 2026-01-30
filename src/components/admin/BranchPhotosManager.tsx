@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { Upload, Trash2, Star, GripVertical, X, Image as ImageIcon } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -95,6 +96,7 @@ function SortablePhoto({ photo, onDelete, onSetMain }: {
 
 export function BranchPhotosManager() {
   const { toast } = useToast();
+  const { profile } = useAuth();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState<string>('');
   const [photos, setPhotos] = useState<BranchPhoto[]>([]);
@@ -112,8 +114,15 @@ export function BranchPhotosManager() {
     })
   );
 
+  // Sync organization_id from AuthProvider (eliminates getUser() call)
   useEffect(() => {
-    fetchOrganizationId();
+    const orgId = (profile as any)?.organization_id;
+    if (orgId) {
+      setOrganizationId(orgId);
+    }
+  }, [profile]);
+
+  useEffect(() => {
     const branchesFromSite = getBranchesForSelect();
     setBranches(branchesFromSite);
   }, []);
@@ -123,21 +132,6 @@ export function BranchPhotosManager() {
       fetchPhotos();
     }
   }, [selectedBranchId]);
-
-  const fetchOrganizationId = async () => {
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData?.user) return;
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('organization_id')
-      .eq('id', userData.user.id)
-      .single();
-
-    if (profile?.organization_id) {
-      setOrganizationId(profile.organization_id);
-    }
-  };
 
 
   const fetchPhotos = async () => {

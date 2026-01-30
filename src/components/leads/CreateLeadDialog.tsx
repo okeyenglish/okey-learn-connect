@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/typedClient";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +34,7 @@ export const CreateLeadDialog = ({
   onSuccess,
 }: CreateLeadDialogProps) => {
   const { toast } = useToast();
+  const { user, profile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     first_name: "",
@@ -77,20 +79,14 @@ export const CreateLeadDialog = ({
     setLoading(true);
 
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      
-      // Get user's organization_id
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("organization_id")
-        .eq("id", userData?.user?.id)
-        .single();
+      // Use organization_id from profile via AuthProvider
+      const organizationId = (profile as any)?.organization_id;
       
       const { error } = await supabase.from("leads").insert({
         ...formData,
         age: formData.age ? parseInt(formData.age) : null,
-        assigned_to: userData?.user?.id,
-        organization_id: profile?.organization_id,
+        assigned_to: user?.id,
+        organization_id: organizationId,
       });
 
       if (error) throw error;
