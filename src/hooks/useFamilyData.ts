@@ -12,6 +12,7 @@ export interface PhoneNumber {
   telegramAvatarUrl?: string;
   whatsappChatId?: string | null;
   telegramChatId?: string | null;
+  telegramUserId?: number | null;
   maxChatId?: string | null;
   maxAvatarUrl?: string | null;
 }
@@ -73,6 +74,7 @@ interface RpcPhoneNumber {
   telegram_avatar_url?: string;
   whatsapp_chat_id?: string | null;
   telegram_chat_id?: string | null;
+  telegram_user_id?: number | null;
   max_chat_id?: string | null;
   max_avatar_url?: string | null;
 }
@@ -186,6 +188,7 @@ const transformRpcResponse = (data: RpcResponse): FamilyGroup => {
       telegramAvatarUrl: p.telegram_avatar_url || undefined,
       whatsappChatId: p.whatsapp_chat_id || null,
       telegramChatId: p.telegram_chat_id || null,
+      telegramUserId: p.telegram_user_id || null,
       maxChatId: p.max_chat_id || null,
       maxAvatarUrl: p.max_avatar_url || null,
     })),

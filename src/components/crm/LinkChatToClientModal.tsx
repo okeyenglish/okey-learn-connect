@@ -467,6 +467,35 @@ export const LinkChatToClientModal = ({
                 .update(updateData)
                 .eq("id", existingTargetPhone.id);
             }
+          } else {
+            // Phone exists in targetPhoneSet (from clients.phone) but NOT in client_phone_numbers
+            // Create new client_phone_numbers record with messenger links
+            console.log("Creating phone record for existing main phone with messenger links:", currentClient.phone);
+            
+            const phoneInsertData = {
+              client_id: selectedClientId,
+              phone: currentClient.phone as string,
+              is_primary: true,
+              phone_type: "mobile" as const,
+              telegram_chat_id: currentClient.telegram_chat_id || null,
+              telegram_user_id: currentClient.telegram_user_id || null,
+              telegram_avatar_url: currentClient.telegram_avatar_url || null,
+              is_telegram_enabled: !!currentClient.telegram_chat_id,
+              whatsapp_chat_id: currentClient.whatsapp_chat_id || null,
+              whatsapp_avatar_url: currentClient.whatsapp_avatar_url || null,
+              is_whatsapp_enabled: !!currentClient.whatsapp_chat_id,
+              max_chat_id: currentClient.max_chat_id || null,
+              max_user_id: currentClient.max_user_id || null,
+              max_avatar_url: currentClient.max_avatar_url || null,
+            };
+            
+            const { error: insertPhoneError } = await supabase
+              .from("client_phone_numbers")
+              .insert(phoneInsertData);
+            
+            if (insertPhoneError) {
+              console.error("Error inserting phone for existing main phone:", insertPhoneError);
+            }
           }
         }
       }

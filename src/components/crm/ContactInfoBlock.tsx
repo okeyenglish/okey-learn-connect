@@ -43,6 +43,7 @@ export interface PhoneNumberData {
   isTelegramEnabled?: boolean;
   whatsappChatId?: string | null;
   telegramChatId?: string | null;
+  telegramUserId?: number | null;
   maxChatId?: string | null;
 }
 
@@ -177,8 +178,17 @@ export const ContactInfoBlock = ({
                       <WhatsAppIcon active={waActive} />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">
-                    {waActive ? 'Открыть WhatsApp чат' : 'WhatsApp не подключен'}
+                  <TooltipContent side="top" className="text-xs max-w-[200px]">
+                    {waActive ? (
+                      <div>
+                        <div>Открыть WhatsApp чат</div>
+                        <div className="text-muted-foreground mt-0.5">
+                          {phoneNumber.whatsappChatId 
+                            ? `ID: ${phoneNumber.whatsappChatId.replace('@c.us', '')}` 
+                            : `Тел: ${phoneNumber.phone}`}
+                        </div>
+                      </div>
+                    ) : 'WhatsApp не подключен'}
                   </TooltipContent>
                 </Tooltip>
                 
@@ -192,8 +202,19 @@ export const ContactInfoBlock = ({
                       <TelegramIcon active={tgActive} />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">
-                    {tgActive ? 'Открыть Telegram чат' : 'Telegram не подключен'}
+                  <TooltipContent side="top" className="text-xs max-w-[200px]">
+                    {tgActive ? (
+                      <div>
+                        <div>Открыть Telegram чат</div>
+                        <div className="text-muted-foreground mt-0.5">
+                          {phoneNumber.telegramUserId 
+                            ? `ID: ${phoneNumber.telegramUserId}` 
+                            : phoneNumber.phone 
+                              ? `Тел: ${phoneNumber.phone}` 
+                              : phoneNumber.telegramChatId || 'Подключен'}
+                        </div>
+                      </div>
+                    ) : 'Telegram не подключен'}
                   </TooltipContent>
                 </Tooltip>
                 
