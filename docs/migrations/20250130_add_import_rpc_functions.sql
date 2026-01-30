@@ -5,8 +5,15 @@
 -- These functions are used by import-salebot-chats-auto Edge Function in sync_new_clients_only mode
 
 -- ============================================================================
+-- Drop existing functions first (to allow signature changes)
+-- ============================================================================
+DROP FUNCTION IF EXISTS public.get_clients_without_imported_messages(UUID, INT, INT);
+DROP FUNCTION IF EXISTS public.count_clients_without_imported_messages(UUID);
+
+-- ============================================================================
 -- Function: get_clients_without_imported_messages
 -- Returns clients that have salebot_client_id but NO messages with salebot_message_id
+-- Now also returns salebot_client_type for correct messenger mapping
 -- ============================================================================
 CREATE OR REPLACE FUNCTION public.get_clients_without_imported_messages(
   p_org_id UUID,
