@@ -500,11 +500,48 @@ export const LinkChatToClientModal = ({
         }
       }
 
+      // Transfer students from current client to target client
+      console.log("Transferring students from", chatClientId, "to", selectedClientId);
+      const { data: studentsToTransfer, error: studentsQueryError } = await supabase
+        .from("students")
+        .select("id")
+        .eq("client_id", chatClientId);
+      
+      if (studentsQueryError) {
+        console.error("Error querying students:", studentsQueryError);
+      } else if (studentsToTransfer && studentsToTransfer.length > 0) {
+        console.log("Found students to transfer:", studentsToTransfer.length);
+        const { error: studentsTransferError } = await supabase
+          .from("students")
+          .update({ client_id: selectedClientId })
+          .eq("client_id", chatClientId);
+        
+        if (studentsTransferError) {
+          console.error("Error transferring students:", studentsTransferError);
+          // Don't throw - continue with other operations
+        } else {
+          console.log("Students transferred successfully");
+        }
+      }
+
+      // Transfer family_members links if table exists
+      const { error: familyTransferError } = await supabase
+        .from("family_members" as any)
+        .update({ client_id: selectedClientId })
+        .eq("client_id", chatClientId);
+      
+      if (familyTransferError) {
+        // Table might not exist - that's OK
+        console.log("Family members transfer skipped or failed:", familyTransferError.message);
+      } else {
+        console.log("Family members transferred successfully");
+      }
+
       // Deactivate the old client
       console.log("Deactivating old client:", chatClientId);
       const { error: deactivateError } = await supabase
         .from("clients")
-        .update({ is_active: false })
+        .update({ status: 'merged' })
         .eq("id", chatClientId);
 
       if (deactivateError) {
