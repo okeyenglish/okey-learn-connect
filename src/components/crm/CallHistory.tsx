@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, Search, X, CheckCheck, ArrowUp, ArrowDown, Loader2, WifiOff, RefreshCw, Wand2 } from "lucide-react";
+import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, Search, X, CheckCheck, ArrowUp, ArrowDown, Loader2, WifiOff, RefreshCw, Wand2, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -55,6 +55,7 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
   const [isMarkingAll, setIsMarkingAll] = useState(false);
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [analyzingCallIds, setAnalyzingCallIds] = useState<Set<string>>(new Set());
+  const [fetchingRecordingIds, setFetchingRecordingIds] = useState<Set<string>>(new Set());
   
   const queryClient = useQueryClient();
   
@@ -258,10 +259,37 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
     }
   }, [analyzingCallIds, clientId, queryClient]);
 
+  // Fetch recording handler - auto-fetch if missing
+  const handleFetchRecording = useCallback(async (callId: string) => {
+    if (fetchingRecordingIds.has(callId)) return;
+    
+    setFetchingRecordingIds(prev => new Set(prev).add(callId));
+    
+    try {
+      const response = await selfHostedPost('fetch-call-recording', { callId });
+      
+      if (response.success && (response.data as any)?.recording_url) {
+        // Invalidate queries to refresh data with new recording URL
+        queryClient.invalidateQueries({ queryKey: ['call-logs', clientId] });
+        queryClient.invalidateQueries({ queryKey: ['infinite-call-logs', clientId] });
+      }
+    } catch (error) {
+      console.error('Failed to fetch recording:', error);
+    } finally {
+      setFetchingRecordingIds(prev => {
+        const next = new Set(prev);
+        next.delete(callId);
+        return next;
+      });
+    }
+  }, [fetchingRecordingIds, clientId, queryClient]);
+
   const renderCallItem = (call: CallLog, showUnviewedIndicator: boolean = false) => {
     const hasAiEvaluation = call.ai_evaluation && typeof call.ai_evaluation === 'object' && (call.ai_evaluation as any).overall_score !== undefined;
     const canAnalyze = call.status === 'answered' && call.recording_url && !hasAiEvaluation;
     const isAnalyzing = analyzingCallIds.has(call.id);
+    const isFetchingRecording = fetchingRecordingIds.has(call.id);
+    const needsRecordingFetch = call.status === 'answered' && !call.recording_url && call.duration_seconds && call.duration_seconds > 0;
     
     return (
       <div key={call.id} className="relative">
@@ -327,14 +355,39 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
                 </div>
               )}
 
-              {/* Audio Recording Player */}
-              {call.recording_url && call.status === 'answered' && (
+              {/* Audio Recording Player OR Fetch button */}
+              {call.recording_url && call.status === 'answered' ? (
                 <div className="mt-2">
                   <CallRecordingPlayer 
                     recordingUrl={call.recording_url}
                     duration={call.duration_seconds}
                     compact
                   />
+                </div>
+              ) : needsRecordingFetch && (
+                <div className="mt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleFetchRecording(call.id);
+                    }}
+                    disabled={isFetchingRecording}
+                    className="h-6 text-xs gap-1"
+                  >
+                    {isFetchingRecording ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Загрузка...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-3 w-3" />
+                        Получить запись
+                      </>
+                    )}
+                  </Button>
                 </div>
               )}
 
