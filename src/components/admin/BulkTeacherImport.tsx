@@ -253,6 +253,7 @@ export const BulkTeacherImport: React.FC = () => {
               branch: teacher.branch || null,
               subjects: teacher.subjects || [],
               categories: teacher.categories || [],
+              organization_id: organizationId,
               is_active: true,
             })
             .select('id')
@@ -284,6 +285,7 @@ export const BulkTeacherImport: React.FC = () => {
               branch: teacher.branch || null,
               subjects: teacher.subjects || [],
               categories: teacher.categories || [],
+              organization_id: organizationId,
               is_active: true,
               profile_id: null,
             })
