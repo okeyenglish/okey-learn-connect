@@ -32,6 +32,7 @@ interface VirtualizedChatListProps {
   searchQuery?: string;
   typingByClient?: Record<string, TypingInfo>;
   presenceByClient?: Record<string, PresenceInfo>;
+  newMessageClientIds?: Set<string>; // IDs клиентов с новыми сообщениями для подсветки
   onChatClick: (chatId: string, type: string, foundInMessages?: boolean, messengerType?: 'whatsapp' | 'telegram' | 'max' | null) => void;
   onChatAction: (chatId: string, action: string) => void;
   onBulkSelect: (chatId: string) => void;
@@ -67,6 +68,7 @@ export const VirtualizedChatList = React.memo(({
   searchQuery = '',
   typingByClient = {},
   presenceByClient = {},
+  newMessageClientIds = new Set<string>(),
   onChatClick,
   onChatAction,
   onBulkSelect,
@@ -240,6 +242,7 @@ export const VirtualizedChatList = React.memo(({
                   searchQuery={searchQuery}
                   typingInfo={typingByClient[chat.id] || null}
                   presenceInfo={presenceByClient[chat.id] || null}
+                  isNewMessage={newMessageClientIds.has(chat.id)}
                   onChatClick={() => {
                     const foundInMessages = chat.foundInMessages || messageSearchClientIds.includes(chat.id);
                     const messengerType = foundInMessages && getMessengerType ? getMessengerType(chat.id) : null;
