@@ -356,46 +356,56 @@ export const OptimizedAttachedFile = memo(({
     };
   }, []);
 
-  // PDF files - WhatsApp style with large thumbnail preview
+  // PDF files - WhatsApp style with thumbnail preview
   if (effectiveType.includes('pdf')) {
     return (
-      <Suspense fallback={<div className="h-56 bg-muted animate-pulse rounded-xl" />}>
+      <Suspense fallback={<div className="h-48 bg-muted animate-pulse rounded-xl" />}>
         <PDFViewer 
           url={realUrl} 
           fileName={name}
           trigger={
             <div 
-              className={`rounded-xl overflow-hidden cursor-pointer group ${className}`} 
+              className={`rounded-xl overflow-hidden cursor-pointer group border border-border/50 ${className}`} 
               style={{ maxWidth: '280px' }}
             >
-              {/* Large PDF Thumbnail Preview - WhatsApp style */}
-              <div className="relative w-full bg-white dark:bg-gray-100 rounded-t-xl overflow-hidden" style={{ minHeight: '180px' }}>
-                <iframe
-                  src={`${realUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH&page=1`}
-                  className="w-full border-0 pointer-events-none bg-white"
-                  title={`Превью: ${name}`}
+              {/* PDF Thumbnail Preview - clean without toolbar */}
+              <div 
+                className="relative w-full bg-white overflow-hidden"
+                style={{ height: '200px' }}
+              >
+                {/* Use object tag to embed PDF without browser toolbar */}
+                <object
+                  data={`${realUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH,0`}
+                  type="application/pdf"
+                  className="w-full h-full pointer-events-none"
                   style={{ 
-                    height: '360px',
-                    marginTop: '-20px'
+                    transform: 'scale(1.1)',
+                    transformOrigin: 'top center',
+                    marginTop: '-10px'
                   }}
-                />
-                {/* Gradient overlay at bottom for smooth transition */}
-                <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent" />
+                >
+                  {/* Fallback for browsers that don't support object */}
+                  <div className="flex items-center justify-center h-full bg-gray-50">
+                    <FileText className="h-16 w-16 text-red-400" />
+                  </div>
+                </object>
+                {/* Gradient overlay at bottom */}
+                <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none" />
                 {/* Hover overlay */}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors pointer-events-none" />
               </div>
               
               {/* PDF Info Footer - WhatsApp style */}
-              <div className="flex items-center gap-3 p-3 bg-muted/50 dark:bg-muted/30 rounded-b-xl">
+              <div className="flex items-center gap-3 p-2.5 bg-muted/40 dark:bg-muted/30">
                 {/* PDF Icon */}
-                <div className="flex-shrink-0 w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center">
-                  <span className="text-white text-[10px] font-bold">PDF</span>
+                <div className="flex-shrink-0 w-9 h-9 bg-red-500 rounded-lg flex items-center justify-center">
+                  <span className="text-white text-[9px] font-bold">PDF</span>
                 </div>
                 
                 {/* File info */}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate text-foreground" title={name}>
-                    {name}
+                    {name.length > 25 ? `${name.slice(0, 22)}...` : name}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {size ? `${formatFileSize(size)} • ` : ''}pdf
