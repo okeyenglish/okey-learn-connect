@@ -1,7 +1,9 @@
-import { Phone, Mail, Copy, Check, Star } from "lucide-react";
+import { Phone, Mail, Copy, Check, Star, Edit2, Save, X } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 // Messenger SVG icons
@@ -45,6 +47,7 @@ export interface PhoneNumberData {
   telegramChatId?: string | null;
   telegramUserId?: number | null;
   maxChatId?: string | null;
+  isVirtual?: boolean; // Flag to identify virtual (extracted) contacts
 }
 
 interface ContactInfoBlockProps {
@@ -52,6 +55,7 @@ interface ContactInfoBlockProps {
   email?: string;
   onMessengerClick?: (phoneId: string, messenger: 'whatsapp' | 'telegram' | 'max') => void;
   onCallClick?: (phone: string) => void;
+  onPhoneSave?: (phone: string) => void; // Callback to save new/edited phone
   // Client-level messenger data (fallback when phone-level data is missing)
   clientTelegramChatId?: string | null;
   clientTelegramUserId?: number | null;
@@ -64,12 +68,15 @@ export const ContactInfoBlock = ({
   email,
   onMessengerClick,
   onCallClick,
+  onPhoneSave,
   clientTelegramChatId,
   clientTelegramUserId,
   clientWhatsappChatId,
   clientMaxChatId,
 }: ContactInfoBlockProps) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedPhone, setEditedPhone] = useState("");
   
   // Extract phone from WhatsApp chat ID (format: 79161234567@c.us)
   const extractPhoneFromWhatsappId = (whatsappId: string | null | undefined): string | null => {
@@ -104,6 +111,7 @@ export const ContactInfoBlock = ({
         telegramChatId: clientTelegramChatId,
         telegramUserId: clientTelegramUserId,
         maxChatId: clientMaxChatId,
+        isVirtual: true, // Mark as virtual for edit capability
       }] as PhoneNumberData[];
     }
     
@@ -153,6 +161,28 @@ export const ContactInfoBlock = ({
     onMessengerClick?.(phoneId, messenger);
   };
 
+  const handleStartEdit = (phone: string) => {
+    setEditedPhone(phone);
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedPhone("");
+  };
+
+  const handleSavePhone = () => {
+    const cleanPhone = editedPhone.replace(/\D/g, '');
+    if (cleanPhone.length >= 10 && cleanPhone.length <= 15) {
+      onPhoneSave?.(cleanPhone);
+      setIsEditing(false);
+      setEditedPhone("");
+      toast.success("Номер сохранён");
+    } else {
+      toast.error("Введите корректный номер телефона");
+    }
+  };
+
   const formatPhone = (phone: string) => {
     if (!phone) return '';
     // Remove all non-digits
@@ -190,7 +220,39 @@ export const ContactInfoBlock = ({
           
           return (
             <div key={phoneNumber.id} className="flex items-center gap-2 group">
-              {hasPhone ? (
+              {/* Edit mode for virtual contacts */}
+              {isEditing && phoneNumber.isVirtual ? (
+                <div className="flex items-center gap-2 flex-1">
+                  <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                  <Input
+                    value={editedPhone}
+                    onChange={(e) => setEditedPhone(e.target.value)}
+                    className="h-7 text-sm flex-1"
+                    placeholder="+7 (___) ___-__-__"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSavePhone();
+                      if (e.key === 'Escape') handleCancelEdit();
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                    onClick={handleSavePhone}
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={handleCancelEdit}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : hasPhone ? (
                 <>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -229,14 +291,49 @@ export const ContactInfoBlock = ({
                     />
                   )}
                   
+                  {/* Show edit button for virtual contacts */}
+                  {phoneNumber.isVirtual && onPhoneSave && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          className="p-0.5 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-muted"
+                          onClick={() => handleStartEdit(phoneNumber.phone)}
+                        >
+                          <Edit2 className="h-3 w-3 text-muted-foreground" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs">
+                        Редактировать номер
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  
                   {phoneNumber.isPrimary && effectivePhoneNumbers.length > 1 && (
                     <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" />
                   )}
                 </>
               ) : (
-                <span className="text-sm text-muted-foreground italic">
-                  Номер не указан
-                </span>
+                <>
+                  <span className="text-sm text-muted-foreground italic">
+                    Номер не указан
+                  </span>
+                  {/* Allow adding phone for virtual contacts without a number */}
+                  {phoneNumber.isVirtual && onPhoneSave && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          className="p-0.5 rounded transition-colors hover:bg-muted"
+                          onClick={() => handleStartEdit("")}
+                        >
+                          <Edit2 className="h-3 w-3 text-primary" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs">
+                        Добавить номер
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </>
               )}
               
               <div className="flex items-center gap-1 ml-auto">
