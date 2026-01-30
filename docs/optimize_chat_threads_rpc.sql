@@ -8,7 +8,7 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_client_id_created_desc
 ON public.chat_messages (client_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_chat_messages_client_unread_partial 
-ON public.chat_messages (client_id, messenger) 
+ON public.chat_messages (client_id, messenger_type) 
 WHERE is_read = false AND message_type = 'client';
 
 CREATE INDEX IF NOT EXISTS idx_clients_id_active 
@@ -32,7 +32,7 @@ RETURNS TABLE (
   status text,
   last_message_content text,
   last_message_at timestamptz,
-  last_messenger text,
+  last_messenger_type text,
   unread_count bigint,
   unread_whatsapp bigint,
   unread_telegram bigint,
@@ -60,7 +60,7 @@ AS $$
     c.status,
     lm.content as last_message_content,
     lm.created_at as last_message_at,
-    lm.messenger as last_messenger,
+    lm.messenger_type as last_messenger_type,
     COALESCE(unread.total, 0) as unread_count,
     COALESCE(unread.whatsapp, 0) as unread_whatsapp,
     COALESCE(unread.telegram, 0) as unread_telegram,
@@ -71,7 +71,7 @@ AS $$
   JOIN public.clients c ON c.id = cid.id
   -- Get last message using LATERAL (much faster than correlated subquery)
   LEFT JOIN LATERAL (
-    SELECT cm.content, cm.created_at, cm.messenger
+    SELECT cm.content, cm.created_at, cm.messenger_type
     FROM public.chat_messages cm
     WHERE cm.client_id = c.id
     ORDER BY cm.created_at DESC
@@ -81,10 +81,10 @@ AS $$
   LEFT JOIN LATERAL (
     SELECT 
       COUNT(*) as total,
-      COUNT(*) FILTER (WHERE messenger = 'whatsapp') as whatsapp,
-      COUNT(*) FILTER (WHERE messenger = 'telegram') as telegram,
-      COUNT(*) FILTER (WHERE messenger = 'max') as max_count,
-      COUNT(*) FILTER (WHERE messenger = 'salebot') as salebot
+      COUNT(*) FILTER (WHERE messenger_type = 'whatsapp') as whatsapp,
+      COUNT(*) FILTER (WHERE messenger_type = 'telegram') as telegram,
+      COUNT(*) FILTER (WHERE messenger_type = 'max') as max_count,
+      COUNT(*) FILTER (WHERE messenger_type = 'salebot') as salebot
     FROM public.chat_messages
     WHERE client_id = c.id 
       AND is_read = false 
