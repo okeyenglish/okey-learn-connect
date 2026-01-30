@@ -95,17 +95,10 @@ export const useTypingStatus = (clientId: string) => {
       ? (payload.old as TypingStatusWithName | undefined)
       : (payload.new as TypingStatusWithName | undefined);
     
-    if (!record) {
-      console.log('🔴 Typing: No record in payload', payload);
-      return;
-    }
+    if (!record) return;
     
-    console.log('🟢 Typing realtime:', eventType, {
-      user_id: record.user_id,
-      is_typing: record.is_typing,
-      draft_text: record.draft_text,
-      manager_name: record.manager_name
-    });
+    // Skip own typing status
+    if (record.user_id === currentUserIdRef.current) return;
     
     // Skip own typing status
     if (record.user_id === currentUserIdRef.current) return;
@@ -141,13 +134,13 @@ export const useTypingStatus = (clientId: string) => {
     // Reset realtime working flag for this client
     realtimeWorkingRef.current = false;
     
-    // Start fallback polling (every 2 seconds)
+    // Start fallback polling (every 10 seconds - reduced frequency for performance)
+    // Disabled after first realtime event
     pollingIntervalRef.current = setInterval(() => {
       if (!realtimeWorkingRef.current) {
-        console.log('⏱️ Typing fallback poll (realtime not confirmed)');
         fetchTypingUsers();
       }
-    }, 2000);
+    }, 10000);
     
     const channelName = `typing_status_${clientId}_optimized`;
     const channel = supabase
@@ -166,7 +159,6 @@ export const useTypingStatus = (clientId: string) => {
           // First realtime event received - disable fallback polling
           if (!realtimeWorkingRef.current) {
             realtimeWorkingRef.current = true;
-            console.log('✅ Typing realtime confirmed working, disabling fallback poll');
             if (pollingIntervalRef.current) {
               clearInterval(pollingIntervalRef.current);
               pollingIntervalRef.current = null;
@@ -179,9 +171,7 @@ export const useTypingStatus = (clientId: string) => {
           handleRealtimePayload(typed);
         }
       )
-      .subscribe((status) => {
-        console.log('🛰️ Typing channel status:', channelName, status);
-      });
+      .subscribe();
     
     // Track subscription
     performanceAnalytics.trackRealtimeSubscription(channelName, 'typing_status');

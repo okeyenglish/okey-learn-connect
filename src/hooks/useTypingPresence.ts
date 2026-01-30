@@ -193,12 +193,13 @@ export const useTypingPresence = () => {
     // Initial fetch
     fetchCurrentPresence();
 
-    // Start fallback polling (stops after first realtime event)
+    // Start fallback polling (every 15 seconds - reduced frequency for performance)
+    // Disabled after first realtime event
     pollingIntervalRef.current = setInterval(() => {
       if (!realtimeWorkingRef.current) {
         fetchCurrentPresence();
       }
-    }, 2000);
+    }, 15000);
     
     // Single subscription with event: '*' - handles INSERT, UPDATE, DELETE
     const channelName = 'typing-status-list-optimized';
