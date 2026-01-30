@@ -434,15 +434,31 @@ export function SyncDashboard() {
       
       const { data: progress } = await supabase
         .from('salebot_import_progress')
-        .select('id, resync_offset, total_clients_processed')
+        .select('id, resync_offset, resync_total_clients, resync_mode, total_clients_processed')
         .order('updated_at', { ascending: false })
         .limit(1)
         .single();
       
       if (progress?.id) {
         // Clear the requires_manual_restart flag and prepare to resume
-        // Use resync_offset if available, otherwise use total_clients_processed as starting point
-        const resumeOffset = progress.resync_offset || progress.total_clients_processed || 0;
+        // IMPORTANT: If resync_mode was active, always use resync_offset (even if 0 means we should continue)
+        // resync_offset tracks progress within resync, total_clients_processed is for initial import
+        const wasResyncMode = progress.resync_mode || (progress.resync_offset !== null && progress.resync_offset > 0);
+        const resumeOffset = wasResyncMode 
+          ? (progress.resync_offset ?? 0)  // Continue from resync position
+          : (progress.total_clients_processed || 0);  // Fallback to total processed
+        const totalClients = wasResyncMode 
+          ? (progress.resync_total_clients || progress.total_clients_processed || 0)
+          : (progress.total_clients_processed || 0);
+        
+        console.log('Resuming import:', { 
+          wasResyncMode, 
+          resumeOffset, 
+          totalClients,
+          resync_offset: progress.resync_offset,
+          resync_total_clients: progress.resync_total_clients,
+          total_clients_processed: progress.total_clients_processed
+        });
         
         await supabase
           .from('salebot_import_progress')
@@ -452,7 +468,7 @@ export function SyncDashboard() {
             is_paused: false,
             resync_mode: true,
             resync_offset: resumeOffset,
-            resync_total_clients: progress.total_clients_processed || 0
+            resync_total_clients: totalClients
           })
           .eq('id', progress.id);
         
@@ -466,7 +482,7 @@ export function SyncDashboard() {
         
         toast({
           title: '🚀 Импорт продолжен',
-          description: `Импорт возобновлён с позиции ${resumeOffset}. Цепочка запущена автоматически.`,
+          description: `Импорт возобновлён с позиции ${resumeOffset} из ${totalClients}. Цепочка запущена автоматически.`,
         });
       }
       
