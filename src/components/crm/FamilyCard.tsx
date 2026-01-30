@@ -443,6 +443,37 @@ export const FamilyCard = ({
     return activePhone ? activePhone.phone : activeMember?.phone || '';
   };
 
+  // FamilyCard historically renders phones from `phoneNumbers` (client_phone_numbers).
+  // In some cases the RPC may return member.phone but an empty phone_numbers array.
+  // To avoid showing a blank contact block, we always fall back to member.phone.
+  const contactPhoneNumbers = (() => {
+    const mapped = (activeMember?.phoneNumbers || []).map(p => ({
+      id: p.id,
+      phone: p.phone,
+      isPrimary: p.isPrimary,
+      isWhatsappEnabled: p.isWhatsappEnabled,
+      isTelegramEnabled: p.isTelegramEnabled,
+      whatsappChatId: p.whatsappChatId,
+      telegramChatId: p.telegramChatId,
+      telegramUserId: p.telegramUserId,
+      maxChatId: p.maxChatId,
+    }));
+
+    const hasAnyPhone = mapped.some(p => (p.phone || '').trim() !== '');
+    if (hasAnyPhone) return mapped;
+
+    const fallbackPhone = (activeMember?.phone || '').trim();
+    if (!fallbackPhone) return mapped;
+
+    return [
+      {
+        id: 'client-phone-fallback',
+        phone: fallbackPhone,
+        isPrimary: true,
+      },
+    ];
+  })();
+
   return (
     <div className="space-y-4">
       {/* Active Contact Header */}
@@ -492,9 +523,9 @@ export const FamilyCard = ({
                     if (activeMessengerTab === 'telegram') {
                       if (activeMember.telegramUserId) return `TG ID: ${activeMember.telegramUserId}`;
                       if (activeMember.telegramChatId) return `TG: ${activeMember.telegramChatId}`;
-                      // Fallback: show primary phone for telegram
-                      const primaryPhone = activeMember.phoneNumbers?.find(p => p.isPrimary);
-                      if (primaryPhone?.phone) return `TG тел: ${primaryPhone.phone}`;
+                      // Fallback: show phone
+                      const phone = getDisplayPhone();
+                      if (phone) return `TG тел: ${phone}`;
                       return null;
                     }
                     if (activeMessengerTab === 'whatsapp') {
@@ -509,16 +540,16 @@ export const FamilyCard = ({
                       if (phoneWithWhatsapp?.whatsappChatId) {
                         return `WA: ${formatWhatsappIdForDisplay(phoneWithWhatsapp.whatsappChatId)}`;
                       }
-                      // Fallback: show primary phone for whatsapp
-                      const primaryPhone = activeMember.phoneNumbers?.find(p => p.isPrimary);
-                      if (primaryPhone?.phone) return `WA тел: ${primaryPhone.phone}`;
+                      // Fallback: show phone
+                      const phone = getDisplayPhone();
+                      if (phone) return `WA тел: ${phone}`;
                       return null;
                     }
                     if (activeMessengerTab === 'max') {
                       if (activeMember.maxChatId) return `MAX: ${activeMember.maxChatId.replace('@c.us', '')}`;
-                      // Fallback: show primary phone for max
-                      const primaryPhone = activeMember.phoneNumbers?.find(p => p.isPrimary);
-                      if (primaryPhone?.phone) return `MAX тел: ${primaryPhone.phone}`;
+                      // Fallback: show phone
+                      const phone = getDisplayPhone();
+                      if (phone) return `MAX тел: ${phone}`;
                       return null;
                     }
                     return null;
@@ -560,17 +591,7 @@ export const FamilyCard = ({
         <CardContent className="pt-0">
           <div className="space-y-3 text-sm">
             <ContactInfoBlock
-              phoneNumbers={activeMember.phoneNumbers.map(p => ({
-                id: p.id,
-                phone: p.phone,
-                isPrimary: p.isPrimary,
-                isWhatsappEnabled: p.isWhatsappEnabled,
-                isTelegramEnabled: p.isTelegramEnabled,
-                whatsappChatId: p.whatsappChatId,
-                telegramChatId: p.telegramChatId,
-                telegramUserId: p.telegramUserId,
-                maxChatId: p.maxChatId,
-              }))}
+              phoneNumbers={contactPhoneNumbers}
               email={activeMember.email}
               clientTelegramChatId={activeMember.telegramChatId}
               clientTelegramUserId={activeMember.telegramUserId}
