@@ -28,19 +28,26 @@ WHERE t.id = ti.teacher_id
   AND t.organization_id IS NULL
   AND ti.organization_id IS NOT NULL;
 
--- 2.3. Для оставшихся записей — назначаем дефолтную организацию
--- ВАЖНО: Замените 'YOUR-DEFAULT-ORG-UUID' на реальный ID вашей основной организации
--- Найти ID организации можно запросом: SELECT id, name FROM organizations;
--- UPDATE teachers
--- SET organization_id = 'YOUR-DEFAULT-ORG-UUID'
--- WHERE organization_id IS NULL;
+-- 2.3. Для оставшихся записей — назначаем первую найденную организацию
+-- (это безопасно для single-tenant или когда есть одна основная организация)
+UPDATE teachers
+SET organization_id = (SELECT id FROM organizations ORDER BY created_at LIMIT 1)
+WHERE organization_id IS NULL;
+
+-- 2.4. Проверяем, что все записи заполнены
+DO $$
+DECLARE
+  null_count INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO null_count FROM teachers WHERE organization_id IS NULL;
+  IF null_count > 0 THEN
+    RAISE EXCEPTION 'Остались % преподавателей без organization_id. Заполните вручную.', null_count;
+  END IF;
+END $$;
 
 -- ============================================================
 -- ШАГ 3: Делаем колонку NOT NULL (после заполнения всех записей)
 -- ============================================================
-
--- ВАЖНО: Выполняйте этот шаг ТОЛЬКО после того, как все записи заполнены!
--- Проверьте: SELECT COUNT(*) FROM teachers WHERE organization_id IS NULL;
 
 ALTER TABLE public.teachers
 ALTER COLUMN organization_id SET NOT NULL;
