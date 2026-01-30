@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from '@/lib/errorUtils';
 import { wppStatus, wppStart, wppDisconnect } from '@/lib/wppApi';
+import { useAuth } from "@/hooks/useAuth";
 import { Progress } from "@/components/ui/progress";
 import {
   Table,
@@ -68,6 +69,7 @@ const WhatsAppSessions = () => {
   const qrDialogOpenRef = useRef(false);
   const previousSessionsRef = useRef<WhatsAppSession[]>([]);
   const { toast } = useToast();
+  const { user, profile } = useAuth();
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -78,20 +80,9 @@ const WhatsAppSessions = () => {
     try {
       setLoading(true);
       
-      // Get current user's organization_id
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('Пользователь не авторизован');
-      }
-
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) throw profileError;
-      if (!profile?.organization_id) {
+      // Get current user's organization_id from auth context
+      const authProfile = profile as any;
+      if (!authProfile?.organization_id) {
         throw new Error('Организация не найдена');
       }
 
@@ -109,7 +100,7 @@ const WhatsAppSessions = () => {
           last_qr_at,
           organizations(name)
         `)
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', authProfile.organization_id)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
@@ -279,19 +270,9 @@ const WhatsAppSessions = () => {
     try {
       setLoading(true);
       
-      // Get current user's organization_id
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('Пользователь не авторизован');
-      }
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('id', user.id)
-        .single();
-
-      if (!profile?.organization_id) {
+      // Get current user's organization_id from auth context
+      const authProfile = profile as any;
+      if (!authProfile?.organization_id) {
         throw new Error('Организация не найдена');
       }
 
@@ -320,7 +301,7 @@ const WhatsAppSessions = () => {
           id: crypto.randomUUID(),
           session_name: data.session_name,
           status: 'qr_issued',
-          organization_id: profile.organization_id,
+          organization_id: authProfile.organization_id,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           last_qr_b64: data.qrcode,
@@ -378,7 +359,7 @@ const WhatsAppSessions = () => {
             id: crypto.randomUUID(),
             session_name: data.session_name,
             status: 'qr_issued',
-            organization_id: profile.organization_id,
+            organization_id: authProfile.organization_id,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             last_qr_b64: statusData.qrcode,
@@ -666,26 +647,18 @@ const WhatsAppSessions = () => {
           stopPolling();
           
           // CRITICAL: Force DB update to ensure status is persisted
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('organization_id')
-              .eq('id', user.id)
-              .single();
-            
-            if (profile?.organization_id) {
-              await supabase
-                .from('whatsapp_sessions')
-                .upsert({
-                  session_name: sessionName,
-                  organization_id: profile.organization_id,
-                  status: 'connected',
-                  last_qr_b64: null,
-                  last_qr_at: null,
-                  updated_at: new Date().toISOString(),
-                }, { onConflict: 'session_name' });
-            }
+          const authProfile = profile as any;
+          if (authProfile?.organization_id) {
+            await supabase
+              .from('whatsapp_sessions')
+              .upsert({
+                session_name: sessionName,
+                organization_id: authProfile.organization_id,
+                status: 'connected',
+                last_qr_b64: null,
+                last_qr_at: null,
+                updated_at: new Date().toISOString(),
+              }, { onConflict: 'session_name' });
           }
           
           // Close dialog immediately
