@@ -50,17 +50,19 @@ import { LinkChatToClientModal } from "@/components/crm/LinkChatToClientModal";
 import { ConvertToTeacherModal } from "@/components/crm/ConvertToTeacherModal";
 import { PinnedModalTabs } from "@/components/crm/PinnedModalTabs";
 import { WhatsAppStatusNotification } from "@/components/crm/WhatsAppStatusNotification";
-// Lazy load тяжелых модальных окон для уменьшения initial bundle
-const AddTaskModal = lazy(() => import("@/components/crm/AddTaskModal").then(m => ({ default: m.AddTaskModal })));
-const EditTaskModal = lazy(() => import("@/components/crm/EditTaskModal").then(m => ({ default: m.EditTaskModal })));
-const TaskCalendar = lazy(() => import("@/components/crm/TaskCalendar").then(m => ({ default: m.TaskCalendar })));
-const CreateInvoiceModal = lazy(() => import("@/components/crm/CreateInvoiceModal").then(m => ({ default: m.CreateInvoiceModal })));
+// Static imports для компонентов, используемых в нескольких местах
+import { AddTaskModal } from "@/components/crm/AddTaskModal";
+import { EditTaskModal } from "@/components/crm/EditTaskModal";
+import { TaskCalendar } from "@/components/crm/TaskCalendar";
+import { CreateInvoiceModal } from "@/components/crm/CreateInvoiceModal";
+import { AddEmployeeModal } from "@/components/employees/AddEmployeeModal";
+
+// Lazy load только уникальных тяжелых модальных окон
 const ScriptsModal = lazy(() => import("@/components/crm/ScriptsModal").then(m => ({ default: m.ScriptsModal })));
 const DashboardModal = lazy(() => import("@/components/dashboards/DashboardModal").then(m => ({ default: m.DashboardModal })));
 const ScheduleModal = lazy(() => import("@/components/schedule/ScheduleModal").then(m => ({ default: m.ScheduleModal })));
 const GroupsModal = lazy(() => import("@/components/learning-groups/GroupsModal").then(m => ({ default: m.GroupsModal })));
 const IndividualLessonsModal = lazy(() => import("@/components/individual-lessons/IndividualLessonsModal").then(m => ({ default: m.IndividualLessonsModal })));
-const AddEmployeeModal = lazy(() => import("@/components/employees/AddEmployeeModal").then(m => ({ default: m.AddEmployeeModal })));
 const WhatsAppSessionsModal = lazy(() => import("@/components/crm/WhatsAppSessionsModal").then(m => ({ default: m.WhatsAppSessionsModal })));
 
 import { PinnableModalHeader, PinnableDialogContent } from "@/components/crm/PinnableModal";
