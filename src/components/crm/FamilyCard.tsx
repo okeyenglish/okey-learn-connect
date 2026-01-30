@@ -495,6 +495,23 @@ export const FamilyCard = ({
                 onOpenChat?.(activeMember.id, messenger);
               }}
               onCallClick={handlePhoneCall}
+              onPhoneSave={async (phone) => {
+                // Save phone to client record
+                try {
+                  const { error } = await supabase
+                    .from('clients')
+                    .update({ phone })
+                    .eq('id', activeMember.id);
+                  
+                  if (error) throw error;
+                  
+                  // Refetch data to update UI
+                  refetch();
+                } catch (err) {
+                  console.error('Failed to save phone:', err);
+                  toast.error('Не удалось сохранить номер');
+                }
+              }}
             />
             
             <div className="flex items-center gap-2">
