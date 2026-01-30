@@ -254,7 +254,9 @@ const fetchFamilyData = async (familyGroupId: string): Promise<FamilyGroup> => {
   const { data, error } = await supabase
     .rpc('get_family_data_optimized', { p_family_group_id: familyGroupId });
 
-  console.log(`[useFamilyData] RPC completed in ${(performance.now() - startTime).toFixed(0)}ms`);
+  if (import.meta.env.DEV) {
+    console.log(`[useFamilyData] RPC completed in ${(performance.now() - startTime).toFixed(0)}ms`);
+  }
 
   if (error) {
     console.error('[useFamilyData] RPC error:', error);
@@ -279,8 +281,10 @@ export const useFamilyData = (familyGroupId?: string) => {
     queryKey: ['family-data', familyGroupId],
     queryFn: () => fetchFamilyData(familyGroupId!),
     enabled: !!familyGroupId,
-    staleTime: 30000, // 30 seconds - data considered fresh
-    gcTime: 5 * 60 * 1000, // 5 minutes cache
+    // Family card is expensive (RPC can be slow). Cache longer to avoid refetching
+    // on every open/switch.
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes cache
     refetchOnWindowFocus: false,
     retry: 1,
   });

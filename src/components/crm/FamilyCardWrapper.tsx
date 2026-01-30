@@ -158,8 +158,9 @@ export const FamilyCardWrapper = ({ clientId, onOpenChat, activeMessengerTab }: 
     queryKey: ['family-group-id', clientId],
     queryFn: () => fetchFamilyGroupId(clientId),
     enabled: !!clientId,
-    staleTime: 60000, // 1 minute - data considered fresh
-    gcTime: 5 * 60 * 1000, // 5 minutes cache
+    // Family group id rarely changes; cache aggressively to avoid extra calls.
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 60 * 60 * 1000, // 60 minutes cache
     refetchOnWindowFocus: false,
     retry: 1,
   });
