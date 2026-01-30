@@ -3564,6 +3564,7 @@ const CRMContent = () => {
                           onBulkSelect={handleBulkSelectToggle}
                           onDeleteChat={handleDeleteChat}
                           onLinkChat={handleLinkChat}
+                          onConvertToTeacher={handleConvertToTeacher}
                           isLoading={threadsLoading}
                           hasNextPage={hasNextPage}
                           isFetchingNextPage={isFetchingNextPage}
@@ -4000,6 +4001,7 @@ const CRMContent = () => {
                           onBulkSelect={handleBulkSelectToggle}
                           onDeleteChat={handleDeleteChat}
                           onLinkChat={handleLinkChat}
+                          onConvertToTeacher={handleConvertToTeacher}
                           isLoading={threadsLoading}
                           onRefresh={refetchThreads}
                           hasNextPage={hasNextPage}
