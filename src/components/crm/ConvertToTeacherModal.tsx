@@ -31,6 +31,15 @@ export function ConvertToTeacherModal({
   const queryClient = useQueryClient();
   const { organizationId } = useOrganization();
   const [isLoading, setIsLoading] = useState(false);
+
+  const addClientIdToTeacherLinksCache = () => {
+    // Ensure instant UI update even before refetch finishes
+    queryClient.setQueryData(['teacher-linked-client-ids'], (old: unknown) => {
+      const prev = Array.isArray(old) ? (old as string[]) : [];
+      if (prev.includes(clientId)) return prev;
+      return [...prev, clientId];
+    });
+  };
   
   // Parse name into first/last
   const nameParts = clientName.trim().split(/\s+/);
@@ -98,7 +107,10 @@ export function ConvertToTeacherModal({
 
           if (linkError) {
             console.error('Error linking to existing teacher:', linkError);
+            throw new Error(`Не удалось переместить чат в преподаватели: ${linkError.message}`);
           }
+
+          addClientIdToTeacherLinksCache();
 
           // Force refetch immediately to update UI
           await queryClient.refetchQueries({ queryKey: ['teacher-linked-client-ids'] });
@@ -152,8 +164,11 @@ export function ConvertToTeacherModal({
 
       if (linkError) {
         console.error('Error creating teacher-client link:', linkError);
-        // Non-critical, continue
+        // Make it explicit: teacher may exist, but chat won't move without the link
+        throw new Error(`Преподаватель создан, но не удалось переместить чат: ${linkError.message}`);
       }
+
+      addClientIdToTeacherLinksCache();
 
       // 3. Force refetch teacher-linked-client-ids immediately to update UI
       await queryClient.refetchQueries({ queryKey: ['teacher-linked-client-ids'] });
