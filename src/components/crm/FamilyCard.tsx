@@ -22,6 +22,7 @@ import { usePinnedModalsDB } from "@/hooks/usePinnedModalsDB";
 import { useOrganization } from "@/hooks/useOrganization";
 import { InviteToPortalButton } from "./InviteToPortalButton";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 import { 
   Users, 
   Phone, 
@@ -76,6 +77,7 @@ export const FamilyCard = ({
   const [selectedCourseType, setSelectedCourseType] = useState<'group' | 'individual' | null>(null);
   const { familyData, loading, error, refetch } = useFamilyData(familyGroupId);
   const { branches: organizationBranches } = useOrganization();
+  const { user } = useAuth();
 
   // ВАЖНО: не грузим все learning_groups при открытии карточки.
   // Данные группы подтягиваем только когда пользователь нажал на курс.
@@ -325,7 +327,6 @@ export const FamilyCard = ({
   };
 
   const handlePhoneCall = async (phone: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       toast.error('Пользователь не авторизован');
       return;

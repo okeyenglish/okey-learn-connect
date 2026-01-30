@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
-
+import { useAuth } from '@/hooks/useAuth';
 interface DiagnosticResult {
   userId: string | null;
   email: string | null;
@@ -28,17 +28,18 @@ export default function DebugAccess() {
   const [result, setResult] = useState<DiagnosticResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user: authUser } = useAuth();
 
   const runDiagnostics = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      // 1. Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      // 1. Get current user from context
+      const user = authUser;
       
-      if (userError || !user) {
-        setError('Не авторизован: ' + (userError?.message || 'user is null'));
+      if (!user) {
+        setError('Не авторизован: user is null');
         setLoading(false);
         return;
       }

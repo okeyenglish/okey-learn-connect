@@ -15,6 +15,7 @@ import { useTeachers, getTeacherFullName } from "@/hooks/useTeachers";
 import { useClassrooms } from "@/hooks/useReferences";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/errorUtils";
+import { useAuth } from "@/hooks/useAuth";
 
 interface RescheduleIndividualLessonModalProps {
   open: boolean;
@@ -49,6 +50,7 @@ export function RescheduleIndividualLessonModal({
   const [branch, setBranch] = useState("");
   
   const { toast } = useToast();
+  const { user } = useAuth();
   const { teachers = [] } = useTeachers();
   const { data: classrooms = [] } = useClassrooms();
 
@@ -97,7 +99,6 @@ export function RescheduleIndividualLessonModal({
 
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Пользователь не авторизован');
 
       const newTimeStr = `${startHour}:${startMinute} - ${endHour}:${endMinute}`;

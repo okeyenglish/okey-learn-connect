@@ -9,6 +9,7 @@ import { ru } from 'date-fns/locale';
 import { Check, X, Clock, UserX } from 'lucide-react';
 import { useAttendance } from '@/hooks/useAttendance';
 import { supabase } from '@/integrations/supabase/typedClient';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Student {
   id: string;
@@ -35,6 +36,7 @@ export function MarkAttendanceModal({
   const [students, setStudents] = useState<Student[]>([]);
   const [sessionId, setSessionId] = useState<string>('');
   const [attendanceData, setAttendanceData] = useState<Record<string, { status: string; notes: string }>>({});
+  const { user } = useAuth();
 
   const { attendance, markAttendance, isMarking } = useAttendance(sessionId, sessionType);
 
@@ -79,8 +81,7 @@ export function MarkAttendanceModal({
       if (session) {
         setSessionId(session.id);
       } else {
-        // Create session if doesn't exist
-        const { data: { user } } = await supabase.auth.getUser();
+        // Create session if doesn't exist - use user from context
         const { data: newSession } = await supabase
           .from('individual_lesson_sessions')
           .insert({

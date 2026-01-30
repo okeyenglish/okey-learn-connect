@@ -20,6 +20,7 @@ import { useState, useEffect } from "react";
 import { RescheduleIndividualLessonModal } from "./RescheduleIndividualLessonModal";
 import { ChangeLessonDurationModal } from "./ChangeLessonDurationModal";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 
 // Type definitions for session updates
 type LessonSessionStatus = 'scheduled' | 'free' | 'cancelled' | 'rescheduled' | 'completed';
@@ -114,6 +115,7 @@ export function IndividualLessonStatusModal({
   onStatusUpdated,
 }: IndividualLessonStatusModalProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
   const [durationModalOpen, setDurationModalOpen] = useState(false);
   const [lessonData, setLessonData] = useState<{teacher?: string, classroom?: string}>({});
@@ -121,7 +123,7 @@ export function IndividualLessonStatusModal({
   const [futureDates, setFutureDates] = useState<Date[]>([]);
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
   const [showDateSelection, setShowDateSelection] = useState(false);
-const [selectedAction, setSelectedAction] = useState<string | null>(null);
+  const [selectedAction, setSelectedAction] = useState<string | null>(null);
   
   const queryClient = useQueryClient();
   
@@ -261,9 +263,8 @@ const [selectedAction, setSelectedAction] = useState<string | null>(null);
     if (statusValue === 'change_duration') {
       // Ensure we have session data
       if (!sessionData.id) {
-        // Create session if it doesn't exist
+      // Create session if it doesn't exist
         const lessonDate = format(selectedDate!, 'yyyy-MM-dd');
-        const { data: { user } } = await supabase.auth.getUser();
         
         const { data: newSession, error } = await supabase
           .from('individual_lesson_sessions')
@@ -338,10 +339,8 @@ const [selectedAction, setSelectedAction] = useState<string | null>(null);
     try {
       const lessonDate = format(selectedDate, 'yyyy-MM-dd');
       
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError || !user) {
+      // Use user from context
+      if (!user) {
         throw new Error('Пользователь не авторизован');
       }
 
@@ -631,7 +630,6 @@ toast({
     if (!selectedAction || selectedDates.size === 0 || !lessonId) return;
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Не авторизован');
 
       let successCount = 0;

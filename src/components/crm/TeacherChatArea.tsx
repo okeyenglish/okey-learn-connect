@@ -17,6 +17,7 @@ import { ChatArea } from './ChatArea';
 import { TeacherSchedulePanel } from './TeacherSchedulePanel';
 import { TeacherChatList } from './TeacherChatList';
 import { TeacherChatSkeleton } from './TeacherChatSkeleton';
+import { useAuth } from '@/hooks/useAuth';
 
 interface TeacherChatAreaProps {
   selectedTeacherId?: string | null;
@@ -51,22 +52,15 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const pinCounts = useMemo(() => getPinCounts(), [getPinCounts]);
   
   const isMobile = useIsMobile();
+  const { profile } = useAuth();
 
-  // Load current user's branch once
+  // Set user branch from auth context
   useEffect(() => {
-    const loadBranch = async () => {
-      const { data: u } = await supabase.auth.getUser();
-      const uid = u.user?.id;
-      if (!uid) return;
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('branch')
-        .eq('id', uid)
-        .maybeSingle();
-      setUserBranch(profile?.branch || null);
-    };
-    loadBranch();
-  }, []);
+    const authProfile = profile as any;
+    if (authProfile?.branch) {
+      setUserBranch(authProfile.branch);
+    }
+  }, [profile]);
 
   // Load teachers from teachers table using new hook
   const { teachers: dbTeachers, isLoading: isLoadingTeachers, totalTeachers, refetch: refetchTeachers } = useTeacherChats(null);
