@@ -170,6 +170,34 @@ REFRESH CONCURRENTLY;
 | 4 | Мемоизация компонентов | ✅ Выполнено | Среднее |
 | 5 | SQL индексы | ✅ Скрипты готовы | Высокое |
 | 6 | PWA кеширование | ✅ Выполнено | Среднее |
+| 7 | Preconnect/DNS-prefetch | ✅ Уже было | Низкое |
+| 8 | Lazy loading аватаров | ✅ Выполнено | Среднее |
+| 9 | Prefetch при hover | ✅ Выполнено | Среднее |
+| 10 | Bundle analyzer | ✅ Выполнено | Диагностика |
+
+---
+
+## Новые компоненты производительности
+
+### `useLazyImage` hook (`src/hooks/useLazyImage.ts`)
+- IntersectionObserver для отложенной загрузки изображений
+- Настраиваемые `rootMargin` и `threshold`
+- Автоматический preload при входе в viewport
+
+### `LazyAvatar` компонент (`src/components/ui/LazyAvatar.tsx`)
+- Обёртка над Avatar с lazy loading
+- Размеры: sm, md, lg, xl
+- Плавная анимация появления
+
+### `usePrefetchOnHover` hook (`src/hooks/usePrefetchOnHover.ts`)
+- Предзагрузка данных при наведении на элемент
+- Настраиваемая задержка (default: 150ms)
+- Интеграция с React Query `prefetchQuery`
+
+### Bundle Analyzer
+- Добавлен `rollup-plugin-visualizer`
+- При `npm run build` генерируется `stats.html`
+- Treemap визуализация размеров модулей
 
 ---
 
