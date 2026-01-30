@@ -66,7 +66,7 @@ AS $$
     COALESCE(unread.telegram, 0) as unread_telegram,
     COALESCE(unread.max_count, 0) as unread_max,
     COALESCE(unread.salebot, 0) as unread_salebot,
-    av.avatar_url
+    c.avatar_url
   FROM unnest(p_client_ids) AS cid(id)
   JOIN public.clients c ON c.id = cid.id
   -- Get last message using LATERAL (much faster than correlated subquery)
@@ -90,13 +90,6 @@ AS $$
       AND is_read = false 
       AND message_type = 'client'
   ) unread ON true
-  -- Get avatar from client_avatars if exists
-  LEFT JOIN LATERAL (
-    SELECT ca.avatar_url
-    FROM public.client_avatars ca
-    WHERE ca.client_id = c.id
-    LIMIT 1
-  ) av ON true
 $$;
 
 -- Step 3: Grant permissions
