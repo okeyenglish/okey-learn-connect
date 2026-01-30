@@ -3602,6 +3602,15 @@ Deno.serve(async (req) => {
         // AUTO-CONTINUE mode: use body params directly (set by EdgeRuntime.waitUntil)
         const isAutoContinue = body.auto_continue === true;
         
+        // Declare savedProgress outside conditional block so it's accessible later
+        let savedProgress: {
+          ed_units_office_index?: number;
+          ed_units_status_index?: number;
+          ed_units_time_index?: number;
+          ed_units_total_imported?: number;
+          ed_units_full_history?: boolean;
+        } | null = null;
+        
         if (isAutoContinue) {
           // Use params from body directly - this avoids race conditions
           startOfficeIndex = body.office_index ?? 0;
@@ -3610,12 +3619,14 @@ Deno.serve(async (req) => {
           console.log(`🔄 Auto-continue mode: starting from office=${startOfficeIndex}, status=${startStatusIndex}, time=${startTimeIndex}`);
         } else if (isResume) {
           console.log('Resume mode: loading progress from database...');
-          const { data: savedProgress } = await supabase
+          const { data: progressData } = await supabase
             .from('holihope_import_progress')
-            .select('ed_units_office_index, ed_units_status_index, ed_units_time_index, ed_units_total_imported')
+            .select('ed_units_office_index, ed_units_status_index, ed_units_time_index, ed_units_total_imported, ed_units_full_history')
             .order('updated_at', { ascending: false })
             .limit(1)
             .maybeSingle();
+          
+          savedProgress = progressData;
           
           if (savedProgress) {
             startOfficeIndex = savedProgress.ed_units_office_index || 0;
