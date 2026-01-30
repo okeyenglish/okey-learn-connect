@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link, Outlet, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { getCachedUserId } from "@/lib/authHelpers";
 import { Button } from "@/components/ui/button";
 import { 
   Calendar, 
@@ -37,20 +38,20 @@ export default function StudentPortalLayout() {
 
   const checkAuth = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const userId = await getCachedUserId();
       
-      if (!user) {
+      if (!userId) {
         navigate("/auth");
         return;
       }
 
-      setUser(user);
+      setUser({ id: userId });
 
       // Get student info
       const { data: studentData } = await supabase
         .from("students")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("portal_enabled", true)
         .single();
 
