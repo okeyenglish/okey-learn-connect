@@ -57,9 +57,8 @@ export default function ParentPortalLayout() {
         return;
       }
 
-      // Get user data for display
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+      // Set user with cached id
+      setUser({ id: userId });
 
       // Get client info
       const { data: clientData } = await supabase
