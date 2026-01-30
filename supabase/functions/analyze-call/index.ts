@@ -6,6 +6,7 @@ import {
   errorResponse,
   getErrorMessage,
   getOpenAIApiKey,
+  getOrganizationIdFromUser,
 } from '../_shared/types.ts';
 
 interface AnalyzeCallRequest {
@@ -463,9 +464,18 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { autoRefreshToken: false, persistSession: false }
     });
+
+    // Multi-tenant: derive organization from the authenticated user
+    const authHeader = req.headers.get('Authorization');
+    const organizationId = await getOrganizationIdFromUser(supabase, authHeader);
+    if (!organizationId) {
+      console.warn('[analyze-call] Unauthorized: cannot resolve organizationId from user');
+      return errorResponse('Unauthorized', 401);
+    }
     
-    // Get OpenAI API key from DB (messenger_settings) or env fallback
-    const openaiApiKey = await getOpenAIApiKey(supabase);
+    // Get OpenAI API key from DB (messenger_settings) for this organization
+    // (env is only a fallback for legacy mode)
+    const openaiApiKey = await getOpenAIApiKey(supabase, organizationId);
     
     if (!openaiApiKey) {
       console.error('[analyze-call] OpenAI API key not configured');
@@ -475,13 +485,23 @@ Deno.serve(async (req) => {
     // Get call log with recording URL and hangup_cause
     const { data: callLog, error: fetchError } = await supabase
       .from('call_logs')
-      .select('id, recording_url, transcription, ai_evaluation, duration_seconds, phone_number, direction, status, hangup_cause')
+      .select('id, organization_id, recording_url, transcription, ai_evaluation, duration_seconds, phone_number, direction, status, hangup_cause')
       .eq('id', callId)
       .maybeSingle();
     
     if (fetchError || !callLog) {
       console.error('[analyze-call] Call not found:', fetchError);
       return errorResponse('Call log not found', 404);
+    }
+
+    // Tenant isolation guard
+    if (callLog.organization_id && callLog.organization_id !== organizationId) {
+      console.warn('[analyze-call] Forbidden: call organization mismatch', {
+        callId,
+        callOrg: callLog.organization_id,
+        userOrg: organizationId,
+      });
+      return errorResponse('Forbidden', 403);
     }
     
     // Check if already analyzed
