@@ -149,6 +149,93 @@ export const FamilyCard = ({
       setSelectedBranch(branch);
     }
   }, [familyData, activeMemberId, organizationBranches]);
+
+  // Auto-save extracted phone number from WhatsApp/Telegram ID to client_phone_numbers
+  useEffect(() => {
+    const autoSaveExtractedPhone = async () => {
+      if (!familyData) return;
+      
+      const member = familyData.members.find(m => m.id === activeMemberId) || 
+                     familyData.members.find(m => m.isPrimaryContact) || 
+                     familyData.members[0];
+      
+      if (!member) return;
+      
+      // Check if we already have real phone numbers for this client
+      const hasRealPhones = member.phoneNumbers?.some(p => p.phone && p.phone.trim() !== '');
+      if (hasRealPhones) return;
+      
+      // Try to extract phone from WhatsApp chat ID
+      const extractPhoneFromWhatsappId = (whatsappId: string | null | undefined): string | null => {
+        if (!whatsappId) return null;
+        const digits = whatsappId.replace(/@c\.us$/i, '').replace(/\D/g, '');
+        if (digits.length >= 10 && digits.length <= 15) {
+          return digits;
+        }
+        return null;
+      };
+      
+      const extractedPhone = extractPhoneFromWhatsappId(member.whatsappChatId);
+      
+      if (!extractedPhone) return;
+      
+      // Check if client_phone_numbers record already exists
+      const { data: existingPhones } = await supabase
+        .from('client_phone_numbers')
+        .select('id, phone')
+        .eq('client_id', member.id)
+        .limit(1);
+      
+      if (existingPhones && existingPhones.length > 0) {
+        // Update existing record if phone is empty
+        const existing = existingPhones[0] as { id: string; phone?: string | null };
+        if (!existing.phone || existing.phone.trim() === '') {
+          await supabase
+            .from('client_phone_numbers')
+            .update({
+              phone: extractedPhone,
+              whatsapp_chat_id: member.whatsappChatId,
+              is_whatsapp_enabled: true,
+            })
+            .eq('id', existing.id);
+          
+          console.log('[FamilyCard] Auto-updated phone from WhatsApp ID:', extractedPhone);
+          refetch();
+        }
+        return;
+      }
+      
+      // Create new record
+      const { error } = await supabase
+        .from('client_phone_numbers')
+        .insert({
+          client_id: member.id,
+          phone: extractedPhone,
+          phone_type: 'mobile',
+          is_primary: true,
+          whatsapp_chat_id: member.whatsappChatId,
+          is_whatsapp_enabled: true,
+          telegram_chat_id: member.telegramChatId,
+          telegram_user_id: member.telegramUserId ? Number(member.telegramUserId) : null,
+          is_telegram_enabled: !!(member.telegramChatId || member.telegramUserId),
+        });
+      
+      if (error) {
+        console.error('[FamilyCard] Error auto-saving phone:', error);
+      } else {
+        console.log('[FamilyCard] Auto-saved extracted phone:', extractedPhone);
+        // Also update clients.phone for consistency
+        await supabase
+          .from('clients')
+          .update({ phone: extractedPhone })
+          .eq('id', member.id);
+        
+        refetch();
+      }
+    };
+    
+    autoSaveExtractedPhone();
+  }, [familyData, activeMemberId, refetch]);
   
   // selectedGroup берём из lazy-query выше (а не из allGroups)
   
