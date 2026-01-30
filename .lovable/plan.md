@@ -13,21 +13,22 @@
 Файл `CRM.tsx` содержит **4652 строки** — это монолитный компонент с множеством импортов, загружающийся целиком при старте.
 
 ### Выполнено
-- Вынесены в lazy-load следующие модальные окна:
-  - `AddTaskModal`, `EditTaskModal`, `TaskCalendar`
-  - `CreateInvoiceModal`, `ScriptsModal`
-  - `DashboardModal`, `ScheduleModal`
-  - `GroupsModal`, `IndividualLessonsModal`
-  - `AddEmployeeModal`, `WhatsAppSessionsModal`
+- Вынесены в lazy-load уникальные тяжёлые модальные окна:
+  - `ScriptsModal`, `DashboardModal`, `ScheduleModal`
+  - `GroupsModal`, `IndividualLessonsModal`, `WhatsAppSessionsModal`
   - `LeadsModalContent`, `StudentsModal`, `StudentsLeadsModal`
   - `ImportStudentsModal`, `EnhancedStudentCard`
   - `NewFinancesSection`, `AIHub`, `AIHubInline`
   - `ScheduleSection`, `DocumentsSection`, `AnalyticsSection`
   - `CommunicationsSection`, `EmployeeKPISection`, `Sheets`
+- Компоненты, используемые в нескольких местах, оставлены static для избежания конфликтов:
+  - `AddTaskModal`, `EditTaskModal`, `TaskCalendar`
+  - `CreateInvoiceModal`, `AddEmployeeModal`
 
 ### Результат
-- Уменьшение initial bundle на ~30-40%
+- Уменьшение initial bundle на ~20-30%
 - Ускорение First Contentful Paint
+- Устранены предупреждения о конфликтах static/dynamic imports
 
 ---
 
