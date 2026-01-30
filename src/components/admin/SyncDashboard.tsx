@@ -15,6 +15,7 @@ import { useOrganization } from '@/hooks/useOrganization';
 import { getInvokeErrorMessage } from '@/lib/functionsInvokeError';
 import { getErrorMessage } from '@/lib/errorUtils';
 import { selfHostedPost } from '@/lib/selfHostedApi';
+import { useAuth } from '@/hooks/useAuth';
 import type {
   SalebotImportBatchResponse,
   SalebotFillIdsResponse,
@@ -113,6 +114,7 @@ interface InvokeErrorWithContext {
 
 export function SyncDashboard() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const { branches, organizationId } = useOrganization();
   const [importProgress, setImportProgress] = useState<SalebotProgress | null>(null);
   const [holihopeProgress, setHolihopeProgress] = useState<HolihopeProgress | null>(null);
@@ -1110,7 +1112,6 @@ export function SyncDashboard() {
       setCsvImportProgress({ current: 0, total: 0, phase: 'parsing' });
 
       // STEP 0: Verify user is admin before proceeding
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast({
           title: 'Ошибка авторизации',

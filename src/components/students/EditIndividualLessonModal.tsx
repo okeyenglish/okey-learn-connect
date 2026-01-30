@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/typedClient";
 import { useClassrooms } from "@/hooks/useReferences";
 import { useTeachers, getTeacherFullName } from "@/hooks/useTeachers";
 import { LessonHistoryModal } from "./LessonHistoryModal";
+import { useAuth } from "@/hooks/useAuth";
 
 interface EditIndividualLessonModalProps {
   lessonId: string | null;
@@ -52,6 +53,7 @@ export const EditIndividualLessonModal = ({
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   
   const { toast } = useToast();
+  const { user } = useAuth();
   const updateLesson = useUpdateIndividualLesson();
   const { teachers } = useTeachers();
   const { data: classrooms } = useClassrooms();
@@ -210,9 +212,6 @@ export const EditIndividualLessonModal = ({
         .eq('id', lessonId)
         .single();
 
-      // Получаем текущего пользователя
-      const { data: { user } } = await supabase.auth.getUser();
-      
       // Собираем изменения для истории на основе текущих данных
       const changes: any[] = [];
       if (currentLesson) {

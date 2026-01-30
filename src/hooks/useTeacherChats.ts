@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { useEffect, useMemo } from 'react';
 import { normalizePhone } from '@/utils/phoneNormalization';
 import { startMetric, endMetric } from '@/lib/performanceMetrics';
+import { getCachedUserId } from '@/lib/authHelpers';
 
 // Cache normalized phone -> clientId to avoid repeated lookups (huge perf win on large clients table)
 const teacherClientIdByPhoneCache = new Map<string, string>();
@@ -14,13 +15,7 @@ const getAllowDirectTeacherMessagesFallback = async (): Promise<boolean> => {
   if (allowDirectTeacherMessagesFallback !== null) return allowDirectTeacherMessagesFallback;
 
   try {
-    const { data: u, error: uErr } = await supabase.auth.getUser();
-    if (uErr) {
-      allowDirectTeacherMessagesFallback = false;
-      return allowDirectTeacherMessagesFallback;
-    }
-
-    const uid = u.user?.id;
+    const uid = await getCachedUserId();
     if (!uid) {
       allowDirectTeacherMessagesFallback = false;
       return allowDirectTeacherMessagesFallback;

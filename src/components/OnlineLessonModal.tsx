@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabaseTyped as supabase } from "@/integrations/supabase/typedClient";
 import { Loader2, Video, X } from "lucide-react";
 import { selfHostedPost } from "@/lib/selfHostedApi";
+import { useAuth } from "@/hooks/useAuth";
 
 interface OnlineLessonModalProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ export const OnlineLessonModal: React.FC<OnlineLessonModalProps> = ({
   const [joinUrl, setJoinUrl] = useState<string | null>(null);
   const [meetingId, setMeetingId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (isOpen) {
@@ -52,7 +54,6 @@ export const OnlineLessonModal: React.FC<OnlineLessonModalProps> = ({
   const initializeMeeting = async () => {
     setIsLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Не авторизован");
 
       // Создаем встречу

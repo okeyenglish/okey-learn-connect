@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
+import { getCachedUserId } from '@/lib/authHelpers';
 
 interface MergeStudentsParams {
   primaryId: string;
@@ -94,6 +95,7 @@ export const useMergeStudents = () => {
       if (archiveError) throw archiveError;
 
       // 3. Добавляем запись в историю основного студента
+      const userId = await getCachedUserId();
       await supabase
         .from('student_history')
         .insert({
@@ -103,7 +105,7 @@ export const useMergeStudents = () => {
           title: 'Объединение дубликатов',
           description: `Объединено ${duplicateIds.length} дубликатов записей`,
           new_value: { merged_ids: duplicateIds },
-          changed_by: (await supabase.auth.getUser()).data.user?.id,
+          changed_by: userId,
         });
     },
     onSuccess: () => {

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface AttendanceRecord {
   id: string;
@@ -31,6 +32,7 @@ interface SessionRow {
 export const useAttendance = (sessionId: string, sessionType: 'group' | 'individual') => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: attendance, isLoading } = useQuery({
     queryKey: ['attendance', sessionType, sessionId],
@@ -61,7 +63,6 @@ export const useAttendance = (sessionId: string, sessionType: 'group' | 'individ
 
   const markAttendance = useMutation({
     mutationFn: async (records: Array<{ studentId: string; status: string; notes?: string }>) => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
       const column = sessionType === 'group' ? 'lesson_session_id' : 'individual_lesson_session_id';

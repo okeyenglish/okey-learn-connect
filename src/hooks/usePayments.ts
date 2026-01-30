@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
+import { getCachedUserId } from '@/lib/authHelpers';
 
 export interface Payment {
   id: string;
@@ -158,7 +159,7 @@ export const usePayments = (filters?: PaymentFilters) => {
     console.log('Payment data received:', paymentData);
     
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const userId = await getCachedUserId();
       
       const { data: payment, error } = await supabase
         .from('payments')
@@ -170,7 +171,7 @@ export const usePayments = (filters?: PaymentFilters) => {
           description: paymentData.description,
           notes: paymentData.notes,
           status: 'completed',
-          created_by: user?.id,
+          created_by: userId,
           individual_lesson_id: paymentData.individual_lesson_id,
           group_id: paymentData.group_id,
           lessons_count: paymentData.lessons_count || 0
@@ -340,7 +341,7 @@ export const usePayments = (filters?: PaymentFilters) => {
                   duration: lessonDuration,
                   paid_minutes: minutesToAdd,
                   payment_id: payment.id,
-                  created_by: user?.id,
+                  created_by: userId,
                   updated_at: new Date().toISOString(),
                 });
               if (!insErr) remainingMinutesToDistribute -= minutesToAdd;
@@ -434,7 +435,6 @@ export const usePayments = (filters?: PaymentFilters) => {
   const deletePayment = async (paymentId: string, individualLessonId?: string, lessonsCount?: number) => {
     try {
       console.log('Deleting payment:', { paymentId, individualLessonId, lessonsCount });
-      const { data: { user } } = await supabase.auth.getUser();
       
       // Если платеж был связан с индивидуальными занятиями, возвращаем их статусы
       if (individualLessonId && lessonsCount && lessonsCount > 0) {
