@@ -1,5 +1,5 @@
 import { Phone, Mail, Copy, Check, Star } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
@@ -71,9 +71,49 @@ export const ContactInfoBlock = ({
 }: ContactInfoBlockProps) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   
-  const isSingleNumber = phoneNumbers.length === 1;
+  // Extract phone from WhatsApp chat ID (format: 79161234567@c.us)
+  const extractPhoneFromWhatsappId = (whatsappId: string | null | undefined): string | null => {
+    if (!whatsappId) return null;
+    // Remove @c.us suffix and extract digits
+    const digits = whatsappId.replace(/@c\.us$/i, '').replace(/\D/g, '');
+    // Valid phone should be 10-15 digits
+    if (digits.length >= 10 && digits.length <= 15) {
+      return digits;
+    }
+    return null;
+  };
+
+  // Create virtual phone number from client-level messenger data if no phone numbers exist
+  const effectivePhoneNumbers = useMemo(() => {
+    if (phoneNumbers.length > 0) {
+      return phoneNumbers;
+    }
+    
+    // Try to extract phone from WhatsApp chat ID
+    const extractedPhone = extractPhoneFromWhatsappId(clientWhatsappChatId);
+    
+    if (extractedPhone || clientTelegramChatId || clientTelegramUserId || clientMaxChatId) {
+      // Create a virtual phone entry for messenger-only contacts
+      return [{
+        id: 'virtual-messenger-contact',
+        phone: extractedPhone || '', // May be empty if only Telegram/MAX
+        isPrimary: true,
+        isWhatsappEnabled: !!clientWhatsappChatId,
+        isTelegramEnabled: !!clientTelegramChatId || !!clientTelegramUserId,
+        whatsappChatId: clientWhatsappChatId,
+        telegramChatId: clientTelegramChatId,
+        telegramUserId: clientTelegramUserId,
+        maxChatId: clientMaxChatId,
+      }] as PhoneNumberData[];
+    }
+    
+    return [];
+  }, [phoneNumbers, clientWhatsappChatId, clientTelegramChatId, clientTelegramUserId, clientMaxChatId]);
+
+  const isSingleNumber = effectivePhoneNumbers.length === 1;
 
   const handleCopyPhone = async (phone: string, phoneId: string) => {
+    if (!phone) return;
     try {
       await navigator.clipboard.writeText(phone);
       setCopiedId(phoneId);
@@ -114,6 +154,7 @@ export const ContactInfoBlock = ({
   };
 
   const formatPhone = (phone: string) => {
+    if (!phone) return '';
     // Remove all non-digits
     const digits = phone.replace(/\D/g, '');
     
@@ -122,10 +163,15 @@ export const ContactInfoBlock = ({
       return `+7 ${digits.slice(1, 4)} ${digits.slice(4, 7)}-${digits.slice(7, 9)}-${digits.slice(9)}`;
     }
     
+    // Format as +X XXX XXX-XX-XX for other formats
+    if (digits.length >= 10) {
+      return `+${digits}`;
+    }
+    
     return phone;
   };
 
-  if (phoneNumbers.length === 0 && !email) {
+  if (effectivePhoneNumbers.length === 0 && !email) {
     return (
       <div className="text-sm text-muted-foreground">
         Нет контактных данных
@@ -136,52 +182,61 @@ export const ContactInfoBlock = ({
   return (
     <TooltipProvider>
       <div className="space-y-2">
-        {phoneNumbers.map((phoneNumber) => {
+        {effectivePhoneNumbers.map((phoneNumber) => {
           const waActive = getMessengerStatus(phoneNumber, 'whatsapp');
           const tgActive = getMessengerStatus(phoneNumber, 'telegram');
           const maxActive = getMessengerStatus(phoneNumber, 'max');
+          const hasPhone = !!phoneNumber.phone;
           
           return (
             <div key={phoneNumber.id} className="flex items-center gap-2 group">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    className={`p-0.5 rounded transition-colors flex-shrink-0 ${
-                      onCallClick 
-                        ? 'hover:bg-green-50 hover:text-green-600 cursor-pointer' 
-                        : 'cursor-default'
-                    }`}
-                    onClick={() => onCallClick?.(phoneNumber.phone)}
-                    disabled={!onCallClick}
+              {hasPhone ? (
+                <>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        className={`p-0.5 rounded transition-colors flex-shrink-0 ${
+                          onCallClick && hasPhone
+                            ? 'hover:bg-green-50 hover:text-green-600 cursor-pointer' 
+                            : 'cursor-default'
+                        }`}
+                        onClick={() => hasPhone && onCallClick?.(phoneNumber.phone)}
+                        disabled={!onCallClick || !hasPhone}
+                      >
+                        <Phone className={`h-3.5 w-3.5 transition-colors ${
+                          onCallClick && hasPhone ? 'text-muted-foreground hover:text-green-600' : 'text-muted-foreground'
+                        }`} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      {onCallClick ? 'Позвонить через OnlinePBX' : 'Телефон'}
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  <span 
+                    className="text-sm font-medium cursor-pointer hover:text-primary transition-colors"
+                    onClick={() => handleCopyPhone(phoneNumber.phone, phoneNumber.id)}
                   >
-                    <Phone className={`h-3.5 w-3.5 transition-colors ${
-                      onCallClick ? 'text-muted-foreground hover:text-green-600' : 'text-muted-foreground'
-                    }`} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs">
-                  {onCallClick ? 'Позвонить через OnlinePBX' : 'Телефон'}
-                </TooltipContent>
-              </Tooltip>
-              
-              <span 
-                className="text-sm font-medium cursor-pointer hover:text-primary transition-colors"
-                onClick={() => handleCopyPhone(phoneNumber.phone, phoneNumber.id)}
-              >
-                {formatPhone(phoneNumber.phone)}
-              </span>
-              
-              {copiedId === phoneNumber.id ? (
-                <Check className="h-3 w-3 text-green-500" />
+                    {formatPhone(phoneNumber.phone)}
+                  </span>
+                  
+                  {copiedId === phoneNumber.id ? (
+                    <Check className="h-3 w-3 text-green-500" />
+                  ) : (
+                    <Copy 
+                      className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
+                      onClick={() => handleCopyPhone(phoneNumber.phone, phoneNumber.id)}
+                    />
+                  )}
+                  
+                  {phoneNumber.isPrimary && effectivePhoneNumbers.length > 1 && (
+                    <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" />
+                  )}
+                </>
               ) : (
-                <Copy 
-                  className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
-                  onClick={() => handleCopyPhone(phoneNumber.phone, phoneNumber.id)}
-                />
-              )}
-              
-              {phoneNumber.isPrimary && phoneNumbers.length > 1 && (
-                <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" />
+                <span className="text-sm text-muted-foreground italic">
+                  Номер не указан
+                </span>
               )}
               
               <div className="flex items-center gap-1 ml-auto">
