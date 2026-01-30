@@ -58,7 +58,7 @@ AS $$
     c.salebot_client_id,
     c.branch,
     CASE WHEN c.is_active THEN 'active' ELSE 'inactive' END as status,
-    lm.content as last_message_content,
+    lm.message_text as last_message_content,
     lm.created_at as last_message_at,
     lm.messenger_type as last_messenger,
     COALESCE(unread.total, 0) as unread_count,
@@ -71,7 +71,7 @@ AS $$
   JOIN public.clients c ON c.id = cid.id
   -- Get last message using LATERAL (much faster than correlated subquery)
   LEFT JOIN LATERAL (
-    SELECT cm.content, cm.created_at, cm.messenger_type
+    SELECT cm.message_text, cm.created_at, cm.messenger_type
     FROM public.chat_messages cm
     WHERE cm.client_id = c.id
     ORDER BY cm.created_at DESC
