@@ -2,7 +2,7 @@ import { Phone, Mail, Copy, Check, Star, Edit2, Save, X } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { MaskedPhoneInput, extractPhoneDigits, isValidRussianPhone, formatPhoneInput } from "@/components/ui/masked-phone-input";
+import { MaskedPhoneInput, extractPhoneDigits, isValidPhone, formatPhoneInput } from "@/components/ui/masked-phone-input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -181,7 +181,7 @@ export const ContactInfoBlock = ({
   };
 
   const handleSavePhone = () => {
-    if (isValidRussianPhone(editedPhone)) {
+    if (isValidPhone(editedPhone)) {
       const cleanPhone = extractPhoneDigits(editedPhone);
       // Pass phone with messenger data from client-level
       onPhoneSave?.({
@@ -194,7 +194,7 @@ export const ContactInfoBlock = ({
       setEditedPhone("");
       toast.success("Номер сохранён");
     } else {
-      toast.error("Введите корректный номер: +7 (XXX) XXX-XX-XX");
+      toast.error("Введите корректный номер телефона (минимум 10 цифр)");
     }
   };
 
