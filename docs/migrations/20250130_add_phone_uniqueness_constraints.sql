@@ -32,10 +32,9 @@ BEGIN
   -- Ищем существующего преподавателя с таким же телефоном
   SELECT id INTO v_existing_id
   FROM teachers
-  WHERE organization_id = NEW.organization_id
-    AND id != COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::uuid)
+  WHERE id != COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::uuid)
     AND normalize_phone(phone) = v_normalized_phone
-    AND is_active = true
+    AND COALESCE(is_active, true) = true
   LIMIT 1;
   
   IF v_existing_id IS NOT NULL THEN
@@ -76,8 +75,7 @@ BEGIN
   -- Ищем существующего клиента с таким же телефоном
   SELECT id INTO v_existing_id
   FROM clients
-  WHERE organization_id = NEW.organization_id
-    AND id != COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::uuid)
+  WHERE id != COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::uuid)
     AND normalize_phone(phone) = v_normalized_phone
     AND COALESCE(is_active, true) = true
   LIMIT 1;
@@ -98,13 +96,13 @@ CREATE TRIGGER check_client_phone_duplicate_trigger
   FOR EACH ROW
   EXECUTE FUNCTION check_client_phone_duplicate();
 
--- 6. Функция для поиска и объединения существующих дубликатов преподавателей
-CREATE OR REPLACE FUNCTION public.find_duplicate_teachers(p_org_id UUID)
+-- 6. Функция для поиска и объединения существующих дубликатов преподавателей (без organization_id)
+CREATE OR REPLACE FUNCTION public.find_duplicate_teachers()
 RETURNS TABLE(
   normalized_phone TEXT,
   teacher_ids UUID[],
   teacher_names TEXT[],
-  count BIGINT
+  duplicate_count BIGINT
 )
 LANGUAGE sql
 STABLE
@@ -115,24 +113,23 @@ AS $$
     normalize_phone(phone) as normalized_phone,
     ARRAY_AGG(id ORDER BY created_at) as teacher_ids,
     ARRAY_AGG(COALESCE(last_name || ' ' || first_name, first_name) ORDER BY created_at) as teacher_names,
-    COUNT(*) as count
+    COUNT(*) as duplicate_count
   FROM teachers
-  WHERE organization_id = p_org_id
-    AND is_active = true
+  WHERE COALESCE(is_active, true) = true
     AND phone IS NOT NULL
     AND LENGTH(normalize_phone(phone)) >= 10
   GROUP BY normalize_phone(phone)
   HAVING COUNT(*) > 1
-  ORDER BY count DESC;
+  ORDER BY duplicate_count DESC;
 $$;
 
--- 7. Функция для поиска дубликатов клиентов
-CREATE OR REPLACE FUNCTION public.find_duplicate_clients(p_org_id UUID)
+-- 7. Функция для поиска дубликатов клиентов (без organization_id)
+CREATE OR REPLACE FUNCTION public.find_duplicate_clients()
 RETURNS TABLE(
   normalized_phone TEXT,
   client_ids UUID[],
   client_names TEXT[],
-  count BIGINT
+  duplicate_count BIGINT
 )
 LANGUAGE sql
 STABLE
@@ -143,18 +140,17 @@ AS $$
     normalize_phone(phone) as normalized_phone,
     ARRAY_AGG(id ORDER BY created_at) as client_ids,
     ARRAY_AGG(COALESCE(name, first_name || ' ' || COALESCE(last_name, '')) ORDER BY created_at) as client_names,
-    COUNT(*) as count
+    COUNT(*) as duplicate_count
   FROM clients
-  WHERE organization_id = p_org_id
-    AND COALESCE(is_active, true) = true
+  WHERE COALESCE(is_active, true) = true
     AND phone IS NOT NULL
     AND LENGTH(normalize_phone(phone)) >= 10
   GROUP BY normalize_phone(phone)
   HAVING COUNT(*) > 1
-  ORDER BY count DESC;
+  ORDER BY duplicate_count DESC;
 $$;
 
 -- Права доступа
 GRANT EXECUTE ON FUNCTION public.normalize_phone(TEXT) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.find_duplicate_teachers(UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.find_duplicate_clients(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.find_duplicate_teachers() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.find_duplicate_clients() TO authenticated;
