@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
 import type { Textbook } from '@/integrations/supabase/database.types';
 import { getErrorMessage } from '@/lib/errorUtils';
+import { getCachedUserId } from '@/lib/authHelpers';
 
 export type { Textbook };
 
@@ -70,6 +71,7 @@ export const useTextbooks = () => {
         .getPublicUrl(fileName);
 
       // Save metadata to database
+      const userId = await getCachedUserId();
       const { data, error } = await supabase
         .from('textbooks')
         .insert({
@@ -81,7 +83,7 @@ export const useTextbooks = () => {
           program_type: programType,
           category: category || 'general',
           subcategory: subcategory,
-          uploaded_by: (await supabase.auth.getUser()).data.user?.id
+          uploaded_by: userId
         })
         .select()
         .single();

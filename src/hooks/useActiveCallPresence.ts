@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import type { PresenceType } from './useChatPresence';
+import { useAuth } from '@/hooks/useAuth';
 
 interface CallLogPayload {
   id: string;
@@ -19,17 +20,15 @@ export const useActiveCallPresence = (
   clientId: string | null,
   updatePresence: (targetClientId: string, type: PresenceType) => Promise<void>
 ) => {
+  const { user } = useAuth();
   const currentUserIdRef = useRef<string | null>(null);
   const activeCallClientIdRef = useRef<string | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  // Get current user ID
+  // Sync current user ID from auth context
   useEffect(() => {
-    (async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      currentUserIdRef.current = userData.user?.id ?? null;
-    })();
-  }, []);
+    currentUserIdRef.current = user?.id ?? null;
+  }, [user?.id]);
 
   // Handle call status changes
   const handleCallEvent = useCallback((payload: { new?: CallLogPayload; old?: CallLogPayload; eventType: string }) => {

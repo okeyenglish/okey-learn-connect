@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from '@/lib/errorUtils';
+import { useAuth } from "@/hooks/useAuth";
 
 interface AddAdditionalLessonModalProps {
   open: boolean;
@@ -25,6 +26,7 @@ export function AddAdditionalLessonModal({
   onAdded,
 }: AddAdditionalLessonModalProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [time, setTime] = useState("");
   const [notes, setNotes] = useState("");
@@ -42,7 +44,6 @@ export function AddAdditionalLessonModal({
 
     setIsLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Пользователь не авторизован');
 
       const lessonDate = format(selectedDate, 'yyyy-MM-dd');

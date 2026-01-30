@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/typedClient';
+import { getCachedUserId } from '@/lib/authHelpers';
 
 /**
  * Get AI provider key for the current user's organization or teacher
@@ -11,16 +12,16 @@ export const getAIProviderKey = async (): Promise<{
   limitRemaining?: number;
 }> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const userId = await getCachedUserId();
     
-    if (!user) {
+    if (!userId) {
       throw new Error('User not authenticated');
     }
 
     // Get user's profile to find organization
     const { data: profile } = await supabase.from('profiles')
       .select('organization_id')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single();
 
     if (!profile?.organization_id) {
@@ -46,7 +47,7 @@ export const getAIProviderKey = async (): Promise<{
     // If no org key, try teacher key
     const { data: teacher } = await supabase.from('teachers')
       .select('id')
-      .eq('profile_id', user.id)
+      .eq('profile_id', userId)
       .single();
 
     if (teacher) {

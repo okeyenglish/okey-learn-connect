@@ -8,6 +8,7 @@ import { Eye, EyeOff, Lock, AlertCircle, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from '@/lib/errorUtils';
+import { useAuth } from "@/hooks/useAuth";
 
 interface ChangePasswordModalProps {
   open: boolean;
@@ -23,6 +24,7 @@ export const ChangePasswordModal = ({ open, onOpenChange }: ChangePasswordModalP
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const validatePassword = (password: string) => {
     const minLength = password.length >= 8;
@@ -75,8 +77,7 @@ export const ChangePasswordModal = ({ open, onOpenChange }: ChangePasswordModalP
 
     try {
       // First verify current password by trying to sign in
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user?.email) {
+      if (!user?.email) {
         throw new Error("Пользователь не найден");
       }
 

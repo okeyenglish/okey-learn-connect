@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useToast } from '@/hooks/use-toast';
+import { getCachedUserId } from '@/lib/authHelpers';
 
 export interface TeacherSubstitution {
   id: string;
@@ -93,11 +94,12 @@ export const useCreateSubstitution = () => {
 
   return useMutation({
     mutationFn: async (substitution: Partial<TeacherSubstitution>) => {
+      const userId = await getCachedUserId();
       const { data, error } = await supabase
         .from('teacher_substitutions')
         .insert({
           ...substitution,
-          created_by: (await supabase.auth.getUser()).data.user?.id,
+          created_by: userId,
         })
         .select()
         .single();

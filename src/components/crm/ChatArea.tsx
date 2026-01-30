@@ -48,6 +48,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { usePendingGPTResponses } from "@/hooks/usePendingGPTResponses";
 import { useMarkChatMessagesAsReadByMessenger, useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
+import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { getErrorMessage } from '@/lib/errorUtils';
 import { useClientAvatars } from '@/hooks/useClientAvatars';
@@ -303,6 +304,7 @@ export const ChatArea = ({
   const [checkingMaxAvailability, setCheckingMaxAvailability] = useState(false);
   const [checkingWhatsAppAvailability, setCheckingWhatsAppAvailability] = useState(false);
   const { toast } = useToast();
+  const { user: authUser, profile: authProfile } = useAuth();
   const isMobile = useIsMobile();
   const { updateTypingStatus, getTypingInfo, isOtherUserTyping } = useTypingStatus(clientId);
   const typingInfo = getTypingInfo();
@@ -1165,18 +1167,11 @@ export const ChatArea = ({
         try {
           const { data: orgId } = await supabase.rpc('get_user_organization_id');
           
-          // Get sender name from profile
-          const { data: { user } } = await supabase.auth.getUser();
+          // Get sender name from auth context
           let senderName = 'Компания';
-          if (user) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('first_name, last_name')
-              .eq('id', user.id)
-              .single();
-            if (profile) {
-              senderName = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Компания';
-            }
+          if (authProfile) {
+            const profileData = authProfile as any;
+            senderName = [profileData.first_name, profileData.last_name].filter(Boolean).join(' ') || 'Компания';
           }
 
           const { error: insertError } = await supabase
@@ -1187,7 +1182,7 @@ export const ChatArea = ({
               messenger: 'chatos',
               message_type: filesToSend.length > 0 ? 'file' : 'text',
               direction: 'outgoing',
-              sender_id: user?.id,
+              sender_id: authUser?.id,
               sender_name: senderName,
               media_url: filesToSend[0]?.url,
               file_name: filesToSend[0]?.name,
@@ -1646,14 +1641,13 @@ export const ChatArea = ({
         description: `Звоним на номер ${clientPhone}`,
       });
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      if (!authUser) {
         throw new Error('Пользователь не авторизован');
       }
 
       const response = await selfHostedPost<{ success?: boolean; error?: string }>('onlinepbx-call', { 
         to_number: clientPhone,
-        from_user: user.id
+        from_user: authUser.id
       });
 
       if (!response.success) {

@@ -10,6 +10,7 @@ import { selfHostedPost } from "@/lib/selfHostedApi";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobilePhoneHelper } from "./MobilePhoneHelper";
 import { getErrorMessage } from "@/lib/errorUtils";
+import { useAuth } from "@/hooks/useAuth";
 
 interface OnlinePBXPhoneProps {
   phoneNumber?: string;
@@ -23,6 +24,7 @@ const OnlinePBXPhone: React.FC<OnlinePBXPhoneProps> = ({ phoneNumber, onCallEnd 
   
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (phoneNumber) {
@@ -43,7 +45,6 @@ const OnlinePBXPhone: React.FC<OnlinePBXPhoneProps> = ({ phoneNumber, onCallEnd 
     try {
       setCallStatus('calling');
       
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error('User not authenticated');
       }

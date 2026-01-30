@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
 import type { StudentSegment as DBStudentSegment, Json } from '@/integrations/supabase/database.types';
+import { useAuth } from '@/hooks/useAuth';
+import { getCachedUserId } from '@/lib/authHelpers';
 
 export interface StudentSegment {
   id: string;
@@ -15,10 +17,11 @@ export interface StudentSegment {
 }
 
 export const useStudentSegments = () => {
+  const { user } = useAuth();
+  
   return useQuery({
-    queryKey: ['student-segments'],
+    queryKey: ['student-segments', user?.id],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
@@ -30,6 +33,7 @@ export const useStudentSegments = () => {
       if (error) throw error;
       return data as StudentSegment[];
     },
+    enabled: !!user,
   });
 };
 
@@ -38,12 +42,12 @@ export const useCreateStudentSegment = () => {
 
   return useMutation({
     mutationFn: async (segment: Omit<StudentSegment, 'id' | 'created_by' | 'created_at' | 'updated_at'>) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const userId = await getCachedUserId();
+      if (!userId) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
         .from('student_segments')
-        .insert([{ ...segment, created_by: user.id }])
+        .insert([{ ...segment, created_by: userId }])
         .select()
         .single();
 
