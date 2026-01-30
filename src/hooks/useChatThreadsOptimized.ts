@@ -127,6 +127,7 @@ export const useChatThreadsOptimized = () => {
   });
 
   // Step 3: Load missing unread threads (those not in recent)
+  // Uses batching to prevent statement timeout on large datasets
   useEffect(() => {
     const loadMissingUnread = async () => {
       const recentThreads = recentThreadsQuery.data;
@@ -147,22 +148,40 @@ export const useChatThreadsOptimized = () => {
         return;
       }
 
-      console.log(`[useChatThreadsOptimized] Step 3: Loading ${missingIds.length} missing unread threads...`);
+      // Limit to first 100 missing to prevent massive queries
+      const limitedMissingIds = missingIds.slice(0, 100);
+      console.log(`[useChatThreadsOptimized] Step 3: Loading ${limitedMissingIds.length} of ${missingIds.length} missing unread threads (batched)...`);
       setIsMissingLoading(true);
       const startTime = performance.now();
 
       try {
-        const { data, error } = await supabase
-          .rpc('get_chat_threads_by_client_ids', { p_client_ids: missingIds });
+        // Batch requests in chunks of 25 to prevent statement timeout
+        const BATCH_SIZE = 25;
+        const allThreads: ChatThread[] = [];
+        
+        for (let i = 0; i < limitedMissingIds.length; i += BATCH_SIZE) {
+          const chunk = limitedMissingIds.slice(i, i + BATCH_SIZE);
+          
+          try {
+            const { data, error } = await supabase
+              .rpc('get_chat_threads_by_client_ids', { p_client_ids: chunk });
 
-        if (error) {
-          console.error('[useChatThreadsOptimized] Failed to load missing unread:', error);
-          setMissingUnreadThreads([]);
-        } else {
-          const threads = mapRpcToThreads((data || []) as RpcThreadRow[]);
-          setMissingUnreadThreads(threads);
-          setMissingUnreadThreads(threads);
+            if (error) {
+              // Log but continue with other batches
+              console.warn(`[useChatThreadsOptimized] Batch ${i / BATCH_SIZE + 1} failed:`, error.message);
+              continue;
+            }
+            
+            const threads = mapRpcToThreads((data || []) as RpcThreadRow[]);
+            allThreads.push(...threads);
+          } catch (batchError) {
+            console.warn(`[useChatThreadsOptimized] Batch ${i / BATCH_SIZE + 1} error:`, batchError);
+            continue;
+          }
         }
+        
+        console.log(`[useChatThreadsOptimized] Step 3: Loaded ${allThreads.length} missing threads in ${(performance.now() - startTime).toFixed(0)}ms`);
+        setMissingUnreadThreads(allThreads);
       } catch (e) {
         console.error('[useChatThreadsOptimized] Error loading missing unread:', e);
         setMissingUnreadThreads([]);
