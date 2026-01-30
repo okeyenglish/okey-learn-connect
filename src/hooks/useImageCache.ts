@@ -135,7 +135,9 @@ export function useImageGalleryCache(urls: string[]) {
 
     setIsPreloading(true);
     try {
-      const count = await preloadImages(urls);
+      // Convert urls to the new format expected by preloadImages
+      const items = urls.filter(Boolean).map(url => ({ url }));
+      const count = await preloadImages(items);
       setCachedCount(prev => prev + count);
 
       // Update cached URLs

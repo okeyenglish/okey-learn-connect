@@ -1,81 +1,151 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { cacheImage, isImageCached } from '@/lib/imageCache';
+import { 
+  cacheMedia, 
+  isMediaCached, 
+  detectMediaType, 
+  getCacheStats,
+  type MediaType,
+  type CacheStats 
+} from '@/lib/mediaCache';
 
 interface MessageWithMedia {
   file_url?: string | null;
   file_type?: string | null;
   media_url?: string | null;
   media_type?: string | null;
+  file_name?: string | null;
 }
 
-export interface ImageCacheProgress {
-  /** Total images found in chat */
+export interface MediaCacheProgress {
+  /** Total media files found in chat */
   total: number;
-  /** Number of images already cached */
+  /** Number of files already cached */
   cached: number;
-  /** Number of images currently being cached */
+  /** Number of files currently being cached */
   inProgress: number;
   /** Whether caching is active */
   isActive: boolean;
   /** Percentage complete (0-100) */
   percentage: number;
+  /** Breakdown by media type */
+  byType: {
+    images: { total: number; cached: number };
+    videos: { total: number; cached: number };
+    audio: { total: number; cached: number };
+    documents: { total: number; cached: number };
+  };
+}
+
+// Re-export for backwards compatibility
+export type ImageCacheProgress = MediaCacheProgress;
+
+interface MediaItem {
+  url: string;
+  type: MediaType;
+  fileName?: string;
+  priority: number; // Higher = cache first (more recent messages)
 }
 
 /**
- * Automatically caches images from chat messages for offline viewing
+ * Automatically caches media files from chat messages for offline viewing
+ * Supports images, videos, audio, and documents
  * Returns progress information for UI display
  */
 export function useAutoCacheImages(
   messages: MessageWithMedia[] | undefined,
   enabled: boolean = true
-): ImageCacheProgress {
+): MediaCacheProgress {
   const lastMessageCountRef = useRef<number>(0);
   const abortRef = useRef<boolean>(false);
+  const cacheQueueRef = useRef<MediaItem[]>([]);
   
-  const [progress, setProgress] = useState<ImageCacheProgress>({
+  const [progress, setProgress] = useState<MediaCacheProgress>({
     total: 0,
     cached: 0,
     inProgress: 0,
     isActive: false,
     percentage: 100,
+    byType: {
+      images: { total: 0, cached: 0 },
+      videos: { total: 0, cached: 0 },
+      audio: { total: 0, cached: 0 },
+      documents: { total: 0, cached: 0 },
+    },
   });
 
-  const cacheImagesSequentially = useCallback(async (urls: string[]) => {
-    if (urls.length === 0) return;
+  const cacheMediaSequentially = useCallback(async (items: MediaItem[]) => {
+    if (items.length === 0) return;
     
     setProgress(prev => ({
       ...prev,
-      inProgress: urls.length,
+      inProgress: items.length,
       isActive: true,
     }));
 
     let successCount = 0;
+    const typeCounters = {
+      images: 0,
+      videos: 0,
+      audio: 0,
+      documents: 0,
+    };
     
-    for (let i = 0; i < urls.length; i++) {
+    // Process in batches of 2 for better performance
+    const batchSize = 2;
+    for (let i = 0; i < items.length; i += batchSize) {
       if (abortRef.current) break;
       
-      const url = urls[i];
-      try {
-        const success = await cacheImage(url);
-        if (success) successCount++;
-        
-        setProgress(prev => {
-          const newCached = prev.cached + (success ? 1 : 0);
-          const remaining = urls.length - i - 1;
-          return {
-            ...prev,
-            cached: newCached,
-            inProgress: remaining,
-            percentage: prev.total > 0 ? Math.round((newCached / prev.total) * 100) : 100,
-          };
-        });
-        
-        // Small delay between requests to not overwhelm the network
-        if (i < urls.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+      const batch = items.slice(i, i + batchSize);
+      const results = await Promise.all(
+        batch.map(async (item) => {
+          try {
+            const success = await cacheMedia(item.url, item.type, item.fileName);
+            return { success, type: item.type };
+          } catch (error) {
+            console.warn('[AutoCache] Failed to cache:', item.url.substring(0, 50));
+            return { success: false, type: item.type };
+          }
+        })
+      );
+      
+      for (const result of results) {
+        if (result.success) {
+          successCount++;
+          const typeKey = getTypeKey(result.type);
+          if (typeKey) typeCounters[typeKey]++;
         }
-      } catch (error) {
-        console.warn('[AutoCache] Failed to cache:', url);
+      }
+      
+      setProgress(prev => {
+        const newCached = prev.cached + results.filter(r => r.success).length;
+        const remaining = items.length - i - batch.length;
+        
+        // Update type-specific counts
+        const newByType = { ...prev.byType };
+        for (const result of results) {
+          if (result.success) {
+            const key = getTypeKey(result.type);
+            if (key && newByType[key]) {
+              newByType[key] = {
+                ...newByType[key],
+                cached: newByType[key].cached + 1,
+              };
+            }
+          }
+        }
+        
+        return {
+          ...prev,
+          cached: newCached,
+          inProgress: remaining,
+          percentage: prev.total > 0 ? Math.round((newCached / prev.total) * 100) : 100,
+          byType: newByType,
+        };
+      });
+      
+      // Small delay between batches to not overwhelm the network
+      if (i + batchSize < items.length && !abortRef.current) {
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
     
@@ -85,14 +155,26 @@ export function useAutoCacheImages(
       isActive: false,
     }));
     
-    console.log(`[AutoCache] Completed: ${successCount}/${urls.length} images cached`);
+    console.log(`[AutoCache] Completed: ${successCount}/${items.length} media files cached`);
   }, []);
 
   useEffect(() => {
     abortRef.current = false;
     
     if (!enabled || !messages || messages.length === 0) {
-      setProgress({ total: 0, cached: 0, inProgress: 0, isActive: false, percentage: 100 });
+      setProgress({
+        total: 0,
+        cached: 0,
+        inProgress: 0,
+        isActive: false,
+        percentage: 100,
+        byType: {
+          images: { total: 0, cached: 0 },
+          videos: { total: 0, cached: 0 },
+          audio: { total: 0, cached: 0 },
+          documents: { total: 0, cached: 0 },
+        },
+      });
       return;
     }
 
@@ -100,82 +182,155 @@ export function useAutoCacheImages(
     if (messages.length === lastMessageCountRef.current) return;
     lastMessageCountRef.current = messages.length;
 
-    // Extract image URLs from messages
-    const imageUrls: string[] = [];
+    // Extract media URLs from messages with priority (recent = higher)
+    const mediaItems: MediaItem[] = [];
+    const byType = {
+      images: { total: 0, cached: 0 },
+      videos: { total: 0, cached: 0 },
+      audio: { total: 0, cached: 0 },
+      documents: { total: 0, cached: 0 },
+    };
     
-    for (const msg of messages) {
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
       const url = msg.file_url || msg.media_url;
-      const type = msg.file_type || msg.media_type;
+      const mimeType = msg.file_type || msg.media_type;
       
       if (!url) continue;
       
-      // Check if it's an image
-      const isImage = 
-        type?.startsWith('image/') ||
-        /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(url);
+      const type = detectMediaType(url, mimeType);
+      if (type === 'unknown') continue;
       
-      if (isImage) {
-        // Normalize URL (http -> https)
-        const normalizedUrl = url.replace(/^http:\/\//i, 'https://');
-        imageUrls.push(normalizedUrl);
+      // Normalize URL (http -> https)
+      const normalizedUrl = url.replace(/^http:\/\//i, 'https://');
+      
+      // Priority: more recent messages get higher priority
+      const priority = i;
+      
+      mediaItems.push({
+        url: normalizedUrl,
+        type,
+        fileName: msg.file_name || undefined,
+        priority,
+      });
+      
+      const typeKey = getTypeKey(type);
+      if (typeKey) {
+        byType[typeKey].total++;
       }
     }
 
-    if (imageUrls.length === 0) {
-      setProgress({ total: 0, cached: 0, inProgress: 0, isActive: false, percentage: 100 });
+    if (mediaItems.length === 0) {
+      setProgress({
+        total: 0,
+        cached: 0,
+        inProgress: 0,
+        isActive: false,
+        percentage: 100,
+        byType,
+      });
       return;
     }
 
     // Check cache status and start caching
-    const processImages = async () => {
-      const uncachedUrls: string[] = [];
+    const processMedia = async () => {
+      const uncachedItems: MediaItem[] = [];
       let alreadyCached = 0;
+      const cachedByType = { ...byType };
       
-      for (const url of imageUrls) {
-        const cached = await isImageCached(url);
+      // Check which items are already cached
+      for (const item of mediaItems) {
+        const cached = await isMediaCached(item.url, item.type);
         if (cached) {
           alreadyCached++;
+          const typeKey = getTypeKey(item.type);
+          if (typeKey) {
+            cachedByType[typeKey].cached++;
+          }
         } else {
-          uncachedUrls.push(url);
+          uncachedItems.push(item);
         }
       }
 
       setProgress({
-        total: imageUrls.length,
+        total: mediaItems.length,
         cached: alreadyCached,
-        inProgress: uncachedUrls.length,
-        isActive: uncachedUrls.length > 0,
-        percentage: imageUrls.length > 0 ? Math.round((alreadyCached / imageUrls.length) * 100) : 100,
+        inProgress: uncachedItems.length,
+        isActive: uncachedItems.length > 0,
+        percentage: mediaItems.length > 0 ? Math.round((alreadyCached / mediaItems.length) * 100) : 100,
+        byType: cachedByType,
       });
 
-      if (uncachedUrls.length === 0) {
-        console.log('[AutoCache] All images already cached');
+      if (uncachedItems.length === 0) {
+        console.log('[AutoCache] All media already cached');
         return;
       }
 
-      console.log(`[AutoCache] Starting to cache ${uncachedUrls.length} images...`);
+      // Sort by priority (recent first) and then by type (images first for faster perceived loading)
+      const sorted = uncachedItems.sort((a, b) => {
+        // Images first, then audio, then documents, then videos (largest)
+        const typeOrder = { image: 0, audio: 1, document: 2, video: 3, unknown: 4 };
+        const typeCompare = (typeOrder[a.type] || 4) - (typeOrder[b.type] || 4);
+        if (typeCompare !== 0) return typeCompare;
+        return b.priority - a.priority; // Higher priority (more recent) first
+      });
+
+      console.log(`[AutoCache] Starting to cache ${sorted.length} media files...`);
+      cacheQueueRef.current = sorted;
       
       // Use requestIdleCallback for background processing
       if ('requestIdleCallback' in window) {
         window.requestIdleCallback(
-          () => cacheImagesSequentially(uncachedUrls),
-          { timeout: 5000 }
+          () => cacheMediaSequentially(sorted),
+          { timeout: 10000 }
         );
       } else {
-        setTimeout(() => cacheImagesSequentially(uncachedUrls), 500);
+        setTimeout(() => cacheMediaSequentially(sorted), 500);
       }
     };
 
     // Delay initial check to not interfere with render
-    const timeoutId = setTimeout(processImages, 300);
+    const timeoutId = setTimeout(processMedia, 500);
 
     return () => {
       clearTimeout(timeoutId);
       abortRef.current = true;
     };
-  }, [messages, enabled, cacheImagesSequentially]);
+  }, [messages, enabled, cacheMediaSequentially]);
 
   return progress;
+}
+
+function getTypeKey(type: MediaType): keyof MediaCacheProgress['byType'] | null {
+  switch (type) {
+    case 'image': return 'images';
+    case 'video': return 'videos';
+    case 'audio': return 'audio';
+    case 'document': return 'documents';
+    default: return null;
+  }
+}
+
+/**
+ * Hook to get overall cache statistics
+ */
+export function useMediaCacheStats() {
+  const [stats, setStats] = useState<CacheStats | null>(null);
+
+  useEffect(() => {
+    const updateStats = () => {
+      setStats(getCacheStats());
+    };
+
+    updateStats();
+    
+    // Update periodically
+    const interval = setInterval(updateStats, 30000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  return stats;
 }
 
 export default useAutoCacheImages;
