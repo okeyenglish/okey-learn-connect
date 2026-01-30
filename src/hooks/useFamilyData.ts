@@ -31,6 +31,11 @@ export interface FamilyMember {
   isPrimaryContact: boolean;
   avatar_url?: string;
   phoneNumbers: PhoneNumber[];
+  // Client-level messenger data (from clients table)
+  telegramChatId?: string | null;
+  telegramUserId?: number | null;
+  whatsappChatId?: string | null;
+  maxChatId?: string | null;
 }
 
 export interface Student {
@@ -91,6 +96,11 @@ interface RpcMember {
   relationship_type: string;
   is_primary_contact: boolean;
   phone_numbers: RpcPhoneNumber[];
+  // Client-level messenger data
+  telegram_chat_id?: string | null;
+  telegram_user_id?: number | null;
+  whatsapp_chat_id?: string | null;
+  max_chat_id?: string | null;
 }
 
 interface RpcNextLesson {
@@ -177,6 +187,11 @@ const transformRpcResponse = (data: RpcResponse): FamilyGroup => {
     isOnline: false,
     lastContact: undefined,
     avatar_url: member.avatar_url || undefined,
+    // Client-level messenger data
+    telegramChatId: member.telegram_chat_id || null,
+    telegramUserId: member.telegram_user_id || null,
+    whatsappChatId: member.whatsapp_chat_id || null,
+    maxChatId: member.max_chat_id || null,
     phoneNumbers: (member.phone_numbers || []).map((p: RpcPhoneNumber) => ({
       id: p.id,
       phone: p.phone,
