@@ -1,5 +1,5 @@
 -- Оптимизированная версия get_unread_chat_threads для self-hosted
--- МИНИМАЛЬНАЯ версия - только гарантированно существующие колонки
+-- МИНИМАЛЬНАЯ версия - только базовые колонки chat_messages
 -- 
 -- Выполнить на self-hosted базе: api.academyos.ru
 -- После выполнения: NOTIFY pgrst, 'reload schema';
@@ -55,7 +55,6 @@ AS $$
       c.middle_name,
       c.phone,
       c.branch,
-      -- Базовые колонки которые точно есть
       NULL::text as avatar_url,
       NULL::text as telegram_avatar_url,
       NULL::text as whatsapp_avatar_url,
@@ -72,20 +71,14 @@ AS $$
     SELECT 
       m.client_id,
       COUNT(*) as total_unread,
-      COUNT(*) FILTER (WHERE m.messenger = 'whatsapp') as unread_wa,
-      COUNT(*) FILTER (WHERE m.messenger = 'telegram') as unread_tg,
-      COUNT(*) FILTER (WHERE m.messenger = 'max') as unread_max,
-      COUNT(*) FILTER (WHERE m.messenger = 'email') as unread_email,
-      COUNT(*) FILTER (WHERE m.messenger = 'call' OR m.message_type = 'call') as unread_calls,
+      -- Без разбивки по мессенджерам (колонка messenger отсутствует)
+      0::bigint as unread_wa,
+      0::bigint as unread_tg,
+      0::bigint as unread_max,
+      0::bigint as unread_email,
+      0::bigint as unread_calls,
       MAX(m.created_at) as last_unread_time,
-      (
-        SELECT messenger FROM chat_messages m2 
-        WHERE m2.client_id = m.client_id 
-          AND m2.is_read = false 
-          AND m2.is_outgoing = false
-        ORDER BY m2.created_at DESC 
-        LIMIT 1
-      ) as last_messenger
+      NULL::text as last_messenger
     FROM chat_messages m
     WHERE m.client_id IN (SELECT client_id FROM clients_with_unread)
       AND m.is_read = false
