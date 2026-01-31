@@ -32,9 +32,11 @@ const MaxIcon = ({ className }: { className?: string }) => (
 interface PhoneNumbersEditorProps {
   phoneNumbers: PhoneNumber[];
   onPhoneNumbersChange: (phoneNumbers: PhoneNumber[]) => void;
+  /** If client already has Telegram ID, disable Telegram button for phone numbers */
+  hasTelegramId?: boolean;
 }
 
-export const PhoneNumbersEditor = ({ phoneNumbers, onPhoneNumbersChange }: PhoneNumbersEditorProps) => {
+export const PhoneNumbersEditor = ({ phoneNumbers, onPhoneNumbersChange, hasTelegramId = false }: PhoneNumbersEditorProps) => {
   const [editingPhone, setEditingPhone] = useState<string | null>(null);
 
   const addPhoneNumber = () => {
@@ -182,23 +184,30 @@ export const PhoneNumbersEditor = ({ phoneNumbers, onPhoneNumbersChange }: Phone
                     </TooltipContent>
                   </Tooltip>
                   
-                  {/* Telegram toggle */}
+                  {/* Telegram toggle - disabled if client already has Telegram ID */}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
                         type="button"
-                        onClick={() => updatePhoneNumber(phone.id, { isTelegramEnabled: !phone.isTelegramEnabled })}
+                        onClick={() => !hasTelegramId && updatePhoneNumber(phone.id, { isTelegramEnabled: !phone.isTelegramEnabled })}
+                        disabled={hasTelegramId}
                         className={`p-2 rounded-lg transition-all ${
-                          phone.isTelegramEnabled
-                            ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-                            : 'bg-muted text-muted-foreground/40 hover:text-muted-foreground'
+                          hasTelegramId
+                            ? 'bg-muted text-muted-foreground/30 cursor-not-allowed'
+                            : phone.isTelegramEnabled
+                              ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                              : 'bg-muted text-muted-foreground/40 hover:text-muted-foreground'
                         }`}
                       >
                         <TelegramIcon className="h-4 w-4" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="text-xs">
-                      {phone.isTelegramEnabled ? 'Telegram включён' : 'Telegram выключен'}
+                      {hasTelegramId 
+                        ? 'Telegram уже подключён по ID' 
+                        : phone.isTelegramEnabled 
+                          ? 'Telegram включён' 
+                          : 'Telegram выключен'}
                       {phone.telegramChatId && ' (подключён)'}
                     </TooltipContent>
                   </Tooltip>

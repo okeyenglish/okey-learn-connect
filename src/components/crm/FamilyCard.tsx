@@ -578,6 +578,7 @@ export const FamilyCard = ({
                     isTelegramEnabled: p.isTelegramEnabled,
                   })) || []
                 }}
+                clientTelegramId={activeMember.telegramUserId?.toString()}
                 onSave={(data) => {
                   console.log('Saving contact data:', data);
                   // Update member phone numbers
