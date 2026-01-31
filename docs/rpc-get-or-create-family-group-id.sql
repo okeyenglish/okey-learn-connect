@@ -81,3 +81,6 @@ $$;
 -- Grant execute permission
 GRANT EXECUTE ON FUNCTION public.get_or_create_family_group_id(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_or_create_family_group_id(uuid) TO service_role;
+
+-- Обновить schema cache после DDL изменений
+NOTIFY pgrst, 'reload schema';
