@@ -232,15 +232,44 @@ Deno.serve(async (req) => {
 
     for (const [clientIdToProcess, clientData] of eligibleClients) {
       try {
-        const { data: messages, error: messagesError } = await supabase
+        // Try self-hosted schema first (message_text, is_outgoing)
+        let messages: ChatMessage[] | null = null;
+        
+        const { data: selfHostedMessages, error: selfHostedError } = await supabase
           .from('chat_messages')
-          .select('id, message_text, content, is_outgoing, direction, created_at, sender_name')
+          .select('id, message_text, is_outgoing, created_at, sender_name')
           .eq('client_id', clientIdToProcess)
           .order('created_at', { ascending: true })
           .limit(100);
 
-        if (messagesError) {
-          console.error(`[index-conversations] Messages error for ${clientIdToProcess}:`, messagesError);
+        if (!selfHostedError && selfHostedMessages?.length) {
+          messages = selfHostedMessages;
+          console.log(`[index-conversations] Got ${messages.length} messages for ${clientIdToProcess} (self-hosted schema)`);
+        } else {
+          // Fallback to Lovable Cloud schema (content, direction)
+          const { data: cloudMessages, error: cloudError } = await supabase
+            .from('chat_messages')
+            .select('id, content, direction, created_at, sender_name')
+            .eq('client_id', clientIdToProcess)
+            .order('created_at', { ascending: true })
+            .limit(100);
+
+          if (!cloudError && cloudMessages?.length) {
+            messages = cloudMessages.map(m => ({
+              ...m,
+              message_text: m.content,
+              is_outgoing: m.direction === 'outgoing'
+            })) as ChatMessage[];
+            console.log(`[index-conversations] Got ${messages.length} messages for ${clientIdToProcess} (cloud schema)`);
+          } else {
+            console.error(`[index-conversations] Messages error for ${clientIdToProcess}:`, selfHostedError || cloudError);
+            skipReasons.noMessages++;
+            results.skipped++;
+            continue;
+          }
+        }
+
+        if (!messages?.length) {
           skipReasons.noMessages++;
           results.skipped++;
           continue;
