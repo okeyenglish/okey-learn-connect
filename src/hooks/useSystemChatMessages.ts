@@ -31,38 +31,57 @@ export const useSystemChatMessages = () => {
         .order('updated_at', { ascending: false });
 
       if (clientsError) throw clientsError;
+      if (!clients || clients.length === 0) return [];
 
-      // Get latest message for each client
-      const chatData = await Promise.all(
-        (clients || []).map(async (client) => {
-          const { data: lastMsg } = await supabase
-            .from('chat_messages')
-            .select('message_text, created_at, is_read')
-            .eq('client_id', client.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+      const clientIds = clients.map(c => c.id);
 
-          const { count: unreadCount } = await supabase
-            .from('chat_messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('client_id', client.id)
-            .eq('is_read', false)
-            .eq('is_outgoing', false);
+      // BATCH: Get last messages for ALL clients in one query
+      const { data: lastMessages } = await supabase
+        .from('chat_messages')
+        .select('client_id, content, created_at')
+        .in('client_id', clientIds)
+        .order('created_at', { ascending: false })
+        .limit(500);
 
-          return {
-            id: client.id,
-            name: client.name,
-            branch: client.branch,
-            lastMessage: lastMsg?.message_text || '',
-            lastMessageTime: lastMsg?.created_at || '',
-            unreadCount: unreadCount || 0,
-            type: 'corporate'
-          };
-        })
-      );
+      // BATCH: Get unread counts for ALL clients in one query
+      const { data: unreadMessages } = await supabase
+        .from('chat_messages')
+        .select('client_id')
+        .in('client_id', clientIds)
+        .eq('is_read', false)
+        .eq('direction', 'incoming');
 
-      return chatData;
+      // Build lookup maps
+      const lastMessageMap = new Map<string, { content: string; created_at: string }>();
+      (lastMessages || []).forEach(msg => {
+        if (!lastMessageMap.has(msg.client_id!) && msg.client_id) {
+          lastMessageMap.set(msg.client_id, { 
+            content: msg.content || '', 
+            created_at: msg.created_at 
+          });
+        }
+      });
+
+      const unreadCountMap = new Map<string, number>();
+      (unreadMessages || []).forEach(msg => {
+        if (msg.client_id) {
+          unreadCountMap.set(msg.client_id, (unreadCountMap.get(msg.client_id) || 0) + 1);
+        }
+      });
+
+      // Map to final format using batch data
+      return clients.map(client => {
+        const lastMsg = lastMessageMap.get(client.id);
+        return {
+          id: client.id,
+          name: client.name,
+          branch: client.branch,
+          lastMessage: lastMsg?.content || '',
+          lastMessageTime: lastMsg?.created_at || '',
+          unreadCount: unreadCountMap.get(client.id) || 0,
+          type: 'corporate'
+        };
+      });
     },
   });
 
