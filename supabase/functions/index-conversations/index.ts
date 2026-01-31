@@ -1,9 +1,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { 
+  corsHeaders, 
+  getOpenAIApiKey, 
+  getOrganizationIdFromUser,
+  errorResponse,
+  successResponse
+} from '../_shared/types.ts';
 
 interface ConversationAnalysis {
   scenario_type: string;
@@ -62,18 +64,18 @@ ${conversationText}
 Отвечай ТОЛЬКО валидным JSON без markdown.`;
 
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'user', content: prompt }
         ],
-        max_completion_tokens: 500,
+        max_tokens: 500,
       }),
     });
 
@@ -104,7 +106,7 @@ async function createEmbedding(
   apiKey: string
 ): Promise<number[] | null> {
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -137,24 +139,34 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Unauthorized', 401);
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    if (!LOVABLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'AI service not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Get user and organization
+    const token = authHeader.replace('Bearer ', '');
+    const userSupabase = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+      global: { headers: { Authorization: authHeader } }
+    });
+    
+    const { data: { user }, error: userError } = await userSupabase.auth.getUser(token);
+    if (userError || !user) {
+      return errorResponse('Invalid authorization', 401);
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const organizationId = await getOrganizationIdFromUser(supabase, user.id);
+    if (!organizationId) {
+      return errorResponse('Organization not found', 400);
+    }
+
+    // Get OpenAI API key from organization settings
+    const openaiApiKey = await getOpenAIApiKey(supabase, organizationId);
+    if (!openaiApiKey) {
+      return errorResponse('AI service not configured. Please set up OpenAI API key in AI settings.', 500);
+    }
 
     const body = await req.json() as IndexRequest;
     const {
@@ -171,6 +183,7 @@ Deno.serve(async (req) => {
     let query = supabase
       .from('chat_messages')
       .select('client_id, organization_id')
+      .eq('organization_id', organizationId) // Filter by organization
       .gte('created_at', new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString())
       .not('content', 'is', null);
 
@@ -182,10 +195,7 @@ Deno.serve(async (req) => {
 
     if (queryError) {
       console.error('Query error:', queryError);
-      return new Response(
-        JSON.stringify({ success: false, error: 'Failed to fetch messages' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('Failed to fetch messages', 500);
     }
 
     // Group by client_id and count messages
@@ -239,7 +249,7 @@ Deno.serve(async (req) => {
         results.processed++;
 
         // Analyze conversation
-        const analysis = await analyzeConversation(messages, LOVABLE_API_KEY);
+        const analysis = await analyzeConversation(messages, openaiApiKey);
         
         if (!analysis) {
           console.log(`Skipped client ${clientIdToProcess}: analysis failed`);
@@ -258,7 +268,7 @@ Deno.serve(async (req) => {
         const searchText = `${analysis.scenario_type} ${analysis.client_type} ${analysis.client_stage} ${analysis.context_summary}`;
         
         // Create embedding
-        const embedding = await createEmbedding(searchText, LOVABLE_API_KEY);
+        const embedding = await createEmbedding(searchText, openaiApiKey);
         
         if (!embedding) {
           console.log(`Skipped client ${clientIdToProcess}: embedding failed`);
@@ -323,20 +333,13 @@ Deno.serve(async (req) => {
 
     console.log(`Indexing complete: ${results.indexed} indexed, ${results.skipped} skipped, ${results.errors} errors`);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        ...results,
-        dryRun
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return successResponse({
+      ...results,
+      dryRun
+    });
 
   } catch (error) {
     console.error('Error in index-conversations:', error);
-    return new Response(
-      JSON.stringify({ success: false, error: 'Server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse('Server error', 500);
   }
 });
