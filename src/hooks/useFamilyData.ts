@@ -53,6 +53,7 @@ export interface Student {
   courses: {
     id: string;
     name: string;
+    type: 'group' | 'individual';
     nextLesson?: string;
     nextPayment?: string;
     paymentAmount?: number;
@@ -215,12 +216,14 @@ const transformRpcResponse = (data: RpcResponse): FamilyGroup => {
       ...(student.group_courses || []).map((c: RpcGroupCourse) => ({
         id: c.group_id,
         name: c.group_name,
+        type: 'group' as const,
         nextLesson: formatNextLesson(c.next_lesson),
         isActive: c.is_active,
       })),
       ...(student.individual_courses || []).map((c: RpcIndividualCourse) => ({
         id: c.course_id,
         name: c.course_name,
+        type: 'individual' as const,
         nextLesson: formatNextLesson(c.next_lesson),
         isActive: c.is_active,
       })),

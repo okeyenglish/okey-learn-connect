@@ -5,6 +5,7 @@ import { User, ExternalLink, BookOpen } from "lucide-react";
 interface Course {
   id: string;
   name: string;
+  type: 'group' | 'individual';
   nextLesson?: string;
   isActive: boolean;
 }
@@ -17,6 +18,7 @@ interface StudentInfoBlockProps {
   hollihopeId?: string | null;
   courses?: Course[];
   onClick?: () => void;
+  onCourseClick?: (courseId: string, courseName: string, courseType: 'group' | 'individual') => void;
 }
 
 const getStatusLabel = (status: string) => {
@@ -54,6 +56,7 @@ export const StudentInfoBlock = ({
   hollihopeId,
   courses = [],
   onClick,
+  onCourseClick,
 }: StudentInfoBlockProps) => {
   // Определяем тип ссылки: лиды (trial, not_started) идут в /Lead/, остальные в /Profile/
   const isLead = status === 'trial' || status === 'not_started';
@@ -111,9 +114,18 @@ export const StudentInfoBlock = ({
       {activeCourses.length > 0 && (
         <div className="mt-2 pl-8 space-y-1">
           {activeCourses.map((course) => (
-            <div key={course.id} className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div 
+              key={course.id} 
+              className={`flex items-center gap-2 text-sm text-muted-foreground ${onCourseClick ? 'hover:text-foreground cursor-pointer' : ''}`}
+              onClick={(e) => {
+                if (onCourseClick) {
+                  e.stopPropagation();
+                  onCourseClick(course.id, course.name, course.type);
+                }
+              }}
+            >
               <BookOpen className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className="truncate">{course.name}</span>
+              <span className="truncate hover:underline">{course.name}</span>
               {course.nextLesson && (
                 <span className="text-xs text-muted-foreground/70 flex-shrink-0">
                   • {course.nextLesson}
