@@ -20,9 +20,9 @@ interface ConversationAnalysis {
 interface ChatMessage {
   id: string;
   message_text: string | null;
-  content?: string | null; // fallback for cloud schema
+  content?: string | null;
   is_outgoing: boolean;
-  direction?: string; // fallback for cloud schema
+  direction?: string;
   created_at: string;
   sender_name?: string;
 }
@@ -32,17 +32,24 @@ interface IndexRequest {
   daysBack?: number;
   minMessages?: number;
   maxConversations?: number;
+  minQuality?: number;
   dryRun?: boolean;
 }
 
-// Analyze conversation using AI to determine scenario, type, quality
+interface SkipReasons {
+  lowQuality: number;
+  ongoing: number;
+  analysisFailed: number;
+  embeddingFailed: number;
+  noMessages: number;
+}
+
 async function analyzeConversation(
   messages: ChatMessage[],
   apiKey: string
 ): Promise<ConversationAnalysis | null> {
   const conversationText = messages
     .map(m => {
-      // Handle both self-hosted (is_outgoing) and cloud (direction) schemas
       const isOutgoing = m.is_outgoing ?? m.direction === 'outgoing';
       const text = m.message_text ?? m.content ?? '[медиа]';
       return `${isOutgoing ? 'Менеджер' : 'Клиент'}: ${text}`;
@@ -80,9 +87,7 @@ ${conversationText}
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        messages: [
-          { role: 'user', content: prompt }
-        ],
+        messages: [{ role: 'user', content: prompt }],
         max_tokens: 500,
       }),
     });
@@ -94,10 +99,8 @@ ${conversationText}
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
-    
     if (!content) return null;
 
-    // Parse JSON from response
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
 
@@ -108,11 +111,7 @@ ${conversationText}
   }
 }
 
-// Create embedding for the conversation
-async function createEmbedding(
-  text: string,
-  apiKey: string
-): Promise<number[] | null> {
+async function createEmbedding(text: string, apiKey: string): Promise<number[] | null> {
   try {
     const response = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
@@ -140,7 +139,6 @@ async function createEmbedding(
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
@@ -154,13 +152,11 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get organization ID from auth header
     const organizationId = await getOrganizationIdFromUser(supabase, authHeader);
     if (!organizationId) {
       return errorResponse('Organization not found', 400);
     }
 
-    // Get OpenAI API key from organization settings
     const openaiApiKey = await getOpenAIApiKey(supabase, organizationId);
     if (!openaiApiKey) {
       return errorResponse('AI сервис не настроен. Добавьте OpenAI API ключ в настройках AI.', 500);
@@ -172,13 +168,12 @@ Deno.serve(async (req) => {
       daysBack = 30,
       minMessages = 5,
       maxConversations = 50,
+      minQuality = 3,
       dryRun = false
     } = body;
 
-    console.log(`[index-conversations] Starting: daysBack=${daysBack}, minMessages=${minMessages}, maxConversations=${maxConversations}, dryRun=${dryRun}`);
+    console.log(`[index-conversations] Starting: daysBack=${daysBack}, minMessages=${minMessages}, maxConversations=${maxConversations}, minQuality=${minQuality}, dryRun=${dryRun}`);
 
-    // Get conversations to index - use both column names for compatibility
-    // Self-hosted uses message_text, cloud uses content
     let query = supabase
       .from('chat_messages')
       .select('client_id, organization_id')
@@ -196,7 +191,6 @@ Deno.serve(async (req) => {
       return errorResponse(`Failed to fetch messages: ${queryError.message}`, 500);
     }
 
-    // Group by client_id and count messages
     const clientCounts = new Map<string, { count: number; organization_id: string }>();
     for (const msg of messageGroups || []) {
       if (!msg.client_id) continue;
@@ -208,12 +202,19 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Filter clients with enough messages
     const eligibleClients = Array.from(clientCounts.entries())
       .filter(([_, data]) => data.count >= minMessages)
       .slice(0, maxConversations);
 
     console.log(`[index-conversations] Found ${eligibleClients.length} eligible conversations`);
+
+    const skipReasons: SkipReasons = {
+      lowQuality: 0,
+      ongoing: 0,
+      analysisFailed: 0,
+      embeddingFailed: 0,
+      noMessages: 0,
+    };
 
     const results = {
       total: eligibleClients.length,
@@ -231,7 +232,6 @@ Deno.serve(async (req) => {
 
     for (const [clientIdToProcess, clientData] of eligibleClients) {
       try {
-        // Fetch full conversation - select both column naming conventions
         const { data: messages, error: messagesError } = await supabase
           .from('chat_messages')
           .select('id, message_text, content, is_outgoing, direction, created_at, sender_name')
@@ -241,46 +241,52 @@ Deno.serve(async (req) => {
 
         if (messagesError) {
           console.error(`[index-conversations] Messages error for ${clientIdToProcess}:`, messagesError);
+          skipReasons.noMessages++;
           results.skipped++;
           continue;
         }
         
         if (!messages?.length) {
+          skipReasons.noMessages++;
           results.skipped++;
           continue;
         }
 
         results.processed++;
 
-        // Analyze conversation
         const analysis = await analyzeConversation(messages, openaiApiKey);
         
         if (!analysis) {
           console.log(`[index-conversations] Skipped ${clientIdToProcess}: analysis failed`);
+          skipReasons.analysisFailed++;
           results.skipped++;
           continue;
         }
 
-        // Skip low quality or ongoing conversations
-        if (analysis.quality_score < 3 || analysis.outcome === 'ongoing') {
-          console.log(`[index-conversations] Skipped ${clientIdToProcess}: quality=${analysis.quality_score}, outcome=${analysis.outcome}`);
+        if (analysis.outcome === 'ongoing') {
+          console.log(`[index-conversations] Skipped ${clientIdToProcess}: ongoing conversation`);
+          skipReasons.ongoing++;
           results.skipped++;
           continue;
         }
 
-        // Create search text for embedding
+        if (analysis.quality_score < minQuality) {
+          console.log(`[index-conversations] Skipped ${clientIdToProcess}: quality=${analysis.quality_score} < ${minQuality}`);
+          skipReasons.lowQuality++;
+          results.skipped++;
+          continue;
+        }
+
         const searchText = `${analysis.scenario_type} ${analysis.client_type} ${analysis.client_stage} ${analysis.context_summary}`;
-        
-        // Create embedding
         const embedding = await createEmbedding(searchText, openaiApiKey);
         
         if (!embedding) {
           console.log(`[index-conversations] Skipped ${clientIdToProcess}: embedding failed`);
+          skipReasons.embeddingFailed++;
           results.skipped++;
           continue;
         }
 
-        // Prepare messages JSON - handle both schemas
         const messagesJson = messages.map(m => {
           const isOutgoing = m.is_outgoing ?? m.direction === 'outgoing';
           return {
@@ -290,12 +296,10 @@ Deno.serve(async (req) => {
           };
         });
 
-        // Get initial message text
         const firstMsg = messages[0];
         const initialMessage = firstMsg?.message_text ?? firstMsg?.content ?? '';
 
         if (!dryRun) {
-          // Save to conversation_examples
           const { error: insertError } = await supabase
             .from('conversation_examples')
             .insert({
@@ -333,7 +337,6 @@ Deno.serve(async (req) => {
 
         console.log(`[index-conversations] Indexed ${clientIdToProcess}: ${analysis.scenario_type}, quality=${analysis.quality_score}`);
 
-        // Rate limiting
         await new Promise(resolve => setTimeout(resolve, 500));
 
       } catch (error) {
@@ -343,9 +346,11 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[index-conversations] Complete: ${results.indexed} indexed, ${results.skipped} skipped, ${results.errors} errors`);
+    console.log(`[index-conversations] Skip reasons:`, skipReasons);
 
     return successResponse({
       ...results,
+      skipReasons,
       dryRun
     });
 
