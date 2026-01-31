@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Filter, Loader2, RefreshCw, Search } from 'lucide-react';
+import { BookOpen, Loader2, RefreshCw, Heart } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useToast } from '@/hooks/use-toast';
 import { DialogueScriptCard, DialogueExample, scenarioLabels, outcomeLabels } from './DialogueScriptCard';
 import { DialogueScriptDetail } from './DialogueScriptDetail';
+import { useDialogueInteractions } from '@/hooks/useDialogueInteractions';
 
 interface DialoguesResponse {
   success: boolean;
@@ -29,7 +30,6 @@ export function SuccessfulDialoguesLibrary() {
   const [dialogues, setDialogues] = useState<DialogueExample[]>([]);
   const [total, setTotal] = useState(0);
   const [byScenario, setByScenario] = useState<Record<string, number>>({});
-  const [byOutcome, setByOutcome] = useState<Record<string, number>>({});
   const [hasMore, setHasMore] = useState(false);
 
   // Filters
@@ -38,12 +38,23 @@ export function SuccessfulDialoguesLibrary() {
   const [minQuality, setMinQuality] = useState<number>(4);
   const [sortBy, setSortBy] = useState<'quality_score' | 'created_at'>('quality_score');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   // Detail view
   const [selectedDialogue, setSelectedDialogue] = useState<DialogueExample | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
   const { toast } = useToast();
+  
+  // Interactions (favorites & comments)
+  const {
+    isFavorite,
+    toggleFavorite,
+    getCommentsForDialogue,
+    addComment,
+    deleteComment,
+    favoriteIds
+  } = useDialogueInteractions();
 
   const loadDialogues = async (reset = false) => {
     setIsLoading(true);
@@ -72,7 +83,6 @@ export function SuccessfulDialoguesLibrary() {
         
         setTotal(data.total);
         setByScenario(data.byScenario || {});
-        setByOutcome(data.byOutcome || {});
         setHasMore(data.pagination?.hasMore || false);
       } else {
         toast({
@@ -102,7 +112,24 @@ export function SuccessfulDialoguesLibrary() {
     setDetailOpen(true);
   };
 
+  const handleToggleFavorite = async () => {
+    if (!selectedDialogue) return;
+    await toggleFavorite(selectedDialogue.id);
+  };
+
+  const handleAddComment = async (text: string) => {
+    if (!selectedDialogue) return null;
+    return await addComment(selectedDialogue.id, text);
+  };
+
   const totalScripts = Object.values(byScenario).reduce((a, b) => a + b, 0);
+
+  // Filter dialogues by favorites if enabled
+  const displayedDialogues = showFavoritesOnly
+    ? dialogues.filter(d => isFavorite(d.id))
+    : dialogues;
+
+  const favoritesCount = dialogues.filter(d => isFavorite(d.id)).length;
 
   return (
     <div className="space-y-6">
@@ -135,19 +162,34 @@ export function SuccessfulDialoguesLibrary() {
       {/* Stats by Scenario */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
         <Card 
-          className={`cursor-pointer transition-all ${scenarioFilter === 'all' ? 'ring-2 ring-primary' : 'hover:border-primary/50'}`}
-          onClick={() => setScenarioFilter('all')}
+          className={`cursor-pointer transition-all ${scenarioFilter === 'all' && !showFavoritesOnly ? 'ring-2 ring-primary' : 'hover:border-primary/50'}`}
+          onClick={() => { setScenarioFilter('all'); setShowFavoritesOnly(false); }}
         >
           <CardContent className="p-3 text-center">
             <p className="text-2xl font-bold">{totalScripts}</p>
             <p className="text-xs text-muted-foreground">Все скрипты</p>
           </CardContent>
         </Card>
-        {Object.entries(byScenario).map(([scenario, count]) => (
+        
+        {/* Favorites card */}
+        <Card 
+          className={`cursor-pointer transition-all ${showFavoritesOnly ? 'ring-2 ring-red-500' : 'hover:border-red-500/50'}`}
+          onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+        >
+          <CardContent className="p-3 text-center">
+            <div className="flex items-center justify-center gap-1">
+              <Heart className={`h-5 w-5 ${showFavoritesOnly ? 'fill-red-500 text-red-500' : 'text-red-500'}`} />
+              <p className="text-2xl font-bold">{favoritesCount}</p>
+            </div>
+            <p className="text-xs text-muted-foreground">Избранное</p>
+          </CardContent>
+        </Card>
+
+        {Object.entries(byScenario).slice(0, 4).map(([scenario, count]) => (
           <Card
             key={scenario}
             className={`cursor-pointer transition-all ${scenarioFilter === scenario ? 'ring-2 ring-primary' : 'hover:border-primary/50'}`}
-            onClick={() => setScenarioFilter(scenario)}
+            onClick={() => { setScenarioFilter(scenario); setShowFavoritesOnly(false); }}
           >
             <CardContent className="p-3 text-center">
               <p className="text-2xl font-bold">{count}</p>
@@ -165,7 +207,7 @@ export function SuccessfulDialoguesLibrary() {
           <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-1">
               <Label className="text-xs">Сценарий</Label>
-              <Select value={scenarioFilter} onValueChange={setScenarioFilter}>
+              <Select value={scenarioFilter} onValueChange={(v) => { setScenarioFilter(v); setShowFavoritesOnly(false); }}>
                 <SelectTrigger className="w-[160px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -220,21 +262,19 @@ export function SuccessfulDialoguesLibrary() {
               </Select>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs">Порядок</Label>
-              <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as 'asc' | 'desc')}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="desc">Убывание</SelectItem>
-                  <SelectItem value="asc">Возрастание</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="favorites-only"
+                checked={showFavoritesOnly}
+                onCheckedChange={setShowFavoritesOnly}
+              />
+              <Label htmlFor="favorites-only" className="text-xs cursor-pointer">
+                Только избранное
+              </Label>
             </div>
 
             <Badge variant="secondary" className="h-9 px-3">
-              Найдено: {total}
+              Показано: {displayedDialogues.length} из {total}
             </Badge>
           </div>
         </CardContent>
@@ -245,31 +285,47 @@ export function SuccessfulDialoguesLibrary() {
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      ) : dialogues.length === 0 ? (
+      ) : displayedDialogues.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">
-              Нет скриптов по заданным фильтрам
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Попробуйте изменить фильтры или запустите индексацию диалогов
-            </p>
+            {showFavoritesOnly ? (
+              <>
+                <Heart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">
+                  Нет скриптов в избранном
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Добавьте понравившиеся скрипты в избранное нажав на ❤️
+                </p>
+              </>
+            ) : (
+              <>
+                <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">
+                  Нет скриптов по заданным фильтрам
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Попробуйте изменить фильтры или запустите индексацию диалогов
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {dialogues.map((dialogue) => (
+            {displayedDialogues.map((dialogue) => (
               <DialogueScriptCard
                 key={dialogue.id}
                 dialogue={dialogue}
                 onClick={() => handleCardClick(dialogue)}
+                isFavorite={isFavorite(dialogue.id)}
+                commentCount={getCommentsForDialogue(dialogue.id).length}
               />
             ))}
           </div>
 
-          {hasMore && (
+          {hasMore && !showFavoritesOnly && (
             <div className="flex justify-center">
               <Button
                 variant="outline"
@@ -295,6 +351,11 @@ export function SuccessfulDialoguesLibrary() {
         dialogue={selectedDialogue}
         open={detailOpen}
         onOpenChange={setDetailOpen}
+        isFavorite={selectedDialogue ? isFavorite(selectedDialogue.id) : false}
+        onToggleFavorite={handleToggleFavorite}
+        comments={selectedDialogue ? getCommentsForDialogue(selectedDialogue.id) : []}
+        onAddComment={handleAddComment}
+        onDeleteComment={deleteComment}
       />
     </div>
   );

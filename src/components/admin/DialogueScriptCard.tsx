@@ -1,4 +1,4 @@
-import { Star, MessageSquare, Calendar } from 'lucide-react';
+import { Star, MessageSquare, Calendar, Heart } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -25,6 +25,8 @@ export interface DialogueExample {
 interface DialogueScriptCardProps {
   dialogue: DialogueExample;
   onClick: () => void;
+  isFavorite?: boolean;
+  commentCount?: number;
 }
 
 const scenarioLabels: Record<string, string> = {
@@ -69,7 +71,7 @@ const outcomeColors: Record<string, string> = {
   satisfied: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200'
 };
 
-export function DialogueScriptCard({ dialogue, onClick }: DialogueScriptCardProps) {
+export function DialogueScriptCard({ dialogue, onClick, isFavorite, commentCount = 0 }: DialogueScriptCardProps) {
   const renderStars = (score: number) => {
     return Array.from({ length: 5 }, (_, i) => (
       <Star
@@ -85,12 +87,19 @@ export function DialogueScriptCard({ dialogue, onClick }: DialogueScriptCardProp
 
   return (
     <Card
-      className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
+      className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50 relative"
       onClick={onClick}
     >
+      {/* Favorite indicator */}
+      {isFavorite && (
+        <div className="absolute top-2 right-2 z-10">
+          <Heart className="h-4 w-4 fill-red-500 text-red-500" />
+        </div>
+      )}
+      
       <CardContent className="p-4">
         {/* Header with badges and rating */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 pr-6">
           <div className="flex items-center gap-2 flex-wrap">
             <Badge className={scenarioColors[dialogue.scenario_type] || scenarioColors.unknown}>
               {scenarioLabels[dialogue.scenario_type] || dialogue.scenario_type}
@@ -131,9 +140,17 @@ export function DialogueScriptCard({ dialogue, onClick }: DialogueScriptCardProp
 
         {/* Footer */}
         <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
-          <div className="flex items-center gap-1">
-            <MessageSquare className="h-3 w-3" />
-            <span>{messageCount} сообщений</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <MessageSquare className="h-3 w-3" />
+              <span>{messageCount}</span>
+            </div>
+            {commentCount > 0 && (
+              <div className="flex items-center gap-1 text-primary">
+                <MessageSquare className="h-3 w-3" />
+                <span>{commentCount} заметок</span>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-1">
             <Calendar className="h-3 w-3" />
