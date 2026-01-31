@@ -64,17 +64,19 @@ export const useClientAvatars = (clientId: string | null) => {
 
     const fetchPromise = (async () => {
       try {
-        // Fetch all avatar URLs from DB first
+        // Fetch avatar URL from DB - use avatar_url as fallback for self-hosted
         const { data: client } = await supabase
           .from('clients')
-          .select('whatsapp_avatar_url, telegram_avatar_url, max_avatar_url')
+          .select('avatar_url, whatsapp_avatar_url, telegram_avatar_url, max_avatar_url')
           .eq('id', clientId)
           .maybeSingle();
 
+        // Fallback chain: messenger-specific -> generic avatar_url -> null
+        const genericAvatar = client?.avatar_url || null;
         const newCache: AvatarCacheEntry = {
-          whatsapp: client?.whatsapp_avatar_url || null,
-          telegram: client?.telegram_avatar_url || null,
-          max: client?.max_avatar_url || null,
+          whatsapp: client?.whatsapp_avatar_url || genericAvatar,
+          telegram: client?.telegram_avatar_url || genericAvatar,
+          max: client?.max_avatar_url || genericAvatar,
           fetchedAt: Date.now(),
         };
 

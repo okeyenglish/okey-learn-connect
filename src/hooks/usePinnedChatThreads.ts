@@ -72,19 +72,10 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
   
   console.log('[usePinnedChatThreads] fetchThreadsDirectly called for:', clientIds);
 
-  // Fetch clients - self-hosted schema only has avatar_url (no messenger-specific avatars or client_phone_numbers)
+  // Fetch clients - self-hosted schema only has avatar_url (no messenger-specific avatars)
   const { data: clients, error: clientsError } = await supabase
     .from('clients')
-    .select(`
-      id,
-      name,
-      first_name,
-      last_name,
-      phone,
-      branch,
-      avatar_url,
-      telegram_user_id
-    `)
+    .select('id, name, first_name, last_name, phone, branch, avatar_url, telegram_user_id')
     .in('id', clientIds);
 
   if (clientsError) {
