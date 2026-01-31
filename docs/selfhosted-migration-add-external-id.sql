@@ -103,7 +103,7 @@ BEGIN
           'first_name', s.first_name,
           'last_name', s.last_name,
           'middle_name', s.middle_name,
-          'date_of_birth', s.birth_date,
+          'date_of_birth', s.date_of_birth,
           'avatar_url', s.avatar_url,
           'is_active', COALESCE(s.status = 'active', s.is_active, false),
           'group_courses', COALESCE((
