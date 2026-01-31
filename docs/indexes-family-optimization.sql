@@ -26,10 +26,14 @@ CREATE INDEX IF NOT EXISTS idx_clients_phone
 ON clients(phone) 
 WHERE phone IS NOT NULL AND phone != '';
 
--- Индекс для активных клиентов (используется в RPC для фильтрации)
-CREATE INDEX IF NOT EXISTS idx_clients_is_active 
-ON clients(is_active) 
-WHERE is_active = true;
+-- Примечание: clients использует is_active (boolean) на self-hosted
+-- Если колонка существует, создаём индекс:
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'clients' AND column_name = 'is_active') THEN
+    CREATE INDEX IF NOT EXISTS idx_clients_is_active ON clients(is_active) WHERE is_active = true;
+  END IF;
+END $$;
 
 -- Составной индекс для быстрой выборки данных клиента
 CREATE INDEX IF NOT EXISTS idx_clients_id_org 
