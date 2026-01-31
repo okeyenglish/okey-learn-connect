@@ -1078,9 +1078,13 @@ const CRMContent = () => {
           ? `${typing.names[0] || 'Менеджер'} печатает...`
           : (thread.last_message?.trim?.() || 'Нет сообщений');
           
-        // Используем аватары из threads (теперь RPC их возвращает)
-        // Self-hosted schema only has avatar_url (no messenger-specific avatars)
-        const displayAvatar = thread.avatar_url || null;
+        // Используем аватар из threads: сначала мессенджер-специфичный (если есть), затем общий.
+        const displayAvatar =
+          thread.whatsapp_avatar_url ||
+          thread.telegram_avatar_url ||
+          thread.max_avatar_url ||
+          thread.avatar_url ||
+          null;
           
         return {
           id: thread.client_id,
@@ -1136,8 +1140,12 @@ const CRMContent = () => {
     
     // Helper to convert thread to chat format
     const threadToChat = (thread: any, foundInMessages = false) => {
-      // Self-hosted schema only has avatar_url (no messenger-specific avatars)
-      const displayAvatar = thread.avatar_url || null;
+      const displayAvatar =
+        thread.whatsapp_avatar_url ||
+        thread.telegram_avatar_url ||
+        thread.max_avatar_url ||
+        thread.avatar_url ||
+        null;
       
       return {
         id: thread.client_id,
