@@ -1,23 +1,23 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, Search, X, CheckCheck, ArrowUp, ArrowDown, Loader2, WifiOff, RefreshCw, Wand2, Download } from "lucide-react";
+import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, CheckCheck, ArrowUp, ArrowDown, Loader2, WifiOff, RefreshCw, Wand2, Download, FileText, Handshake, Target, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useInfiniteCallHistory } from "@/hooks/useInfiniteCallHistory";
-import type { CallLog } from "@/hooks/useCallHistory";
+import type { CallLog, CallLogActionItem } from "@/hooks/useCallHistory";
 import { CallDetailModal } from "./CallDetailModal";
 import { useUnviewedMissedCallsCount, useViewedMissedCalls } from "@/hooks/useViewedMissedCalls";
-import { CallSummaryPreview } from "./CallSummaryPreview";
 import { CallRecordingPlayer } from "./CallRecordingPlayer";
 import { selfHostedPost } from "@/lib/selfHostedApi";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
+
 interface CallHistoryProps {
   clientId: string;
 }
@@ -51,7 +51,6 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('all');
-  const [searchQuery, setSearchQuery] = useState('');
   const [isMarkingAll, setIsMarkingAll] = useState(false);
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [analyzingCallIds, setAnalyzingCallIds] = useState<Set<string>>(new Set());
@@ -76,18 +75,12 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
     return unviewedCallIds.has(call.id);
   };
 
-  // Normalize phone for search (remove non-digits)
-  const normalizePhone = (phone: string) => phone.replace(/\D/g, '');
-
   // Filter and sort calls
   const filteredCalls = useMemo(() => {
-    const normalizedSearch = normalizePhone(searchQuery);
-    
     const filtered = calls.filter(call => {
       const statusMatch = statusFilter === 'all' || call.status === statusFilter;
       const directionMatch = directionFilter === 'all' || call.direction === directionFilter;
-      const searchMatch = !normalizedSearch || normalizePhone(call.phone_number).includes(normalizedSearch);
-      return statusMatch && directionMatch && searchMatch;
+      return statusMatch && directionMatch;
     });
 
     // Sort by date
@@ -96,7 +89,7 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
       const dateB = new Date(b.started_at).getTime();
       return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
     });
-  }, [calls, statusFilter, directionFilter, searchQuery, sortOrder]);
+  }, [calls, statusFilter, directionFilter, sortOrder]);
 
   // Count calls by status and direction for badges
   const statusCounts = useMemo(() => ({
@@ -427,15 +420,6 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
                 </div>
               )}
 
-              {/* AI Summary - показываем если есть */}
-              {call.summary && (
-                <div className="mt-2 p-2 bg-muted/50 rounded-md">
-                  <p className="text-xs text-foreground line-clamp-2">
-                    💬 {call.summary}
-                  </p>
-                </div>
-              )}
-
               {/* Audio Recording Player OR Fetch button */}
               {call.recording_url && call.status === 'answered' ? (
                 <div className="mt-2">
@@ -472,15 +456,51 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
                 </div>
               )}
 
-              {/* Manual summary/agreements/tasks preview */}
-              <CallSummaryPreview 
-                callId={call.id}
-                clientId={clientId}
-                summary={call.summary}
-                agreements={call.agreements}
-                manualActionItems={call.manual_action_items}
-                className="mt-2"
-              />
+              {/* Inline Summary */}
+              {call.summary && (
+                <div className="mt-2 p-2 bg-blue-50/50 dark:bg-blue-950/30 rounded-md">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-400 mb-1">
+                    <FileText className="h-3 w-3" />
+                    Резюме
+                  </div>
+                  <p className="text-xs text-muted-foreground">{call.summary}</p>
+                </div>
+              )}
+
+              {/* Inline Agreements */}
+              {call.agreements && (
+                <div className="mt-2 p-2 bg-green-50/50 dark:bg-green-950/30 rounded-md">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400 mb-1">
+                    <Handshake className="h-3 w-3" />
+                    Договорённости
+                  </div>
+                  <p className="text-xs text-muted-foreground">{call.agreements}</p>
+                </div>
+              )}
+
+              {/* Inline Tasks */}
+              {call.manual_action_items && call.manual_action_items.length > 0 && (
+                <div className="mt-2 p-2 bg-orange-50/50 dark:bg-orange-950/30 rounded-md">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-orange-700 dark:text-orange-400 mb-1">
+                    <Target className="h-3 w-3" />
+                    Задачи ({call.manual_action_items.length})
+                  </div>
+                  <div className="space-y-1">
+                    {call.manual_action_items.map((item: CallLogActionItem, idx: number) => (
+                      <div key={idx} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          item.priority === 'high' ? 'bg-red-500' : 
+                          item.priority === 'medium' ? 'bg-orange-500' : 'bg-green-500'
+                        }`} />
+                        <span>{item.task}</span>
+                        {item.deadline && (
+                          <span className="text-[10px] text-muted-foreground/70">до {item.deadline}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* AI Evaluation badge OR Analyzing indicator OR Analyze button */}
               <div className="mt-2 flex items-center gap-2 flex-wrap">
@@ -645,79 +665,64 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
           </div>
         </div>
 
-        {/* Phone search */}
-        <div className="relative mt-2">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Поиск по номеру..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-8 pl-8 pr-8 text-xs"
-          />
-          {searchQuery && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </div>
-        
-        {/* Status filter */}
-        <ToggleGroup 
-          type="single" 
-          value={statusFilter} 
-          onValueChange={(value) => value && setStatusFilter(value as StatusFilter)}
-          className="justify-start mt-2"
-        >
-          <ToggleGroupItem value="all" size="sm" className="text-xs h-7 px-2.5">
-            Все
-            <Badge variant="outline" className="ml-1.5 h-4 px-1 text-[10px]">
-              {statusCounts.all}
-            </Badge>
-          </ToggleGroupItem>
-          <ToggleGroupItem value="answered" size="sm" className="text-xs h-7 px-2.5">
-            Состоялись
-            <Badge variant="outline" className="ml-1.5 h-4 px-1 text-[10px] bg-green-50 text-green-700 border-green-200">
-              {statusCounts.answered}
-            </Badge>
-          </ToggleGroupItem>
-          <ToggleGroupItem value="missed" size="sm" className="text-xs h-7 px-2.5">
-            Пропущенные
-            <Badge variant="outline" className="ml-1.5 h-4 px-1 text-[10px] bg-red-50 text-red-700 border-red-200">
-              {statusCounts.missed}
-            </Badge>
-          </ToggleGroupItem>
-        </ToggleGroup>
+        {/* Compact filters row */}
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          {/* Status filter */}
+          <ToggleGroup 
+            type="single" 
+            value={statusFilter} 
+            onValueChange={(value) => value && setStatusFilter(value as StatusFilter)}
+            className="justify-start"
+          >
+            <ToggleGroupItem value="all" size="sm" className="text-xs h-7 px-2">
+              Все
+              <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px]">
+                {statusCounts.all}
+              </Badge>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="answered" size="sm" className="text-xs h-7 px-2">
+              ✓
+              <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px] bg-green-50 text-green-700 border-green-200">
+                {statusCounts.answered}
+              </Badge>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="missed" size="sm" className="text-xs h-7 px-2">
+              ✗
+              <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px] bg-red-50 text-red-700 border-red-200">
+                {statusCounts.missed}
+              </Badge>
+            </ToggleGroupItem>
+          </ToggleGroup>
 
-        {/* Direction filter */}
-        <ToggleGroup 
-          type="single" 
-          value={directionFilter} 
-          onValueChange={(value) => value && setDirectionFilter(value as DirectionFilter)}
-          className="justify-start"
-        >
-          <ToggleGroupItem value="all" size="sm" className="text-xs h-7 px-2.5">
-            Все
-          </ToggleGroupItem>
-          <ToggleGroupItem value="incoming" size="sm" className="text-xs h-7 px-2.5 gap-1">
-            <PhoneIncoming className="h-3 w-3" />
-            Входящие
-            <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px]">
-              {directionCounts.incoming}
-            </Badge>
-          </ToggleGroupItem>
-          <ToggleGroupItem value="outgoing" size="sm" className="text-xs h-7 px-2.5 gap-1">
-            <PhoneOutgoing className="h-3 w-3" />
-            Исходящие
-            <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px]">
-              {directionCounts.outgoing}
-            </Badge>
-          </ToggleGroupItem>
-        </ToggleGroup>
+          {/* Direction dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1 px-2">
+                {directionFilter === 'all' ? (
+                  <>Направление</>
+                ) : directionFilter === 'incoming' ? (
+                  <><PhoneIncoming className="h-3 w-3" /> Входящие</>
+                ) : (
+                  <><PhoneOutgoing className="h-3 w-3" /> Исходящие</>
+                )}
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => setDirectionFilter('all')}>
+                Все направления
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setDirectionFilter('incoming')}>
+                <PhoneIncoming className="h-3 w-3 mr-2" />
+                Входящие ({directionCounts.incoming})
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setDirectionFilter('outgoing')}>
+                <PhoneOutgoing className="h-3 w-3 mr-2" />
+                Исходящие ({directionCounts.outgoing})
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </CardHeader>
       <CardContent className="px-0 pt-2">
         <ScrollArea className="h-64 px-4">
