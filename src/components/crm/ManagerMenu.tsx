@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { User, Settings, Key, LogOut, ChevronDown, Shield, Bell, BellOff, Send, AlertTriangle, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -60,7 +60,7 @@ interface ManagerMenuProps {
   onSignOut: () => void;
 }
 
-export const ManagerMenu = ({ 
+export const ManagerMenu = React.memo(({ 
   managerName, 
   managerEmail, 
   avatarUrl, 
@@ -76,14 +76,12 @@ export const ManagerMenu = ({
   const [testPushLoading, setTestPushLoading] = useState(false);
   const isMobile = useIsMobile();
   
-  // Check if user is admin or methodist
-  // roles is an array, check if it includes admin
-  const isAdmin = role === 'admin' || (Array.isArray(roles) && roles.includes('admin'));
-  const isMethodist = role === 'methodist' || (Array.isArray(roles) && roles.includes('methodist'));
-  const canAccessAdmin = isAdmin || isMethodist;
-  
-  // Debug logging
-  console.log('🔐 ManagerMenu roles check:', { role, roles, isAdmin, isMethodist, canAccessAdmin });
+  // Memoized role calculations
+  const { isAdmin, isMethodist, canAccessAdmin } = useMemo(() => {
+    const isAdmin = role === 'admin' || (Array.isArray(roles) && roles.includes('admin'));
+    const isMethodist = role === 'methodist' || (Array.isArray(roles) && roles.includes('methodist'));
+    return { isAdmin, isMethodist, canAccessAdmin: isAdmin || isMethodist };
+  }, [role, roles]);
 
 
   const handleTestPush = async (e: React.MouseEvent) => {
@@ -336,4 +334,4 @@ export const ManagerMenu = ({
       )}
     </>
   );
-};
+});
