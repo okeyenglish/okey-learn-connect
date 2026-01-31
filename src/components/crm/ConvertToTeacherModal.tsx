@@ -196,8 +196,9 @@ export function ConvertToTeacherModal({
       }
 
       // CRITICAL: Migrate all messages from client_id to teacher_id
-      const { error: migrateError, count: migratedCount } = await supabase
-        .from('chat_messages')
+      // @ts-ignore - teacher_id column exists in self-hosted schema
+      const { error: migrateError, count: migratedCount } = await (supabase
+        .from('chat_messages') as any)
         .update({ 
           teacher_id: teacherId, 
           client_id: null 

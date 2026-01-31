@@ -57,10 +57,11 @@ export const useTeacherConversations = (branch?: string | null) => {
       const teacherIds = filteredTeachers.map(t => t.id);
 
       // Step 2: Get message stats for each teacher
-      // Get last message per teacher
-      const { data: messageStats, error: statsError } = await supabase
-        .from('chat_messages')
-        .select('teacher_id, message_text, content, messenger_type, messenger, created_at, is_read, is_outgoing')
+      // Get last message per teacher - use raw query for self-hosted compatibility
+      // @ts-ignore - teacher_id column exists in self-hosted schema
+      const { data: messageStats, error: statsError } = await (supabase
+        .from('chat_messages') as any)
+        .select('*')
         .in('teacher_id', teacherIds)
         .order('created_at', { ascending: false });
 
@@ -77,23 +78,25 @@ export const useTeacherConversations = (branch?: string | null) => {
       }>();
 
       // Group messages by teacher and calculate stats
-      const messagesByTeacher = new Map<string, typeof messageStats>();
-      (messageStats || []).forEach(msg => {
-        if (!msg.teacher_id) return;
-        if (!messagesByTeacher.has(msg.teacher_id)) {
-          messagesByTeacher.set(msg.teacher_id, []);
+      const messagesByTeacher = new Map<string, any[]>();
+      (messageStats || []).forEach((msg: any) => {
+        const tid = msg.teacher_id;
+        if (!tid) return;
+        if (!messagesByTeacher.has(tid)) {
+          messagesByTeacher.set(tid, []);
         }
-        messagesByTeacher.get(msg.teacher_id)!.push(msg);
+        messagesByTeacher.get(tid)!.push(msg);
       });
 
       messagesByTeacher.forEach((messages, teacherId) => {
         const sortedMessages = messages.sort(
-          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
         
         const lastMessage = sortedMessages[0];
+        // Handle both self-hosted (is_outgoing) and Cloud (direction) schemas
         const unreadCount = messages.filter(
-          m => !m.is_read && !m.is_outgoing
+          (m: any) => !m.is_read && (m.is_outgoing === false || m.direction === 'incoming')
         ).length;
 
         teacherStatsMap.set(teacherId, {
