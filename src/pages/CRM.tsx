@@ -1079,16 +1079,8 @@ const CRMContent = () => {
           : (thread.last_message?.trim?.() || 'Нет сообщений');
           
         // Используем аватары из threads (теперь RPC их возвращает)
-        let displayAvatar: string | null = null;
-        if (thread.last_unread_messenger === 'telegram' && thread.telegram_avatar_url) {
-          displayAvatar = thread.telegram_avatar_url;
-        } else if (thread.last_unread_messenger === 'whatsapp' && thread.whatsapp_avatar_url) {
-          displayAvatar = thread.whatsapp_avatar_url;
-        } else if (thread.last_unread_messenger === 'max' && thread.max_avatar_url) {
-          displayAvatar = thread.max_avatar_url;
-        } else {
-          displayAvatar = thread.telegram_avatar_url || thread.whatsapp_avatar_url || thread.max_avatar_url || thread.avatar_url || null;
-        }
+        // Self-hosted schema only has avatar_url (no messenger-specific avatars)
+        const displayAvatar = thread.avatar_url || null;
           
         return {
           id: thread.client_id,
@@ -1144,16 +1136,8 @@ const CRMContent = () => {
     
     // Helper to convert thread to chat format
     const threadToChat = (thread: any, foundInMessages = false) => {
-      let displayAvatar: string | null = null;
-      if (thread.last_unread_messenger === 'telegram' && thread.telegram_avatar_url) {
-        displayAvatar = thread.telegram_avatar_url;
-      } else if (thread.last_unread_messenger === 'whatsapp' && thread.whatsapp_avatar_url) {
-        displayAvatar = thread.whatsapp_avatar_url;
-      } else if (thread.last_unread_messenger === 'max' && thread.max_avatar_url) {
-        displayAvatar = thread.max_avatar_url;
-      } else {
-        displayAvatar = thread.telegram_avatar_url || thread.whatsapp_avatar_url || thread.max_avatar_url || thread.avatar_url || null;
-      }
+      // Self-hosted schema only has avatar_url (no messenger-specific avatars)
+      const displayAvatar = thread.avatar_url || null;
       
       return {
         id: thread.client_id,

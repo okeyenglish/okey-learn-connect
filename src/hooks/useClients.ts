@@ -76,10 +76,7 @@ export const useClients = (enabled: boolean = true) => {
           .from('clients')
           .select(`
             id, name, phone, email, notes, avatar_url, 
-            telegram_avatar_url, whatsapp_avatar_url, max_avatar_url,
-            is_active, branch, created_at, updated_at,
-            client_branches (branch),
-            client_phone_numbers (phone, is_primary)
+            is_active, branch, created_at, updated_at
           `)
           .eq('is_active', true)
           .order('created_at', { ascending: false })
