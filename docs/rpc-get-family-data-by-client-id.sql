@@ -188,13 +188,13 @@ BEGIN
                 'next_lesson', (
                   SELECT jsonb_build_object(
                     'lesson_date', ils.lesson_date,
-                    'start_time', ils.start_time
+                    'start_time', ils.time_start
                   )
                   FROM individual_lesson_sessions ils
                   WHERE ils.individual_lesson_id = il.id
                     AND ils.lesson_date >= CURRENT_DATE
                     AND ils.status != 'cancelled'
-                  ORDER BY ils.lesson_date, ils.start_time
+                  ORDER BY ils.lesson_date, ils.time_start
                   LIMIT 1
                 )
               )
