@@ -125,19 +125,27 @@ export function ConvertToTeacherModal({
         
         if (matchingTeacher) {
           // Link to existing teacher instead of creating duplicate
-          const { error: linkError } = await supabase
+          // Check if link already exists (self-hosted DB may not have unique constraint)
+          const { data: existingLink } = await supabase
             .from('teacher_client_links')
-            .upsert({
-              teacher_id: matchingTeacher.id,
-              client_id: clientId,
-              organization_id: organizationId,
-            }, {
-              onConflict: 'teacher_id,client_id',
-            });
+            .select('id')
+            .eq('teacher_id', matchingTeacher.id)
+            .eq('client_id', clientId)
+            .maybeSingle();
 
-          if (linkError) {
-            console.error('Error linking to existing teacher:', linkError);
-            throw new Error(`Не удалось переместить чат в преподаватели: ${linkError.message}`);
+          if (!existingLink) {
+            const { error: linkError } = await supabase
+              .from('teacher_client_links')
+              .insert({
+                teacher_id: matchingTeacher.id,
+                client_id: clientId,
+                organization_id: organizationId,
+              });
+
+            if (linkError) {
+              console.error('Error linking to existing teacher:', linkError);
+              throw new Error(`Не удалось переместить чат в преподаватели: ${linkError.message}`);
+            }
           }
 
           addClientIdToTeacherLinksCache();
@@ -181,20 +189,27 @@ export function ConvertToTeacherModal({
       }
 
       // 2. Create teacher_client_links entry for proper chat association
-      const { error: linkError } = await supabase
+      // Check if link already exists (self-hosted DB may not have unique constraint)
+      const { data: existingLink } = await supabase
         .from('teacher_client_links')
-        .upsert({
-          teacher_id: teacherData.id,
-          client_id: clientId,
-          organization_id: organizationId,
-        }, {
-          onConflict: 'teacher_id,client_id',
-        });
+        .select('id')
+        .eq('teacher_id', teacherData.id)
+        .eq('client_id', clientId)
+        .maybeSingle();
 
-      if (linkError) {
-        console.error('Error creating teacher-client link:', linkError);
-        // Make it explicit: teacher may exist, but chat won't move without the link
-        throw new Error(`Преподаватель создан, но не удалось переместить чат: ${linkError.message}`);
+      if (!existingLink) {
+        const { error: linkError } = await supabase
+          .from('teacher_client_links')
+          .insert({
+            teacher_id: teacherData.id,
+            client_id: clientId,
+            organization_id: organizationId,
+          });
+
+        if (linkError) {
+          console.error('Error creating teacher-client link:', linkError);
+          throw new Error(`Преподаватель создан, но не удалось переместить чат: ${linkError.message}`);
+        }
       }
 
       addClientIdToTeacherLinksCache();
