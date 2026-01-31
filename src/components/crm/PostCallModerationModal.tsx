@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   PhoneIncoming, 
   PhoneCall, 
@@ -28,7 +29,8 @@ import {
   Calendar,
   UserPlus,
   ChevronsUpDown,
-  Users
+  Users,
+  ListChecks
 } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -49,6 +51,7 @@ interface ActionItem {
   assignee_name?: string;
   client_id?: string;
   client_name?: string;
+  isFromAi?: boolean; // Track if this came from AI suggestions
 }
 
 export interface PostCallData {
@@ -155,6 +158,12 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
   
+  // Multi-select for AI items
+  const [selectedAiItems, setSelectedAiItems] = useState<Set<number>>(new Set());
+  const [bulkAssigneePopoverOpen, setBulkAssigneePopoverOpen] = useState(false);
+  const [bulkDatePopoverOpen, setBulkDatePopoverOpen] = useState(false);
+  const [bulkClientPopoverOpen, setBulkClientPopoverOpen] = useState(false);
+  
   // Search clients for task assignment
   const { searchResults: searchedClients, isSearching: clientsLoading, searchClients, clearSearch } = useSearchClients();
 
@@ -166,9 +175,9 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
       setSummary(callData.summary || aiSummary);
       setAgreements(callData.agreements || "");
       
-      // Combine AI action items with manual ones
-      const aiActions = callData.ai_evaluation?.action_items || [];
-      const manualActions = callData.manual_action_items || [];
+      // Combine AI action items with manual ones (mark AI ones)
+      const aiActions = (callData.ai_evaluation?.action_items || []).map(item => ({ ...item, isFromAi: true }));
+      const manualActions = (callData.manual_action_items || []).map(item => ({ ...item, isFromAi: false }));
       setActionItems([...aiActions, ...manualActions]);
       
       // Set default assignee to current user
@@ -178,15 +187,83 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
       // Reset client
       setNewClientId(undefined);
       setNewClientName("");
+      // Reset selections
+      setSelectedAiItems(new Set());
       clearSearch();
     }
   }, [callData, open, profile?.id, clearSearch]);
+
+  // Count AI items that can be selected for bulk creation
+  const aiItemsIndices = useMemo(() => {
+    return actionItems
+      .map((item, index) => item.isFromAi && !item.assignee_id ? index : -1)
+      .filter(i => i >= 0);
+  }, [actionItems]);
+
+  const allAiItemsSelected = useMemo(() => {
+    return aiItemsIndices.length > 0 && aiItemsIndices.every(i => selectedAiItems.has(i));
+  }, [aiItemsIndices, selectedAiItems]);
+
+  const toggleAiItemSelection = useCallback((index: number) => {
+    setSelectedAiItems(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleAllAiItems = useCallback(() => {
+    if (allAiItemsSelected) {
+      setSelectedAiItems(new Set());
+    } else {
+      setSelectedAiItems(new Set(aiItemsIndices));
+    }
+  }, [allAiItemsSelected, aiItemsIndices]);
 
   const getSelectedAssigneeName = useCallback((assigneeId?: string) => {
     if (!assigneeId) return null;
     const employee = employees.find(e => e.id === assigneeId);
     return employee ? getEmployeeFullName(employee) : null;
   }, [employees]);
+
+  // Apply bulk settings to selected items
+  const applyBulkAssignee = useCallback((assigneeId: string | undefined) => {
+    if (selectedAiItems.size === 0) return;
+    const assigneeName = getSelectedAssigneeName(assigneeId);
+    setActionItems(prev => prev.map((item, index) => {
+      if (selectedAiItems.has(index)) {
+        return { ...item, assignee_id: assigneeId, assignee_name: assigneeName || undefined };
+      }
+      return item;
+    }));
+    setBulkAssigneePopoverOpen(false);
+  }, [selectedAiItems, getSelectedAssigneeName]);
+
+  const applyBulkDate = useCallback((date: Date) => {
+    if (selectedAiItems.size === 0) return;
+    setActionItems(prev => prev.map((item, index) => {
+      if (selectedAiItems.has(index)) {
+        return { ...item, deadline: format(date, 'yyyy-MM-dd') };
+      }
+      return item;
+    }));
+    setBulkDatePopoverOpen(false);
+  }, [selectedAiItems]);
+
+  const applyBulkClient = useCallback((clientId: string | undefined, clientName: string) => {
+    if (selectedAiItems.size === 0) return;
+    setActionItems(prev => prev.map((item, index) => {
+      if (selectedAiItems.has(index)) {
+        return { ...item, client_id: clientId, client_name: clientName || undefined };
+      }
+      return item;
+    }));
+    setBulkClientPopoverOpen(false);
+  }, [selectedAiItems]);
 
   const addActionItem = useCallback(() => {
     if (!newTask.trim()) return;
@@ -466,26 +543,175 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="space-y-3">
+              {/* Bulk Actions for AI Items */}
+              {aiItemsIndices.length > 0 && (
+                <div className="p-2 rounded-lg border border-primary/30 bg-primary/5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="select-all-ai"
+                        checked={allAiItemsSelected}
+                        onCheckedChange={toggleAllAiItems}
+                      />
+                      <label htmlFor="select-all-ai" className="text-xs font-medium flex items-center gap-1 cursor-pointer">
+                        <ListChecks className="h-3 w-3" />
+                        Выбрать все AI задачи ({aiItemsIndices.length})
+                      </label>
+                    </div>
+                    {selectedAiItems.size > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        Выбрано: {selectedAiItems.size}
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  {selectedAiItems.size > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1 border-t border-primary/20">
+                      <span className="text-xs text-muted-foreground self-center">Применить ко всем:</span>
+                      
+                      {/* Bulk Assignee */}
+                      <Popover open={bulkAssigneePopoverOpen} onOpenChange={setBulkAssigneePopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                            <UserPlus className="h-3 w-3" />
+                            Ответственный
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[250px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Поиск сотрудника..." className="h-9" />
+                            <CommandList>
+                              <CommandEmpty>Сотрудник не найден</CommandEmpty>
+                              <CommandGroup>
+                                {employees.map((employee) => (
+                                  <CommandItem
+                                    key={employee.id}
+                                    value={getEmployeeFullName(employee)}
+                                    onSelect={() => applyBulkAssignee(employee.id)}
+                                  >
+                                    <User className="mr-2 h-4 w-4" />
+                                    <span>{getEmployeeFullName(employee)}</span>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      
+                      {/* Bulk Date */}
+                      <Popover open={bulkDatePopoverOpen} onOpenChange={setBulkDatePopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                            <Calendar className="h-3 w-3" />
+                            Дата
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={newDueDate}
+                            onSelect={(date) => date && applyBulkDate(date)}
+                            locale={ru}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      
+                      {/* Bulk Client */}
+                      <Popover open={bulkClientPopoverOpen} onOpenChange={setBulkClientPopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                            <Users className="h-3 w-3" />
+                            Клиент
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[280px] p-0" align="start">
+                          <Command shouldFilter={false}>
+                            <CommandInput 
+                              placeholder="Поиск клиента..." 
+                              className="h-9"
+                              onValueChange={(value) => {
+                                if (value.length >= 2) {
+                                  searchClients(value);
+                                } else {
+                                  clearSearch();
+                                }
+                              }}
+                            />
+                            <CommandList>
+                              {clientsLoading && (
+                                <div className="p-2 text-xs text-muted-foreground text-center">
+                                  <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                                </div>
+                              )}
+                              <CommandEmpty>
+                                {clientsLoading ? "Поиск..." : "Введите минимум 2 символа"}
+                              </CommandEmpty>
+                              <CommandGroup>
+                                {searchedClients.map((client) => (
+                                  <CommandItem
+                                    key={client.id}
+                                    value={client.name}
+                                    onSelect={() => applyBulkClient(client.id, client.name)}
+                                  >
+                                    <Users className="mr-2 h-4 w-4" />
+                                    <div className="flex flex-col">
+                                      <span>{client.name}</span>
+                                      {client.phone && (
+                                        <span className="text-xs text-muted-foreground">{client.phone}</span>
+                                      )}
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  )}
+                </div>
+              )}
+              
               {/* Existing Tasks */}
               {actionItems.length > 0 && (
-                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
                   {actionItems.map((item, index) => {
                     const config = getPriorityConfig(item.priority);
+                    const isAiItem = item.isFromAi && !item.assignee_id;
+                    const isSelected = selectedAiItems.has(index);
                     return (
                       <div 
                         key={index}
                         className={cn(
-                          "p-2 rounded border flex items-start justify-between gap-2",
-                          config.bg
+                          "p-2 rounded border flex items-start gap-2 transition-colors",
+                          config.bg,
+                          isSelected && "ring-2 ring-primary ring-offset-1"
                         )}
                       >
+                        {/* Checkbox for AI items without assignee */}
+                        {isAiItem && (
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleAiItemSelection(index)}
+                            className="mt-0.5 shrink-0"
+                          />
+                        )}
+                        
                         <div className="flex flex-col gap-1 flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <Badge variant="outline" className={cn("text-xs shrink-0", config.badge)}>
                               {config.icon}
                               <span className="ml-1">{config.label}</span>
                             </Badge>
+                            {item.isFromAi && (
+                              <Badge variant="outline" className="text-[10px] h-4 px-1 bg-primary/10 text-primary border-primary/20">
+                                <Sparkles className="h-2 w-2 mr-0.5" />
+                                AI
+                              </Badge>
+                            )}
                             <span className={cn("text-sm truncate", config.text)}>
                               {item.task}
                             </span>
