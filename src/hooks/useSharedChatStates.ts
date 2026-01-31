@@ -43,86 +43,92 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
       // Chunk the IDs to avoid URL length limits (max ~100 IDs per request)
       const CHUNK_SIZE = 100;
       const myStatesMap = new Map<string, boolean>();
-      // Map: chat_id -> { user_id, user_name }
       const pinnedByMap = new Map<string, { user_id: string; user_name: string }>();
 
-      // Мои состояния чатов - chunked
+      // Create chunks
+      const chunks: string[][] = [];
       for (let i = 0; i < currentChatIds.length; i += CHUNK_SIZE) {
-        const chunk = currentChatIds.slice(i, i + CHUNK_SIZE);
-        
-        const { data: myStates, error: myStatesError } = await supabase
-          .from('chat_states')
-          .select('chat_id, is_pinned')
-          .eq('user_id', user.id)
-          .in('chat_id', chunk);
-
-        if (myStatesError) {
-          console.error('Error fetching my chat states chunk:', myStatesError);
-          continue;
-        }
-
-        (myStates || []).forEach((state: any) => {
-          myStatesMap.set(state.chat_id, state.is_pinned);
-        });
+        chunks.push(currentChatIds.slice(i, i + CHUNK_SIZE));
       }
 
-      // Получаем все закрепления других пользователей - chunked (без join на profiles)
+      // PARALLEL: Fetch my states AND other pins for ALL chunks at once
+      const [myStatesResults, otherPinsResults] = await Promise.all([
+        // All myStates chunks in parallel
+        Promise.all(chunks.map(chunk => 
+          supabase
+            .from('chat_states')
+            .select('chat_id, is_pinned')
+            .eq('user_id', user.id)
+            .in('chat_id', chunk)
+        )),
+        // All otherPins chunks in parallel
+        Promise.all(chunks.map(chunk =>
+          supabase
+            .from('chat_states')
+            .select('chat_id, user_id')
+            .eq('is_pinned', true)
+            .neq('user_id', user.id)
+            .in('chat_id', chunk)
+        ))
+      ]);
+
+      // Process myStates results
+      myStatesResults.forEach(result => {
+        if (!result.error && result.data) {
+          result.data.forEach((state: any) => {
+            myStatesMap.set(state.chat_id, state.is_pinned);
+          });
+        }
+      });
+
+      // Process otherPins results and collect user IDs
       const otherUserIds = new Set<string>();
       const chatIdToUserIdMap = new Map<string, string>();
       
-      for (let i = 0; i < currentChatIds.length; i += CHUNK_SIZE) {
-        const chunk = currentChatIds.slice(i, i + CHUNK_SIZE);
-        
-        const { data: otherPins, error: pinsError } = await supabase
-          .from('chat_states')
-          .select('chat_id, user_id')
-          .eq('is_pinned', true)
-          .neq('user_id', user.id)
-          .in('chat_id', chunk);
-
-        if (pinsError) {
-          console.error('Error fetching other users pins chunk:', pinsError);
-          continue;
+      otherPinsResults.forEach(result => {
+        if (!result.error && result.data) {
+          result.data.forEach((pin: any) => {
+            otherUserIds.add(pin.user_id);
+            if (!chatIdToUserIdMap.has(pin.chat_id)) {
+              chatIdToUserIdMap.set(pin.chat_id, pin.user_id);
+            }
+          });
         }
+      });
 
-        (otherPins || []).forEach((pin: any) => {
-          otherUserIds.add(pin.user_id);
-          // Сохраняем первого закрепившего (если несколько)
-          if (!chatIdToUserIdMap.has(pin.chat_id)) {
-            chatIdToUserIdMap.set(pin.chat_id, pin.user_id);
-          }
-        });
-      }
-      
-      // Загружаем профили отдельным запросом (без FK join)
-      const userIdsArray = Array.from(otherUserIds);
+      // PARALLEL: Fetch all profiles at once
       const userNamesMap = new Map<string, string>();
+      const userIdsArray = Array.from(otherUserIds);
       
       if (userIdsArray.length > 0) {
+        const profileChunks: string[][] = [];
         for (let i = 0; i < userIdsArray.length; i += CHUNK_SIZE) {
-          const chunk = userIdsArray.slice(i, i + CHUNK_SIZE);
-          
-          const { data: profiles, error: profilesError } = await supabase
-            .from('profiles')
-            .select('id, first_name, last_name')
-            .in('id', chunk);
-          
-          if (!profilesError && profiles) {
-            profiles.forEach((profile: any) => {
+          profileChunks.push(userIdsArray.slice(i, i + CHUNK_SIZE));
+        }
+
+        const profileResults = await Promise.all(
+          profileChunks.map(chunk =>
+            supabase
+              .from('profiles')
+              .select('id, first_name, last_name')
+              .in('id', chunk)
+          )
+        );
+
+        profileResults.forEach(result => {
+          if (!result.error && result.data) {
+            result.data.forEach((profile: any) => {
               const userName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Менеджер';
               userNamesMap.set(profile.id, userName);
             });
           }
-        }
+        });
       }
-      
-      // Собираем pinnedByMap с именами
+
+      // Build pinnedByMap with names
       chatIdToUserIdMap.forEach((userId, chatId) => {
         const userName = userNamesMap.get(userId) || 'Менеджер';
-        pinnedByMap.set(chatId, { 
-          user_id: userId, 
-          user_name: userName 
-        });
+        pinnedByMap.set(chatId, { user_id: userId, user_name: userName });
       });
 
       // Собираем итоговую карту только для запрошенных chatIds
