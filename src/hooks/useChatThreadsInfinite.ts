@@ -3,10 +3,13 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { ChatThread, UnreadByMessenger } from './useChatMessages';
 import { chatListQueryConfig } from '@/lib/queryConfig';
 import { isGroupChatName, isTelegramGroup } from './useCommunityChats';
-import { useMemo, useCallback, useEffect } from 'react';
+import { useMemo, useCallback, useEffect, useRef } from 'react';
 import { useBulkAvatarFetch } from './useBulkAvatarFetch';
 
 const PAGE_SIZE = 50;
+
+// Флаг для отключения сломанного RPC (сбрасывается при перезагрузке страницы)
+let useUnreadRpc = true;
 
 interface RpcThreadRow {
   clt_id?: string;
@@ -114,10 +117,20 @@ export const useChatThreadsInfinite = () => {
     ...chatListQueryConfig,
   });
 
+  // Track if we've already loaded once to prevent duplicate requests
+  const hasLoadedOnce = useRef(false);
+
   // Separate fast query for unread threads (always shown at top)
+  // With fallback mechanism for broken RPC
   const unreadQuery = useQuery({
     queryKey: ['chat-threads-unread-priority'],
     queryFn: async () => {
+      // If RPC is broken, return empty immediately
+      if (!useUnreadRpc) {
+        console.log('[useChatThreadsInfinite] Unread RPC disabled, skipping');
+        return [];
+      }
+
       const startTime = performance.now();
       console.log('[useChatThreadsInfinite] Loading priority unread threads...');
 
@@ -125,16 +138,24 @@ export const useChatThreadsInfinite = () => {
         .rpc('get_unread_chat_threads', { p_limit: 50 });
 
       if (error) {
-        console.warn('[useChatThreadsInfinite] Unread RPC failed:', error.message);
+        // If schema error (column doesn't exist or function not found) - disable RPC
+        if (error.code === '42703' || error.code === 'PGRST202' || error.code === '42883') {
+          console.warn('[useChatThreadsInfinite] Disabling broken unread RPC:', error.code, error.message);
+          useUnreadRpc = false;
+        } else {
+          console.warn('[useChatThreadsInfinite] Unread RPC failed:', error.message);
+        }
         return [];
       }
 
+      hasLoadedOnce.current = true;
       const threads = mapRpcToThreads((data || []) as RpcThreadRow[]);
       console.log(`[useChatThreadsInfinite] ✅ Unread: ${threads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
       return threads;
     },
-    staleTime: 10000, // 10 seconds
+    staleTime: 30000, // 30 seconds (increased from 10)
     refetchOnWindowFocus: false,
+    retry: false, // Don't retry schema errors
   });
 
   // Set of deleted client IDs for fast lookup
