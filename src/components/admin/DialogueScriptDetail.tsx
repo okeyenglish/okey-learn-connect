@@ -1,22 +1,41 @@
-import { Copy, Star, User, Headphones, X, Lightbulb } from 'lucide-react';
+import { useState } from 'react';
+import { Copy, Star, User, Headphones, Lightbulb, Heart, MessageSquare, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { DialogueExample, scenarioLabels, outcomeLabels, scenarioColors, outcomeColors } from './DialogueScriptCard';
+import { DialogueComment } from '@/hooks/useDialogueInteractions';
 
 interface DialogueScriptDetailProps {
   dialogue: DialogueExample | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
+  comments?: DialogueComment[];
+  onAddComment?: (text: string) => Promise<DialogueComment | null>;
+  onDeleteComment?: (commentId: string) => Promise<boolean>;
 }
 
-export function DialogueScriptDetail({ dialogue, open, onOpenChange }: DialogueScriptDetailProps) {
+export function DialogueScriptDetail({ 
+  dialogue, 
+  open, 
+  onOpenChange,
+  isFavorite = false,
+  onToggleFavorite,
+  comments = [],
+  onAddComment,
+  onDeleteComment
+}: DialogueScriptDetailProps) {
   const { toast } = useToast();
+  const [newComment, setNewComment] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!dialogue) return null;
 
@@ -34,6 +53,23 @@ export function DialogueScriptDetail({ dialogue, open, onOpenChange }: DialogueS
         variant: 'destructive'
       });
     }
+  };
+
+  const handleAddComment = async () => {
+    if (!newComment.trim() || !onAddComment) return;
+    
+    setIsSubmitting(true);
+    const result = await onAddComment(newComment.trim());
+    setIsSubmitting(false);
+    
+    if (result) {
+      setNewComment('');
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!onDeleteComment) return;
+    await onDeleteComment(commentId);
   };
 
   const renderStars = (score: number) => {
@@ -54,10 +90,22 @@ export function DialogueScriptDetail({ dialogue, open, onOpenChange }: DialogueS
       <SheetContent className="sm:max-w-xl w-full p-0 flex flex-col">
         <SheetHeader className="p-6 pb-4 border-b">
           <div className="flex items-start justify-between">
-            <div className="space-y-2">
-              <SheetTitle className="text-xl">
-                Скрипт диалога
-              </SheetTitle>
+            <div className="space-y-2 flex-1">
+              <div className="flex items-center justify-between">
+                <SheetTitle className="text-xl">
+                  Скрипт диалога
+                </SheetTitle>
+                {onToggleFavorite && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onToggleFavorite}
+                    className="shrink-0"
+                  >
+                    <Heart className={`h-5 w-5 ${isFavorite ? 'fill-red-500 text-red-500' : ''}`} />
+                  </Button>
+                )}
+              </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge className={scenarioColors[dialogue.scenario_type] || 'bg-gray-100'}>
                   {scenarioLabels[dialogue.scenario_type] || dialogue.scenario_type}
@@ -119,6 +167,72 @@ export function DialogueScriptDetail({ dialogue, open, onOpenChange }: DialogueS
                 </div>
               </div>
             )}
+
+            <Separator />
+
+            {/* Comments Section */}
+            <div className="space-y-3">
+              <h3 className="font-semibold text-sm uppercase text-muted-foreground tracking-wide flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                Мои заметки ({comments.length})
+              </h3>
+
+              {/* Add comment form */}
+              {onAddComment && (
+                <div className="flex gap-2">
+                  <Textarea
+                    placeholder="Добавить заметку..."
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    className="min-h-[60px] resize-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                        handleAddComment();
+                      }
+                    }}
+                  />
+                  <Button
+                    size="icon"
+                    onClick={handleAddComment}
+                    disabled={!newComment.trim() || isSubmitting}
+                    className="shrink-0 self-end"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+
+              {/* Comments list */}
+              {comments.length > 0 && (
+                <div className="space-y-2">
+                  {comments.map((comment) => (
+                    <div
+                      key={comment.id}
+                      className="bg-muted/50 rounded-lg p-3 group"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm whitespace-pre-wrap flex-1">
+                          {comment.comment_text}
+                        </p>
+                        {onDeleteComment && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                            onClick={() => handleDeleteComment(comment.id)}
+                          >
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {format(new Date(comment.created_at), 'd MMM yyyy, HH:mm', { locale: ru })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <Separator />
 

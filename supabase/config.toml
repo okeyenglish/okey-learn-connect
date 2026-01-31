@@ -449,3 +449,6 @@ verify_jwt = true
 
 [functions.get-successful-dialogues]
 verify_jwt = true
+
+[functions.dialogue-interactions]
+verify_jwt = true
