@@ -59,23 +59,31 @@ export function ConvertToTeacherModal({
       setFirstName(parts[0] || '');
       setLastName(parts.slice(1).join(' ') || '');
       
-      // Fetch client data from database
+      // Fetch client data from database (including phone numbers table)
       const fetchClientData = async () => {
-        const { data } = await supabase
+        // Fetch client data
+        const { data: clientData } = await supabase
           .from('clients')
           .select('phone, email, telegram_user_id')
           .eq('id', clientId)
           .maybeSingle();
         
-        if (data) {
-          setPhone(clientPhone || data.phone || '');
-          setEmail(clientEmail || data.email || '');
-          setTelegramId(data.telegram_user_id || '');
-        } else {
-          setPhone(clientPhone || '');
-          setEmail(clientEmail || '');
-          setTelegramId('');
-        }
+        // Also fetch primary phone from client_phone_numbers
+        const { data: phoneNumbers } = await supabase
+          .from('client_phone_numbers')
+          .select('phone')
+          .eq('client_id', clientId)
+          .eq('is_primary', true)
+          .maybeSingle();
+        
+        // Determine best phone: props > client_phone_numbers.phone > clients.phone
+        const bestPhone = clientPhone || phoneNumbers?.phone || clientData?.phone || '';
+        const bestEmail = clientEmail || clientData?.email || '';
+        const bestTelegramId = clientData?.telegram_user_id || '';
+        
+        setPhone(bestPhone);
+        setEmail(bestEmail);
+        setTelegramId(bestTelegramId);
       };
       fetchClientData();
     }
