@@ -6,12 +6,14 @@
  * - Single RPC call instead of 3-4 separate queries
  * - 5-minute in-memory cache for instant display
  * - Automatic fallback to legacy hooks if RPC not available
+ * - Realtime subscription for automatic updates
  */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { ChatMessage } from './useChatMessages';
 import { useCallback, useMemo, useRef, useEffect } from 'react';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 // Cache configuration
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -240,6 +242,173 @@ export const useClientChatData = (
     refetchOnWindowFocus: false,
     placeholderData: cachedData || undefined,
   });
+
+  // Realtime subscription for automatic updates
+  useEffect(() => {
+    if (!clientId || !enabled) return;
+
+    const channelName = `client-chat-realtime-${clientId}`;
+    
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `client_id=eq.${clientId}`,
+        },
+        (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
+          console.log('[useClientChatData] Realtime INSERT:', payload.new);
+          
+          const newMessage = payload.new as ChatMessage;
+          
+          // Update query cache with new message
+          queryClient.setQueryData(
+            ['client-chat-data', clientId, limit],
+            (old: ClientChatData | undefined) => {
+              if (!old) return old;
+              
+              // Check if message already exists (deduplication)
+              const exists = old.messages.some(m => m.id === newMessage.id);
+              if (exists) return old;
+              
+              // Add new message at the end (chronological order)
+              const updatedMessages = [...old.messages, newMessage];
+              
+              // Update unread counts for incoming messages
+              const updatedUnreadCounts = { ...old.unreadCounts };
+              if (newMessage.message_type === 'client' && !newMessage.is_read) {
+                const messengerType = newMessage.messenger_type || 'unknown';
+                updatedUnreadCounts[messengerType] = (updatedUnreadCounts[messengerType] || 0) + 1;
+              }
+              
+              // Update in-memory cache too
+              clientChatCache.set(clientId, {
+                data: { ...old, messages: updatedMessages, unreadCounts: updatedUnreadCounts },
+                timestamp: Date.now()
+              });
+              
+              return {
+                ...old,
+                messages: updatedMessages,
+                totalCount: updatedMessages.length,
+                unreadCounts: updatedUnreadCounts
+              };
+            }
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `client_id=eq.${clientId}`,
+        },
+        (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
+          console.log('[useClientChatData] Realtime UPDATE:', payload.new);
+          
+          const updatedMessage = payload.new as ChatMessage;
+          
+          queryClient.setQueryData(
+            ['client-chat-data', clientId, limit],
+            (old: ClientChatData | undefined) => {
+              if (!old) return old;
+              
+              const updatedMessages = old.messages.map(msg =>
+                msg.id === updatedMessage.id ? { ...msg, ...updatedMessage } : msg
+              );
+              
+              // Recalculate unread counts if is_read changed
+              const oldMsg = old.messages.find(m => m.id === updatedMessage.id);
+              let updatedUnreadCounts = old.unreadCounts;
+              
+              if (oldMsg && oldMsg.is_read !== updatedMessage.is_read && updatedMessage.message_type === 'client') {
+                updatedUnreadCounts = { ...old.unreadCounts };
+                const messengerType = updatedMessage.messenger_type || 'unknown';
+                
+                if (updatedMessage.is_read && !oldMsg.is_read) {
+                  // Message marked as read - decrease count
+                  updatedUnreadCounts[messengerType] = Math.max(0, (updatedUnreadCounts[messengerType] || 1) - 1);
+                } else if (!updatedMessage.is_read && oldMsg.is_read) {
+                  // Message marked as unread - increase count
+                  updatedUnreadCounts[messengerType] = (updatedUnreadCounts[messengerType] || 0) + 1;
+                }
+              }
+              
+              // Update in-memory cache
+              clientChatCache.set(clientId, {
+                data: { ...old, messages: updatedMessages, unreadCounts: updatedUnreadCounts },
+                timestamp: Date.now()
+              });
+              
+              return {
+                ...old,
+                messages: updatedMessages,
+                unreadCounts: updatedUnreadCounts
+              };
+            }
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `client_id=eq.${clientId}`,
+        },
+        (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
+          console.log('[useClientChatData] Realtime DELETE:', payload.old);
+          
+          const deletedId = (payload.old as { id?: string })?.id;
+          if (!deletedId) return;
+          
+          queryClient.setQueryData(
+            ['client-chat-data', clientId, limit],
+            (old: ClientChatData | undefined) => {
+              if (!old) return old;
+              
+              const deletedMsg = old.messages.find(m => m.id === deletedId);
+              const updatedMessages = old.messages.filter(msg => msg.id !== deletedId);
+              
+              // Update unread counts if deleted message was unread
+              let updatedUnreadCounts = old.unreadCounts;
+              if (deletedMsg && !deletedMsg.is_read && deletedMsg.message_type === 'client') {
+                updatedUnreadCounts = { ...old.unreadCounts };
+                const messengerType = deletedMsg.messenger_type || 'unknown';
+                updatedUnreadCounts[messengerType] = Math.max(0, (updatedUnreadCounts[messengerType] || 1) - 1);
+              }
+              
+              // Update in-memory cache
+              clientChatCache.set(clientId, {
+                data: { ...old, messages: updatedMessages, unreadCounts: updatedUnreadCounts },
+                timestamp: Date.now()
+              });
+              
+              return {
+                ...old,
+                messages: updatedMessages,
+                totalCount: updatedMessages.length,
+                unreadCounts: updatedUnreadCounts
+              };
+            }
+          );
+        }
+      )
+      .subscribe((status) => {
+        console.log(`[useClientChatData] Realtime subscription ${channelName}:`, status);
+      });
+
+    return () => {
+      console.log(`[useClientChatData] Unsubscribing from ${channelName}`);
+      supabase.removeChannel(channel);
+    };
+  }, [clientId, enabled, limit, queryClient]);
 
   // Invalidate cache when needed
   const invalidateCache = useCallback(() => {
