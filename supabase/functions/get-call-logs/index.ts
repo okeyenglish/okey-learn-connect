@@ -7,10 +7,12 @@ const corsHeaders = {
 };
 
 interface CallLogsRequest {
-  action: 'list' | 'get' | 'history' | 'search';
+  action: 'list' | 'get' | 'history' | 'search' | 'recent-for-manager';
   clientId?: string;
   callId?: string;
   phoneNumber?: string;
+  managerId?: string;
+  since?: string;
   limit?: number;
   offset?: number;
   filters?: {
@@ -78,9 +80,51 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body: CallLogsRequest = await req.json().catch(() => ({ action: 'list' }));
-    const { action = 'list', clientId, callId, phoneNumber, limit = 100, offset = 0, filters } = body;
+    const { action = 'list', clientId, callId, phoneNumber, managerId, since, limit = 100, offset = 0, filters } = body;
 
     console.log(`[get-call-logs] Action: ${action}, org: ${organizationId}, clientId: ${clientId}, phone: ${phoneNumber}`);
+
+    // Get recent calls for a specific manager (for post-call moderation)
+    if (action === 'recent-for-manager' && managerId) {
+      console.log('[get-call-logs] Fetching recent calls for manager:', managerId, 'since:', since);
+      
+      let query = supabase
+        .from('call_logs')
+        .select('*, clients(id, name)')
+        .eq('organization_id', organizationId)
+        .eq('manager_id', managerId)
+        .eq('status', 'answered') // Only answered calls need moderation
+        .gt('duration_seconds', 10) // Only calls longer than 10 seconds
+        .order('ended_at', { ascending: false })
+        .limit(limit || 5);
+      
+      // Filter by 'since' timestamp if provided
+      if (since) {
+        query = query.gte('ended_at', since);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('[get-call-logs] Error fetching recent calls for manager:', error);
+        throw error;
+      }
+
+      // Enrich with client names
+      const enrichedCalls = (data || []).map(call => ({
+        ...call,
+        client_name: call.clients?.name || null
+      }));
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          calls: enrichedCalls,
+          total: enrichedCalls.length 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Search by phone number action
     if (action === 'search' && phoneNumber) {

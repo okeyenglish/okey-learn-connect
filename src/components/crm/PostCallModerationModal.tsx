@@ -1,0 +1,498 @@
+import { useState, useEffect, useCallback } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { 
+  Phone, 
+  PhoneIncoming, 
+  PhoneCall, 
+  Sparkles, 
+  FileText, 
+  Handshake, 
+  Target, 
+  Plus, 
+  X, 
+  Check, 
+  Loader2,
+  Flag,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  User,
+  Calendar
+} from "lucide-react";
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import { selfHostedPost } from "@/lib/selfHostedApi";
+import { useToast } from "@/hooks/use-toast";
+import type { AiCallEvaluation } from "./CallEvaluationCard";
+
+interface ActionItem {
+  task: string;
+  priority: 'high' | 'medium' | 'low';
+  deadline?: string;
+}
+
+export interface PostCallData {
+  id: string;
+  phone_number: string;
+  direction: 'incoming' | 'outgoing';
+  status: string;
+  duration_seconds: number | null;
+  started_at: string;
+  ended_at: string | null;
+  summary: string | null;
+  agreements: string | null;
+  manual_action_items: ActionItem[] | null;
+  ai_evaluation: AiCallEvaluation | null;
+  client_name?: string | null;
+  manager_name?: string | null;
+}
+
+interface PostCallModerationModalProps {
+  callData: PostCallData | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirmed?: () => void;
+}
+
+const SCORE_LABELS: Record<string, string> = {
+  greeting: 'Приветствие',
+  needs_identification: 'Выявление потребностей',
+  product_presentation: 'Презентация услуг',
+  objection_handling: 'Работа с возражениями',
+  closing: 'Закрытие сделки'
+};
+
+const getScoreColor = (score: number): string => {
+  if (score >= 8) return 'bg-green-500';
+  if (score >= 5) return 'bg-yellow-500';
+  return 'bg-red-500';
+};
+
+const getScoreTextColor = (score: number): string => {
+  if (score >= 8) return 'text-green-600';
+  if (score >= 5) return 'text-yellow-600';
+  return 'text-red-600';
+};
+
+const getOverallScoreBg = (score: number): string => {
+  if (score >= 8) return 'bg-green-100 border-green-300';
+  if (score >= 5) return 'bg-yellow-100 border-yellow-300';
+  return 'bg-red-100 border-red-300';
+};
+
+const getPriorityConfig = (priority: string) => {
+  switch (priority) {
+    case 'high':
+      return { 
+        bg: 'bg-red-50 border-red-200', 
+        text: 'text-red-700',
+        badge: 'bg-red-100 text-red-700 border-red-200',
+        icon: <Flag className="h-3 w-3" />,
+        label: 'Срочно'
+      };
+    case 'medium':
+      return { 
+        bg: 'bg-orange-50 border-orange-200', 
+        text: 'text-orange-700',
+        badge: 'bg-orange-100 text-orange-700 border-orange-200',
+        icon: <Clock className="h-3 w-3" />,
+        label: 'Важно'
+      };
+    default:
+      return { 
+        bg: 'bg-blue-50 border-blue-200', 
+        text: 'text-blue-700',
+        badge: 'bg-blue-100 text-blue-700 border-blue-200',
+        icon: null,
+        label: 'Обычно'
+      };
+  }
+};
+
+export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = ({
+  callData,
+  open,
+  onOpenChange,
+  onConfirmed
+}) => {
+  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
+  
+  // Editable fields
+  const [summary, setSummary] = useState("");
+  const [agreements, setAgreements] = useState("");
+  const [actionItems, setActionItems] = useState<ActionItem[]>([]);
+  const [newTask, setNewTask] = useState("");
+  const [newPriority, setNewPriority] = useState<'high' | 'medium' | 'low'>('medium');
+
+  // Initialize form with call data
+  useEffect(() => {
+    if (callData && open) {
+      // Prefer AI-generated summary if available
+      const aiSummary = callData.ai_evaluation?.summary || "";
+      setSummary(callData.summary || aiSummary);
+      setAgreements(callData.agreements || "");
+      
+      // Combine AI action items with manual ones
+      const aiActions = callData.ai_evaluation?.action_items || [];
+      const manualActions = callData.manual_action_items || [];
+      setActionItems([...aiActions, ...manualActions]);
+    }
+  }, [callData, open]);
+
+  const addActionItem = useCallback(() => {
+    if (!newTask.trim()) return;
+    setActionItems(prev => [
+      ...prev, 
+      { task: newTask.trim(), priority: newPriority }
+    ]);
+    setNewTask("");
+    setNewPriority('medium');
+  }, [newTask, newPriority]);
+
+  const removeActionItem = useCallback((index: number) => {
+    setActionItems(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleConfirm = useCallback(async () => {
+    if (!callData) return;
+    
+    setSaving(true);
+    try {
+      const response = await selfHostedPost<{ success: boolean }>('update-call-summary', {
+        callId: callData.id,
+        summary: summary.trim() || null,
+        agreements: agreements.trim() || null,
+        manual_action_items: actionItems.length > 0 ? actionItems : null
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to save');
+      }
+
+      toast({
+        title: "Звонок подтверждён",
+        description: "Данные сохранены в историю звонков",
+      });
+
+      onConfirmed?.();
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error saving post-call data:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось сохранить данные",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [callData, summary, agreements, actionItems, toast, onConfirmed, onOpenChange]);
+
+  const handleClose = useCallback(() => {
+    // Just close - data stays as-is from AI analysis
+    onOpenChange(false);
+  }, [onOpenChange]);
+
+  const formatDuration = (seconds: number | null) => {
+    if (!seconds) return "—";
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins === 0) return `${secs}с`;
+    return `${mins}м ${secs}с`;
+  };
+
+  if (!callData) return null;
+
+  const evaluation = callData.ai_evaluation;
+  const hasAiEvaluation = !!evaluation;
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {callData.direction === 'incoming' ? (
+              <PhoneIncoming className="h-5 w-5 text-green-600" />
+            ) : (
+              <PhoneCall className="h-5 w-5 text-blue-600" />
+            )}
+            Завершение звонка
+            <Badge variant="secondary" className="ml-2">
+              Пред-модерация
+            </Badge>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Call Info Header */}
+          <Card className="bg-muted/30">
+            <CardContent className="pt-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <div>
+                  <div className="text-muted-foreground">Клиент</div>
+                  <div className="font-medium flex items-center gap-1">
+                    <User className="h-3 w-3" />
+                    {callData.client_name || callData.phone_number}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Длительность</div>
+                  <div className="font-medium">{formatDuration(callData.duration_seconds)}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Время</div>
+                  <div className="font-medium flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {format(new Date(callData.started_at), "HH:mm", { locale: ru })}
+                  </div>
+                </div>
+                {hasAiEvaluation && (
+                  <div>
+                    <div className="text-muted-foreground">AI-оценка</div>
+                    <div className={cn(
+                      "font-bold text-lg",
+                      getScoreTextColor(evaluation.overall_score)
+                    )}>
+                      {evaluation.overall_score.toFixed(1)}/10
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* AI Evaluation Summary (if available) */}
+          {hasAiEvaluation && (
+            <Card className="border-primary/20 bg-primary/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  AI-анализ звонка
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* Score Progress Bars */}
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(evaluation.scores).map(([key, value]) => (
+                    <div key={key} className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">{SCORE_LABELS[key]}</span>
+                        <span className={cn("font-medium", getScoreTextColor(value))}>
+                          {value}/10
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className={cn("h-full transition-all", getScoreColor(value))}
+                          style={{ width: `${value * 10}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Call Purpose & Result */}
+                <div className="grid grid-cols-2 gap-3 text-sm pt-2">
+                  <div className="p-2 bg-background rounded">
+                    <div className="text-xs text-muted-foreground mb-1">Цель звонка</div>
+                    <div className="font-medium text-xs">{evaluation.call_purpose}</div>
+                  </div>
+                  <div className="p-2 bg-background rounded">
+                    <div className="text-xs text-muted-foreground mb-1">Результат</div>
+                    <div className="font-medium text-xs">{evaluation.call_result}</div>
+                  </div>
+                </div>
+
+                {/* Strengths & Improvements mini */}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {evaluation.strengths && evaluation.strengths.length > 0 && (
+                    <div className="flex items-start gap-1">
+                      <CheckCircle2 className="h-3 w-3 text-green-600 mt-0.5 shrink-0" />
+                      <span className="text-green-700 line-clamp-2">
+                        {evaluation.strengths[0]}
+                      </span>
+                    </div>
+                  )}
+                  {evaluation.improvements && evaluation.improvements.length > 0 && (
+                    <div className="flex items-start gap-1">
+                      <AlertCircle className="h-3 w-3 text-yellow-600 mt-0.5 shrink-0" />
+                      <span className="text-yellow-700 line-clamp-2">
+                        {evaluation.improvements[0]}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Editable Summary */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" />
+                Резюме звонка
+                {hasAiEvaluation && (
+                  <Badge variant="outline" className="text-xs ml-auto">
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    Заполнено AI
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                placeholder="Опишите основные моменты разговора..."
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
+                rows={3}
+                className="resize-none"
+              />
+            </CardContent>
+          </Card>
+
+          {/* Editable Agreements */}
+          <Card className="border-green-200 bg-green-50/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2 text-green-700">
+                <Handshake className="h-4 w-4" />
+                Договорённости
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                placeholder="Зафиксируйте достигнутые договорённости..."
+                value={agreements}
+                onChange={(e) => setAgreements(e.target.value)}
+                rows={2}
+                className="resize-none bg-white"
+              />
+            </CardContent>
+          </Card>
+
+          {/* Editable Action Items */}
+          <Card className="border-orange-200 bg-orange-50/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2 text-orange-700">
+                <Target className="h-4 w-4" />
+                Задачи
+                {actionItems.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 bg-orange-100 text-orange-700">
+                    {actionItems.length}
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {/* Existing Tasks */}
+              {actionItems.length > 0 && (
+                <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                  {actionItems.map((item, index) => {
+                    const config = getPriorityConfig(item.priority);
+                    return (
+                      <div 
+                        key={index}
+                        className={cn(
+                          "p-2 rounded border flex items-center justify-between gap-2",
+                          config.bg
+                        )}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <Badge variant="outline" className={cn("text-xs shrink-0", config.badge)}>
+                            {config.icon}
+                            <span className="ml-1">{config.label}</span>
+                          </Badge>
+                          <span className={cn("text-sm truncate", config.text)}>
+                            {item.task}
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => removeActionItem(index)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Add New Task */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Добавить задачу..."
+                  value={newTask}
+                  onChange={(e) => setNewTask(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addActionItem()}
+                  className="flex-1 bg-white h-9"
+                />
+                <Select 
+                  value={newPriority} 
+                  onValueChange={(v) => setNewPriority(v as 'high' | 'medium' | 'low')}
+                >
+                  <SelectTrigger className="w-28 bg-white h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">🔴 Срочно</SelectItem>
+                    <SelectItem value="medium">🟠 Важно</SelectItem>
+                    <SelectItem value="low">🔵 Обычно</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={addActionItem}
+                  disabled={!newTask.trim()}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button
+            variant="ghost"
+            onClick={handleClose}
+            disabled={saving}
+          >
+            Закрыть без изменений
+          </Button>
+          <Button
+            onClick={handleConfirm}
+            disabled={saving}
+            className="gap-2"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Сохраняем...
+              </>
+            ) : (
+              <>
+                <Check className="h-4 w-4" />
+                Подтвердить
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
