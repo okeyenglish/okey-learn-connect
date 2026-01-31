@@ -8,8 +8,9 @@ import { useBulkAvatarFetch } from './useBulkAvatarFetch';
 
 const PAGE_SIZE = 50;
 
-// Флаг для отключения сломанного RPC (сбрасывается при перезагрузке страницы)
+// Флаги для отключения сломанных RPC (сбрасываются при перезагрузке страницы)
 let useUnreadRpc = true;
+let usePaginatedRpc = true;
 
 interface RpcThreadRow {
   clt_id?: string;
@@ -67,10 +68,16 @@ export const useChatThreadsInfinite = () => {
     refetchOnWindowFocus: false,
   });
 
-  // Infinite query for paginated threads
+  // Infinite query for paginated threads (with fallback for missing RPC)
   const infiniteQuery = useInfiniteQuery({
     queryKey: ['chat-threads-infinite'],
     queryFn: async ({ pageParam = 0 }) => {
+      // If RPC is broken, return empty immediately (rely on unreadQuery for data)
+      if (!usePaginatedRpc) {
+        console.log('[useChatThreadsInfinite] Paginated RPC disabled, returning empty');
+        return { threads: [], hasMore: false, pageParam, executionTime: 0 };
+      }
+
       const startTime = performance.now();
       console.log(`[useChatThreadsInfinite] Loading page ${pageParam}, offset ${pageParam * PAGE_SIZE}...`);
 
@@ -81,12 +88,27 @@ export const useChatThreadsInfinite = () => {
         });
 
       if (error) {
+        // If function not found - disable RPC permanently for this session
+        if (error.code === '42883' || error.code === 'PGRST202' || error.code === '42703') {
+          console.warn('[useChatThreadsInfinite] Disabling broken paginated RPC:', error.code, error.message);
+          usePaginatedRpc = false;
+          return { threads: [], hasMore: false, pageParam, executionTime: 0 };
+        }
+
         console.error('[useChatThreadsInfinite] RPC error:', error);
         // Fallback to basic query
         const { data: fallbackData, error: fallbackError } = await supabase
           .rpc('get_chat_threads_fast', { p_limit: PAGE_SIZE + 1 });
         
-        if (fallbackError) throw fallbackError;
+        if (fallbackError) {
+          // If fallback also fails with schema error, disable
+          if (fallbackError.code === '42883' || fallbackError.code === 'PGRST202') {
+            console.warn('[useChatThreadsInfinite] Disabling broken fallback RPC');
+            usePaginatedRpc = false;
+            return { threads: [], hasMore: false, pageParam, executionTime: 0 };
+          }
+          throw fallbackError;
+        }
         const fallbackArray = (fallbackData || []) as RpcThreadRow[];
         return {
           threads: mapRpcToThreads(fallbackArray.slice(0, PAGE_SIZE)),
@@ -114,6 +136,11 @@ export const useChatThreadsInfinite = () => {
       return lastPage.pageParam + 1;
     },
     initialPageParam: 0,
+    retry: (failureCount, error: any) => {
+      // Don't retry if function doesn't exist
+      if (error?.code === '42883' || error?.code === 'PGRST202' || error?.code === '42703') return false;
+      return failureCount < 1;
+    },
     ...chatListQueryConfig,
   });
 
@@ -162,10 +189,16 @@ export const useChatThreadsInfinite = () => {
   const deletedIdsSet = useMemo(() => new Set(deletedClientIds), [deletedClientIds]);
 
   // Merge all threads: unread first, then paginated, filter out deleted
+  // PRIORITY: Show unread data immediately even if paginated query is still loading
   const allThreads = useMemo(() => {
     const unreadThreads = unreadQuery.data || [];
     const paginatedPages = infiniteQuery.data?.pages || [];
     const paginatedThreads = paginatedPages.flatMap(page => page.threads);
+
+    // If we have unread data but no paginated data yet, show unread immediately
+    if (unreadThreads.length > 0 && paginatedThreads.length === 0) {
+      return unreadThreads.filter(t => !deletedIdsSet.has(t.client_id));
+    }
 
     // Create a map for deduplication
     const threadMap = new Map<string, ChatThread>();
@@ -231,9 +264,14 @@ export const useChatThreadsInfinite = () => {
     ]);
   }, [unreadQuery, infiniteQuery]);
 
+  // Show data as soon as EITHER query has data (don't block on both)
+  const hasInitialData = (unreadQuery.data && unreadQuery.data.length > 0) || 
+                         (infiniteQuery.data?.pages && infiniteQuery.data.pages.length > 0);
+
   return {
     data: allThreads,
-    isLoading: infiniteQuery.isLoading || unreadQuery.isLoading,
+    // Only show loading if we have NO data at all
+    isLoading: !hasInitialData && (infiniteQuery.isLoading || unreadQuery.isLoading),
     isFetching: infiniteQuery.isFetching || unreadQuery.isFetching,
     isFetchingNextPage: infiniteQuery.isFetchingNextPage,
     hasNextPage: infiniteQuery.hasNextPage,
