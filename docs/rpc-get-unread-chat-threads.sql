@@ -1,10 +1,10 @@
 -- Оптимизированная версия get_unread_chat_threads для self-hosted
--- Совместима с разными схемами колонок (whatsapp_id vs whatsapp_chat_id и т.д.)
+-- МИНИМАЛЬНАЯ версия - только гарантированно существующие колонки
 -- 
 -- Выполнить на self-hosted базе: api.academyos.ru
 -- После выполнения: NOTIFY pgrst, 'reload schema';
 
--- Сначала удаляем старую версию функции (если возвращаемый тип изменился)
+-- Сначала удаляем старую версию функции
 DROP FUNCTION IF EXISTS get_unread_chat_threads(integer);
 
 CREATE OR REPLACE FUNCTION get_unread_chat_threads(p_limit INTEGER DEFAULT 100)
@@ -39,7 +39,6 @@ SECURITY INVOKER
 SET search_path = public
 AS $$
   WITH clients_with_unread AS (
-    -- Быстро находим клиентов с непрочитанными сообщениями
     SELECT DISTINCT m.client_id
     FROM chat_messages m
     WHERE m.is_read = false 
@@ -48,7 +47,7 @@ AS $$
     LIMIT p_limit * 2
   ),
   client_data AS (
-    SELECT
+    SELECT 
       c.id,
       c.name,
       c.first_name,
@@ -56,16 +55,14 @@ AS $$
       c.middle_name,
       c.phone,
       c.branch,
-      c.avatar_url,
-      -- Совместимость с разными схемами колонок
-      COALESCE(c.telegram_avatar_url, NULL) as telegram_avatar_url,
-      COALESCE(c.whatsapp_avatar_url, NULL) as whatsapp_avatar_url,
-      COALESCE(c.max_avatar_url, NULL) as max_avatar_url,
-      -- telegram_chat_id может быть в разных колонках
-      COALESCE(c.telegram_chat_id, c.telegram_user_id::text, NULL) as telegram_chat_id,
-      -- whatsapp_chat_id может быть whatsapp_id на некоторых схемах
-      COALESCE(c.whatsapp_chat_id, c.whatsapp_id, NULL) as whatsapp_chat_id,
-      COALESCE(c.max_chat_id, NULL) as max_chat_id,
+      -- Базовые колонки которые точно есть
+      NULL::text as avatar_url,
+      NULL::text as telegram_avatar_url,
+      NULL::text as whatsapp_avatar_url,
+      NULL::text as max_avatar_url,
+      c.telegram_user_id::text as telegram_chat_id,
+      NULL::text as whatsapp_chat_id,
+      NULL::text as max_chat_id,
       c.last_message_at
     FROM clients c
     WHERE c.id IN (SELECT client_id FROM clients_with_unread)
