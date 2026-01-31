@@ -517,48 +517,6 @@ export const FamilyCard = ({
                 <p className="text-sm text-muted-foreground">
                   {getRelationshipLabel(activeMember.relationship, activeMember)}
                 </p>
-                {/* Show messenger ID based on active tab */}
-                {(() => {
-                  const getMessengerInfo = () => {
-                    if (activeMessengerTab === 'telegram') {
-                      if (activeMember.telegramUserId) return `TG ID: ${activeMember.telegramUserId}`;
-                      if (activeMember.telegramChatId) return `TG: ${activeMember.telegramChatId}`;
-                      // Fallback: show phone
-                      const phone = getDisplayPhone();
-                      if (phone) return `TG тел: ${phone}`;
-                      return null;
-                    }
-                    if (activeMessengerTab === 'whatsapp') {
-                      // Validate WhatsApp ID - don't show Telegram IDs here
-                      if (activeMember.whatsappChatId && isValidWhatsappId(activeMember.whatsappChatId)) {
-                        return `WA: ${formatWhatsappIdForDisplay(activeMember.whatsappChatId)}`;
-                      }
-                      // Check phone numbers for valid whatsapp_chat_id
-                      const phoneWithWhatsapp = activeMember.phoneNumbers?.find(
-                        p => p.whatsappChatId && isValidWhatsappId(p.whatsappChatId)
-                      );
-                      if (phoneWithWhatsapp?.whatsappChatId) {
-                        return `WA: ${formatWhatsappIdForDisplay(phoneWithWhatsapp.whatsappChatId)}`;
-                      }
-                      // Fallback: show phone
-                      const phone = getDisplayPhone();
-                      if (phone) return `WA тел: ${phone}`;
-                      return null;
-                    }
-                    if (activeMessengerTab === 'max') {
-                      if (activeMember.maxChatId) return `MAX: ${activeMember.maxChatId.replace('@c.us', '')}`;
-                      // Fallback: show phone
-                      const phone = getDisplayPhone();
-                      if (phone) return `MAX тел: ${phone}`;
-                      return null;
-                    }
-                    return null;
-                  };
-                  const info = getMessengerInfo();
-                  return info ? (
-                    <p className="text-xs text-muted-foreground/70 font-mono">{info}</p>
-                  ) : null;
-                })()}
               </div>
             </div>
             <div className="flex items-center gap-1">

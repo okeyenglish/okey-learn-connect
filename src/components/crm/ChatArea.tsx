@@ -41,6 +41,7 @@ import { ImageCacheIndicator } from "./ImageCacheIndicator";
 import { SendPaymentLinkModal } from "./SendPaymentLinkModal";
 import { SendRetryIndicator } from "./SendRetryIndicator";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
+import { formatPhoneForDisplay } from "@/utils/phoneNormalization";
 import { useMaxGreenApi } from "@/hooks/useMaxGreenApi";
 import { useMax } from "@/hooks/useMax";
 import { useTelegramWappi } from "@/hooks/useTelegramWappi";
@@ -2004,7 +2005,7 @@ export const ChatArea = ({
                   <h2 className="font-semibold text-sm text-foreground truncate">{displayName}</h2>
                   <ImageCacheIndicator progress={imageCacheProgress} compact />
                 </div>
-                <p className="text-xs text-muted-foreground truncate">{clientPhone}</p>
+                <p className="text-xs text-muted-foreground truncate">{formatPhoneForDisplay(clientPhone)}</p>
                 {isOtherUserTyping && typingInfo && (
                   <p className="text-xs text-orange-600 italic animate-pulse">
                     {typingInfo.managerName} печатает...
@@ -2106,7 +2107,7 @@ export const ChatArea = ({
                   <h2 className="font-semibold text-base">{displayName}</h2>
                   <ImageCacheIndicator progress={imageCacheProgress} />
                 </div>
-                <p className="text-sm text-muted-foreground">{clientPhone}</p>
+                <p className="text-sm text-muted-foreground">{formatPhoneForDisplay(clientPhone)}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
