@@ -286,18 +286,20 @@ export const ContactInfoBlock = ({
   const formatPhone = (phone: string) => {
     if (!phone) return '';
     // Remove all non-digits
-    const digits = phone.replace(/\D/g, '');
-    
-    // Format as +7 XXX XXX-XX-XX
-    if (digits.length === 11 && (digits.startsWith('7') || digits.startsWith('8'))) {
-      return `+7 ${digits.slice(1, 4)} ${digits.slice(4, 7)}-${digits.slice(7, 9)}-${digits.slice(9)}`;
+    let digits = phone.replace(/\D/g, '');
+
+    // Normalize RU phones for display:
+    //  - 10 digits starting with 9 => add leading 7
+    //  - 11 digits starting with 8 => replace with 7
+    if (digits.length === 10 && digits.startsWith('9')) {
+      digits = `7${digits}`;
     }
-    
-    // Format as +X XXX XXX-XX-XX for other formats
-    if (digits.length >= 10) {
-      return `+${digits}`;
+    if (digits.length === 11 && digits.startsWith('8')) {
+      digits = `7${digits.slice(1)}`;
     }
-    
+
+    if (digits.length >= 10) return `+${digits}`;
+
     return phone;
   };
 
