@@ -174,6 +174,14 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
 
   console.log(`Saved incoming MAX message for client ${client.id}`);
 
+  // Sync teacher data if this client is linked to a teacher
+  const maxUserId = extractPhoneFromChatId(chatId);
+  await syncTeacherFromClient(supabase, client.id, {
+    phone: senderPhoneNumber ? String(senderPhoneNumber) : null,
+    maxUserId: maxUserId,
+    maxChatId: chatId
+  });
+
   // Send push notifications to managers/admins in this organization
   try {
     const userIds = await getOrgAdminManagerUserIds(supabase, organizationId);
@@ -720,4 +728,103 @@ async function updatePhoneNumberMessengerData(
   } catch (error: unknown) {
     console.error('Error updating phone number messenger data:', getErrorMessage(error));
   }
+}
+
+// Extract phone number from chatId (format: 79999999999@c.us)
+function extractPhoneFromChatId(chatId: string): string {
+  return chatId.replace('@c.us', '').replace('@g.us', '').replace('-', '');
+}
+
+// Normalize phone to standard format (79161234567)
+function normalizePhone(phone: string | null): string | null {
+  if (!phone) return null;
+  let cleaned = phone.replace(/\D/g, '');
+  if (cleaned.startsWith('8') && cleaned.length === 11) {
+    cleaned = '7' + cleaned.substring(1);
+  }
+  if (cleaned.length === 10 && cleaned.startsWith('9')) {
+    cleaned = '7' + cleaned;
+  }
+  return cleaned;
+}
+
+// Sync teacher data from linked client
+async function syncTeacherFromClient(
+  supabase: ReturnType<typeof createClient>,
+  clientId: string,
+  data: {
+    phone?: string | null;
+    maxUserId?: string | null;
+    maxChatId?: string | null;
+  }
+): Promise<void> {
+  try {
+    // 1. Find link to teacher
+    const { data: teacherLink, error: linkError } = await supabase
+      .from('teacher_client_links')
+      .select('teacher_id')
+      .eq('client_id', clientId)
+      .maybeSingle();
+
+    if (linkError) {
+      console.log('Error finding teacher link:', linkError);
+      return;
+    }
+
+    if (!teacherLink) {
+      console.log('No teacher link found for client:', clientId);
+      return;
+    }
+
+    console.log(`Found teacher link: client ${clientId} -> teacher ${teacherLink.teacher_id}`);
+
+    // 2. Get current teacher data
+    const { data: teacher, error: teacherError } = await supabase
+      .from('teachers')
+      .select('phone, max_user_id, max_chat_id')
+      .eq('id', teacherLink.teacher_id)
+      .single();
+
+    if (teacherError || !teacher) {
+      console.error('Error fetching teacher:', teacherError);
+      return;
+    }
+
+    // 3. Update only empty fields
+    const updateData: Record<string, unknown> = {};
+    
+    if (data.phone && !teacher.phone) {
+      const normalizedPhone = normalizePhone(data.phone);
+      if (normalizedPhone && normalizedPhone.length >= 10) {
+        updateData.phone = normalizedPhone;
+      }
+    }
+    
+    if (data.maxUserId && !teacher.max_user_id) {
+      updateData.max_user_id = data.maxUserId;
+    }
+    
+    if (data.maxChatId && !teacher.max_chat_id) {
+      updateData.max_chat_id = data.maxChatId;
+    }
+
+    // 4. Save if there are updates
+    if (Object.keys(updateData).length > 0) {
+      const { error: updateError } = await supabase
+        .from('teachers')
+        .update(updateData)
+        .eq('id', teacherLink.teacher_id);
+
+      if (updateError) {
+        console.error('Error updating teacher:', updateError);
+      } else {
+        console.log(`Synced MAX data to teacher ${teacherLink.teacher_id}:`, updateData);
+      }
+    } else {
+      console.log('No new data to sync for teacher:', teacherLink.teacher_id);
+    }
+  } catch (error: unknown) {
+    console.error('Error in syncTeacherFromClient:', getErrorMessage(error));
+  }
+}
 }

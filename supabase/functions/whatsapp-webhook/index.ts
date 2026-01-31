@@ -294,6 +294,12 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook, organizationId: s
     .eq('id', client.id)
 
   console.log(`Saved incoming message from ${phoneNumber}: ${messageText}`)
+
+  // Sync teacher data if this client is linked to a teacher
+  await syncTeacherFromClient(supabase, client.id, {
+    phone: phoneNumber,
+    whatsappId: chatId.replace('@c.us', '')
+  });
   
   // Trigger delayed GPT response generation only if there's no active processing
   console.log('Checking for existing GPT processing for client:', client.id);
@@ -940,4 +946,92 @@ function extractPhoneFromChatId(chatId: string): string {
     return `+${phoneNumber}`
   }
   return chatId // Возвращаем как есть, если не удалось распарсить
+}
+
+// Normalize phone to standard format (79161234567)
+function normalizePhone(phone: string | null): string | null {
+  if (!phone) return null;
+  let cleaned = phone.replace(/\D/g, '');
+  if (cleaned.startsWith('8') && cleaned.length === 11) {
+    cleaned = '7' + cleaned.substring(1);
+  }
+  if (cleaned.length === 10 && cleaned.startsWith('9')) {
+    cleaned = '7' + cleaned;
+  }
+  return cleaned;
+}
+
+// Sync teacher data from linked client
+async function syncTeacherFromClient(
+  supabaseClient: ReturnType<typeof createClient>,
+  clientId: string,
+  data: {
+    phone?: string | null;
+    whatsappId?: string | null;
+  }
+): Promise<void> {
+  try {
+    // 1. Find link to teacher
+    const { data: teacherLink, error: linkError } = await supabaseClient
+      .from('teacher_client_links')
+      .select('teacher_id')
+      .eq('client_id', clientId)
+      .maybeSingle();
+
+    if (linkError) {
+      console.log('Error finding teacher link:', linkError);
+      return;
+    }
+
+    if (!teacherLink) {
+      console.log('No teacher link found for client:', clientId);
+      return;
+    }
+
+    console.log(`Found teacher link: client ${clientId} -> teacher ${teacherLink.teacher_id}`);
+
+    // 2. Get current teacher data
+    const { data: teacher, error: teacherError } = await supabaseClient
+      .from('teachers')
+      .select('phone, whatsapp_id')
+      .eq('id', teacherLink.teacher_id)
+      .single();
+
+    if (teacherError || !teacher) {
+      console.error('Error fetching teacher:', teacherError);
+      return;
+    }
+
+    // 3. Update only empty fields
+    const updateData: Record<string, unknown> = {};
+    
+    if (data.phone && !teacher.phone) {
+      const normalizedPhone = normalizePhone(data.phone);
+      if (normalizedPhone && normalizedPhone.length >= 10) {
+        updateData.phone = normalizedPhone;
+      }
+    }
+    
+    if (data.whatsappId && !teacher.whatsapp_id) {
+      updateData.whatsapp_id = data.whatsappId;
+    }
+
+    // 4. Save if there are updates
+    if (Object.keys(updateData).length > 0) {
+      const { error: updateError } = await supabaseClient
+        .from('teachers')
+        .update(updateData)
+        .eq('id', teacherLink.teacher_id);
+
+      if (updateError) {
+        console.error('Error updating teacher:', updateError);
+      } else {
+        console.log(`Synced WhatsApp data to teacher ${teacherLink.teacher_id}:`, updateData);
+      }
+    } else {
+      console.log('No new data to sync for teacher:', teacherLink.teacher_id);
+    }
+  } catch (error: unknown) {
+    console.error('Error in syncTeacherFromClient:', getErrorMessage(error));
+  }
 }
