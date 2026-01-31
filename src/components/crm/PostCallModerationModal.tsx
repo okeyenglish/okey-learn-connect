@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { 
   PhoneIncoming, 
   PhoneCall, 
@@ -26,14 +27,16 @@ import {
   User,
   Calendar,
   UserPlus,
-  ChevronsUpDown
+  ChevronsUpDown,
+  Users
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { selfHostedPost } from "@/lib/selfHostedApi";
 import { useToast } from "@/hooks/use-toast";
 import { useEmployees, getEmployeeFullName, type Employee } from "@/hooks/useEmployees";
+import { useSearchClients } from "@/hooks/useClients";
 import { useCreateTask } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
 import type { AiCallEvaluation } from "./CallEvaluationCard";
@@ -44,6 +47,8 @@ interface ActionItem {
   deadline?: string;
   assignee_id?: string;
   assignee_name?: string;
+  client_id?: string;
+  client_name?: string;
 }
 
 export interface PostCallData {
@@ -143,7 +148,15 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
   const [newTask, setNewTask] = useState("");
   const [newPriority, setNewPriority] = useState<'high' | 'medium' | 'low'>('medium');
   const [newAssigneeId, setNewAssigneeId] = useState<string | undefined>(undefined);
+  const [newDueDate, setNewDueDate] = useState<Date>(addDays(new Date(), 1));
+  const [newClientId, setNewClientId] = useState<string | undefined>(undefined);
+  const [newClientName, setNewClientName] = useState<string>("");
   const [assigneePopoverOpen, setAssigneePopoverOpen] = useState(false);
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  
+  // Search clients for task assignment
+  const { searchResults: searchedClients, isSearching: clientsLoading, searchClients, clearSearch } = useSearchClients();
 
   // Initialize form with call data
   useEffect(() => {
@@ -160,8 +173,14 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
       
       // Set default assignee to current user
       setNewAssigneeId(profile?.id);
+      // Reset date to tomorrow
+      setNewDueDate(addDays(new Date(), 1));
+      // Reset client
+      setNewClientId(undefined);
+      setNewClientName("");
+      clearSearch();
     }
-  }, [callData, open, profile?.id]);
+  }, [callData, open, profile?.id, clearSearch]);
 
   const getSelectedAssigneeName = useCallback((assigneeId?: string) => {
     if (!assigneeId) return null;
@@ -177,14 +196,17 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
       { 
         task: newTask.trim(), 
         priority: newPriority,
+        deadline: format(newDueDate, 'yyyy-MM-dd'),
         assignee_id: newAssigneeId,
-        assignee_name: assigneeName || undefined
+        assignee_name: assigneeName || undefined,
+        client_id: newClientId,
+        client_name: newClientName || undefined
       }
     ]);
     setNewTask("");
     setNewPriority('medium');
-    // Keep the same assignee for convenience
-  }, [newTask, newPriority, newAssigneeId, getSelectedAssigneeName]);
+    // Keep the same assignee, date, and client for convenience
+  }, [newTask, newPriority, newAssigneeId, newDueDate, newClientId, newClientName, getSelectedAssigneeName]);
 
   const removeActionItem = useCallback((index: number) => {
     setActionItems(prev => prev.filter((_, i) => i !== index));
@@ -220,7 +242,7 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
             priority: item.priority,
             due_date: dueDate,
             responsible: item.assignee_id,
-            client_id: undefined, // Can link to client if needed
+            client_id: item.client_id, // Link to selected client
           });
           createdTasks++;
         } catch (taskError) {
@@ -468,15 +490,31 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
                               {item.task}
                             </span>
                           </div>
-                          {item.assignee_name && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground pl-1">
-                              <User className="h-3 w-3" />
-                              <span>{item.assignee_name}</span>
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground pl-1">
+                            {item.deadline && (
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                {format(new Date(item.deadline), 'd MMM', { locale: ru })}
+                              </span>
+                            )}
+                            {item.assignee_name && (
+                              <span className="flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                {item.assignee_name}
+                              </span>
+                            )}
+                            {item.client_name && (
+                              <span className="flex items-center gap-1">
+                                <Users className="h-3 w-3" />
+                                {item.client_name}
+                              </span>
+                            )}
+                            {item.assignee_id && (
                               <Badge variant="outline" className="text-[10px] h-4 px-1 bg-green-50 text-green-700 border-green-200">
-                                Будет создана задача
+                                Будет создана
                               </Badge>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
                         <Button
                           variant="ghost"
@@ -527,8 +565,8 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
                 </div>
                 
                 {/* Assignee Selector */}
-                <div className="flex items-center gap-2">
-                  <UserPlus className="h-4 w-4 text-muted-foreground" />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <UserPlus className="h-4 w-4 text-muted-foreground shrink-0" />
                   <span className="text-xs text-muted-foreground">Ответственный:</span>
                   <Popover open={assigneePopoverOpen} onOpenChange={setAssigneePopoverOpen}>
                     <PopoverTrigger asChild>
@@ -539,11 +577,11 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
                         className="h-8 justify-between bg-white text-xs"
                       >
                         {newAssigneeId ? (
-                          <span className="truncate max-w-[180px]">
+                          <span className="truncate max-w-[140px]">
                             {getSelectedAssigneeName(newAssigneeId) || "Выберите..."}
                           </span>
                         ) : (
-                          <span className="text-muted-foreground">Выберите сотрудника...</span>
+                          <span className="text-muted-foreground">Сотрудник...</span>
                         )}
                         <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
                       </Button>
@@ -586,12 +624,128 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
                       </Command>
                     </PopoverContent>
                   </Popover>
-                  {newAssigneeId && (
-                    <span className="text-xs text-green-600">
-                      (задача будет создана)
-                    </span>
-                  )}
                 </div>
+
+                {/* Date Selector */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-xs text-muted-foreground">Дата:</span>
+                  <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="h-8 justify-between bg-white text-xs"
+                      >
+                        {format(newDueDate, 'd MMMM', { locale: ru })}
+                        <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={newDueDate}
+                        onSelect={(date) => {
+                          if (date) {
+                            setNewDueDate(date);
+                            setDatePopoverOpen(false);
+                          }
+                        }}
+                        locale={ru}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Client Selector */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-xs text-muted-foreground">Клиент:</span>
+                  <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={clientPopoverOpen}
+                        className="h-8 justify-between bg-white text-xs"
+                      >
+                        {newClientId && newClientName ? (
+                          <span className="truncate max-w-[140px]">{newClientName}</span>
+                        ) : (
+                          <span className="text-muted-foreground">Выберите клиента...</span>
+                        )}
+                        <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[280px] p-0" align="start">
+                      <Command shouldFilter={false}>
+                        <CommandInput 
+                          placeholder="Поиск клиента..." 
+                          className="h-9"
+                          onValueChange={(value) => {
+                            if (value.length >= 2) {
+                              searchClients(value);
+                            } else {
+                              clearSearch();
+                            }
+                          }}
+                        />
+                        <CommandList>
+                          {clientsLoading && (
+                            <div className="p-2 text-xs text-muted-foreground text-center">
+                              <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                            </div>
+                          )}
+                          <CommandEmpty>
+                            {clientsLoading ? "Поиск..." : "Клиент не найден. Введите минимум 2 символа."}
+                          </CommandEmpty>
+                          <CommandGroup>
+                            <CommandItem
+                              value="none"
+                              onSelect={() => {
+                                setNewClientId(undefined);
+                                setNewClientName("");
+                                setClientPopoverOpen(false);
+                              }}
+                            >
+                              <span className="text-muted-foreground">Без привязки к клиенту</span>
+                            </CommandItem>
+                            {searchedClients.map((client) => (
+                              <CommandItem
+                                key={client.id}
+                                value={client.name}
+                                onSelect={() => {
+                                  setNewClientId(client.id);
+                                  setNewClientName(client.name);
+                                  setClientPopoverOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    newClientId === client.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <div className="flex flex-col">
+                                  <span>{client.name}</span>
+                                  {client.phone && (
+                                    <span className="text-xs text-muted-foreground">{client.phone}</span>
+                                  )}
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {newAssigneeId && (
+                  <div className="text-xs text-green-600 pt-1">
+                    ✓ Задача будет создана с выбранными параметрами
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
