@@ -15,6 +15,11 @@ interface ConversationAnalysis {
   outcome: string;
   quality_score: number;
   context_summary: string;
+  // Новые поля
+  intent: string | null;
+  issue: string | null;
+  confidence_score: number;
+  key_phrases: string[];
 }
 
 interface ChatMessage {
@@ -55,25 +60,49 @@ async function analyzeConversation(
     })
     .join('\n');
 
-  const prompt = `Проанализируй диалог менеджера школы английского языка с клиентом и определи параметры в JSON формате.
+  const prompt = `Проанализируй диалог менеджера школы/образовательного центра с клиентом и определи параметры в JSON формате.
 
 ДИАЛОГ:
 ${conversationText}
 
 Верни JSON с полями:
-- scenario_type: один из [new_lead, returning, complaint, upsell, reactivation, info_request, scheduling, payment]
+- scenario_type: один из [new_lead, returning, complaint, upsell, reactivation, info_request, scheduling, payment, consultation, objection, enrollment, active_service, renewal, lost_client]
 - client_type: один из [parent_child, adult, corporate, student, unknown]
-- client_stage: один из [cold, warm, hot, active, churned]
-- outcome: один из [converted, scheduled, resolved, lost, ongoing]
+- client_stage: один из [lead, warm, ready_to_pay, active_student, paused, churned, returned]
+- outcome: один из [converted, scheduled, resolved, lost, ongoing, paid, retained, satisfied]
 - quality_score: число от 1 до 5 (оценка качества работы менеджера)
 - context_summary: краткое описание ситуации (1-2 предложения на русском)
+- intent: намерение клиента, один из [price_check, schedule_info, program_choice, comparison, hesitation, urgent_start, support_request, upgrade_interest] или null
+- issue: проблема/возражение клиента, один из [price_too_high, no_time, child_motivation, teacher_issue, technical_problem, missed_lessons, payment_problem, organization_complaint] или null если нет явного возражения
+- confidence_score: число от 0 до 1 - уверенность в классификации (0.9+ для очевидных случаев, 0.7-0.9 для типичных, ниже для неоднозначных)
+- key_phrases: массив из 2-4 лучших фраз менеджера которые стоит использовать как пример (только фразы менеджера!)
 
 Критерии оценки quality_score:
-5 - Отличная работа: быстрые ответы, конкретные предложения, успешное закрытие
+5 - Отличная работа: быстрые ответы, конкретные предложения, успешное закрытие, работа с возражениями
 4 - Хорошая работа: профессионально, но можно улучшить
 3 - Средняя работа: базовые ответы без инициативы
 2 - Слабая работа: медленные ответы, упущенные возможности
 1 - Плохая работа: грубость, игнорирование вопросов
+
+Определение intent (намерение):
+- price_check: клиент спрашивает о стоимости
+- schedule_info: клиент интересуется расписанием
+- program_choice: клиент выбирает программу/курс
+- comparison: клиент сравнивает с конкурентами
+- hesitation: клиент сомневается ("надо подумать")
+- urgent_start: клиент хочет срочно начать
+- support_request: вопрос по текущему обучению
+- upgrade_interest: интерес к продвинутым курсам
+
+Определение issue (проблема):
+- price_too_high: жалуется на высокую цену
+- no_time: нет времени на занятия
+- child_motivation: ребёнок не хочет заниматься
+- teacher_issue: недоволен преподавателем
+- technical_problem: технические проблемы
+- missed_lessons: частые пропуски
+- payment_problem: проблемы с оплатой
+- organization_complaint: жалобы на организацию
 
 Отвечай ТОЛЬКО валидным JSON без markdown.`;
 
@@ -339,7 +368,13 @@ Deno.serve(async (req) => {
               embedding: `[${embedding.join(',')}]`,
               search_text: searchText,
               source_client_id: clientIdToProcess,
-              source_messages_ids: messages.map(m => m.id)
+              source_messages_ids: messages.map(m => m.id),
+              // Новые поля
+              intent: analysis.intent || null,
+              issue: analysis.issue || null,
+              confidence_score: analysis.confidence_score || 0.8,
+              key_phrases: analysis.key_phrases || [],
+              example_messages: messagesJson // Сохраняем для библиотеки скриптов
             });
 
           if (insertError) {

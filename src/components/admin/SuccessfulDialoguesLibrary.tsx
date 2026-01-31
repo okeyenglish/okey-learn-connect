@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Loader2, RefreshCw, Heart } from 'lucide-react';
+import { BookOpen, Loader2, RefreshCw, Heart, Target, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { DialogueScriptCard, DialogueExample, scenarioLabels, outcomeLabels } from './DialogueScriptCard';
 import { DialogueScriptDetail } from './DialogueScriptDetail';
 import { useDialogueInteractions } from '@/hooks/useDialogueInteractions';
+import { intentLabels, issueLabels, intentOptions, issueOptions } from '@/lib/dialogueTags';
 
 interface DialoguesResponse {
   success: boolean;
@@ -18,6 +19,8 @@ interface DialoguesResponse {
   total: number;
   byScenario: Record<string, number>;
   byOutcome: Record<string, number>;
+  byIntent?: Record<string, number>;
+  byIssue?: Record<string, number>;
   pagination: {
     offset: number;
     limit: number;
@@ -30,11 +33,15 @@ export function SuccessfulDialoguesLibrary() {
   const [dialogues, setDialogues] = useState<DialogueExample[]>([]);
   const [total, setTotal] = useState(0);
   const [byScenario, setByScenario] = useState<Record<string, number>>({});
+  const [byIntent, setByIntent] = useState<Record<string, number>>({});
+  const [byIssue, setByIssue] = useState<Record<string, number>>({});
   const [hasMore, setHasMore] = useState(false);
 
   // Filters
   const [scenarioFilter, setScenarioFilter] = useState<string>('all');
   const [outcomeFilter, setOutcomeFilter] = useState<string>('all');
+  const [intentFilter, setIntentFilter] = useState<string>('all');
+  const [issueFilter, setIssueFilter] = useState<string>('all');
   const [minQuality, setMinQuality] = useState<number>(4);
   const [sortBy, setSortBy] = useState<'quality_score' | 'created_at'>('quality_score');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -65,6 +72,8 @@ export function SuccessfulDialoguesLibrary() {
       const response = await selfHostedPost<DialoguesResponse>('get-successful-dialogues', {
         scenario_type: scenarioFilter,
         outcome: outcomeFilter,
+        intent: intentFilter,
+        issue: issueFilter,
         min_quality: minQuality,
         limit: 20,
         offset,
@@ -83,6 +92,8 @@ export function SuccessfulDialoguesLibrary() {
         
         setTotal(data.total);
         setByScenario(data.byScenario || {});
+        setByIntent(data.byIntent || {});
+        setByIssue(data.byIssue || {});
         setHasMore(data.pagination?.hasMore || false);
       } else {
         toast({
@@ -105,7 +116,7 @@ export function SuccessfulDialoguesLibrary() {
 
   useEffect(() => {
     loadDialogues(true);
-  }, [scenarioFilter, outcomeFilter, minQuality, sortBy, sortOrder]);
+  }, [scenarioFilter, outcomeFilter, intentFilter, issueFilter, minQuality, sortBy, sortOrder]);
 
   const handleCardClick = (dialogue: DialogueExample) => {
     setSelectedDialogue(dialogue);
@@ -130,6 +141,9 @@ export function SuccessfulDialoguesLibrary() {
     : dialogues;
 
   const favoritesCount = dialogues.filter(d => isFavorite(d.id)).length;
+
+  const hasIssueData = Object.keys(byIssue).length > 0;
+  const hasIntentData = Object.keys(byIntent).length > 0;
 
   return (
     <div className="space-y-6">
@@ -201,6 +215,69 @@ export function SuccessfulDialoguesLibrary() {
         ))}
       </div>
 
+      {/* Intent & Issue quick stats */}
+      {(hasIntentData || hasIssueData) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Top Intents */}
+          {hasIntentData && (
+            <Card>
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Топ намерений
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-3">
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(byIntent)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5)
+                    .map(([intent, count]) => (
+                      <Badge 
+                        key={intent}
+                        variant={intentFilter === intent ? 'default' : 'outline'}
+                        className="cursor-pointer"
+                        onClick={() => setIntentFilter(intentFilter === intent ? 'all' : intent)}
+                      >
+                        {intentLabels[intent] || intent} ({count})
+                      </Badge>
+                    ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Top Issues */}
+          {hasIssueData && (
+            <Card>
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Частые возражения
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-3">
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(byIssue)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5)
+                    .map(([issue, count]) => (
+                      <Badge 
+                        key={issue}
+                        variant={issueFilter === issue ? 'destructive' : 'outline'}
+                        className="cursor-pointer"
+                        onClick={() => setIssueFilter(issueFilter === issue ? 'all' : issue)}
+                      >
+                        {issueLabels[issue] || issue} ({count})
+                      </Badge>
+                    ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
       {/* Filters */}
       <Card>
         <CardContent className="p-4">
@@ -230,6 +307,36 @@ export function SuccessfulDialoguesLibrary() {
                   <SelectItem value="all">Все исходы</SelectItem>
                   {Object.entries(outcomeLabels).map(([key, label]) => (
                     <SelectItem key={key} value={key}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Намерение</Label>
+              <Select value={intentFilter} onValueChange={setIntentFilter}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Все намерения</SelectItem>
+                  {intentOptions.map(({ value, label }) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Возражение</Label>
+              <Select value={issueFilter} onValueChange={setIssueFilter}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Все возражения</SelectItem>
+                  {issueOptions.map(({ value, label }) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

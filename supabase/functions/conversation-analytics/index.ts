@@ -22,14 +22,29 @@ interface LowQualityExample {
   created_at: string;
 }
 
+interface IntentConversionStats {
+  total: number;
+  converted: number;
+  rate: number;
+}
+
+interface IssueOutcomeStats {
+  total: number;
+  lost: number;
+  rate: number;
+}
+
 interface AnalyticsResponse {
   total: number;
   avgQuality: number;
+  avgConfidence: number;
   approvedCount: number;
   approvedRate: number;
   conversionRate: number;
   byScenario: ScenarioStats[];
   byOutcome: Record<string, number>;
+  byIntent: Record<string, number>;
+  byIssue: Record<string, number>;
   qualityDistribution: Record<string, number>;
   lowQualityExamples: LowQualityExample[];
   dailyTrends: Array<{
@@ -38,6 +53,8 @@ interface AnalyticsResponse {
     avgQuality: number;
     conversions: number;
   }>;
+  intentConversionRates: Record<string, IntentConversionStats>;
+  issueOutcomes: Record<string, IssueOutcomeStats>;
 }
 
 Deno.serve(async (req) => {
@@ -56,7 +73,7 @@ Deno.serve(async (req) => {
     // Fetch all conversation examples
     const { data: examples, error } = await supabase
       .from('conversation_examples')
-      .select('id, scenario_type, quality_score, outcome, approved, context_summary, created_at')
+      .select('id, scenario_type, quality_score, outcome, approved, context_summary, created_at, intent, issue, confidence_score')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -69,14 +86,19 @@ Deno.serve(async (req) => {
         JSON.stringify({
           total: 0,
           avgQuality: 0,
+          avgConfidence: 0,
           approvedCount: 0,
           approvedRate: 0,
           conversionRate: 0,
           byScenario: [],
           byOutcome: {},
+          byIntent: {},
+          byIssue: {},
           qualityDistribution: {},
           lowQualityExamples: [],
           dailyTrends: [],
+          intentConversionRates: {},
+          issueOutcomes: {},
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -87,6 +109,7 @@ Deno.serve(async (req) => {
     // Calculate basic metrics
     const total = examples.length;
     const avgQuality = examples.reduce((sum, e) => sum + (e.quality_score || 0), 0) / total;
+    const avgConfidence = examples.reduce((sum, e) => sum + (e.confidence_score || 0.8), 0) / total;
     const approvedCount = examples.filter(e => e.approved).length;
     const approvedRate = (approvedCount / total) * 100;
     const conversions = examples.filter(e => e.outcome === 'converted').length;
@@ -95,6 +118,14 @@ Deno.serve(async (req) => {
     // Group by scenario
     const scenarioMap = new Map<string, { count: number; qualitySum: number; conversions: number }>();
     
+    // Group by intent
+    const byIntent: Record<string, number> = {};
+    const intentConversionMap = new Map<string, { total: number; converted: number }>();
+    
+    // Group by issue
+    const byIssue: Record<string, number> = {};
+    const issueOutcomeMap = new Map<string, { total: number; lost: number }>();
+    
     for (const ex of examples) {
       const scenario = ex.scenario_type || 'unknown';
       const current = scenarioMap.get(scenario) || { count: 0, qualitySum: 0, conversions: 0 };
@@ -102,6 +133,30 @@ Deno.serve(async (req) => {
       current.qualitySum += ex.quality_score || 0;
       if (ex.outcome === 'converted') current.conversions++;
       scenarioMap.set(scenario, current);
+      
+      // Intent aggregation
+      if (ex.intent && ex.intent !== 'unknown') {
+        byIntent[ex.intent] = (byIntent[ex.intent] || 0) + 1;
+        
+        const intentStats = intentConversionMap.get(ex.intent) || { total: 0, converted: 0 };
+        intentStats.total++;
+        if (ex.outcome === 'converted' || ex.outcome === 'scheduled' || ex.outcome === 'paid') {
+          intentStats.converted++;
+        }
+        intentConversionMap.set(ex.intent, intentStats);
+      }
+      
+      // Issue aggregation
+      if (ex.issue) {
+        byIssue[ex.issue] = (byIssue[ex.issue] || 0) + 1;
+        
+        const issueStats = issueOutcomeMap.get(ex.issue) || { total: 0, lost: 0 };
+        issueStats.total++;
+        if (ex.outcome === 'lost') {
+          issueStats.lost++;
+        }
+        issueOutcomeMap.set(ex.issue, issueStats);
+      }
     }
 
     const byScenario: ScenarioStats[] = Array.from(scenarioMap.entries())
@@ -113,6 +168,26 @@ Deno.serve(async (req) => {
         conversionRate: (stats.conversions / stats.count) * 100,
       }))
       .sort((a, b) => b.count - a.count);
+      
+    // Build intent conversion rates
+    const intentConversionRates: Record<string, IntentConversionStats> = {};
+    for (const [intent, stats] of intentConversionMap.entries()) {
+      intentConversionRates[intent] = {
+        total: stats.total,
+        converted: stats.converted,
+        rate: stats.total > 0 ? (stats.converted / stats.total) * 100 : 0
+      };
+    }
+    
+    // Build issue outcome rates
+    const issueOutcomes: Record<string, IssueOutcomeStats> = {};
+    for (const [issue, stats] of issueOutcomeMap.entries()) {
+      issueOutcomes[issue] = {
+        total: stats.total,
+        lost: stats.lost,
+        rate: stats.total > 0 ? (stats.lost / stats.total) * 100 : 0
+      };
+    }
 
     // Group by outcome
     const byOutcome: Record<string, number> = {};
@@ -172,14 +247,19 @@ Deno.serve(async (req) => {
     const response: AnalyticsResponse = {
       total,
       avgQuality: Math.round(avgQuality * 100) / 100,
+      avgConfidence: Math.round(avgConfidence * 100) / 100,
       approvedCount,
       approvedRate: Math.round(approvedRate * 10) / 10,
       conversionRate: Math.round(conversionRate * 10) / 10,
       byScenario,
       byOutcome,
+      byIntent,
+      byIssue,
       qualityDistribution,
       lowQualityExamples,
       dailyTrends,
+      intentConversionRates,
+      issueOutcomes,
     };
 
     console.log('[conversation-analytics] Analytics computed successfully');

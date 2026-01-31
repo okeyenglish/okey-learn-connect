@@ -1,8 +1,21 @@
-import { Star, MessageSquare, Calendar, Heart } from 'lucide-react';
+import { Star, MessageSquare, Calendar, Heart, Target, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { 
+  dialogTypeLabels, 
+  dialogTypeColors, 
+  outcomeLabels, 
+  outcomeColors,
+  intentLabels,
+  intentColors,
+  issueLabels,
+  issueColors,
+  intentDescriptions,
+  issueDescriptions
+} from '@/lib/dialogueTags';
 
 interface DialogueMessage {
   role: 'manager' | 'client';
@@ -20,6 +33,11 @@ export interface DialogueExample {
   key_phrases: string[];
   created_at: string;
   message_count?: number;
+  // Новые поля
+  intent?: string | null;
+  issue?: string | null;
+  confidence_score?: number;
+  client_stage?: string;
 }
 
 interface DialogueScriptCardProps {
@@ -29,47 +47,10 @@ interface DialogueScriptCardProps {
   commentCount?: number;
 }
 
-const scenarioLabels: Record<string, string> = {
-  new_lead: 'Новый лид',
-  returning: 'Возврат клиента',
-  complaint: 'Жалоба',
-  upsell: 'Допродажа',
-  reactivation: 'Реактивация',
-  info_request: 'Запрос информации',
-  scheduling: 'Запись',
-  payment: 'Оплата',
-  unknown: 'Прочее'
-};
-
-const outcomeLabels: Record<string, string> = {
-  converted: 'Конверсия',
-  resolved: 'Решено',
-  scheduled: 'Записан',
-  paid: 'Оплачено',
-  retained: 'Сохранён',
-  satisfied: 'Доволен',
-  unknown: 'Прочее'
-};
-
-const scenarioColors: Record<string, string> = {
-  new_lead: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  returning: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  complaint: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  upsell: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-  reactivation: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-  info_request: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
-  scheduling: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
-  payment: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
-};
-
-const outcomeColors: Record<string, string> = {
-  converted: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
-  resolved: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
-  scheduled: 'bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-200',
-  paid: 'bg-lime-100 text-lime-800 dark:bg-lime-900 dark:text-lime-200',
-  retained: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
-  satisfied: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200'
-};
+// Re-export for backward compatibility
+export const scenarioLabels = dialogTypeLabels;
+export const scenarioColors = dialogTypeColors;
+export { outcomeLabels, outcomeColors };
 
 export function DialogueScriptCard({ dialogue, onClick, isFavorite, commentCount = 0 }: DialogueScriptCardProps) {
   const renderStars = (score: number) => {
@@ -86,82 +67,134 @@ export function DialogueScriptCard({ dialogue, onClick, isFavorite, commentCount
   const messageCount = dialogue.message_count || dialogue.example_messages?.length || 0;
 
   return (
-    <Card
-      className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50 relative"
-      onClick={onClick}
-    >
-      {/* Favorite indicator */}
-      {isFavorite && (
-        <div className="absolute top-2 right-2 z-10">
-          <Heart className="h-4 w-4 fill-red-500 text-red-500" />
-        </div>
-      )}
-      
-      <CardContent className="p-4">
-        {/* Header with badges and rating */}
-        <div className="flex items-center justify-between mb-3 pr-6">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge className={scenarioColors[dialogue.scenario_type] || scenarioColors.unknown}>
-              {scenarioLabels[dialogue.scenario_type] || dialogue.scenario_type}
-            </Badge>
-            <Badge className={outcomeColors[dialogue.outcome] || 'bg-gray-100 text-gray-800'}>
-              {outcomeLabels[dialogue.outcome] || dialogue.outcome}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-0.5">
-            {renderStars(dialogue.quality_score)}
-          </div>
-        </div>
-
-        {/* Summary */}
-        <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
-          {dialogue.context_summary || 'Нет описания'}
-        </p>
-
-        {/* Key phrases preview */}
-        {dialogue.key_phrases && dialogue.key_phrases.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-3">
-            {dialogue.key_phrases.slice(0, 2).map((phrase, idx) => (
-              <span
-                key={idx}
-                className="text-xs bg-primary/10 text-primary rounded px-2 py-0.5 truncate max-w-[150px]"
-                title={phrase}
-              >
-                "{phrase}"
-              </span>
-            ))}
-            {dialogue.key_phrases.length > 2 && (
-              <span className="text-xs text-muted-foreground">
-                +{dialogue.key_phrases.length - 2}
-              </span>
-            )}
+    <TooltipProvider>
+      <Card
+        className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50 relative"
+        onClick={onClick}
+      >
+        {/* Favorite indicator */}
+        {isFavorite && (
+          <div className="absolute top-2 right-2 z-10">
+            <Heart className="h-4 w-4 fill-red-500 text-red-500" />
           </div>
         )}
-
-        {/* Footer */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1">
-              <MessageSquare className="h-3 w-3" />
-              <span>{messageCount}</span>
+        
+        <CardContent className="p-4">
+          {/* Header with badges and rating */}
+          <div className="flex items-center justify-between mb-3 pr-6">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge className={dialogTypeColors[dialogue.scenario_type] || dialogTypeColors.unknown}>
+                {dialogTypeLabels[dialogue.scenario_type] || dialogue.scenario_type}
+              </Badge>
+              <Badge className={outcomeColors[dialogue.outcome] || 'bg-gray-100 text-gray-800'}>
+                {outcomeLabels[dialogue.outcome] || dialogue.outcome}
+              </Badge>
             </div>
-            {commentCount > 0 && (
-              <div className="flex items-center gap-1 text-primary">
+            <div className="flex items-center gap-0.5">
+              {renderStars(dialogue.quality_score)}
+            </div>
+          </div>
+
+          {/* Intent & Issue badges */}
+          {(dialogue.intent || dialogue.issue) && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {dialogue.intent && dialogue.intent !== 'unknown' && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge 
+                      variant="outline" 
+                      className={`text-xs ${intentColors[dialogue.intent] || ''} border-current`}
+                    >
+                      <Target className="h-3 w-3 mr-1" />
+                      {intentLabels[dialogue.intent] || dialogue.intent}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs text-xs">
+                      {intentDescriptions[dialogue.intent] || 'Намерение клиента'}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {dialogue.issue && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge 
+                      variant="outline" 
+                      className={`text-xs ${issueColors[dialogue.issue] || ''} border-current`}
+                    >
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      {issueLabels[dialogue.issue] || dialogue.issue}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs text-xs">
+                      {issueDescriptions[dialogue.issue] || 'Возражение клиента'}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          )}
+
+          {/* Summary */}
+          <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
+            {dialogue.context_summary || 'Нет описания'}
+          </p>
+
+          {/* Key phrases preview */}
+          {dialogue.key_phrases && dialogue.key_phrases.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-3">
+              {dialogue.key_phrases.slice(0, 2).map((phrase, idx) => (
+                <span
+                  key={idx}
+                  className="text-xs bg-primary/10 text-primary rounded px-2 py-0.5 truncate max-w-[150px]"
+                  title={phrase}
+                >
+                  "{phrase}"
+                </span>
+              ))}
+              {dialogue.key_phrases.length > 2 && (
+                <span className="text-xs text-muted-foreground">
+                  +{dialogue.key_phrases.length - 2}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
                 <MessageSquare className="h-3 w-3" />
-                <span>{commentCount} заметок</span>
+                <span>{messageCount}</span>
               </div>
-            )}
+              {commentCount > 0 && (
+                <div className="flex items-center gap-1 text-primary">
+                  <MessageSquare className="h-3 w-3" />
+                  <span>{commentCount} заметок</span>
+                </div>
+              )}
+              {dialogue.confidence_score && dialogue.confidence_score < 0.8 && (
+                <Tooltip>
+                  <TooltipTrigger>
+                    <span className="text-orange-500">⚠️</span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Низкая уверенность классификации ({Math.round(dialogue.confidence_score * 100)}%)</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              <span>
+                {format(new Date(dialogue.created_at), 'd MMM yyyy', { locale: ru })}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <Calendar className="h-3 w-3" />
-            <span>
-              {format(new Date(dialogue.created_at), 'd MMM yyyy', { locale: ru })}
-            </span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </TooltipProvider>
   );
 }
-
-export { scenarioLabels, outcomeLabels, scenarioColors, outcomeColors };

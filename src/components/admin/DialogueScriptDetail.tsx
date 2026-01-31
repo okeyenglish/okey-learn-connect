@@ -1,16 +1,31 @@
 import { useState } from 'react';
-import { Copy, Star, User, Headphones, Lightbulb, Heart, MessageSquare, Send, Trash2 } from 'lucide-react';
+import { Copy, Star, User, Headphones, Lightbulb, Heart, MessageSquare, Send, Trash2, Target, AlertTriangle, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { DialogueExample, scenarioLabels, outcomeLabels, scenarioColors, outcomeColors } from './DialogueScriptCard';
+import { DialogueExample } from './DialogueScriptCard';
 import { DialogueComment } from '@/hooks/useDialogueInteractions';
+import {
+  dialogTypeLabels,
+  dialogTypeColors,
+  outcomeLabels,
+  outcomeColors,
+  intentLabels,
+  intentColors,
+  issueLabels,
+  issueColors,
+  clientStageLabels,
+  clientStageColors,
+  intentDescriptions,
+  issueDescriptions
+} from '@/lib/dialogueTags';
 
 interface DialogueScriptDetailProps {
   dialogue: DialogueExample | null;
@@ -84,6 +99,7 @@ export function DialogueScriptDetail({
   };
 
   const messages = dialogue.example_messages || [];
+  const confidencePercent = dialogue.confidence_score ? Math.round(dialogue.confidence_score * 100) : 80;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -106,9 +122,11 @@ export function DialogueScriptDetail({
                   </Button>
                 )}
               </div>
+              
+              {/* Primary badges */}
               <div className="flex items-center gap-2 flex-wrap">
-                <Badge className={scenarioColors[dialogue.scenario_type] || 'bg-gray-100'}>
-                  {scenarioLabels[dialogue.scenario_type] || dialogue.scenario_type}
+                <Badge className={dialogTypeColors[dialogue.scenario_type] || 'bg-gray-100'}>
+                  {dialogTypeLabels[dialogue.scenario_type] || dialogue.scenario_type}
                 </Badge>
                 <Badge className={outcomeColors[dialogue.outcome] || 'bg-gray-100'}>
                   {outcomeLabels[dialogue.outcome] || dialogue.outcome}
@@ -119,6 +137,27 @@ export function DialogueScriptDetail({
                     ({dialogue.quality_score.toFixed(1)})
                   </span>
                 </div>
+              </div>
+
+              {/* Secondary badges: intent, issue, stage */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {dialogue.client_stage && (
+                  <Badge variant="outline" className={clientStageColors[dialogue.client_stage] || ''}>
+                    {clientStageLabels[dialogue.client_stage] || dialogue.client_stage}
+                  </Badge>
+                )}
+                {dialogue.intent && dialogue.intent !== 'unknown' && (
+                  <Badge variant="outline" className={`${intentColors[dialogue.intent] || ''}`}>
+                    <Target className="h-3 w-3 mr-1" />
+                    {intentLabels[dialogue.intent] || dialogue.intent}
+                  </Badge>
+                )}
+                {dialogue.issue && (
+                  <Badge variant="outline" className={`${issueColors[dialogue.issue] || ''}`}>
+                    <AlertTriangle className="h-3 w-3 mr-1" />
+                    {issueLabels[dialogue.issue] || dialogue.issue}
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
@@ -135,6 +174,56 @@ export function DialogueScriptDetail({
                 <p className="text-sm bg-muted/50 p-3 rounded-lg">
                   {dialogue.context_summary}
                 </p>
+              </div>
+            )}
+
+            {/* Intent & Issue details */}
+            {(dialogue.intent || dialogue.issue) && (
+              <div className="grid grid-cols-2 gap-3">
+                {dialogue.intent && dialogue.intent !== 'unknown' && (
+                  <div className="bg-muted/30 rounded-lg p-3 space-y-1">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Target className="h-4 w-4 text-primary" />
+                      Намерение
+                    </div>
+                    <p className="text-sm font-semibold">
+                      {intentLabels[dialogue.intent]}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {intentDescriptions[dialogue.intent]}
+                    </p>
+                  </div>
+                )}
+                {dialogue.issue && (
+                  <div className="bg-muted/30 rounded-lg p-3 space-y-1">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <AlertTriangle className="h-4 w-4 text-destructive" />
+                      Возражение
+                    </div>
+                    <p className="text-sm font-semibold">
+                      {issueLabels[dialogue.issue]}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {issueDescriptions[dialogue.issue]}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Confidence score */}
+            {dialogue.confidence_score && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <TrendingUp className="h-4 w-4" />
+                    Уверенность классификации
+                  </span>
+                  <span className={confidencePercent >= 80 ? 'text-green-600' : confidencePercent >= 60 ? 'text-yellow-600' : 'text-red-600'}>
+                    {confidencePercent}%
+                  </span>
+                </div>
+                <Progress value={confidencePercent} className="h-2" />
               </div>
             )}
 
