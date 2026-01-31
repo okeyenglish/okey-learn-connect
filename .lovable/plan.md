@@ -1,96 +1,108 @@
 
 
-# План: Исправление обновления счётчика clientsWithoutMessages в SyncDashboard
+## Диагностика клиентов Salebot без диалогов
 
-## Обнаруженная проблема
+### SQL-запросы для запуска на self-hosted сервере
 
-Счётчик "Новые клиенты для импорта" (11 206 / 11 208) не обновляется по двум причинам:
+**1. Общая статистика:**
+```sql
+-- Сколько клиентов с salebot_client_id всего
+SELECT COUNT(*) as total_salebot_clients
+FROM clients
+WHERE salebot_client_id IS NOT NULL;
 
-1. **Проблема closure**: Функция `refreshClientsWithoutMessagesCount` захватывает значение `organizationId` на момент создания `useEffect`. Когда `organizationId` меняется с `undefined` на реальное значение, функция в интервале продолжает использовать старое значение.
+-- Сколько клиентов БЕЗ сообщений
+SELECT COUNT(*) as clients_without_messages
+FROM clients c
+WHERE c.salebot_client_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM chat_messages m 
+    WHERE m.client_id = c.id
+  );
 
-2. **Отсутствие перезапуска `fetchDbStats`**: При изменении `organizationId` вызывается только `startPolling()`, но `fetchDbStats()` не вызывается повторно с новым `organizationId`.
-
-## Решение
-
-### Шаг 1: Использовать `useCallback` для функций, зависящих от `organizationId`
-
-Обернуть `fetchDbStats` и `refreshClientsWithoutMessagesCount` в `useCallback` с зависимостью от `organizationId`, чтобы они всегда использовали актуальное значение.
-
-### Шаг 2: Добавить явный перезапуск при изменении `organizationId`
-
-В `useEffect` добавить вызов `fetchDbStats()` при каждом изменении `organizationId` (не только при монтировании).
-
-### Шаг 3: Использовать `useRef` для хранения актуального `organizationId`
-
-Альтернативный подход — использовать `useRef`, чтобы интервальные функции всегда получали актуальное значение без пересоздания интервалов.
-
-## Изменения в файлах
-
-### `src/components/admin/SyncDashboard.tsx`
-
-```typescript
-// 1. Добавить useRef для organizationId (избегаем проблему closure)
-const organizationIdRef = useRef(organizationId);
-useEffect(() => {
-  organizationIdRef.current = organizationId;
-}, [organizationId]);
-
-// 2. Обновить fetchDbStats использовать ref
-const fetchDbStats = async () => {
-  const currentOrgId = organizationIdRef.current;  // ← использовать ref
-  try {
-    const [/* ... */] = await Promise.all([
-      // ... другие запросы
-      currentOrgId 
-        ? supabase.rpc('count_clients_without_imported_messages', { p_org_id: currentOrgId })
-        : Promise.resolve({ data: 0, error: null })
-    ]);
-    // ...
-  } catch (error) {
-    console.error('Error fetching DB stats:', error);
-  }
-};
-
-// 3. Обновить refreshClientsWithoutMessagesCount
-const refreshClientsWithoutMessagesCount = async () => {
-  const currentOrgId = organizationIdRef.current;  // ← использовать ref
-  if (!currentOrgId) return;
-  try {
-    const { data, error } = await supabase.rpc('count_clients_without_imported_messages', { 
-      p_org_id: currentOrgId 
-    });
-    if (!error && data !== null) {
-      setClientsWithoutMessages(data as number);
-    }
-  } catch (error) {
-    console.error('Error refreshing clients without messages count:', error);
-  }
-};
-
-// 4. Добавить отдельный useEffect для перезагрузки при получении organizationId
-useEffect(() => {
-  if (organizationId) {
-    // Когда organizationId становится доступным, перезагружаем статистику
-    fetchDbStats();
-  }
-}, [organizationId]);
+-- Сколько клиентов БЕЗ импортированных сообщений (salebot_message_id)
+SELECT COUNT(*) as clients_without_imported_messages
+FROM clients c
+WHERE c.salebot_client_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM chat_messages m 
+    WHERE m.client_id = c.id 
+      AND m.salebot_message_id IS NOT NULL
+  );
 ```
 
-## Технические детали
+**2. Детализация по причинам:**
+```sql
+-- Клиенты с salebot_id, но невалидным ID (0 или пусто)
+SELECT COUNT(*) as invalid_salebot_ids
+FROM clients
+WHERE salebot_client_id IS NOT NULL
+  AND (salebot_client_id = '0' OR salebot_client_id = '' OR salebot_client_id ~ '^0+$');
 
-### Почему `useRef`?
+-- Клиенты без salebot_client_type (не смогут импортироваться корректно)
+SELECT COUNT(*) as clients_without_client_type
+FROM clients
+WHERE salebot_client_id IS NOT NULL
+  AND salebot_client_type IS NULL;
 
-Интервальные функции создаются один раз и сохраняют ссылку на значения через closure. Когда `organizationId` меняется, функция в интервале не "видит" новое значение. `useRef` решает эту проблему, поскольку ref.current всегда указывает на актуальное значение.
+-- Распределение по типам мессенджеров
+SELECT 
+  salebot_client_type,
+  CASE salebot_client_type
+    WHEN 0 THEN 'VK'
+    WHEN 1 THEN 'Telegram'
+    WHEN 2 THEN 'Viber'
+    WHEN 6 THEN 'WhatsApp'
+    WHEN 16 THEN 'TG Bot'
+    WHEN 20 THEN 'Max'
+    WHEN 21 THEN 'TG Personal'
+    ELSE 'Unknown'
+  END as messenger,
+  COUNT(*) as count
+FROM clients
+WHERE salebot_client_id IS NOT NULL
+GROUP BY salebot_client_type
+ORDER BY count DESC;
+```
 
-### Альтернатива: `useCallback` + пересоздание интервалов
+**3. Топ-10 клиентов без сообщений (для проверки):**
+```sql
+SELECT 
+  c.id, 
+  c.name, 
+  c.salebot_client_id,
+  c.salebot_client_type,
+  c.created_at
+FROM clients c
+WHERE c.salebot_client_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM chat_messages m 
+    WHERE m.client_id = c.id 
+      AND m.salebot_message_id IS NOT NULL
+  )
+ORDER BY c.created_at DESC
+LIMIT 10;
+```
 
-Можно использовать `useCallback` с зависимостью `[organizationId]`, но это приведёт к пересозданию интервалов каждый раз при изменении зависимости — менее эффективно.
+---
 
-## Результат
+### Возможные причины отсутствия диалогов
 
-После исправления:
-1. При первой загрузке страницы, если `organizationId` ещё не загружен — функция корректно подождёт
-2. Когда `organizationId` становится доступным — `fetchDbStats()` вызовется автоматически
-3. Интервал `refreshClientsWithoutMessagesCount` будет использовать актуальный `organizationId`
-4. Счётчик будет обновляться каждые 30 секунд корректно
+| Причина | Описание |
+|---------|----------|
+| **API лимит** | Достигнут дневной лимит 6000 запросов к Salebot API |
+| **Невалидный salebot_client_id** | ID равен 0, пустой или содержит некорректные символы |
+| **Нет истории в Salebot** | У клиента в Salebot нет сообщений (новый или удалённый диалог) |
+| **Ошибка API** | Salebot API вернул ошибку для конкретного клиента |
+| **Импорт не завершён** | Процесс импорта прерван до обработки всех клиентов |
+| **salebot_client_type = NULL** | Тип мессенджера не определён, импорт может работать некорректно |
+
+---
+
+### Рекомендуемые действия
+
+1. **Запустите SQL-запросы выше** на self-hosted сервере
+2. **Проверьте прогресс импорта** в SyncDashboard - поле "Клиентов без импортированных сообщений"
+3. **Используйте режим "Импорт только новых"** в SyncDashboard для импорта клиентов без сообщений
+4. **Проверьте API лимит** - если достигнут 6000 запросов, ждите до следующего дня
 
