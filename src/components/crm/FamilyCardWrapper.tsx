@@ -20,6 +20,9 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 // Flag to track if unified RPC is available
 let useUnifiedRpc = true;
 
+// Flag to track if helper RPC (get_or_create_family_group_id) is available
+let useGetOrCreateFamilyGroupRpc = true;
+
 // RPC response type for unified function
 interface UnifiedRpcResponse {
   family_group: {
@@ -186,7 +189,7 @@ const fetchFamilyGroupIdLegacy = async (clientId: string): Promise<string | null
     .select('family_group_id')
     .eq('client_id', clientId)
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (!memberError && existingMember?.family_group_id) {
     console.log(`[FamilyCardWrapper] Found existing group in ${(performance.now() - startTime).toFixed(0)}ms`);
@@ -198,7 +201,7 @@ const fetchFamilyGroupIdLegacy = async (clientId: string): Promise<string | null
     .from('clients')
     .select('name, first_name, last_name, phone')
     .eq('id', clientId)
-    .single();
+    .maybeSingle();
 
   // Step 3: Try to find existing group by phone
   if (client?.phone) {
@@ -291,7 +294,13 @@ const fetchFamilyDataByClientId = async (clientId: string): Promise<FamilyGroup 
 
       if (error) {
         // If function doesn't exist, fall back to legacy two-step approach
-        if (error.message?.includes('function') || error.code === '42883' || error.code === 'PGRST202') {
+        if (
+          error.message?.includes('function') ||
+          error.code === '42883' ||
+          error.code === 'PGRST202' ||
+          // schema mismatch (missing columns, etc.)
+          error.code === '42703'
+        ) {
           console.warn('[FamilyCardWrapper] Unified RPC not available, using legacy two-step method');
           useUnifiedRpc = false;
           return fetchFamilyDataLegacy(clientId);
@@ -328,16 +337,26 @@ const fetchFamilyDataLegacy = async (clientId: string): Promise<FamilyGroup | nu
   
   // Step 1: Get or create family group ID
   let familyGroupId: string | null = null;
-  
-  try {
-    const { data, error } = await supabase
-      .rpc('get_or_create_family_group_id', { p_client_id: clientId });
-    
-    if (!error && data) {
-      familyGroupId = data as string;
+
+  if (useGetOrCreateFamilyGroupRpc) {
+    try {
+      const { data, error } = await supabase
+        .rpc('get_or_create_family_group_id', { p_client_id: clientId });
+
+      if (error) {
+        // If helper RPC doesn't exist (or isn't in schema cache), stop calling it to avoid 404 spam.
+        if (error.code === 'PGRST202' || error.code === '42883' || error.message?.includes('Could not find the function')) {
+          console.warn('[FamilyCardWrapper] get_or_create_family_group_id not available, using manual fallback');
+          useGetOrCreateFamilyGroupRpc = false;
+        } else {
+          console.warn('[FamilyCardWrapper] get_or_create_family_group_id error, using manual fallback:', error);
+        }
+      } else if (data) {
+        familyGroupId = data as string;
+      }
+    } catch {
+      // Ignore - will use manual fallback
     }
-  } catch {
-    // Ignore - will use manual fallback
   }
   
   if (!familyGroupId) {
