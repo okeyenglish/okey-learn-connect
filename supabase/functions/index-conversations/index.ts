@@ -19,8 +19,10 @@ interface ConversationAnalysis {
 
 interface ChatMessage {
   id: string;
-  content: string;
-  direction: string;
+  message_text: string | null;
+  content?: string | null; // fallback for cloud schema
+  is_outgoing: boolean;
+  direction?: string; // fallback for cloud schema
   created_at: string;
   sender_name?: string;
 }
@@ -39,7 +41,12 @@ async function analyzeConversation(
   apiKey: string
 ): Promise<ConversationAnalysis | null> {
   const conversationText = messages
-    .map(m => `${m.direction === 'outgoing' ? 'Менеджер' : 'Клиент'}: ${m.content || '[медиа]'}`)
+    .map(m => {
+      // Handle both self-hosted (is_outgoing) and cloud (direction) schemas
+      const isOutgoing = m.is_outgoing ?? m.direction === 'outgoing';
+      const text = m.message_text ?? m.content ?? '[медиа]';
+      return `${isOutgoing ? 'Менеджер' : 'Клиент'}: ${text}`;
+    })
     .join('\n');
 
   const prompt = `Проанализируй диалог менеджера школы английского языка с клиентом и определи параметры в JSON формате.
@@ -81,7 +88,7 @@ ${conversationText}
     });
 
     if (!response.ok) {
-      console.error('AI analysis failed:', response.status, await response.text());
+      console.error('[index-conversations] AI analysis failed:', response.status, await response.text());
       return null;
     }
 
@@ -96,7 +103,7 @@ ${conversationText}
 
     return JSON.parse(jsonMatch[0]) as ConversationAnalysis;
   } catch (error) {
-    console.error('Error analyzing conversation:', error);
+    console.error('[index-conversations] Error analyzing conversation:', error);
     return null;
   }
 }
@@ -115,19 +122,19 @@ async function createEmbedding(
       },
       body: JSON.stringify({
         model: 'text-embedding-3-small',
-        input: text.slice(0, 8000), // Limit text length
+        input: text.slice(0, 8000),
       }),
     });
 
     if (!response.ok) {
-      console.error('Embedding failed:', response.status, await response.text());
+      console.error('[index-conversations] Embedding failed:', response.status, await response.text());
       return null;
     }
 
     const data = await response.json();
     return data.data?.[0]?.embedding || null;
   } catch (error) {
-    console.error('Error creating embedding:', error);
+    console.error('[index-conversations] Error creating embedding:', error);
     return null;
   }
 }
@@ -170,13 +177,13 @@ Deno.serve(async (req) => {
 
     console.log(`[index-conversations] Starting: daysBack=${daysBack}, minMessages=${minMessages}, maxConversations=${maxConversations}, dryRun=${dryRun}`);
 
-    // Get conversations to index
+    // Get conversations to index - use both column names for compatibility
+    // Self-hosted uses message_text, cloud uses content
     let query = supabase
       .from('chat_messages')
       .select('client_id, organization_id')
       .eq('organization_id', organizationId)
-      .gte('created_at', new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString())
-      .not('content', 'is', null);
+      .gte('created_at', new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString());
 
     if (clientId) {
       query = query.eq('client_id', clientId);
@@ -186,7 +193,7 @@ Deno.serve(async (req) => {
 
     if (queryError) {
       console.error('[index-conversations] Query error:', queryError);
-      return errorResponse('Failed to fetch messages', 500);
+      return errorResponse(`Failed to fetch messages: ${queryError.message}`, 500);
     }
 
     // Group by client_id and count messages
@@ -224,15 +231,21 @@ Deno.serve(async (req) => {
 
     for (const [clientIdToProcess, clientData] of eligibleClients) {
       try {
-        // Fetch full conversation
+        // Fetch full conversation - select both column naming conventions
         const { data: messages, error: messagesError } = await supabase
           .from('chat_messages')
-          .select('id, content, direction, created_at, sender_name')
+          .select('id, message_text, content, is_outgoing, direction, created_at, sender_name')
           .eq('client_id', clientIdToProcess)
           .order('created_at', { ascending: true })
           .limit(100);
 
-        if (messagesError || !messages?.length) {
+        if (messagesError) {
+          console.error(`[index-conversations] Messages error for ${clientIdToProcess}:`, messagesError);
+          results.skipped++;
+          continue;
+        }
+        
+        if (!messages?.length) {
           results.skipped++;
           continue;
         }
@@ -267,12 +280,19 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Prepare messages JSON
-        const messagesJson = messages.map(m => ({
-          role: m.direction === 'outgoing' ? 'manager' : 'client',
-          content: m.content || '',
-          timestamp: m.created_at
-        }));
+        // Prepare messages JSON - handle both schemas
+        const messagesJson = messages.map(m => {
+          const isOutgoing = m.is_outgoing ?? m.direction === 'outgoing';
+          return {
+            role: isOutgoing ? 'manager' : 'client',
+            content: m.message_text ?? m.content ?? '',
+            timestamp: m.created_at
+          };
+        });
+
+        // Get initial message text
+        const firstMsg = messages[0];
+        const initialMessage = firstMsg?.message_text ?? firstMsg?.content ?? '';
 
         if (!dryRun) {
           // Save to conversation_examples
@@ -284,7 +304,7 @@ Deno.serve(async (req) => {
               client_type: analysis.client_type,
               client_stage: analysis.client_stage,
               context_summary: analysis.context_summary,
-              initial_message: messages[0]?.content || '',
+              initial_message: initialMessage,
               messages: messagesJson,
               total_messages: messages.length,
               outcome: analysis.outcome,
@@ -313,7 +333,7 @@ Deno.serve(async (req) => {
 
         console.log(`[index-conversations] Indexed ${clientIdToProcess}: ${analysis.scenario_type}, quality=${analysis.quality_score}`);
 
-        // Rate limiting - avoid hitting API limits
+        // Rate limiting
         await new Promise(resolve => setTimeout(resolve, 500));
 
       } catch (error) {
