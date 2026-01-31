@@ -176,7 +176,7 @@ BEGIN
             FROM group_students gs
             JOIN learning_groups lg ON lg.id = gs.group_id
             WHERE gs.student_id = s.id
-              AND gs.is_active = true
+              AND gs.left_at IS NULL
           ), '[]'::jsonb),
           'individual_courses', COALESCE((
             SELECT jsonb_agg(

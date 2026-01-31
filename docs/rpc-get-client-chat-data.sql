@@ -39,8 +39,7 @@ BEGIN
       external_message_id,
       messenger_type,
       call_duration,
-      message_status,
-      metadata
+      message_status
     FROM chat_messages
     WHERE client_id = p_client_id
     ORDER BY created_at DESC
@@ -62,8 +61,7 @@ BEGIN
         'external_message_id', external_message_id,
         'messenger_type', messenger_type,
         'call_duration', call_duration,
-        'message_status', message_status,
-        'metadata', metadata
+        'message_status', message_status
       ) ORDER BY created_at ASC  -- Reverse to chronological order
     ),
     COUNT(*) > p_limit
