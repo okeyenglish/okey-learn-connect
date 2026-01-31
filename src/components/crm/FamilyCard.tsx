@@ -495,6 +495,7 @@ export const FamilyCard = ({
       isPrimary: p.isPrimary,
       isWhatsappEnabled: p.isWhatsappEnabled,
       isTelegramEnabled: p.isTelegramEnabled,
+      isMaxEnabled: p.isMaxEnabled,
       whatsappChatId: p.whatsappChatId,
       telegramChatId: p.telegramChatId,
       telegramUserId: p.telegramUserId,
