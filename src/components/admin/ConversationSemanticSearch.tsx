@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Sparkles, Star, ArrowRight, Loader2, MessageSquare, Filter } from 'lucide-react';
+import { Search, Sparkles, Star, ArrowRight, Loader2, Filter } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -16,8 +16,6 @@ interface SearchResult {
   quality_score: number;
   outcome: string;
   context_summary: string;
-  example_messages: string;
-  key_phrases: string[];
   created_at: string;
   similarity: number;
 }
@@ -119,21 +117,6 @@ export function ConversationSemanticSearch() {
       return <Badge variant="destructive">Потеряно</Badge>;
     }
     return <Badge variant="secondary">{outcome}</Badge>;
-  };
-
-  const formatMessages = (messages: string) => {
-    if (!messages) return [];
-    try {
-      // Try to parse as JSON array
-      const parsed = JSON.parse(messages);
-      if (Array.isArray(parsed)) {
-        return parsed.slice(0, 6); // Show first 6 messages
-      }
-    } catch {
-      // If not JSON, split by newlines
-      return messages.split('\n').filter(Boolean).slice(0, 6);
-    }
-    return [];
   };
 
   return (
@@ -280,45 +263,13 @@ export function ConversationSemanticSearch() {
                       
                       <CollapsibleContent>
                         <CardContent className="pt-0 space-y-4">
-                          {/* Key Phrases */}
-                          {result.key_phrases && result.key_phrases.length > 0 && (
-                            <div>
-                              <p className="text-sm font-medium mb-2">Ключевые фразы:</p>
-                              <div className="flex flex-wrap gap-1">
-                                {result.key_phrases.map((phrase, idx) => (
-                                  <Badge key={idx} variant="outline" className="text-xs">
-                                    {phrase}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Example Messages */}
-                          {result.example_messages && (
-                            <div>
-                              <p className="text-sm font-medium mb-2 flex items-center gap-2">
-                                <MessageSquare className="h-4 w-4" />
-                                Пример диалога:
-                              </p>
-                              <div className="bg-muted/50 rounded-lg p-3 space-y-2 text-sm">
-                                {formatMessages(result.example_messages).map((msg: any, idx: number) => (
-                                  <div 
-                                    key={idx} 
-                                    className={`p-2 rounded ${
-                                      typeof msg === 'object' 
-                                        ? msg.role === 'assistant' || msg.direction === 'outgoing'
-                                          ? 'bg-primary/10 ml-4'
-                                          : 'bg-muted mr-4'
-                                        : idx % 2 === 0 ? 'bg-muted mr-4' : 'bg-primary/10 ml-4'
-                                    }`}
-                                  >
-                                    {typeof msg === 'object' ? msg.content || msg.text : msg}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+                          {/* Full context summary */}
+                          <div>
+                            <p className="text-sm font-medium mb-2">Описание кейса:</p>
+                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                              {result.context_summary}
+                            </p>
+                          </div>
 
                           <p className="text-xs text-muted-foreground">
                             Индексировано: {new Date(result.created_at).toLocaleDateString('ru-RU')}
