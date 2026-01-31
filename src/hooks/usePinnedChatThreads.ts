@@ -72,7 +72,7 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
   
   console.log('[usePinnedChatThreads] fetchThreadsDirectly called for:', clientIds);
 
-  // Fetch clients with their phone numbers
+  // Fetch clients - self-hosted schema only has avatar_url (no messenger-specific avatars or client_phone_numbers)
   const { data: clients, error: clientsError } = await supabase
     .from('clients')
     .select(`
@@ -83,13 +83,7 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
       phone,
       branch,
       avatar_url,
-      telegram_avatar_url,
-      whatsapp_avatar_url,
-      max_avatar_url,
-      telegram_chat_id,
-      whatsapp_chat_id,
-      max_chat_id,
-      client_phone_numbers(phone, is_primary)
+      telegram_user_id
     `)
     .in('id', clientIds);
 
@@ -153,9 +147,8 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
         }
       });
 
-      const phoneNumbers = client.client_phone_numbers || [];
-      const primaryPhone = phoneNumbers.find((p: any) => p.is_primary);
-      const clientPhone = client.phone || primaryPhone?.phone || phoneNumbers[0]?.phone || '';
+      // Self-hosted schema doesn't have client_phone_numbers table
+      const clientPhone = client.phone || '';
 
       return {
         client_id: client.id,
@@ -165,12 +158,12 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
         client_phone: clientPhone,
         client_branch: client.branch || null,
         avatar_url: client.avatar_url || null,
-        telegram_avatar_url: client.telegram_avatar_url || null,
-        whatsapp_avatar_url: client.whatsapp_avatar_url || null,
-        max_avatar_url: client.max_avatar_url || null,
-        telegram_chat_id: client.telegram_chat_id || null,
-        whatsapp_chat_id: client.whatsapp_chat_id || null,
-        max_chat_id: client.max_chat_id || null,
+        telegram_avatar_url: null, // Not in self-hosted schema
+        whatsapp_avatar_url: null, // Not in self-hosted schema
+        max_avatar_url: null, // Not in self-hosted schema
+        telegram_chat_id: null,
+        whatsapp_chat_id: null,
+        max_chat_id: null,
         last_message: lastMessage?.message_text || '',
         last_message_time: lastMessage?.created_at || null,
         unread_count: unreadMessages.length,

@@ -42,7 +42,7 @@ export interface ClientPhoneNumber {
   updated_at: string;
 }
 
-/** DB row with joined relations */
+/** DB row - self-hosted schema only has avatar_url (no messenger-specific avatars) */
 interface ClientRow {
   id: string;
   name: string | null;
@@ -50,15 +50,10 @@ interface ClientRow {
   email: string | null;
   notes: string | null;
   avatar_url: string | null;
-  telegram_avatar_url: string | null;
-  whatsapp_avatar_url: string | null;
-  max_avatar_url: string | null;
   is_active: boolean;
   branch: string | null;
   created_at: string;
   updated_at: string;
-  client_branches?: { branch: string }[] | null;
-  client_phone_numbers?: { phone: string; is_primary: boolean }[] | null;
 }
 
 export const useClients = (enabled: boolean = true) => {
@@ -90,28 +85,23 @@ export const useClients = (enabled: boolean = true) => {
         
         const rows = (data || []) as unknown as ClientRow[];
 
-        return rows.map((client) => {
-          // Get primary phone from client_phone_numbers if clients.phone is empty
-          const primaryPhoneRecord = client.client_phone_numbers?.find((p) => p.is_primary);
-          const effectivePhone = client.phone || primaryPhoneRecord?.phone || '';
-          
-          return {
-            id: client.id,
-            name: client.name || '',
-            phone: effectivePhone,
-            email: client.email ?? undefined,
-            notes: client.notes ?? undefined,
-            avatar_url: client.avatar_url ?? undefined,
-            telegram_avatar_url: client.telegram_avatar_url ?? undefined,
-            whatsapp_avatar_url: client.whatsapp_avatar_url ?? undefined,
-            max_avatar_url: client.max_avatar_url ?? undefined,
-            is_active: client.is_active,
-            branch: client.branch ?? undefined,
-            branches: client.client_branches?.map((b) => b.branch) || [],
-            created_at: client.created_at,
-            updated_at: client.updated_at,
-          };
-        });
+        return rows.map((client) => ({
+          id: client.id,
+          name: client.name || '',
+          phone: client.phone || '',
+          email: client.email ?? undefined,
+          notes: client.notes ?? undefined,
+          avatar_url: client.avatar_url ?? undefined,
+          // Self-hosted schema doesn't have messenger-specific avatars
+          telegram_avatar_url: undefined,
+          whatsapp_avatar_url: undefined,
+          max_avatar_url: undefined,
+          is_active: client.is_active,
+          branch: client.branch ?? undefined,
+          branches: [], // Self-hosted schema doesn't have client_branches
+          created_at: client.created_at,
+          updated_at: client.updated_at,
+        }));
       } catch (err) {
         console.error('Client fetch failed:', err);
         throw err;
@@ -147,9 +137,10 @@ export const useClient = (clientId: string) => {
         email: row.email ?? undefined,
         notes: row.notes ?? undefined,
         avatar_url: row.avatar_url ?? undefined,
-        telegram_avatar_url: row.telegram_avatar_url ?? undefined,
-        whatsapp_avatar_url: row.whatsapp_avatar_url ?? undefined,
-        max_avatar_url: row.max_avatar_url ?? undefined,
+        // Self-hosted schema doesn't have messenger-specific avatars
+        telegram_avatar_url: undefined,
+        whatsapp_avatar_url: undefined,
+        max_avatar_url: undefined,
         is_active: row.is_active,
         branch: row.branch ?? undefined,
         created_at: row.created_at,
@@ -166,26 +157,13 @@ export const useClient = (clientId: string) => {
   };
 };
 
+// Self-hosted schema doesn't have client_phone_numbers table
+// Return empty array to maintain interface compatibility
 export const useClientPhoneNumbers = (clientId: string) => {
-  const { data: phoneNumbers, isLoading, error } = useQuery({
-    queryKey: ['client-phones', clientId],
-    queryFn: async (): Promise<ClientPhoneNumber[]> => {
-      const { data, error } = await supabase
-        .from('client_phone_numbers')
-        .select('*')
-        .eq('client_id', clientId)
-        .order('is_primary', { ascending: false });
-      
-      if (error) throw error;
-      return (data || []) as unknown as ClientPhoneNumber[];
-    },
-    enabled: !!clientId,
-  });
-
   return {
-    phoneNumbers: phoneNumbers || [],
-    isLoading,
-    error,
+    phoneNumbers: [] as ClientPhoneNumber[],
+    isLoading: false,
+    error: null,
   };
 };
 
@@ -251,71 +229,34 @@ export const useSearchClients = () => {
     setSearchQuery(query);
 
     try {
-      // Normalize phone for search (remove +, spaces, brackets, dashes)
-      const normalizedQuery = query.replace(/[\s\+\-\(\)]/g, '');
-      const isPhoneSearch = /^\d{5,}$/.test(normalizedQuery);
-      
-      let clientIdsFromPhones: string[] = [];
-      
-      // If looks like phone - search in client_phone_numbers first
-      if (isPhoneSearch) {
-        const { data: phoneMatches } = await supabase
-          .from('client_phone_numbers')
-          .select('client_id')
-          .ilike('phone', `%${normalizedQuery}%`)
-          .limit(20);
-        
-        if (phoneMatches && phoneMatches.length > 0) {
-          clientIdsFromPhones = phoneMatches.map(p => p.client_id);
-        }
-      }
-      
-      // Build the main query
-      let queryBuilder = supabase
+      // Self-hosted schema: search directly in clients table (no client_phone_numbers)
+      const { data, error } = await supabase
         .from('clients')
-        .select(`
-          *, 
-          client_phone_numbers (phone, is_primary)
-        `)
-        .eq('is_active', true);
-      
-      if (clientIdsFromPhones.length > 0) {
-        // Search by name/email OR by found IDs from phone numbers
-        queryBuilder = queryBuilder.or(
-          `name.ilike.%${query}%,email.ilike.%${query}%,id.in.(${clientIdsFromPhones.join(',')})`
-        );
-      } else {
-        // Normal search by name, phone in clients, email
-        queryBuilder = queryBuilder.or(
-          `name.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`
-        );
-      }
-      
-      const { data, error } = await queryBuilder.limit(20);
+        .select('id, name, phone, email, notes, avatar_url, is_active, branch, created_at, updated_at')
+        .eq('is_active', true)
+        .or(`name.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`)
+        .limit(20);
 
       if (error) throw error;
       
       const rows = (data || []) as unknown as ClientRow[];
 
-      // Enrich with primary phone from client_phone_numbers if clients.phone is empty
-      const enrichedData: Client[] = rows.map((client) => {
-        const primaryPhone = client.client_phone_numbers?.find((p) => p.is_primary);
-        return {
-          id: client.id,
-          name: client.name || '',
-          phone: client.phone || primaryPhone?.phone || '',
-          email: client.email ?? undefined,
-          notes: client.notes ?? undefined,
-          avatar_url: client.avatar_url ?? undefined,
-          telegram_avatar_url: client.telegram_avatar_url ?? undefined,
-          whatsapp_avatar_url: client.whatsapp_avatar_url ?? undefined,
-          max_avatar_url: client.max_avatar_url ?? undefined,
-          is_active: client.is_active,
-          branch: client.branch ?? undefined,
-          created_at: client.created_at,
-          updated_at: client.updated_at,
-        };
-      });
+      const enrichedData: Client[] = rows.map((client) => ({
+        id: client.id,
+        name: client.name || '',
+        phone: client.phone || '',
+        email: client.email ?? undefined,
+        notes: client.notes ?? undefined,
+        avatar_url: client.avatar_url ?? undefined,
+        // Self-hosted schema doesn't have messenger-specific avatars
+        telegram_avatar_url: undefined,
+        whatsapp_avatar_url: undefined,
+        max_avatar_url: undefined,
+        is_active: client.is_active,
+        branch: client.branch ?? undefined,
+        created_at: client.created_at,
+        updated_at: client.updated_at,
+      }));
       
       setSearchResults(enrichedData);
     } catch (error) {
