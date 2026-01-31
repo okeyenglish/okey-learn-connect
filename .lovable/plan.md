@@ -1,127 +1,62 @@
 
-# План: Оптимизация производительности CRM
+# План: Оптимизация производительности CRM - Удаление debug логов
 
-## Выявленные проблемы
-
-### 1. Дублирование вызовов `fetchProfile` в useAuth
-**Причина**: При загрузке страницы происходит race condition:
-- `onAuthStateChange` слушатель срабатывает при инициализации
-- `getSession()` тоже вызывает `fetchProfile` если найдена сессия
-- Оба вызова происходят независимо, создавая 2x запросов к БД
-
-**Текущий код (строки 187-292)**:
-```typescript
-// Listener - может вызвать fetchProfile
-onAuthStateChange(async (event, session) => {
-  if (session?.user) {
-    fetchProfile(session.user.id); // Вызов #1
-  }
-});
-
-// Также вызывает fetchProfile
-getSession().then(({ session }) => {
-  if (session?.user) {
-    fetchProfile(session.user.id); // Вызов #2 - ДУБЛИКАТ!
-  }
-});
-```
-
-### 2. Отсутствие Circuit Breaker в usePostCallModeration
-**Причина**: При ошибках self-hosted сервера (500) хук продолжает поллинг каждые 10 секунд, создавая лишнюю нагрузку на сеть и UI.
-
----
+## Проблема
+Компонент `ManagerMenu` логирует в консоль на КАЖДЫЙ рендер (30+ раз при загрузке страницы), что:
+- Замедляет рендеринг
+- Засоряет консоль отладочными данными
+- Потребляет ресурсы браузера
 
 ## Решение
 
-### Задача 1: Добавить флаг `isInitialized` в useAuth
+### Задача 1: Удалить debug console.log из ManagerMenu
 
-Добавить ref для отслеживания инициализации и предотвращения дублирования:
-
-```typescript
-const isInitializedRef = useRef(false);
-const currentUserIdRef = useRef<string | null>(null);
-
-// В onAuthStateChange:
-if (session?.user && !isInitializedRef.current) {
-  isInitializedRef.current = true;
-  currentUserIdRef.current = session.user.id;
-  fetchProfile(session.user.id);
-} else if (session?.user && currentUserIdRef.current !== session.user.id) {
-  // Только если сменился пользователь
-  currentUserIdRef.current = session.user.id;
-  fetchProfile(session.user.id);
-}
-
-// В getSession:
-if (session?.user && !isInitializedRef.current) {
-  isInitializedRef.current = true;
-  currentUserIdRef.current = session.user.id;
-  fetchProfile(session.user.id);
-}
-```
-
-### Задача 2: Добавить Circuit Breaker в usePostCallModeration
-
-Добавить механизм отключения поллинга после серии ошибок:
+Удалить строку 86 в `src/components/crm/ManagerMenu.tsx`:
 
 ```typescript
-const consecutiveErrorsRef = useRef(0);
-const circuitOpenUntilRef = useRef<number | null>(null);
-
-const CIRCUIT_BREAKER_THRESHOLD = 3;  // Количество ошибок до отключения
-const CIRCUIT_BREAKER_TIMEOUT = 5 * 60 * 1000; // 5 минут паузы
-
-const checkForEndedCalls = useCallback(async () => {
-  // Проверка circuit breaker
-  if (circuitOpenUntilRef.current && Date.now() < circuitOpenUntilRef.current) {
-    console.log('[usePostCallModeration] Circuit breaker open, skipping poll');
-    return;
-  }
-  
-  // Сброс circuit breaker если время вышло
-  if (circuitOpenUntilRef.current && Date.now() >= circuitOpenUntilRef.current) {
-    circuitOpenUntilRef.current = null;
-    consecutiveErrorsRef.current = 0;
-  }
-
-  try {
-    const response = await selfHostedPost(...);
-    
-    if (!response.success) {
-      consecutiveErrorsRef.current++;
-      if (consecutiveErrorsRef.current >= CIRCUIT_BREAKER_THRESHOLD) {
-        console.warn('[usePostCallModeration] Circuit breaker triggered');
-        circuitOpenUntilRef.current = Date.now() + CIRCUIT_BREAKER_TIMEOUT;
-      }
-      return;
-    }
-    
-    // Успешный запрос - сброс счётчика
-    consecutiveErrorsRef.current = 0;
-    // ... обработка данных
-  } catch (error) {
-    consecutiveErrorsRef.current++;
-    if (consecutiveErrorsRef.current >= CIRCUIT_BREAKER_THRESHOLD) {
-      circuitOpenUntilRef.current = Date.now() + CIRCUIT_BREAKER_TIMEOUT;
-    }
-  }
-}, [...]);
+// УДАЛИТЬ ЭТУ СТРОКУ:
+console.log('🔐 ManagerMenu roles check:', { role, roles, isAdmin, isMethodist, canAccessAdmin });
 ```
 
----
+### Задача 2: Мемоизировать вычисление ролей в ManagerMenu
+
+Обернуть вычисление `isAdmin`, `isMethodist`, `canAccessAdmin` в `useMemo` для предотвращения лишних вычислений:
+
+```typescript
+const { isAdmin, isMethodist, canAccessAdmin } = useMemo(() => {
+  const isAdmin = role === 'admin' || (Array.isArray(roles) && roles.includes('admin'));
+  const isMethodist = role === 'methodist' || (Array.isArray(roles) && roles.includes('methodist'));
+  return {
+    isAdmin,
+    isMethodist,
+    canAccessAdmin: isAdmin || isMethodist,
+  };
+}, [role, roles]);
+```
+
+### Задача 3: Обернуть ManagerMenu в React.memo
+
+Предотвратить ре-рендеры при неизменных props:
+
+```typescript
+export const ManagerMenu = React.memo(({ 
+  managerName, 
+  managerEmail, 
+  avatarUrl, 
+  onSignOut 
+}: ManagerMenuProps) => {
+  // ...
+});
+```
 
 ## Файлы для изменения
 
 | Файл | Изменение |
 |------|-----------|
-| `src/hooks/useAuth.tsx` | Добавить `isInitializedRef` и `currentUserIdRef` для предотвращения дублирования вызовов `fetchProfile` |
-| `src/hooks/usePostCallModeration.ts` | Добавить circuit breaker с порогом 3 ошибки и паузой 5 минут |
-
----
+| `src/components/crm/ManagerMenu.tsx` | Удалить console.log, добавить useMemo и React.memo |
 
 ## Ожидаемый результат
 
-После изменений:
-- `fetchProfile` вызывается **1 раз** вместо 4 при загрузке страницы
-- При недоступности self-hosted сервера поллинг автоматически приостанавливается на 5 минут
-- Снижение нагрузки на сеть и улучшение отзывчивости UI
+- Уменьшение логов в консоли с 30+ до 0
+- Снижение нагрузки на рендеринг
+- Ускорение загрузки CRM интерфейса
