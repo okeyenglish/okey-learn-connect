@@ -21,8 +21,9 @@ export function normalizePhone(phoneInput: string | null | undefined): string {
     cleaned = '7' + cleaned.substring(1);
   }
   
-  // Если номер 10 цифр (без кода страны), добавляем 7
-  if (cleaned.length === 10) {
+  // Если номер 10 цифр и начинается с 9 (без кода страны), добавляем 7
+  // ВАЖНО: не добавляем 7 к номерам начинающимся с других цифр (это могут быть Telegram ID)
+  if (cleaned.length === 10 && cleaned.startsWith('9')) {
     cleaned = '7' + cleaned;
   }
   
@@ -31,10 +32,54 @@ export function normalizePhone(phoneInput: string | null | undefined): string {
 }
 
 /**
+ * Проверяет, является ли строка валидным телефонным номером (а не Telegram ID)
+ * Telegram ID обычно 9-10+ цифр и не начинаются с 7, 8, 9
+ */
+export function isLikelyPhoneNumber(input: string | null | undefined): boolean {
+  if (!input) return false;
+  
+  const cleaned = input.replace(/\D/g, '');
+  
+  // Слишком короткий или слишком длинный - не телефон
+  if (cleaned.length < 10 || cleaned.length > 15) {
+    return false;
+  }
+  
+  // Проверяем начало номера - валидные телефоны начинаются с 7, 8, 9, +7, +8
+  // Telegram ID часто начинаются с 1, 2, 3, 4, 5, 6
+  const firstDigit = cleaned[0];
+  
+  // Если 11 цифр и начинается с 7 или 8 - это телефон
+  if (cleaned.length === 11 && (firstDigit === '7' || firstDigit === '8')) {
+    return true;
+  }
+  
+  // Если 10 цифр и начинается с 9 - это телефон без кода страны
+  if (cleaned.length === 10 && firstDigit === '9') {
+    return true;
+  }
+  
+  // Международные номера могут начинаться с других цифр, но должны быть длиннее
+  // Для простоты считаем номера 12+ цифр международными
+  if (cleaned.length >= 12) {
+    return true;
+  }
+  
+  // Всё остальное - вероятно Telegram ID
+  return false;
+}
+
+/**
  * Форматирует телефон для отображения: +7 (916) 123-45-67
+ * Если номер не похож на телефон (например, Telegram ID), возвращает null
  */
 export function formatPhoneForDisplay(phone: string | null | undefined): string {
   if (!phone) return '';
+  
+  // Проверяем, что это действительно телефон, а не Telegram ID
+  if (!isLikelyPhoneNumber(phone)) {
+    return ''; // Не форматируем как телефон - это вероятно Telegram ID
+  }
   
   const normalized = normalizePhone(phone);
   
@@ -57,6 +102,9 @@ export function formatPhoneForDisplay(phone: string | null | undefined): string 
  */
 export function isValidRussianPhone(phone: string | null | undefined): boolean {
   if (!phone) return false;
+  
+  // Сначала проверяем, что это вообще похоже на телефон
+  if (!isLikelyPhoneNumber(phone)) return false;
   
   const normalized = normalizePhone(phone);
   
