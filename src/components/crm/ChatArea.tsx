@@ -2127,10 +2127,11 @@ export const ChatArea = ({
               </div>
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
+              {/* Icons visible on larger screens, hidden on very small */}
               <Button 
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-8 w-8 hidden sm:flex"
                 title="Добавить задачу"
                 onClick={() => (onOpenTaskModal ? onOpenTaskModal() : setShowAddTaskModal(true))}
               >
@@ -2139,12 +2140,14 @@ export const ChatArea = ({
               <Button 
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-8 w-8 hidden sm:flex"
                 title="Выставить счёт"
                 onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}
               >
                 <FileText className="h-4 w-4" />
               </Button>
+              
+              {/* Always visible icons */}
               <Button 
                 variant="ghost"
                 size="icon"
@@ -2164,18 +2167,47 @@ export const ChatArea = ({
                 <Phone className="h-4 w-4" />
               </Button>
               
-              {/* Toggle right panel button */}
+              {/* Toggle right panel button - visible on larger screens */}
               {onToggleRightPanel && (
                 <Button 
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-8 w-8 hidden sm:flex"
                   title={rightPanelCollapsed ? "Показать семейную группу" : "Скрыть семейную группу"}
                   onClick={onToggleRightPanel}
                 >
                   {rightPanelCollapsed ? <PanelLeft className="h-4 w-4" /> : <PanelRight className="h-4 w-4" />}
                 </Button>
               )}
+              
+              {/* Dropdown for hidden icons on small screens */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 sm:hidden"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => (onOpenTaskModal ? onOpenTaskModal() : setShowAddTaskModal(true))}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    <span>Добавить задачу</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    <span>Выставить счёт</span>
+                  </DropdownMenuItem>
+                  {onToggleRightPanel && (
+                    <DropdownMenuItem onClick={onToggleRightPanel}>
+                      {rightPanelCollapsed ? <PanelLeft className="mr-2 h-4 w-4" /> : <PanelRight className="mr-2 h-4 w-4" />}
+                      <span>{rightPanelCollapsed ? "Показать карточку" : "Скрыть карточку"}</span>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
               
             </div>
           </div>
