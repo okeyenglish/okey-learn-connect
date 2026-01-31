@@ -446,3 +446,6 @@ verify_jwt = true
 
 [functions.semantic-search-conversations]
 verify_jwt = true
+
+[functions.get-successful-dialogues]
+verify_jwt = true
