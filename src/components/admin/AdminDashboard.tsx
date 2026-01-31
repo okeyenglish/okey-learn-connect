@@ -34,6 +34,7 @@ import { SystemMonitorPanel } from "./SystemMonitorPanel";
 import { TrialRequestsManager } from "./TrialRequestsManager";
 import { KpiManagementPage } from "./KpiManagementPage";
 import { TeachersManagementSection } from "./TeachersManagementSection";
+import { ConversationIndexingPanel } from "./ConversationIndexingPanel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -61,6 +62,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <TeachersManagementSection />;
       case "kpi-management":
         return <KpiManagementPage />;
+      case "ai-training":
+        return <ConversationIndexingPanel />;
       case "faq":
         return <AdminFAQManager />;
       case "schedule":
@@ -202,6 +205,14 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle className="text-amber-600">🎯 KPI менеджеров</CardTitle>
                   <CardDescription>Целевые показатели и уведомления</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              {/* Обучение AI */}
+              <Card className="cursor-pointer hover:bg-muted/50 border-violet-200" onClick={() => setCurrentSection("ai-training")}>
+                <CardHeader>
+                  <CardTitle className="text-violet-600">🤖 Обучение AI</CardTitle>
+                  <CardDescription>Индексация диалогов для RAG</CardDescription>
                 </CardHeader>
               </Card>
               
