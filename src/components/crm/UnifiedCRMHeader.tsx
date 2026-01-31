@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { StudentsModal } from './StudentsModal';
 import { TelephonyModal } from '@/components/settings/TelephonyModal';
+import { StaffActivityIndicator } from './StaffActivityIndicator';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrganization } from '@/hooks/useOrganization';
 import { useToast } from '@/hooks/use-toast';
@@ -263,6 +264,20 @@ export const UnifiedCRMHeader = () => {
           <div className="w-full flex-1 md:w-auto md:flex-none">
             {/* Здесь может быть поиск в будущем */}
           </div>
+          
+          {/* Activity Indicator - only visible for staff */}
+          {hasAnyRole(['admin', 'manager', 'methodist', 'teacher']) && (
+            <div className="hidden md:block">
+              <StaffActivityIndicator />
+            </div>
+          )}
+
+          {/* Compact indicator for mobile */}
+          {hasAnyRole(['admin', 'manager', 'methodist', 'teacher']) && (
+            <div className="md:hidden">
+              <StaffActivityIndicator compact />
+            </div>
+          )}
           
           {/* Профиль пользователя */}
           <DropdownMenu>

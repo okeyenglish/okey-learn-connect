@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from '@/hooks/useAuth';
+import { ActivityStatus } from './useActivityTracker';
 
 export interface OnlineUser {
   id: string;
@@ -8,6 +9,11 @@ export interface OnlineUser {
   avatarUrl?: string | null;
   lastSeen: number;
   isOnline: boolean;
+  status?: ActivityStatus;
+  sessionStart?: number;
+  activeTime?: number;
+  idleTime?: number;
+  activityPercentage?: number;
 }
 
 const PRESENCE_ROOM = 'staff-online-presence';
@@ -72,12 +78,20 @@ const saveLastSeenData = (data: Record<string, OnlineUser>) => {
   }
 };
 
+export interface ExtendedPresencePayload {
+  status?: ActivityStatus;
+  sessionStart?: number;
+  activeTime?: number;
+  idleTime?: number;
+  activityPercentage?: number;
+}
+
 /**
  * Hook to track which staff members are currently online in the system.
  * Uses Supabase Realtime Presence for real-time updates.
  * Also tracks last seen time for offline users.
  */
-export const useStaffOnlinePresence = () => {
+export const useStaffOnlinePresence = (extendedPayload?: ExtendedPresencePayload) => {
   const { user, profile } = useAuth();
   const [allUsers, setAllUsers] = useState<Map<string, OnlineUser>>(() => {
     const persisted = loadLastSeenData();
@@ -85,6 +99,12 @@ export const useStaffOnlinePresence = () => {
   });
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
+  const extendedPayloadRef = useRef(extendedPayload);
+
+  // Keep ref in sync with latest payload
+  useEffect(() => {
+    extendedPayloadRef.current = extendedPayload;
+  }, [extendedPayload]);
 
   // Track current user's presence
   useEffect(() => {
@@ -95,6 +115,15 @@ export const useStaffOnlinePresence = () => {
 
     const channel = supabase.channel(PRESENCE_ROOM);
     channelRef.current = channel;
+
+    const buildPresencePayload = () => ({
+      id: user.id,
+      name: userName,
+      avatarUrl,
+      lastSeen: Date.now(),
+      isOnline: true,
+      ...extendedPayloadRef.current,
+    });
 
     channel
       .on('presence', { event: 'sync' }, () => {
@@ -114,7 +143,7 @@ export const useStaffOnlinePresence = () => {
         setAllUsers(prev => {
           const newMap = new Map(prev);
           
-          // Update online users
+          // Update online users with extended payload
           Object.values(state).forEach((presences) => {
             presences.forEach((presence) => {
               if (presence.id && presence.id !== user.id) {
@@ -125,6 +154,12 @@ export const useStaffOnlinePresence = () => {
                   avatarUrl: presence.avatarUrl,
                   lastSeen: presence.lastSeen,
                   isOnline,
+                  // Extended fields
+                  status: presence.status,
+                  sessionStart: presence.sessionStart,
+                  activeTime: presence.activeTime,
+                  idleTime: presence.idleTime,
+                  activityPercentage: presence.activityPercentage,
                 });
               }
             });
@@ -134,7 +169,7 @@ export const useStaffOnlinePresence = () => {
           // but keep their last seen time
           newMap.forEach((userData, odId) => {
             if (!onlineUserIds.has(odId) && userData.isOnline) {
-              newMap.set(odId, { ...userData, isOnline: false });
+              newMap.set(odId, { ...userData, isOnline: false, status: 'offline' });
             }
           });
           
@@ -150,26 +185,14 @@ export const useStaffOnlinePresence = () => {
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          await channel.track({
-            id: user.id,
-            name: userName,
-            avatarUrl,
-            lastSeen: Date.now(),
-            isOnline: true,
-          });
+          await channel.track(buildPresencePayload());
         }
       });
 
-    // Heartbeat to keep presence alive
+    // Heartbeat to keep presence alive and update extended payload
     heartbeatRef.current = setInterval(async () => {
       if (channelRef.current) {
-        await channelRef.current.track({
-          id: user.id,
-          name: userName,
-          avatarUrl,
-          lastSeen: Date.now(),
-          isOnline: true,
-        });
+        await channelRef.current.track(buildPresencePayload());
       }
     }, HEARTBEAT_INTERVAL);
 
@@ -201,13 +224,20 @@ export const useStaffOnlinePresence = () => {
     return formatLastSeen(lastSeen);
   }, [getLastSeen, isUserOnline]);
 
+  const getUserStatus = useCallback((userId: string): ActivityStatus | undefined => {
+    const userData = allUsers.get(userId);
+    return userData?.status;
+  }, [allUsers]);
+
   const onlineUsersList = Array.from(allUsers.values()).filter(u => u.isOnline);
   const onlineUserIds = new Set(onlineUsersList.map(u => u.id));
 
   return {
     onlineUsers: onlineUsersList,
     onlineUserIds,
+    allUsers: Array.from(allUsers.values()),
     isUserOnline,
+    getUserStatus,
     getLastSeen,
     getLastSeenFormatted,
     onlineCount: onlineUsersList.length,
