@@ -110,15 +110,7 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
   
   console.log(`Processing incoming MAX message from chatId: ${chatId}, sender: ${senderName}`);
 
-  // Find or create client
-  const client = await findOrCreateClient(supabase, organizationId, chatId, senderName, senderPhoneNumber);
-  
-  if (!client) {
-    console.error('Failed to find or create client');
-    return;
-  }
-
-  // Check for duplicate message
+  // Check for duplicate message first
   const { data: existingMessage } = await supabase
     .from('chat_messages')
     .select('id')
@@ -133,11 +125,68 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
   // Extract message content
   const { messageText, fileUrl, fileName, fileType, messageType } = extractMessageContent(messageData);
 
+  // PRIORITY 1: Check if sender is a TEACHER by max_user_id or max_chat_id
+  const maxUserId = extractPhoneFromChatId(chatId);
+  const { data: teacherData } = await supabase
+    .from('teachers')
+    .select('id, first_name, last_name')
+    .eq('organization_id', organizationId)
+    .eq('is_active', true)
+    .or(`max_user_id.eq.${maxUserId},max_chat_id.eq.${chatId}`)
+    .maybeSingle();
+
+  if (teacherData) {
+    console.log('[max-webhook] Found teacher by max_user_id/max_chat_id:', teacherData.id);
+    
+    // Save message with teacher_id (not client_id)
+    const { error: insertError } = await supabase
+      .from('chat_messages')
+      .insert({
+        teacher_id: teacherData.id,
+        client_id: null,
+        organization_id: organizationId,
+        message_text: messageText,
+        message_type: 'client',
+        messenger_type: 'max',
+        is_outgoing: false,
+        is_read: false,
+        external_message_id: idMessage,
+        file_url: fileUrl,
+        file_name: fileName,
+        file_type: fileType,
+        message_status: 'delivered',
+        created_at: new Date((timestamp || Date.now() / 1000) * 1000).toISOString()
+      });
+
+    if (insertError) {
+      console.error('Error saving teacher message:', insertError);
+      return;
+    }
+
+    // Update teacher's max_chat_id if needed
+    await supabase
+      .from('teachers')
+      .update({ max_chat_id: chatId })
+      .eq('id', teacherData.id);
+
+    console.log(`[max-webhook] Saved message for TEACHER ${teacherData.id}`);
+    return; // Exit early - don't create client
+  }
+
+  // PRIORITY 2: Normal client flow (not a teacher)
+  const client = await findOrCreateClient(supabase, organizationId, chatId, senderName, senderPhoneNumber);
+  
+  if (!client) {
+    console.error('Failed to find or create client');
+    return;
+  }
+
   // Save message to database
   const { error: insertError } = await supabase
     .from('chat_messages')
     .insert({
       client_id: client.id,
+      teacher_id: null,
       organization_id: organizationId,
       message_text: messageText,
       message_type: 'client',

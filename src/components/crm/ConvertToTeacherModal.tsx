@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { GraduationCap, Loader2 } from 'lucide-react';
 import { useOrganization } from '@/hooks/useOrganization';
 import { normalizePhone, formatPhoneForDisplay } from '@/utils/phoneNormalization';
+
 interface ConvertToTeacherModalProps {
   open: boolean;
   onClose: () => void;
@@ -32,15 +33,6 @@ export function ConvertToTeacherModal({
   const { organizationId } = useOrganization();
   const [isLoading, setIsLoading] = useState(false);
 
-  const addClientIdToTeacherLinksCache = () => {
-    // Ensure instant UI update even before refetch finishes
-    queryClient.setQueryData(['teacher-linked-client-ids'], (old: unknown) => {
-      const prev = Array.isArray(old) ? (old as string[]) : [];
-      if (prev.includes(clientId)) return prev;
-      return [...prev, clientId];
-    });
-  };
-  
   // Parse name into first/last
   const nameParts = clientName.trim().split(/\s+/);
   const defaultFirstName = nameParts[0] || '';
@@ -51,6 +43,18 @@ export function ConvertToTeacherModal({
   const [phone, setPhone] = useState(clientPhone || '');
   const [email, setEmail] = useState(clientEmail || '');
   const [telegramId, setTelegramId] = useState<string>('');
+  const [whatsappId, setWhatsappId] = useState<string>('');
+  const [maxUserId, setMaxUserId] = useState<string>('');
+  
+  // Store client data for migration
+  const [clientData, setClientData] = useState<{
+    telegram_user_id?: string;
+    telegram_chat_id?: string;
+    whatsapp_id?: string;
+    whatsapp_chat_id?: string;
+    max_user_id?: string;
+    max_chat_id?: string;
+  }>({});
 
   // Reset form and fetch client data when modal opens
   useEffect(() => {
@@ -61,10 +65,10 @@ export function ConvertToTeacherModal({
       
       // Fetch client data from database (including phone numbers table)
       const fetchClientData = async () => {
-        // Fetch client data
-        const { data: clientData } = await supabase
+        // Fetch client data with all messenger IDs
+        const { data: client } = await supabase
           .from('clients')
-          .select('phone, email, telegram_user_id')
+          .select('phone, email, telegram_user_id, telegram_chat_id, whatsapp_id, whatsapp_chat_id, max_user_id, max_chat_id')
           .eq('id', clientId)
           .maybeSingle();
         
@@ -77,9 +81,8 @@ export function ConvertToTeacherModal({
           .maybeSingle();
         
         // Determine best phone: props > client_phone_numbers.phone > clients.phone
-        const rawPhone = clientPhone || phoneNumbers?.phone || clientData?.phone || '';
-        const bestEmail = clientEmail || clientData?.email || '';
-        const bestTelegramId = clientData?.telegram_user_id || '';
+        const rawPhone = clientPhone || phoneNumbers?.phone || client?.phone || '';
+        const bestEmail = clientEmail || client?.email || '';
         
         // Normalize phone - add +7 to 10-digit Russian numbers
         const normalizedPhone = normalizePhone(rawPhone);
@@ -87,7 +90,19 @@ export function ConvertToTeacherModal({
         
         setPhone(displayPhone);
         setEmail(bestEmail);
-        setTelegramId(bestTelegramId);
+        setTelegramId(client?.telegram_user_id || '');
+        setWhatsappId(client?.whatsapp_id || client?.whatsapp_chat_id || '');
+        setMaxUserId(client?.max_user_id || '');
+        
+        // Store all messenger data for migration
+        setClientData({
+          telegram_user_id: client?.telegram_user_id,
+          telegram_chat_id: client?.telegram_chat_id,
+          whatsapp_id: client?.whatsapp_id,
+          whatsapp_chat_id: client?.whatsapp_chat_id,
+          max_user_id: client?.max_user_id,
+          max_chat_id: client?.max_chat_id,
+        });
       };
       fetchClientData();
     }
@@ -108,6 +123,8 @@ export function ConvertToTeacherModal({
     
     try {
       const normalizedPhone = phone.trim().replace(/\D/g, '');
+      let teacherId: string | null = null;
+      let isExistingTeacher = false;
       
       // Check for existing teacher with same phone
       if (normalizedPhone.length >= 10) {
@@ -124,112 +141,116 @@ export function ConvertToTeacherModal({
         });
         
         if (matchingTeacher) {
-          // Link to existing teacher instead of creating duplicate
-          // Check if link already exists (self-hosted DB may not have unique constraint)
-          const { data: existingLink } = await supabase
-            .from('teacher_client_links')
-            .select('id')
-            .eq('teacher_id', matchingTeacher.id)
-            .eq('client_id', clientId)
-            .maybeSingle();
-
-          if (!existingLink) {
-            const { error: linkError } = await supabase
-              .from('teacher_client_links')
-              .insert({
-                teacher_id: matchingTeacher.id,
-                client_id: clientId,
-                organization_id: organizationId,
-              });
-
-            // Ignore duplicate key error (23505) - link already exists but RLS may hide it
-            if (linkError && linkError.code !== '23505') {
-              console.error('Error linking to existing teacher:', linkError);
-              throw new Error(`Не удалось переместить чат в преподаватели: ${linkError.message}`);
-            }
-          }
-
-          addClientIdToTeacherLinksCache();
-
-          // Force refetch immediately to update UI
-          await queryClient.refetchQueries({ queryKey: ['teacher-linked-client-ids'] });
-          queryClient.invalidateQueries({ queryKey: ['teachers'] });
-          queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
-          queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-          queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
-          queryClient.invalidateQueries({ queryKey: ['teacher-client-links'] });
-
-          toast.success(`Привязано к существующему преподавателю: ${matchingTeacher.first_name} ${matchingTeacher.last_name || ''}`.trim(), {
-            description: 'Найден преподаватель с таким же номером телефона',
-          });
-
-          onSuccess?.();
-          onClose();
-          setIsLoading(false);
-          return;
+          teacherId = matchingTeacher.id;
+          isExistingTeacher = true;
+          console.log('[ConvertToTeacherModal] Found existing teacher:', teacherId);
         }
       }
 
-      // 1. Create teacher record (no duplicate found)
-      const { data: teacherData, error: teacherError } = await supabase
-        .from('teachers')
-        .insert({
-          first_name: firstName.trim(),
-          last_name: lastName.trim() || '', // NOT NULL на self-hosted
-          phone: phone.trim() || null,
-          email: email.trim() || null,
-          organization_id: organizationId,
-          is_active: true,
-        })
-        .select('id')
-        .single();
-
-      if (teacherError) {
-        console.error('Error creating teacher:', teacherError);
-        throw new Error('Не удалось создать преподавателя');
-      }
-
-      // 2. Create teacher_client_links entry for proper chat association
-      // Check if link already exists (self-hosted DB may not have unique constraint)
-      const { data: existingLink } = await supabase
-        .from('teacher_client_links')
-        .select('id')
-        .eq('teacher_id', teacherData.id)
-        .eq('client_id', clientId)
-        .maybeSingle();
-
-      if (!existingLink) {
-        const { error: linkError } = await supabase
-          .from('teacher_client_links')
+      // Create new teacher if not found
+      if (!teacherId) {
+        const { data: teacherData, error: teacherError } = await supabase
+          .from('teachers')
           .insert({
-            teacher_id: teacherData.id,
-            client_id: clientId,
+            first_name: firstName.trim(),
+            last_name: lastName.trim() || '', // NOT NULL на self-hosted
+            phone: phone.trim() || null,
+            email: email.trim() || null,
             organization_id: organizationId,
-          });
+            is_active: true,
+            // Copy messenger IDs to teacher
+            telegram_user_id: clientData.telegram_user_id || null,
+            telegram_chat_id: clientData.telegram_chat_id || null,
+            whatsapp_id: clientData.whatsapp_id || clientData.whatsapp_chat_id || null,
+            max_user_id: clientData.max_user_id || null,
+            max_chat_id: clientData.max_chat_id || null,
+          })
+          .select('id')
+          .single();
 
-        // Ignore duplicate key error (23505) - link already exists but RLS may hide it
-        if (linkError && linkError.code !== '23505') {
-          console.error('Error creating teacher-client link:', linkError);
-          throw new Error(`Преподаватель создан, но не удалось переместить чат: ${linkError.message}`);
+        if (teacherError) {
+          console.error('Error creating teacher:', teacherError);
+          throw new Error('Не удалось создать преподавателя');
+        }
+        
+        teacherId = teacherData.id;
+        console.log('[ConvertToTeacherModal] Created new teacher:', teacherId);
+      } else {
+        // Update existing teacher with messenger IDs if missing
+        const updateData: Record<string, string | null> = {};
+        if (clientData.telegram_user_id) updateData.telegram_user_id = clientData.telegram_user_id;
+        if (clientData.telegram_chat_id) updateData.telegram_chat_id = clientData.telegram_chat_id;
+        if (clientData.whatsapp_id || clientData.whatsapp_chat_id) {
+          updateData.whatsapp_id = clientData.whatsapp_id || clientData.whatsapp_chat_id || null;
+        }
+        if (clientData.max_user_id) updateData.max_user_id = clientData.max_user_id;
+        if (clientData.max_chat_id) updateData.max_chat_id = clientData.max_chat_id;
+        
+        if (Object.keys(updateData).length > 0) {
+          await supabase
+            .from('teachers')
+            .update(updateData)
+            .eq('id', teacherId);
+          console.log('[ConvertToTeacherModal] Updated teacher messenger IDs');
         }
       }
 
-      addClientIdToTeacherLinksCache();
+      // CRITICAL: Migrate all messages from client_id to teacher_id
+      const { error: migrateError, count: migratedCount } = await supabase
+        .from('chat_messages')
+        .update({ 
+          teacher_id: teacherId, 
+          client_id: null 
+        })
+        .eq('client_id', clientId);
 
-      // 3. Force refetch teacher-linked-client-ids immediately to update UI
-      await queryClient.refetchQueries({ queryKey: ['teacher-linked-client-ids'] });
+      if (migrateError) {
+        console.error('Error migrating messages:', migrateError);
+        throw new Error('Не удалось перенести историю сообщений');
+      }
       
-      // 4. Invalidate relevant queries
+      console.log(`[ConvertToTeacherModal] Migrated ${migratedCount || 0} messages to teacher ${teacherId}`);
+
+      // Delete the client record (no longer needed)
+      const { error: deleteClientError } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', clientId);
+
+      if (deleteClientError) {
+        console.warn('Error deleting client (may have foreign keys):', deleteClientError);
+        // Fallback: deactivate instead of delete
+        await supabase
+          .from('clients')
+          .update({ is_active: false })
+          .eq('id', clientId);
+      } else {
+        console.log('[ConvertToTeacherModal] Deleted client record:', clientId);
+      }
+
+      // Delete any existing teacher_client_links (legacy cleanup)
+      await supabase
+        .from('teacher_client_links')
+        .delete()
+        .eq('client_id', clientId);
+
+      // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
       queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
       queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
       queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['teacher-client-links'] });
+      queryClient.invalidateQueries({ queryKey: ['teacher-conversations'] });
 
-      toast.success(`${firstName} ${lastName} теперь преподаватель`, {
-        description: 'Чат перемещён в раздел "Преподаватели"',
-      });
+      toast.success(
+        isExistingTeacher 
+          ? `Привязано к существующему преподавателю` 
+          : `${firstName} ${lastName} теперь преподаватель`,
+        {
+          description: `Перенесено ${migratedCount || 0} сообщений`,
+        }
+      );
 
       onSuccess?.();
       onClose();
@@ -251,7 +272,7 @@ export function ConvertToTeacherModal({
             Перевести в преподаватели
           </DialogTitle>
           <DialogDescription>
-            Клиент "{clientName}" будет преобразован в преподавателя. Вся история сообщений сохранится.
+            Клиент "{clientName}" будет преобразован в преподавателя. Вся история сообщений будет перенесена.
           </DialogDescription>
         </DialogHeader>
 
@@ -310,6 +331,30 @@ export function ConvertToTeacherModal({
               />
             </div>
           )}
+          
+          {whatsappId && (
+            <div className="space-y-2">
+              <Label htmlFor="whatsappId">WhatsApp ID</Label>
+              <Input
+                id="whatsappId"
+                value={whatsappId}
+                readOnly
+                className="bg-muted text-muted-foreground"
+              />
+            </div>
+          )}
+          
+          {maxUserId && (
+            <div className="space-y-2">
+              <Label htmlFor="maxUserId">MAX ID</Label>
+              <Input
+                id="maxUserId"
+                value={maxUserId}
+                readOnly
+                className="bg-muted text-muted-foreground"
+              />
+            </div>
+          )}
         </div>
 
         <DialogFooter>
@@ -320,7 +365,7 @@ export function ConvertToTeacherModal({
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Создаём...
+                Переносим...
               </>
             ) : (
               <>

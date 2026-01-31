@@ -278,7 +278,18 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
   }
 
   const phoneNumber = extractPhoneFromChatId(message.from)
-  const client = await findOrCreateClient(phoneNumber, message.senderName, organizationId)
+  
+  // Check for duplicate message first
+  const { data: existingMsg } = await supabase
+    .from('chat_messages')
+    .select('id')
+    .eq('external_message_id', message.id)
+    .maybeSingle()
+
+  if (existingMsg) {
+    console.log('Duplicate message, skipping:', message.id)
+    return
+  }
 
   // Determine message text and file info
   let messageText = ''
@@ -289,28 +300,64 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
   if (message.type === 'chat') {
     messageText = message.body || ''
   } else if (message.type === 'reaction') {
-    // Handle reactions separately if needed
     messageText = `${message.body} (реакция)`
     return // Skip saving reactions as separate messages for now
   } else {
-    // For media types, body contains base64 data
-    // Caption contains the text message if any
     messageText = message.caption || getMessageTypeDescription(message.type, message.mimetype)
     fileName = message.file_name
     fileType = message.mimetype
 
-    // For media messages, we may need to download the file
-    // The body contains base64 data - we could save it to storage
-    // For now, we'll store a placeholder and let the download function handle it
     if (message.body && message.type !== 'chat') {
-      // Store marker that media is available
       fileUrl = `wappi://media/${message.id}`
     }
   }
 
+  // PRIORITY 1: Check if sender is a TEACHER by whatsapp_id
+  const { data: teacherData } = await supabase
+    .from('teachers')
+    .select('id, first_name, last_name')
+    .eq('organization_id', organizationId)
+    .eq('whatsapp_id', phoneNumber)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (teacherData) {
+    console.log('[wappi-webhook] Found teacher by whatsapp_id:', teacherData.id)
+    
+    // Save message with teacher_id (not client_id)
+    const { error } = await supabase.from('chat_messages').insert({
+      teacher_id: teacherData.id,
+      client_id: null,
+      organization_id: organizationId,
+      message_text: messageText,
+      message_type: 'client',
+      messenger_type: 'whatsapp',
+      status: 'delivered',
+      external_message_id: message.id,
+      is_outgoing: false,
+      is_read: false,
+      file_url: fileUrl,
+      file_name: fileName,
+      file_type: fileType,
+      created_at: message.timestamp || new Date(message.time * 1000).toISOString()
+    })
+
+    if (error) {
+      console.error('Error saving teacher message:', error)
+      throw error
+    }
+
+    console.log(`[wappi-webhook] Saved message for TEACHER ${teacherData.id}`)
+    return // Exit early - don't create client
+  }
+
+  // PRIORITY 2: Normal client flow (not a teacher)
+  const client = await findOrCreateClient(phoneNumber, message.senderName, organizationId)
+
   // Save message to database
   const { error } = await supabase.from('chat_messages').insert({
     client_id: client.id,
+    teacher_id: null,
     organization_id: organizationId,
     message_text: messageText,
     message_type: 'client',
