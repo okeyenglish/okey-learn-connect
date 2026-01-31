@@ -1,49 +1,93 @@
-# План оптимизации загрузки диалогов с клиентами
 
-## Статус: ✅ Полностью реализовано
+# План исправления бесконечной "Загрузки данных"
 
-## Что сделано
+## Проблема
 
-### ✅ Шаг 1: SQL-индексы
-**Файл:** `docs/sql-optimizations/chat_messages_dialog_indexes.sql`
-- `idx_chat_messages_client_created` — для быстрой выборки по client_id
-- `idx_chat_messages_client_unread` — для подсчёта непрочитанных
-- `idx_chat_messages_external_id` — для дедупликации
+На главной странице CRM индикатор "Загрузка данных..." остаётся бесконечно. Проблема вызвана тем, что один из хуков загрузки данных не завершается корректно.
 
-### ✅ Шаг 2: RPC функция `get_client_chat_data`
-**Файл:** `docs/rpc-get-client-chat-data.sql`
-- Объединяет в один запрос: сообщения + unread counts + avatars
-- Возвращает JSONB с hasMore флагом
+## Анализ причины
 
-### ✅ Шаг 3: Хук `useClientChatData`
-**Файл:** `src/hooks/useClientChatData.ts`
-- In-memory кэш 5 минут
-- Автоматический fallback на legacy если RPC не установлена
-- Prefetch функция для hover
-- **Realtime подписка** для INSERT/UPDATE/DELETE событий
+Индикатор показывается когда выполняется условие:
+```javascript
+threadsLoading || pinnedLoading || chatStatesLoading || systemChatsLoading
+```
 
-### ✅ Шаг 4: Увеличен TTL кэша
-**Файл:** `src/hooks/useChatMessagesOptimized.ts`
-- CACHE_TTL увеличен с 1 до 5 минут
+Из анализа кода и логов консоли выявлено:
 
-### ✅ Шаг 5: Интеграция в ChatArea.tsx
-**Файл:** `src/components/crm/ChatArea.tsx`
-- Заменён `useChatMessagesOptimized` на `useClientChatData`
-- Аватары берутся из unified hook (`unifiedAvatars`)
-- Счётчики непрочитанных из unified hook (`unifiedUnreadCounts`)
-- `fetchExternalAvatar` сохранён для загрузки аватаров с внешних API
+1. **RPC-вызовы без таймаута** - в `useChatThreadsInfinite` вызовы к `get_chat_threads_paginated` и `get_unread_chat_threads` не имеют таймаута
+2. **Self-hosted сервер возвращает 500** - в логах видны ошибки `[selfHostedFetch] Retry 2/3 for bulk-fetch-avatars after 1626ms (status: 500)`
+3. **Отсутствие логов загрузки** - нет сообщений `[useChatThreadsInfinite] Loading page 0...`, что указывает на зависание RPC
 
-## Инструкции для self-hosted
+Если RPC-функция зависает (долгий запрос, нет индексов, перегрузка сервера), клиент будет ждать бесконечно, так как Supabase JS SDK не имеет встроенного таймаута.
 
-1. Выполнить `docs/sql-optimizations/chat_messages_dialog_indexes.sql`
-2. Выполнить `docs/rpc-get-client-chat-data.sql`
-3. Проверить работу: `SELECT get_client_chat_data('client-uuid', 100);`
+## Решение
+
+### Шаг 1: Добавить таймауты к RPC в useChatThreadsInfinite
+
+Изменить `src/hooks/useChatThreadsInfinite.ts`:
+
+```text
+// Добавить helper функцию с таймаутом
+const rpcWithTimeout = async <T>(
+  rpcCall: () => Promise<{ data: T | null; error: any }>,
+  timeoutMs: number = 8000
+): Promise<{ data: T | null; error: any }> => {
+  return Promise.race([
+    rpcCall(),
+    new Promise<{ data: null; error: Error }>((resolve) =>
+      setTimeout(() => resolve({ data: null, error: new Error('RPC timeout') }), timeoutMs)
+    )
+  ]);
+};
+```
+
+Применить к обоим запросам:
+- `get_chat_threads_paginated` 
+- `get_unread_chat_threads`
+
+### Шаг 2: Улучшить fallback логику
+
+Если RPC не отвечает или возвращает ошибку:
+1. Сначала попробовать `get_chat_threads_fast` (более простая RPC)
+2. Если и она не работает - fallback на прямой SELECT с LIMIT
+
+```text
+// Fallback цепочка:
+1. get_chat_threads_paginated (8s timeout)
+2. get_chat_threads_fast (5s timeout)  
+3. Прямой SELECT из chat_messages + clients (последний resort)
+```
+
+### Шаг 3: Добавить retry с меньшим таймаутом
+
+В конфигурации React Query для threads:
+
+```text
+{
+  retry: 2,
+  retryDelay: 1000,
+  // staleTime и gcTime остаются
+}
+```
+
+### Шаг 4: Логирование для диагностики
+
+Добавить console.log в начале queryFn для отслеживания того, что запрос начался:
+
+```text
+console.log('[useChatThreadsInfinite] Starting queryFn for page', pageParam);
+```
+
+## Файлы для изменения
+
+1. `src/hooks/useChatThreadsInfinite.ts` - добавить таймауты и fallback
+2. `src/lib/queryConfig.ts` - добавить retry настройки для критических запросов
 
 ## Ожидаемый результат
 
-| Метрика | До | После |
-|---------|-----|-------|
-| Количество запросов | 4-6 | 1 (RPC) или 3 (fallback) |
-| Время загрузки (первый раз) | 500-1500ms | 100-200ms |
-| Время загрузки (повторно) | 200-500ms | ~0ms (кэш) |
-| Realtime обновления | Требуют refetch | Автоматически |
+| Сценарий | До | После |
+|----------|-----|-------|
+| RPC работает | Загрузка ~500ms | Без изменений |
+| RPC зависает | Бесконечная загрузка | Таймаут 8s → fallback |
+| RPC отсутствует | Ошибка, retry бесконечно | Fallback на прямой SQL |
+| Сервер 500 | Бесконечные retry | 2 retry → показать пустой список |
