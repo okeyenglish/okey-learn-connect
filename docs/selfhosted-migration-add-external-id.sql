@@ -99,6 +99,7 @@ BEGIN
           'id', s.id,
           'student_number', s.student_number,
           'external_id', s.external_id,
+          'holihope_id', s.holihope_metadata->>'Id',
           'first_name', s.first_name,
           'last_name', s.last_name,
           'middle_name', s.middle_name,
