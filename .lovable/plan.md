@@ -1,282 +1,141 @@
 
-# План: Обучение AI-бота на базе диалогов CRM
+# Дашборд аналитики проиндексированных диалогов
 
-## Текущая архитектура
+## Обзор
 
-Уже реализовано:
-- **pgvector** расширение для vector search
-- **Таблица `docs`** с embeddings для сайта
-- **Функция `match_docs`** для similarity search
-- **Edge function `ask`** использует RAG для ответов
+Создание аналитического дашборда для визуализации проиндексированных диалогов из системы обучения AI. Дашборд будет отображать ключевые метрики: конверсию по категориям, средний балл качества, и топ проблемных паттернов.
 
-Текущая проблема `generate-gpt-response`:
-- Берёт только **последние 10 сообщений текущего клиента**
-- Не учится на успешных диалогах других менеджеров
-- Стиль задан жёстко в промпте, а не извлекается из реальных данных
-
-## Стратегия обучения
-
-### Вариант 1: Fine-tuning (дорого, сложно)
-- Требует много данных и вычислений
-- Нужно платить за обучение модели
-- Сложно обновлять при изменении стиля
-
-### Вариант 2: RAG на диалогах (рекомендуется)
-- Используем существующую инфраструктуру pgvector
-- Индексируем успешные диалоги как примеры
-- AI ищет похожие сценарии и адаптирует стиль
-- Легко обновлять — просто добавлять новые примеры
-
-## Архитектура решения
+## Архитектура
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│                    База диалогов                             │
-│  chat_messages (существующая таблица)                        │
-└─────────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│            Новая таблица: conversation_examples              │
-│  - id, scenario_type, client_type, context                   │
-│  - messages (JSONB), outcome, tags                           │
-│  - embedding (vector), quality_score                         │
-└─────────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│            Edge Function: index-conversations                │
-│  1. Анализирует диалоги за период                            │
-│  2. Определяет сценарий и тип клиента                        │
-│  3. Создаёт embedding для поиска                             │
-│  4. Сохраняет как пример                                     │
-└─────────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│       Улучшенный generate-gpt-response                       │
-│  1. Определяет тип текущего клиента                          │
-│  2. Ищет похожие диалоги через match_conversations           │
-│  3. Использует найденные примеры как few-shot learning       │
-│  4. Генерирует ответ в стиле лучших менеджеров               │
-└─────────────────────────────────────────────────────────────┘
++------------------------+
+|   Admin Panel          |
+|   (ai-training section)|
++------------------------+
+           |
+           v
++------------------------+
+| ConversationIndexing   |  <-- Existing panel
+| Panel (индексация)     |
++------------------------+
+           |
+           v
++------------------------+
+| ConversationAnalytics  |  <-- NEW
+| Dashboard (аналитика)  |
++------------------------+
+           |
+           v
++------------------------+
+| Edge Function:         |
+| conversation-analytics |  <-- NEW
+| (self-hosted API)      |
++------------------------+
+           |
+           v
++------------------------+
+| conversation_examples  |
+| (self-hosted DB)       |
++------------------------+
 ```
 
-## Детальный план реализации
+## Компоненты дашборда
 
-### Фаза 1: Создание структуры данных
+### 1. KPI карточки (верхняя строка)
+- **Всего проиндексировано**: Общее число диалогов в базе
+- **Средний балл качества**: 1-5 с цветовой индикацией
+- **Конверсия**: % диалогов с outcome = converted
+- **Одобрено для RAG**: % диалогов с approved = true
 
-**Новая таблица `conversation_examples`:**
+### 2. Конверсия по категориям (сценариям)
+- Горизонтальный bar chart
+- Сценарии: new_lead, returning, complaint, upsell, reactivation, info_request, scheduling, payment
+- Цветовая кодировка по конверсии
 
-```sql
-CREATE TABLE conversation_examples (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID REFERENCES organizations(id),
-  
-  -- Категоризация
-  scenario_type TEXT NOT NULL, -- 'new_lead', 'returning', 'complaint', 'upsell', 'reactivation'
-  client_type TEXT,            -- 'parent_child', 'adult', 'corporate', 'student'
-  client_stage TEXT,           -- 'cold', 'warm', 'hot', 'active', 'churned'
-  
-  -- Контекст
-  context_summary TEXT NOT NULL, -- Краткое описание ситуации
-  initial_message TEXT,          -- С чего начался диалог
-  
-  -- Диалог
-  messages JSONB NOT NULL,       -- [{role, content, timestamp}]
-  total_messages INT,
-  
-  -- Результат и качество
-  outcome TEXT,                  -- 'converted', 'scheduled', 'resolved', 'lost'
-  quality_score INT DEFAULT 3,   -- 1-5, оценка качества ответа
-  approved BOOLEAN DEFAULT FALSE, -- Одобрено для обучения
-  
-  -- Vector search
-  embedding vector(1536),
-  search_text TEXT,              -- Текст для создания embedding
-  
-  -- Метаданные
-  source_client_id UUID,
-  source_messages_ids UUID[],
-  created_at TIMESTAMPTZ DEFAULT now(),
-  created_by UUID
-);
+### 3. Распределение качества
+- Pie chart с распределением оценок 1-5
+- Процентное соотношение
 
--- Индексы для поиска
-CREATE INDEX idx_conv_examples_embedding ON conversation_examples 
-  USING ivfflat (embedding vector_cosine_ops) WITH (lists = 50);
+### 4. Топ проблем
+- Таблица с низкокачественными диалогами (quality_score < 3)
+- Группировка по сценариям
+- Примеры context_summary для анализа
 
-CREATE INDEX idx_conv_examples_scenario ON conversation_examples(scenario_type);
-CREATE INDEX idx_conv_examples_client_type ON conversation_examples(client_type);
-CREATE INDEX idx_conv_examples_approved ON conversation_examples(approved) WHERE approved = true;
-```
+### 5. Тренды по дням (опционально)
+- Line chart с динамикой индексации
+- Средняя оценка по дням
 
-**RPC функция для поиска похожих диалогов:**
+## Технические детали
 
-```sql
-CREATE FUNCTION match_conversations(
-  query_embedding vector(1536),
-  p_scenario_type TEXT DEFAULT NULL,
-  p_client_type TEXT DEFAULT NULL,
-  match_count INT DEFAULT 5
-)
-RETURNS TABLE (
-  id UUID,
-  scenario_type TEXT,
-  client_type TEXT,
-  context_summary TEXT,
-  messages JSONB,
-  outcome TEXT,
-  quality_score INT,
-  similarity FLOAT
-) AS $$
-  SELECT 
-    ce.id,
-    ce.scenario_type,
-    ce.client_type,
-    ce.context_summary,
-    ce.messages,
-    ce.outcome,
-    ce.quality_score,
-    1 - (ce.embedding <=> query_embedding) AS similarity
-  FROM conversation_examples ce
-  WHERE ce.approved = true
-    AND (p_scenario_type IS NULL OR ce.scenario_type = p_scenario_type)
-    AND (p_client_type IS NULL OR ce.client_type = p_client_type)
-  ORDER BY ce.embedding <=> query_embedding
-  LIMIT match_count;
-$$ LANGUAGE sql STABLE;
-```
-
-### Фаза 2: Edge Function для анализа и индексации диалогов
-
-**Новый файл: `supabase/functions/index-conversations/index.ts`**
-
+### Новый Edge Function: `conversation-analytics`
 ```typescript
-// Анализирует диалоги и создаёт примеры для обучения
-// Запускается периодически или вручную
-
-async function analyzeConversation(messages: Message[]): Promise<ConversationAnalysis> {
-  // 1. Определяем сценарий
-  const scenarioPrompt = `Проанализируй диалог и определи:
-  - scenario_type: new_lead | returning | complaint | upsell | reactivation | info_request
-  - client_type: parent_child | adult | corporate | student
-  - client_stage: cold | warm | hot | active | churned
-  - outcome: converted | scheduled | resolved | lost | ongoing
-  - quality_score: 1-5 (оценка качества работы менеджера)
-  - context_summary: краткое описание ситуации (1-2 предложения)`;
-  
-  // 2. Создаём embedding из контекста + ключевых сообщений
-  const searchText = `${analysis.scenario_type} ${analysis.client_type} ${analysis.context_summary}`;
-  
-  // 3. Сохраняем как пример
+// Агрегирует данные из conversation_examples
+interface AnalyticsResponse {
+  total: number;
+  avgQuality: number;
+  approvedCount: number;
+  byScenario: Array<{
+    scenario: string;
+    count: number;
+    avgQuality: number;
+    conversions: number;
+    conversionRate: number;
+  }>;
+  byOutcome: Record<string, number>;
+  qualityDistribution: Record<string, number>;
+  lowQualityExamples: Array<{
+    scenario: string;
+    quality: number;
+    summary: string;
+    created_at: string;
+  }>;
 }
 ```
 
-### Фаза 3: Улучшение generate-gpt-response
+### Новый компонент: `ConversationAnalyticsDashboard.tsx`
+- Использует `selfHostedGet` для запроса данных
+- Визуализация через Recharts (уже установлен)
+- Skeleton-загрузка
+- Автообновление каждые 60 секунд
 
-**Обновлённая логика:**
+### Интеграция в Admin Panel
+- Добавление нового пункта в sidebar: "Аналитика диалогов"
+- Или расширение существующего "Обучение AI" табами
 
-```typescript
-// 1. Определяем контекст текущего клиента
-const clientContext = await analyzeClientContext(clientId, currentMessage);
-// Возвращает: scenario_type, client_type, client_stage
+## План реализации
 
-// 2. Создаём embedding для текущей ситуации
-const contextEmbedding = await createEmbedding(
-  `${clientContext.scenario_type} ${clientContext.client_type} ${currentMessage}`
-);
+### Шаг 1: Edge Function
+Создать `supabase/functions/conversation-analytics/index.ts`:
+- Агрегация по scenario_type
+- Расчет конверсии
+- Получение низкокачественных примеров
+- Распределение качества
 
-// 3. Ищем похожие успешные диалоги
-const similarExamples = await supabase.rpc('match_conversations', {
-  query_embedding: contextEmbedding,
-  p_scenario_type: clientContext.scenario_type,
-  match_count: 3
-});
+### Шаг 2: Dashboard компонент
+Создать `src/components/admin/ConversationAnalyticsDashboard.tsx`:
+- 4 KPI карточки сверху
+- Bar chart конверсии по сценариям
+- Pie chart распределения качества
+- Таблица проблемных диалогов
 
-// 4. Формируем промпт с примерами (few-shot learning)
-const systemPrompt = `Ты менеджер O'KEY ENGLISH.
+### Шаг 3: Интеграция
+- Обновить `ConversationIndexingPanel.tsx` добавив табы:
+  - Tab 1: Индексация (текущий функционал)
+  - Tab 2: Аналитика (новый дашборд)
 
-СТИЛЬ ОБЩЕНИЯ (основан на анализе ${similarExamples.length} успешных диалогов):
-${buildStyleGuide(similarExamples)}
+### Шаг 4: Типы
+- Добавить интерфейсы в `database.types.ts` для conversation_examples
 
-ПРИМЕРЫ ПОХОЖИХ СИТУАЦИЙ:
-${similarExamples.map(ex => `
-Ситуация: ${ex.context_summary}
-Диалог: ${formatMessages(ex.messages)}
-Результат: ${ex.outcome}
-`).join('\n---\n')}
+## Зависимости
 
-ТЕКУЩАЯ СИТУАЦИЯ:
-Тип клиента: ${clientContext.client_type}
-Стадия: ${clientContext.client_stage}
-Сценарий: ${clientContext.scenario_type}
+Используются существующие библиотеки:
+- `recharts` - графики
+- `@tanstack/react-query` - кеширование данных
+- Существующие UI компоненты (Card, Table, Badge, Tabs)
 
-Сгенерируй ответ в стиле лучших менеджеров.`;
-```
+## Особенности self-hosted
 
-### Фаза 4: Интерфейс для курирования примеров
-
-**Новый компонент админки:**
-
-- Список диалогов с автоматической категоризацией
-- Возможность одобрить/отклонить как пример
-- Редактирование категорий и оценок
-- Фильтры по сценариям и качеству
-
-## Сценарии для обучения
-
-| Сценарий | Описание | Примеры фраз |
-|----------|----------|--------------|
-| **new_lead** | Новый клиент, первое обращение | "Сколько стоит?", "Есть ли группы для ребёнка 5 лет?" |
-| **returning** | Клиент возвращается после паузы | "Хотим продолжить обучение", "Прошло полгода, есть места?" |
-| **complaint** | Жалоба или проблема | "Недоволен преподавателем", "Пропустили урок" |
-| **upsell** | Продажа дополнительных услуг | "А есть ли интенсив?", "Можно добавить индивидуальные?" |
-| **reactivation** | Возврат потерянного клиента | "Почему перестали ходить?", "Приглашаем обратно" |
-| **info_request** | Запрос информации | "Какое расписание?", "Где находится филиал?" |
-
-## Метрики качества
-
-Для оценки эффективности:
-
-1. **Conversion rate** — % диалогов, завершившихся записью
-2. **Response quality** — ручная оценка 1-5
-3. **Response time** — скорость ответа AI vs ручного
-4. **Client satisfaction** — обратная связь
-
-## Порядок реализации
-
-1. **SQL миграция** — создать таблицу и RPC функции (1 день)
-2. **index-conversations** — Edge function для анализа (2-3 дня)
-3. **Улучшить generate-gpt-response** — интеграция RAG (1-2 дня)
-4. **Админ-интерфейс** — курирование примеров (2-3 дня)
-5. **Начальная индексация** — обработать существующие диалоги (1 день)
-6. **Тестирование и настройка** (2-3 дня)
-
-## Важные соображения
-
-### Безопасность данных
-- Примеры хранятся анонимизированно (без имён клиентов)
-- Доступ только внутри организации
-- Возможность удаления примеров с персональными данными
-
-### Стоимость
-- Embedding: ~$0.0001 за диалог (text-embedding-3-small)
-- Анализ: ~$0.001 за диалог (GPT-4.1-mini)
-- Хранение: минимальное (pgvector уже работает)
-
-### Обновление
-- Периодический запуск индексации (ежедневно/еженедельно)
-- Автоматическое добавление одобренных диалогов
-- Ротация старых примеров
-
-## Альтернативный упрощённый вариант
-
-Если нужно быстрее:
-
-1. **Вручную выбрать 20-30 эталонных диалогов**
-2. **Добавить их как few-shot примеры в промпт**
-3. **Категоризировать по сценариям**
-4. **Выбирать подходящие примеры на лету**
-
-Это даст 80% результата за 20% времени, а полную систему можно развивать постепенно.
+Поскольку данные хранятся на self-hosted сервере (`api.academyos.ru`):
+1. Дашборд использует `selfHostedGet` для API вызовов
+2. Edge Function должен быть развернут на self-hosted
+3. Код можно скопировать для деплоя вручную
