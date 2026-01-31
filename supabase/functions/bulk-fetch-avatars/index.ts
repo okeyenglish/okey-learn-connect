@@ -18,17 +18,13 @@ interface BulkFetchResponse {
   errors: string[];
 }
 
+// Simplified interface compatible with self-hosted schema
 interface ClientRecord {
   id: string;
-  whatsapp_chat_id?: string | null;
   whatsapp_id?: string | null;
   phone?: string | null;
-  telegram_chat_id?: string | null;
   telegram_user_id?: string | null;
-  max_chat_id?: string | null;
-  whatsapp_avatar_url?: string | null;
-  telegram_avatar_url?: string | null;
-  max_avatar_url?: string | null;
+  avatar_url?: string | null;
 }
 
 Deno.serve(async (req) => {
@@ -89,23 +85,37 @@ Deno.serve(async (req) => {
     const limitedIds = clientIds.slice(0, 20);
 
     // Get clients without avatars
+    // NOTE: Self-hosted schema may not have all avatar columns, so we select 
+    // only base columns and handle missing fields gracefully
     const { data: clients, error: clientsError } = await supabase
       .from('clients')
-      .select('id, whatsapp_chat_id, whatsapp_id, phone, telegram_chat_id, telegram_user_id, max_chat_id, whatsapp_avatar_url, telegram_avatar_url, max_avatar_url')
+      .select('id, whatsapp_id, phone, telegram_user_id, avatar_url')
       .eq('organization_id', organizationId)
       .in('id', limitedIds);
 
-    if (clientsError || !clients) {
+    if (clientsError) {
+      console.error('[BulkAvatar] Error fetching clients:', clientsError);
       return new Response(
-        JSON.stringify({ success: false, error: 'Failed to fetch clients' }),
+        JSON.stringify({ 
+          success: false, 
+          error: `Failed to fetch clients: ${clientsError.message}`,
+          code: clientsError.code 
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    
+    if (!clients) {
+      return new Response(
+        JSON.stringify({ success: true, processed: 0, updated: 0, errors: [] }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // Filter to only clients without any avatar
-    const clientsWithoutAvatars = clients.filter((c: ClientRecord) => 
-      !c.whatsapp_avatar_url && !c.telegram_avatar_url && !c.max_avatar_url
-    );
+    // Filter to only clients without any avatar (using simplified avatar_url field)
+    const clientsWithoutAvatars = clients.filter((c: ClientRecord) => !c.avatar_url);
+
+    console.log(`[BulkAvatar] Found ${clientsWithoutAvatars.length} clients without avatars out of ${clients.length}`);
 
     if (clientsWithoutAvatars.length === 0) {
       return new Response(
@@ -139,10 +149,9 @@ Deno.serve(async (req) => {
       for (const client of clientsWithoutAvatars as ClientRecord[]) {
         try {
           let avatarUrl: string | null = null;
-          let avatarField: string | null = null;
 
           // Try WhatsApp first
-          if (!avatarUrl && whatsappSettings && (client.whatsapp_chat_id || client.whatsapp_id || client.phone)) {
+          if (!avatarUrl && whatsappSettings && (client.whatsapp_id || client.phone)) {
             const waResult = await fetchWhatsAppAvatar(
               client,
               whatsappSettings.settings as MessengerSettings,
@@ -150,34 +159,33 @@ Deno.serve(async (req) => {
             );
             if (waResult) {
               avatarUrl = waResult;
-              avatarField = 'whatsapp_avatar_url';
             }
           }
 
           // Try Telegram
-          if (!avatarUrl && telegramSettings && (client.telegram_chat_id || client.telegram_user_id)) {
+          if (!avatarUrl && telegramSettings && client.telegram_user_id) {
             const tgResult = await fetchTelegramAvatar(
               client,
               telegramSettings.settings as TelegramSettings
             );
             if (tgResult) {
               avatarUrl = tgResult;
-              avatarField = 'telegram_avatar_url';
             }
           }
 
-          // Update client if avatar found
-          if (avatarUrl && avatarField) {
-            await supabase
+          // Update client if avatar found (use single avatar_url field for self-hosted compatibility)
+          if (avatarUrl) {
+            const { error: updateError } = await supabase
               .from('clients')
-              .update({ 
-                [avatarField]: avatarUrl,
-                avatar_url: avatarUrl // Also set main avatar
-              })
+              .update({ avatar_url: avatarUrl })
               .eq('id', client.id);
             
-            updated++;
-            console.log(`[BulkAvatar] Updated avatar for client ${client.id}`);
+            if (updateError) {
+              errors.push(`Client ${client.id}: Update failed - ${updateError.message}`);
+            } else {
+              updated++;
+              console.log(`[BulkAvatar] Updated avatar for client ${client.id}`);
+            }
           }
         } catch (err) {
           errors.push(`Client ${client.id}: ${getErrorMessage(err)}`);
@@ -237,9 +245,9 @@ async function fetchWhatsAppAvatar(
 
     if (!instanceId || !apiToken) return null;
 
-    // Determine chat ID
-    let chatId = client.whatsapp_chat_id;
-    if (!chatId && client.whatsapp_id) {
+    // Determine chat ID (simplified for self-hosted schema)
+    let chatId: string | null = null;
+    if (client.whatsapp_id) {
       chatId = client.whatsapp_id.includes('@') ? client.whatsapp_id : `${client.whatsapp_id}@c.us`;
     }
     if (!chatId && client.phone) {
@@ -272,7 +280,8 @@ async function fetchTelegramAvatar(
     const { profileId, apiToken } = settings;
     if (!profileId || !apiToken) return null;
 
-    const chatId = client.telegram_chat_id || client.telegram_user_id?.toString();
+    // Simplified for self-hosted schema (no telegram_chat_id)
+    const chatId = client.telegram_user_id?.toString();
     if (!chatId) return null;
 
     const response = await fetch(
