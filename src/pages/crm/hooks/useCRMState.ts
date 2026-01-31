@@ -9,7 +9,7 @@ export const useCRMState = () => {
   const [isPinnedSectionOpen, setIsPinnedSectionOpen] = useState(false);
   const [showOnlyUnread, setShowOnlyUnread] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
-  const [activeClientInfo, setActiveClientInfo] = useState<{ name: string; phone: string; comment: string } | null>(null);
+  const [activeClientInfo, setActiveClientInfo] = useState<{ name: string; phone: string; comment: string; telegram_user_id?: string | number | null } | null>(null);
   const [activeClientName, setActiveClientName] = useState('');
   const [pinnedTaskClientId, setPinnedTaskClientId] = useState<string>('');
   const [pinnedInvoiceClientId, setPinnedInvoiceClientId] = useState<string>('');

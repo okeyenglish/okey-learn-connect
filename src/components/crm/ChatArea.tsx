@@ -64,6 +64,7 @@ interface ChatAreaProps {
   clientId: string;
   clientName: string;
   clientPhone: string;
+  clientTelegramUserId?: string | number | null; // Telegram user ID for context-aware display
   clientComment?: string;
   onMessageChange?: (hasUnsaved: boolean) => void;
   activePhoneId?: string;
@@ -95,6 +96,7 @@ export const ChatArea = ({
   clientId,
   clientName, 
   clientPhone, 
+  clientTelegramUserId,
   clientComment = "Базовый комментарий", 
   onMessageChange, 
   activePhoneId = '1', 
@@ -2005,7 +2007,11 @@ export const ChatArea = ({
                   <h2 className="font-semibold text-sm text-foreground truncate">{displayName}</h2>
                   <ImageCacheIndicator progress={imageCacheProgress} compact />
                 </div>
-                <p className="text-xs text-muted-foreground truncate">{formatPhoneForDisplay(clientPhone)}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {activeMessengerTab === 'telegram' && clientTelegramUserId 
+                    ? `ID: ${clientTelegramUserId}` 
+                    : formatPhoneForDisplay(clientPhone)}
+                </p>
                 {isOtherUserTyping && typingInfo && (
                   <p className="text-xs text-orange-600 italic animate-pulse">
                     {typingInfo.managerName} печатает...
@@ -2107,7 +2113,11 @@ export const ChatArea = ({
                   <h2 className="font-semibold text-base">{displayName}</h2>
                   <ImageCacheIndicator progress={imageCacheProgress} />
                 </div>
-                <p className="text-sm text-muted-foreground">{formatPhoneForDisplay(clientPhone)}</p>
+                <p className="text-sm text-muted-foreground">
+                  {activeMessengerTab === 'telegram' && clientTelegramUserId 
+                    ? `ID: ${clientTelegramUserId}` 
+                    : formatPhoneForDisplay(clientPhone)}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
