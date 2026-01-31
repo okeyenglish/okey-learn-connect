@@ -1,6 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/typedClient";
 
+// In-memory cache for instant repeated loads
+const familyDataCache = new Map<string, { data: FamilyGroup; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 export interface PhoneNumber {
   id: string;
   phone: string;
@@ -255,7 +259,7 @@ const transformRpcResponse = (data: RpcResponse): FamilyGroup => {
   };
 };
 
-// Fetch family data
+// Fetch family data with caching
 const fetchFamilyData = async (familyGroupId: string): Promise<FamilyGroup> => {
   const startTime = performance.now();
   
@@ -294,10 +298,19 @@ const fetchFamilyData = async (familyGroupId: string): Promise<FamilyGroup> => {
     throw new Error('Family group not found');
   }
 
-  return transformRpcResponse(rpcData);
+  const result = transformRpcResponse(rpcData);
+  
+  // Update in-memory cache
+  familyDataCache.set(familyGroupId, { data: result, timestamp: Date.now() });
+  
+  return result;
 };
 
 export const useFamilyData = (familyGroupId?: string) => {
+  // Get cached data for instant display
+  const cachedData = familyGroupId ? familyDataCache.get(familyGroupId) : undefined;
+  const isCacheValid = cachedData && (Date.now() - cachedData.timestamp < CACHE_TTL);
+  
   const query = useQuery({
     queryKey: ['family-data', familyGroupId],
     queryFn: () => fetchFamilyData(familyGroupId!),
@@ -308,11 +321,13 @@ export const useFamilyData = (familyGroupId?: string) => {
     gcTime: 30 * 60 * 1000, // 30 minutes cache
     refetchOnWindowFocus: false,
     retry: 1,
+    // Use in-memory cache for instant display
+    placeholderData: isCacheValid ? cachedData.data : undefined,
   });
 
   return {
     familyData: query.data ?? null,
-    loading: query.isLoading,
+    loading: query.isLoading && !isCacheValid, // Don't show loading if we have cached data
     error: query.error?.message ?? null,
     refetch: query.refetch,
   };
