@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
-import { dispatchIncomingCallEvent, dispatchCallEndedEvent, dispatchCallAnsweredEvent } from './useIncomingCallRingtone';
+import { dispatchIncomingCallEvent as dispatchRingtoneStart, dispatchCallEndedEvent as dispatchRingtoneStop, dispatchCallAnsweredEvent as dispatchRingtoneAnswer } from './useIncomingCallRingtone';
+import { dispatchIncomingCallEvent as dispatchNotificationStart, dispatchCallEndedEvent as dispatchNotificationEnd, dispatchCallAnsweredEvent as dispatchNotificationAnswer } from '@/components/crm/IncomingCallNotification';
 
 interface CallLogPayload {
   id: string;
@@ -10,6 +11,7 @@ interface CallLogPayload {
   direction: string;
   phone_number: string;
   manager_id?: string;
+  client_name?: string | null;
 }
 
 /**
@@ -61,22 +63,27 @@ export const useCallLogsRealtime = (clientId?: string) => {
             });
           }
 
-          // Handle incoming calls - trigger ringtone
+          // Handle incoming calls - trigger ringtone and notification
           if (newCall.direction === 'incoming') {
             if (newCall.status === 'initiated' || newCall.status === 'ringing') {
-              console.log('[useCallLogsRealtime] Incoming call detected, dispatching event');
-              dispatchIncomingCallEvent({
+              console.log('[useCallLogsRealtime] Incoming call detected, dispatching events');
+              const callData = {
                 callId: newCall.id,
                 clientId: newCall.client_id,
                 phoneNumber: newCall.phone_number,
                 managerId: newCall.manager_id,
-              });
+                clientName: newCall.client_name,
+              };
+              dispatchRingtoneStart(callData);
+              dispatchNotificationStart(callData);
             } else if (newCall.status === 'answered') {
-              console.log('[useCallLogsRealtime] Call answered, stopping ringtone');
-              dispatchCallAnsweredEvent(newCall.id);
+              console.log('[useCallLogsRealtime] Call answered');
+              dispatchRingtoneAnswer(newCall.id);
+              dispatchNotificationAnswer(newCall.id);
             } else if (newCall.status === 'missed' || newCall.status === 'completed' || newCall.status === 'failed') {
-              console.log('[useCallLogsRealtime] Call ended, stopping ringtone');
-              dispatchCallEndedEvent(newCall.id);
+              console.log('[useCallLogsRealtime] Call ended');
+              dispatchRingtoneStop(newCall.id);
+              dispatchNotificationEnd(newCall.id);
             }
           }
 
@@ -110,12 +117,14 @@ export const useCallLogsRealtime = (clientId?: string) => {
             status: updatedCall.status,
           });
 
-          // Handle status changes for ringtone
+          // Handle status changes for ringtone and notification
           if (updatedCall.direction === 'incoming') {
             if (updatedCall.status === 'answered') {
-              dispatchCallAnsweredEvent(updatedCall.id);
+              dispatchRingtoneAnswer(updatedCall.id);
+              dispatchNotificationAnswer(updatedCall.id);
             } else if (updatedCall.status === 'missed' || updatedCall.status === 'completed' || updatedCall.status === 'failed') {
-              dispatchCallEndedEvent(updatedCall.id);
+              dispatchRingtoneStop(updatedCall.id);
+              dispatchNotificationEnd(updatedCall.id);
             }
           }
 

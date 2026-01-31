@@ -161,6 +161,7 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { useMissedCallNotifications } from "@/hooks/useMissedCallNotifications";
 import { useIncomingCallRingtone } from "@/hooks/useIncomingCallRingtone";
+import { IncomingCallNotification } from "@/components/crm/IncomingCallNotification";
 import { TrashDialog } from "@/components/crm/TrashDialog";
 import { useDeletedChats } from "@/hooks/useDeletedChats";
 // Lazy load тяжелых компонентов модальных окон для быстрого открытия
@@ -4677,6 +4678,14 @@ const CRMContent = () => {
       
       {/* WhatsApp Status Notification */}
       <WhatsAppStatusNotification />
+      
+      {/* Incoming Call Notification */}
+      <IncomingCallNotification 
+        onOpenClient={(clientId) => {
+          handleChatClick(clientId, 'client');
+          setActiveTab('chats');
+        }}
+      />
       
       {/* Post-Call Moderation Modal */}
       <PostCallModerationModal
