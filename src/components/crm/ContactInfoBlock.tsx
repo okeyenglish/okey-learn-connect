@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { MaskedPhoneInput, extractPhoneDigits, isValidPhone, formatPhoneInput } from "@/components/ui/masked-phone-input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { isLikelyPhoneNumber } from "@/utils/phoneNormalization";
 
 // Messenger SVG icons
 const WhatsAppIcon = ({ active }: { active: boolean }) => (
@@ -102,12 +103,24 @@ export const ContactInfoBlock = ({
   const effectivePhoneNumbers = useMemo(() => {
     const result: PhoneNumberData[] = [];
     
-    // Check if we have any real phone numbers (non-empty phone strings)
-    const hasRealPhones = phoneNumbers.some(p => p.phone && p.phone.trim() !== '');
+    // Check if we have any real phone numbers (non-empty phone strings that are VALID phones)
+    // Filter out Telegram IDs that were incorrectly saved as phone numbers
+    const hasRealPhones = phoneNumbers.some(p => p.phone && p.phone.trim() !== '' && isLikelyPhoneNumber(p.phone));
     
     if (hasRealPhones) {
-      // Filter out empty phone entries but keep ones with messenger data
-      const validPhones = phoneNumbers.filter(p => p.phone || p.whatsappChatId || p.telegramChatId || p.telegramUserId);
+      // Filter out empty phone entries and invalid phone numbers (like Telegram IDs)
+      // Keep entries with messenger data even if phone is invalid
+      const validPhones = phoneNumbers.filter(p => {
+        const hasValidPhone = p.phone && isLikelyPhoneNumber(p.phone);
+        const hasMessengerData = p.whatsappChatId || p.telegramChatId || p.telegramUserId || p.maxChatId;
+        return hasValidPhone || hasMessengerData;
+      }).map(p => {
+        // If phone is not valid (e.g., Telegram ID stored as phone), clear it for display
+        if (p.phone && !isLikelyPhoneNumber(p.phone)) {
+          return { ...p, phone: '' };
+        }
+        return p;
+      });
       result.push(...validPhones);
     } else {
       // No real phone numbers - check for messenger-only data
