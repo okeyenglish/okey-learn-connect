@@ -1,63 +1,48 @@
 
-# План: Исправление схемы teacher_client_links
+# План: Вернуть organization_id в teacher_client_links
 
 ## Проблема
-Ошибка при переводе клиента в преподаватели:
-```
-Could not find the 'organization_id' column of 'teacher_client_links' in the schema cache
-```
+После последнего изменения `organization_id` был удалён из `teacher_client_links`, что нарушает изоляцию данных между организациями.
 
 ## Анализ
-На self-hosted Supabase таблица `teacher_client_links` имеет упрощённую схему:
-- `teacher_id` - UUID преподавателя
-- `client_id` - UUID клиента
-- Возможно `created_at`
-
-**Отсутствуют колонки** (в отличие от типов Lovable Cloud):
-- `organization_id` 
-- `link_type`
-- `is_primary`
+- `organizationId` уже доступен в компоненте (строка 32: `const { organizationId } = useOrganization()`)
+- Он получен из профиля текущего пользователя, который связан с организацией клиента
+- Нужно просто вернуть это поле в два места `upsert`
 
 ## Решение
 
 ### Файл: `src/components/crm/ConvertToTeacherModal.tsx`
 
-Удалить `organization_id` из двух мест upsert:
-
-**Строка ~130 (привязка к существующему преподавателю):**
+**Строка ~130-135 (привязка к существующему преподавателю):**
 ```typescript
-// БЫЛО:
-.upsert({
-  teacher_id: matchingTeacher.id,
-  client_id: clientId,
-  organization_id: organizationId,  // УДАЛИТЬ
-}, ...)
-
-// СТАНЕТ:
-.upsert({
-  teacher_id: matchingTeacher.id,
-  client_id: clientId,
-}, ...)
+const { error: linkError } = await supabase
+  .from('teacher_client_links')
+  .upsert({
+    teacher_id: matchingTeacher.id,
+    client_id: clientId,
+    organization_id: organizationId,  // ВЕРНУТЬ
+  }, {
+    onConflict: 'teacher_id,client_id',
+  });
 ```
 
-**Строка ~186 (создание нового преподавателя):**
+**Строка ~185-190 (создание нового преподавателя):**
 ```typescript
-// БЫЛО:
-.upsert({
-  teacher_id: teacherData.id,
-  client_id: clientId,
-  organization_id: organizationId,  // УДАЛИТЬ
-}, ...)
-
-// СТАНЕТ:
-.upsert({
-  teacher_id: teacherData.id,
-  client_id: clientId,
-}, ...)
+const { error: linkError } = await supabase
+  .from('teacher_client_links')
+  .upsert({
+    teacher_id: teacherData.id,
+    client_id: clientId,
+    organization_id: organizationId,  // ВЕРНУТЬ
+  }, {
+    onConflict: 'teacher_id,client_id',
+  });
 ```
+
+## Предварительное требование
+Перед этим изменением на self-hosted БД (api.academyos.ru) должна быть выполнена миграция добавления колонки `organization_id` в таблицу `teacher_client_links` (см. план `docs/migrations/20250131_add_organization_id_to_teacher_client_links.sql`).
 
 ## Результат
-После изменений кнопка "Сделать преподавателем" будет:
-1. Создавать запись в `teachers`
-2. Успешно создавать связь в `teacher_client_links`
-3. Чат переместится в папку "Преподаватели"
+- Связи преподаватель-клиент будут содержать `organization_id`
+- RLS политики обеспечат изоляцию данных между организациями
+- Конфиденциальная информация не утечёт в другие компании
