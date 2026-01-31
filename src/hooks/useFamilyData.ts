@@ -7,6 +7,7 @@ export interface PhoneNumber {
   type: string;
   isWhatsappEnabled: boolean;
   isTelegramEnabled: boolean;
+  isMaxEnabled?: boolean;
   isPrimary: boolean;
   whatsappAvatarUrl?: string;
   telegramAvatarUrl?: string;

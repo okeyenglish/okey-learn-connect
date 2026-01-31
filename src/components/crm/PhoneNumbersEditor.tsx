@@ -34,9 +34,11 @@ interface PhoneNumbersEditorProps {
   onPhoneNumbersChange: (phoneNumbers: PhoneNumber[]) => void;
   /** If client already has Telegram ID, disable Telegram button for phone numbers */
   hasTelegramId?: boolean;
+  /** If client already has MAX ID, disable MAX button for phone numbers */
+  hasMaxId?: boolean;
 }
 
-export const PhoneNumbersEditor = ({ phoneNumbers, onPhoneNumbersChange, hasTelegramId = false }: PhoneNumbersEditorProps) => {
+export const PhoneNumbersEditor = ({ phoneNumbers, onPhoneNumbersChange, hasTelegramId = false, hasMaxId = false }: PhoneNumbersEditorProps) => {
   const [editingPhone, setEditingPhone] = useState<string | null>(null);
 
   const addPhoneNumber = () => {
@@ -46,7 +48,8 @@ export const PhoneNumbersEditor = ({ phoneNumbers, onPhoneNumbersChange, hasTele
       phoneType: 'mobile',
       isPrimary: phoneNumbers.length === 0,
       isWhatsappEnabled: true,
-      isTelegramEnabled: false,
+      isTelegramEnabled: true,
+      isMaxEnabled: true,
     };
     onPhoneNumbersChange([...phoneNumbers, newPhone]);
     setEditingPhone(newPhone.id);
@@ -212,21 +215,31 @@ export const PhoneNumbersEditor = ({ phoneNumbers, onPhoneNumbersChange, hasTele
                     </TooltipContent>
                   </Tooltip>
                   
-                  {/* MAX indicator (read-only, based on connection) */}
+                  {/* MAX toggle - disabled if client already has MAX ID */}
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div
-                        className={`p-2 rounded-lg ${
-                          phone.maxChatId
-                            ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
-                            : 'bg-muted text-muted-foreground/40'
+                      <button
+                        type="button"
+                        onClick={() => !hasMaxId && updatePhoneNumber(phone.id, { isMaxEnabled: !(phone.isMaxEnabled ?? true) })}
+                        disabled={hasMaxId}
+                        className={`p-2 rounded-lg transition-all ${
+                          hasMaxId
+                            ? 'bg-muted text-muted-foreground/30 cursor-not-allowed'
+                            : (phone.isMaxEnabled ?? true)
+                              ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
+                              : 'bg-muted text-muted-foreground/40 hover:text-muted-foreground'
                         }`}
                       >
                         <MaxIcon className="h-4 w-4" />
-                      </div>
+                      </button>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="text-xs">
-                      {phone.maxChatId ? 'MAX подключён' : 'MAX не подключён'}
+                      {hasMaxId 
+                        ? 'MAX уже подключён по ID' 
+                        : (phone.isMaxEnabled ?? true)
+                          ? 'MAX включён' 
+                          : 'MAX выключен'}
+                      {phone.maxChatId && ' (подключён)'}
                     </TooltipContent>
                   </Tooltip>
                   

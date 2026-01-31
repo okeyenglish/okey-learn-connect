@@ -576,9 +576,11 @@ export const FamilyCard = ({
                     isPrimary: p.isPrimary,
                     isWhatsappEnabled: p.isWhatsappEnabled,
                     isTelegramEnabled: p.isTelegramEnabled,
+                    isMaxEnabled: p.isMaxEnabled ?? true,
                   })) || []
                 }}
                 clientTelegramId={activeMember.telegramUserId?.toString()}
+                clientMaxId={activeMember.maxChatId}
                 onSave={(data) => {
                   console.log('Saving contact data:', data);
                   // Update member phone numbers

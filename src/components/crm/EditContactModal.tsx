@@ -28,6 +28,8 @@ interface EditContactModalProps {
   children?: React.ReactNode;
   /** Client's Telegram user ID - if set, disables Telegram toggle on phone numbers */
   clientTelegramId?: string | null;
+  /** Client's MAX ID - if set, disables MAX toggle on phone numbers */
+  clientMaxId?: string | null;
 }
 
 // Parse full name into components
@@ -62,7 +64,7 @@ export const formatDisplayName = (lastName?: string | null, firstName?: string |
   return fullName || 'Без имени';
 };
 
-export const EditContactModal = ({ contactData, onSave, children, clientTelegramId }: EditContactModalProps) => {
+export const EditContactModal = ({ contactData, onSave, children, clientTelegramId, clientMaxId }: EditContactModalProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [formData, setFormData] = useState<ContactData>(contactData);
   const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>(
@@ -194,6 +196,7 @@ export const EditContactModal = ({ contactData, onSave, children, clientTelegram
               phoneNumbers={phoneNumbers}
               onPhoneNumbersChange={setPhoneNumbers}
               hasTelegramId={!!clientTelegramId}
+              hasMaxId={!!clientMaxId}
             />
 
             <div>
