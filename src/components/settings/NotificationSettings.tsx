@@ -67,6 +67,7 @@ export const NotificationSettings = () => {
         chat: 'Звук чата',
         lesson: 'Звук урока',
         missed_call: 'Звук звонка',
+        incoming_call: 'Рингтон входящего',
         default: 'Звук по умолчанию',
       };
       toast.success(labels[type] + ' воспроизведён');

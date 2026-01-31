@@ -1,7 +1,7 @@
 import { useCallback, useRef, useEffect, useState } from 'react';
 
 // Sound types for different notifications
-export type NotificationSoundType = 'chat' | 'lesson' | 'missed_call' | 'default';
+export type NotificationSoundType = 'chat' | 'lesson' | 'missed_call' | 'incoming_call' | 'default';
 
 // Base64 encoded sounds for different notification types
 // Default soft pop sound
@@ -131,6 +131,16 @@ function playGeneratedSound(type: NotificationSoundType, volume: number) {
         playTone(ctx, gainNode, 1046.50, now + 0.35, 0.1); // C6 again
         break;
 
+      case 'incoming_call':
+        // Incoming call: Phone-like ringtone pattern (two-tone ring repeated)
+        // Classic phone ring: alternating high-low tones
+        for (let i = 0; i < 2; i++) {
+          const offset = i * 0.4;
+          playTone(ctx, gainNode, 440, now + offset, 0.15); // A4
+          playTone(ctx, gainNode, 480, now + offset + 0.15, 0.15); // B4b
+        }
+        break;
+
       case 'default':
       default:
         // Default: Simple pop
@@ -197,9 +207,104 @@ const lastPlayedByType: Record<NotificationSoundType, number> = {
   chat: 0,
   lesson: 0,
   missed_call: 0,
+  incoming_call: 0,
   default: 0,
 };
 const GLOBAL_MIN_INTERVAL = 500;
+
+// Ringtone loop control
+let ringtoneInterval: ReturnType<typeof setInterval> | null = null;
+let ringtoneGainNode: GainNode | null = null;
+
+/**
+ * Start playing a continuous ringtone for incoming calls
+ * Returns a stop function
+ */
+export const startRingtone = (volume = 0.6): (() => void) => {
+  // Check if sound is enabled
+  try {
+    const stored = localStorage.getItem('notification_settings');
+    if (stored) {
+      const settings = JSON.parse(stored);
+      if (settings.soundEnabled === false) {
+        return () => {}; // Return no-op stop function
+      }
+      if (typeof settings.soundVolume === 'number') {
+        volume = settings.soundVolume;
+      }
+    }
+  } catch {
+    // Ignore parsing errors
+  }
+
+  // Stop any existing ringtone
+  stopRingtone();
+
+  try {
+    const ctx = getAudioContext();
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+
+    // Create a persistent gain node for the ringtone
+    ringtoneGainNode = ctx.createGain();
+    ringtoneGainNode.connect(ctx.destination);
+    ringtoneGainNode.gain.value = volume * 0.4;
+
+    // Play ringtone pattern immediately
+    playRingtonePattern(ctx, ringtoneGainNode);
+
+    // Repeat every 1.5 seconds (ring-pause pattern like real phone)
+    ringtoneInterval = setInterval(() => {
+      if (ringtoneGainNode) {
+        playRingtonePattern(ctx, ringtoneGainNode);
+      }
+    }, 1500);
+
+    console.log('[Ringtone] Started');
+  } catch (error) {
+    console.warn('[startRingtone] Failed to start:', error);
+  }
+
+  return stopRingtone;
+};
+
+/**
+ * Play a single ringtone pattern
+ */
+function playRingtonePattern(ctx: AudioContext, gainNode: GainNode) {
+  const now = ctx.currentTime;
+  
+  // Classic phone ring: two bursts of alternating tones
+  // First burst
+  playTone(ctx, gainNode, 440, now, 0.12); // A4
+  playTone(ctx, gainNode, 480, now + 0.12, 0.12); // B4b
+  // Second burst
+  playTone(ctx, gainNode, 440, now + 0.3, 0.12); // A4
+  playTone(ctx, gainNode, 480, now + 0.42, 0.12); // B4b
+  // Third burst (makes it more urgent)
+  playTone(ctx, gainNode, 440, now + 0.6, 0.12); // A4
+  playTone(ctx, gainNode, 480, now + 0.72, 0.12); // B4b
+}
+
+/**
+ * Stop the ringtone
+ */
+export const stopRingtone = () => {
+  if (ringtoneInterval) {
+    clearInterval(ringtoneInterval);
+    ringtoneInterval = null;
+    console.log('[Ringtone] Stopped');
+  }
+  if (ringtoneGainNode) {
+    try {
+      ringtoneGainNode.disconnect();
+    } catch {
+      // Already disconnected
+    }
+    ringtoneGainNode = null;
+  }
+};
 
 /**
  * Play notification sound with type-specific sound
