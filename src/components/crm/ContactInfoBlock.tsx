@@ -415,37 +415,37 @@ export const ContactInfoBlock = ({
                 <>
                   {/* Show Telegram ID if no phone but Telegram exists */}
                   {tgActive && getTelegramId(phoneNumber) ? (
-                    <>
-                      <button
-                        className="flex items-center gap-2 hover:bg-blue-50 rounded px-1 -ml-1 transition-colors"
-                        onClick={() => handleMessengerClick(phoneNumber.id, 'telegram', true)}
-                      >
-                        <TelegramIcon active={true} />
-                        <span className="text-sm font-medium text-blue-600">
-                          ID: {getTelegramId(phoneNumber)}
-                        </span>
-                      </button>
-                    </>
+                    <button
+                      className="flex items-center gap-2 hover:bg-blue-50 rounded px-1 -ml-1 transition-colors"
+                      onClick={() => handleMessengerClick(phoneNumber.id, 'telegram', true)}
+                    >
+                      <TelegramIcon active={true} />
+                      <span className="text-sm font-medium text-blue-600">
+                        ID: {getTelegramId(phoneNumber)}
+                      </span>
+                    </button>
                   ) : (
-                    <span className="text-sm text-muted-foreground italic">
-                      Номер не указан
-                    </span>
-                  )}
-                  {/* Allow adding phone for virtual contacts without a number */}
-                  {phoneNumber.isVirtual && onPhoneSave && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          className="p-0.5 rounded transition-colors hover:bg-muted"
-                          onClick={() => handleStartEdit("")}
-                        >
-                          <Edit2 className="h-3 w-3 text-primary" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs">
-                        Добавить номер
-                      </TooltipContent>
-                    </Tooltip>
+                    <>
+                      <span className="text-sm text-muted-foreground italic">
+                        Номер не указан
+                      </span>
+                      {/* Allow adding phone only when no Telegram ID shown */}
+                      {phoneNumber.isVirtual && onPhoneSave && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              className="p-0.5 rounded transition-colors hover:bg-muted"
+                              onClick={() => handleStartEdit("")}
+                            >
+                              <Edit2 className="h-3 w-3 text-primary" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">
+                            Добавить номер
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </>
                   )}
                 </>
               )}
