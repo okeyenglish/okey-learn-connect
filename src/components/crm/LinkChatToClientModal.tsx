@@ -257,6 +257,30 @@ export const LinkChatToClientModal = ({
         currentClearData.salebot_client_id = null;
         currentRestoreData.salebot_client_id = currentClient.salebot_client_id;
       }
+      
+      // IMPORTANT: Handle phone field - ensure valid phone is preserved
+      // If target has invalid phone (like Telegram ID) but source has valid phone, replace it
+      const targetHasValidPhone = targetClient.phone && isLikelyPhoneNumber(targetClient.phone);
+      const currentHasValidPhone = currentClient.phone && isLikelyPhoneNumber(currentClient.phone);
+      
+      if (!targetHasValidPhone && currentHasValidPhone) {
+        // Target has no valid phone, but source does - transfer it
+        targetUpdateData.phone = currentClient.phone;
+        console.log("Transferring valid phone from source to target:", currentClient.phone);
+      } else if (targetHasValidPhone && !currentHasValidPhone && targetClient.phone !== currentClient.phone) {
+        // Target has valid phone, source doesn't - keep target's phone (already there, no action needed)
+        console.log("Keeping target's valid phone:", targetClient.phone);
+      }
+      
+      // If target's phone field contains an invalid value (like Telegram ID), clear it
+      if (targetClient.phone && !isLikelyPhoneNumber(targetClient.phone)) {
+        // Check if we're already updating phone with a valid value
+        if (!targetUpdateData.phone) {
+          // No valid phone to replace it with - clear the invalid phone
+          targetUpdateData.phone = null;
+          console.log("Clearing invalid phone (Telegram ID?) from target:", targetClient.phone);
+        }
+      }
 
       // First clear fields on current client (to satisfy unique constraints), then update target
       if (Object.keys(targetUpdateData).length > 0) {
