@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { supabase } from '@/integrations/supabase/client';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useToast } from '@/hooks/use-toast';
 
 interface IndexingResult {
@@ -42,46 +42,33 @@ export function ConversationIndexingPanel() {
     setResult(null);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.access_token) {
-        toast({
-          title: 'Ошибка авторизации',
-          description: 'Пожалуйста, войдите в систему',
-          variant: 'destructive'
-        });
-        return;
-      }
+      const response = await selfHostedPost<IndexingResult>('index-conversations', {
+        daysBack,
+        minMessages,
+        maxConversations,
+        dryRun
+      });
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/index-conversations`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            daysBack,
-            minMessages,
-            maxConversations,
-            dryRun
-          })
-        }
-      );
-
-      const data = await response.json();
-      setResult(data);
-
-      if (data.success) {
+      if (response.success && response.data) {
+        setResult(response.data);
         toast({
           title: dryRun ? 'Пробный запуск завершён' : 'Индексация завершена',
-          description: `Обработано: ${data.processed}, проиндексировано: ${data.indexed}`,
+          description: `Обработано: ${response.data.processed}, проиндексировано: ${response.data.indexed}`,
         });
       } else {
+        setResult({ 
+          success: false, 
+          total: 0, 
+          processed: 0, 
+          indexed: 0, 
+          skipped: 0, 
+          errors: 0, 
+          dryRun,
+          error: response.error 
+        });
         toast({
           title: 'Ошибка',
-          description: data.error || 'Неизвестная ошибка',
+          description: response.error || 'Неизвестная ошибка',
           variant: 'destructive'
         });
       }
