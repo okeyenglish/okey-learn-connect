@@ -22,11 +22,18 @@ interface DialogueExample {
   created_at: string;
   client_name?: string;
   message_count?: number;
+  // Новые поля
+  intent?: string | null;
+  issue?: string | null;
+  confidence_score?: number;
+  client_stage?: string;
 }
 
 interface RequestBody {
   scenario_type?: string;
   outcome?: string;
+  intent?: string;
+  issue?: string;
   min_quality?: number;
   limit?: number;
   offset?: number;
@@ -60,6 +67,8 @@ Deno.serve(async (req) => {
     const {
       scenario_type,
       outcome,
+      intent,
+      issue,
       min_quality = 4,
       limit = 50,
       offset = 0,
@@ -70,6 +79,8 @@ Deno.serve(async (req) => {
     console.log('[get-successful-dialogues] Request params:', {
       scenario_type,
       outcome,
+      intent,
+      issue,
       min_quality,
       limit,
       offset,
@@ -93,6 +104,14 @@ Deno.serve(async (req) => {
       query = query.eq('outcome', outcome);
     }
 
+    if (intent && intent !== 'all') {
+      query = query.eq('intent', intent);
+    }
+
+    if (issue && issue !== 'all') {
+      query = query.eq('issue', issue);
+    }
+
     // Apply sorting
     query = query.order(sort_by, { ascending: sort_order === 'asc' });
 
@@ -109,33 +128,38 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get aggregation by scenario
-    const { data: scenarioStats, error: statsError } = await supabase
+    // Get all approved dialogues for aggregation
+    const { data: allApproved } = await supabase
       .from('conversation_examples')
-      .select('scenario_type')
+      .select('scenario_type, outcome, intent, issue')
       .eq('approved', true)
       .gte('quality_score', min_quality);
 
+    // Aggregate by various fields
     const byScenario: Record<string, number> = {};
-    if (!statsError && scenarioStats) {
-      scenarioStats.forEach((item: { scenario_type: string }) => {
+    const byOutcome: Record<string, number> = {};
+    const byIntent: Record<string, number> = {};
+    const byIssue: Record<string, number> = {};
+
+    if (allApproved) {
+      allApproved.forEach((item: { scenario_type?: string; outcome?: string; intent?: string; issue?: string }) => {
+        // Scenario
         const scenario = item.scenario_type || 'unknown';
         byScenario[scenario] = (byScenario[scenario] || 0) + 1;
-      });
-    }
-
-    // Get aggregation by outcome
-    const { data: outcomeStats } = await supabase
-      .from('conversation_examples')
-      .select('outcome')
-      .eq('approved', true)
-      .gte('quality_score', min_quality);
-
-    const byOutcome: Record<string, number> = {};
-    if (outcomeStats) {
-      outcomeStats.forEach((item: { outcome: string }) => {
+        
+        // Outcome
         const outc = item.outcome || 'unknown';
         byOutcome[outc] = (byOutcome[outc] || 0) + 1;
+        
+        // Intent
+        if (item.intent && item.intent !== 'unknown') {
+          byIntent[item.intent] = (byIntent[item.intent] || 0) + 1;
+        }
+        
+        // Issue
+        if (item.issue) {
+          byIssue[item.issue] = (byIssue[item.issue] || 0) + 1;
+        }
       });
     }
 
@@ -146,10 +170,17 @@ Deno.serve(async (req) => {
       outcome: d.outcome as string || 'unknown',
       quality_score: d.quality_score as number || 0,
       context_summary: d.context_summary as string || d.summary as string || '',
-      example_messages: (d.example_messages as DialogueMessage[]) || [],
+      example_messages: (d.example_messages as DialogueMessage[]) || (d.messages as DialogueMessage[]) || [],
       key_phrases: (d.key_phrases as string[]) || [],
       created_at: d.created_at as string,
-      message_count: Array.isArray(d.example_messages) ? d.example_messages.length : 0
+      message_count: Array.isArray(d.example_messages) 
+        ? d.example_messages.length 
+        : (Array.isArray(d.messages) ? (d.messages as unknown[]).length : 0),
+      // Новые поля
+      intent: d.intent as string | null,
+      issue: d.issue as string | null,
+      confidence_score: d.confidence_score as number | undefined,
+      client_stage: d.client_stage as string | undefined
     }));
 
     console.log(`[get-successful-dialogues] Found ${transformedDialogues.length} dialogues (total: ${count})`);
@@ -161,6 +192,8 @@ Deno.serve(async (req) => {
         total: count || 0,
         byScenario,
         byOutcome,
+        byIntent,
+        byIssue,
         pagination: {
           offset,
           limit,

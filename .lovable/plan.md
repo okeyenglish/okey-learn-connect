@@ -1,122 +1,57 @@
 
 # Улучшение системы тегирования диалогов
 
+## Статус: ✅ РЕАЛИЗОВАНО
+
 ## Обзор
 
-Расширение текущей системы классификации диалогов для более глубокой аналитики и обучения AI. Добавляем новые измерения: **намерение клиента (intent)** и **проблема/возражение (issue)**.
+Расширение текущей системы классификации диалогов для более глубокой аналитики и обучения AI. Добавлены новые измерения: **намерение клиента (intent)** и **проблема/возражение (issue)**.
 
-## Текущее состояние vs Целевое
+## Реализованные изменения
 
-```text
-ТЕКУЩАЯ СИСТЕМА                        ЦЕЛЕВАЯ СИСТЕМА
-+----------------------+               +----------------------+
-| scenario_type        |               | dialog_type          |
-| client_type          |               | client_type          |
-| client_stage         |               | client_stage (расш.) |
-| outcome              |               | outcome              |
-| quality_score        |     +         | quality_score        |
-+----------------------+     |         | intent        [NEW]  |
-                             |         | issue         [NEW]  |
-                             |         | confidence    [NEW]  |
-                             +-------> +----------------------+
-```
+### 1. Справочник тегов (`src/lib/dialogueTags.ts`)
+- ✅ Централизованный словарь всех тегов
+- ✅ Русские метки для UI
+- ✅ Цветовые схемы для бейджей
+- ✅ Описания для подсказок
+- ✅ Хелперы `getLabel()` и `getColor()`
 
-## Новые поля и значения
+### 2. Edge Function `index-conversations`
+- ✅ Расширенный AI-промпт для извлечения:
+  - `intent` - намерение клиента
+  - `issue` - проблема/возражение
+  - `confidence_score` - уверенность классификации
+  - `key_phrases` - лучшие фразы менеджера
 
-### 1. intent (Намерение клиента)
-| Код | Описание | Пример |
-|-----|----------|--------|
-| price_check | Узнать цену | "Сколько стоит?" |
-| schedule_info | Узнать расписание | "Когда занятия?" |
-| program_choice | Выбор программы | "Какой курс подойдет?" |
-| comparison | Сравнение | "А чем вы лучше?" |
-| hesitation | Сомнение | "Надо подумать" |
-| urgent_start | Срочный старт | "Нужно срочно начать" |
-| support_request | Запрос поддержки | "Есть вопрос по урокам" |
-| upgrade_interest | Интерес к апгрейду | "А что после этого курса?" |
+### 3. Edge Function `get-successful-dialogues`
+- ✅ Фильтрация по intent и issue
+- ✅ Агрегация byIntent и byIssue
+- ✅ Возврат новых полей в диалогах
 
-### 2. issue (Проблема/возражение)
-| Код | Описание | Пример |
-|-----|----------|--------|
-| price_too_high | Дорого | "Это слишком дорого" |
-| no_time | Нет времени | "Некогда водить" |
-| child_motivation | Мотивация ребенка | "Ребенок не хочет" |
-| teacher_issue | Проблема с педагогом | "Не нравится преподаватель" |
-| technical_problem | Техническая проблема | "Не работает приложение" |
-| missed_lessons | Пропуски занятий | "Часто болеем" |
-| payment_problem | Проблема с оплатой | "Карта не проходит" |
-| organization_complaint | Жалоба на организацию | "Неудобный филиал" |
+### 4. Edge Function `conversation-analytics`
+- ✅ Аналитика по намерениям
+- ✅ Аналитика по возражениям
+- ✅ Конверсия по intent
+- ✅ Корреляция issue → lost
 
-### 3. Расширенный client_stage
-| Код | Описание |
-|-----|----------|
-| lead | Первичный контакт |
-| warm | Тёплый (интересуется) |
-| ready_to_pay | Готов к оплате |
-| active_student | Активный ученик |
-| paused | На паузе |
-| churned | Ушёл |
-| returned | Вернувшийся |
+### 5. UI компоненты
+- ✅ `DialogueScriptCard.tsx` - бейджи intent/issue с подсказками
+- ✅ `DialogueScriptDetail.tsx` - полная информация, progress confidence
+- ✅ `SuccessfulDialoguesLibrary.tsx` - фильтры по intent/issue
+- ✅ `ConversationAnalyticsPanel.tsx` - панель аналитики по тегам
 
-## План реализации
+## SQL миграция (для self-hosted)
 
-### Шаг 1: Миграция БД (self-hosted)
-Добавить новые колонки в таблицу `conversation_examples`:
-- `intent TEXT` - намерение клиента
-- `issue TEXT` - проблема/возражение (nullable)
-- `confidence_score NUMERIC` - уверенность AI в классификации
-
-### Шаг 2: Обновить Edge Function index-conversations
-Расширить AI-промпт для извлечения новых полей:
-- Добавить intent в анализ
-- Добавить issue в анализ
-- Добавить confidence_score
-
-### Шаг 3: Создать справочник тегов
-Новый файл `src/lib/dialogueTags.ts`:
-- Все значения enum
-- Русские метки
-- Цвета для UI
-- Описания для подсказок
-
-### Шаг 4: Обновить компоненты библиотеки
-- DialogueScriptCard: показывать intent и issue бейджи
-- DialogueScriptDetail: полная информация
-- SuccessfulDialoguesLibrary: фильтры по intent/issue
-- ConversationSemanticSearch: использовать новые поля
-
-### Шаг 5: Аналитическая панель
-Расширить аналитику:
-- Распределение по намерениям
-- Частые проблемы
-- Корреляция issue → outcome
-- Слабые места менеджеров
-
-## Структура файлов
-
-```text
-src/lib/
-  dialogueTags.ts           [NEW] - Справочник всех тегов
-
-supabase/functions/
-  index-conversations/
-    index.ts                [EDIT] - Расширенный промпт
-
-src/components/admin/
-  DialogueScriptCard.tsx    [EDIT] - Новые бейджи
-  DialogueScriptDetail.tsx  [EDIT] - Полные теги
-  SuccessfulDialoguesLibrary.tsx [EDIT] - Фильтры
-  ConversationAnalyticsPanel.tsx [NEW] - Аналитика по тегам
-```
-
-## SQL миграция (self-hosted)
+Выполните на вашем Supabase:
 
 ```sql
 -- Добавить новые колонки
 ALTER TABLE conversation_examples 
 ADD COLUMN IF NOT EXISTS intent TEXT,
 ADD COLUMN IF NOT EXISTS issue TEXT,
-ADD COLUMN IF NOT EXISTS confidence_score NUMERIC DEFAULT 0.8;
+ADD COLUMN IF NOT EXISTS confidence_score NUMERIC DEFAULT 0.8,
+ADD COLUMN IF NOT EXISTS key_phrases TEXT[] DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS example_messages JSONB;
 
 -- Создать индексы для фильтрации
 CREATE INDEX IF NOT EXISTS idx_conv_examples_intent 
@@ -125,34 +60,40 @@ ON conversation_examples(intent) WHERE intent IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_conv_examples_issue 
 ON conversation_examples(issue) WHERE issue IS NOT NULL;
 
--- Обновить существующие записи (заполнить NULL)
--- Можно переиндексировать через UI
+-- Копировать messages в example_messages если нужно
+UPDATE conversation_examples 
+SET example_messages = messages 
+WHERE example_messages IS NULL AND messages IS NOT NULL;
 ```
 
-## Обновленный AI-промпт
+## Значения тегов
 
-```text
-Проанализируй диалог и определи:
-- dialog_type: тип разговора
-- client_stage: стадия клиента  
-- intent: намерение клиента (что хочет узнать/получить)
-- issue: проблема/возражение (если есть, иначе null)
-- outcome: исход
-- quality_score: оценка работы менеджера
-- confidence_score: уверенность в классификации (0-1)
-```
+### intent (Намерение)
+| Код | Описание |
+|-----|----------|
+| price_check | Узнать цену |
+| schedule_info | Узнать расписание |
+| program_choice | Выбор программы |
+| comparison | Сравнение |
+| hesitation | Сомнение |
+| urgent_start | Срочный старт |
+| support_request | Запрос поддержки |
+| upgrade_interest | Интерес к апгрейду |
 
-## Аналитические возможности после внедрения
+### issue (Возражение)
+| Код | Описание |
+|-----|----------|
+| price_too_high | Дорого |
+| no_time | Нет времени |
+| child_motivation | Мотивация ребёнка |
+| teacher_issue | Проблема с педагогом |
+| technical_problem | Техническая проблема |
+| missed_lessons | Пропуски занятий |
+| payment_problem | Проблема с оплатой |
+| organization_complaint | Жалоба на организацию |
 
-1. **Где теряем клиентов**: issue=price_too_high + outcome=lost
-2. **Какие намерения конвертируются лучше**: intent → conversion rate
-3. **Слабые места менеджеров**: кто не закрывает возражения
-4. **Обучение AI**: чёткие категории для RAG и рекомендаций
+## Следующие шаги
 
-## Порядок выполнения
-
-1. Создать `dialogueTags.ts` со справочником
-2. Обновить `index-conversations` с новым промптом
-3. Обновить UI компоненты для отображения тегов
-4. Обновить фильтры в библиотеке
-5. Создать панель аналитики по тегам
+1. Выполнить SQL миграцию на self-hosted базе
+2. Переиндексировать диалоги для заполнения новых полей
+3. Использовать аналитику для выявления слабых мест
