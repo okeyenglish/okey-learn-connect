@@ -1,108 +1,61 @@
+# План оптимизации загрузки диалогов с клиентами
 
-# План исправления бесконечной загрузки чатов и сообщений
+## Статус: ✅ Реализовано (SQL + хуки), ожидает интеграции в ChatArea
 
-## Обнаруженная проблема
+## Что сделано
 
-Функция `checkRpcAvailable()` в `useClientChatData.ts` **не имеет таймаута**. Если self-hosted сервер не отвечает или отвечает медленно, весь запрос зависает навсегда.
+### ✅ Шаг 1: SQL-индексы
+**Файл:** `docs/sql-optimizations/chat_messages_dialog_indexes.sql`
+- `idx_chat_messages_client_created` — для быстрой выборки по client_id
+- `idx_chat_messages_client_unread` — для подсчёта непрочитанных
+- `idx_chat_messages_external_id` — для дедупликации
 
-```typescript
-// Текущий код (проблема)
-const checkRpcAvailable = async (): Promise<boolean> => {
-  // ... 
-  const { error } = await supabase.rpc('get_client_chat_data', {...});
-  // ⚠️ Нет таймаута - может зависнуть навсегда!
-};
-```
+### ✅ Шаг 2: RPC функция `get_client_chat_data`
+**Файл:** `docs/rpc-get-client-chat-data.sql`
+- Объединяет в один запрос: сообщения + unread counts + avatars
+- Возвращает JSONB с hasMore флагом
 
-## Решение
+### ✅ Шаг 3: Хук `useClientChatData`
+**Файл:** `src/hooks/useClientChatData.ts`
+- In-memory кэш 5 минут
+- Автоматический fallback на legacy если RPC не установлена
+- Prefetch функция для hover
 
-### Шаг 1: Добавить таймаут в checkRpcAvailable
+### ✅ Шаг 4: Увеличен TTL кэша
+**Файл:** `src/hooks/useChatMessagesOptimized.ts`
+- CACHE_TTL увеличен с 1 до 5 минут
 
-Изменить `src/hooks/useClientChatData.ts`:
+## Что осталось
 
-```typescript
-const RPC_CHECK_TIMEOUT_MS = 5000; // 5 секунд на проверку
-
-const checkRpcAvailable = async (): Promise<boolean> => {
-  if (rpcAvailable !== null) return rpcAvailable;
-  if (rpcCheckPromise) return rpcCheckPromise;
-  
-  rpcCheckPromise = (async () => {
-    try {
-      // Добавить Promise.race с таймаутом
-      const result = await Promise.race([
-        supabase.rpc('get_client_chat_data', {
-          p_client_id: '00000000-0000-0000-0000-000000000000',
-          p_limit: 1
-        }),
-        new Promise<{ error: Error }>((resolve) =>
-          setTimeout(() => resolve({ error: new Error('RPC check timeout') }), RPC_CHECK_TIMEOUT_MS)
-        )
-      ]);
-      
-      const error = result.error;
-      rpcAvailable = !error?.message?.includes('function') && 
-                     !error?.message?.includes('does not exist') &&
-                     !error?.message?.includes('timeout');
-      return rpcAvailable;
-    } catch {
-      rpcAvailable = false;
-      return false;
-    }
-  })();
-  
-  return rpcCheckPromise;
-};
-```
-
-### Шаг 2: Добавить таймаут в queryFn useClientChatData
+### ⏳ Интеграция в ChatArea.tsx
+ChatArea.tsx (3600+ строк) требует ручной интеграции:
 
 ```typescript
-const QUERY_TIMEOUT_MS = 10000; // 10 секунд на запрос
+// Заменить:
+import { useClientAvatars } from '@/hooks/useClientAvatars';
+import { useChatMessagesOptimized } from '@/hooks/useChatMessagesOptimized';
 
-queryFn: async (): Promise<ClientChatData> => {
-  // ...
-  const useRpc = await checkRpcAvailable();
-  
-  if (useRpc && !fallbackModeRef.current) {
-    try {
-      // Добавить таймаут к RPC вызову
-      const result = await Promise.race([
-        supabase.rpc('get_client_chat_data', { p_client_id: clientId, p_limit: limit }),
-        new Promise<{ data: null; error: Error }>((resolve) =>
-          setTimeout(() => resolve({ data: null, error: new Error('Query timeout') }), QUERY_TIMEOUT_MS)
-        )
-      ]);
-      // ...
-    }
-  }
-  // Fallback ...
-}
+// На:
+import { useClientChatData } from '@/hooks/useClientChatData';
+
+// В компоненте заменить:
+const { avatars } = useClientAvatars(clientId);
+const { data: messagesData } = useChatMessagesOptimized(clientId, limit);
+
+// На:
+const { messages, avatars, unreadCounts, hasMore } = useClientChatData(clientId, { limit });
 ```
 
-### Шаг 3: Убедиться что fallback всегда возвращает данные
+## Инструкции для self-hosted
 
-Даже если все запросы провалятся, функция должна вернуть пустой результат:
-
-```typescript
-// В конце queryFn добавить гарантированный возврат
-return {
-  messages: [],
-  hasMore: false,
-  totalCount: 0,
-  unreadCounts: {},
-  avatars: { whatsapp: null, telegram: null, max: null }
-};
-```
-
-## Файлы для изменения
-
-1. `src/hooks/useClientChatData.ts` - добавить таймауты
+1. Выполнить `docs/sql-optimizations/chat_messages_dialog_indexes.sql`
+2. Выполнить `docs/rpc-get-client-chat-data.sql`
+3. Проверить работу: `SELECT get_client_chat_data('client-uuid', 100);`
 
 ## Ожидаемый результат
 
-| Сценарий | До | После |
-|----------|-----|-------|
-| RPC проверка зависает | Бесконечная загрузка | Таймаут 5s → fallback |
-| RPC запрос зависает | Бесконечная загрузка | Таймаут 10s → fallback |
-| Сервер не отвечает | Зависание UI | Пустой список через 10-15s |
+| Метрика | До | После |
+|---------|-----|-------|
+| Количество запросов | 4-6 | 1-2 |
+| Время загрузки (первый раз) | 500-1500ms | 100-200ms |
+| Время загрузки (повторно) | 200-500ms | ~0ms (кэш) |

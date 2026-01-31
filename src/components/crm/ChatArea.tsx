@@ -13,10 +13,9 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useTypingStatus } from "@/hooks/useTypingStatus";
-import { type ChatMessage as ChatMessageRow } from "@/hooks/useChatMessages";
+import { useClientUnreadByMessenger, type ChatMessage as ChatMessageRow } from "@/hooks/useChatMessages";
 import { useViewedMissedCalls } from "@/hooks/useViewedMissedCalls";
-import { useMessageStatusRealtime } from "@/hooks/useChatMessagesOptimized";
-import { useClientChatData } from "@/hooks/useClientChatData";
+import { useChatMessagesOptimized, useMessageStatusRealtime } from "@/hooks/useChatMessagesOptimized";
 import { useTeacherChatMessages } from "@/hooks/useTeacherChats";
 import { useAutoRetryMessages } from "@/hooks/useAutoRetryMessages";
 import { useAutoCacheImages, ImageCacheProgress } from "@/hooks/useAutoCacheImages";
@@ -54,7 +53,7 @@ import { useMarkChatMessagesAsReadByMessenger, useMarkChatMessagesAsRead } from 
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { getErrorMessage } from '@/lib/errorUtils';
-import { useClientAvatars } from '@/hooks/useClientAvatars'; // Keep for fetchExternalAvatar
+import { useClientAvatars } from '@/hooks/useClientAvatars';
 import { useMessengerIntegrationStatus, useAllIntegrationsStatus, MessengerType } from '@/hooks/useMessengerIntegrationStatus';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useMessageDrafts } from '@/hooks/useMessageDrafts';
@@ -128,18 +127,15 @@ export const ChatArea = ({
   
   const isTeacherMessages = messagesSource === 'teacher';
 
-  // React Query for messages - unified hook replaces useChatMessagesOptimized + useClientAvatars + useClientUnreadByMessenger
+  // React Query for messages - replaces useState + loadMessages for caching
   const [messageLimit, setMessageLimit] = useState(100);
 
-  // Default (clients) source - unified hook with realtime
+  // Default (clients) source
   const {
     data: defaultMessagesData,
     isLoading: defaultLoadingMessages,
     isFetching: defaultFetchingMessages,
-    avatars: unifiedAvatars,
-    unreadCounts: unifiedUnreadCounts,
-    updateAvatarInCache,
-  } = useClientChatData(clientId, { limit: messageLimit, enabled: !isTeacherMessages });
+  } = useChatMessagesOptimized(clientId, messageLimit, !isTeacherMessages);
 
   // Teacher source (SECURITY DEFINER RPC). Disabled unless this chat explicitly requests it.
   const teacherMessagesQuery = useTeacherChatMessages(clientId, isTeacherMessages);
@@ -306,12 +302,11 @@ export const ChatArea = ({
   // State for availability check (MAX and WhatsApp)
   const [maxAvailability, setMaxAvailability] = useState<{ checked: boolean; available: boolean | null }>({ checked: false, available: null });
   const [whatsappAvailability, setWhatsappAvailability] = useState<{ checked: boolean; available: boolean | null }>({ checked: false, available: null });
-  // Use unified avatars from useClientChatData, but keep fetchExternalAvatar for API calls
-  const { fetchExternalAvatar } = useClientAvatars(clientId);
-  // Avatars from unified hook (with realtime updates)
-  const maxClientAvatar = unifiedAvatars.max;
-  const whatsappClientAvatar = unifiedAvatars.whatsapp;
-  const telegramClientAvatar = unifiedAvatars.telegram;
+  // Use cached avatars hook instead of separate state
+  const { avatars: cachedAvatars, fetchExternalAvatar } = useClientAvatars(clientId);
+  const maxClientAvatar = cachedAvatars.max;
+  const whatsappClientAvatar = cachedAvatars.whatsapp;
+  const telegramClientAvatar = cachedAvatars.telegram;
   const [checkingMaxAvailability, setCheckingMaxAvailability] = useState(false);
   const [checkingWhatsAppAvailability, setCheckingWhatsAppAvailability] = useState(false);
   const { toast } = useToast();
@@ -438,20 +433,13 @@ export const ChatArea = ({
   // Subscribe to realtime message status updates with failed delivery notification
   useMessageStatusRealtime(clientId, handleDeliveryFailed);
 
-  // Get unread counts by messenger from unified hook (with realtime updates)
-  const unreadByMessenger = unifiedUnreadCounts;
-  const lastUnreadMessenger = useMemo(() => {
-    // Find messenger with most unread messages
-    let maxCount = 0;
-    let lastMessenger: string | null = null;
-    for (const [messenger, count] of Object.entries(unifiedUnreadCounts)) {
-      if (count && count > maxCount) {
-        maxCount = count;
-        lastMessenger = messenger;
-      }
-    }
-    return lastMessenger;
-  }, [unifiedUnreadCounts]);
+  // Get unread counts by messenger for badge display
+  const {
+    unreadCounts: unreadByMessenger,
+    lastUnreadMessenger,
+    isLoading: unreadLoading,
+    isFetching: unreadFetching,
+  } = useClientUnreadByMessenger(clientId);
   
   // Hook for marking calls as viewed
   const { markCallsAsViewed } = useViewedMissedCalls(clientId);
@@ -626,8 +614,9 @@ export const ChatArea = ({
   
   // Set initial tab to the one with the last message when client changes
   useEffect(() => {
-    // Wait for messages to fully settle before setting initial tab
-    if (loadingMessages) return; // Wait for messages to load
+    // Wait for unread data AND messages to fully settle before setting initial tab
+    if (unreadLoading || unreadFetching) return;
+    if (loadingMessages) return; // Wait for messages to load too!
     
     // Only set initial tab once per client selection
     if (initialTabSet === clientId) return;
@@ -664,7 +653,7 @@ export const ChatArea = ({
     
     // НЕ помечаем автоматически сообщения как прочитанные
     // Менеджер должен явно нажать "Не требует ответа" или отправить сообщение
-  }, [clientId, lastUnreadMessenger, initialTabSet, messagesData?.messages, loadingMessages, initialMessengerTab, scrollToBottom]);
+  }, [clientId, unreadLoading, unreadFetching, lastUnreadMessenger, initialTabSet, messagesData?.messages, loadingMessages, initialMessengerTab, scrollToBottom]);
 
   // Handle external messenger tab switch (from clicking messenger icon in FamilyCard)
   useEffect(() => {
@@ -878,21 +867,21 @@ export const ChatArea = ({
 
   // Fetch MAX avatar using cached hook when on MAX tab
   useEffect(() => {
-    if (activeMessengerTab === 'max' && clientId && !unifiedAvatars.max) {
+    if (activeMessengerTab === 'max' && clientId && !cachedAvatars.max) {
       fetchExternalAvatar('max', () => getMaxAvatar(clientId));
     }
-  }, [activeMessengerTab, clientId, unifiedAvatars.max, fetchExternalAvatar, getMaxAvatar]);
+  }, [activeMessengerTab, clientId, cachedAvatars.max, fetchExternalAvatar, getMaxAvatar]);
 
   // Fetch WhatsApp avatar using cached hook
   useEffect(() => {
-    if ((activeMessengerTab === 'whatsapp' || !activeMessengerTab) && clientId && !unifiedAvatars.whatsapp) {
+    if ((activeMessengerTab === 'whatsapp' || !activeMessengerTab) && clientId && !cachedAvatars.whatsapp) {
       fetchExternalAvatar('whatsapp', () => getWhatsAppAvatar(clientId));
     }
-  }, [activeMessengerTab, clientId, unifiedAvatars.whatsapp, fetchExternalAvatar, getWhatsAppAvatar]);
+  }, [activeMessengerTab, clientId, cachedAvatars.whatsapp, fetchExternalAvatar, getWhatsAppAvatar]);
 
   // Fetch Telegram avatar using cached hook
   useEffect(() => {
-    if (activeMessengerTab === 'telegram' && clientId && !unifiedAvatars.telegram) {
+    if (activeMessengerTab === 'telegram' && clientId && !cachedAvatars.telegram) {
       fetchExternalAvatar('telegram', async () => {
         const response = await selfHostedPost<{ success: boolean; avatarUrl?: string }>('telegram-get-avatar', { clientId });
         return {
@@ -901,7 +890,7 @@ export const ChatArea = ({
         };
       });
     }
-  }, [activeMessengerTab, clientId, unifiedAvatars.telegram, fetchExternalAvatar]);
+  }, [activeMessengerTab, clientId, cachedAvatars.telegram, fetchExternalAvatar]);
 
   // Reset availability checks when client changes (avatars are cached, no need to reset)
   useEffect(() => {

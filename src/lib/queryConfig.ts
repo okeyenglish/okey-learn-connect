@@ -44,15 +44,6 @@ export const chatListQueryConfig = {
   refetchOnWindowFocus: false, // Не рефетчить при фокусе - есть realtime
 };
 
-// Конфигурация для критических запросов списка чатов с retry
-export const threadsQueryConfig = {
-  staleTime: 60 * 1000,
-  gcTime: 15 * 60 * 1000,
-  refetchOnWindowFocus: false,
-  retry: 2, // Максимум 2 retry для быстрой обработки ошибок
-  retryDelay: 1000, // 1 секунда между retry
-};
-
 // Конфигурация для chat_states - данные редко меняются
 export const chatStatesQueryConfig = {
   staleTime: 5 * 60 * 1000, // 5 минут - данные о pin редко меняются
