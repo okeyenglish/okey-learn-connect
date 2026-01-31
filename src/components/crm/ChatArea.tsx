@@ -2864,7 +2864,8 @@ export const ChatArea = ({
         </Tabs>
       </div>
 
-      {/* Message Input */}
+      {/* Message Input - hidden on calls tab */}
+      {activeMessengerTab !== 'calls' && (
       <div className={`border-t p-2 pb-6 shrink-0 ${isMobile && !onBackToList ? 'pb-20' : ''}`}>
         {/* Pending message with countdown */}
         {pendingMessage && (
@@ -3479,6 +3480,7 @@ export const ChatArea = ({
           </div>
         </div>
       </div>
+      )}
 
       {/* Модальные окна (только если не используются внешние обработчики) */}
       {!onOpenTaskModal && showAddTaskModal && (
