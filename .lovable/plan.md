@@ -1,64 +1,63 @@
 
-# План: Исправление HoliHope Profile Links
+# План: Исправление схемы teacher_client_links
 
 ## Проблема
-- `external_id` хранит `ClientId` (24744) — для связи с группами
-- URL профиля использует `Id` (39748)
-- Это разные поля в API HoliHope
+Ошибка при переводе клиента в преподаватели:
+```
+Could not find the 'organization_id' column of 'teacher_client_links' in the schema cache
+```
+
+## Анализ
+На self-hosted Supabase таблица `teacher_client_links` имеет упрощённую схему:
+- `teacher_id` - UUID преподавателя
+- `client_id` - UUID клиента
+- Возможно `created_at`
+
+**Отсутствуют колонки** (в отличие от типов Lovable Cloud):
+- `organization_id` 
+- `link_type`
+- `is_primary`
 
 ## Решение
-Использовать `holihope_metadata->>'Id'` для формирования ссылки на профиль.
 
-### Вариант 1: Обновить RPC (минимальные изменения)
+### Файл: `src/components/crm/ConvertToTeacherModal.tsx`
 
-Изменить `get_family_data_optimized` чтобы возвращать оба значения:
+Удалить `organization_id` из двух мест upsert:
 
-```sql
-'external_id', s.external_id,  -- ClientId для групп
-'holihope_id', s.holihope_metadata->>'Id',  -- Id для ссылки на профиль
-```
-
-### Вариант 2: Добавить колонку holihope_id (чище)
-
-1. Добавить колонку `holihope_id TEXT` в таблицу `students`
-2. Обновить импорт чтобы сохранял `Id` в `holihope_id`
-3. Использовать `holihope_id` для ссылок на профиль
-
-## Рекомендую Вариант 1
-
-Быстрее, не требует миграции, данные уже есть в `holihope_metadata`.
-
-### Изменения
-
-| Файл | Изменение |
-|------|-----------|
-| RPC `get_family_data_optimized` | Добавить `'holihope_id', s.holihope_metadata->>'Id'` |
-| `useFamilyData.ts` | Маппить `holihope_id` на `holihopeId` |
-| Нет изменений | `FamilyCard.tsx` уже использует `student.holihopeId` |
-
-### SQL для обновления RPC
-
-```sql
--- В секции students добавить:
-'holihope_id', s.holihope_metadata->>'Id',
-```
-
-### Обновить docs/selfhosted-migration-add-external-id.sql
-
-Заменить строку с external_id на:
-```sql
-'external_id', s.external_id,
-'holihope_id', s.holihope_metadata->>'Id',
-```
-
-### Обновить useFamilyData.ts
-
+**Строка ~130 (привязка к существующему преподавателю):**
 ```typescript
-interface RpcStudent {
-  // ...existing fields...
-  holihope_id?: string | null;  // Id из HoliHope для ссылки на профиль
-}
+// БЫЛО:
+.upsert({
+  teacher_id: matchingTeacher.id,
+  client_id: clientId,
+  organization_id: organizationId,  // УДАЛИТЬ
+}, ...)
 
-// В маппинге:
-holihopeId: student.holihope_id || student.external_id || undefined,
+// СТАНЕТ:
+.upsert({
+  teacher_id: matchingTeacher.id,
+  client_id: clientId,
+}, ...)
 ```
+
+**Строка ~186 (создание нового преподавателя):**
+```typescript
+// БЫЛО:
+.upsert({
+  teacher_id: teacherData.id,
+  client_id: clientId,
+  organization_id: organizationId,  // УДАЛИТЬ
+}, ...)
+
+// СТАНЕТ:
+.upsert({
+  teacher_id: teacherData.id,
+  client_id: clientId,
+}, ...)
+```
+
+## Результат
+После изменений кнопка "Сделать преподавателем" будет:
+1. Создавать запись в `teachers`
+2. Успешно создавать связь в `teacher_client_links`
+3. Чат переместится в папку "Преподаватели"
