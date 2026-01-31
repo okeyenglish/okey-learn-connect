@@ -130,7 +130,6 @@ export function ConvertToTeacherModal({
             .upsert({
               teacher_id: matchingTeacher.id,
               client_id: clientId,
-              organization_id: organizationId,
             }, {
               onConflict: 'teacher_id,client_id',
             });
@@ -186,7 +185,6 @@ export function ConvertToTeacherModal({
         .upsert({
           teacher_id: teacherData.id,
           client_id: clientId,
-          organization_id: organizationId,
         }, {
           onConflict: 'teacher_id,client_id',
         });
