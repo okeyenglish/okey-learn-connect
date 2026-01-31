@@ -46,8 +46,10 @@ export const StudentInfoBlock = ({
   hollihopeId,
   onClick,
 }: StudentInfoBlockProps) => {
+  // Определяем тип ссылки: лиды (trial, not_started) идут в /Lead/, остальные в /Profile/
+  const isLead = status === 'trial' || status === 'not_started';
   const holyHopeUrl = hollihopeId
-    ? `https://okeyenglish.t8s.ru/Students/Info/${hollihopeId}`
+    ? `https://okeyenglish.t8s.ru/${isLead ? 'Lead' : 'Profile'}/${hollihopeId}`
     : null;
 
   const handleHolyHopeClick = (e: React.MouseEvent) => {
