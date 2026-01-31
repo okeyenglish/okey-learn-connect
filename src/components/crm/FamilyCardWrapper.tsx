@@ -3,7 +3,9 @@ import { FamilyCard } from "./FamilyCard";
 import { FamilyCardSkeleton } from "./FamilyCardSkeleton";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { normalizePhone } from "@/utils/phoneNormalization";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
+import type { FamilyGroup } from "@/hooks/useFamilyData";
 
 interface FamilyCardWrapperProps {
   clientId: string;
@@ -11,13 +13,170 @@ interface FamilyCardWrapperProps {
   activeMessengerTab?: 'whatsapp' | 'telegram' | 'max';
 }
 
-// In-memory cache for instant repeated loads (clientId -> familyGroupId)
-const familyGroupIdCache = new Map<string, string>();
+// In-memory cache for instant repeated loads
+const familyDataByClientCache = new Map<string, { data: FamilyGroup; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// Flag to track if new RPC is available
-let useNewRpc = true;
+// Flag to track if unified RPC is available
+let useUnifiedRpc = true;
 
-// Legacy fallback: sequential queries
+// RPC response type for unified function
+interface UnifiedRpcResponse {
+  family_group: {
+    id: string;
+    name: string;
+    branch?: string;
+    created_at: string;
+  };
+  members: Array<{
+    id: string;
+    client_id: string;
+    client_number?: string;
+    name: string;
+    phone?: string;
+    email?: string;
+    branch?: string;
+    avatar_url?: string;
+    relationship_type: string;
+    is_primary_contact: boolean;
+    telegram_chat_id?: string | null;
+    telegram_user_id?: number | null;
+    whatsapp_chat_id?: string | null;
+    max_chat_id?: string | null;
+    phone_numbers: Array<{
+      id: string;
+      phone: string;
+      phone_type: string;
+      is_primary: boolean;
+      is_whatsapp_enabled: boolean;
+      is_telegram_enabled: boolean;
+      whatsapp_avatar_url?: string;
+      telegram_avatar_url?: string;
+      whatsapp_chat_id?: string | null;
+      telegram_chat_id?: string | null;
+      telegram_user_id?: number | null;
+      max_chat_id?: string | null;
+      max_avatar_url?: string | null;
+    }>;
+  }>;
+  students: Array<{
+    id: string;
+    student_number?: string;
+    external_id?: string;
+    holihope_id?: string | null;
+    first_name: string;
+    last_name?: string;
+    middle_name?: string;
+    date_of_birth?: string;
+    avatar_url?: string;
+    is_active: boolean;
+    group_courses: Array<{
+      group_id: string;
+      group_name: string;
+      subject: string;
+      is_active: boolean;
+      next_lesson?: { lesson_date: string; start_time: string } | null;
+    }>;
+    individual_courses: Array<{
+      course_id: string;
+      course_name: string;
+      subject: string;
+      is_active: boolean;
+      next_lesson?: { lesson_date: string; start_time: string } | null;
+    }>;
+  }>;
+}
+
+// Transform unified RPC response to FamilyGroup format
+const transformUnifiedResponse = (data: UnifiedRpcResponse): FamilyGroup => {
+  const formatNextLesson = (nextLesson?: { lesson_date: string; start_time: string } | null): string | undefined => {
+    if (!nextLesson) return undefined;
+    const date = new Date(nextLesson.lesson_date);
+    const formattedDate = date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+    const time = nextLesson.start_time?.slice(0, 5) || '';
+    return `${formattedDate} в ${time}`;
+  };
+
+  const calculateAge = (dateOfBirth?: string): number => {
+    if (!dateOfBirth) return 0;
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  return {
+    id: data.family_group.id,
+    name: data.family_group.name,
+    members: (data.members || []).map((m) => ({
+      id: m.client_id,
+      clientNumber: m.client_number || undefined,
+      name: m.name,
+      phone: m.phone || '',
+      email: m.email || undefined,
+      branch: m.branch || undefined,
+      relationship: m.relationship_type as 'main' | 'spouse' | 'parent' | 'guardian' | 'other',
+      isPrimaryContact: m.is_primary_contact,
+      unreadMessages: 0,
+      isOnline: false,
+      lastContact: undefined,
+      avatar_url: m.avatar_url || undefined,
+      telegramChatId: m.telegram_chat_id || null,
+      telegramUserId: m.telegram_user_id || null,
+      whatsappChatId: m.whatsapp_chat_id || null,
+      maxChatId: m.max_chat_id || null,
+      phoneNumbers: (m.phone_numbers || []).map((p) => ({
+        id: p.id,
+        phone: p.phone,
+        type: p.phone_type || 'mobile',
+        isWhatsappEnabled: p.is_whatsapp_enabled || false,
+        isTelegramEnabled: p.is_telegram_enabled || false,
+        isPrimary: p.is_primary || false,
+        whatsappAvatarUrl: p.whatsapp_avatar_url || undefined,
+        telegramAvatarUrl: p.telegram_avatar_url || undefined,
+        whatsappChatId: p.whatsapp_chat_id || null,
+        telegramChatId: p.telegram_chat_id || null,
+        telegramUserId: p.telegram_user_id || null,
+        maxChatId: p.max_chat_id || null,
+        maxAvatarUrl: p.max_avatar_url || null,
+      })),
+    })),
+    students: (data.students || []).map((s) => ({
+      id: s.id,
+      studentNumber: s.student_number || undefined,
+      holihopeId: s.holihope_id || s.external_id || undefined,
+      name: [s.first_name, s.last_name].filter(Boolean).join(' '),
+      firstName: s.first_name,
+      lastName: s.last_name || '',
+      middleName: s.middle_name || '',
+      age: calculateAge(s.date_of_birth),
+      dateOfBirth: s.date_of_birth || undefined,
+      status: s.is_active ? 'active' : 'inactive',
+      courses: [
+        ...(s.group_courses || []).map((c) => ({
+          id: c.group_id,
+          name: c.group_name,
+          type: 'group' as const,
+          nextLesson: formatNextLesson(c.next_lesson),
+          isActive: c.is_active,
+        })),
+        ...(s.individual_courses || []).map((c) => ({
+          id: c.course_id,
+          name: c.course_name,
+          type: 'individual' as const,
+          nextLesson: formatNextLesson(c.next_lesson),
+          isActive: c.is_active,
+        })),
+      ],
+    })),
+  };
+};
+
+// Legacy fallback: sequential queries for family group ID
 const fetchFamilyGroupIdLegacy = async (clientId: string): Promise<string | null> => {
   const startTime = performance.now();
   
@@ -31,8 +190,6 @@ const fetchFamilyGroupIdLegacy = async (clientId: string): Promise<string | null
 
   if (!memberError && existingMember?.family_group_id) {
     console.log(`[FamilyCardWrapper] Found existing group in ${(performance.now() - startTime).toFixed(0)}ms`);
-    // Cache the result
-    familyGroupIdCache.set(clientId, existingMember.family_group_id);
     return existingMember.family_group_id;
   }
 
@@ -68,8 +225,6 @@ const fetchFamilyGroupIdLegacy = async (clientId: string): Promise<string | null
         });
 
         console.log(`[FamilyCardWrapper] Linked to existing group in ${(performance.now() - startTime).toFixed(0)}ms`);
-        // Cache the result
-        familyGroupIdCache.set(clientId, groupId);
         return groupId;
       }
     }
@@ -121,80 +276,131 @@ const fetchFamilyGroupIdLegacy = async (clientId: string): Promise<string | null
   }
 
   console.log(`[FamilyCardWrapper] Created new group (legacy) in ${(performance.now() - startTime).toFixed(0)}ms`);
-  // Cache the result
-  familyGroupIdCache.set(clientId, group.id);
   return group.id;
 };
 
-// New optimized RPC with fallback and caching
-const fetchFamilyGroupId = async (clientId: string): Promise<string | null> => {
+// Fetch family data directly by client ID (unified RPC with fallback)
+const fetchFamilyDataByClientId = async (clientId: string): Promise<FamilyGroup | null> => {
   const startTime = performance.now();
-  
-  // Try new RPC first if available
-  if (useNewRpc) {
+
+  // Try unified RPC first
+  if (useUnifiedRpc) {
     try {
       const { data, error } = await supabase
-        .rpc('get_or_create_family_group_id', { p_client_id: clientId });
+        .rpc('get_family_data_by_client_id', { p_client_id: clientId });
 
       if (error) {
-        // If function doesn't exist, fall back to legacy
+        // If function doesn't exist, fall back to legacy two-step approach
         if (error.message?.includes('function') || error.code === '42883' || error.code === 'PGRST202') {
-          console.warn('[FamilyCardWrapper] New RPC not available, using legacy method');
-          useNewRpc = false;
-          const result = await fetchFamilyGroupIdLegacy(clientId);
-          if (result) familyGroupIdCache.set(clientId, result);
-          return result;
+          console.warn('[FamilyCardWrapper] Unified RPC not available, using legacy two-step method');
+          useUnifiedRpc = false;
+          return fetchFamilyDataLegacy(clientId);
         }
-        console.error('[FamilyCardWrapper] RPC error:', error);
-        // For other errors, also try legacy
-        const result = await fetchFamilyGroupIdLegacy(clientId);
-        if (result) familyGroupIdCache.set(clientId, result);
-        return result;
+        console.error('[FamilyCardWrapper] Unified RPC error:', error);
+        return fetchFamilyDataLegacy(clientId);
       }
 
-      console.log(`[FamilyCardWrapper] RPC completed in ${(performance.now() - startTime).toFixed(0)}ms`);
-      const result = data as string | null;
-      if (result) familyGroupIdCache.set(clientId, result);
+      if (!data || !data.family_group) {
+        console.error('[FamilyCardWrapper] Invalid RPC response');
+        return fetchFamilyDataLegacy(clientId);
+      }
+
+      console.log(`[FamilyCardWrapper] Unified RPC completed in ${(performance.now() - startTime).toFixed(0)}ms`);
+      const result = transformUnifiedResponse(data as UnifiedRpcResponse);
+      
+      // Cache the result
+      familyDataByClientCache.set(clientId, { data: result, timestamp: Date.now() });
+      
       return result;
     } catch (err) {
-      console.warn('[FamilyCardWrapper] RPC failed, falling back to legacy:', err);
-      useNewRpc = false;
-      const result = await fetchFamilyGroupIdLegacy(clientId);
-      if (result) familyGroupIdCache.set(clientId, result);
-      return result;
+      console.warn('[FamilyCardWrapper] Unified RPC failed, falling back:', err);
+      useUnifiedRpc = false;
+      return fetchFamilyDataLegacy(clientId);
     }
   }
 
-  // Use legacy method
-  const result = await fetchFamilyGroupIdLegacy(clientId);
-  if (result) familyGroupIdCache.set(clientId, result);
+  return fetchFamilyDataLegacy(clientId);
+};
+
+// Legacy two-step approach: get group ID then fetch family data
+const fetchFamilyDataLegacy = async (clientId: string): Promise<FamilyGroup | null> => {
+  const startTime = performance.now();
+  
+  // Step 1: Get or create family group ID
+  let familyGroupId: string | null = null;
+  
+  try {
+    const { data, error } = await supabase
+      .rpc('get_or_create_family_group_id', { p_client_id: clientId });
+    
+    if (!error && data) {
+      familyGroupId = data as string;
+    }
+  } catch {
+    // Ignore - will use manual fallback
+  }
+  
+  if (!familyGroupId) {
+    familyGroupId = await fetchFamilyGroupIdLegacy(clientId);
+  }
+  
+  if (!familyGroupId) {
+    return null;
+  }
+
+  // Step 2: Fetch family data
+  const { data, error } = await supabase
+    .rpc('get_family_data_optimized', { p_family_group_id: familyGroupId });
+
+  if (error || !data) {
+    console.error('[FamilyCardWrapper] Legacy fetch error:', error);
+    return null;
+  }
+
+  console.log(`[FamilyCardWrapper] Legacy two-step completed in ${(performance.now() - startTime).toFixed(0)}ms`);
+  
+  // Transform using the same format as useFamilyData
+  const rpcData = data as UnifiedRpcResponse;
+  const result = transformUnifiedResponse(rpcData);
+  
+  // Cache the result
+  familyDataByClientCache.set(clientId, { data: result, timestamp: Date.now() });
+  
   return result;
 };
 
 export const FamilyCardWrapper = ({ clientId, onOpenChat, activeMessengerTab }: FamilyCardWrapperProps) => {
-  // Get cached family group ID for instant display
-  const cachedFamilyGroupId = familyGroupIdCache.get(clientId);
+  const queryClient = useQueryClient();
   
-  // Use React Query for caching and deduplication
-  const { data: familyGroupId, isLoading, error } = useQuery({
-    queryKey: ['family-group-id', clientId],
-    queryFn: () => fetchFamilyGroupId(clientId),
+  // Get cached data for instant display
+  const cachedData = familyDataByClientCache.get(clientId);
+  const isCacheValid = cachedData && (Date.now() - cachedData.timestamp < CACHE_TTL);
+  
+  const { data: familyData, isLoading, error } = useQuery({
+    queryKey: ['family-data-by-client', clientId],
+    queryFn: () => fetchFamilyDataByClientId(clientId),
     enabled: !!clientId,
-    // Family group id rarely changes; cache aggressively to avoid extra calls.
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 60 * 60 * 1000, // 60 minutes cache
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes cache
     refetchOnWindowFocus: false,
     retry: 1,
     // Use in-memory cache for instant display
-    placeholderData: cachedFamilyGroupId || undefined,
+    placeholderData: isCacheValid ? cachedData.data : undefined,
   });
 
+  // Also populate the family-data query cache for useFamilyData hook compatibility
+  useEffect(() => {
+    if (familyData?.id) {
+      queryClient.setQueryData(['family-data', familyData.id], familyData);
+    }
+  }, [familyData, queryClient]);
+
   // Don't show skeleton if we have cached data
-  if (isLoading && !cachedFamilyGroupId) {
+  if (isLoading && !isCacheValid) {
     return <FamilyCardSkeleton />;
   }
 
-  if (error || !familyGroupId) {
+  if (error || !familyData) {
     return (
       <Card>
         <CardContent className="p-6">
@@ -209,7 +415,7 @@ export const FamilyCardWrapper = ({ clientId, onOpenChat, activeMessengerTab }: 
   return (
     <div className="animate-scale-in">
       <FamilyCard
-        familyGroupId={familyGroupId}
+        familyGroupId={familyData.id}
         activeMemberId={clientId}
         onSwitchMember={(memberId) => console.log('Switch member:', memberId)}
         onOpenChat={onOpenChat}
