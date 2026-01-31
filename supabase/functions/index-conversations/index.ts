@@ -24,7 +24,6 @@ interface ChatMessage {
   is_outgoing: boolean;
   direction?: string;
   created_at: string;
-  sender_name?: string;
 }
 
 interface IndexRequest {
@@ -237,7 +236,7 @@ Deno.serve(async (req) => {
         
         const { data: selfHostedMessages, error: selfHostedError } = await supabase
           .from('chat_messages')
-          .select('id, message_text, is_outgoing, created_at, sender_name')
+          .select('id, message_text, is_outgoing, created_at')
           .eq('client_id', clientIdToProcess)
           .order('created_at', { ascending: true })
           .limit(100);
@@ -249,7 +248,7 @@ Deno.serve(async (req) => {
           // Fallback to Lovable Cloud schema (content, direction)
           const { data: cloudMessages, error: cloudError } = await supabase
             .from('chat_messages')
-            .select('id, content, direction, created_at, sender_name')
+            .select('id, content, direction, created_at')
             .eq('client_id', clientIdToProcess)
             .order('created_at', { ascending: true })
             .limit(100);
@@ -269,12 +268,6 @@ Deno.serve(async (req) => {
           }
         }
 
-        if (!messages?.length) {
-          skipReasons.noMessages++;
-          results.skipped++;
-          continue;
-        }
-        
         if (!messages?.length) {
           skipReasons.noMessages++;
           results.skipped++;
