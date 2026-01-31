@@ -829,6 +829,7 @@ export const FamilyCard = ({
                       age={student.age}
                       status={getEffectiveStatus(student)}
                       hollihopeId={hollihopeId}
+                      courses={student.courses}
                       onClick={() => handleStudentClick(student)}
                     />
                   );
