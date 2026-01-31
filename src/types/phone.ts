@@ -5,6 +5,7 @@ export interface PhoneNumber {
   isPrimary: boolean;
   isWhatsappEnabled: boolean;
   isTelegramEnabled: boolean;
+  isMaxEnabled?: boolean;
   // Messenger chat IDs
   whatsappChatId?: string | null;
   telegramChatId?: string | null;
