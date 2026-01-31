@@ -876,4 +876,3 @@ async function syncTeacherFromClient(
     console.error('Error in syncTeacherFromClient:', getErrorMessage(error));
   }
 }
-}
