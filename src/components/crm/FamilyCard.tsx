@@ -24,6 +24,7 @@ import { useOrganization } from "@/hooks/useOrganization";
 import { InviteToPortalButton } from "./InviteToPortalButton";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { normalizePhone, formatPhoneForDisplay } from "@/utils/phoneNormalization";
 import { 
   Users, 
   Phone, 
@@ -380,17 +381,18 @@ export const FamilyCard = ({
   };
 
   const handlePhoneNumbersUpdate = async (memberId: string, phoneNumbers: PhoneNumberType[]) => {
-    // Update phone numbers in the database
-    // Delete existing phone numbers and insert new ones
-    await supabase
-      .from('client_phone_numbers')
-      .delete()
-      .eq('client_id', memberId);
-    
-    if (phoneNumbers.length > 0) {
-      await supabase
+    try {
+      // Update phone numbers in the database
+      // Delete existing phone numbers and insert new ones
+      const { error: deleteError } = await supabase
         .from('client_phone_numbers')
-        .insert(phoneNumbers.map(p => {
+        .delete()
+        .eq('client_id', memberId);
+      
+      if (deleteError) throw deleteError;
+      
+      if (phoneNumbers.length > 0) {
+        const phonesToInsert = phoneNumbers.map(p => {
           // Normalize phone number - ensure it has country code
           let normalizedPhone = p.phone.replace(/\D/g, '');
           
@@ -417,33 +419,44 @@ export const FamilyCard = ({
             is_primary: p.isPrimary,
             whatsapp_chat_id: whatsappChatId,
           };
-        }));
-      
-      // Also update clients.phone with primary number
-      const primaryPhone = phoneNumbers.find(p => p.isPrimary) || phoneNumbers[0];
-      if (primaryPhone) {
-        let normalizedPrimary = primaryPhone.phone.replace(/\D/g, '');
-        if (normalizedPrimary.length === 10 && normalizedPrimary.startsWith('9')) {
-          normalizedPrimary = '7' + normalizedPrimary;
-        }
-        if (normalizedPrimary.length === 11 && normalizedPrimary.startsWith('8')) {
-          normalizedPrimary = '7' + normalizedPrimary.slice(1);
-        }
+        });
         
-        const updateData: Record<string, unknown> = { phone: normalizedPrimary };
-        if (primaryPhone.isWhatsappEnabled && normalizedPrimary) {
-          updateData.whatsapp_id = `${normalizedPrimary}@c.us`;
-        }
+        const { error: insertError } = await supabase
+          .from('client_phone_numbers')
+          .insert(phonesToInsert);
         
-        await supabase
-          .from('clients')
-          .update(updateData)
-          .eq('id', memberId);
+        if (insertError) throw insertError;
+        
+        // Also update clients.phone with primary number
+        const primaryPhone = phoneNumbers.find(p => p.isPrimary) || phoneNumbers[0];
+        if (primaryPhone) {
+          let normalizedPrimary = primaryPhone.phone.replace(/\D/g, '');
+          if (normalizedPrimary.length === 10 && normalizedPrimary.startsWith('9')) {
+            normalizedPrimary = '7' + normalizedPrimary;
+          }
+          if (normalizedPrimary.length === 11 && normalizedPrimary.startsWith('8')) {
+            normalizedPrimary = '7' + normalizedPrimary.slice(1);
+          }
+          
+          const updateData: Record<string, unknown> = { phone: normalizedPrimary };
+          if (primaryPhone.isWhatsappEnabled && normalizedPrimary) {
+            updateData.whatsapp_id = `${normalizedPrimary}@c.us`;
+          }
+          
+          await supabase
+            .from('clients')
+            .update(updateData)
+            .eq('id', memberId);
+        }
       }
+      
+      toast.success('Контактные данные сохранены');
+      // Refresh family data
+      refetch();
+    } catch (error) {
+      console.error('Error updating phone numbers:', error);
+      toast.error('Не удалось сохранить номера телефонов');
     }
-    
-    // Refresh family data
-    refetch();
   };
 
   const handleContactSave = (contactData: any) => {
@@ -571,15 +584,20 @@ export const FamilyCard = ({
                   dateOfBirth: "1993-12-25",
                   branch: selectedBranch,
                   notes: "",
-                  phoneNumbers: activeMember.phoneNumbers.map(p => ({
-                    id: p.id,
-                    phone: p.phone,
-                    phoneType: (p.type as 'mobile' | 'work' | 'home' | 'other') || 'mobile',
-                    isPrimary: p.isPrimary,
-                    isWhatsappEnabled: p.isWhatsappEnabled,
-                    isTelegramEnabled: p.isTelegramEnabled,
-                    isMaxEnabled: p.isMaxEnabled ?? true,
-                  })) || []
+                  phoneNumbers: activeMember.phoneNumbers.map(p => {
+                    // Normalize phone for display
+                    const normalized = normalizePhone(p.phone);
+                    const displayPhone = normalized ? (formatPhoneForDisplay(normalized) || `+${normalized}`) : p.phone;
+                    return {
+                      id: p.id,
+                      phone: displayPhone,
+                      phoneType: (p.type as 'mobile' | 'work' | 'home' | 'other') || 'mobile',
+                      isPrimary: p.isPrimary,
+                      isWhatsappEnabled: p.isWhatsappEnabled,
+                      isTelegramEnabled: p.isTelegramEnabled,
+                      isMaxEnabled: p.isMaxEnabled ?? true,
+                    };
+                  }) || []
                 }}
                 clientTelegramId={activeMember.telegramUserId?.toString()}
                 clientMaxId={activeMember.maxChatId}

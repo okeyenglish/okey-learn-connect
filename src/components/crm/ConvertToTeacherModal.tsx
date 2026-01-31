@@ -8,7 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { GraduationCap, Loader2 } from 'lucide-react';
 import { useOrganization } from '@/hooks/useOrganization';
-
+import { normalizePhone, formatPhoneForDisplay } from '@/utils/phoneNormalization';
 interface ConvertToTeacherModalProps {
   open: boolean;
   onClose: () => void;
@@ -77,11 +77,15 @@ export function ConvertToTeacherModal({
           .maybeSingle();
         
         // Determine best phone: props > client_phone_numbers.phone > clients.phone
-        const bestPhone = clientPhone || phoneNumbers?.phone || clientData?.phone || '';
+        const rawPhone = clientPhone || phoneNumbers?.phone || clientData?.phone || '';
         const bestEmail = clientEmail || clientData?.email || '';
         const bestTelegramId = clientData?.telegram_user_id || '';
         
-        setPhone(bestPhone);
+        // Normalize phone - add +7 to 10-digit Russian numbers
+        const normalizedPhone = normalizePhone(rawPhone);
+        const displayPhone = normalizedPhone ? formatPhoneForDisplay(normalizedPhone) || `+${normalizedPhone}` : '';
+        
+        setPhone(displayPhone);
         setEmail(bestEmail);
         setTelegramId(bestTelegramId);
       };
