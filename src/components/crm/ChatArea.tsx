@@ -3096,9 +3096,9 @@ export const ChatArea = ({
             />
             
             {/* Bottom row: All icons fit screen on mobile */}
-            <div ref={composerRef} className="flex items-center gap-1 w-full overflow-hidden">
+            <div ref={composerRef} className="flex items-center gap-1 w-full">
               {/* Action icons - flex-shrink to fit available space */}
-              <div className="flex items-center gap-0.5 min-w-0 flex-shrink">
+              <div className="flex items-center gap-0.5 min-w-0 flex-1 overflow-hidden">
                 {/* Always visible: File upload */}
                 <FileUpload
                   ref={fileUploadRef}
@@ -3113,35 +3113,35 @@ export const ChatArea = ({
                   maxFiles={5}
                   maxSize={10}
                 />
-                {/* Quick responses - hidden on very small screens */}
-                <Button size="sm" variant="ghost" className="hidden xs:flex h-6 w-6 md:h-8 md:w-8 p-0" disabled={!!pendingMessage} onClick={() => setShowQuickResponsesModal(true)}>
+                {/* Quick responses - hidden on screens < 640px */}
+                <Button size="sm" variant="ghost" className="hidden sm:flex h-6 w-6 lg:h-8 lg:w-8 p-0 flex-shrink-0" disabled={!!pendingMessage} onClick={() => setShowQuickResponsesModal(true)}>
                   <Zap className="h-4 w-4" />
                 </Button>
-                {/* Comment mode - hidden on very small screens */}
+                {/* Comment mode - hidden on screens < 768px */}
                 <Button 
                   size="sm" 
                   variant="ghost" 
-                  className={`hidden sm:flex h-6 w-6 md:h-8 md:w-8 p-0 ${commentMode ? "bg-yellow-100 text-yellow-700" : ""}`}
+                  className={`hidden md:flex h-6 w-6 lg:h-8 lg:w-8 p-0 flex-shrink-0 ${commentMode ? "bg-yellow-100 text-yellow-700" : ""}`}
                   disabled={!!pendingMessage}
                   onClick={() => setCommentMode(!commentMode)}
                   title="Режим комментариев"
                 >
                   <MessageCircle className="h-4 w-4" />
                 </Button>
-                {/* Bot and Mic only for client chats - hidden on small screens */}
+                {/* Bot and Mic only for client chats - hidden on smaller screens */}
                 {!simplifiedToolbar && (
                   <>
                     <Button 
                       size="sm" 
                       variant="ghost" 
-                      className={`hidden sm:flex h-6 w-6 md:h-8 md:w-8 p-0 ${gptGenerating ? "bg-blue-100 text-blue-700" : ""}`}
+                      className={`hidden lg:flex h-6 w-6 lg:h-8 lg:w-8 p-0 flex-shrink-0 ${gptGenerating ? "bg-blue-100 text-blue-700" : ""}`}
                       disabled={!!pendingMessage || gptGenerating}
                       onClick={generateGPTResponse}
                       title="Генерировать ответ с помощью GPT"
                     >
                       <Bot className={`h-4 w-4 ${gptGenerating ? "animate-pulse" : ""}`} />
                     </Button>
-                    <Button size="sm" variant="ghost" className="hidden md:flex h-6 w-6 md:h-8 md:w-8 p-0" disabled={!!pendingMessage}>
+                    <Button size="sm" variant="ghost" className="hidden lg:flex h-6 w-6 lg:h-8 lg:w-8 p-0 flex-shrink-0" disabled={!!pendingMessage}>
                       <Mic className="h-4 w-4" />
                     </Button>
                   </>
@@ -3252,11 +3252,11 @@ export const ChatArea = ({
                 ) : (
                   <>
                     {/* Desktop: show all icons, Mobile: hide in dropdown */}
-                    {/* Payment link button - desktop only */}
+                    {/* Payment link button - visible on lg+ */}
                     <Button 
                       size="sm" 
                       variant="ghost" 
-                      className="hidden md:flex h-8 w-8 p-0"
+                      className="hidden lg:flex h-8 w-8 p-0 flex-shrink-0"
                       disabled={!!pendingMessage}
                       onClick={() => setShowPaymentLinkModal(true)}
                       title="Выставить счёт"
@@ -3264,7 +3264,7 @@ export const ChatArea = ({
                       <CreditCard className="h-4 w-4" />
                     </Button>
                     
-                    {/* Schedule message button - desktop only */}
+                    {/* Schedule message button - visible on lg+ */}
                     <Dialog open={showScheduleDialog} onOpenChange={(open) => {
                       setShowScheduleDialog(open);
                       if (!open) {
@@ -3279,7 +3279,7 @@ export const ChatArea = ({
                         <Button 
                           size="sm" 
                           variant="ghost" 
-                          className="hidden md:flex h-8 w-8 p-0"
+                          className="hidden lg:flex h-8 w-8 p-0 flex-shrink-0"
                           disabled={loading || !message.trim() || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
                         >
                           <Clock className="h-4 w-4" />
@@ -3328,14 +3328,14 @@ export const ChatArea = ({
                       </DialogContent>
                     </Dialog>
 
-                    {/* Scheduled messages button - desktop only */}
+                    {/* Scheduled messages button - visible on lg+ */}
                     {scheduledMessages.length > 0 && (
                       <Dialog open={showScheduledMessagesDialog} onOpenChange={setShowScheduledMessagesDialog}>
                         <DialogTrigger asChild>
                           <Button 
                             size="sm" 
                             variant="ghost" 
-                            className="hidden md:flex h-8 w-8 p-0 relative"
+                            className="hidden lg:flex h-8 w-8 p-0 relative flex-shrink-0"
                           >
                             <Calendar className="h-4 w-4" />
                             <Badge 
@@ -3419,76 +3419,82 @@ export const ChatArea = ({
                       <span>Поставить задачу</span>
                     </Button>
                     
-                    {/* Dropdown для действий - на md-lg экранах и мобильных */}
+                    {/* Dropdown для действий - видим на экранах < xl */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button 
                           size="sm" 
                           variant="ghost" 
-                          className="h-6 w-6 md:h-8 md:w-8 p-0 xl:hidden flex-shrink-0"
+                          className="h-6 w-6 lg:h-8 lg:w-8 p-0 xl:hidden flex-shrink-0"
                         >
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-52 bg-background z-50">
-                        {/* Show hidden icons on small screens */}
+                        {/* Быстрые ответы - видим в dropdown на экранах < sm (640px) */}
                         <DropdownMenuItem
                           onClick={() => setShowQuickResponsesModal(true)}
                           disabled={!!pendingMessage}
-                          className="flex items-center gap-2 xs:hidden"
+                          className="flex items-center gap-2 sm:hidden"
                         >
                           <Zap className="h-4 w-4" />
                           <span>Быстрые ответы</span>
                         </DropdownMenuItem>
+                        {/* Комментарий - видим в dropdown на экранах < md (768px) */}
                         <DropdownMenuItem
                           onClick={() => setCommentMode(!commentMode)}
                           disabled={!!pendingMessage}
-                          className={`flex items-center gap-2 sm:hidden ${commentMode ? "text-yellow-700" : ""}`}
+                          className={`flex items-center gap-2 md:hidden ${commentMode ? "text-yellow-700" : ""}`}
                         >
                           <MessageCircle className="h-4 w-4" />
                           <span>{commentMode ? "Выкл. комментарии" : "Комментарий"}</span>
                         </DropdownMenuItem>
+                        {/* GPT ответ - видим в dropdown на экранах < lg (1024px) */}
                         <DropdownMenuItem
                           onClick={generateGPTResponse}
                           disabled={!!pendingMessage || gptGenerating}
-                          className={`flex items-center gap-2 sm:hidden ${gptGenerating ? "text-blue-700" : ""}`}
+                          className={`flex items-center gap-2 lg:hidden ${gptGenerating ? "text-blue-700" : ""}`}
                         >
                           <Bot className={`h-4 w-4 ${gptGenerating ? "animate-pulse" : ""}`} />
                           <span>GPT ответ</span>
                         </DropdownMenuItem>
+                        {/* Голосовое - видим в dropdown на экранах < lg (1024px) */}
                         <DropdownMenuItem
                           disabled={!!pendingMessage}
-                          className="flex items-center gap-2 md:hidden"
+                          className="flex items-center gap-2 lg:hidden"
                         >
                           <Mic className="h-4 w-4" />
                           <span>Голосовое</span>
                         </DropdownMenuItem>
+                        {/* Выставить счёт - видим в dropdown на экранах < lg (1024px) */}
                         <DropdownMenuItem
                           onClick={() => setShowPaymentLinkModal(true)}
                           disabled={!!pendingMessage}
-                          className="flex items-center gap-2 md:hidden"
+                          className="flex items-center gap-2 lg:hidden"
                         >
                           <CreditCard className="h-4 w-4" />
                           <span>Выставить счёт</span>
                         </DropdownMenuItem>
-                        {/* Always shown in dropdown on non-xl screens */}
+                        {/* Запланировать - видим в dropdown на экранах < lg (1024px) */}
                         <DropdownMenuItem
                           onClick={() => message.trim() && setShowScheduleDialog(true)}
                           disabled={loading || !message.trim() || !!pendingMessage}
-                          className="flex items-center gap-2"
+                          className="flex items-center gap-2 lg:hidden"
                         >
                           <Clock className="h-4 w-4" />
                           <span>Запланировать</span>
                         </DropdownMenuItem>
+                        {/* Запланированные сообщения - видим в dropdown на экранах < lg (1024px) */}
                         {scheduledMessages.length > 0 && (
                           <DropdownMenuItem 
                             onClick={() => setShowScheduledMessagesDialog(true)}
-                            className="flex items-center gap-2"
+                            className="flex items-center gap-2 lg:hidden"
                           >
                             <Calendar className="h-4 w-4" />
                             <span>Запланированные ({scheduledMessages.length})</span>
                           </DropdownMenuItem>
                         )}
+                        {/* Не требует ответа - всегда видим в dropdown на экранах < xl */}
                         {isLastMessageIncoming && (
                           <DropdownMenuItem 
                             onClick={handleMarkAsNoResponseNeeded}
@@ -3499,6 +3505,7 @@ export const ChatArea = ({
                             <span>Не требует ответа</span>
                           </DropdownMenuItem>
                         )}
+                        {/* Поставить задачу - всегда видим в dropdown на экранах < xl */}
                         <DropdownMenuItem 
                           onClick={handleOpenTaskModalAndMarkRead}
                           disabled={!!pendingMessage}
