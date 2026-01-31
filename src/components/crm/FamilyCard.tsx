@@ -831,6 +831,10 @@ export const FamilyCard = ({
                       hollihopeId={hollihopeId}
                       courses={student.courses}
                       onClick={() => handleStudentClick(student)}
+                      onCourseClick={(courseId, courseName, courseType) => {
+                        setSelectedCourseId(courseId);
+                        setSelectedCourseType(courseType);
+                      }}
                     />
                   );
                 })}
