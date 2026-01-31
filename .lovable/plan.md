@@ -1,37 +1,127 @@
 
-# План: Обновление WhatsApp вебхуков для поддержки teacher_id
+# План: Оптимизация производительности CRM
 
-## ✅ ВЫПОЛНЕНО
+## Выявленные проблемы
 
-### Реализованные изменения
+### 1. Дублирование вызовов `fetchProfile` в useAuth
+**Причина**: При загрузке страницы происходит race condition:
+- `onAuthStateChange` слушатель срабатывает при инициализации
+- `getSession()` тоже вызывает `fetchProfile` если найдена сессия
+- Оба вызова происходят независимо, создавая 2x запросов к БД
 
-#### 1. whatsapp-webhook/index.ts (GreenAPI) ✅
-- `handleIncomingMessage` — добавлена проверка `teachers.whatsapp_id` перед созданием клиента
-- `handleOutgoingMessage` — добавлена проверка `teachers.whatsapp_id` перед созданием клиента
-- `handleIncomingReaction` — добавлена проверка для реакций от преподавателей
-- Добавлена функция `handleReactionMessageForTeacher` для обработки реакций с `teacher_id`
+**Текущий код (строки 187-292)**:
+```typescript
+// Listener - может вызвать fetchProfile
+onAuthStateChange(async (event, session) => {
+  if (session?.user) {
+    fetchProfile(session.user.id); // Вызов #1
+  }
+});
 
-#### 2. wpp-webhook/index.ts (WPP Connect) ✅
-- `handleIncomingMessage` — добавлена проверка `teachers.whatsapp_id` перед созданием клиента
-- Поддержка как входящих, так и исходящих сообщений (isFromMe)
+// Также вызывает fetchProfile
+getSession().then(({ session }) => {
+  if (session?.user) {
+    fetchProfile(session.user.id); // Вызов #2 - ДУБЛИКАТ!
+  }
+});
+```
 
-## Логика работы
+### 2. Отсутствие Circuit Breaker в usePostCallModeration
+**Причина**: При ошибках self-hosted сервера (500) хук продолжает поллинг каждые 10 секунд, создавая лишнюю нагрузку на сеть и UI.
 
-При входящем/исходящем сообщении в WhatsApp:
-1. **ПРИОРИТЕТ 1**: Проверить `teachers.whatsapp_id` по номеру телефона
-   - Если найден преподаватель → сохранить сообщение с `teacher_id`, без `client_id`
-2. **ПРИОРИТЕТ 2**: Если преподаватель не найден → стандартный flow с клиентом
+---
 
-## Результат
+## Решение
 
-Теперь ВСЕ три WhatsApp провайдера корректно атрибутируют сообщения:
-- ✅ `wappi-whatsapp-webhook` (Wappi)
-- ✅ `whatsapp-webhook` (GreenAPI)
-- ✅ `wpp-webhook` (WPP Connect)
+### Задача 1: Добавить флаг `isInitialized` в useAuth
 
-Новые входящие сообщения от преподавателей сразу попадут в папку "Преподаватели" и не будут создавать дубликаты клиентов.
+Добавить ref для отслеживания инициализации и предотвращения дублирования:
 
-## Деплой
+```typescript
+const isInitializedRef = useRef(false);
+const currentUserIdRef = useRef<string | null>(null);
 
-Функции будут автоматически задеплоены через GitHub Actions при push в main.
-Или можно задеплоить вручную по инструкции в `docs/migration/11-deploy-edge-functions-to-selfhosted.md`.
+// В onAuthStateChange:
+if (session?.user && !isInitializedRef.current) {
+  isInitializedRef.current = true;
+  currentUserIdRef.current = session.user.id;
+  fetchProfile(session.user.id);
+} else if (session?.user && currentUserIdRef.current !== session.user.id) {
+  // Только если сменился пользователь
+  currentUserIdRef.current = session.user.id;
+  fetchProfile(session.user.id);
+}
+
+// В getSession:
+if (session?.user && !isInitializedRef.current) {
+  isInitializedRef.current = true;
+  currentUserIdRef.current = session.user.id;
+  fetchProfile(session.user.id);
+}
+```
+
+### Задача 2: Добавить Circuit Breaker в usePostCallModeration
+
+Добавить механизм отключения поллинга после серии ошибок:
+
+```typescript
+const consecutiveErrorsRef = useRef(0);
+const circuitOpenUntilRef = useRef<number | null>(null);
+
+const CIRCUIT_BREAKER_THRESHOLD = 3;  // Количество ошибок до отключения
+const CIRCUIT_BREAKER_TIMEOUT = 5 * 60 * 1000; // 5 минут паузы
+
+const checkForEndedCalls = useCallback(async () => {
+  // Проверка circuit breaker
+  if (circuitOpenUntilRef.current && Date.now() < circuitOpenUntilRef.current) {
+    console.log('[usePostCallModeration] Circuit breaker open, skipping poll');
+    return;
+  }
+  
+  // Сброс circuit breaker если время вышло
+  if (circuitOpenUntilRef.current && Date.now() >= circuitOpenUntilRef.current) {
+    circuitOpenUntilRef.current = null;
+    consecutiveErrorsRef.current = 0;
+  }
+
+  try {
+    const response = await selfHostedPost(...);
+    
+    if (!response.success) {
+      consecutiveErrorsRef.current++;
+      if (consecutiveErrorsRef.current >= CIRCUIT_BREAKER_THRESHOLD) {
+        console.warn('[usePostCallModeration] Circuit breaker triggered');
+        circuitOpenUntilRef.current = Date.now() + CIRCUIT_BREAKER_TIMEOUT;
+      }
+      return;
+    }
+    
+    // Успешный запрос - сброс счётчика
+    consecutiveErrorsRef.current = 0;
+    // ... обработка данных
+  } catch (error) {
+    consecutiveErrorsRef.current++;
+    if (consecutiveErrorsRef.current >= CIRCUIT_BREAKER_THRESHOLD) {
+      circuitOpenUntilRef.current = Date.now() + CIRCUIT_BREAKER_TIMEOUT;
+    }
+  }
+}, [...]);
+```
+
+---
+
+## Файлы для изменения
+
+| Файл | Изменение |
+|------|-----------|
+| `src/hooks/useAuth.tsx` | Добавить `isInitializedRef` и `currentUserIdRef` для предотвращения дублирования вызовов `fetchProfile` |
+| `src/hooks/usePostCallModeration.ts` | Добавить circuit breaker с порогом 3 ошибки и паузой 5 минут |
+
+---
+
+## Ожидаемый результат
+
+После изменений:
+- `fetchProfile` вызывается **1 раз** вместо 4 при загрузке страницы
+- При недоступности self-hosted сервера поллинг автоматически приостанавливается на 5 минут
+- Снижение нагрузки на сеть и улучшение отзывчивости UI
