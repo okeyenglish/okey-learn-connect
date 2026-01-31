@@ -1,12 +1,30 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { ChatThread, UnreadByMessenger } from './useChatMessages';
-import { chatListQueryConfig } from '@/lib/queryConfig';
+import { chatListQueryConfig, threadsQueryConfig } from '@/lib/queryConfig';
 import { isGroupChatName, isTelegramGroup } from './useCommunityChats';
 import { useMemo, useCallback, useEffect } from 'react';
 import { useBulkAvatarFetch } from './useBulkAvatarFetch';
 
 const PAGE_SIZE = 50;
+const RPC_TIMEOUT_MS = 8000;
+const FALLBACK_RPC_TIMEOUT_MS = 5000;
+
+/**
+ * Helper function to add timeout to RPC calls
+ * Prevents infinite hanging when server is slow or unresponsive
+ */
+const rpcWithTimeout = async <T>(
+  rpcCall: () => Promise<{ data: T | null; error: any }>,
+  timeoutMs: number = RPC_TIMEOUT_MS
+): Promise<{ data: T | null; error: any }> => {
+  return Promise.race([
+    rpcCall(),
+    new Promise<{ data: null; error: Error }>((resolve) =>
+      setTimeout(() => resolve({ data: null, error: new Error(`RPC timeout after ${timeoutMs}ms`) }), timeoutMs)
+    )
+  ]);
+};
 
 interface RpcThreadRow {
   clt_id?: string;
@@ -69,22 +87,84 @@ export const useChatThreadsInfinite = () => {
     queryKey: ['chat-threads-infinite'],
     queryFn: async ({ pageParam = 0 }) => {
       const startTime = performance.now();
-      console.log(`[useChatThreadsInfinite] Loading page ${pageParam}, offset ${pageParam * PAGE_SIZE}...`);
+      console.log(`[useChatThreadsInfinite] Starting queryFn for page ${pageParam}...`);
 
-      const { data, error } = await supabase
-        .rpc('get_chat_threads_paginated', { 
-          p_limit: PAGE_SIZE + 1, // +1 to check if there are more
+      // Try primary RPC with timeout
+      const { data, error } = await rpcWithTimeout(
+        async () => supabase.rpc('get_chat_threads_paginated', { 
+          p_limit: PAGE_SIZE + 1,
           p_offset: pageParam * PAGE_SIZE 
-        });
+        }),
+        RPC_TIMEOUT_MS
+      );
 
       if (error) {
-        console.error('[useChatThreadsInfinite] RPC error:', error);
-        // Fallback to basic query
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .rpc('get_chat_threads_fast', { p_limit: PAGE_SIZE + 1 });
+        console.warn('[useChatThreadsInfinite] Primary RPC failed:', error.message);
         
-        if (fallbackError) throw fallbackError;
+        // Fallback 1: Try simpler RPC
+        console.log('[useChatThreadsInfinite] Trying fallback RPC get_chat_threads_fast...');
+        const { data: fallbackData, error: fallbackError } = await rpcWithTimeout(
+          async () => supabase.rpc('get_chat_threads_fast', { p_limit: PAGE_SIZE + 1 }),
+          FALLBACK_RPC_TIMEOUT_MS
+        );
+        
+        if (fallbackError) {
+          console.warn('[useChatThreadsInfinite] Fallback RPC failed:', fallbackError.message);
+          
+          // Fallback 2: Direct query as last resort
+          console.log('[useChatThreadsInfinite] Trying direct SQL fallback...');
+          const { data: directData, error: directError } = await supabase
+            .from('clients')
+            .select('id, name, first_name, last_name, middle_name, phone, branch')
+            .order('last_message_at', { ascending: false, nullsFirst: false })
+            .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE);
+          
+          if (directError) {
+            console.error('[useChatThreadsInfinite] All fallbacks failed:', directError.message);
+            // Return empty result instead of throwing to prevent infinite loading
+            return {
+              threads: [],
+              hasMore: false,
+              pageParam,
+              executionTime: performance.now() - startTime
+            };
+          }
+          
+          // Map direct query results to threads format
+          const directThreads: ChatThread[] = (directData || []).map((c: any) => ({
+            client_id: c.id,
+            client_name: c.name || `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Без имени',
+            first_name: c.first_name || null,
+            last_name: c.last_name || null,
+            middle_name: c.middle_name || null,
+            client_phone: c.phone || '',
+            client_branch: c.branch || null,
+            avatar_url: null,
+            telegram_avatar_url: null,
+            whatsapp_avatar_url: null,
+            max_avatar_url: null,
+            telegram_chat_id: null,
+            whatsapp_chat_id: null,
+            max_chat_id: null,
+            last_message: '',
+            last_message_time: undefined,
+            unread_count: 0,
+            unread_by_messenger: { whatsapp: 0, telegram: 0, max: 0, chatos: 0, email: 0, calls: 0 },
+            last_unread_messenger: null,
+            messages: []
+          }));
+          
+          console.log(`[useChatThreadsInfinite] ✅ Direct fallback: ${directThreads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
+          return {
+            threads: directThreads.slice(0, PAGE_SIZE),
+            hasMore: (directData?.length || 0) > PAGE_SIZE,
+            pageParam,
+            executionTime: performance.now() - startTime
+          };
+        }
+        
         const fallbackArray = (fallbackData || []) as RpcThreadRow[];
+        console.log(`[useChatThreadsInfinite] ✅ Fallback RPC: ${fallbackArray.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
         return {
           threads: mapRpcToThreads(fallbackArray.slice(0, PAGE_SIZE)),
           hasMore: fallbackArray.length > PAGE_SIZE,
@@ -111,7 +191,7 @@ export const useChatThreadsInfinite = () => {
       return lastPage.pageParam + 1;
     },
     initialPageParam: 0,
-    ...chatListQueryConfig,
+    ...threadsQueryConfig,
   });
 
   // Separate fast query for unread threads (always shown at top)
@@ -119,13 +199,16 @@ export const useChatThreadsInfinite = () => {
     queryKey: ['chat-threads-unread-priority'],
     queryFn: async () => {
       const startTime = performance.now();
-      console.log('[useChatThreadsInfinite] Loading priority unread threads...');
+      console.log('[useChatThreadsInfinite] Starting unread threads query...');
 
-      const { data, error } = await supabase
-        .rpc('get_unread_chat_threads', { p_limit: 50 });
+      const { data, error } = await rpcWithTimeout(
+        async () => supabase.rpc('get_unread_chat_threads', { p_limit: 50 }),
+        RPC_TIMEOUT_MS
+      );
 
       if (error) {
         console.warn('[useChatThreadsInfinite] Unread RPC failed:', error.message);
+        // Return empty array instead of throwing to prevent blocking
         return [];
       }
 
@@ -133,8 +216,7 @@ export const useChatThreadsInfinite = () => {
       console.log(`[useChatThreadsInfinite] ✅ Unread: ${threads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
       return threads;
     },
-    staleTime: 10000, // 10 seconds
-    refetchOnWindowFocus: false,
+    ...threadsQueryConfig,
   });
 
   // Set of deleted client IDs for fast lookup
@@ -275,6 +357,7 @@ function mapRpcToThreads(data: RpcThreadRow[]): ChatThread[] {
       whatsapp: Number(row.unread_whatsapp) || 0,
       telegram: Number(row.unread_telegram) || 0,
       max: Number(row.unread_max) || 0,
+      chatos: 0, // Not currently tracked in RPC
       email: Number(row.unread_email) || 0,
       calls: Number(row.unread_calls) || 0,
     } as UnreadByMessenger,

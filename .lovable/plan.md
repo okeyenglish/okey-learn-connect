@@ -1,93 +1,45 @@
-
 # План исправления бесконечной "Загрузки данных"
+
+## ✅ СТАТУС: РЕАЛИЗОВАНО
 
 ## Проблема
 
-На главной странице CRM индикатор "Загрузка данных..." остаётся бесконечно. Проблема вызвана тем, что один из хуков загрузки данных не завершается корректно.
-
-## Анализ причины
-
-Индикатор показывается когда выполняется условие:
-```javascript
-threadsLoading || pinnedLoading || chatStatesLoading || systemChatsLoading
-```
-
-Из анализа кода и логов консоли выявлено:
-
-1. **RPC-вызовы без таймаута** - в `useChatThreadsInfinite` вызовы к `get_chat_threads_paginated` и `get_unread_chat_threads` не имеют таймаута
-2. **Self-hosted сервер возвращает 500** - в логах видны ошибки `[selfHostedFetch] Retry 2/3 for bulk-fetch-avatars after 1626ms (status: 500)`
-3. **Отсутствие логов загрузки** - нет сообщений `[useChatThreadsInfinite] Loading page 0...`, что указывает на зависание RPC
-
-Если RPC-функция зависает (долгий запрос, нет индексов, перегрузка сервера), клиент будет ждать бесконечно, так как Supabase JS SDK не имеет встроенного таймаута.
+На главной странице CRM индикатор "Загрузка данных..." оставался бесконечно. Проблема была вызвана отсутствием таймаутов в RPC-вызовах.
 
 ## Решение
 
-### Шаг 1: Добавить таймауты к RPC в useChatThreadsInfinite
+### ✅ Шаг 1: Добавлены таймауты к RPC в useChatThreadsInfinite
 
-Изменить `src/hooks/useChatThreadsInfinite.ts`:
+- Создана helper функция `rpcWithTimeout` с дефолтным таймаутом 8 секунд
+- Применена к `get_chat_threads_paginated` и `get_unread_chat_threads`
 
-```text
-// Добавить helper функцию с таймаутом
-const rpcWithTimeout = async <T>(
-  rpcCall: () => Promise<{ data: T | null; error: any }>,
-  timeoutMs: number = 8000
-): Promise<{ data: T | null; error: any }> => {
-  return Promise.race([
-    rpcCall(),
-    new Promise<{ data: null; error: Error }>((resolve) =>
-      setTimeout(() => resolve({ data: null, error: new Error('RPC timeout') }), timeoutMs)
-    )
-  ]);
-};
-```
+### ✅ Шаг 2: Улучшена fallback логика
 
-Применить к обоим запросам:
-- `get_chat_threads_paginated` 
-- `get_unread_chat_threads`
+Реализована цепочка fallback:
+1. `get_chat_threads_paginated` (8s timeout)
+2. `get_chat_threads_fast` (5s timeout)  
+3. Прямой SELECT из `clients` как последний resort
 
-### Шаг 2: Улучшить fallback логику
+### ✅ Шаг 3: Добавлен retry конфиг
 
-Если RPC не отвечает или возвращает ошибку:
-1. Сначала попробовать `get_chat_threads_fast` (более простая RPC)
-2. Если и она не работает - fallback на прямой SELECT с LIMIT
+В `queryConfig.ts` добавлена конфигурация `threadsQueryConfig`:
+- `retry: 2` - максимум 2 retry
+- `retryDelay: 1000` - 1 секунда между retry
 
-```text
-// Fallback цепочка:
-1. get_chat_threads_paginated (8s timeout)
-2. get_chat_threads_fast (5s timeout)  
-3. Прямой SELECT из chat_messages + clients (последний resort)
-```
+### ✅ Шаг 4: Улучшено логирование
 
-### Шаг 3: Добавить retry с меньшим таймаутом
+Добавлены console.log для отслеживания начала запросов и fallback переключений.
 
-В конфигурации React Query для threads:
+## Изменённые файлы
 
-```text
-{
-  retry: 2,
-  retryDelay: 1000,
-  // staleTime и gcTime остаются
-}
-```
+1. `src/hooks/useChatThreadsInfinite.ts` - таймауты, fallback, логирование
+2. `src/lib/queryConfig.ts` - новая конфигурация `threadsQueryConfig`
 
-### Шаг 4: Логирование для диагностики
-
-Добавить console.log в начале queryFn для отслеживания того, что запрос начался:
-
-```text
-console.log('[useChatThreadsInfinite] Starting queryFn for page', pageParam);
-```
-
-## Файлы для изменения
-
-1. `src/hooks/useChatThreadsInfinite.ts` - добавить таймауты и fallback
-2. `src/lib/queryConfig.ts` - добавить retry настройки для критических запросов
-
-## Ожидаемый результат
+## Результат
 
 | Сценарий | До | После |
 |----------|-----|-------|
 | RPC работает | Загрузка ~500ms | Без изменений |
 | RPC зависает | Бесконечная загрузка | Таймаут 8s → fallback |
 | RPC отсутствует | Ошибка, retry бесконечно | Fallback на прямой SQL |
-| Сервер 500 | Бесконечные retry | 2 retry → показать пустой список |
+| Сервер 500 | Бесконечные retry | 2 retry → показать список или пустой |
