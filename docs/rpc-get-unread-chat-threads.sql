@@ -43,12 +43,12 @@ AS $$
     SELECT DISTINCT m.client_id
     FROM chat_messages m
     WHERE m.is_read = false 
-      AND m.direction = 'incoming'
+      AND m.is_outgoing = false
       AND m.client_id IS NOT NULL
     LIMIT p_limit * 2
   ),
   client_data AS (
-    SELECT 
+    SELECT
       c.id,
       c.name,
       c.first_name,
@@ -85,14 +85,14 @@ AS $$
         SELECT messenger FROM chat_messages m2 
         WHERE m2.client_id = m.client_id 
           AND m2.is_read = false 
-          AND m2.direction = 'incoming'
+          AND m2.is_outgoing = false
         ORDER BY m2.created_at DESC 
         LIMIT 1
       ) as last_messenger
     FROM chat_messages m
     WHERE m.client_id IN (SELECT client_id FROM clients_with_unread)
       AND m.is_read = false
-      AND m.direction = 'incoming'
+      AND m.is_outgoing = false
     GROUP BY m.client_id
   ),
   last_messages AS (
