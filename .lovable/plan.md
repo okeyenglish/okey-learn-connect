@@ -1,38 +1,95 @@
 
-# Оптимизация производительности CRM ✅
+# План: Оптимизация начальной загрузки CRM
 
-## 1. N+1 проблема с реакциями на сообщения ✅ ВЫПОЛНЕНО
+## Выявленные проблемы
 
-**Проблема:** Каждое сообщение делало отдельный запрос для получения реакций.  
-**Решение:** Batch-загрузка всех реакций одним запросом через `useBatchMessageReactions` и `ReactionsContext`.  
-**Результат:** 50+ запросов → 1-2 запроса
+### Проблема 1: Последовательная загрузка чанков в useChatStatesDB
+В строках 61-84 файла `useChatStatesDB.ts` чанки обрабатываются последовательно:
+```typescript
+for (let i = 0; i < currentChatIds.length; i += CHUNK_SIZE) {
+  const { data, error } = await supabase... // Последовательный await!
+}
+```
+При 200 чатах = 2 последовательных запроса вместо параллельных.
 
-## 2. Дублирование запросов ролей пользователя ✅ ВЫПОЛНЕНО
+### Проблема 2: Последовательная проверка permissions в useAuth
+В строках 159-168 файла `useAuth.tsx`:
+```typescript
+for (const perm of commonPermissions) {
+  const { data } = await supabase.rpc('user_has_permission', ...);
+  // 7 последовательных RPC вызовов!
+}
+```
 
-**Проблема:** `get_user_role` и `get_user_roles` вызывались многократно:
-- В `fetchProfile()` 
-- Повторно после fetchProfile на строке 207
-- В `Auth.tsx` независимо
+### Проблема 3: Каскадная зависимость загрузки
+Цепочка ожиданий:
+1. `useAuth` загружает user → 
+2. `useChatThreadsInfinite` загружает threads →
+3. `visibleChatIds` формируется →
+4. `useChatStatesDB` начинает загрузку
 
-**Решение:**
-- Удалён дублирующий вызов `get_user_role` после fetchProfile
-- Запросы `get_user_role` и `get_user_roles` теперь выполняются параллельно через `Promise.all`
-- Удалены debug console.log (30+ логов при загрузке)
+## Решение
 
-**Результат:** 6+ запросов ролей → 2 запроса (параллельных)
+### Задача 1: Параллельная загрузка чанков в useChatStatesDB
+Заменить последовательный `for` на `Promise.all`:
 
-## 3. Оптимизация ManagerMenu ✅ ВЫПОЛНЕНО
+```typescript
+// БЫЛО:
+for (let i = 0; i < currentChatIds.length; i += CHUNK_SIZE) {
+  const { data } = await supabase.from('chat_states')...
+}
 
-**Проблема:** 30+ ре-рендеров с console.log на каждый.  
-**Решение:** React.memo + useMemo для вычисления ролей.
+// СТАНЕТ:
+const chunks = [];
+for (let i = 0; i < currentChatIds.length; i += CHUNK_SIZE) {
+  chunks.push(currentChatIds.slice(i, i + CHUNK_SIZE));
+}
 
-## Файлы изменены
+const results = await Promise.all(
+  chunks.map(chunk => 
+    supabase.from('chat_states')
+      .select('chat_id, is_pinned, is_archived, is_unread')
+      .eq('user_id', user.id)
+      .in('chat_id', chunk)
+  )
+);
+```
+
+### Задача 2: Параллельная загрузка permissions в useAuth
+Заменить последовательный `for` на `Promise.all`:
+
+```typescript
+// БЫЛО:
+for (const perm of commonPermissions) {
+  const { data } = await supabase.rpc('user_has_permission', ...);
+}
+
+// СТАНЕТ:
+const permResults = await Promise.all(
+  commonPermissions.map(perm =>
+    supabase.rpc('user_has_permission', {
+      _user_id: userId,
+      _permission: perm.permission,
+      _resource: perm.resource
+    }).then(({ data }) => ({
+      key: `${perm.permission}:${perm.resource}`,
+      value: data || false
+    }))
+  )
+);
+```
+
+## Файлы для изменения
 
 | Файл | Изменение |
 |------|-----------|
-| `src/hooks/useBatchMessageReactions.ts` | Новый - batch-загрузка реакций |
-| `src/contexts/ReactionsContext.tsx` | Новый - контекст реакций |
-| `src/components/crm/MessageReactions.tsx` | Использует контекст |
-| `src/components/crm/ChatArea.tsx` | ReactionsProvider wrapper |
-| `src/hooks/useAuth.tsx` | Promise.all для ролей, без дублей |
-| `src/components/crm/ManagerMenu.tsx` | React.memo + useMemo |
+| `src/hooks/useChatStatesDB.ts` | Параллельная загрузка чанков через Promise.all |
+| `src/hooks/useAuth.tsx` | Параллельная проверка permissions через Promise.all |
+
+## Ожидаемый результат
+
+| Метрика | До | После |
+|---------|-----|-------|
+| Загрузка chat_states (2 чанка) | ~400мс (200+200) | ~200мс (параллельно) |
+| Загрузка permissions (7 RPC) | ~700мс | ~100мс |
+| Общее время "Загрузка данных..." | 1-2 сек | < 500мс |
