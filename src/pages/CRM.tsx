@@ -71,6 +71,8 @@ import { PinnableModalHeader, PinnableDialogContent } from "@/components/crm/Pin
 import { ManagerMenu } from "@/components/crm/ManagerMenu";
 import { MobileChatNavigation } from "@/components/crm/MobileChatNavigation";
 import { MobileNewChatModal } from "@/components/crm/MobileNewChatModal";
+import { PostCallModerationModal } from "@/components/crm/PostCallModerationModal";
+import { usePostCallModeration } from "@/hooks/usePostCallModeration";
 
 import { EducationSubmenu } from "@/components/learning-groups/EducationSubmenu";
 import { usePinnedModalsDB, PinnedModal } from "@/hooks/usePinnedModalsDB";
@@ -204,6 +206,9 @@ const CRMContent = () => {
   
   // Listen for missed call events and show notifications
   useMissedCallNotifications();
+  
+  // Post-call moderation modal - shows after manager's call ends
+  const postCallModeration = usePostCallModeration({ analysisDelay: 8000 });
   
   // Custom hooks for state management
   const modals = useCRMModals();
@@ -4668,6 +4673,14 @@ const CRMContent = () => {
       
       {/* WhatsApp Status Notification */}
       <WhatsAppStatusNotification />
+      
+      {/* Post-Call Moderation Modal */}
+      <PostCallModerationModal
+        callData={postCallModeration.callData}
+        open={postCallModeration.isModalOpen}
+        onOpenChange={postCallModeration.onOpenChange}
+        onConfirmed={postCallModeration.onConfirmed}
+      />
       </div>
     </TooltipProvider>
   );
