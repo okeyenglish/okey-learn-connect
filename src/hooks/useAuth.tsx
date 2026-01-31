@@ -1,9 +1,8 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { buildPermissionsForRoles, isAdmin, AppRole as RoleFromPerms } from '@/lib/permissions';
 import { setCachedUserId, clearAuthCache } from '@/lib/authHelpers';
-
 type AppRole = RoleFromPerms;
 
 interface Profile {
@@ -65,6 +64,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [rolesLoading, setRolesLoading] = useState(true);
   const [isRoleEmulation, setIsRoleEmulation] = useState(false);
   const [originalRoles, setOriginalRoles] = useState<AppRole[]>([]);
+  
+  // Refs to prevent duplicate fetchProfile calls
+  const isInitializedRef = useRef(false);
+  const currentUserIdRef = useRef<string | null>(null);
 
   const fetchProfile = async (userId: string) => {
     console.log('🔍 fetchProfile called for userId:', userId);
@@ -192,44 +195,57 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setUser(session?.user ?? null);
         
         if (session?.user && event === 'SIGNED_IN') {
-          // Defer profile fetching and navigation only on sign in
-          setTimeout(async () => {
-            await fetchProfile(session.user.id);
+          // Prevent duplicate fetchProfile - only fetch if not initialized or user changed
+          if (!isInitializedRef.current || currentUserIdRef.current !== session.user.id) {
+            isInitializedRef.current = true;
+            currentUserIdRef.current = session.user.id;
             
-            // Fetch user role to determine redirect only on first sign in
-            const { data: roleData } = await supabase
-              .rpc('get_user_role', { _user_id: session.user.id });
-            
-            // Only redirect if we're on auth page
-            const currentPath = window.location.pathname;
-            
-            console.log('User role on sign in:', roleData);
-            console.log('Current path:', currentPath);
-            
-            if (currentPath === '/auth') {
-              console.log('Redirecting to external CRM with encrypted SSO');
-              // Get fresh session for SSO redirect
-              const { data: { session: freshSession } } = await supabase.auth.getSession();
-              if (freshSession) {
-                // Encrypt tokens before redirect
-                try {
-                  const response = await fetch('https://api.academyos.ru/functions/v1/sso-encrypt', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${freshSession.access_token}`,
-                    },
-                    body: JSON.stringify({
-                      access_token: freshSession.access_token,
-                      refresh_token: freshSession.refresh_token,
-                    }),
-                  });
-                  
-                  if (response.ok) {
-                    const data = await response.json();
-                    const params = new URLSearchParams({ sso: data.encrypted });
-                    window.location.href = `https://crm.academyos.ru/auth/sso?${params.toString()}`;
-                  } else {
+            // Defer profile fetching and navigation only on sign in
+            setTimeout(async () => {
+              await fetchProfile(session.user.id);
+              
+              // Fetch user role to determine redirect only on first sign in
+              const { data: roleData } = await supabase
+                .rpc('get_user_role', { _user_id: session.user.id });
+              
+              // Only redirect if we're on auth page
+              const currentPath = window.location.pathname;
+              
+              console.log('User role on sign in:', roleData);
+              console.log('Current path:', currentPath);
+              
+              if (currentPath === '/auth') {
+                console.log('Redirecting to external CRM with encrypted SSO');
+                // Get fresh session for SSO redirect
+                const { data: { session: freshSession } } = await supabase.auth.getSession();
+                if (freshSession) {
+                  // Encrypt tokens before redirect
+                  try {
+                    const response = await fetch('https://api.academyos.ru/functions/v1/sso-encrypt', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${freshSession.access_token}`,
+                      },
+                      body: JSON.stringify({
+                        access_token: freshSession.access_token,
+                        refresh_token: freshSession.refresh_token,
+                      }),
+                    });
+                    
+                    if (response.ok) {
+                      const data = await response.json();
+                      const params = new URLSearchParams({ sso: data.encrypted });
+                      window.location.href = `https://crm.academyos.ru/auth/sso?${params.toString()}`;
+                    } else {
+                      // Fallback to unencrypted
+                      const params = new URLSearchParams({
+                        access_token: freshSession.access_token,
+                        refresh_token: freshSession.refresh_token,
+                      });
+                      window.location.href = `https://crm.academyos.ru/auth/sso?${params.toString()}`;
+                    }
+                  } catch {
                     // Fallback to unencrypted
                     const params = new URLSearchParams({
                       access_token: freshSession.access_token,
@@ -237,25 +253,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                     });
                     window.location.href = `https://crm.academyos.ru/auth/sso?${params.toString()}`;
                   }
-                } catch {
-                  // Fallback to unencrypted
-                  const params = new URLSearchParams({
-                    access_token: freshSession.access_token,
-                    refresh_token: freshSession.refresh_token,
-                  });
-                  window.location.href = `https://crm.academyos.ru/auth/sso?${params.toString()}`;
+                } else {
+                  window.location.href = 'https://crm.academyos.ru/';
                 }
-              } else {
-                window.location.href = 'https://crm.academyos.ru/';
               }
-            }
-          }, 0);
+            }, 0);
+          }
         } else if (session?.user) {
-          // Just fetch profile without redirect
-          setTimeout(() => {
-            fetchProfile(session.user.id);
-          }, 0);
+          // Prevent duplicate fetchProfile - only fetch if not initialized or user changed
+          if (!isInitializedRef.current || currentUserIdRef.current !== session.user.id) {
+            isInitializedRef.current = true;
+            currentUserIdRef.current = session.user.id;
+            // Just fetch profile without redirect
+            setTimeout(() => {
+              fetchProfile(session.user.id);
+            }, 0);
+          }
         } else {
+          // User logged out - reset initialization state
+          isInitializedRef.current = false;
+          currentUserIdRef.current = null;
           setProfile(null);
           setRole(null);
           setRoles([]);
@@ -278,8 +295,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setSession(session);
       setUser(session?.user ?? null);
       
-      if (session?.user) {
+      // Only fetch profile if not already initialized (prevents race condition with onAuthStateChange)
+      if (session?.user && !isInitializedRef.current) {
         console.log('🔐 getSession: existing session found, fetching profile...');
+        isInitializedRef.current = true;
+        currentUserIdRef.current = session.user.id;
         setTimeout(() => {
           fetchProfile(session.user.id);
         }, 0);
