@@ -1,6 +1,13 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { User, ExternalLink } from "lucide-react";
+import { User, ExternalLink, BookOpen } from "lucide-react";
+
+interface Course {
+  id: string;
+  name: string;
+  nextLesson?: string;
+  isActive: boolean;
+}
 
 interface StudentInfoBlockProps {
   firstName: string;
@@ -8,6 +15,7 @@ interface StudentInfoBlockProps {
   age?: number | null;
   status: string;
   hollihopeId?: string | null;
+  courses?: Course[];
   onClick?: () => void;
 }
 
@@ -44,6 +52,7 @@ export const StudentInfoBlock = ({
   age,
   status,
   hollihopeId,
+  courses = [],
   onClick,
 }: StudentInfoBlockProps) => {
   // Определяем тип ссылки: лиды (trial, not_started) идут в /Lead/, остальные в /Profile/
@@ -59,38 +68,60 @@ export const StudentInfoBlock = ({
     }
   };
 
+  // Filter active courses only
+  const activeCourses = courses.filter(c => c.isActive);
+
   return (
     <div
-      className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+      className="p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
       onClick={onClick}
     >
-      <User className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-      
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <span className="font-medium truncate">{firstName || 'Без имени'}</span>
+      <div className="flex items-center gap-3">
+        <User className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+        
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <span className="font-medium truncate">{firstName || 'Без имени'}</span>
+        </div>
+
+        {age != null && (
+          <div className="px-2 py-1 border rounded text-sm font-medium text-center min-w-[50px]">
+            {age}
+            <span className="text-xs text-muted-foreground ml-1">лет</span>
+          </div>
+        )}
+
+        <Badge variant="secondary" className={getStatusStyle(status)}>
+          {getStatusLabel(status)}
+        </Badge>
+
+        {holyHopeUrl && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 p-0 flex-shrink-0"
+            onClick={handleHolyHopeClick}
+            title="Открыть в HolyHope"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
-      {age != null && (
-        <div className="px-2 py-1 border rounded text-sm font-medium text-center min-w-[50px]">
-          {age}
-          <span className="text-xs text-muted-foreground ml-1">лет</span>
+      {/* Active courses */}
+      {activeCourses.length > 0 && (
+        <div className="mt-2 pl-8 space-y-1">
+          {activeCourses.map((course) => (
+            <div key={course.id} className="flex items-center gap-2 text-sm text-muted-foreground">
+              <BookOpen className="h-3.5 w-3.5 flex-shrink-0" />
+              <span className="truncate">{course.name}</span>
+              {course.nextLesson && (
+                <span className="text-xs text-muted-foreground/70 flex-shrink-0">
+                  • {course.nextLesson}
+                </span>
+              )}
+            </div>
+          ))}
         </div>
-      )}
-
-      <Badge variant="secondary" className={getStatusStyle(status)}>
-        {getStatusLabel(status)}
-      </Badge>
-
-      {holyHopeUrl && (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 w-7 p-0 flex-shrink-0"
-          onClick={handleHolyHopeClick}
-          title="Открыть в HolyHope"
-        >
-          <ExternalLink className="h-4 w-4" />
-        </Button>
       )}
     </div>
   );
