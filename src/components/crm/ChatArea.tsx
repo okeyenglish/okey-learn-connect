@@ -65,6 +65,7 @@ interface ChatAreaProps {
   clientName: string;
   clientPhone: string;
   clientTelegramUserId?: string | number | null; // Telegram user ID for context-aware display
+  clientMaxId?: string | null; // MAX chat ID for context-aware display
   clientComment?: string;
   onMessageChange?: (hasUnsaved: boolean) => void;
   activePhoneId?: string;
@@ -97,6 +98,7 @@ export const ChatArea = ({
   clientName, 
   clientPhone, 
   clientTelegramUserId,
+  clientMaxId,
   clientComment = "Базовый комментарий", 
   onMessageChange, 
   activePhoneId = '1', 
@@ -2010,6 +2012,8 @@ export const ChatArea = ({
                 <p className="text-xs text-muted-foreground truncate">
                   {activeMessengerTab === 'telegram' && clientTelegramUserId 
                     ? `ID: ${clientTelegramUserId}` 
+                    : activeMessengerTab === 'max' && clientMaxId
+                    ? `MAX ID: ${clientMaxId}`
                     : formatPhoneForDisplay(clientPhone)}
                 </p>
                 {isOtherUserTyping && typingInfo && (
@@ -2116,6 +2120,8 @@ export const ChatArea = ({
                 <p className="text-sm text-muted-foreground">
                   {activeMessengerTab === 'telegram' && clientTelegramUserId 
                     ? `ID: ${clientTelegramUserId}` 
+                    : activeMessengerTab === 'max' && clientMaxId
+                    ? `MAX ID: ${clientMaxId}`
                     : formatPhoneForDisplay(clientPhone)}
                 </p>
               </div>
