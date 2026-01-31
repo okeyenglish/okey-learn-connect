@@ -43,6 +43,7 @@ export interface PhoneNumberData {
   isPrimary: boolean;
   isWhatsappEnabled?: boolean;
   isTelegramEnabled?: boolean;
+  isMaxEnabled?: boolean;
   whatsappChatId?: string | null;
   telegramChatId?: string | null;
   telegramUserId?: number | null;
@@ -233,7 +234,7 @@ export const ContactInfoBlock = ({
       return phoneNumber.isTelegramEnabled || !!phoneNumber.telegramChatId || !!phoneNumber.telegramUserId || !!clientTelegramChatId || !!clientTelegramUserId;
     }
     if (messenger === 'max') {
-      return !!phoneNumber.maxChatId || !!clientMaxChatId;
+      return phoneNumber.isMaxEnabled || !!phoneNumber.maxChatId || !!clientMaxChatId;
     }
     
     return false;
