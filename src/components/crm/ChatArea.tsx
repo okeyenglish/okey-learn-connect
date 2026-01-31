@@ -32,6 +32,7 @@ import { QuickResponsesModal } from "./QuickResponsesModal";
 import { FileUpload, FileUploadRef } from "./FileUpload";
 import { AttachedFile } from "./AttachedFile";
 import { ChatGalleryProvider } from "./ChatGalleryContext";
+import { ReactionsProvider } from "@/contexts/ReactionsContext";
 import { InlinePendingGPTResponse } from "./InlinePendingGPTResponse";
 import { TextFormatToolbar } from "./TextFormatToolbar";
 import { CallHistory } from "./CallHistory";
@@ -754,6 +755,12 @@ export const ChatArea = ({
     if (!messagesData?.messages) return [];
     return messagesData.messages.map(formatMessage);
   }, [messagesData?.messages, formatMessage]);
+
+  // Мемоизируем ID сообщений для batch-загрузки реакций (устраняет N+1 проблему)
+  const messageIds = useMemo(
+    () => messages.map(m => m.id).filter(Boolean),
+    [messages]
+  );
 
   // Load older messages handler - just increases limit, React Query handles the rest
   const loadOlderMessages = useCallback(() => {
@@ -1962,6 +1969,7 @@ export const ChatArea = ({
 
   return (
     <ChatGalleryProvider>
+      <ReactionsProvider messageIds={messageIds}>
       <div 
         className="flex-1 bg-background flex flex-col min-w-0 min-h-0 relative"
         onDragOver={(e) => {
@@ -3612,6 +3620,7 @@ export const ChatArea = ({
       />
 
       </div>
+      </ReactionsProvider>
     </ChatGalleryProvider>
   );
 };

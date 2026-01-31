@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useGroupedReactions, useAddReaction, useRemoveReaction } from "@/hooks/useMessageReactions";
+import { useMessageReactionsFromContext } from "@/contexts/ReactionsContext";
+import { useBatchAddReaction, useBatchRemoveReaction } from "@/hooks/useBatchMessageReactions";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -19,16 +20,17 @@ export const MessageReactions = ({ messageId, showAddButton = true, className }:
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const { user } = useAuth();
   
-  const { data: groupedReactions, isLoading } = useGroupedReactions(messageId);
-  const addReactionMutation = useAddReaction();
-  const removeReactionMutation = useRemoveReaction();
+  // Используем контекст вместо индивидуального запроса (устраняет N+1 проблему)
+  const { groupedReactions, isLoading } = useMessageReactionsFromContext(messageId);
+  const addReactionMutation = useBatchAddReaction();
+  const removeReactionMutation = useBatchRemoveReaction();
 
   const handleEmojiClick = async (emoji: string) => {
     try {
       const myUserId = user?.id;
 
       // Проверяем, есть ли какая-то реакция текущего пользователя
-      const myReactionGroup = groupedReactions?.find(r =>
+      const myReactionGroup = groupedReactions.find(r =>
         r.users.some(u => u.type === 'manager' && u.id === myUserId)
       );
 
@@ -59,7 +61,7 @@ export const MessageReactions = ({ messageId, showAddButton = true, className }:
       className
     )}>
       {/* Отображение существующих реакций */}
-      {groupedReactions?.map((reaction) => (
+      {groupedReactions.map((reaction) => (
         <TooltipProvider key={reaction.emoji}>
           <Tooltip>
             <TooltipTrigger asChild>
