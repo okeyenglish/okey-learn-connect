@@ -795,16 +795,32 @@ export default function HolihopeImport() {
         const result = await executeStep(step, batchParams);
         console.log('Initial batch result:', result);
         
-        if (!result.success) {
-          toast({
-            title: 'Ошибка запуска импорта',
-            description: result.message || 'Не удалось запустить импорт',
-            variant: 'destructive',
-          });
-          setIsImporting(false);
-          setShouldStopImport(false);
-          return;
-        }
+         if (!result.success) {
+           // executeStep already shows a destructive toast for real errors.
+           // For transient/timeout scenarios, the import may still be running on the server,
+           // so we should switch to polling instead of showing "failed to launch".
+           if (result.alreadyRunning) {
+             toast({
+               title: 'Импорт уже выполняется',
+               description:
+                 result.lastUpdatedSecondsAgo !== undefined
+                   ? `Последнее обновление прогресса: ~${result.lastUpdatedSecondsAgo} сек назад. Продолжаю отслеживание…`
+                   : 'Импорт уже запущен. Продолжаю отслеживание прогресса…',
+             });
+             setPollInterval(3000);
+           } else if (result.timeout || result.transient) {
+             toast({
+               title: 'Импорт запускается',
+               description:
+                 'Соединение прервалось на старте. Если сервер запустил импорт — прогресс появится в течение 10–30 секунд. Продолжаю отслеживание…',
+             });
+             setPollInterval(3000);
+           }
+
+           setIsImporting(false);
+           setShouldStopImport(false);
+           return;
+         }
         
         const progress = result.progress;
         const stats = result.stats;
