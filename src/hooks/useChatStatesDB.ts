@@ -57,19 +57,28 @@ export const useChatStatesDB = (chatIds?: string[]) => {
         return;
       }
 
-      // Process in chunks to avoid URL overflow
+      // Build chunks array
+      const chunks: string[][] = [];
       for (let i = 0; i < currentChatIds.length; i += CHUNK_SIZE) {
-        const chunk = currentChatIds.slice(i, i + CHUNK_SIZE);
-        
-        const { data, error } = await supabase
-          .from('chat_states')
-          .select('chat_id, is_pinned, is_archived, is_unread')
-          .eq('user_id', user.id)
-          .in('chat_id', chunk);
+        chunks.push(currentChatIds.slice(i, i + CHUNK_SIZE));
+      }
 
+      // Process all chunks in PARALLEL
+      const results = await Promise.all(
+        chunks.map(chunk =>
+          supabase
+            .from('chat_states')
+            .select('chat_id, is_pinned, is_archived, is_unread')
+            .eq('user_id', user.id)
+            .in('chat_id', chunk)
+        )
+      );
+
+      // Merge results from all chunks
+      results.forEach(({ data, error }) => {
         if (error) {
           console.error('Error loading chat states chunk:', error);
-          continue;
+          return;
         }
 
         const rows = (data || []) as ChatStateRow[];
@@ -81,7 +90,7 @@ export const useChatStatesDB = (chatIds?: string[]) => {
             isUnread: state.is_unread
           };
         });
-      }
+      });
 
       setChatStates(statesMap);
     } catch (error) {

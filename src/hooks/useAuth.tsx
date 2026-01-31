@@ -154,18 +154,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         { permission: 'view', resource: 'reports' },
       ];
       
-      const permissionsMap: Record<string, boolean> = {};
+      // Load all permissions in PARALLEL instead of sequentially
+      const permResults = await Promise.all(
+        commonPermissions.map(perm =>
+          supabase
+            .rpc('user_has_permission', { 
+              _user_id: userId, 
+              _permission: perm.permission, 
+              _resource: perm.resource 
+            })
+            .then(({ data }) => ({
+              key: `${perm.permission}:${perm.resource}`,
+              value: data || false
+            }))
+        )
+      );
       
-      for (const perm of commonPermissions) {
-        const { data } = await supabase
-          .rpc('user_has_permission', { 
-            _user_id: userId, 
-            _permission: perm.permission, 
-            _resource: perm.resource 
-          });
-        
-        permissionsMap[`${perm.permission}:${perm.resource}`] = data || false;
-      }
+      const permissionsMap: Record<string, boolean> = {};
+      permResults.forEach(({ key, value }) => {
+        permissionsMap[key] = value;
+      });
       
       const staticMap = buildPermissionsForRoles(userRoles);
       setPermissions({ ...staticMap, ...permissionsMap });
