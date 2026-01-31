@@ -10,6 +10,17 @@ const PAGE_SIZE = 50;
 const RPC_TIMEOUT_MS = 8000;
 const FALLBACK_RPC_TIMEOUT_MS = 5000;
 
+// Cache RPC availability (self-hosted may not have latest RPC deployed)
+let paginatedRpcAvailable: boolean | null = null;
+let fastRpcAvailable: boolean | null = null;
+let unreadRpcAvailable: boolean | null = null;
+
+const isFunctionMissingError = (message?: string) => {
+  if (!message) return false;
+  const m = message.toLowerCase();
+  return (m.includes('function') && m.includes('does not exist')) || m.includes('could not find the function');
+};
+
 /**
  * Helper function to add timeout to RPC calls
  * Prevents infinite hanging when server is slow or unresponsive
@@ -89,35 +100,50 @@ export const useChatThreadsInfinite = () => {
       const startTime = performance.now();
       console.log(`[useChatThreadsInfinite] Starting queryFn for page ${pageParam}...`);
 
-      // Try primary RPC with timeout
-      const { data, error } = await rpcWithTimeout(
-        async () => supabase.rpc('get_chat_threads_paginated', { 
-          p_limit: PAGE_SIZE + 1,
-          p_offset: pageParam * PAGE_SIZE 
-        }),
-        RPC_TIMEOUT_MS
-      );
+      // Try primary RPC with timeout (if available)
+      const primary = paginatedRpcAvailable === false
+        ? { data: null, error: new Error('RPC disabled (missing)') }
+        : await rpcWithTimeout(
+            async () => supabase.rpc('get_chat_threads_paginated', {
+              p_limit: PAGE_SIZE + 1,
+              p_offset: pageParam * PAGE_SIZE,
+            }),
+            RPC_TIMEOUT_MS
+          );
+
+      const { data, error } = primary;
 
       if (error) {
+        if (isFunctionMissingError(error.message)) {
+          paginatedRpcAvailable = false;
+        }
         console.warn('[useChatThreadsInfinite] Primary RPC failed:', error.message);
         
         // Fallback 1: Try simpler RPC
         console.log('[useChatThreadsInfinite] Trying fallback RPC get_chat_threads_fast...');
-        const { data: fallbackData, error: fallbackError } = await rpcWithTimeout(
-          async () => supabase.rpc('get_chat_threads_fast', { p_limit: PAGE_SIZE + 1 }),
-          FALLBACK_RPC_TIMEOUT_MS
-        );
+        const fast = fastRpcAvailable === false
+          ? { data: null, error: new Error('RPC disabled (missing)') }
+          : await rpcWithTimeout(
+              async () => supabase.rpc('get_chat_threads_fast', { p_limit: PAGE_SIZE + 1 }),
+              FALLBACK_RPC_TIMEOUT_MS
+            );
+
+        const { data: fallbackData, error: fallbackError } = fast;
         
         if (fallbackError) {
+          if (isFunctionMissingError(fallbackError.message)) {
+            fastRpcAvailable = false;
+          }
           console.warn('[useChatThreadsInfinite] Fallback RPC failed:', fallbackError.message);
           
           // Fallback 2: Direct query as last resort
           console.log('[useChatThreadsInfinite] Trying direct SQL fallback...');
           const { data: directData, error: directError } = await supabase
             .from('clients')
-            .select('id, name, first_name, last_name, middle_name, phone, branch')
+            .select('id, name, first_name, last_name, middle_name, phone, branch, last_message_at')
             .order('last_message_at', { ascending: false, nullsFirst: false })
-            .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE);
+            // range is inclusive, so use -1 to get exactly PAGE_SIZE rows
+            .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1);
           
           if (directError) {
             console.error('[useChatThreadsInfinite] All fallbacks failed:', directError.message);
@@ -128,6 +154,37 @@ export const useChatThreadsInfinite = () => {
               pageParam,
               executionTime: performance.now() - startTime
             };
+          }
+
+          const clientIds = (directData || []).map((c: any) => c.id).filter(Boolean);
+
+          // Best-effort last-message fetch to avoid "Invalid Date" / empty previews
+          let lastMessageByClientId = new Map<string, { text: string; created_at?: string }>();
+          if (clientIds.length > 0) {
+            try {
+              const { data: lastMsgs, error: lastMsgError } = await supabase
+                .from('chat_messages')
+                .select('client_id, message_text, created_at')
+                .in('client_id', clientIds)
+                .order('created_at', { ascending: false })
+                // fetch some headroom; we'll take first per client
+                .limit(PAGE_SIZE * 10);
+
+              if (lastMsgError) {
+                console.warn('[useChatThreadsInfinite] Last messages fallback failed:', lastMsgError.message);
+              } else {
+                for (const m of (lastMsgs || []) as any[]) {
+                  const cid = m.client_id;
+                  if (!cid || lastMessageByClientId.has(cid)) continue;
+                  lastMessageByClientId.set(cid, {
+                    text: m.message_text || '',
+                    created_at: m.created_at,
+                  });
+                }
+              }
+            } catch (e) {
+              console.warn('[useChatThreadsInfinite] Last messages fallback threw:', e);
+            }
           }
           
           // Map direct query results to threads format
@@ -146,8 +203,8 @@ export const useChatThreadsInfinite = () => {
             telegram_chat_id: null,
             whatsapp_chat_id: null,
             max_chat_id: null,
-            last_message: '',
-            last_message_time: undefined,
+            last_message: lastMessageByClientId.get(c.id)?.text || '',
+            last_message_time: lastMessageByClientId.get(c.id)?.created_at || c.last_message_at || undefined,
             unread_count: 0,
             unread_by_messenger: { whatsapp: 0, telegram: 0, max: 0, chatos: 0, email: 0, calls: 0 },
             last_unread_messenger: null,
@@ -164,6 +221,7 @@ export const useChatThreadsInfinite = () => {
         }
         
         const fallbackArray = (fallbackData || []) as RpcThreadRow[];
+        fastRpcAvailable = true;
         console.log(`[useChatThreadsInfinite] ✅ Fallback RPC: ${fallbackArray.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
         return {
           threads: mapRpcToThreads(fallbackArray.slice(0, PAGE_SIZE)),
@@ -174,6 +232,7 @@ export const useChatThreadsInfinite = () => {
       }
 
       const dataArray = (data || []) as RpcThreadRow[];
+      paginatedRpcAvailable = true;
       const hasMore = dataArray.length > PAGE_SIZE;
       const threads = mapRpcToThreads(dataArray.slice(0, PAGE_SIZE));
       
@@ -201,6 +260,8 @@ export const useChatThreadsInfinite = () => {
       const startTime = performance.now();
       console.log('[useChatThreadsInfinite] Starting unread threads query...');
 
+      if (unreadRpcAvailable === false) return [];
+
       const { data, error } = await rpcWithTimeout(
         async () => supabase.rpc('get_unread_chat_threads', { p_limit: 50 }),
         RPC_TIMEOUT_MS
@@ -208,9 +269,14 @@ export const useChatThreadsInfinite = () => {
 
       if (error) {
         console.warn('[useChatThreadsInfinite] Unread RPC failed:', error.message);
+        if (isFunctionMissingError(error.message)) {
+          unreadRpcAvailable = false;
+        }
         // Return empty array instead of throwing to prevent blocking
         return [];
       }
+
+      unreadRpcAvailable = true;
 
       const threads = mapRpcToThreads((data || []) as RpcThreadRow[]);
       console.log(`[useChatThreadsInfinite] ✅ Unread: ${threads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
