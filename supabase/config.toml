@@ -443,3 +443,6 @@ verify_jwt = true
 
 [functions.conversation-analytics]
 verify_jwt = true
+
+[functions.semantic-search-conversations]
+verify_jwt = true
