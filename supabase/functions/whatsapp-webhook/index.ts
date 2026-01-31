@@ -181,9 +181,7 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook, organizationId: s
 
   const chatId = senderData.chatId
   const phoneNumber = extractPhoneFromChatId(chatId)
-  
-  // Находим или создаем клиента
-  let client = await findOrCreateClient(phoneNumber, senderData.senderName || senderData.sender, organizationId)
+  const whatsappId = phoneNumber // normalized phone number for teacher lookup
   
   // Определяем тип и содержимое сообщения
   let messageText = ''
@@ -197,9 +195,9 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook, organizationId: s
       break
       
     case 'reactionMessage':
-      // Обработка эмодзи реакций от клиентов
-      await handleReactionMessage(webhook, client)
-      return
+      // Обработка эмодзи реакций - нужен client для handleReactionMessage
+      // Это обрабатывается отдельно ниже
+      break
       
     case 'imageMessage':
     case 'videoMessage':
@@ -260,6 +258,65 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook, organizationId: s
       break
     default:
       messageText = `[${messageData.typeMessage}]`
+  }
+
+  // ========== PRIORITY 1: Check if sender is a TEACHER by whatsapp_id ==========
+  const { data: teacherData, error: teacherError } = await supabase
+    .from('teachers')
+    .select('id, first_name, last_name')
+    .eq('organization_id', organizationId)
+    .eq('whatsapp_id', whatsappId)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (teacherError) {
+    console.error('Error checking teacher by whatsapp_id:', teacherError)
+  }
+
+  if (teacherData) {
+    console.log(`Found teacher by whatsapp_id: ${teacherData.first_name} ${teacherData.last_name || ''} (ID: ${teacherData.id})`)
+    
+    // Handle reaction message for teacher
+    if (messageData.typeMessage === 'reactionMessage') {
+      await handleReactionMessageForTeacher(webhook, teacherData.id, organizationId)
+      return
+    }
+    
+    // Save message with teacher_id (NOT client_id)
+    const { error: msgError } = await supabase.from('chat_messages').insert({
+      teacher_id: teacherData.id,
+      client_id: null,
+      organization_id: organizationId,
+      message_text: messageText,
+      message_type: 'client',
+      messenger_type: 'whatsapp',
+      message_status: 'delivered',
+      external_message_id: idMessage,
+      is_outgoing: false,
+      is_read: false,
+      file_url: fileUrl,
+      file_name: fileName,
+      file_type: fileType,
+      created_at: new Date(webhook.timestamp * 1000).toISOString()
+    })
+
+    if (msgError) {
+      console.error('Error saving teacher message:', msgError)
+      throw msgError
+    }
+
+    console.log(`Saved incoming teacher message from ${phoneNumber}: ${messageText}`)
+    return // Exit early - don't create client
+  }
+
+  // ========== PRIORITY 2: Normal client flow ==========
+  // Находим или создаем клиента
+  let client = await findOrCreateClient(phoneNumber, senderData.senderName || senderData.sender, organizationId)
+  
+  // Handle reaction message for client
+  if (messageData.typeMessage === 'reactionMessage') {
+    await handleReactionMessage(webhook, client)
+    return
   }
 
   // Сохраняем сообщение в базу данных
@@ -397,9 +454,7 @@ async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: s
 
   const chatId = senderData.chatId
   const phoneNumber = extractPhoneFromChatId(chatId)
-  
-  // Находим или создаем клиента
-  let client = await findOrCreateClient(phoneNumber, senderData.chatName, organizationId)
+  const whatsappId = phoneNumber // normalized phone number for teacher lookup
   
   // Определяем тип и содержимое сообщения
   let messageText = ''
@@ -446,6 +501,53 @@ async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: s
     default:
       messageText = `[${messageData.typeMessage}]`
   }
+
+  // ========== PRIORITY 1: Check if recipient is a TEACHER by whatsapp_id ==========
+  const { data: teacherData, error: teacherError } = await supabase
+    .from('teachers')
+    .select('id, first_name, last_name')
+    .eq('organization_id', organizationId)
+    .eq('whatsapp_id', whatsappId)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (teacherError) {
+    console.error('Error checking teacher by whatsapp_id:', teacherError)
+  }
+
+  if (teacherData) {
+    console.log(`Found teacher by whatsapp_id: ${teacherData.first_name} ${teacherData.last_name || ''} (ID: ${teacherData.id})`)
+    
+    // Save outgoing message with teacher_id (NOT client_id)
+    const { error: msgError } = await supabase.from('chat_messages').insert({
+      teacher_id: teacherData.id,
+      client_id: null,
+      organization_id: organizationId,
+      message_text: messageText,
+      message_type: 'manager',
+      messenger_type: 'whatsapp',
+      message_status: 'sent',
+      external_message_id: idMessage,
+      is_outgoing: true,
+      is_read: true,
+      file_url: fileUrl,
+      file_name: fileName,
+      file_type: fileType,
+      created_at: new Date(webhook.timestamp * 1000).toISOString()
+    })
+
+    if (msgError) {
+      console.error('Error saving outgoing teacher message:', msgError)
+      throw msgError
+    }
+
+    console.log(`Saved outgoing teacher message to ${phoneNumber}: ${messageText}`)
+    return // Exit early - don't create client
+  }
+
+  // ========== PRIORITY 2: Normal client flow ==========
+  // Находим или создаем клиента
+  let client = await findOrCreateClient(phoneNumber, senderData.chatName, organizationId)
 
   // Сохраняем сообщение как исходящее от менеджера
   const { error } = await supabase.from('chat_messages').insert({
@@ -910,6 +1012,96 @@ async function handleReactionMessage(webhook: GreenAPIWebhook, client: any) {
   }
 }
 
+// Handle reaction message from a teacher (teacher_id instead of client_id)
+async function handleReactionMessageForTeacher(webhook: GreenAPIWebhook, teacherId: string, organizationId: string) {
+  const { messageData, idMessage } = webhook
+  
+  if (!messageData) {
+    console.log('Missing reaction message data for teacher')
+    return
+  }
+
+  const reaction = (messageData as any).extendedTextMessageData?.text
+  const originalMessageId = (messageData as any)?.quotedMessage?.stanzaId
+  
+  if (!originalMessageId) {
+    console.log('Missing original message ID in teacher reaction')
+    return
+  }
+  
+  try {
+    // Находим оригинальное сообщение по external_message_id
+    const { data: originalMessage, error: messageError } = await supabase
+      .from('chat_messages')
+      .select('id')
+      .eq('external_message_id', originalMessageId)
+      .single()
+
+    if (messageError || !originalMessage) {
+      console.log('Original message not found for teacher reaction:', originalMessageId)
+      return
+    }
+
+    // Проверяем, есть ли уже реакция от этого преподавателя на это сообщение
+    const { data: existingReaction, error: existingError } = await supabase
+      .from('message_reactions')
+      .select('id')
+      .eq('message_id', originalMessage.id)
+      .eq('teacher_id', teacherId)
+      .single()
+
+    if (reaction && reaction.trim() !== '') {
+      if (existingReaction) {
+        const { error: updateError } = await supabase
+          .from('message_reactions')
+          .update({
+            emoji: reaction,
+            whatsapp_reaction_id: idMessage,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingReaction.id)
+
+        if (updateError) {
+          console.error('Error updating teacher reaction:', updateError)
+        } else {
+          console.log(`Updated reaction ${reaction} for teacher ${teacherId} on message ${originalMessage.id}`)
+        }
+      } else {
+        const { error: insertError } = await supabase
+          .from('message_reactions')
+          .insert({
+            message_id: originalMessage.id,
+            teacher_id: teacherId,
+            client_id: null,
+            emoji: reaction,
+            whatsapp_reaction_id: idMessage
+          })
+
+        if (insertError) {
+          console.error('Error adding teacher reaction:', insertError)
+        } else {
+          console.log(`Added reaction ${reaction} for teacher ${teacherId} on message ${originalMessage.id}`)
+        }
+      }
+    } else {
+      if (existingReaction) {
+        const { error: deleteError } = await supabase
+          .from('message_reactions')
+          .delete()
+          .eq('id', existingReaction.id)
+
+        if (deleteError) {
+          console.error('Error removing teacher reaction:', deleteError)
+        } else {
+          console.log(`Removed reaction for teacher ${teacherId} on message ${originalMessage.id}`)
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error handling teacher reaction message:', error)
+  }
+}
+
 async function handleIncomingReaction(webhook: GreenAPIWebhook, organizationId: string | null) {
   const { senderData, messageData } = webhook
   
@@ -925,8 +1117,23 @@ async function handleIncomingReaction(webhook: GreenAPIWebhook, organizationId: 
 
   const chatId = senderData.chatId
   const phoneNumber = extractPhoneFromChatId(chatId)
+  const whatsappId = phoneNumber.replace('+', '') // normalized for teacher lookup
   
-  // Находим клиента
+  // ========== PRIORITY 1: Check if sender is a TEACHER ==========
+  const { data: teacherData } = await supabase
+    .from('teachers')
+    .select('id')
+    .eq('organization_id', organizationId)
+    .eq('whatsapp_id', whatsappId)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (teacherData) {
+    await handleReactionMessageForTeacher(webhook, teacherData.id, organizationId)
+    return
+  }
+
+  // ========== PRIORITY 2: Normal client flow ==========
   const client = await findOrCreateClient(phoneNumber, senderData.senderName || senderData.sender, organizationId)
   
   if (client) {
