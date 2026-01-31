@@ -1,10 +1,11 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, CheckCheck, ArrowUp, ArrowDown, Loader2, WifiOff, RefreshCw, Wand2, Download, FileText, Handshake, Target, ChevronDown, ChevronUp } from "lucide-react";
+import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, CheckCheck, ArrowUp, ArrowDown, Loader2, WifiOff, RefreshCw, Wand2, Download, FileText, Handshake, Target, ChevronDown, ChevronUp, Pencil, Check, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -18,6 +19,12 @@ import { CallRecordingPlayer } from "./CallRecordingPlayer";
 import { selfHostedPost } from "@/lib/selfHostedApi";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
+
+interface EditingState {
+  callId: string;
+  field: 'summary' | 'agreements';
+  value: string;
+}
 
 interface CallHistoryProps {
   clientId: string;
@@ -59,6 +66,8 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
   const [autoAnalyzedCallIds, setAutoAnalyzedCallIds] = useState<Set<string>>(new Set());
   const [autoFetchedRecordingIds, setAutoFetchedRecordingIds] = useState<Set<string>>(new Set());
   const [expandedTranscriptions, setExpandedTranscriptions] = useState<Set<string>>(new Set());
+  const [editingState, setEditingState] = useState<EditingState | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const queryClient = useQueryClient();
   
   // Ref for intersection observer (infinite scroll)
@@ -359,6 +368,63 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
     return () => clearTimeout(timeoutId);
   }, [calls, autoAnalyzedCallIds, analyzingCallIds, handleAnalyzeCall]);
 
+  // Handle inline edit save
+  const handleSaveInlineEdit = useCallback(async () => {
+    if (!editingState) return;
+    
+    setIsSavingEdit(true);
+    try {
+      // Find the current call to get existing values
+      const currentCall = calls.find(c => c.id === editingState.callId);
+      if (!currentCall) throw new Error('Call not found');
+      
+      const updateData = {
+        callId: editingState.callId,
+        summary: editingState.field === 'summary' ? editingState.value.trim() || null : currentCall.summary,
+        agreements: editingState.field === 'agreements' ? editingState.value.trim() || null : currentCall.agreements,
+        manual_action_items: currentCall.manual_action_items || null
+      };
+      
+      const response = await selfHostedPost<{ success: boolean }>('update-call-summary', updateData);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to save');
+      }
+      
+      // Invalidate queries to refresh
+      queryClient.invalidateQueries({ queryKey: ['call-logs', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['infinite-call-logs', clientId] });
+      
+      toast({
+        title: "Сохранено",
+        description: editingState.field === 'summary' ? "Резюме обновлено" : "Договорённости обновлены",
+      });
+      
+      setEditingState(null);
+    } catch (error) {
+      console.error('Error saving inline edit:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось сохранить",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingEdit(false);
+    }
+  }, [editingState, calls, clientId, queryClient]);
+
+  const startEditing = (callId: string, field: 'summary' | 'agreements', currentValue: string | null) => {
+    setEditingState({
+      callId,
+      field,
+      value: currentValue || ''
+    });
+  };
+
+  const cancelEditing = () => {
+    setEditingState(null);
+  };
+
   const renderCallItem = (call: CallLog, showUnviewedIndicator: boolean = false) => {
     const hasAiEvaluation = call.ai_evaluation && typeof call.ai_evaluation === 'object' && (call.ai_evaluation as any).overall_score !== undefined;
     const canAnalyze = call.status === 'answered' && call.recording_url && !hasAiEvaluation;
@@ -481,25 +547,137 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
                 </div>
               )}
 
-              {/* Inline Summary */}
-              {call.summary && (
+              {/* Inline Summary - Editable */}
+              {(call.summary || call.status === 'answered') && (
                 <div className="mt-2 p-2 bg-blue-50/50 dark:bg-blue-950/30 rounded-md">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-400 mb-1">
-                    <FileText className="h-3 w-3" />
-                    Резюме
+                  <div className="flex items-center justify-between gap-1.5 mb-1">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-400">
+                      <FileText className="h-3 w-3" />
+                      Резюме
+                    </div>
+                    {editingState?.callId !== call.id || editingState?.field !== 'summary' ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditing(call.id, 'summary', call.summary);
+                        }}
+                        className="h-5 w-5 p-0 text-muted-foreground hover:text-blue-700"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    ) : null}
                   </div>
-                  <p className="text-xs text-muted-foreground">{call.summary}</p>
+                  {editingState?.callId === call.id && editingState?.field === 'summary' ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={editingState.value}
+                        onChange={(e) => setEditingState({ ...editingState, value: e.target.value })}
+                        placeholder="Опишите основные моменты разговора..."
+                        className="text-xs min-h-[60px] bg-white dark:bg-background resize-none"
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <div className="flex items-center gap-1 justify-end">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cancelEditing();
+                          }}
+                          disabled={isSavingEdit}
+                          className="h-6 px-2 text-xs"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSaveInlineEdit();
+                          }}
+                          disabled={isSavingEdit}
+                          className="h-6 px-2 text-xs"
+                        >
+                          {isSavingEdit ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {call.summary || <span className="italic text-muted-foreground/50">Нажмите ✏️ чтобы добавить</span>}
+                    </p>
+                  )}
                 </div>
               )}
 
-              {/* Inline Agreements */}
-              {call.agreements && (
+              {/* Inline Agreements - Editable */}
+              {(call.agreements || call.status === 'answered') && (
                 <div className="mt-2 p-2 bg-green-50/50 dark:bg-green-950/30 rounded-md">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400 mb-1">
-                    <Handshake className="h-3 w-3" />
-                    Договорённости
+                  <div className="flex items-center justify-between gap-1.5 mb-1">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400">
+                      <Handshake className="h-3 w-3" />
+                      Договорённости
+                    </div>
+                    {editingState?.callId !== call.id || editingState?.field !== 'agreements' ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditing(call.id, 'agreements', call.agreements);
+                        }}
+                        className="h-5 w-5 p-0 text-muted-foreground hover:text-green-700"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    ) : null}
                   </div>
-                  <p className="text-xs text-muted-foreground">{call.agreements}</p>
+                  {editingState?.callId === call.id && editingState?.field === 'agreements' ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={editingState.value}
+                        onChange={(e) => setEditingState({ ...editingState, value: e.target.value })}
+                        placeholder="Зафиксируйте достигнутые договорённости..."
+                        className="text-xs min-h-[60px] bg-white dark:bg-background resize-none"
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <div className="flex items-center gap-1 justify-end">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cancelEditing();
+                          }}
+                          disabled={isSavingEdit}
+                          className="h-6 px-2 text-xs"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSaveInlineEdit();
+                          }}
+                          disabled={isSavingEdit}
+                          className="h-6 px-2 text-xs"
+                        >
+                          {isSavingEdit ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {call.agreements || <span className="italic text-muted-foreground/50">Нажмите ✏️ чтобы добавить</span>}
+                    </p>
+                  )}
                 </div>
               )}
 
