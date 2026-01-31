@@ -88,9 +88,11 @@ serve(async (req) => {
     if (action === 'recent-for-manager' && managerId) {
       console.log('[get-call-logs] Fetching recent calls for manager:', managerId, 'since:', since);
       
+      // NOTE: Using plain select without FK join to clients to avoid PGRST200
+      // error on self-hosted where call_logs.client_id FK may not exist
       let query = supabase
         .from('call_logs')
-        .select('*, clients(id, name)')
+        .select('*')
         .eq('organization_id', organizationId)
         .eq('manager_id', managerId)
         .eq('status', 'answered') // Only answered calls need moderation
@@ -110,17 +112,12 @@ serve(async (req) => {
         throw error;
       }
 
-      // Enrich with client names
-      const enrichedCalls = (data || []).map(call => ({
-        ...call,
-        client_name: call.clients?.name || null
-      }));
-
+      // Return calls without client join enrichment (client_name can be fetched separately if needed)
       return new Response(
         JSON.stringify({ 
           success: true, 
-          calls: enrichedCalls,
-          total: enrichedCalls.length 
+          calls: data || [],
+          total: (data || []).length 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -251,9 +248,11 @@ serve(async (req) => {
     }
 
     // Default: list all calls with filters
+    // NOTE: Using plain select without FK join to clients to avoid PGRST200
+    // error on self-hosted where call_logs.client_id FK may not exist
     let query = supabase
       .from('call_logs')
-      .select('*, clients(id, name, phone)', { count: 'exact' })
+      .select('*', { count: 'exact' })
       .eq('organization_id', organizationId)
       .order('started_at', { ascending: false })
       .range(offset, offset + limit - 1);
