@@ -142,7 +142,8 @@ export function ConvertToTeacherModal({
                 organization_id: organizationId,
               });
 
-            if (linkError) {
+            // Ignore duplicate key error (23505) - link already exists but RLS may hide it
+            if (linkError && linkError.code !== '23505') {
               console.error('Error linking to existing teacher:', linkError);
               throw new Error(`Не удалось переместить чат в преподаватели: ${linkError.message}`);
             }
@@ -206,7 +207,8 @@ export function ConvertToTeacherModal({
             organization_id: organizationId,
           });
 
-        if (linkError) {
+        // Ignore duplicate key error (23505) - link already exists but RLS may hide it
+        if (linkError && linkError.code !== '23505') {
           console.error('Error creating teacher-client link:', linkError);
           throw new Error(`Преподаватель создан, но не удалось переместить чат: ${linkError.message}`);
         }
