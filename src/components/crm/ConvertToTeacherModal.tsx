@@ -50,6 +50,7 @@ export function ConvertToTeacherModal({
   const [lastName, setLastName] = useState(defaultLastName);
   const [phone, setPhone] = useState(clientPhone || '');
   const [email, setEmail] = useState(clientEmail || '');
+  const [telegramId, setTelegramId] = useState<string>('');
 
   // Reset form and fetch client data when modal opens
   useEffect(() => {
@@ -58,29 +59,25 @@ export function ConvertToTeacherModal({
       setFirstName(parts[0] || '');
       setLastName(parts.slice(1).join(' ') || '');
       
-      // If phone/email not provided, fetch from database
-      if (!clientPhone || !clientEmail) {
-        const fetchClientData = async () => {
-          const { data } = await supabase
-            .from('clients')
-            .select('phone, email')
-            .eq('id', clientId)
-            .single();
-          
-          if (data) {
-            if (!clientPhone && data.phone) {
-              setPhone(data.phone);
-            }
-            if (!clientEmail && data.email) {
-              setEmail(data.email);
-            }
-          }
-        };
-        fetchClientData();
-      }
-      
-      setPhone(clientPhone || '');
-      setEmail(clientEmail || '');
+      // Fetch client data from database
+      const fetchClientData = async () => {
+        const { data } = await supabase
+          .from('clients')
+          .select('phone, email, telegram_user_id')
+          .eq('id', clientId)
+          .maybeSingle();
+        
+        if (data) {
+          setPhone(clientPhone || data.phone || '');
+          setEmail(clientEmail || data.email || '');
+          setTelegramId(data.telegram_user_id || '');
+        } else {
+          setPhone(clientPhone || '');
+          setEmail(clientEmail || '');
+          setTelegramId('');
+        }
+      };
+      fetchClientData();
     }
   }, [open, clientId, clientName, clientPhone, clientEmail]);
 
@@ -274,6 +271,18 @@ export function ConvertToTeacherModal({
               placeholder="teacher@example.com"
             />
           </div>
+
+          {telegramId && (
+            <div className="space-y-2">
+              <Label htmlFor="telegramId">Telegram ID</Label>
+              <Input
+                id="telegramId"
+                value={telegramId}
+                readOnly
+                className="bg-muted text-muted-foreground"
+              />
+            </div>
+          )}
         </div>
 
         <DialogFooter>
