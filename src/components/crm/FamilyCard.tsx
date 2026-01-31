@@ -389,14 +389,56 @@ export const FamilyCard = ({
     if (phoneNumbers.length > 0) {
       await supabase
         .from('client_phone_numbers')
-        .insert(phoneNumbers.map(p => ({
-          client_id: memberId,
-          phone: p.phone,
-          phone_type: p.phoneType,
-          is_whatsapp_enabled: p.isWhatsappEnabled,
-          is_telegram_enabled: p.isTelegramEnabled,
-          is_primary: p.isPrimary,
-        })));
+        .insert(phoneNumbers.map(p => {
+          // Normalize phone number - ensure it has country code
+          let normalizedPhone = p.phone.replace(/\D/g, '');
+          
+          // Add 7 prefix if phone is 10 digits starting with 9
+          if (normalizedPhone.length === 10 && normalizedPhone.startsWith('9')) {
+            normalizedPhone = '7' + normalizedPhone;
+          }
+          // Convert 8 to 7 for Russian numbers
+          if (normalizedPhone.length === 11 && normalizedPhone.startsWith('8')) {
+            normalizedPhone = '7' + normalizedPhone.slice(1);
+          }
+          
+          // Create WhatsApp chat ID if enabled
+          const whatsappChatId = p.isWhatsappEnabled && normalizedPhone 
+            ? `${normalizedPhone}@c.us` 
+            : null;
+          
+          return {
+            client_id: memberId,
+            phone: normalizedPhone,
+            phone_type: p.phoneType,
+            is_whatsapp_enabled: p.isWhatsappEnabled,
+            is_telegram_enabled: p.isTelegramEnabled,
+            is_primary: p.isPrimary,
+            whatsapp_chat_id: whatsappChatId,
+          };
+        }));
+      
+      // Also update clients.phone with primary number
+      const primaryPhone = phoneNumbers.find(p => p.isPrimary) || phoneNumbers[0];
+      if (primaryPhone) {
+        let normalizedPrimary = primaryPhone.phone.replace(/\D/g, '');
+        if (normalizedPrimary.length === 10 && normalizedPrimary.startsWith('9')) {
+          normalizedPrimary = '7' + normalizedPrimary;
+        }
+        if (normalizedPrimary.length === 11 && normalizedPrimary.startsWith('8')) {
+          normalizedPrimary = '7' + normalizedPrimary.slice(1);
+        }
+        
+        const updateData: Record<string, unknown> = { phone: normalizedPrimary };
+        if (primaryPhone.isWhatsappEnabled && normalizedPrimary) {
+          updateData.whatsapp_id = `${normalizedPrimary}@c.us`;
+        }
+        
+        await supabase
+          .from('clients')
+          .update(updateData)
+          .eq('id', memberId);
+      }
     }
     
     // Refresh family data
@@ -564,12 +606,34 @@ export const FamilyCard = ({
               onPhoneSave={async (data) => {
                 // Save phone to client record and create client_phone_numbers entry with messenger data
                 try {
-                  const { phone, whatsappChatId, telegramChatId, telegramUserId } = data;
+                  let { phone, whatsappChatId, telegramChatId, telegramUserId } = data;
                   
-                  // 1. Update client.phone
+                  // Normalize phone number - ensure it has country code
+                  let normalizedPhone = phone.replace(/\D/g, '');
+                  
+                  // Add 7 prefix if phone is 10 digits starting with 9
+                  if (normalizedPhone.length === 10 && normalizedPhone.startsWith('9')) {
+                    normalizedPhone = '7' + normalizedPhone;
+                  }
+                  // Convert 8 to 7 for Russian numbers
+                  if (normalizedPhone.length === 11 && normalizedPhone.startsWith('8')) {
+                    normalizedPhone = '7' + normalizedPhone.slice(1);
+                  }
+                  
+                  // Create WhatsApp chat ID from phone if not provided
+                  if (!whatsappChatId && normalizedPhone) {
+                    whatsappChatId = `${normalizedPhone}@c.us`;
+                  }
+                  
+                  // 1. Update client.phone and whatsapp_id
+                  const clientUpdate: Record<string, unknown> = { phone: normalizedPhone };
+                  if (whatsappChatId) {
+                    clientUpdate.whatsapp_id = whatsappChatId;
+                  }
+                  
                   const { error: clientError } = await supabase
                     .from('clients')
-                    .update({ phone })
+                    .update(clientUpdate)
                     .eq('id', activeMember.id);
                   
                   if (clientError) throw clientError;
@@ -579,22 +643,18 @@ export const FamilyCard = ({
                     .from('client_phone_numbers')
                     .select('id')
                     .eq('client_id', activeMember.id)
-                    .eq('phone', phone);
+                    .eq('phone', normalizedPhone);
                   
                   // 3. If not exists, create new record with messenger data
                   if (!existingPhones?.length) {
                     const phoneRecord: Record<string, unknown> = {
                       client_id: activeMember.id,
-                      phone,
+                      phone: normalizedPhone,
                       is_primary: true,
                       phone_type: 'mobile',
+                      whatsapp_chat_id: whatsappChatId,
+                      is_whatsapp_enabled: !!whatsappChatId,
                     };
-                    
-                    // Add WhatsApp data if available
-                    if (whatsappChatId) {
-                      phoneRecord.whatsapp_chat_id = whatsappChatId;
-                      phoneRecord.is_whatsapp_enabled = true;
-                    }
                     
                     // Add Telegram data if available
                     if (telegramChatId) {
@@ -616,12 +676,11 @@ export const FamilyCard = ({
                     }
                   } else {
                     // 4. If exists, update with messenger data
-                    const updateData: Record<string, unknown> = {};
+                    const updateData: Record<string, unknown> = {
+                      whatsapp_chat_id: whatsappChatId,
+                      is_whatsapp_enabled: !!whatsappChatId,
+                    };
                     
-                    if (whatsappChatId) {
-                      updateData.whatsapp_chat_id = whatsappChatId;
-                      updateData.is_whatsapp_enabled = true;
-                    }
                     if (telegramChatId) {
                       updateData.telegram_chat_id = telegramChatId;
                       updateData.is_telegram_enabled = true;
