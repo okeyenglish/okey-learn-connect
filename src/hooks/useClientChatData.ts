@@ -68,49 +68,26 @@ interface UseClientChatDataOptions {
 }
 
 /**
- * Check if RPC function exists (cached result)
+ * Empty result helper (never throw from queryFn)
+ */
+const emptyClientChatData = (): ClientChatData => ({
+  messages: [],
+  hasMore: false,
+  totalCount: 0,
+  unreadCounts: {},
+  avatars: { whatsapp: null, telegram: null, max: null },
+});
+
+/**
+ * Track whether unified RPC exists.
+ * IMPORTANT: do NOT set to false on timeouts/5xx (those can be transient).
  */
 let rpcAvailable: boolean | null = null;
-let rpcCheckPromise: Promise<boolean> | null = null;
 
-const checkRpcAvailable = async (): Promise<boolean> => {
-  if (rpcAvailable !== null) return rpcAvailable;
-  
-  if (rpcCheckPromise) return rpcCheckPromise;
-  
-  rpcCheckPromise = (async () => {
-    try {
-      console.log('[useClientChatData] Checking RPC availability...');
-      
-      // Try calling with a non-existent UUID - if function exists, we get empty data
-      // If function doesn't exist, we get an error
-      // Add timeout to prevent hanging forever
-      const result = await Promise.race([
-        supabase.rpc('get_client_chat_data', {
-          p_client_id: '00000000-0000-0000-0000-000000000000',
-          p_limit: 1
-        }),
-        new Promise<{ data: null; error: Error }>((resolve) =>
-          setTimeout(() => resolve({ data: null, error: new Error('RPC check timeout') }), RPC_CHECK_TIMEOUT_MS)
-        )
-      ]);
-      
-      const error = result.error;
-      
-      // Function exists if no "function does not exist" error and no timeout
-      rpcAvailable = !error?.message?.includes('function') && 
-                     !error?.message?.includes('does not exist') &&
-                     !error?.message?.includes('timeout');
-      console.log('[useClientChatData] RPC available:', rpcAvailable, error?.message ? `(${error.message})` : '');
-      return rpcAvailable;
-    } catch (err) {
-      console.warn('[useClientChatData] RPC check failed:', err);
-      rpcAvailable = false;
-      return false;
-    }
-  })();
-  
-  return rpcCheckPromise;
+const isRpcMissingError = (message?: string) => {
+  if (!message) return false;
+  const m = message.toLowerCase();
+  return (m.includes('function') && m.includes('does not exist')) || m.includes('could not find the function');
 };
 
 /**
@@ -138,129 +115,149 @@ export const useClientChatData = (
     queryKey: ['client-chat-data', clientId, limit],
     queryFn: async (): Promise<ClientChatData> => {
       if (!clientId) {
-        return {
-          messages: [],
-          hasMore: false,
-          totalCount: 0,
-          unreadCounts: {},
-          avatars: { whatsapp: null, telegram: null, max: null }
-        };
+        return emptyClientChatData();
       }
 
       const startTime = performance.now();
 
-      // Check if RPC is available
-      const useRpc = await checkRpcAvailable();
-
-      if (useRpc && !fallbackModeRef.current) {
+      // Prefer unified RPC (fast path) unless we KNOW it doesn't exist.
+      // Do not permanently switch to fallback on timeouts.
+      if (rpcAvailable !== false && !fallbackModeRef.current) {
         try {
-          console.log(`[useClientChatData] Fetching data for client ${clientId}...`);
-          
-          // Try unified RPC call with timeout
+          console.log(`[useClientChatData] Fetching unified data for client ${clientId}...`);
+
+          const rpcCall = supabase.rpc('get_client_chat_data', {
+            p_client_id: clientId,
+            p_limit: limit,
+          });
+
           const rpcResult = await Promise.race([
-            supabase.rpc('get_client_chat_data', {
-              p_client_id: clientId,
-              p_limit: limit
-            }),
+            rpcCall,
             new Promise<{ data: null; error: Error }>((resolve) =>
               setTimeout(() => resolve({ data: null, error: new Error('Query timeout') }), QUERY_TIMEOUT_MS)
-            )
+            ),
           ]);
 
           const { data, error } = rpcResult;
 
           if (error) {
-            console.warn('[useClientChatData] RPC error, falling back:', error.message);
-            fallbackModeRef.current = true;
+            if (isRpcMissingError(error.message)) {
+              rpcAvailable = false;
+              fallbackModeRef.current = true;
+              console.warn('[useClientChatData] RPC missing, switching to fallback mode:', error.message);
+            } else {
+              // transient error/timeout: fallback for THIS call only
+              console.warn('[useClientChatData] RPC failed (transient), using fallback for this load:', error.message);
+            }
           } else if (data) {
+            rpcAvailable = true;
+
             const result: ClientChatData = {
               messages: (data.messages || []) as ChatMessage[],
               hasMore: data.hasMore || false,
               totalCount: data.totalCount || 0,
               unreadCounts: data.unreadCounts || {},
-              avatars: data.avatars || { whatsapp: null, telegram: null, max: null }
+              avatars: data.avatars || { whatsapp: null, telegram: null, max: null },
             };
 
-            // Update cache
             clientChatCache.set(clientId, { data: result, timestamp: Date.now() });
 
             const duration = performance.now() - startTime;
             console.log(`[useClientChatData] ✅ RPC loaded in ${duration.toFixed(0)}ms (${result.messages.length} msgs)`);
-
             return result;
           }
         } catch (err) {
-          console.warn('[useClientChatData] RPC failed, using fallback:', err);
-          fallbackModeRef.current = true;
+          console.warn('[useClientChatData] RPC call threw, using fallback for this load:', err);
         }
       }
 
       // Fallback: separate queries (legacy mode)
       console.log('[useClientChatData] Using fallback mode (separate queries)');
 
-      // 1. Fetch messages
-      const { data: messagesData, error: messagesError } = await supabase
-        .from('chat_messages')
-        .select(`
-          id, client_id, message_text, message_type, system_type, is_read,
-          created_at, file_url, file_name, file_type, external_message_id,
-          messenger_type, call_duration, message_status, metadata
-        `)
-        .eq('client_id', clientId)
-        .order('created_at', { ascending: false })
-        .limit(limit + 1);
+      try {
+        // 1. Fetch messages
+        const { data: messagesData, error: messagesError } = await supabase
+          .from('chat_messages')
+          .select(`
+            id, client_id, message_text, message_type, system_type, is_read,
+            created_at, file_url, file_name, file_type, external_message_id,
+            messenger_type, call_duration, message_status, metadata
+          `)
+          .eq('client_id', clientId)
+          .order('created_at', { ascending: false })
+          .limit(limit + 1);
 
-      if (messagesError) {
-        console.error('[useClientChatData] Messages query failed:', messagesError);
-        throw messagesError;
+        if (messagesError) {
+          console.error('[useClientChatData] Messages query failed:', messagesError);
+          return emptyClientChatData();
+        }
+
+        const allMessages = messagesData || [];
+        const hasMore = allMessages.length > limit;
+        const messages = (hasMore ? allMessages.slice(0, limit) : allMessages).reverse() as ChatMessage[];
+
+        // 2. Fetch unread counts (non-blocking)
+        const unreadCounts: Record<string, number> = {};
+        try {
+          const { data: unreadData, error: unreadError } = await supabase
+            .from('chat_messages')
+            .select('messenger_type')
+            .eq('client_id', clientId)
+            .eq('is_read', false)
+            .eq('message_type', 'client');
+
+          if (unreadError) {
+            console.warn('[useClientChatData] Unread query failed:', unreadError.message);
+          } else {
+            (unreadData || []).forEach((msg: any) => {
+              const type = msg.messenger_type || 'unknown';
+              unreadCounts[type] = (unreadCounts[type] || 0) + 1;
+            });
+          }
+        } catch (err) {
+          console.warn('[useClientChatData] Unread query threw:', err);
+        }
+
+        // 3. Fetch avatars (non-blocking)
+        let avatars: ClientChatData['avatars'] = { whatsapp: null, telegram: null, max: null };
+        try {
+          const { data: clientData, error: clientError } = await supabase
+            .from('clients')
+            .select('whatsapp_avatar_url, telegram_avatar_url, max_avatar_url')
+            .eq('id', clientId)
+            .maybeSingle();
+
+          if (clientError) {
+            console.warn('[useClientChatData] Avatars query failed:', clientError.message);
+          } else {
+            avatars = {
+              whatsapp: clientData?.whatsapp_avatar_url || null,
+              telegram: clientData?.telegram_avatar_url || null,
+              max: clientData?.max_avatar_url || null,
+            };
+          }
+        } catch (err) {
+          console.warn('[useClientChatData] Avatars query threw:', err);
+        }
+
+        const result: ClientChatData = {
+          messages,
+          hasMore,
+          totalCount: messages.length,
+          unreadCounts,
+          avatars,
+        };
+
+        clientChatCache.set(clientId, { data: result, timestamp: Date.now() });
+
+        const duration = performance.now() - startTime;
+        console.log(`[useClientChatData] ⚠️ Fallback loaded in ${duration.toFixed(0)}ms`);
+
+        return result;
+      } catch (err) {
+        console.error('[useClientChatData] Fallback path crashed:', err);
+        return emptyClientChatData();
       }
-
-      const allMessages = messagesData || [];
-      const hasMore = allMessages.length > limit;
-      const messages = (hasMore ? allMessages.slice(0, limit) : allMessages).reverse() as ChatMessage[];
-
-      // 2. Fetch unread counts
-      const { data: unreadData } = await supabase
-        .from('chat_messages')
-        .select('messenger_type')
-        .eq('client_id', clientId)
-        .eq('is_read', false)
-        .eq('message_type', 'client');
-
-      const unreadCounts: Record<string, number> = {};
-      (unreadData || []).forEach((msg: any) => {
-        const type = msg.messenger_type || 'unknown';
-        unreadCounts[type] = (unreadCounts[type] || 0) + 1;
-      });
-
-      // 3. Fetch avatars
-      const { data: clientData } = await supabase
-        .from('clients')
-        .select('whatsapp_avatar_url, telegram_avatar_url, max_avatar_url')
-        .eq('id', clientId)
-        .maybeSingle();
-
-      const avatars = {
-        whatsapp: clientData?.whatsapp_avatar_url || null,
-        telegram: clientData?.telegram_avatar_url || null,
-        max: clientData?.max_avatar_url || null
-      };
-
-      const result: ClientChatData = {
-        messages,
-        hasMore,
-        totalCount: messages.length,
-        unreadCounts,
-        avatars
-      };
-
-      // Update cache
-      clientChatCache.set(clientId, { data: result, timestamp: Date.now() });
-
-      const duration = performance.now() - startTime;
-      console.log(`[useClientChatData] ⚠️ Fallback loaded in ${duration.toFixed(0)}ms`);
-
-      return result;
     },
     enabled: enabled && !!clientId,
     staleTime: 30 * 1000, // 30 seconds
@@ -501,22 +498,27 @@ export const usePrefetchClientChatData = () => {
     queryClient.prefetchQuery({
       queryKey: ['client-chat-data', clientId, 100],
       queryFn: async () => {
-        // Use same logic as main hook
-        const useRpc = await checkRpcAvailable();
-        
-        if (useRpc) {
-          const { data } = await supabase.rpc('get_client_chat_data', {
-            p_client_id: clientId,
-            p_limit: 100
-          });
-          
-          if (data) {
+        // Best-effort prefetch: try RPC, but never block hover UX
+        if (rpcAvailable !== false) {
+          const rpcResult = await Promise.race([
+            supabase.rpc('get_client_chat_data', {
+              p_client_id: clientId,
+              p_limit: 100,
+            }),
+            new Promise<{ data: null; error: Error }>((resolve) =>
+              setTimeout(() => resolve({ data: null, error: new Error('Prefetch timeout') }), RPC_CHECK_TIMEOUT_MS)
+            ),
+          ]);
+
+          if (!rpcResult.error && rpcResult.data) {
+            rpcAvailable = true;
+            const data = rpcResult.data as any;
             return {
               messages: data.messages || [],
               hasMore: data.hasMore || false,
               totalCount: data.totalCount || 0,
               unreadCounts: data.unreadCounts || {},
-              avatars: data.avatars || { whatsapp: null, telegram: null, max: null }
+              avatars: data.avatars || { whatsapp: null, telegram: null, max: null },
             };
           }
         }
