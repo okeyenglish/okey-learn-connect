@@ -437,3 +437,6 @@ verify_jwt = true
 
 [functions.update-call-summary]
 verify_jwt = true
+
+[functions.index-conversations]
+verify_jwt = true
