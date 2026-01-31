@@ -115,7 +115,75 @@ async function handleIncomingMessage(
   
   console.log('handleIncomingMessage:', { telegramUserId, chatId, senderName, username, phoneNumber, contactPhone: message.contact_phone });
 
-  // Find or create client
+  // Check for duplicate message first (before any heavy operations)
+  const { data: existingMessage } = await supabase
+    .from('chat_messages')
+    .select('id')
+    .eq('external_message_id', message.id)
+    .maybeSingle();
+
+  if (existingMessage) {
+    console.log('Duplicate message, skipping:', message.id);
+    return;
+  }
+
+  // Determine message content (type is stored in file_type, message_type is client/manager/system)
+  const { messageText, contentType, fileUrl, fileName, fileType } = extractMessageContent(message);
+
+  // PRIORITY 1: Check if sender is a TEACHER by telegram_user_id
+  let teacher = null;
+  if (telegramUserId) {
+    const { data: teacherData } = await supabase
+      .from('teachers')
+      .select('id, first_name, last_name')
+      .eq('organization_id', organizationId)
+      .eq('telegram_user_id', String(telegramUserId))
+      .eq('is_active', true)
+      .maybeSingle();
+    
+    if (teacherData) {
+      teacher = teacherData;
+      console.log('[telegram-webhook] Found teacher by telegram_user_id:', teacher.id);
+    }
+  }
+
+  // If teacher found, save message with teacher_id (not client_id)
+  if (teacher) {
+    const { error: insertError } = await supabase
+      .from('chat_messages')
+      .insert({
+        teacher_id: teacher.id,
+        client_id: null, // Explicitly null for teacher messages
+        organization_id: organizationId,
+        message_text: messageText,
+        message_type: 'client', // incoming message
+        messenger_type: 'telegram',
+        status: 'delivered',
+        is_outgoing: false,
+        is_read: false,
+        external_message_id: message.id,
+        file_url: fileUrl,
+        file_name: fileName,
+        file_type: fileType || contentType,
+        created_at: message.timestamp || new Date().toISOString()
+      });
+
+    if (insertError) {
+      console.error('Error saving teacher message:', insertError);
+      return;
+    }
+
+    // Update teacher's telegram_chat_id if needed
+    await supabase
+      .from('teachers')
+      .update({ telegram_chat_id: chatId })
+      .eq('id', teacher.id);
+
+    console.log(`[telegram-webhook] Saved message for TEACHER ${teacher.id}`);
+    return; // Exit early - don't create client
+  }
+
+  // PRIORITY 2: Normal client flow (not a teacher)
   let client = await findOrCreateClient(supabase, {
     organizationId,
     telegramUserId,
@@ -139,26 +207,12 @@ async function handleIncomingMessage(
     phoneNumber: phoneNumber
   });
 
-  // Determine message content (type is stored in file_type, message_type is client/manager/system)
-  const { messageText, contentType, fileUrl, fileName, fileType } = extractMessageContent(message);
-
-  // Check for duplicate
-  const { data: existingMessage } = await supabase
-    .from('chat_messages')
-    .select('id')
-    .eq('external_message_id', message.id)
-    .maybeSingle();
-
-  if (existingMessage) {
-    console.log('Duplicate message, skipping:', message.id);
-    return;
-  }
-
-  // Save message - message_type is 'client' for incoming messages
+  // Save message with client_id
   const { error: insertError } = await supabase
     .from('chat_messages')
     .insert({
       client_id: client.id,
+      teacher_id: null,
       organization_id: organizationId,
       message_text: messageText,
       message_type: 'client', // incoming message from client

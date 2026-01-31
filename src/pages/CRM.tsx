@@ -25,7 +25,7 @@ import { useUnifiedSearch } from "@/hooks/useUnifiedSearch";
 import { useClientStatus } from "@/hooks/useClientStatus";
 import { useRealtimeMessages, useMarkAsRead, useMarkAsUnread } from "@/hooks/useChatMessages";
 import { useChatThreadsInfinite } from "@/hooks/useChatThreadsInfinite";
-import { useTeacherLinkedClientIds } from "@/hooks/useTeacherLinkedClientIds";
+// useTeacherLinkedClientIds removed - now using teacher_id directly in chat_messages
 import { useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
 import { useStudentsLazy } from "@/hooks/useStudentsLazy";
 import { useStudentsCount } from "@/hooks/useStudentsCount";
@@ -385,8 +385,8 @@ const CRMContent = () => {
   const { corporateChats, teacherChats, isLoading: systemChatsLoading } = useSystemChatMessages();
   const { communityChats, totalUnread: communityUnread, latestCommunity, isLoading: communityLoading } = useCommunityChats();
   
-  // Get client IDs linked to teachers - these should appear in Teachers folder, not clients list
-  const { linkedClientIdsSet: teacherLinkedClientIds } = useTeacherLinkedClientIds();
+  // Teacher conversations now use teacher_id directly in chat_messages
+  // No need for teacherLinkedClientIds - messages with teacher_id have client_id = NULL
   // Клиенты загружаются лениво - только при необходимости (поиск, модалы)
   const clientsNeeded = modals.openModal === "Ученики" || modals.openModal === "Лиды" || chatSearchQuery.length > 0;
   const { clients, isLoading: clientsLoading } = useClients(clientsNeeded);
@@ -1061,10 +1061,8 @@ const CRMContent = () => {
     // Исключаем клиентов, связанных с преподавателями (они в папке "Преподаватели")
     ...threads
       .filter(thread => {
-        // Исключаем клиентов, связанных с преподавателями через teacher_client_links
-        if (teacherLinkedClientIds.has(thread.client_id)) {
-          return false;
-        }
+        // Teacher conversations now use teacher_id directly - no need to filter
+        // Messages with teacher_id have client_id = NULL, so they won't appear here
         
         const nameForCheck = formatClientDisplayName(thread.client_name ?? '', thread.first_name, thread.last_name);
         return (
@@ -1108,7 +1106,7 @@ const CRMContent = () => {
       }),
     // Клиенты без сообщений не показываются при первой загрузке
     ...clientChatsWithoutThreads
-  ], [systemChats, threads, typingByClient, clientChatsWithoutThreads, teacherLinkedClientIds]);
+  ], [systemChats, threads, typingByClient, clientChatsWithoutThreads]);
 
   // Debug logging removed for performance
 
