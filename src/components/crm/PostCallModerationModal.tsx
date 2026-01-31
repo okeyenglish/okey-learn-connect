@@ -6,10 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { 
-  Phone, 
   PhoneIncoming, 
   PhoneCall, 
   Sparkles, 
@@ -25,19 +24,26 @@ import {
   CheckCircle2,
   AlertCircle,
   User,
-  Calendar
+  Calendar,
+  UserPlus,
+  ChevronsUpDown
 } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { selfHostedPost } from "@/lib/selfHostedApi";
 import { useToast } from "@/hooks/use-toast";
+import { useEmployees, getEmployeeFullName, type Employee } from "@/hooks/useEmployees";
+import { useCreateTask } from "@/hooks/useTasks";
+import { useAuth } from "@/hooks/useAuth";
 import type { AiCallEvaluation } from "./CallEvaluationCard";
 
 interface ActionItem {
   task: string;
   priority: 'high' | 'medium' | 'low';
   deadline?: string;
+  assignee_id?: string;
+  assignee_name?: string;
 }
 
 export interface PostCallData {
@@ -125,6 +131,9 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
   onConfirmed
 }) => {
   const { toast } = useToast();
+  const { profile } = useAuth();
+  const { data: employees = [] } = useEmployees();
+  const createTask = useCreateTask();
   const [saving, setSaving] = useState(false);
   
   // Editable fields
@@ -133,6 +142,8 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const [newTask, setNewTask] = useState("");
   const [newPriority, setNewPriority] = useState<'high' | 'medium' | 'low'>('medium');
+  const [newAssigneeId, setNewAssigneeId] = useState<string | undefined>(undefined);
+  const [assigneePopoverOpen, setAssigneePopoverOpen] = useState(false);
 
   // Initialize form with call data
   useEffect(() => {
@@ -146,18 +157,34 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
       const aiActions = callData.ai_evaluation?.action_items || [];
       const manualActions = callData.manual_action_items || [];
       setActionItems([...aiActions, ...manualActions]);
+      
+      // Set default assignee to current user
+      setNewAssigneeId(profile?.id);
     }
-  }, [callData, open]);
+  }, [callData, open, profile?.id]);
+
+  const getSelectedAssigneeName = useCallback((assigneeId?: string) => {
+    if (!assigneeId) return null;
+    const employee = employees.find(e => e.id === assigneeId);
+    return employee ? getEmployeeFullName(employee) : null;
+  }, [employees]);
 
   const addActionItem = useCallback(() => {
     if (!newTask.trim()) return;
+    const assigneeName = getSelectedAssigneeName(newAssigneeId);
     setActionItems(prev => [
       ...prev, 
-      { task: newTask.trim(), priority: newPriority }
+      { 
+        task: newTask.trim(), 
+        priority: newPriority,
+        assignee_id: newAssigneeId,
+        assignee_name: assigneeName || undefined
+      }
     ]);
     setNewTask("");
     setNewPriority('medium');
-  }, [newTask, newPriority]);
+    // Keep the same assignee for convenience
+  }, [newTask, newPriority, newAssigneeId, getSelectedAssigneeName]);
 
   const removeActionItem = useCallback((index: number) => {
     setActionItems(prev => prev.filter((_, i) => i !== index));
@@ -168,6 +195,7 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
     
     setSaving(true);
     try {
+      // Save call summary data
       const response = await selfHostedPost<{ success: boolean }>('update-call-summary', {
         callId: callData.id,
         summary: summary.trim() || null,
@@ -179,9 +207,32 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
         throw new Error(response.error || 'Failed to save');
       }
 
+      // Create actual tasks for items with assignees
+      const tasksToCreate = actionItems.filter(item => item.assignee_id);
+      let createdTasks = 0;
+      
+      for (const item of tasksToCreate) {
+        try {
+          const dueDate = item.deadline || format(new Date(), 'yyyy-MM-dd');
+          await createTask.mutateAsync({
+            title: item.task,
+            description: `Задача из звонка: ${callData.client_name || callData.phone_number}`,
+            priority: item.priority,
+            due_date: dueDate,
+            responsible: item.assignee_id,
+            client_id: undefined, // Can link to client if needed
+          });
+          createdTasks++;
+        } catch (taskError) {
+          console.error('Failed to create task:', taskError);
+        }
+      }
+
       toast({
         title: "Звонок подтверждён",
-        description: "Данные сохранены в историю звонков",
+        description: createdTasks > 0 
+          ? `Данные сохранены, создано задач: ${createdTasks}` 
+          : "Данные сохранены в историю звонков",
       });
 
       onConfirmed?.();
@@ -196,7 +247,7 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
     } finally {
       setSaving(false);
     }
-  }, [callData, summary, agreements, actionItems, toast, onConfirmed, onOpenChange]);
+  }, [callData, summary, agreements, actionItems, toast, onConfirmed, onOpenChange, createTask]);
 
   const handleClose = useCallback(() => {
     // Just close - data stays as-is from AI analysis
@@ -396,25 +447,36 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
             <CardContent className="space-y-2">
               {/* Existing Tasks */}
               {actionItems.length > 0 && (
-                <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
                   {actionItems.map((item, index) => {
                     const config = getPriorityConfig(item.priority);
                     return (
                       <div 
                         key={index}
                         className={cn(
-                          "p-2 rounded border flex items-center justify-between gap-2",
+                          "p-2 rounded border flex items-start justify-between gap-2",
                           config.bg
                         )}
                       >
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <Badge variant="outline" className={cn("text-xs shrink-0", config.badge)}>
-                            {config.icon}
-                            <span className="ml-1">{config.label}</span>
-                          </Badge>
-                          <span className={cn("text-sm truncate", config.text)}>
-                            {item.task}
-                          </span>
+                        <div className="flex flex-col gap-1 flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className={cn("text-xs shrink-0", config.badge)}>
+                              {config.icon}
+                              <span className="ml-1">{config.label}</span>
+                            </Badge>
+                            <span className={cn("text-sm truncate", config.text)}>
+                              {item.task}
+                            </span>
+                          </div>
+                          {item.assignee_name && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground pl-1">
+                              <User className="h-3 w-3" />
+                              <span>{item.assignee_name}</span>
+                              <Badge variant="outline" className="text-[10px] h-4 px-1 bg-green-50 text-green-700 border-green-200">
+                                Будет создана задача
+                              </Badge>
+                            </div>
+                          )}
                         </div>
                         <Button
                           variant="ghost"
@@ -431,36 +493,105 @@ export const PostCallModerationModal: React.FC<PostCallModerationModalProps> = (
               )}
 
               {/* Add New Task */}
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Добавить задачу..."
-                  value={newTask}
-                  onChange={(e) => setNewTask(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addActionItem()}
-                  className="flex-1 bg-white h-9"
-                />
-                <Select 
-                  value={newPriority} 
-                  onValueChange={(v) => setNewPriority(v as 'high' | 'medium' | 'low')}
-                >
-                  <SelectTrigger className="w-28 bg-white h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="high">🔴 Срочно</SelectItem>
-                    <SelectItem value="medium">🟠 Важно</SelectItem>
-                    <SelectItem value="low">🔵 Обычно</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9"
-                  onClick={addActionItem}
-                  disabled={!newTask.trim()}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Добавить задачу..."
+                    value={newTask}
+                    onChange={(e) => setNewTask(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addActionItem()}
+                    className="flex-1 bg-white h-9"
+                  />
+                  <Select 
+                    value={newPriority} 
+                    onValueChange={(v) => setNewPriority(v as 'high' | 'medium' | 'low')}
+                  >
+                    <SelectTrigger className="w-28 bg-white h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="high">🔴 Срочно</SelectItem>
+                      <SelectItem value="medium">🟠 Важно</SelectItem>
+                      <SelectItem value="low">🔵 Обычно</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={addActionItem}
+                    disabled={!newTask.trim()}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                {/* Assignee Selector */}
+                <div className="flex items-center gap-2">
+                  <UserPlus className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Ответственный:</span>
+                  <Popover open={assigneePopoverOpen} onOpenChange={setAssigneePopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={assigneePopoverOpen}
+                        className="h-8 justify-between bg-white text-xs"
+                      >
+                        {newAssigneeId ? (
+                          <span className="truncate max-w-[180px]">
+                            {getSelectedAssigneeName(newAssigneeId) || "Выберите..."}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">Выберите сотрудника...</span>
+                        )}
+                        <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[250px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Поиск сотрудника..." className="h-9" />
+                        <CommandList>
+                          <CommandEmpty>Сотрудник не найден</CommandEmpty>
+                          <CommandGroup>
+                            <CommandItem
+                              value="none"
+                              onSelect={() => {
+                                setNewAssigneeId(undefined);
+                                setAssigneePopoverOpen(false);
+                              }}
+                            >
+                              <span className="text-muted-foreground">Без ответственного</span>
+                            </CommandItem>
+                            {employees.map((employee) => (
+                              <CommandItem
+                                key={employee.id}
+                                value={getEmployeeFullName(employee)}
+                                onSelect={() => {
+                                  setNewAssigneeId(employee.id);
+                                  setAssigneePopoverOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    newAssigneeId === employee.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <span>{getEmployeeFullName(employee)}</span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {newAssigneeId && (
+                    <span className="text-xs text-green-600">
+                      (задача будет создана)
+                    </span>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
