@@ -30,12 +30,11 @@ export const useTeacherChatMessages = (teacherId: string) => {
         return { items: [], nextCursor: 0, hasMore: false, total: 0 };
       }
 
-      const { data, error, count } = await supabase
-        .from('chat_messages')
-        .select(
-          'id, teacher_id, client_id, message_text, content, message_type, system_type, is_read, is_outgoing, created_at, file_url, media_url, file_name, file_type, media_type, external_message_id, external_id, messenger_type, messenger, call_duration, message_status, status, metadata',
-          { count: 'exact' }
-        )
+      // Use raw select for self-hosted compatibility
+      // @ts-ignore - teacher_id column exists in self-hosted schema
+      const { data, error, count } = await (supabase
+        .from('chat_messages') as any)
+        .select('*', { count: 'exact' })
         .eq('teacher_id', teacherId)
         .order('created_at', { ascending: false })
         .range(pageParam, pageParam + PAGE_SIZE - 1);
@@ -45,15 +44,23 @@ export const useTeacherChatMessages = (teacherId: string) => {
         throw new Error(error.message);
       }
 
-      // Normalize field names for compatibility
-      const normalizedItems = (data || []).map((m: Record<string, unknown>) => ({
+      // Normalize field names for compatibility (self-hosted vs Cloud schema)
+      const normalizedItems = (data || []).map((m: any) => ({
         ...m,
         message_text: m.message_text || m.content || '',
+        content: m.content || m.message_text || '',
         file_url: m.file_url || m.media_url,
+        media_url: m.media_url || m.file_url,
         file_type: m.file_type || m.media_type,
+        media_type: m.media_type || m.file_type,
         external_message_id: m.external_message_id || m.external_id,
+        external_id: m.external_id || m.external_message_id,
         messenger_type: m.messenger_type || m.messenger,
+        messenger: m.messenger || m.messenger_type,
         message_status: m.message_status || m.status,
+        status: m.status || m.message_status,
+        is_outgoing: m.is_outgoing ?? (m.direction === 'outgoing'),
+        direction: m.direction || (m.is_outgoing ? 'outgoing' : 'incoming'),
       })) as ChatMessage[];
 
       const total = count ?? 0;
@@ -146,12 +153,12 @@ export const useMarkTeacherChatMessagesAsRead = () => {
   const markAsRead = useCallback(async (teacherId: string) => {
     if (!teacherId) return;
 
-    const { error } = await supabase
-      .from('chat_messages')
+    // @ts-ignore - teacher_id column exists in self-hosted schema
+    const { error } = await (supabase
+      .from('chat_messages') as any)
       .update({ is_read: true })
       .eq('teacher_id', teacherId)
-      .eq('is_read', false)
-      .eq('is_outgoing', false);
+      .eq('is_read', false);
 
     if (error) {
       console.error('[useMarkTeacherChatMessagesAsRead] Error:', error);
