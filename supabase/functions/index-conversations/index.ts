@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
 import { 
-  corsHeaders, 
+  corsHeaders,
+  handleCors, 
   getOpenAIApiKey, 
   getOrganizationIdFromUser,
   errorResponse,
@@ -80,7 +81,7 @@ ${conversationText}
     });
 
     if (!response.ok) {
-      console.error('AI analysis failed:', response.status);
+      console.error('AI analysis failed:', response.status, await response.text());
       return null;
     }
 
@@ -119,7 +120,7 @@ async function createEmbedding(
     });
 
     if (!response.ok) {
-      console.error('Embedding failed:', response.status);
+      console.error('Embedding failed:', response.status, await response.text());
       return null;
     }
 
@@ -132,9 +133,9 @@ async function createEmbedding(
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  // Handle CORS
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const authHeader = req.headers.get('Authorization');
@@ -146,18 +147,8 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user and organization
-    const token = authHeader.replace('Bearer ', '');
-    const userSupabase = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: authHeader } }
-    });
-    
-    const { data: { user }, error: userError } = await userSupabase.auth.getUser(token);
-    if (userError || !user) {
-      return errorResponse('Invalid authorization', 401);
-    }
-
-    const organizationId = await getOrganizationIdFromUser(supabase, user.id);
+    // Get organization ID from auth header
+    const organizationId = await getOrganizationIdFromUser(supabase, authHeader);
     if (!organizationId) {
       return errorResponse('Organization not found', 400);
     }
@@ -165,7 +156,7 @@ Deno.serve(async (req) => {
     // Get OpenAI API key from organization settings
     const openaiApiKey = await getOpenAIApiKey(supabase, organizationId);
     if (!openaiApiKey) {
-      return errorResponse('AI service not configured. Please set up OpenAI API key in AI settings.', 500);
+      return errorResponse('AI сервис не настроен. Добавьте OpenAI API ключ в настройках AI.', 500);
     }
 
     const body = await req.json() as IndexRequest;
@@ -177,13 +168,13 @@ Deno.serve(async (req) => {
       dryRun = false
     } = body;
 
-    console.log(`Starting conversation indexing: daysBack=${daysBack}, minMessages=${minMessages}, maxConversations=${maxConversations}, dryRun=${dryRun}`);
+    console.log(`[index-conversations] Starting: daysBack=${daysBack}, minMessages=${minMessages}, maxConversations=${maxConversations}, dryRun=${dryRun}`);
 
     // Get conversations to index
     let query = supabase
       .from('chat_messages')
       .select('client_id, organization_id')
-      .eq('organization_id', organizationId) // Filter by organization
+      .eq('organization_id', organizationId)
       .gte('created_at', new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString())
       .not('content', 'is', null);
 
@@ -194,7 +185,7 @@ Deno.serve(async (req) => {
     const { data: messageGroups, error: queryError } = await query;
 
     if (queryError) {
-      console.error('Query error:', queryError);
+      console.error('[index-conversations] Query error:', queryError);
       return errorResponse('Failed to fetch messages', 500);
     }
 
@@ -215,7 +206,7 @@ Deno.serve(async (req) => {
       .filter(([_, data]) => data.count >= minMessages)
       .slice(0, maxConversations);
 
-    console.log(`Found ${eligibleClients.length} eligible conversations to index`);
+    console.log(`[index-conversations] Found ${eligibleClients.length} eligible conversations`);
 
     const results = {
       total: eligibleClients.length,
@@ -252,14 +243,14 @@ Deno.serve(async (req) => {
         const analysis = await analyzeConversation(messages, openaiApiKey);
         
         if (!analysis) {
-          console.log(`Skipped client ${clientIdToProcess}: analysis failed`);
+          console.log(`[index-conversations] Skipped ${clientIdToProcess}: analysis failed`);
           results.skipped++;
           continue;
         }
 
         // Skip low quality or ongoing conversations
         if (analysis.quality_score < 3 || analysis.outcome === 'ongoing') {
-          console.log(`Skipped client ${clientIdToProcess}: quality=${analysis.quality_score}, outcome=${analysis.outcome}`);
+          console.log(`[index-conversations] Skipped ${clientIdToProcess}: quality=${analysis.quality_score}, outcome=${analysis.outcome}`);
           results.skipped++;
           continue;
         }
@@ -271,7 +262,7 @@ Deno.serve(async (req) => {
         const embedding = await createEmbedding(searchText, openaiApiKey);
         
         if (!embedding) {
-          console.log(`Skipped client ${clientIdToProcess}: embedding failed`);
+          console.log(`[index-conversations] Skipped ${clientIdToProcess}: embedding failed`);
           results.skipped++;
           continue;
         }
@@ -298,7 +289,7 @@ Deno.serve(async (req) => {
               total_messages: messages.length,
               outcome: analysis.outcome,
               quality_score: analysis.quality_score,
-              approved: analysis.quality_score >= 4, // Auto-approve high quality
+              approved: analysis.quality_score >= 4,
               embedding: `[${embedding.join(',')}]`,
               search_text: searchText,
               source_client_id: clientIdToProcess,
@@ -306,7 +297,7 @@ Deno.serve(async (req) => {
             });
 
           if (insertError) {
-            console.error(`Insert error for client ${clientIdToProcess}:`, insertError);
+            console.error(`[index-conversations] Insert error for ${clientIdToProcess}:`, insertError);
             results.errors++;
             continue;
           }
@@ -320,18 +311,18 @@ Deno.serve(async (req) => {
           summary: analysis.context_summary
         });
 
-        console.log(`Indexed client ${clientIdToProcess}: ${analysis.scenario_type}, quality=${analysis.quality_score}`);
+        console.log(`[index-conversations] Indexed ${clientIdToProcess}: ${analysis.scenario_type}, quality=${analysis.quality_score}`);
 
-        // Rate limiting
+        // Rate limiting - avoid hitting API limits
         await new Promise(resolve => setTimeout(resolve, 500));
 
       } catch (error) {
-        console.error(`Error processing client ${clientIdToProcess}:`, error);
+        console.error(`[index-conversations] Error processing ${clientIdToProcess}:`, error);
         results.errors++;
       }
     }
 
-    console.log(`Indexing complete: ${results.indexed} indexed, ${results.skipped} skipped, ${results.errors} errors`);
+    console.log(`[index-conversations] Complete: ${results.indexed} indexed, ${results.skipped} skipped, ${results.errors} errors`);
 
     return successResponse({
       ...results,
@@ -339,7 +330,7 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error in index-conversations:', error);
+    console.error('[index-conversations] Error:', error);
     return errorResponse('Server error', 500);
   }
 });
