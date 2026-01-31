@@ -841,6 +841,60 @@ Deno.serve(async (req) => {
           }
         }
         
+        // Notify about incoming calls (when call starts, so manager can pick up)
+        if ((status === 'initiated' || status === 'ringing') && direction === 'incoming') {
+          console.log('[onlinepbx-webhook] New incoming call, sending push notification');
+          
+          // Get client name if available
+          let incomingClientName = formattedPhone;
+          if (clientId) {
+            const { data: clientData } = await supabase
+              .from('clients')
+              .select('first_name, last_name, name')
+              .eq('id', clientId)
+              .single();
+            
+            if (clientData) {
+              incomingClientName = [clientData.first_name, clientData.last_name].filter(Boolean).join(' ') 
+                || clientData.name 
+                || formattedPhone;
+            }
+          }
+          
+          // Send push notification to managers/admins in this organization
+          console.log('[onlinepbx-webhook] === INCOMING CALL PUSH START ===');
+          
+          try {
+            const incomingUserIds = await getOrgAdminManagerUserIds(supabase, organizationId);
+            console.log('[onlinepbx-webhook] Sending incoming call push to:', incomingUserIds.length, 'users');
+            
+            if (incomingUserIds.length > 0) {
+              const incomingPushResult = await sendPushNotification({
+                userIds: incomingUserIds,
+                payload: {
+                  title: '📱 Входящий звонок',
+                  body: `Звонит ${incomingClientName}`,
+                  icon: '/pwa-192x192.png',
+                  badge: '/pwa-192x192.png',
+                  url: clientId ? `/newcrm?clientId=${clientId}` : '/newcrm',
+                  tag: `incoming-call-${newCallLog.id}`,
+                  data: {
+                    type: 'incoming_call',
+                    callId: newCallLog.id,
+                    clientId,
+                    phone: selectedPhone,
+                  }
+                },
+              });
+              console.log('[onlinepbx-webhook] Incoming call push result:', incomingPushResult);
+            }
+          } catch (incomingPushErr) {
+            console.error('[onlinepbx-webhook] Incoming call push error:', incomingPushErr);
+          }
+          
+          console.log('[onlinepbx-webhook] === INCOMING CALL PUSH END ===');
+        }
+        
         // Notify about missed calls
         if (status === 'missed' && direction === 'incoming') {
           console.log('Missed incoming call, creating notification and push');
