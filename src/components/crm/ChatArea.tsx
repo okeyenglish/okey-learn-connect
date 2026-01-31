@@ -2074,10 +2074,12 @@ export const ChatArea = ({
                     <Plus className="mr-2 h-4 w-4" />
                     <span>Добавить задачу</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    <span>Выставить счёт</span>
-                  </DropdownMenuItem>
+                  {!isTeacherMessages && (
+                    <DropdownMenuItem onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}>
+                      <FileText className="mr-2 h-4 w-4" />
+                      <span>Выставить счёт</span>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={handleToggleSelectionMode}>
                     <Forward className="mr-2 h-4 w-4" />
                     <span>Переслать</span>
@@ -2137,15 +2139,17 @@ export const ChatArea = ({
               >
                 <Plus className="h-4 w-4" />
               </Button>
-              <Button 
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 hidden sm:flex"
-                title="Выставить счёт"
-                onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}
-              >
-                <FileText className="h-4 w-4" />
-              </Button>
+              {!isTeacherMessages && (
+                <Button 
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 hidden sm:flex"
+                  title="Выставить счёт"
+                  onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}
+                >
+                  <FileText className="h-4 w-4" />
+                </Button>
+              )}
               
               {/* Always visible icons */}
               <Button 
@@ -2196,10 +2200,12 @@ export const ChatArea = ({
                     <Plus className="mr-2 h-4 w-4" />
                     <span>Добавить задачу</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    <span>Выставить счёт</span>
-                  </DropdownMenuItem>
+                  {!isTeacherMessages && (
+                    <DropdownMenuItem onClick={() => (onOpenInvoiceModal ? onOpenInvoiceModal() : setShowInvoiceModal(true))}>
+                      <FileText className="mr-2 h-4 w-4" />
+                      <span>Выставить счёт</span>
+                    </DropdownMenuItem>
+                  )}
                   {onToggleRightPanel && (
                     <DropdownMenuItem onClick={onToggleRightPanel}>
                       {rightPanelCollapsed ? <PanelLeft className="mr-2 h-4 w-4" /> : <PanelRight className="mr-2 h-4 w-4" />}
@@ -3252,17 +3258,19 @@ export const ChatArea = ({
                 ) : (
                   <>
                     {/* Desktop: show all icons, Mobile: hide in dropdown */}
-                    {/* Payment link button - visible on lg+ */}
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      className="hidden lg:flex h-8 w-8 p-0 flex-shrink-0"
-                      disabled={!!pendingMessage}
-                      onClick={() => setShowPaymentLinkModal(true)}
-                      title="Выставить счёт"
-                    >
-                      <CreditCard className="h-4 w-4" />
-                    </Button>
+                    {/* Payment link button - visible on lg+ (hidden for teachers) */}
+                    {!isTeacherMessages && (
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="hidden lg:flex h-8 w-8 p-0 flex-shrink-0"
+                        disabled={!!pendingMessage}
+                        onClick={() => setShowPaymentLinkModal(true)}
+                        title="Выставить счёт"
+                      >
+                        <CreditCard className="h-4 w-4" />
+                      </Button>
+                    )}
                     
                     {/* Schedule message button - visible on lg+ */}
                     <Dialog open={showScheduleDialog} onOpenChange={(open) => {
@@ -3466,15 +3474,17 @@ export const ChatArea = ({
                           <Mic className="h-4 w-4" />
                           <span>Голосовое</span>
                         </DropdownMenuItem>
-                        {/* Выставить счёт - видим в dropdown на экранах < lg (1024px) */}
-                        <DropdownMenuItem
-                          onClick={() => setShowPaymentLinkModal(true)}
-                          disabled={!!pendingMessage}
-                          className="flex items-center gap-2 lg:hidden"
-                        >
-                          <CreditCard className="h-4 w-4" />
-                          <span>Выставить счёт</span>
-                        </DropdownMenuItem>
+                        {/* Выставить счёт - видим в dropdown на экранах < lg (1024px), скрыто для преподавателей */}
+                        {!isTeacherMessages && (
+                          <DropdownMenuItem
+                            onClick={() => setShowPaymentLinkModal(true)}
+                            disabled={!!pendingMessage}
+                            className="flex items-center gap-2 lg:hidden"
+                          >
+                            <CreditCard className="h-4 w-4" />
+                            <span>Выставить счёт</span>
+                          </DropdownMenuItem>
+                        )}
                         {/* Запланировать - видим в dropdown на экранах < lg (1024px) */}
                         <DropdownMenuItem
                           onClick={() => message.trim() && setShowScheduleDialog(true)}

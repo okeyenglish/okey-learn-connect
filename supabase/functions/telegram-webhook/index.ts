@@ -970,7 +970,94 @@ async function updatePhoneNumberMessengerData(
       
       console.log(`Updated messenger data for phone record ${phoneRecord.id}:`, Object.keys(updateData));
     }
+
+    // Also sync teacher data if this client is linked to a teacher
+    await syncTeacherFromClient(supabase, clientId, data);
   } catch (error) {
     console.error('Error updating phone number messenger data:', error);
+  }
+}
+
+// Sync teacher phone and telegram_user_id from client data
+async function syncTeacherFromClient(
+  supabase: any,
+  clientId: string,
+  data: {
+    phone?: string | null;
+    telegramUserId?: number | null;
+  }
+): Promise<void> {
+  if (!data.phone && !data.telegramUserId) {
+    return;
+  }
+
+  try {
+    // Check if this client is linked to a teacher
+    const { data: teacherLink, error: linkError } = await supabase
+      .from('teacher_client_links')
+      .select('teacher_id')
+      .eq('client_id', clientId)
+      .maybeSingle();
+
+    if (linkError || !teacherLink) {
+      return;
+    }
+
+    const teacherId = teacherLink.teacher_id;
+
+    // Get current teacher data
+    const { data: teacher, error: teacherError } = await supabase
+      .from('teachers')
+      .select('phone, telegram_user_id')
+      .eq('id', teacherId)
+      .single();
+
+    if (teacherError || !teacher) {
+      console.error('Teacher not found:', teacherId);
+      return;
+    }
+
+    const updateData: Record<string, any> = {};
+
+    // Update phone if teacher doesn't have one or if we have a new valid phone
+    if (data.phone) {
+      const cleanPhone = data.phone.replace(/\D/g, '');
+      if (cleanPhone.length >= 10 && cleanPhone.length <= 15) {
+        // Format as +7XXXXXXXXXX for Russian numbers
+        let formattedPhone = cleanPhone;
+        if (cleanPhone.length === 10) {
+          formattedPhone = `+7${cleanPhone}`;
+        } else if (cleanPhone.length === 11 && (cleanPhone.startsWith('7') || cleanPhone.startsWith('8'))) {
+          formattedPhone = `+7${cleanPhone.slice(1)}`;
+        } else {
+          formattedPhone = `+${cleanPhone}`;
+        }
+
+        // Only update if teacher has no phone
+        if (!teacher.phone) {
+          updateData.phone = formattedPhone;
+        }
+      }
+    }
+
+    // Update telegram_user_id if teacher doesn't have one
+    if (data.telegramUserId && !teacher.telegram_user_id) {
+      updateData.telegram_user_id = String(data.telegramUserId);
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      const { error: updateError } = await supabase
+        .from('teachers')
+        .update(updateData)
+        .eq('id', teacherId);
+
+      if (updateError) {
+        console.error('Error updating teacher data:', updateError);
+      } else {
+        console.log(`Synced teacher ${teacherId} data from client ${clientId}:`, updateData);
+      }
+    }
+  } catch (error) {
+    console.error('Error syncing teacher from client:', error);
   }
 }
