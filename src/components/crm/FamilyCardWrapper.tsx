@@ -11,6 +11,9 @@ interface FamilyCardWrapperProps {
   activeMessengerTab?: 'whatsapp' | 'telegram' | 'max';
 }
 
+// In-memory cache for instant repeated loads (clientId -> familyGroupId)
+const familyGroupIdCache = new Map<string, string>();
+
 // Flag to track if new RPC is available
 let useNewRpc = true;
 
@@ -28,6 +31,8 @@ const fetchFamilyGroupIdLegacy = async (clientId: string): Promise<string | null
 
   if (!memberError && existingMember?.family_group_id) {
     console.log(`[FamilyCardWrapper] Found existing group in ${(performance.now() - startTime).toFixed(0)}ms`);
+    // Cache the result
+    familyGroupIdCache.set(clientId, existingMember.family_group_id);
     return existingMember.family_group_id;
   }
 
@@ -63,6 +68,8 @@ const fetchFamilyGroupIdLegacy = async (clientId: string): Promise<string | null
         });
 
         console.log(`[FamilyCardWrapper] Linked to existing group in ${(performance.now() - startTime).toFixed(0)}ms`);
+        // Cache the result
+        familyGroupIdCache.set(clientId, groupId);
         return groupId;
       }
     }
@@ -114,10 +121,12 @@ const fetchFamilyGroupIdLegacy = async (clientId: string): Promise<string | null
   }
 
   console.log(`[FamilyCardWrapper] Created new group (legacy) in ${(performance.now() - startTime).toFixed(0)}ms`);
+  // Cache the result
+  familyGroupIdCache.set(clientId, group.id);
   return group.id;
 };
 
-// New optimized RPC with fallback
+// New optimized RPC with fallback and caching
 const fetchFamilyGroupId = async (clientId: string): Promise<string | null> => {
   const startTime = performance.now();
   
@@ -132,27 +141,40 @@ const fetchFamilyGroupId = async (clientId: string): Promise<string | null> => {
         if (error.message?.includes('function') || error.code === '42883' || error.code === 'PGRST202') {
           console.warn('[FamilyCardWrapper] New RPC not available, using legacy method');
           useNewRpc = false;
-          return fetchFamilyGroupIdLegacy(clientId);
+          const result = await fetchFamilyGroupIdLegacy(clientId);
+          if (result) familyGroupIdCache.set(clientId, result);
+          return result;
         }
         console.error('[FamilyCardWrapper] RPC error:', error);
         // For other errors, also try legacy
-        return fetchFamilyGroupIdLegacy(clientId);
+        const result = await fetchFamilyGroupIdLegacy(clientId);
+        if (result) familyGroupIdCache.set(clientId, result);
+        return result;
       }
 
       console.log(`[FamilyCardWrapper] RPC completed in ${(performance.now() - startTime).toFixed(0)}ms`);
-      return data as string | null;
+      const result = data as string | null;
+      if (result) familyGroupIdCache.set(clientId, result);
+      return result;
     } catch (err) {
       console.warn('[FamilyCardWrapper] RPC failed, falling back to legacy:', err);
       useNewRpc = false;
-      return fetchFamilyGroupIdLegacy(clientId);
+      const result = await fetchFamilyGroupIdLegacy(clientId);
+      if (result) familyGroupIdCache.set(clientId, result);
+      return result;
     }
   }
 
   // Use legacy method
-  return fetchFamilyGroupIdLegacy(clientId);
+  const result = await fetchFamilyGroupIdLegacy(clientId);
+  if (result) familyGroupIdCache.set(clientId, result);
+  return result;
 };
 
 export const FamilyCardWrapper = ({ clientId, onOpenChat, activeMessengerTab }: FamilyCardWrapperProps) => {
+  // Get cached family group ID for instant display
+  const cachedFamilyGroupId = familyGroupIdCache.get(clientId);
+  
   // Use React Query for caching and deduplication
   const { data: familyGroupId, isLoading, error } = useQuery({
     queryKey: ['family-group-id', clientId],
@@ -163,9 +185,12 @@ export const FamilyCardWrapper = ({ clientId, onOpenChat, activeMessengerTab }: 
     gcTime: 60 * 60 * 1000, // 60 minutes cache
     refetchOnWindowFocus: false,
     retry: 1,
+    // Use in-memory cache for instant display
+    placeholderData: cachedFamilyGroupId || undefined,
   });
 
-  if (isLoading) {
+  // Don't show skeleton if we have cached data
+  if (isLoading && !cachedFamilyGroupId) {
     return <FamilyCardSkeleton />;
   }
 
