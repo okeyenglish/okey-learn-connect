@@ -4,6 +4,9 @@
 -- Выполнить на self-hosted базе: api.academyos.ru
 -- После выполнения: NOTIFY pgrst, 'reload schema';
 
+-- Сначала удаляем старую версию функции (если возвращаемый тип изменился)
+DROP FUNCTION IF EXISTS get_unread_chat_threads(integer);
+
 CREATE OR REPLACE FUNCTION get_unread_chat_threads(p_limit INTEGER DEFAULT 100)
 RETURNS TABLE (
   clt_id UUID,
