@@ -243,7 +243,7 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
       
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['call-logs', clientId] });
-      queryClient.invalidateQueries({ queryKey: ['infinite-call-logs', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['call-logs-infinite', clientId] });
       
       toast({
         title: "Анализ завершён",
@@ -276,7 +276,7 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
       if (response.success && (response.data as any)?.recording_url) {
         // Invalidate queries to refresh data with new recording URL
         queryClient.invalidateQueries({ queryKey: ['call-logs', clientId] });
-        queryClient.invalidateQueries({ queryKey: ['infinite-call-logs', clientId] });
+        queryClient.invalidateQueries({ queryKey: ['call-logs-infinite', clientId] });
       }
     } catch (error) {
       console.error('Failed to fetch recording:', error);
@@ -393,7 +393,7 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
       
       // Invalidate queries to refresh
       queryClient.invalidateQueries({ queryKey: ['call-logs', clientId] });
-      queryClient.invalidateQueries({ queryKey: ['infinite-call-logs', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['call-logs-infinite', clientId] });
       
       toast({
         title: "Сохранено",
