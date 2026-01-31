@@ -1,46 +1,38 @@
 
-# План: Оптимизация загрузки реакций - устранение N+1 проблемы ✅ ВЫПОЛНЕНО
+# Оптимизация производительности CRM ✅
 
-## Выявленная проблема
+## 1. N+1 проблема с реакциями на сообщения ✅ ВЫПОЛНЕНО
 
-При открытии чата каждое сообщение рендерило компонент `MessageReactions`, который вызывал:
-- `useGroupedReactions(messageId)` → `useMessageReactions(messageId)`
-- Это создавало **отдельный HTTP-запрос для каждого сообщения**
+**Проблема:** Каждое сообщение делало отдельный запрос для получения реакций.  
+**Решение:** Batch-загрузка всех реакций одним запросом через `useBatchMessageReactions` и `ReactionsContext`.  
+**Результат:** 50+ запросов → 1-2 запроса
 
-При 50 сообщениях в чате = 50+ запросов к `message_reactions` таблице
+## 2. Дублирование запросов ролей пользователя ✅ ВЫПОЛНЕНО
 
-## Решение: Batch-загрузка реакций ✅
+**Проблема:** `get_user_role` и `get_user_roles` вызывались многократно:
+- В `fetchProfile()` 
+- Повторно после fetchProfile на строке 207
+- В `Auth.tsx` независимо
 
-### ✅ Задача 1: Создан хук `useBatchMessageReactions`
+**Решение:**
+- Удалён дублирующий вызов `get_user_role` после fetchProfile
+- Запросы `get_user_role` и `get_user_roles` теперь выполняются параллельно через `Promise.all`
+- Удалены debug console.log (30+ логов при загрузке)
 
-Файл: `src/hooks/useBatchMessageReactions.ts`
-- Загрузка реакций всех сообщений одним запросом через `.in('message_id', messageIds)`
-- Загрузка профилей пользователей одним запросом
-- Группировка реакций по message_id и emoji
+**Результат:** 6+ запросов ролей → 2 запроса (параллельных)
 
-### ✅ Задача 2: Создан React Context для реакций
+## 3. Оптимизация ManagerMenu ✅ ВЫПОЛНЕНО
 
-Файл: `src/contexts/ReactionsContext.tsx`
-- `ReactionsProvider` - обёртка для передачи реакций вниз по дереву
-- `useReactionsContext` - хук для доступа к контексту
-- `useMessageReactionsFromContext` - хук для получения реакций конкретного сообщения
+**Проблема:** 30+ ре-рендеров с console.log на каждый.  
+**Решение:** React.memo + useMemo для вычисления ролей.
 
-### ✅ Задача 3: Обновлён MessageReactions компонент
+## Файлы изменены
 
-Файл: `src/components/crm/MessageReactions.tsx`
-- Заменён `useGroupedReactions` на `useMessageReactionsFromContext`
-- Заменены `useAddReaction`/`useRemoveReaction` на batch-версии
-
-### ✅ Задача 4: ChatArea обёрнут в ReactionsProvider
-
-Файл: `src/components/crm/ChatArea.tsx`
-- Добавлен `messageIds` useMemo для стабильного списка ID
-- Обёрнуты сообщения в `<ReactionsProvider messageIds={messageIds}>`
-
-## Результат
-
-| Метрика | До | После |
-|---------|-----|-------|
-| Запросов на реакции | 50+ (по числу сообщений) | 1-2 |
-| Время загрузки чата | 2-5 сек | < 500 мс |
-| Нагрузка на сеть | Высокая | Минимальная |
+| Файл | Изменение |
+|------|-----------|
+| `src/hooks/useBatchMessageReactions.ts` | Новый - batch-загрузка реакций |
+| `src/contexts/ReactionsContext.tsx` | Новый - контекст реакций |
+| `src/components/crm/MessageReactions.tsx` | Использует контекст |
+| `src/components/crm/ChatArea.tsx` | ReactionsProvider wrapper |
+| `src/hooks/useAuth.tsx` | Promise.all для ролей, без дублей |
+| `src/components/crm/ManagerMenu.tsx` | React.memo + useMemo |
