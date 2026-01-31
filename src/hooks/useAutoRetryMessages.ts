@@ -38,11 +38,17 @@ export const getRetryCountFromMetadata = (metadata: Record<string, unknown> | nu
 export const updateRetryCountInDB = async (messageId: string, retryCount: number): Promise<void> => {
   try {
     // First get current metadata
-    const { data: message } = await supabase
+    const { data: message, error: selectError } = await supabase
       .from('chat_messages')
       .select('metadata')
       .eq('id', messageId)
       .maybeSingle();
+    
+    // Fallback if metadata column doesn't exist (error code 42703)
+    if (selectError?.code === '42703') {
+      console.log('[AutoRetry] metadata column not available, skipping DB update');
+      return;
+    }
     
     const currentMetadata = (message?.metadata as Record<string, unknown>) || {};
     const updatedMetadata = {
@@ -51,14 +57,21 @@ export const updateRetryCountInDB = async (messageId: string, retryCount: number
       last_retry_at: new Date().toISOString(),
     };
 
-    await supabase
+    const { error: updateError } = await supabase
       .from('chat_messages')
       .update({ metadata: updatedMetadata })
       .eq('id', messageId);
     
+    // Fallback if metadata column doesn't exist during update
+    if (updateError?.code === '42703') {
+      console.log('[AutoRetry] metadata column not available, skipping DB update');
+      return;
+    }
+    
     console.log(`[AutoRetry] Updated retry_count to ${retryCount} in DB for ${messageId.slice(0, 8)}`);
   } catch (error) {
-    console.error('[AutoRetry] Failed to update retry count in DB:', error);
+    // Silent fallback - don't block retry logic if DB update fails
+    console.log('[AutoRetry] DB update skipped:', error);
   }
 };
 
@@ -67,11 +80,17 @@ export const updateRetryCountInDB = async (messageId: string, retryCount: number
  */
 export const clearRetryCountInDB = async (messageId: string): Promise<void> => {
   try {
-    const { data: message } = await supabase
+    const { data: message, error: selectError } = await supabase
       .from('chat_messages')
       .select('metadata')
       .eq('id', messageId)
       .maybeSingle();
+    
+    // Fallback if metadata column doesn't exist (error code 42703)
+    if (selectError?.code === '42703') {
+      console.log('[AutoRetry] metadata column not available, skipping clear');
+      return;
+    }
     
     const currentMetadata = (message?.metadata as Record<string, unknown>) || {};
     // Remove retry-related fields
@@ -81,14 +100,21 @@ export const clearRetryCountInDB = async (messageId: string): Promise<void> => {
       [key: string]: unknown;
     };
 
-    await supabase
+    const { error: updateError } = await supabase
       .from('chat_messages')
       .update({ metadata: restMetadata })
       .eq('id', messageId);
     
+    // Fallback if metadata column doesn't exist during update
+    if (updateError?.code === '42703') {
+      console.log('[AutoRetry] metadata column not available, skipping clear');
+      return;
+    }
+    
     console.log(`[AutoRetry] Cleared retry metadata for ${messageId.slice(0, 8)}`);
   } catch (error) {
-    console.error('[AutoRetry] Failed to clear retry count in DB:', error);
+    // Silent fallback
+    console.log('[AutoRetry] Clear metadata skipped:', error);
   }
 };
 
