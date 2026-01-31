@@ -340,10 +340,13 @@ async function handleFillSalebotIds(
       if (matchingPhones && matchingPhones.length > 0) {
         const clientId = matchingPhones[0].client_id;
         
-        // Update client with salebot_client_id
+        // Update client with salebot_client_id and salebot_client_type
         const { error: updateError } = await supabase
           .from('clients')
-          .update({ salebot_client_id: salebotClient.id })
+          .update({ 
+            salebot_client_id: salebotClient.id,
+            salebot_client_type: salebotClient.client_type 
+          })
           .eq('id', clientId)
           .is('salebot_client_id', null); // Only update if not already set
         
@@ -962,10 +965,13 @@ async function handleResyncMessages(
               if (data.client_id) {
                 salebotClientId = data.client_id;
                 
-                // Save salebot_client_id for future use
+                // Save salebot_client_id for future use (WhatsApp lookup = type 6)
                 await supabase
                   .from('clients')
-                  .update({ salebot_client_id: salebotClientId })
+                  .update({ 
+                    salebot_client_id: salebotClientId,
+                    salebot_client_type: 6 // WhatsApp
+                  })
                   .eq('id', client.id);
                 
                 console.log(`📱 Найден Salebot ID ${salebotClientId} для клиента ${client.name} по телефону ${cleanPhone}`);
@@ -2096,10 +2102,13 @@ Deno.serve(async (req) => {
               clientId = existingPhones[0].client_id;
               console.log(`Найден существующий клиент по телефону: ${clientId}`);
               
-              // Save salebot_client_id for future resync
+              // Save salebot_client_id and salebot_client_type for future resync
               await supabase
                 .from('clients')
-                .update({ salebot_client_id: salebotClient.id })
+                .update({ 
+                  salebot_client_id: salebotClient.id,
+                  salebot_client_type: salebotClient.client_type 
+                })
                 .eq('id', clientId);
               
               // Try to link with student
@@ -2320,10 +2329,13 @@ Deno.serve(async (req) => {
 
             console.log(`Получен client_id: ${salebotClientId} (формат: ${foundPhone})`);
             
-            // Save salebot_client_id for future resync
+            // Save salebot_client_id for future resync (WhatsApp lookup = type 6)
             await supabase
               .from('clients')
-              .update({ salebot_client_id: salebotClientId })
+              .update({ 
+                salebot_client_id: salebotClientId,
+                salebot_client_type: 6 // WhatsApp
+              })
               .eq('id', client.id);
 
             // Increment for get_history

@@ -142,12 +142,15 @@ Deno.serve(async (req) => {
       organizationId = existingClient.organization_id
       console.log('Found existing client:', clientId, 'org:', organizationId)
       
-      // Update salebot_client_id if not set yet (client was created from wappi/telegram)
+      // Update salebot_client_id and salebot_client_type if not set yet (client was created from wappi/telegram)
       if (!existingClient.salebot_client_id) {
         console.log('Updating salebot_client_id for existing client:', payload.client.id)
         await supabase
           .from('clients')
-          .update({ salebot_client_id: payload.client.id })
+          .update({ 
+            salebot_client_id: payload.client.id,
+            salebot_client_type: payload.client.client_type 
+          })
           .eq('id', clientId)
       }
       
@@ -184,6 +187,7 @@ Deno.serve(async (req) => {
       const clientData: any = {
         name: clientName,
         salebot_client_id: payload.client.id,
+        salebot_client_type: payload.client.client_type,
         avatar_url: payload.client.avatar || null,
         organization_id: organizationId,
         is_active: true,
