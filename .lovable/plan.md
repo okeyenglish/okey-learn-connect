@@ -1,99 +1,37 @@
 
 # План: Обновление WhatsApp вебхуков для поддержки teacher_id
 
-## Текущая проблема
-Два из трёх WhatsApp провайдеров не обновлены для новой архитектуры `teacher_id`:
-- `whatsapp-webhook` (GreenAPI) - сообщения всегда привязываются к `client_id`
-- `wpp-webhook` - сообщения всегда привязываются к `client_id`
+## ✅ ВЫПОЛНЕНО
 
-## Целевое поведение
-При входящем сообщении в WhatsApp:
-1. Сначала проверить `teachers.whatsapp_id` по номеру телефона
-2. Если найден преподаватель - создать сообщение с `teacher_id`, без `client_id`
-3. Если не найден - создать/найти клиента как обычно
+### Реализованные изменения
 
-## Задачи
+#### 1. whatsapp-webhook/index.ts (GreenAPI) ✅
+- `handleIncomingMessage` — добавлена проверка `teachers.whatsapp_id` перед созданием клиента
+- `handleOutgoingMessage` — добавлена проверка `teachers.whatsapp_id` перед созданием клиента
+- `handleIncomingReaction` — добавлена проверка для реакций от преподавателей
+- Добавлена функция `handleReactionMessageForTeacher` для обработки реакций с `teacher_id`
 
-### 1. Обновить whatsapp-webhook/index.ts (GreenAPI)
+#### 2. wpp-webhook/index.ts (WPP Connect) ✅
+- `handleIncomingMessage` — добавлена проверка `teachers.whatsapp_id` перед созданием клиента
+- Поддержка как входящих, так и исходящих сообщений (isFromMe)
 
-Добавить в функцию `handleIncomingMessage`:
+## Логика работы
 
-```typescript
-// PRIORITY 1: Check if sender is a TEACHER by whatsapp_id
-const { data: teacherData } = await supabase
-  .from('teachers')
-  .select('id, first_name, last_name')
-  .eq('organization_id', organizationId)
-  .eq('whatsapp_id', phoneNumber)
-  .eq('is_active', true)
-  .maybeSingle()
+При входящем/исходящем сообщении в WhatsApp:
+1. **ПРИОРИТЕТ 1**: Проверить `teachers.whatsapp_id` по номеру телефона
+   - Если найден преподаватель → сохранить сообщение с `teacher_id`, без `client_id`
+2. **ПРИОРИТЕТ 2**: Если преподаватель не найден → стандартный flow с клиентом
 
-if (teacherData) {
-  // Save message with teacher_id (not client_id)
-  const { error } = await supabase.from('chat_messages').insert({
-    teacher_id: teacherData.id,
-    client_id: null,
-    organization_id: organizationId,
-    message_text: messageText,
-    message_type: 'client',
-    messenger_type: 'whatsapp',
-    message_status: 'delivered',
-    external_message_id: idMessage,
-    is_outgoing: false,
-    is_read: false,
-    file_url: fileUrl,
-    file_name: fileName,
-    file_type: fileType,
-    created_at: new Date(webhook.timestamp * 1000).toISOString()
-  })
-  return // Exit early - don't create client
-}
-// PRIORITY 2: Continue with normal client flow...
-```
+## Результат
 
-Аналогично для `handleOutgoingMessage`.
+Теперь ВСЕ три WhatsApp провайдера корректно атрибутируют сообщения:
+- ✅ `wappi-whatsapp-webhook` (Wappi)
+- ✅ `whatsapp-webhook` (GreenAPI)
+- ✅ `wpp-webhook` (WPP Connect)
 
-### 2. Обновить wpp-webhook/index.ts
+Новые входящие сообщения от преподавателей сразу попадут в папку "Преподаватели" и не будут создавать дубликаты клиентов.
 
-Добавить в функцию `handleIncomingMessage`:
+## Деплой
 
-```typescript
-// PRIORITY 1: Check if sender is a TEACHER by whatsapp_id
-const { data: teacherData } = await supabase
-  .from('teachers')
-  .select('id')
-  .eq('organization_id', organizationId)
-  .eq('whatsapp_id', phone)
-  .eq('is_active', true)
-  .maybeSingle()
-
-if (teacherData) {
-  await supabase.from('chat_messages').insert({
-    teacher_id: teacherData.id,
-    client_id: null,
-    message_text: messageText,
-    message_type: isFromMe ? 'manager' : 'client',
-    is_read: isFromMe,
-    is_outgoing: isFromMe,
-    messenger_type: 'whatsapp',
-    file_url: media?.url || null,
-    // ...
-  })
-  return
-}
-// Continue with client flow...
-```
-
-## Файлы для изменения
-
-| Файл | Изменение |
-|------|-----------|
-| supabase/functions/whatsapp-webhook/index.ts | Добавить проверку teachers перед созданием client |
-| supabase/functions/wpp-webhook/index.ts | Добавить проверку teachers перед созданием client |
-
-## Ожидаемый результат
-
-После обновления:
-- Все три WhatsApp провайдера будут корректно атрибутировать сообщения преподавателей через `teacher_id`
-- Новые входящие сообщения от преподавателей сразу попадут в папку "Преподаватели"
-- Не будут создаваться дубликаты клиентов для преподавателей
+Функции будут автоматически задеплоены через GitHub Actions при push в main.
+Или можно задеплоить вручную по инструкции в `docs/migration/11-deploy-edge-functions-to-selfhosted.md`.

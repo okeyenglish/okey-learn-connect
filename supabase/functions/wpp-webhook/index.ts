@@ -146,6 +146,7 @@ async function handleIncomingMessage(data: WPPMessageData) {
 
   // Extract phone number from WhatsApp format
   const phone = from.replace('@c.us', '').replace('@s.whatsapp.net', '')
+  const whatsappId = phone // normalized phone number for teacher lookup
   const isFromMe = Boolean(fromMe)
   
   console.log('Processing message from:', phone, 'isFromMe:', isFromMe)
@@ -182,7 +183,51 @@ async function handleIncomingMessage(data: WPPMessageData) {
   }
   
   console.log('Using organization_id:', organizationId)
-  
+
+  // Prepare message content
+  const messageText = text || body || (media ? '[Media]' : '')
+
+  // ========== PRIORITY 1: Check if sender/recipient is a TEACHER by whatsapp_id ==========
+  const { data: teacherData, error: teacherError } = await supabase
+    .from('teachers')
+    .select('id, first_name, last_name')
+    .eq('organization_id', organizationId)
+    .eq('whatsapp_id', whatsappId)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (teacherError) {
+    console.error('Error checking teacher by whatsapp_id:', teacherError)
+  }
+
+  if (teacherData) {
+    console.log(`Found teacher by whatsapp_id: ${teacherData.first_name} ${teacherData.last_name || ''} (ID: ${teacherData.id})`)
+    
+    // Save message with teacher_id (NOT client_id)
+    const { error: msgError } = await supabase.from('chat_messages').insert({
+      teacher_id: teacherData.id,
+      client_id: null,
+      organization_id: organizationId,
+      message_text: messageText,
+      message_type: isFromMe ? 'manager' : 'client',
+      is_read: isFromMe,
+      is_outgoing: isFromMe,
+      messenger_type: 'whatsapp',
+      file_url: media?.url || null,
+      file_name: media?.fileName || null,
+      file_type: media?.mime || media?.mimetype ? getFileTypeFromMime(media?.mime || media?.mimetype || '') : null,
+      webhook_id: id || null,
+    })
+
+    if (msgError) {
+      console.error('Error saving teacher message:', msgError)
+    } else {
+      console.log('Teacher message saved successfully for teacher:', teacherData.id)
+    }
+    return // Exit early - don't create client
+  }
+
+  // ========== PRIORITY 2: Normal client flow ==========
   // Find or create client by phone number WITH organization_id
   let { data: client, error: clientError } = await supabase
     .from('clients')
@@ -217,9 +262,6 @@ async function handleIncomingMessage(data: WPPMessageData) {
     return
   }
 
-  // Save message to chat_messages table (CRM messages)
-  const messageText = text || body || (media ? '[Media]' : '')
-  
   // Update client's last_message_at and whatsapp_chat_id
   await supabase
     .from('clients')
@@ -255,6 +297,7 @@ async function handleIncomingMessage(data: WPPMessageData) {
     .from('chat_messages')
     .insert({
       client_id: client.id,
+      organization_id: organizationId,
       message_text: messageText,
       message_type: isFromMe ? 'manager' : 'client',
       is_read: isFromMe, // Outgoing messages are already read
