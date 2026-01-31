@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/typedClient";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getErrorMessage } from '@/lib/errorUtils';
+import { isLikelyPhoneNumber } from '@/utils/phoneNormalization';
 
 interface LinkChatToClientModalProps {
   open: boolean;
@@ -389,7 +390,8 @@ export const LinkChatToClientModal = ({
       }
 
       // IMPORTANT: Transfer the main phone from clients table with messenger associations
-      if (currentClient.phone) {
+      // Skip if the "phone" is actually a Telegram ID or other non-phone identifier
+      if (currentClient.phone && isLikelyPhoneNumber(currentClient.phone)) {
         const currentPhoneDigits = currentClient.phone.replace(/\D/g, "");
         
         if (!targetPhoneSet.has(currentPhoneDigits)) {
@@ -421,8 +423,8 @@ export const LinkChatToClientModal = ({
             console.error("Error inserting main phone:", insertPhoneError);
           }
           
-          // Update target client's main phone if they don't have one
-          if (!targetClient.phone) {
+          // Update target client's main phone if they don't have one (and target phone is valid)
+          if (!targetClient.phone || !isLikelyPhoneNumber(targetClient.phone)) {
             const { error: updatePhoneError } = await supabase
               .from("clients")
               .update({ phone: currentClient.phone })
