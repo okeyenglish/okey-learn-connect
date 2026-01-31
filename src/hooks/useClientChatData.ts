@@ -18,6 +18,10 @@ import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 // Cache configuration
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Timeout configuration
+const RPC_CHECK_TIMEOUT_MS = 5000; // 5 seconds for availability check
+const QUERY_TIMEOUT_MS = 10000; // 10 seconds for data fetch
+
 // In-memory cache for instant display
 interface CacheEntry {
   data: ClientChatData;
@@ -76,18 +80,31 @@ const checkRpcAvailable = async (): Promise<boolean> => {
   
   rpcCheckPromise = (async () => {
     try {
+      console.log('[useClientChatData] Checking RPC availability...');
+      
       // Try calling with a non-existent UUID - if function exists, we get empty data
       // If function doesn't exist, we get an error
-      const { error } = await supabase.rpc('get_client_chat_data', {
-        p_client_id: '00000000-0000-0000-0000-000000000000',
-        p_limit: 1
-      });
+      // Add timeout to prevent hanging forever
+      const result = await Promise.race([
+        supabase.rpc('get_client_chat_data', {
+          p_client_id: '00000000-0000-0000-0000-000000000000',
+          p_limit: 1
+        }),
+        new Promise<{ data: null; error: Error }>((resolve) =>
+          setTimeout(() => resolve({ data: null, error: new Error('RPC check timeout') }), RPC_CHECK_TIMEOUT_MS)
+        )
+      ]);
       
-      // Function exists if no "function does not exist" error
-      rpcAvailable = !error?.message?.includes('function') && !error?.message?.includes('does not exist');
-      console.log('[useClientChatData] RPC available:', rpcAvailable);
+      const error = result.error;
+      
+      // Function exists if no "function does not exist" error and no timeout
+      rpcAvailable = !error?.message?.includes('function') && 
+                     !error?.message?.includes('does not exist') &&
+                     !error?.message?.includes('timeout');
+      console.log('[useClientChatData] RPC available:', rpcAvailable, error?.message ? `(${error.message})` : '');
       return rpcAvailable;
-    } catch {
+    } catch (err) {
+      console.warn('[useClientChatData] RPC check failed:', err);
       rpcAvailable = false;
       return false;
     }
@@ -137,11 +154,20 @@ export const useClientChatData = (
 
       if (useRpc && !fallbackModeRef.current) {
         try {
-          // Try unified RPC call
-          const { data, error } = await supabase.rpc('get_client_chat_data', {
-            p_client_id: clientId,
-            p_limit: limit
-          });
+          console.log(`[useClientChatData] Fetching data for client ${clientId}...`);
+          
+          // Try unified RPC call with timeout
+          const rpcResult = await Promise.race([
+            supabase.rpc('get_client_chat_data', {
+              p_client_id: clientId,
+              p_limit: limit
+            }),
+            new Promise<{ data: null; error: Error }>((resolve) =>
+              setTimeout(() => resolve({ data: null, error: new Error('Query timeout') }), QUERY_TIMEOUT_MS)
+            )
+          ]);
+
+          const { data, error } = rpcResult;
 
           if (error) {
             console.warn('[useClientChatData] RPC error, falling back:', error.message);
