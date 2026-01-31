@@ -1,61 +1,81 @@
-# План оптимизации загрузки диалогов с клиентами
 
-## Статус: ✅ Реализовано (SQL + хуки), ожидает интеграции в ChatArea
+# План исправления 3 критических ошибок схемы
 
-## Что сделано
+## Проблема
+Три ошибки схемы блокируют загрузку чата и карточки клиента:
 
-### ✅ Шаг 1: SQL-индексы
-**Файл:** `docs/sql-optimizations/chat_messages_dialog_indexes.sql`
-- `idx_chat_messages_client_created` — для быстрой выборки по client_id
-- `idx_chat_messages_client_unread` — для подсчёта непрочитанных
-- `idx_chat_messages_external_id` — для дедупликации
+1. **RPC `get_family_data_by_client_id`** - ссылка на несуществующий `gs.is_active`
+2. **RPC `get_client_chat_data`** - ссылка на несуществующий `metadata`  
+3. **`useAutoRetryMessages.ts`** - запросы к несуществующему `metadata`
 
-### ✅ Шаг 2: RPC функция `get_client_chat_data`
-**Файл:** `docs/rpc-get-client-chat-data.sql`
-- Объединяет в один запрос: сообщения + unread counts + avatars
-- Возвращает JSONB с hasMore флагом
+## Решение
 
-### ✅ Шаг 3: Хук `useClientChatData`
-**Файл:** `src/hooks/useClientChatData.ts`
-- In-memory кэш 5 минут
-- Автоматический fallback на legacy если RPC не установлена
-- Prefetch функция для hover
+### Изменение 1: docs/rpc-get-family-data-by-client-id.sql
 
-### ✅ Шаг 4: Увеличен TTL кэша
-**Файл:** `src/hooks/useChatMessagesOptimized.ts`
-- CACHE_TTL увеличен с 1 до 5 минут
+**Строка 179**: Заменить `gs.is_active = true` на проверку через отсутствие поля `left_at`:
 
-## Что осталось
+```sql
+-- Было:
+WHERE gs.student_id = s.id
+  AND gs.is_active = true
 
-### ⏳ Интеграция в ChatArea.tsx
-ChatArea.tsx (3600+ строк) требует ручной интеграции:
-
-```typescript
-// Заменить:
-import { useClientAvatars } from '@/hooks/useClientAvatars';
-import { useChatMessagesOptimized } from '@/hooks/useChatMessagesOptimized';
-
-// На:
-import { useClientChatData } from '@/hooks/useClientChatData';
-
-// В компоненте заменить:
-const { avatars } = useClientAvatars(clientId);
-const { data: messagesData } = useChatMessagesOptimized(clientId, limit);
-
-// На:
-const { messages, avatars, unreadCounts, hasMore } = useClientChatData(clientId, { limit });
+-- Стало:
+WHERE gs.student_id = s.id
+  AND gs.left_at IS NULL
 ```
 
-## Инструкции для self-hosted
+### Изменение 2: docs/rpc-get-client-chat-data.sql
 
-1. Выполнить `docs/sql-optimizations/chat_messages_dialog_indexes.sql`
-2. Выполнить `docs/rpc-get-client-chat-data.sql`
-3. Проверить работу: `SELECT get_client_chat_data('client-uuid', 100);`
+Убрать `metadata` из SELECT и jsonb_build_object (строки 28-48 и 51-67):
 
-## Ожидаемый результат
+```sql
+-- Было (строка 43):
+message_status,
+metadata
 
-| Метрика | До | После |
-|---------|-----|-------|
-| Количество запросов | 4-6 | 1-2 |
-| Время загрузки (первый раз) | 500-1500ms | 100-200ms |
-| Время загрузки (повторно) | 200-500ms | ~0ms (кэш) |
+-- Стало:
+message_status
+
+-- И убрать из jsonb_build_object (строка 66)
+```
+
+### Изменение 3: src/hooks/useAutoRetryMessages.ts
+
+Добавить fallback с try-catch для всех запросов к `metadata`:
+
+```typescript
+// updateRetryCountInDB - строки 38-63
+try {
+  const { data: message, error } = await supabase
+    .from('chat_messages')
+    .select('metadata')
+    .eq('id', messageId)
+    .maybeSingle();
+  
+  // Если metadata не существует, пропускаем обновление
+  if (error?.code === '42703') {
+    console.log('[AutoRetry] metadata column not available, skipping DB update');
+    return;
+  }
+  // ... rest of logic
+} catch (error) {
+  // Silent fallback
+}
+```
+
+Аналогичный fallback для `clearRetryCountInDB` (строки 68-93).
+
+## Файлы для изменения
+
+| Файл | Изменение |
+|------|-----------|
+| `docs/rpc-get-family-data-by-client-id.sql` | `gs.is_active = true` → `gs.left_at IS NULL` |
+| `docs/rpc-get-client-chat-data.sql` | Удалить `metadata` из SELECT и JSON |
+| `src/hooks/useAutoRetryMessages.ts` | Добавить error fallback для `metadata` |
+
+## Результат
+
+После исправлений:
+- RPC функции будут работать без ошибок 400
+- Auto-retry будет работать в silent mode если `metadata` недоступна
+- Загрузка чата ускорится с ~1500ms до ~200ms
