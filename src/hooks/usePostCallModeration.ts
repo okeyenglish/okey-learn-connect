@@ -36,6 +36,10 @@ interface UsePostCallModerationOptions {
  * Hook to detect when a call ends for the current user and show post-call moderation modal.
  * Uses polling to check for recently ended calls since call_logs is on self-hosted DB.
  */
+// Circuit breaker configuration
+const CIRCUIT_BREAKER_THRESHOLD = 3;  // Number of errors before opening circuit
+const CIRCUIT_BREAKER_TIMEOUT = 5 * 60 * 1000; // 5 minutes pause
+
 export const usePostCallModeration = (options: UsePostCallModerationOptions = {}) => {
   const { analysisDelay = 8000, pollingInterval = 10000, enabled = true } = options;
   const { user } = useAuth();
@@ -50,6 +54,10 @@ export const usePostCallModeration = (options: UsePostCallModerationOptions = {}
   const processedCallsRef = useRef<Set<string>>(new Set());
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const analysisDelayRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Circuit breaker state
+  const consecutiveErrorsRef = useRef(0);
+  const circuitOpenUntilRef = useRef<number | null>(null);
 
   // Fetch full call details with AI analysis
   const fetchCallDetails = useCallback(async (callId: string): Promise<PostCallData | null> => {
@@ -121,9 +129,22 @@ export const usePostCallModeration = (options: UsePostCallModerationOptions = {}
     }
   }, [fetchCallDetails]);
 
-  // Check for recently ended calls
+  // Check for recently ended calls with circuit breaker
   const checkForEndedCalls = useCallback(async () => {
     if (!user?.id) return;
+
+    // Circuit breaker: skip if circuit is open
+    if (circuitOpenUntilRef.current && Date.now() < circuitOpenUntilRef.current) {
+      console.log('[usePostCallModeration] Circuit breaker open, skipping poll');
+      return;
+    }
+    
+    // Reset circuit breaker if timeout has passed
+    if (circuitOpenUntilRef.current && Date.now() >= circuitOpenUntilRef.current) {
+      console.log('[usePostCallModeration] Circuit breaker reset after timeout');
+      circuitOpenUntilRef.current = null;
+      consecutiveErrorsRef.current = 0;
+    }
 
     try {
       // Fetch recent calls for current manager that ended after last check
@@ -135,11 +156,24 @@ export const usePostCallModeration = (options: UsePostCallModerationOptions = {}
         managerId: user.id,
         since: lastCheckedTimeRef.current,
         limit: 5
+      }, {
+        retry: { noRetry: true } // Disable retry - circuit breaker handles failures
       });
 
       if (!response.success || !response.data?.calls) {
+        // Increment error counter
+        consecutiveErrorsRef.current++;
+        console.warn(`[usePostCallModeration] Request failed (${consecutiveErrorsRef.current}/${CIRCUIT_BREAKER_THRESHOLD})`);
+        
+        if (consecutiveErrorsRef.current >= CIRCUIT_BREAKER_THRESHOLD) {
+          circuitOpenUntilRef.current = Date.now() + CIRCUIT_BREAKER_TIMEOUT;
+          console.warn('[usePostCallModeration] Circuit breaker triggered - pausing for 5 minutes');
+        }
         return;
       }
+
+      // Success - reset error counter
+      consecutiveErrorsRef.current = 0;
 
       const calls = response.data.calls;
       
@@ -172,7 +206,14 @@ export const usePostCallModeration = (options: UsePostCallModerationOptions = {}
         }
       }
     } catch (error) {
-      console.error('[usePostCallModeration] Error checking for ended calls:', error);
+      // Increment error counter on exception
+      consecutiveErrorsRef.current++;
+      console.error(`[usePostCallModeration] Error checking for ended calls (${consecutiveErrorsRef.current}/${CIRCUIT_BREAKER_THRESHOLD}):`, error);
+      
+      if (consecutiveErrorsRef.current >= CIRCUIT_BREAKER_THRESHOLD) {
+        circuitOpenUntilRef.current = Date.now() + CIRCUIT_BREAKER_TIMEOUT;
+        console.warn('[usePostCallModeration] Circuit breaker triggered - pausing for 5 minutes');
+      }
     }
   }, [user?.id, analysisDelay, showModeration]);
 
