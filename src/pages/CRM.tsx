@@ -160,6 +160,7 @@ import { UserPermissionsManager } from "@/components/admin/UserPermissionsManage
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { useMissedCallNotifications } from "@/hooks/useMissedCallNotifications";
+import { useIncomingCallRingtone } from "@/hooks/useIncomingCallRingtone";
 import { TrashDialog } from "@/components/crm/TrashDialog";
 import { useDeletedChats } from "@/hooks/useDeletedChats";
 // Lazy load тяжелых компонентов модальных окон для быстрого открытия
@@ -206,6 +207,9 @@ const CRMContent = () => {
   
   // Listen for missed call events and show notifications
   useMissedCallNotifications();
+  
+  // Play ringtone for incoming calls
+  useIncomingCallRingtone();
   
   // Post-call moderation modal - shows after manager's call ends
   const postCallModeration = usePostCallModeration({ analysisDelay: 8000 });

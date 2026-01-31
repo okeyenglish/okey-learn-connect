@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
+import { dispatchIncomingCallEvent, dispatchCallEndedEvent, dispatchCallAnsweredEvent } from './useIncomingCallRingtone';
 
 interface CallLogPayload {
   id: string;
@@ -8,6 +9,7 @@ interface CallLogPayload {
   status: string;
   direction: string;
   phone_number: string;
+  manager_id?: string;
 }
 
 /**
@@ -59,6 +61,25 @@ export const useCallLogsRealtime = (clientId?: string) => {
             });
           }
 
+          // Handle incoming calls - trigger ringtone
+          if (newCall.direction === 'incoming') {
+            if (newCall.status === 'initiated' || newCall.status === 'ringing') {
+              console.log('[useCallLogsRealtime] Incoming call detected, dispatching event');
+              dispatchIncomingCallEvent({
+                callId: newCall.id,
+                clientId: newCall.client_id,
+                phoneNumber: newCall.phone_number,
+                managerId: newCall.manager_id,
+              });
+            } else if (newCall.status === 'answered') {
+              console.log('[useCallLogsRealtime] Call answered, stopping ringtone');
+              dispatchCallAnsweredEvent(newCall.id);
+            } else if (newCall.status === 'missed' || newCall.status === 'completed' || newCall.status === 'failed') {
+              console.log('[useCallLogsRealtime] Call ended, stopping ringtone');
+              dispatchCallEndedEvent(newCall.id);
+            }
+          }
+
           // If status is 'missed', also invalidate global counts
           if (newCall.status === 'missed') {
             console.log('[useCallLogsRealtime] Missed call detected, refreshing UI');
@@ -88,6 +109,15 @@ export const useCallLogsRealtime = (clientId?: string) => {
             id: updatedCall.id,
             status: updatedCall.status,
           });
+
+          // Handle status changes for ringtone
+          if (updatedCall.direction === 'incoming') {
+            if (updatedCall.status === 'answered') {
+              dispatchCallAnsweredEvent(updatedCall.id);
+            } else if (updatedCall.status === 'missed' || updatedCall.status === 'completed' || updatedCall.status === 'failed') {
+              dispatchCallEndedEvent(updatedCall.id);
+            }
+          }
 
           // Invalidate queries when call is marked as viewed
           if (updatedCall.client_id) {
