@@ -99,42 +99,115 @@ export const ContactInfoBlock = ({
 
   // Create virtual phone number from client-level messenger data if no real phone numbers exist
   const effectivePhoneNumbers = useMemo(() => {
+    const result: PhoneNumberData[] = [];
+    
     // Check if we have any real phone numbers (non-empty phone strings)
     const hasRealPhones = phoneNumbers.some(p => p.phone && p.phone.trim() !== '');
     
     if (hasRealPhones) {
       // Filter out empty phone entries but keep ones with messenger data
-      return phoneNumbers.filter(p => p.phone || p.whatsappChatId || p.telegramChatId || p.telegramUserId);
+      const validPhones = phoneNumbers.filter(p => p.phone || p.whatsappChatId || p.telegramChatId || p.telegramUserId);
+      result.push(...validPhones);
+    } else {
+      // No real phone numbers - check for messenger-only data
+      
+      // Try to extract phone from WhatsApp chat ID
+      const extractedPhone = extractPhoneFromWhatsappId(clientWhatsappChatId);
+      
+      // Also try from phone numbers with whatsappChatId but empty phone
+      const phoneWithWhatsapp = phoneNumbers.find(p => p.whatsappChatId && !p.phone);
+      const extractedFromPhoneRecord = phoneWithWhatsapp 
+        ? extractPhoneFromWhatsappId(phoneWithWhatsapp.whatsappChatId)
+        : null;
+      
+      const finalPhone = extractedPhone || extractedFromPhoneRecord || '';
+      
+      // Create entry for WhatsApp if it has phone
+      if (finalPhone && clientWhatsappChatId) {
+        result.push({
+          id: 'virtual-whatsapp-contact',
+          phone: finalPhone,
+          isPrimary: true,
+          isWhatsappEnabled: true,
+          isTelegramEnabled: false,
+          whatsappChatId: clientWhatsappChatId,
+          telegramChatId: null,
+          telegramUserId: null,
+          maxChatId: null,
+          isVirtual: true,
+        });
+      }
+      
+      // Create separate entry for Telegram if it exists and has no phone
+      if ((clientTelegramChatId || clientTelegramUserId) && !finalPhone) {
+        result.push({
+          id: 'virtual-telegram-contact',
+          phone: '',
+          isPrimary: result.length === 0,
+          isWhatsappEnabled: false,
+          isTelegramEnabled: true,
+          whatsappChatId: null,
+          telegramChatId: clientTelegramChatId,
+          telegramUserId: clientTelegramUserId,
+          maxChatId: null,
+          isVirtual: true,
+        });
+      }
+      
+      // Create separate entry for MAX if it exists
+      if (clientMaxChatId && result.length === 0) {
+        result.push({
+          id: 'virtual-max-contact',
+          phone: '',
+          isPrimary: true,
+          isWhatsappEnabled: false,
+          isTelegramEnabled: false,
+          whatsappChatId: null,
+          telegramChatId: null,
+          telegramUserId: null,
+          maxChatId: clientMaxChatId,
+          isVirtual: true,
+        });
+      }
+      
+      // Fallback: if we have any messenger data but no entries yet, create a combined one
+      if (result.length === 0 && (finalPhone || clientTelegramChatId || clientTelegramUserId || clientWhatsappChatId || clientMaxChatId)) {
+        result.push({
+          id: 'virtual-messenger-contact',
+          phone: finalPhone,
+          isPrimary: true,
+          isWhatsappEnabled: !!clientWhatsappChatId,
+          isTelegramEnabled: !!clientTelegramChatId || !!clientTelegramUserId,
+          whatsappChatId: clientWhatsappChatId,
+          telegramChatId: clientTelegramChatId,
+          telegramUserId: clientTelegramUserId,
+          maxChatId: clientMaxChatId,
+          isVirtual: true,
+        });
+      }
     }
     
-    // Try to extract phone from WhatsApp chat ID
-    const extractedPhone = extractPhoneFromWhatsappId(clientWhatsappChatId);
-    
-    // Also try from phone numbers with whatsappChatId but empty phone
-    const phoneWithWhatsapp = phoneNumbers.find(p => p.whatsappChatId && !p.phone);
-    const extractedFromPhoneRecord = phoneWithWhatsapp 
-      ? extractPhoneFromWhatsappId(phoneWithWhatsapp.whatsappChatId)
-      : null;
-    
-    const finalPhone = extractedPhone || extractedFromPhoneRecord || '';
-    
-    if (finalPhone || clientTelegramChatId || clientTelegramUserId || clientWhatsappChatId || clientMaxChatId) {
-      // Create a virtual phone entry for messenger-only contacts
-      return [{
-        id: 'virtual-messenger-contact',
-        phone: finalPhone,
-        isPrimary: true,
-        isWhatsappEnabled: !!clientWhatsappChatId,
-        isTelegramEnabled: !!clientTelegramChatId || !!clientTelegramUserId,
-        whatsappChatId: clientWhatsappChatId,
-        telegramChatId: clientTelegramChatId,
-        telegramUserId: clientTelegramUserId,
-        maxChatId: clientMaxChatId,
-        isVirtual: true, // Mark as virtual for edit capability
-      }] as PhoneNumberData[];
+    // If we have phone numbers but also Telegram without phone, add Telegram as separate line
+    if (hasRealPhones && (clientTelegramUserId || clientTelegramChatId)) {
+      const hasTelegramInPhones = phoneNumbers.some(p => p.telegramUserId || p.telegramChatId);
+      if (!hasTelegramInPhones) {
+        // Add Telegram ID as separate line
+        result.push({
+          id: 'virtual-telegram-only',
+          phone: '',
+          isPrimary: false,
+          isWhatsappEnabled: false,
+          isTelegramEnabled: true,
+          whatsappChatId: null,
+          telegramChatId: clientTelegramChatId,
+          telegramUserId: clientTelegramUserId,
+          maxChatId: null,
+          isVirtual: true,
+        });
+      }
     }
     
-    return [];
+    return result;
   }, [phoneNumbers, clientWhatsappChatId, clientTelegramChatId, clientTelegramUserId, clientMaxChatId]);
 
   const isSingleNumber = effectivePhoneNumbers.length === 1;
@@ -340,9 +413,24 @@ export const ContactInfoBlock = ({
                 </>
               ) : (
                 <>
-                  <span className="text-sm text-muted-foreground italic">
-                    Номер не указан
-                  </span>
+                  {/* Show Telegram ID if no phone but Telegram exists */}
+                  {tgActive && getTelegramId(phoneNumber) ? (
+                    <>
+                      <button
+                        className="flex items-center gap-2 hover:bg-blue-50 rounded px-1 -ml-1 transition-colors"
+                        onClick={() => handleMessengerClick(phoneNumber.id, 'telegram', true)}
+                      >
+                        <TelegramIcon active={true} />
+                        <span className="text-sm font-medium text-blue-600">
+                          ID: {getTelegramId(phoneNumber)}
+                        </span>
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-sm text-muted-foreground italic">
+                      Номер не указан
+                    </span>
+                  )}
                   {/* Allow adding phone for virtual contacts without a number */}
                   {phoneNumber.isVirtual && onPhoneSave && (
                     <Tooltip>
@@ -362,73 +450,76 @@ export const ContactInfoBlock = ({
                 </>
               )}
               
-              <div className="flex items-center gap-1 ml-auto">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      className={`p-1 rounded transition-colors ${waActive ? 'hover:bg-green-50 cursor-pointer' : 'cursor-default'}`}
-                      onClick={() => handleMessengerClick(phoneNumber.id, 'whatsapp', waActive)}
-                      disabled={!waActive}
-                    >
-                      <WhatsAppIcon active={waActive} />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs max-w-[200px]">
-                    {waActive ? (
-                      <div>
-                        <div>Открыть WhatsApp чат</div>
-                        <div className="text-muted-foreground mt-0.5">
-                          {getWhatsappId(phoneNumber) 
-                            ? `ID: ${String(getWhatsappId(phoneNumber)).replace('@c.us', '')}` 
-                            : `Тел: ${phoneNumber.phone}`}
+              {/* Messenger icons - hide when showing Telegram ID as main content (no phone) */}
+              {(hasPhone || !tgActive || !getTelegramId(phoneNumber)) && (
+                <div className="flex items-center gap-1 ml-auto">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        className={`p-1 rounded transition-colors ${waActive ? 'hover:bg-green-50 cursor-pointer' : 'cursor-default'}`}
+                        onClick={() => handleMessengerClick(phoneNumber.id, 'whatsapp', waActive)}
+                        disabled={!waActive}
+                      >
+                        <WhatsAppIcon active={waActive} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs max-w-[200px]">
+                      {waActive ? (
+                        <div>
+                          <div>Открыть WhatsApp чат</div>
+                          <div className="text-muted-foreground mt-0.5">
+                            {getWhatsappId(phoneNumber) 
+                              ? `ID: ${String(getWhatsappId(phoneNumber)).replace('@c.us', '')}` 
+                              : `Тел: ${phoneNumber.phone}`}
+                          </div>
                         </div>
-                      </div>
-                    ) : 'WhatsApp не подключен'}
-                  </TooltipContent>
-                </Tooltip>
-                
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      className={`p-1 rounded transition-colors ${tgActive ? 'hover:bg-blue-50 cursor-pointer' : 'cursor-default'}`}
-                      onClick={() => handleMessengerClick(phoneNumber.id, 'telegram', tgActive)}
-                      disabled={!tgActive}
-                    >
-                      <TelegramIcon active={tgActive} />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs max-w-[200px]">
-                    {tgActive ? (
-                      <div>
-                        <div>Открыть Telegram чат</div>
-                        <div className="text-muted-foreground mt-0.5">
-                          {(() => {
-                            const tgId = getTelegramId(phoneNumber);
-                            if (tgId) return `ID: ${tgId}`;
-                            if (phoneNumber.phone) return `Тел: ${phoneNumber.phone}`;
-                            return 'Подключен';
-                          })()}
+                      ) : 'WhatsApp не подключен'}
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        className={`p-1 rounded transition-colors ${tgActive ? 'hover:bg-blue-50 cursor-pointer' : 'cursor-default'}`}
+                        onClick={() => handleMessengerClick(phoneNumber.id, 'telegram', tgActive)}
+                        disabled={!tgActive}
+                      >
+                        <TelegramIcon active={tgActive} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs max-w-[200px]">
+                      {tgActive ? (
+                        <div>
+                          <div>Открыть Telegram чат</div>
+                          <div className="text-muted-foreground mt-0.5">
+                            {(() => {
+                              const tgId = getTelegramId(phoneNumber);
+                              if (tgId) return `ID: ${tgId}`;
+                              if (phoneNumber.phone) return `Тел: ${phoneNumber.phone}`;
+                              return 'Подключен';
+                            })()}
+                          </div>
                         </div>
-                      </div>
-                    ) : 'Telegram не подключен'}
-                  </TooltipContent>
-                </Tooltip>
-                
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      className={`p-1 rounded transition-colors ${maxActive ? 'hover:bg-purple-50 cursor-pointer' : 'cursor-default'}`}
-                      onClick={() => handleMessengerClick(phoneNumber.id, 'max', maxActive)}
-                      disabled={!maxActive}
-                    >
-                      <MaxIcon active={maxActive} />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">
-                    {maxActive ? 'Открыть MAX чат' : 'MAX не подключен'}
-                  </TooltipContent>
-                </Tooltip>
-              </div>
+                      ) : 'Telegram не подключен'}
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        className={`p-1 rounded transition-colors ${maxActive ? 'hover:bg-purple-50 cursor-pointer' : 'cursor-default'}`}
+                        onClick={() => handleMessengerClick(phoneNumber.id, 'max', maxActive)}
+                        disabled={!maxActive}
+                      >
+                        <MaxIcon active={maxActive} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      {maxActive ? 'Открыть MAX чат' : 'MAX не подключен'}
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              )}
             </div>
           );
         })}
