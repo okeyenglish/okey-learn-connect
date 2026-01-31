@@ -1,62 +1,35 @@
 
-# План исправления ошибок схемы group_students
+# План исправления ошибок RPC
 
-## Проблема
-На self-hosted базе таблица `group_students` имеет другую структуру:
-- **Нет** колонки `is_active`
-- **Нет** колонки `left_at`
-- **Есть** колонка `status` (string) — используется для определения активности
+## Текущие ошибки (из network logs)
 
-## Изменения
+### 1. `get_family_data_by_client_id` (400)
+**Ошибка**: `column ils.start_time does not exist`
 
-### 1. Исправить `docs/rpc-get-family-data-by-client-id.sql`
+**Причина**: Таблица `individual_lesson_sessions` на self-hosted использует `time_start` вместо `start_time`
 
-**Строка 179**: Заменить условие фильтрации активных студентов:
+**Исправлено**: Строки 188-199 — заменено `ils.start_time` → `ils.time_start`
 
-```sql
--- Было (ошибка: column gs.left_at does not exist):
-WHERE gs.student_id = s.id
-  AND gs.left_at IS NULL
+### 2. `get_or_create_family_group_id` (404)
+**Ошибка**: Function not found in schema cache
 
--- Стало (правильно для self-hosted схемы):
-WHERE gs.student_id = s.id
-  AND gs.status = 'active'
-```
+**Причина**: RPC не развёрнута на self-hosted базе
 
-### 2. Добавить команду обновления schema cache
+**Решение**: Выполнить SQL из `docs/rpc-get-or-create-family-group-id.sql`
 
-В конец SQL-файла добавить:
+### 3. `group_students` схема
+**Исправлено**: `gs.left_at IS NULL` → `gs.status = 'active'`
 
-```sql
--- Обновить schema cache после DDL изменений
-NOTIFY pgrst, 'reload schema';
-```
+## Файлы для применения на self-hosted
 
-## Файлы для изменения
-
-| Файл | Изменение |
-|------|-----------|
-| `docs/rpc-get-family-data-by-client-id.sql` | `gs.left_at IS NULL` → `gs.status = 'active'` |
+| Файл | Статус |
+|------|--------|
+| `docs/rpc-get-family-data-by-client-id.sql` | ✅ Обновлён |
+| `docs/rpc-get-or-create-family-group-id.sql` | 📋 Нужно выполнить |
 
 ## После применения
 
-После выполнения обновлённого SQL на self-hosted базе:
-1. RPC `get_family_data_by_client_id` будет работать без ошибок
-2. PostgREST schema cache автоматически обновится
-3. Загрузка карточки клиента ускорится
-
-## Техническая деталь
-
-Схема `group_students` на self-hosted:
-```typescript
-interface GroupStudent {
-  id: string;
-  group_id: string;
-  student_id: string;
-  status: string;       // 'active', 'left', 'expelled', etc.
-  enrollment_type: string | null;
-  enrollment_date: string | null;
-  notes: string | null;
-  created_at: string;
-}
-```
+После выполнения обновлённых SQL на self-hosted базе:
+1. RPC `get_family_data_by_client_id` будет работать без ошибок 400
+2. RPC `get_or_create_family_group_id` станет доступна
+3. PostgREST schema cache обновится через NOTIFY
