@@ -563,14 +563,22 @@ Deno.serve(async (req) => {
     
     const evaluation = await analyzeWithGPT(context, openaiApiKey);
     
-    // Step 3: Save evaluation with tags
+    // Step 3: Save evaluation with tags AND transcription
+    const updateData: Record<string, unknown> = { 
+      ai_evaluation: evaluation,
+      summary: evaluation.summary,
+      tags: evaluation.tags || [],
+    };
+    
+    // Save transcription if we have it
+    if (transcription && transcription.length > 0) {
+      updateData.transcription = transcription;
+      console.log('[analyze-call] Saving transcription to call_logs, length:', transcription.length);
+    }
+    
     const { error: updateError } = await supabase
       .from('call_logs')
-      .update({ 
-        ai_evaluation: evaluation,
-        summary: evaluation.summary,
-        tags: evaluation.tags || [],
-      })
+      .update(updateData)
       .eq('id', callId);
     
     if (updateError) {
