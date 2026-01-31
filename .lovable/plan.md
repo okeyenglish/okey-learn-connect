@@ -1,45 +1,108 @@
-# План исправления бесконечной "Загрузки данных"
 
-## ✅ СТАТУС: РЕАЛИЗОВАНО
+# План исправления бесконечной загрузки чатов и сообщений
 
-## Проблема
+## Обнаруженная проблема
 
-На главной странице CRM индикатор "Загрузка данных..." оставался бесконечно. Проблема была вызвана отсутствием таймаутов в RPC-вызовах.
+Функция `checkRpcAvailable()` в `useClientChatData.ts` **не имеет таймаута**. Если self-hosted сервер не отвечает или отвечает медленно, весь запрос зависает навсегда.
+
+```typescript
+// Текущий код (проблема)
+const checkRpcAvailable = async (): Promise<boolean> => {
+  // ... 
+  const { error } = await supabase.rpc('get_client_chat_data', {...});
+  // ⚠️ Нет таймаута - может зависнуть навсегда!
+};
+```
 
 ## Решение
 
-### ✅ Шаг 1: Добавлены таймауты к RPC в useChatThreadsInfinite
+### Шаг 1: Добавить таймаут в checkRpcAvailable
 
-- Создана helper функция `rpcWithTimeout` с дефолтным таймаутом 8 секунд
-- Применена к `get_chat_threads_paginated` и `get_unread_chat_threads`
+Изменить `src/hooks/useClientChatData.ts`:
 
-### ✅ Шаг 2: Улучшена fallback логика
+```typescript
+const RPC_CHECK_TIMEOUT_MS = 5000; // 5 секунд на проверку
 
-Реализована цепочка fallback:
-1. `get_chat_threads_paginated` (8s timeout)
-2. `get_chat_threads_fast` (5s timeout)  
-3. Прямой SELECT из `clients` как последний resort
+const checkRpcAvailable = async (): Promise<boolean> => {
+  if (rpcAvailable !== null) return rpcAvailable;
+  if (rpcCheckPromise) return rpcCheckPromise;
+  
+  rpcCheckPromise = (async () => {
+    try {
+      // Добавить Promise.race с таймаутом
+      const result = await Promise.race([
+        supabase.rpc('get_client_chat_data', {
+          p_client_id: '00000000-0000-0000-0000-000000000000',
+          p_limit: 1
+        }),
+        new Promise<{ error: Error }>((resolve) =>
+          setTimeout(() => resolve({ error: new Error('RPC check timeout') }), RPC_CHECK_TIMEOUT_MS)
+        )
+      ]);
+      
+      const error = result.error;
+      rpcAvailable = !error?.message?.includes('function') && 
+                     !error?.message?.includes('does not exist') &&
+                     !error?.message?.includes('timeout');
+      return rpcAvailable;
+    } catch {
+      rpcAvailable = false;
+      return false;
+    }
+  })();
+  
+  return rpcCheckPromise;
+};
+```
 
-### ✅ Шаг 3: Добавлен retry конфиг
+### Шаг 2: Добавить таймаут в queryFn useClientChatData
 
-В `queryConfig.ts` добавлена конфигурация `threadsQueryConfig`:
-- `retry: 2` - максимум 2 retry
-- `retryDelay: 1000` - 1 секунда между retry
+```typescript
+const QUERY_TIMEOUT_MS = 10000; // 10 секунд на запрос
 
-### ✅ Шаг 4: Улучшено логирование
+queryFn: async (): Promise<ClientChatData> => {
+  // ...
+  const useRpc = await checkRpcAvailable();
+  
+  if (useRpc && !fallbackModeRef.current) {
+    try {
+      // Добавить таймаут к RPC вызову
+      const result = await Promise.race([
+        supabase.rpc('get_client_chat_data', { p_client_id: clientId, p_limit: limit }),
+        new Promise<{ data: null; error: Error }>((resolve) =>
+          setTimeout(() => resolve({ data: null, error: new Error('Query timeout') }), QUERY_TIMEOUT_MS)
+        )
+      ]);
+      // ...
+    }
+  }
+  // Fallback ...
+}
+```
 
-Добавлены console.log для отслеживания начала запросов и fallback переключений.
+### Шаг 3: Убедиться что fallback всегда возвращает данные
 
-## Изменённые файлы
+Даже если все запросы провалятся, функция должна вернуть пустой результат:
 
-1. `src/hooks/useChatThreadsInfinite.ts` - таймауты, fallback, логирование
-2. `src/lib/queryConfig.ts` - новая конфигурация `threadsQueryConfig`
+```typescript
+// В конце queryFn добавить гарантированный возврат
+return {
+  messages: [],
+  hasMore: false,
+  totalCount: 0,
+  unreadCounts: {},
+  avatars: { whatsapp: null, telegram: null, max: null }
+};
+```
 
-## Результат
+## Файлы для изменения
+
+1. `src/hooks/useClientChatData.ts` - добавить таймауты
+
+## Ожидаемый результат
 
 | Сценарий | До | После |
 |----------|-----|-------|
-| RPC работает | Загрузка ~500ms | Без изменений |
-| RPC зависает | Бесконечная загрузка | Таймаут 8s → fallback |
-| RPC отсутствует | Ошибка, retry бесконечно | Fallback на прямой SQL |
-| Сервер 500 | Бесконечные retry | 2 retry → показать список или пустой |
+| RPC проверка зависает | Бесконечная загрузка | Таймаут 5s → fallback |
+| RPC запрос зависает | Бесконечная загрузка | Таймаут 10s → fallback |
+| Сервер не отвечает | Зависание UI | Пустой список через 10-15s |
