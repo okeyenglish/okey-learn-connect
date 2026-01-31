@@ -11,7 +11,7 @@ const MESSAGES_PER_PAGE = 100;
 
 // In-memory message cache for instant display
 const messageCache = new Map<string, { messages: ChatMessage[]; timestamp: number }>();
-const CACHE_TTL = 60 * 1000; // 1 minute
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes (increased from 1 minute for better UX)
 
 /**
  * Optimized hook for loading chat messages with proper caching
