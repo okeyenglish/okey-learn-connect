@@ -1391,14 +1391,16 @@ const CRMContent = () => {
           name: existingClient.name,
           phone: existingClient.phone || existingThread?.client_phone || '',
           comment: existingClient.notes || 'Клиент',
-          telegram_user_id: (existingClient as any).telegram_user_id || null
+          telegram_user_id: (existingClient as any).telegram_user_id || null,
+          max_chat_id: (existingClient as any).max_chat_id || null
         });
       } else if (existingThread) {
         setActiveClientInfo({
           name: existingThread.client_name,
           phone: existingThread.client_phone || '',
           comment: 'Клиент',
-          telegram_user_id: null
+          telegram_user_id: null,
+          max_chat_id: null
         });
       }
       
@@ -1411,12 +1413,12 @@ const CRMContent = () => {
             // Fetch phone from client_phone_numbers
             const { data: primaryPhone } = await supabase
               .from('client_phone_numbers')
-              .select('phone')
+              .select('phone, max_chat_id')
               .eq('client_id', currentChatId)
               .eq('is_primary', true)
               .maybeSingle();
 
-            // Also fetch telegram_user_id from clients table if not already loaded
+            // Also fetch telegram_user_id and max_chat_id from clients table
             const { data: clientData } = await supabase
               .from('clients')
               .select('telegram_user_id, phone')
@@ -1425,14 +1427,16 @@ const CRMContent = () => {
 
             const phone = primaryPhone?.phone || clientData?.phone;
             const telegramUserId = clientData?.telegram_user_id;
+            const maxChatId = (primaryPhone as any)?.max_chat_id || null;
             
-            if (phone || telegramUserId) {
+            if (phone || telegramUserId || maxChatId) {
               setActiveClientInfo(prev => {
                 if (!prev) return null;
                 return { 
                   ...prev, 
                   phone: phone || prev.phone,
-                  telegram_user_id: telegramUserId || prev.telegram_user_id
+                  telegram_user_id: telegramUserId || prev.telegram_user_id,
+                  max_chat_id: maxChatId || prev.max_chat_id
                 };
               });
             }
@@ -1749,7 +1753,8 @@ const CRMContent = () => {
         name: targetClient.name,
         phone: targetClient.phone || '',
         comment: targetClient.notes || 'Клиент',
-        telegram_user_id: (targetClient as any).telegram_user_id || null
+        telegram_user_id: (targetClient as any).telegram_user_id || null,
+        max_chat_id: (targetClient as any).max_chat_id || null
       };
     }
     if (targetThread) {
@@ -1757,14 +1762,16 @@ const CRMContent = () => {
         name: targetThread.client_name,
         phone: targetThread.client_phone || '',
         comment: 'Клиент',
-        telegram_user_id: null
+        telegram_user_id: null,
+        max_chat_id: null
       };
     }
     return {
       name: 'Выберите чат',
       phone: '',
       comment: '',
-      telegram_user_id: null
+      telegram_user_id: null,
+      max_chat_id: null
     };
   };
 
@@ -1772,7 +1779,7 @@ const CRMContent = () => {
   // Вызываем getActiveClientInfo ОДИН раз, чтобы избежать race conditions
   const currentChatClientInfo = useMemo(() => {
     if (!activeChatId || activeChatType !== 'client') {
-      return { name: 'Выберите чат', phone: '', comment: '', telegram_user_id: null };
+      return { name: 'Выберите чат', phone: '', comment: '', telegram_user_id: null, max_chat_id: null };
     }
     return getActiveClientInfo(activeChatId);
   }, [activeChatId, activeChatType, activeClientInfo, clients, threads]);
@@ -4105,6 +4112,7 @@ const CRMContent = () => {
                 clientName={currentChatClientInfo.name}
                 clientPhone={currentChatClientInfo.phone}
                 clientTelegramUserId={currentChatClientInfo.telegram_user_id}
+                clientMaxId={currentChatClientInfo.max_chat_id}
                 clientComment={currentChatClientInfo.comment}
                 onMessageChange={setHasUnsavedChat}
                 activePhoneId={activePhoneId}
