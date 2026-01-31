@@ -2014,7 +2014,7 @@ export const ChatArea = ({
                     ? `ID: ${clientTelegramUserId}` 
                     : activeMessengerTab === 'max' && clientMaxId
                     ? `MAX ID: ${clientMaxId}`
-                    : formatPhoneForDisplay(clientPhone)}
+                    : formatPhoneForDisplay(clientPhone) || (clientTelegramUserId ? `ID: ${clientTelegramUserId}` : '')}
                 </p>
                 {isOtherUserTyping && typingInfo && (
                   <p className="text-xs text-orange-600 italic animate-pulse">
@@ -2122,7 +2122,7 @@ export const ChatArea = ({
                     ? `ID: ${clientTelegramUserId}` 
                     : activeMessengerTab === 'max' && clientMaxId
                     ? `MAX ID: ${clientMaxId}`
-                    : formatPhoneForDisplay(clientPhone)}
+                    : formatPhoneForDisplay(clientPhone) || (clientTelegramUserId ? `ID: ${clientTelegramUserId}` : '')}
                 </p>
               </div>
             </div>

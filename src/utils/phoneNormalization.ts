@@ -34,6 +34,9 @@ export function normalizePhone(phoneInput: string | null | undefined): string {
 /**
  * Проверяет, является ли строка валидным телефонным номером (а не Telegram ID)
  * Telegram ID обычно 9-10+ цифр и не начинаются с 7, 8, 9
+ * 
+ * Российские мобильные номера: 79XXXXXXXXX (11 цифр, начинаются с 79)
+ * Telegram ID может быть: 1073928961 -> если добавить 7 -> 71073928961 (не 79!)
  */
 export function isLikelyPhoneNumber(input: string | null | undefined): boolean {
   if (!input) return false;
@@ -45,16 +48,31 @@ export function isLikelyPhoneNumber(input: string | null | undefined): boolean {
     return false;
   }
   
-  // Проверяем начало номера - валидные телефоны начинаются с 7, 8, 9, +7, +8
-  // Telegram ID часто начинаются с 1, 2, 3, 4, 5, 6
   const firstDigit = cleaned[0];
+  const secondDigit = cleaned[1];
   
-  // Если 11 цифр и начинается с 7 или 8 - это телефон
-  if (cleaned.length === 11 && (firstDigit === '7' || firstDigit === '8')) {
+  // Если 11 цифр и начинается с 7 - проверяем что второй символ 9 (мобильный)
+  // или допустимый код региона (3, 4, 8 для городских)
+  // Telegram ID типа 71073928961 имеет вторую цифру 1 - это НЕ телефон
+  if (cleaned.length === 11 && firstDigit === '7') {
+    // Мобильные номера РФ начинаются с 79
+    // Городские могут начинаться с 73, 74, 78 и др.
+    // НО вторая цифра НЕ может быть 0, 1, 2 - это невалидные коды
+    if (secondDigit === '0' || secondDigit === '1' || secondDigit === '2') {
+      return false; // Это вероятно Telegram ID с добавленной семёркой
+    }
     return true;
   }
   
-  // Если 10 цифр и начинается с 9 - это телефон без кода страны
+  // Если 11 цифр и начинается с 8 - аналогичная проверка
+  if (cleaned.length === 11 && firstDigit === '8') {
+    if (secondDigit === '0' || secondDigit === '1' || secondDigit === '2') {
+      return false;
+    }
+    return true;
+  }
+  
+  // Если 10 цифр и начинается с 9 - это мобильный телефон без кода страны
   if (cleaned.length === 10 && firstDigit === '9') {
     return true;
   }
