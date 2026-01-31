@@ -1390,25 +1390,25 @@ const CRMContent = () => {
         setActiveClientInfo({
           name: existingClient.name,
           phone: existingClient.phone || existingThread?.client_phone || '',
-          comment: existingClient.notes || 'Клиент'
+          comment: existingClient.notes || 'Клиент',
+          telegram_user_id: (existingClient as any).telegram_user_id || null
         });
       } else if (existingThread) {
         setActiveClientInfo({
           name: existingThread.client_name,
           phone: existingThread.client_phone || '',
-          comment: 'Клиент'
+          comment: 'Клиент',
+          telegram_user_id: null
         });
       }
       
-      // Асинхронно подгружаем телефон в фоне (не блокируя UI) - используем setTimeout для дебаунса
+      // Асинхронно подгружаем телефон и telegram_user_id в фоне (не блокируя UI)
       const currentChatId = chatId; // Замыкаем для проверки актуальности
       setTimeout(() => {
         // NOTE: don't make the setTimeout handler itself `async` (can break TS typings in some builds)
         void (async () => {
-          const currentPhone = existingClient?.phone || existingThread?.client_phone;
-          if (currentPhone) return; // Телефон уже есть
-
           try {
+            // Fetch phone from client_phone_numbers
             const { data: primaryPhone } = await supabase
               .from('client_phone_numbers')
               .select('phone')
@@ -1416,12 +1416,28 @@ const CRMContent = () => {
               .eq('is_primary', true)
               .maybeSingle();
 
-            const phone = primaryPhone?.phone;
-            if (phone) {
-              setActiveClientInfo(prev => (prev ? { ...prev, phone } : null));
+            // Also fetch telegram_user_id from clients table if not already loaded
+            const { data: clientData } = await supabase
+              .from('clients')
+              .select('telegram_user_id, phone')
+              .eq('id', currentChatId)
+              .single();
+
+            const phone = primaryPhone?.phone || clientData?.phone;
+            const telegramUserId = clientData?.telegram_user_id;
+            
+            if (phone || telegramUserId) {
+              setActiveClientInfo(prev => {
+                if (!prev) return null;
+                return { 
+                  ...prev, 
+                  phone: phone || prev.phone,
+                  telegram_user_id: telegramUserId || prev.telegram_user_id
+                };
+              });
             }
           } catch (err) {
-            console.error('Error loading phone async:', err);
+            console.error('Error loading client data async:', err);
           }
         })();
       }, 50); // Небольшая задержка чтобы не блокировать рендер
@@ -1732,20 +1748,23 @@ const CRMContent = () => {
       return {
         name: targetClient.name,
         phone: targetClient.phone || '',
-        comment: targetClient.notes || 'Клиент'
+        comment: targetClient.notes || 'Клиент',
+        telegram_user_id: (targetClient as any).telegram_user_id || null
       };
     }
     if (targetThread) {
       return {
         name: targetThread.client_name,
         phone: targetThread.client_phone || '',
-        comment: 'Клиент'
+        comment: 'Клиент',
+        telegram_user_id: null
       };
     }
     return {
       name: 'Выберите чат',
       phone: '',
-      comment: ''
+      comment: '',
+      telegram_user_id: null
     };
   };
 
@@ -1753,7 +1772,7 @@ const CRMContent = () => {
   // Вызываем getActiveClientInfo ОДИН раз, чтобы избежать race conditions
   const currentChatClientInfo = useMemo(() => {
     if (!activeChatId || activeChatType !== 'client') {
-      return { name: 'Выберите чат', phone: '', comment: '' };
+      return { name: 'Выберите чат', phone: '', comment: '', telegram_user_id: null };
     }
     return getActiveClientInfo(activeChatId);
   }, [activeChatId, activeChatType, activeClientInfo, clients, threads]);
@@ -4085,6 +4104,7 @@ const CRMContent = () => {
                 clientId={activeChatId}
                 clientName={currentChatClientInfo.name}
                 clientPhone={currentChatClientInfo.phone}
+                clientTelegramUserId={currentChatClientInfo.telegram_user_id}
                 clientComment={currentChatClientInfo.comment}
                 onMessageChange={setHasUnsavedChat}
                 activePhoneId={activePhoneId}
