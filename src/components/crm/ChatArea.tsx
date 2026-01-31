@@ -2110,14 +2110,14 @@ export const ChatArea = ({
         
         {/* Desktop: Inline user info with actions */}
         {!isMobile && (
-          <div className="flex items-start justify-between gap-4 p-3">
-            <div className="flex items-center gap-3">
-              <div>
+          <div className="flex items-center justify-between gap-2 p-2 min-w-0">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h2 className="font-semibold text-base">{displayName}</h2>
+                  <h2 className="font-semibold text-base truncate">{displayName}</h2>
                   <ImageCacheIndicator progress={imageCacheProgress} />
                 </div>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground truncate">
                   {activeMessengerTab === 'telegram' && clientTelegramUserId 
                     ? `ID: ${clientTelegramUserId}` 
                     : activeMessengerTab === 'max' && clientMaxId
@@ -2126,7 +2126,7 @@ export const ChatArea = ({
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 flex-shrink-0">
               <Button 
                 variant="ghost"
                 size="icon"
