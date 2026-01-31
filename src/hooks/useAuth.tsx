@@ -70,7 +70,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const currentUserIdRef = useRef<string | null>(null);
 
   const fetchProfile = async (userId: string) => {
-    console.log('🔍 fetchProfile called for userId:', userId);
     setRolesLoading(true);
     
     let fetchedRole: AppRole | null = null;
@@ -78,28 +77,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     
     try {
       // ВАЖНО: Сначала загружаем роли - они критичны для UI
-      const { data: roleData, error: roleError } = await supabase
-        .rpc('get_user_role', { _user_id: userId });
-
-      console.log('👤 Role result:', { roleData, roleError });
-      
-      const { data: rolesData, error: rolesError } = await supabase
-        .rpc('get_user_roles', { _user_id: userId });
-
-      console.log('👥 Roles result:', { rolesData, rolesError });
+      // Выполняем оба запроса параллельно для оптимизации
+      const [roleResult, rolesResult] = await Promise.all([
+        supabase.rpc('get_user_role', { _user_id: userId }),
+        supabase.rpc('get_user_roles', { _user_id: userId }),
+      ]);
       
       // Устанавливаем роли даже если есть ошибки (используем то что есть)
-      fetchedRole = roleError ? null : roleData;
-      fetchedRoles = rolesError ? [] : (rolesData || []);
+      fetchedRole = roleResult.error ? null : roleResult.data;
+      fetchedRoles = rolesResult.error ? [] : (rolesResult.data || []);
       
       setRole(fetchedRole);
       setRoles(fetchedRoles);
       setRolesLoading(false);
       
-      console.log('✅ Roles set in state:', { role: fetchedRole, roles: fetchedRoles });
-      
     } catch (error) {
-      console.error('❌ Error fetching roles:', error);
+      console.error('Error fetching roles:', error);
       setRolesLoading(false);
     }
     
@@ -109,9 +102,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
-
-      console.log('📋 Profile result:', { profileData, profileError });
+        .maybeSingle();
       
       if (!profileError && profileData) {
         const profileWithAvatar = {
@@ -121,14 +112,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setProfile(profileWithAvatar);
       }
     } catch (error) {
-      console.error('❌ Error fetching profile data:', error);
+      console.error('Error fetching profile data:', error);
     }
     
     // Подгружаем разрешения с уже установленными ролями
     try {
       await loadUserPermissionsWithRoles(userId, fetchedRoles, fetchedRole);
     } catch (error) {
-      console.error('❌ Error loading permissions:', error);
+      console.error('Error loading permissions:', error);
     }
   };
   
@@ -204,18 +195,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             setTimeout(async () => {
               await fetchProfile(session.user.id);
               
-              // Fetch user role to determine redirect only on first sign in
-              const { data: roleData } = await supabase
-                .rpc('get_user_role', { _user_id: session.user.id });
+              // Роль уже загружена в fetchProfile, используем её напрямую
+              // get_user_role НЕ вызываем повторно - это было N+1 проблемой
               
               // Only redirect if we're on auth page
               const currentPath = window.location.pathname;
               
-              console.log('User role on sign in:', roleData);
-              console.log('Current path:', currentPath);
-              
               if (currentPath === '/auth') {
-                console.log('Redirecting to external CRM with encrypted SSO');
                 // Get fresh session for SSO redirect
                 const { data: { session: freshSession } } = await supabase.auth.getSession();
                 if (freshSession) {
@@ -291,13 +277,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('🔐 getSession result:', { hasSession: !!session, userId: session?.user?.id });
       setSession(session);
       setUser(session?.user ?? null);
       
       // Only fetch profile if not already initialized (prevents race condition with onAuthStateChange)
       if (session?.user && !isInitializedRef.current) {
-        console.log('🔐 getSession: existing session found, fetching profile...');
         isInitializedRef.current = true;
         currentUserIdRef.current = session.user.id;
         setTimeout(() => {
