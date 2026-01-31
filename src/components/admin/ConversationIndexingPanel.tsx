@@ -25,6 +25,13 @@ interface IndexingResult {
     quality: number;
     summary: string;
   }>;
+  skipReasons?: {
+    lowQuality: number;
+    ongoing: number;
+    analysisFailed: number;
+    embeddingFailed: number;
+    noMessages: number;
+  };
   error?: string;
 }
 
@@ -34,6 +41,7 @@ export function ConversationIndexingPanel() {
   const [daysBack, setDaysBack] = useState(60);
   const [minMessages, setMinMessages] = useState(5);
   const [maxConversations, setMaxConversations] = useState(100);
+  const [minQuality, setMinQuality] = useState(3);
   const [dryRun, setDryRun] = useState(true);
   const { toast } = useToast();
 
@@ -46,6 +54,7 @@ export function ConversationIndexingPanel() {
         daysBack,
         minMessages,
         maxConversations,
+        minQuality,
         dryRun
       });
 
@@ -171,6 +180,21 @@ export function ConversationIndexingPanel() {
               </p>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="minQuality">Мин. качество диалога</Label>
+              <Input
+                id="minQuality"
+                type="number"
+                value={minQuality}
+                onChange={(e) => setMinQuality(Number(e.target.value))}
+                min={1}
+                max={5}
+              />
+              <p className="text-xs text-muted-foreground">
+                Оценка 1-5 (рекомендуется 3+, для обучения 4+)
+              </p>
+            </div>
+
             <div className="flex items-center justify-between pt-4 border-t">
               <div className="space-y-0.5">
                 <Label htmlFor="dryRun">Пробный запуск</Label>
@@ -243,6 +267,30 @@ export function ConversationIndexingPanel() {
                   <div className="p-3 bg-red-50 rounded-lg">
                     <p className="text-sm text-red-600">Ошибок</p>
                     <p className="text-2xl font-bold text-red-700">{result.errors}</p>
+                  </div>
+                )}
+
+                {/* Skip Reasons */}
+                {result.skipReasons && result.skipped > 0 && (
+                  <div className="p-3 bg-orange-50 rounded-lg space-y-2">
+                    <p className="text-sm font-medium text-orange-800">Причины пропуска:</p>
+                    <div className="text-sm text-orange-700 space-y-1">
+                      {result.skipReasons.lowQuality > 0 && (
+                        <p>• Низкое качество: {result.skipReasons.lowQuality}</p>
+                      )}
+                      {result.skipReasons.ongoing > 0 && (
+                        <p>• Диалог не завершён: {result.skipReasons.ongoing}</p>
+                      )}
+                      {result.skipReasons.analysisFailed > 0 && (
+                        <p>• Ошибка анализа: {result.skipReasons.analysisFailed}</p>
+                      )}
+                      {result.skipReasons.embeddingFailed > 0 && (
+                        <p>• Ошибка embedding: {result.skipReasons.embeddingFailed}</p>
+                      )}
+                      {result.skipReasons.noMessages > 0 && (
+                        <p>• Нет сообщений: {result.skipReasons.noMessages}</p>
+                      )}
+                    </div>
                   </div>
                 )}
 
