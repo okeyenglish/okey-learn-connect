@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bot, Play, Loader2, Database, BarChart3, Search } from 'lucide-react';
+import { Bot, Play, Loader2, Database, BarChart3, Search, BookOpen } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,7 @@ import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useToast } from '@/hooks/use-toast';
 import { ConversationAnalyticsDashboard } from './ConversationAnalyticsDashboard';
 import { ConversationSemanticSearch } from './ConversationSemanticSearch';
+import { SuccessfulDialoguesLibrary } from './SuccessfulDialoguesLibrary';
 
 interface IndexingResult {
   success: boolean;
@@ -141,6 +142,10 @@ export function ConversationIndexingPanel() {
           <TabsTrigger value="search" className="gap-2">
             <Search className="h-4 w-4" />
             Поиск кейсов
+          </TabsTrigger>
+          <TabsTrigger value="scripts" className="gap-2">
+            <BookOpen className="h-4 w-4" />
+            Скрипты
           </TabsTrigger>
         </TabsList>
 
@@ -408,6 +413,10 @@ export function ConversationIndexingPanel() {
 
         <TabsContent value="search">
           <ConversationSemanticSearch />
+        </TabsContent>
+
+        <TabsContent value="scripts">
+          <SuccessfulDialoguesLibrary />
         </TabsContent>
       </Tabs>
     </div>
