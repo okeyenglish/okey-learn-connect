@@ -818,8 +818,8 @@ export const FamilyCard = ({
                   return 0;
                 })
                 .map((student) => {
-                  // Extract HolyHope ID from studentNumber (format: S31918 -> 31918)
-                  const hollihopeId = student.studentNumber?.replace(/^S/i, '') || null;
+                  // Use external_id (HoliHope ID) directly, fallback to parsing studentNumber
+                  const hollihopeId = student.holihopeId || student.studentNumber?.replace(/^S/i, '') || null;
                   
                   return (
                     <StudentInfoBlock

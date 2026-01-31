@@ -42,6 +42,7 @@ export interface FamilyMember {
 export interface Student {
   id: string;
   studentNumber?: string;
+  holihopeId?: string;
   name: string;
   firstName: string;
   lastName: string;
@@ -129,6 +130,7 @@ interface RpcIndividualCourse {
 interface RpcStudent {
   id: string;
   student_number?: string;
+  external_id?: string;
   first_name: string;
   last_name?: string;
   middle_name?: string;
@@ -232,6 +234,7 @@ const transformRpcResponse = (data: RpcResponse): FamilyGroup => {
     return {
       id: student.id,
       studentNumber: student.student_number || undefined,
+      holihopeId: student.external_id || undefined,
       name: [student.first_name, student.last_name].filter(Boolean).join(' '),
       firstName: student.first_name,
       lastName: student.last_name || '',
