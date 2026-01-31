@@ -2,7 +2,7 @@
 -- This column stores the HoliHope ID (e.g., 39748) for correct profile links
 -- Apply this manually to self-hosted Supabase at api.academyos.ru
 
--- Step 1: Add external_id column
+-- Step 1: Add external_id column (if not exists)
 ALTER TABLE public.students 
 ADD COLUMN IF NOT EXISTS external_id TEXT;
 
@@ -14,7 +14,13 @@ ON public.students(external_id, organization_id) WHERE external_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_students_external_id 
 ON public.students(external_id);
 
--- Step 4: Update RPC function to return external_id
+-- Step 4: Update RPC function to return external_id and holihope_id
+-- Uses correct self-hosted schema:
+-- - students: date_of_birth, status (not is_active), holihope_metadata
+-- - group_students: links students to learning_groups
+-- - individual_lessons: direct student_id, is_active
+-- - lesson_sessions: for group next lesson dates
+
 CREATE OR REPLACE FUNCTION public.get_family_data_optimized(p_family_group_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -134,26 +140,14 @@ BEGIN
           'individual_courses', COALESCE((
             SELECT jsonb_agg(
               jsonb_build_object(
-                'course_id', ic.id,
-                'course_name', ic.course_name || ' (инд.)',
-                'subject', ic.subject,
-                'is_active', ic.is_active,
-                'next_lesson', (
-                  SELECT jsonb_build_object(
-                    'lesson_date', il.lesson_date,
-                    'start_time', il.start_time
-                  )
-                  FROM individual_lessons il
-                  WHERE il.individual_course_id = ic.id
-                    AND il.lesson_date >= CURRENT_DATE
-                    AND il.status != 'cancelled'
-                  ORDER BY il.lesson_date, il.start_time
-                  LIMIT 1
-                )
+                'course_id', il.id,
+                'course_name', COALESCE(il.subject, 'Индивидуальное занятие') || ' (инд.)',
+                'subject', il.subject,
+                'is_active', il.is_active
               )
             )
-            FROM individual_courses ic
-            WHERE ic.student_id = s.id
+            FROM individual_lessons il
+            WHERE il.student_id = s.id
           ), '[]'::jsonb)
         )
       )
