@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, CheckCheck, ArrowUp, ArrowDown, Loader2, WifiOff, RefreshCw, Wand2, Download, FileText, Handshake, Target, ChevronDown } from "lucide-react";
+import { Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOutgoing, Clock, Calendar, Eye, MessageSquare, Sparkles, User, AlertCircle, CheckCheck, ArrowUp, ArrowDown, Loader2, WifiOff, RefreshCw, Wand2, Download, FileText, Handshake, Target, ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useInfiniteCallHistory } from "@/hooks/useInfiniteCallHistory";
@@ -57,7 +58,7 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
   const [fetchingRecordingIds, setFetchingRecordingIds] = useState<Set<string>>(new Set());
   const [autoAnalyzedCallIds, setAutoAnalyzedCallIds] = useState<Set<string>>(new Set());
   const [autoFetchedRecordingIds, setAutoFetchedRecordingIds] = useState<Set<string>>(new Set());
-  
+  const [expandedTranscriptions, setExpandedTranscriptions] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
   
   // Ref for intersection observer (infinite scroll)
@@ -364,6 +365,21 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
     const isAnalyzing = analyzingCallIds.has(call.id);
     const isFetchingRecording = fetchingRecordingIds.has(call.id);
     const needsRecordingFetch = call.status === 'answered' && !call.recording_url && call.duration_seconds && call.duration_seconds > 0;
+    const isTranscriptionExpanded = expandedTranscriptions.has(call.id);
+    const hasTranscription = !!call.transcription;
+    
+    const toggleTranscription = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setExpandedTranscriptions(prev => {
+        const next = new Set(prev);
+        if (next.has(call.id)) {
+          next.delete(call.id);
+        } else {
+          next.add(call.id);
+        }
+        return next;
+      });
+    };
     
     return (
       <div key={call.id} className="relative">
@@ -373,8 +389,8 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
             title="Непросмотренный пропущенный звонок"
           />
         )}
-        <div className="flex items-start justify-between space-x-3">
-          <div className="flex items-start space-x-3 flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-2 flex-1 min-w-0">
             <div className="flex-shrink-0 pt-0.5 relative">
               {getCallIcon(call)}
               {showUnviewedIndicator && (
@@ -382,77 +398,86 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
               )}
             </div>
             
-            <div className="flex-1 min-w-0 space-y-1">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-foreground">
-                    {getDirectionLabel(call.direction)}
-                  </span>
-                  {getCallStatusBadge(call)}
-                  {showUnviewedIndicator && (
-                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
-                      Новый
-                    </Badge>
-                  )}
-                </div>
-                
+            <div className="flex-1 min-w-0 space-y-1.5">
+              {/* Compact header: Direction + Status + Date + Duration */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-medium text-foreground">
+                  {getDirectionLabel(call.direction)}
+                </span>
+                {getCallStatusBadge(call)}
+                {showUnviewedIndicator && (
+                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
+                    Новый
+                  </Badge>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {format(new Date(call.started_at), "dd MMM, HH:mm", { locale: ru })}
+                </span>
                 {call.duration_seconds !== null && call.status === 'answered' && (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />
                     {formatDuration(call.duration_seconds)}
-                  </div>
+                  </span>
+                )}
+                {call.manager_name && (
+                  <span className="flex items-center gap-1 text-xs text-primary">
+                    <User className="h-3 w-3" />
+                    {call.manager_name}
+                  </span>
                 )}
               </div>
-              
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Calendar className="h-3 w-3" />
-                {format(new Date(call.started_at), "dd MMM, HH:mm", { locale: ru })}
-              </div>
-              
-              <div className="text-xs text-muted-foreground truncate">
-                {call.phone_number}
-              </div>
 
-              {call.manager_name && (
-                <div className="flex items-center gap-1 text-xs text-primary mt-1">
-                  <User className="h-3 w-3" />
-                  <span>{call.manager_name}</span>
-                </div>
-              )}
-
-              {/* Audio Recording Player OR Fetch button */}
+              {/* Audio Player with Transcription button */}
               {call.recording_url && call.status === 'answered' ? (
-                <div className="mt-2">
-                  <CallRecordingPlayer 
-                    recordingUrl={call.recording_url}
-                    duration={call.duration_seconds}
-                    compact
-                  />
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <CallRecordingPlayer 
+                      recordingUrl={call.recording_url}
+                      duration={call.duration_seconds}
+                      compact
+                    />
+                  </div>
+                  {hasTranscription && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={toggleTranscription}
+                      className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground flex-shrink-0"
+                    >
+                      <FileText className="h-3 w-3" />
+                      {isTranscriptionExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    </Button>
+                  )}
                 </div>
               ) : needsRecordingFetch && (
-                <div className="mt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleFetchRecording(call.id);
-                    }}
-                    disabled={isFetchingRecording}
-                    className="h-6 text-xs gap-1"
-                  >
-                    {isFetchingRecording ? (
-                      <>
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Загрузка...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="h-3 w-3" />
-                        Получить запись
-                      </>
-                    )}
-                  </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleFetchRecording(call.id);
+                  }}
+                  disabled={isFetchingRecording}
+                  className="h-6 text-xs gap-1"
+                >
+                  {isFetchingRecording ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Загрузка...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-3 w-3" />
+                      Получить запись
+                    </>
+                  )}
+                </Button>
+              )}
+              
+              {/* Transcription (collapsible) */}
+              {hasTranscription && isTranscriptionExpanded && (
+                <div className="p-2 bg-muted/50 rounded-md">
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">{call.transcription}</p>
                 </div>
               )}
 
