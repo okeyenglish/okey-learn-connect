@@ -5,6 +5,52 @@ import { buildPermissionsForRoles, isAdmin, AppRole as RoleFromPerms } from '@/l
 import { setCachedUserId, clearAuthCache } from '@/lib/authHelpers';
 type AppRole = RoleFromPerms;
 
+// Cache helpers for permissions
+const PERMISSIONS_CACHE_KEY = 'crm_permissions_cache';
+const PERMISSIONS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+interface PermissionsCache {
+  userId: string;
+  permissions: Record<string, boolean>;
+  timestamp: number;
+}
+
+const getCachedPermissions = (userId: string): Record<string, boolean> | null => {
+  try {
+    const cached = localStorage.getItem(PERMISSIONS_CACHE_KEY);
+    if (!cached) return null;
+    
+    const data: PermissionsCache = JSON.parse(cached);
+    if (data.userId !== userId) return null;
+    if (Date.now() - data.timestamp > PERMISSIONS_CACHE_TTL) return null;
+    
+    return data.permissions;
+  } catch {
+    return null;
+  }
+};
+
+const setCachedPermissions = (userId: string, permissions: Record<string, boolean>) => {
+  try {
+    const cache: PermissionsCache = {
+      userId,
+      permissions,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(PERMISSIONS_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // Ignore storage errors
+  }
+};
+
+const clearCachedPermissions = () => {
+  try {
+    localStorage.removeItem(PERMISSIONS_CACHE_KEY);
+  } catch {
+    // Ignore
+  }
+};
+
 interface Profile {
   id: string;
   first_name: string | null;
@@ -140,10 +186,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           return acc;
         }, {});
         setPermissions(adminPermissions);
+        setCachedPermissions(userId, adminPermissions);
         return;
       }
 
-      // Загружаем основные разрешения
+      // 1. Сначала пробуем загрузить из кэша для мгновенного отображения
+      const cachedPerms = getCachedPermissions(userId);
+      if (cachedPerms) {
+        const staticMap = buildPermissionsForRoles(userRoles);
+        setPermissions({ ...staticMap, ...cachedPerms });
+      }
+
+      // 2. Загружаем свежие разрешения параллельно
       const commonPermissions = [
         { permission: 'manage', resource: 'all' },
         { permission: 'manage', resource: 'users' },
@@ -154,7 +208,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         { permission: 'view', resource: 'reports' },
       ];
       
-      // Load all permissions in PARALLEL instead of sequentially
+      // Load all permissions in PARALLEL
       const permResults = await Promise.all(
         commonPermissions.map(perm =>
           supabase
@@ -176,7 +230,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
       
       const staticMap = buildPermissionsForRoles(userRoles);
-      setPermissions({ ...staticMap, ...permissionsMap });
+      const finalPermissions = { ...staticMap, ...permissionsMap };
+      
+      // 3. Обновляем состояние и кэш
+      setPermissions(finalPermissions);
+      setCachedPermissions(userId, permissionsMap);
     } catch (error) {
       console.error('Error loading permissions:', error);
     }
@@ -274,6 +332,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           setPermissions({});
           // Clear auth cache on logout
           clearAuthCache();
+          clearCachedPermissions();
         }
         
         // Sync userId cache with AuthProvider
