@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AddFamilyMemberModal } from "./AddFamilyMemberModal";
 import { AddStudentModal } from "./AddStudentModal";
 import { EnhancedStudentCard } from "@/components/students/EnhancedStudentCard";
+import { StudentInfoBlock } from "./StudentInfoBlock";
 import { PhoneNumberManager } from "./PhoneNumberManager";
 import { EditContactModal } from "./EditContactModal";
 import { ContactInfoBlock } from "./ContactInfoBlock";
@@ -816,61 +817,22 @@ export const FamilyCard = ({
                   if (aEffectiveStatus !== 'active' && bEffectiveStatus === 'active') return 1;
                   return 0;
                 })
-                .map((student) => (
-                  <Card 
-                    key={student.id} 
-                    className="hover:bg-muted/20 transition-colors cursor-pointer"
-                    onClick={() => handleStudentClick(student)}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <p className="font-medium text-sm">{student.firstName}</p>
-                          {student.studentNumber && (
-                            <span className="text-xs font-mono text-muted-foreground">#{student.studentNumber}</span>
-                          )}
-                          <Badge variant="outline" className="text-xs bg-slate-100 text-slate-700 border-slate-300">{student.age} {student.age === 1 ? 'год' : 'лет'}</Badge>
-                        </div>
-                        <Badge 
-                          variant={getChildStatusColor(getEffectiveStatus(student))} 
-                          className={`text-xs ${getEffectiveStatus(student) === 'active' ? 'bg-green-500 text-white hover:bg-green-600' : ''}`}
-                        >
-                          {getChildStatusLabel(getEffectiveStatus(student))}
-                        </Badge>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <div className="flex flex-wrap gap-1">
-                          {student.courses.filter(course => course.isActive).map((course, courseIndex) => (
-                            <Badge 
-                              key={courseIndex} 
-                              variant="outline" 
-                              className="text-xs cursor-pointer hover:bg-primary/10 transition-colors"
-                              onClick={(e) => handleCourseClick(course.id, course.name, e)}
-                            >
-                              {course.name}
-                            </Badge>
-                          ))}
-                        </div>
-                        
-                        {student.courses.filter(course => course.isActive).map(course => course.nextLesson && (
-                          <div key={course.id} className="flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded">
-                            <Bell className="h-3 w-3" />
-                            {course.nextLesson}
-                          </div>
-                        ))}
-                        
-                        {student.courses.filter(course => course.isActive).map(course => course.nextPayment && (
-                          <div key={course.id} className="flex items-center gap-1 text-xs text-orange-700 bg-orange-100 px-2 py-1 rounded">
-                            <Clock className="h-3 w-3" />
-                            {course.nextPayment}
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-              ))}
+                .map((student) => {
+                  // Extract HolyHope ID from studentNumber (format: S31918 -> 31918)
+                  const hollihopeId = student.studentNumber?.replace(/^S/i, '') || null;
+                  
+                  return (
+                    <StudentInfoBlock
+                      key={student.id}
+                      firstName={student.firstName}
+                      studentNumber={student.studentNumber}
+                      age={student.age}
+                      status={getEffectiveStatus(student)}
+                      hollihopeId={hollihopeId}
+                      onClick={() => handleStudentClick(student)}
+                    />
+                  );
+                })}
             </div>
           )}
         </TabsContent>
