@@ -1405,7 +1405,9 @@ const CRMContent = () => {
       }
       
       // Асинхронно подгружаем телефон и telegram_user_id в фоне (не блокируя UI)
+      // Также загружаем базовые данные если не нашли в кэше (после восстановления из корзины)
       const currentChatId = chatId; // Замыкаем для проверки актуальности
+      const needsFullFetch = !existingClient && !existingThread;
       setTimeout(() => {
         // NOTE: don't make the setTimeout handler itself `async` (can break TS typings in some builds)
         void (async () => {
@@ -1418,18 +1420,27 @@ const CRMContent = () => {
               .eq('is_primary', true)
               .maybeSingle();
 
-            // Also fetch telegram_user_id and max_chat_id from clients table
+            // Fetch client data - always get all needed fields
             const { data: clientData } = await supabase
               .from('clients')
-              .select('telegram_user_id, phone')
+              .select('name, notes, telegram_user_id, phone, max_chat_id')
               .eq('id', currentChatId)
               .single();
 
-            const phone = primaryPhone?.phone || clientData?.phone;
-            const telegramUserId = clientData?.telegram_user_id;
-            const maxChatId = (primaryPhone as any)?.max_chat_id || null;
+            const phone = primaryPhone?.phone || (clientData as any)?.phone;
+            const telegramUserId = (clientData as any)?.telegram_user_id;
+            const maxChatId = (primaryPhone as any)?.max_chat_id || (clientData as any)?.max_chat_id || null;
             
-            if (phone || telegramUserId || maxChatId) {
+            // If we needed full fetch (restored from trash), set all data
+            if (needsFullFetch && clientData) {
+              setActiveClientInfo({
+                name: (clientData as any).name || 'Без имени',
+                phone: phone || '',
+                comment: (clientData as any).notes || 'Клиент',
+                telegram_user_id: telegramUserId || null,
+                max_chat_id: maxChatId
+              });
+            } else if (phone || telegramUserId || maxChatId) {
               setActiveClientInfo(prev => {
                 if (!prev) return null;
                 return { 
