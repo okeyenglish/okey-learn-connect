@@ -302,7 +302,7 @@ export const usePrefetchMessages = () => {
           .select(`
             id, client_id, message_text, message_type, system_type, is_read, created_at,
             file_url, file_name, file_type, external_message_id, messenger_type, call_duration, message_status, metadata,
-            clients(avatar_url, telegram_avatar_url, whatsapp_avatar_url, max_avatar_url)
+            clients(avatar_url)
           `)
           .eq('client_id', clientId)
           .order('created_at', { ascending: false })

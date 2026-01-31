@@ -116,7 +116,7 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
   
   console.log('[usePhoneSearchThreads] fetchThreadsDirectly called for:', clientIds);
 
-  // Fetch clients with their phone numbers
+  // Fetch clients - self-hosted schema only has avatar_url
   const { data: clientsRaw, error: clientsError } = await supabase
     .from('clients')
     .select(`
@@ -125,11 +125,7 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
       phone,
       branch,
       avatar_url,
-      telegram_avatar_url,
-      whatsapp_avatar_url,
-      max_avatar_url,
-      telegram_chat_id,
-      client_phone_numbers(phone, is_primary)
+      telegram_user_id
     `)
     .in('id', clientIds)
     .eq('is_active', true);
@@ -199,10 +195,8 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
         }
       });
 
-      // Get phone from client or from client_phone_numbers
-      const phoneNumbers = client.client_phone_numbers || [];
-      const primaryPhone = phoneNumbers.find((p) => p.is_primary);
-      const clientPhone = client.phone || primaryPhone?.phone || phoneNumbers[0]?.phone || '';
+      // Self-hosted schema doesn't have client_phone_numbers table
+      const clientPhone = client.phone || '';
 
       return {
         client_id: client.id,
@@ -210,9 +204,9 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
         client_phone: clientPhone,
         client_branch: client.branch || null,
         avatar_url: client.avatar_url || null,
-        telegram_avatar_url: client.telegram_avatar_url || null,
-        whatsapp_avatar_url: client.whatsapp_avatar_url || null,
-        max_avatar_url: client.max_avatar_url || null,
+        telegram_avatar_url: null, // Not in self-hosted schema
+        whatsapp_avatar_url: null, // Not in self-hosted schema  
+        max_avatar_url: null, // Not in self-hosted schema
         last_message: lastMessage?.message_text || '',
         last_message_time: lastMessage?.created_at || null,
         unread_count: unreadMessages.length,
@@ -255,9 +249,9 @@ function mapRpcToThreads(data: RpcThreadRow[]): ChatThread[] {
     client_phone: row.client_phone || '',
     client_branch: row.client_branch || null,
     avatar_url: row.avatar_url || null,
-    telegram_avatar_url: row.telegram_avatar_url || null,
-    whatsapp_avatar_url: row.whatsapp_avatar_url || null,
-    max_avatar_url: row.max_avatar_url || null,
+    telegram_avatar_url: null, // Not in self-hosted schema
+    whatsapp_avatar_url: null, // Not in self-hosted schema
+    max_avatar_url: null, // Not in self-hosted schema
     last_message: row.last_message_text || row.last_message || '', // last_message_text from new RPC
     last_message_time: row.last_message_time || null,
     unread_count: Number(row.unread_count) || 0,

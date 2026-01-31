@@ -725,16 +725,8 @@ export const ChatArea = ({
     callDuration: msg.call_duration,
     messageStatus: msg.status || msg.message_status || 'sent',
     // Get avatar based on messenger type, with fallback chain
-    clientAvatar: (() => {
-      const clients = msg.clients;
-      if (!clients) return null;
-      const messengerType = msg.messenger_type;
-      if (messengerType === 'telegram' && clients.telegram_avatar_url) return clients.telegram_avatar_url;
-      if (messengerType === 'whatsapp' && clients.whatsapp_avatar_url) return clients.whatsapp_avatar_url;
-      if (messengerType === 'max' && clients.max_avatar_url) return clients.max_avatar_url;
-      // Fallback: prefer messenger-specific avatars
-      return clients.telegram_avatar_url || clients.whatsapp_avatar_url || clients.max_avatar_url || clients.avatar_url || null;
-    })(),
+    // Self-hosted schema only has avatar_url (no messenger-specific avatars)
+    clientAvatar: msg.clients?.avatar_url || null,
     managerName: managerName,
     fileUrl: msg.file_url,
     fileName: msg.file_name,
