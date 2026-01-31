@@ -1,5 +1,5 @@
 -- Оптимизированная версия get_unread_chat_threads для self-hosted
--- МИНИМАЛЬНАЯ версия - только базовые колонки chat_messages
+-- АБСОЛЮТНЫЙ МИНИМУМ - только id, client_id, is_read, is_outgoing, created_at
 -- 
 -- Выполнить на self-hosted базе: api.academyos.ru
 -- После выполнения: NOTIFY pgrst, 'reload schema';
@@ -71,28 +71,12 @@ AS $$
     SELECT 
       m.client_id,
       COUNT(*) as total_unread,
-      -- Без разбивки по мессенджерам (колонка messenger отсутствует)
-      0::bigint as unread_wa,
-      0::bigint as unread_tg,
-      0::bigint as unread_max,
-      0::bigint as unread_email,
-      0::bigint as unread_calls,
-      MAX(m.created_at) as last_unread_time,
-      NULL::text as last_messenger
+      MAX(m.created_at) as last_unread_time
     FROM chat_messages m
     WHERE m.client_id IN (SELECT client_id FROM clients_with_unread)
       AND m.is_read = false
       AND m.is_outgoing = false
     GROUP BY m.client_id
-  ),
-  last_messages AS (
-    SELECT DISTINCT ON (m.client_id)
-      m.client_id,
-      m.content as last_text,
-      m.created_at as last_time
-    FROM chat_messages m
-    WHERE m.client_id IN (SELECT client_id FROM clients_with_unread)
-    ORDER BY m.client_id, m.created_at DESC
   )
   SELECT 
     cd.id as clt_id,
@@ -109,19 +93,18 @@ AS $$
     cd.telegram_chat_id,
     cd.whatsapp_chat_id,
     cd.max_chat_id,
-    lm.last_text as last_message_text,
-    COALESCE(lm.last_time, cd.last_message_at) as last_message_time,
+    NULL::text as last_message_text,
+    COALESCE(us.last_unread_time, cd.last_message_at) as last_message_time,
     us.total_unread as unread_count,
-    us.unread_wa as unread_whatsapp,
-    us.unread_tg as unread_telegram,
-    us.unread_max,
-    us.unread_email,
-    us.unread_calls,
-    us.last_messenger as last_unread_messenger
+    0::bigint as unread_whatsapp,
+    0::bigint as unread_telegram,
+    0::bigint as unread_max,
+    0::bigint as unread_email,
+    0::bigint as unread_calls,
+    NULL::text as last_unread_messenger
   FROM client_data cd
   JOIN unread_stats us ON us.client_id = cd.id
-  LEFT JOIN last_messages lm ON lm.client_id = cd.id
-  ORDER BY us.total_unread DESC, lm.last_time DESC NULLS LAST
+  ORDER BY us.total_unread DESC, us.last_unread_time DESC NULLS LAST
   LIMIT p_limit;
 $$;
 
