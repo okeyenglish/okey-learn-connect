@@ -176,7 +176,7 @@ BEGIN
             FROM group_students gs
             JOIN learning_groups lg ON lg.id = gs.group_id
             WHERE gs.student_id = s.id
-              AND gs.left_at IS NULL
+              AND gs.status = 'active'
           ), '[]'::jsonb),
           'individual_courses', COALESCE((
             SELECT jsonb_agg(
@@ -217,6 +217,9 @@ $$;
 -- Grant execute permission
 GRANT EXECUTE ON FUNCTION public.get_family_data_by_client_id(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_family_data_by_client_id(uuid) TO service_role;
+
+-- Обновить schema cache после DDL изменений
+NOTIFY pgrst, 'reload schema';
 
 -- Usage example:
 -- SELECT get_family_data_by_client_id('client-uuid-here');
