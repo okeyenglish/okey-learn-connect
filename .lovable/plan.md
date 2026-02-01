@@ -1,68 +1,186 @@
 
-# План: Исправление отображения сообщений после операций с задачами
+# План: Компактные уведомления о задачах в чате
 
-## Проблема
-При создании/выполнении/отмене задачи системное уведомление добавляется в `chat_messages`, но чат не обновляется из-за несовпадения query keys:
+## Цель
+Заменить текущие блоки уведомлений о задачах в чате на компактный формат (как "Новый платёж" на скриншоте) с tooltip при наведении и модальным окном при клике.
 
-- `useSendMessage` (используется в task notifications) инвалидирует `['chat-messages', clientId]`
-- `ChatArea` использует `useChatMessagesOptimized` с ключом `['chat-messages-optimized', clientId, limit]`
-
-Поэтому после изменения задачи уведомление видно в списке чатов (preview), но не в самом чате.
+## Текущее состояние
+- Task notifications отправляются как system messages с текстом: `Задача "Название" создана на дату`
+- Отображаются как большие блоки в чате
+- Нет интерактивности (нельзя посмотреть детали или открыть задачу)
 
 ## Решение
 
-### Шаг 1: Обновить useSendMessage для инвалидации всех ключей
+### Шаг 1: Расширить useSendMessage для поддержки metadata
 
 **Файл:** `src/hooks/useChatMessages.ts`
 
-В хуке `useSendMessage` добавить инвалидацию дополнительных query keys:
+Добавить поддержку поля `metadata` при отправке сообщений:
 
 ```typescript
-onSuccess: (data) => {
-  queryClient.invalidateQueries({ queryKey: ['chat-messages', data.client_id] });
-  // Добавить эти строки:
-  queryClient.invalidateQueries({ 
-    queryKey: ['chat-messages-optimized', data.client_id],
-    exact: false  // Инвалидирует все варианты с разными limit
-  });
-  queryClient.invalidateQueries({ 
-    queryKey: ['chat-messages-infinite-typed', data.client_id] 
-  });
-  queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-},
+mutationFn: async ({
+  clientId,
+  messageText,
+  messageType = 'manager',
+  phoneNumberId,
+  metadata // Новое поле
+}: {
+  clientId: string;
+  messageText: string;
+  messageType?: 'client' | 'manager' | 'system';
+  phoneNumberId?: string;
+  metadata?: Record<string, unknown>; // Новый тип
+}) => {
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .insert([{
+      client_id: clientId,
+      phone_number_id: phoneNumberId,
+      message_text: messageText,
+      message_type: messageType,
+      is_read: messageType === 'manager',
+      metadata, // Сохраняем metadata
+    }])
+    // ...
+}
 ```
 
-### Шаг 2: Обновить useCompleteTask и useCancelTask
+### Шаг 2: Обновить useTaskNotifications для передачи task_id
 
-**Файл:** `src/hooks/useTasks.ts`
+**Файл:** `src/hooks/useTaskNotifications.ts`
 
-Добавить инвалидацию сообщений чата после выполнения/отмены задачи для гарантированного обновления:
+Модифицировать функции для передачи taskId, responsible и других данных в metadata:
 
 ```typescript
-// В useCompleteTask.onSuccess:
-onSuccess: (data) => {
-  queryClient.invalidateQueries({ queryKey: ['tasks'] });
-  // Добавить инвалидацию chat messages если есть client_id
-  if (data.client_id) {
-    queryClient.invalidateQueries({ 
-      queryKey: ['chat-messages-optimized', data.client_id],
-      exact: false 
-    });
-  }
-  toast.success("Задача выполнена");
-},
+const sendTaskCreatedNotification = async (
+  clientId: string, 
+  taskTitle: string, 
+  dueDate: string,
+  taskId: string,
+  responsible?: string
+) => {
+  await sendMessage.mutateAsync({
+    clientId,
+    messageText: `Задача "${taskTitle}" создана на ${dueDate}`,
+    messageType: 'system',
+    metadata: {
+      type: 'task_notification',
+      action: 'created',
+      task_id: taskId,
+      task_title: taskTitle,
+      due_date: dueDate,
+      responsible
+    }
+  });
+};
 ```
+
+### Шаг 3: Создать компонент TaskNotificationMessage
+
+**Новый файл:** `src/components/crm/TaskNotificationMessage.tsx`
+
+Компактное уведомление в стиле скриншота:
+
+```
+┌──────────────────────────────────────┐
+│  📋 Задача создана • 12:09           │  <- при hover показывает tooltip
+└──────────────────────────────────────┘
+```
+
+Функциональность:
+- **Иконка**: Зависит от типа (📋 создана, ✅ выполнена, ❌ отменена)
+- **Текст**: Компактный ("Задача создана", "Задача выполнена", "Задача отменена")
+- **Время**: Время создания сообщения
+- **Tooltip при наведении**: 
+  - Название задачи
+  - Исполнитель (кем выполнена/создана)
+  - Дата выполнения
+- **Клик**: Открывает ViewTaskModal
+
+### Шаг 4: Создать ViewTaskModal
+
+**Новый файл:** `src/components/crm/ViewTaskModal.tsx`
+
+Read-only модальное окно для просмотра задачи:
+- Название и описание задачи
+- Приоритет
+- Исполнитель
+- Дата выполнения
+- Статус
+- Кнопка "Редактировать" (открывает EditTaskModal)
+
+### Шаг 5: Интегрировать в ChatMessage.tsx
+
+**Файл:** `src/components/crm/ChatMessage.tsx`
+
+Заменить текущие блоки task notifications на TaskNotificationMessage:
+
+```typescript
+// Detect task notification from metadata or message text
+const isTaskNotification = useMemo(() => {
+  if (metadata?.type === 'task_notification') return true;
+  return message.includes('Задача "') && (
+    message.includes('создана на') ||
+    message.includes('успешно завершена') ||
+    message.includes('отменена')
+  );
+}, [metadata, message]);
+
+if (type === 'system' && isTaskNotification) {
+  return (
+    <TaskNotificationMessage
+      message={message}
+      time={time}
+      metadata={metadata}
+    />
+  );
+}
+```
+
+### Шаг 6: Обновить вызовы useTaskNotifications
+
+**Файлы:**
+- `src/components/crm/AddTaskModal.tsx`
+- `src/components/crm/ClientTasks.tsx`
+
+Передавать taskId и responsible при вызове notification функций.
 
 ## Изменяемые файлы
 
 | Файл | Изменение |
 |------|-----------|
-| `src/hooks/useChatMessages.ts` | Добавить инвалидацию `chat-messages-optimized` и `chat-messages-infinite-typed` в `useSendMessage` |
-| `src/hooks/useTasks.ts` | Добавить инвалидацию сообщений чата в `useCompleteTask` и `useCancelTask` |
+| `src/hooks/useChatMessages.ts` | Добавить metadata в useSendMessage |
+| `src/hooks/useTaskNotifications.ts` | Добавить taskId и metadata в notification функции |
+| `src/components/crm/TaskNotificationMessage.tsx` | Создать новый компонент (компактное уведомление с tooltip) |
+| `src/components/crm/ViewTaskModal.tsx` | Создать модальное окно просмотра задачи |
+| `src/components/crm/ChatMessage.tsx` | Использовать TaskNotificationMessage |
+| `src/components/crm/AddTaskModal.tsx` | Передавать taskId в notification |
+| `src/components/crm/ClientTasks.tsx` | Передавать taskId в notification |
 
-## Результат
+## Визуальный результат
 
-После изменений:
-- Уведомления о задачах появятся мгновенно в открытом чате
-- Не будет рассинхрона между списком чатов и самим чатом
-- Все query caches будут обновляться синхронно
+**До:**
+```
+┌─────────────────────────────────────────┐
+│  [+] Задача "Позвонить клиенту" создана │
+│      на 01.02.2026                      │
+└─────────────────────────────────────────┘
+```
+
+**После:**
+```
+      📋 Задача создана • 12:09
+        ↓ (при наведении)
+┌──────────────────────────────┐
+│ Позвонить клиенту            │
+│ Исполнитель: Иванов И.И.     │
+│ Дата: 01.02.2026             │
+└──────────────────────────────┘
+```
+
+## Fallback для старых сообщений
+
+Для сообщений без metadata парсить информацию из текста:
+- Название задачи: между кавычками `"Название"`
+- Тип действия: по ключевым словам (создана/завершена/отменена)
+- Задачу искать по названию и client_id
