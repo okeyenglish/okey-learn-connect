@@ -1,7 +1,8 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StaffAnalyticsPanel } from "@/components/crm/StaffAnalyticsPanel";
 import { StaffComparisonTable } from "./StaffComparisonTable";
-import { Activity, Trophy, Users } from "lucide-react";
+import { StaffActivityChart } from "./StaffActivityChart";
+import { Activity, Trophy, BarChart3 } from "lucide-react";
 
 export const StaffAnalyticsPage = () => {
   return (
@@ -23,6 +24,10 @@ export const StaffAnalyticsPage = () => {
             <Trophy className="h-4 w-4" />
             Рейтинг
           </TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            История
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
@@ -31,6 +36,10 @@ export const StaffAnalyticsPage = () => {
 
         <TabsContent value="ranking" className="mt-4">
           <StaffComparisonTable />
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-4">
+          <StaffActivityChart />
         </TabsContent>
       </Tabs>
     </div>
