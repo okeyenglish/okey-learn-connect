@@ -1065,24 +1065,22 @@ export const AIHubInline = ({
           {corporateChatsListBase.length > 0 && (
             <div className="space-y-1">
               <div className="px-3 py-2 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-muted-foreground">Сотрудники и группы</span>
-                  <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full">
-                    {corporateChatsList.length}
-                  </Badge>
-                </div>
+                <span className="text-sm font-medium text-muted-foreground">Сотрудники и группы</span>
                 <div className="flex items-center gap-1">
                   {/* Filter toggle: All / Online */}
                   <div className="flex items-center bg-muted rounded-md p-0.5">
                     <button
                       onClick={() => setStaffFilter('all')}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${
+                      className={`px-2 py-1 text-xs rounded transition-colors flex items-center gap-1 ${
                         staffFilter === 'all' 
                           ? 'bg-background shadow-sm font-medium' 
                           : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
                       Все
+                      <Badge variant="outline" className="text-[10px] h-4 min-w-[20px] flex items-center justify-center rounded-full px-1">
+                        {corporateChatsListBase.length}
+                      </Badge>
                     </button>
                     <button
                       onClick={() => setStaffFilter('online')}
@@ -1158,12 +1156,7 @@ export const AIHubInline = ({
                             )}
                           </div>
                           <div className="text-xs text-muted-foreground leading-relaxed overflow-hidden">
-                            {isOnline ? (
-                              <span className="text-green-600 flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full shrink-0" />
-                                Онлайн
-                              </span>
-                            ) : lastSeenText ? (
+                            {lastSeenText && !isOnline ? (
                               <span className="text-muted-foreground/70 block truncate">{lastSeenText}</span>
                             ) : (
                               <span className="block truncate">{item.lastMessage || item.description}</span>
