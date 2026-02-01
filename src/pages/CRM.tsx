@@ -3558,10 +3558,10 @@ const CRMContent = () => {
                                 isUnread={displayUnread}
                               >
                                  <button 
-                                   className={`w-full p-2 text-left rounded-lg transition-colors relative border-l-2 border-orange-400 ${
+                                   className={`w-full p-2 text-left rounded-lg transition-colors relative border ${
                                      chat.id === activeChatId 
-                                       ? 'bg-orange-50 hover:bg-orange-100 dark:bg-orange-950 dark:hover:bg-orange-900' 
-                                       : 'bg-orange-25 hover:bg-orange-50 dark:bg-orange-975 dark:hover:bg-orange-950'
+                                       ? 'bg-accent/50 shadow-sm border-accent' 
+                                       : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
                                    }`}
                                    onClick={() => {
                                      if (bulkSelectMode) {
@@ -3592,78 +3592,71 @@ const CRMContent = () => {
                                            )}
                                          </div>
                                        )}
-                                        {/* Avatar or icon */}
+                                        {/* Avatar with messenger icon */}
+                                        <div className="relative flex-shrink-0">
                                         {chat.type === 'corporate' ? (
-                                          <div className="w-10 h-10 rounded-full bg-[hsl(var(--avatar-blue))] flex items-center justify-center flex-shrink-0">
+                                          <div className="w-10 h-10 rounded-full bg-[hsl(var(--avatar-blue))] flex items-center justify-center">
                                             <Building2 className="h-5 w-5 text-white" />
                                           </div>
                                         ) : chat.type === 'teachers' ? (
-                                          <div className="w-10 h-10 rounded-full bg-[hsl(var(--avatar-purple))] flex items-center justify-center flex-shrink-0">
+                                          <div className="w-10 h-10 rounded-full bg-[hsl(var(--avatar-purple))] flex items-center justify-center">
                                             <GraduationCap className="h-5 w-5 text-white" />
                                           </div>
-                                            ) : chat.avatar_url ? (
-                                              <div className="relative flex-shrink-0">
-                                                 <img 
-                                                   src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
-                                                   alt={`${chat.name} avatar`} 
-                                                   className="w-10 h-10 rounded-full object-cover border-2 border-border/30"
-                                                  style={{ borderRadius: '50%' }}
-                                                  loading="lazy"
-                                                  decoding="async"
-                                                  referrerPolicy="no-referrer"
-                                                  crossOrigin="anonymous"
-                                                 onError={(e) => {
-                                                   const target = e.currentTarget as HTMLImageElement;
-                                                   target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
-                                                 }}
-                                               />
-                                           {/* Lead indicator */}
-                                              {(() => {
-                                                if (chat.type !== 'client') return null;
-                                                const clientStatus = getClientStatus(chat.id);
-                                                
-                                                if (isMobile) {
-                                                  console.log(`Mobile lead check for ${chat.name}:`, {
-                                                    id: chat.id,
-                                                    isLead: clientStatus.isLead,
-                                                    hasActiveStudents: clientStatus.hasActiveStudents,
-                                                    studentsCount: clientStatus.studentsCount
-                                                  });
-                                                }
-                                                
-                                                return clientStatus.isLead ? (
-                                                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white z-10">
-                                                    <UserPlus className="w-2.5 h-2.5 text-white" />
-                                                  </div>
-                                                ) : null;
-                                              })()}
+                                        ) : chat.avatar_url ? (
+                                          <img 
+                                            src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
+                                            alt={`${chat.name} avatar`} 
+                                            className="w-10 h-10 rounded-full object-cover ring-2 ring-border/30"
+                                            loading="lazy"
+                                            decoding="async"
+                                            referrerPolicy="no-referrer"
+                                            crossOrigin="anonymous"
+                                            onError={(e) => {
+                                              const target = e.currentTarget as HTMLImageElement;
+                                              target.style.display = 'none';
+                                              const fallback = target.nextElementSibling as HTMLElement;
+                                              if (fallback) fallback.style.display = 'flex';
+                                            }}
+                                          />
+                                        ) : null}
+                                        {/* Fallback initials (shown if no avatar or avatar fails) */}
+                                        {chat.type !== 'corporate' && chat.type !== 'teachers' && (
+                                          <div 
+                                            className={`w-10 h-10 rounded-full bg-[hsl(var(--avatar-blue))] flex items-center justify-center text-[hsl(var(--text-primary))] font-medium text-sm ${chat.avatar_url ? 'hidden' : ''}`}
+                                          >
+                                            {chat.name?.split(' ').map(n => n[0]).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?'}
                                           </div>
-                                        ) : (
-                                          <div className="relative flex-shrink-0">
-                                            <div className="w-10 h-10 rounded-full bg-[hsl(var(--avatar-blue))] flex items-center justify-center">
-                                              <User className="h-5 w-5 text-white" />
+                                        )}
+                                        {/* Messenger icon badge */}
+                                        {(() => {
+                                          const messenger = (chat as any).last_unread_messenger;
+                                          if (!messenger) return null;
+                                          return (
+                                            <div 
+                                              className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-background shadow-sm ${
+                                                messenger === 'whatsapp' ? 'bg-[#25D366]' :
+                                                messenger === 'telegram' ? 'bg-[#0088cc]' :
+                                                messenger === 'max' ? 'bg-purple-500' :
+                                                messenger === 'chatos' ? 'bg-orange-500' :
+                                                messenger === 'calls' ? 'bg-red-500' : 'bg-gray-500'
+                                              }`}
+                                            >
+                                              {messenger === 'whatsapp' && (
+                                                <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 fill-white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                              )}
+                                              {messenger === 'telegram' && (
+                                                <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 fill-white"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                                              )}
+                                              {messenger === 'max' && (
+                                                <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 fill-white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                                              )}
+                                              {messenger === 'calls' && (
+                                                <Phone className="w-2 h-2 text-white" />
+                                              )}
                                             </div>
-                                            {/* Lead indicator */}
-                                              {(() => {
-                                                if (chat.type !== 'client') return null;
-                                                const clientStatus = getClientStatus(chat.id);
-                                                
-                                                if (isMobile) {
-                                                  console.log(`Mobile lead check without avatar for ${chat.name}:`, {
-                                                    id: chat.id,
-                                                    isLead: clientStatus.isLead,
-                                                    hasActiveStudents: clientStatus.hasActiveStudents
-                                                  });
-                                                }
-                                                
-                                                return clientStatus.isLead ? (
-                                                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center border border-white z-10">
-                                                    <UserPlus className="w-2.5 h-2.5 text-white" />
-                                                  </div>
-                                                ) : null;
-                                              })()}
-                                          </div>
-                                       )}
+                                          );
+                                        })()}
+                                        </div>
                                        
                                           <div className="flex-1 min-w-0 overflow-hidden">
                                             <div className="flex items-center gap-2">
@@ -4029,9 +4022,9 @@ const CRMContent = () => {
                               const unreadByMessages = chat.unread > 0;
                               const displayUnread = showEye || unreadByMessages;
                               return (
-                                <div 
+                                 <div 
                                   key={chat.id}
-                                  className="w-full p-3 text-left rounded-lg transition-all duration-200 bg-gradient-to-r from-orange-50 to-orange-100/30 border border-orange-200 hover:shadow-md hover:to-orange-100/50 dark:from-orange-950 dark:to-orange-900/30"
+                                  className="w-full p-3 text-left rounded-lg transition-all duration-200 bg-card border border-border/50 hover:shadow-md hover:bg-accent/30"
                                 >
                                   <div className="flex items-start justify-between gap-3">
                                      <div 
@@ -4040,28 +4033,50 @@ const CRMContent = () => {
                                           handleChatClick(chat.id, chat.type);
                                         }}
                                       >
+                                        <div className="relative flex-shrink-0">
                                         {chat.avatar_url ? (
-                                          <div className="relative flex-shrink-0">
-                                            <img 
-                                              src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
-                                              alt={`${chat.name} avatar`} 
-                                              className="w-12 h-12 rounded-full object-cover ring-2 ring-orange-200 shadow-sm"
-                                              style={{ borderRadius: '50%' }}
-                                              loading="lazy"
-                                              decoding="async"
-                                              referrerPolicy="no-referrer"
-                                              crossOrigin="anonymous"
-                                             onError={(e) => {
-                                               const target = e.currentTarget as HTMLImageElement;
-                                               target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGM0Y0RjYiLz4KPGF1Y2NsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNMzAgMzBDMzAgMjYuNjg2MyAyNi42Mjc0IDI0IDIyLjUgMjRIMTcuNUMxMy4zNzI2IDI0IDEwIDI2LjY4NjMgMTAgMzBWMzBIMzBWMzBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
-                                             }}
-                                           />
-                                          </div>
-                                        ) : (
-                                          <div className="w-12 h-12 rounded-full bg-[hsl(var(--avatar-blue))] shadow-sm flex items-center justify-center flex-shrink-0 ring-2 ring-border/30">
-                                            <User className="h-6 w-6 text-white" />
-                                          </div>
-                                       )}
+                                          <img 
+                                            src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
+                                            alt={`${chat.name} avatar`} 
+                                            className="w-12 h-12 rounded-full object-cover ring-2 ring-border/30 shadow-sm"
+                                            loading="lazy"
+                                            decoding="async"
+                                            referrerPolicy="no-referrer"
+                                            crossOrigin="anonymous"
+                                            onError={(e) => {
+                                              const target = e.currentTarget as HTMLImageElement;
+                                              target.style.display = 'none';
+                                              const fallback = target.nextElementSibling as HTMLElement;
+                                              if (fallback) fallback.style.display = 'flex';
+                                            }}
+                                          />
+                                        ) : null}
+                                        <div 
+                                          className={`w-12 h-12 rounded-full bg-[hsl(var(--avatar-blue))] shadow-sm flex items-center justify-center text-[hsl(var(--text-primary))] font-medium text-base ring-2 ring-border/30 ${chat.avatar_url ? 'hidden' : ''}`}
+                                        >
+                                          {chat.name?.split(' ').map(n => n[0]).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?'}
+                                        </div>
+                                        {/* Messenger icon badge */}
+                                        {(() => {
+                                          const messenger = (chat as any).last_unread_messenger;
+                                          if (!messenger) return null;
+                                          return (
+                                            <div 
+                                              className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-background shadow-sm ${
+                                                messenger === 'whatsapp' ? 'bg-[#25D366]' :
+                                                messenger === 'telegram' ? 'bg-[#0088cc]' :
+                                                messenger === 'max' ? 'bg-purple-500' :
+                                                messenger === 'calls' ? 'bg-red-500' : 'bg-gray-500'
+                                              }`}
+                                            >
+                                              {messenger === 'whatsapp' && <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 fill-white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>}
+                                              {messenger === 'telegram' && <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 fill-white"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>}
+                                              {messenger === 'max' && <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 fill-white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>}
+                                              {messenger === 'calls' && <Phone className="w-2 h-2 text-white" />}
+                                            </div>
+                                          );
+                                        })()}
+                                        </div>
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-0.5">
                                           <p className={`text-sm ${displayUnread ? 'font-semibold' : 'font-medium'} truncate`}>
