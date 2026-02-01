@@ -1642,14 +1642,25 @@ const CRMContent = () => {
   const handleBulkUndo = useCallback((actionState: BulkActionState) => {
     console.log('[CRM] Undoing bulk action:', actionState.action, 'for', actionState.chatIds.length, 'chats');
     
+    // Collect chat IDs for batch operations
+    const chatsToMarkAsRead: string[] = [];
+    const chatsToMarkAsUnread: string[] = [];
+    
     actionState.chatIds.forEach(chatId => {
       const prevState = actionState.previousStates.get(chatId);
       
       if (actionState.action === 'read' && prevState) {
         // Restore unread state
         if (!prevState.isRead) {
+          chatsToMarkAsUnread.push(chatId);
           markAsUnread(chatId);
-          markAsUnreadMutation.mutate(chatId);
+        }
+      } else if (actionState.action === 'unread' && prevState) {
+        // Restore read state
+        if (prevState.isRead) {
+          chatsToMarkAsRead.push(chatId);
+          markChatAsReadGlobally(chatId);
+          markAsRead(chatId);
         }
       } else if (actionState.action === 'pin' && prevState) {
         // Restore previous pin state
@@ -1663,7 +1674,15 @@ const CRMContent = () => {
         }
       }
     });
-  }, [markAsUnread, markAsUnreadMutation, togglePin, toggleArchive]);
+    
+    // Execute batch operations
+    if (chatsToMarkAsUnread.length > 0) {
+      bulkMarkChatsAsUnreadMutation.mutate(chatsToMarkAsUnread);
+    }
+    if (chatsToMarkAsRead.length > 0) {
+      bulkMarkChatsAsReadMutation.mutate(chatsToMarkAsRead);
+    }
+  }, [markAsUnread, markAsRead, markChatAsReadGlobally, bulkMarkChatsAsUnreadMutation, bulkMarkChatsAsReadMutation, togglePin, toggleArchive]);
 
   const { startUndoTimer } = useBulkActionUndo({
     onUndo: handleBulkUndo,
