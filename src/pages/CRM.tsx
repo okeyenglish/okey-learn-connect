@@ -3257,7 +3257,7 @@ const CRMContent = () => {
                           <ChevronDown className="h-3 w-3 ml-1" />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-48 p-1" align="start">
+                      <PopoverContent className="w-56 p-1" align="start">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -3301,6 +3301,61 @@ const CRMContent = () => {
                           <ListChecks className="h-4 w-4 mr-2" />
                           Инвертировать
                         </Button>
+                        
+                        {/* Bulk actions when items selected */}
+                        {selectedChatIds.size > 0 && (
+                          <>
+                            <div className="h-px bg-border my-1" />
+                            <div className="px-2 py-1 text-xs text-muted-foreground font-medium">
+                              Действия ({selectedChatIds.size})
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start h-8 px-2"
+                              onClick={() => {
+                                setBulkActionConfirm({ 
+                                  open: true, 
+                                  action: 'read', 
+                                  count: selectedChatIds.size 
+                                });
+                              }}
+                            >
+                              <Check className="h-4 w-4 mr-2" />
+                              Отметить прочитанным
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start h-8 px-2"
+                              onClick={() => {
+                                setBulkActionConfirm({ 
+                                  open: true, 
+                                  action: 'pin', 
+                                  count: selectedChatIds.size 
+                                });
+                              }}
+                            >
+                              <Pin className="h-4 w-4 mr-2" />
+                              Закрепить
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start h-8 px-2"
+                              onClick={() => {
+                                setBulkActionConfirm({ 
+                                  open: true, 
+                                  action: 'archive', 
+                                  count: selectedChatIds.size 
+                                });
+                              }}
+                            >
+                              <Archive className="h-4 w-4 mr-2" />
+                              Архивировать
+                            </Button>
+                          </>
+                        )}
                       </PopoverContent>
                     </Popover>
                     {selectedChatIds.size > 0 && (
