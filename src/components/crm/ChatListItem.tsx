@@ -2,7 +2,7 @@ import React from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { LazyAvatar, getAvatarInitials } from "@/components/ui/LazyAvatar";
 import { Badge } from "@/components/ui/badge";
-import { Pin, MessageSquare, MessageCircle } from "lucide-react";
+import { Pin, MessageSquare, MessageCircle, Info } from "lucide-react";
 import { ChatContextMenu } from "./ChatContextMenu";
 import { ChatPresenceIndicator } from "./ChatPresenceIndicator";
 import {
@@ -119,6 +119,7 @@ export const ChatListItem = React.memo(({
 }: ChatListItemProps) => {
   const isTyping = typingInfo && typingInfo.count > 0;
   const hasPresence = presenceInfo && presenceInfo.viewers.length > 0;
+  const isSystemChat = chat.type === 'corporate' || chat.type === 'teachers';
   
   return (
     <ChatContextMenu
@@ -149,7 +150,7 @@ export const ChatListItem = React.memo(({
           isNewMessage ? 'new-message-glow' : ''
         }`}
         onClick={() => {
-          if (bulkSelectMode && onBulkSelect) {
+          if (bulkSelectMode && onBulkSelect && !isSystemChat) {
             onBulkSelect();
           } else {
             onChatClick();
@@ -159,13 +160,26 @@ export const ChatListItem = React.memo(({
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2 flex-1 min-w-0">
             {bulkSelectMode && (
-              <input 
-                type="checkbox" 
-                checked={isSelected}
-                onChange={onBulkSelect}
-                className="h-4 w-4 mt-1 rounded border-2"
-                onClick={(e) => e.stopPropagation()}
-              />
+              isSystemChat ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="h-4 w-4 mt-1 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                      <Info className="h-3.5 w-3.5 text-muted-foreground/60" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="text-xs max-w-[200px]">
+                    Системный чат. Массовые действия не применяются.
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <input 
+                  type="checkbox" 
+                  checked={isSelected}
+                  onChange={onBulkSelect}
+                  className="h-4 w-4 mt-1 rounded border-2"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              )
             )}
             
             <LazyAvatar
