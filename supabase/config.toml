@@ -461,3 +461,6 @@ verify_jwt = true
 
 [functions.aggregate-staff-stats]
 verify_jwt = false
+
+[functions.check-activity-kpi]
+verify_jwt = false

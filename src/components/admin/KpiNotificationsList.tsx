@@ -23,6 +23,8 @@ export const KpiNotificationsList = () => {
         return <Phone className="h-4 w-4 text-orange-500" />;
       case 'low_answered_rate':
         return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+      case 'low_activity':
+        return <AlertTriangle className="h-4 w-4 text-purple-500" />;
       default:
         return <Bell className="h-4 w-4" />;
     }
@@ -36,6 +38,8 @@ export const KpiNotificationsList = () => {
         return 'bg-orange-100 text-orange-800 border-orange-200';
       case 'low_answered_rate':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'low_activity':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
       default:
         return '';
     }
