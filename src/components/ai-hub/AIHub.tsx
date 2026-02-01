@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,7 +26,10 @@ import {
   Search,
   Link2,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  BookOpen,
+  FileText,
+  HelpCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { selfHostedPost } from '@/lib/selfHostedApi';
@@ -63,6 +67,8 @@ interface AIHubProps {
   };
   onOpenModal?: any;
   onOpenChat?: (clientId: string) => void;
+  /** Callback to open scripts modal from Knowledge Base */
+  onOpenScripts?: () => void;
 }
 
 interface ChatMessage {
@@ -105,8 +111,10 @@ export const AIHub = ({
   onToggle, 
   context,
   onOpenModal,
-  onOpenChat 
+  onOpenChat,
+  onOpenScripts
 }: AIHubProps) => {
+  const navigate = useNavigate();
   const [activeChat, setActiveChat] = useState<ChatItem | null>(null);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
@@ -116,7 +124,7 @@ export const AIHub = ({
   const [teacherClientId, setTeacherClientId] = useState<string | null>(null);
   
   // Persisted sections state
-  const { aiSectionExpanded, toggleAiSection } = usePersistedSections();
+  const { aiSectionExpanded, toggleAiSection, knowledgeSectionExpanded, toggleKnowledgeSection } = usePersistedSections();
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -771,6 +779,81 @@ export const AIHub = ({
                 <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
               </div>
             )}
+
+            {/* Knowledge Base Section - collapsible */}
+            <div className="space-y-1">
+              <button 
+                onClick={toggleKnowledgeSection} 
+                className="w-full px-3 py-2 flex items-center justify-between hover:bg-muted/30 transition-colors rounded-lg"
+              >
+                <div className="flex items-center gap-2">
+                  {knowledgeSectionExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                  <BookOpen className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium text-muted-foreground">База Знаний</span>
+                </div>
+                <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full">
+                  2
+                </Badge>
+              </button>
+              
+              {knowledgeSectionExpanded && (
+                <div className="space-y-1 pl-2">
+                  {/* Scripts */}
+                  <button 
+                    onClick={() => onOpenScripts?.()}
+                    className="w-full p-2.5 text-left rounded-lg transition-all duration-200 mb-1 border select-none bg-card hover:bg-accent/30 hover:shadow-sm border-border/50 max-w-full overflow-hidden"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30">
+                        <AvatarFallback className="bg-muted">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">Скрипты продаж</p>
+                      </div>
+                    </div>
+                  </button>
+                  
+                  {/* FAQ */}
+                  <button 
+                    onClick={() => navigate('/faq')}
+                    className="w-full p-2.5 text-left rounded-lg transition-all duration-200 mb-1 border select-none bg-card hover:bg-accent/30 hover:shadow-sm border-border/50 max-w-full overflow-hidden"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30">
+                        <AvatarFallback className="bg-muted">
+                          <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">FAQ для клиентов</p>
+                      </div>
+                    </div>
+                  </button>
+                  
+                  {/* Training - Coming Soon */}
+                  <button 
+                    disabled
+                    className="w-full p-2.5 text-left rounded-lg transition-all duration-200 mb-1 border select-none opacity-50 cursor-not-allowed bg-muted/30 max-w-full overflow-hidden"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30">
+                        <AvatarFallback className="bg-muted">
+                          <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">Обучение</p>
+                      </div>
+                      <Badge variant="secondary" className="text-[10px] h-4 px-1.5 shrink-0">
+                        скоро
+                      </Badge>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* AI Helpers Section - EXACT mobile layout */}
             {aiChatsListFiltered.length > 0 && (
