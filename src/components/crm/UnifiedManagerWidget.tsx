@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { 
   User, Settings, Key, LogOut, ChevronDown, Shield, Bell, BellOff, 
-  Send, AlertTriangle, Trash2, Clock, Phone, MessageSquare, Zap 
+  Send, AlertTriangle, Trash2, Clock, Phone, MessageSquare, Zap, ListTodo
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useActivityTracker } from '@/hooks/useActivityTracker';
 import { useTodayCallsCount } from '@/hooks/useTodayCallsCount';
 import { useTodayMessagesCount } from '@/hooks/useTodayMessagesCount';
+import { useMyOverdueTasks } from '@/hooks/useMyOverdueTasks';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { toast } from "sonner";
 import { cn } from '@/lib/utils';
@@ -90,6 +91,7 @@ export const UnifiedManagerWidget = React.memo(({
   const { activeTime, activityPercentage, sessionDuration } = useActivityTracker();
   const { callsCount, incomingCalls, outgoingCalls, lastCallTime, isLoading: callsLoading } = useTodayCallsCount();
   const { messagesCount, lastMessageTime, isLoading: messagesLoading } = useTodayMessagesCount();
+  const { overdueCount, isLoading: overdueLoading } = useMyOverdueTasks();
   
   const showActivityPercentage = sessionDuration >= MIN_SESSION_FOR_PERCENTAGE;
   
@@ -250,6 +252,19 @@ export const UnifiedManagerWidget = React.memo(({
                     </div>
                   </>
                 )}
+
+                {/* Overdue Tasks - only show if there are any */}
+                {overdueCount > 0 && (
+                  <>
+                    <span className="text-muted-foreground/30 hidden sm:inline">│</span>
+                    <div className="flex items-center gap-1">
+                      <ListTodo className="h-3.5 w-3.5 text-destructive" />
+                      <span className="font-medium text-xs sm:text-sm text-destructive">
+                        {overdueLoading ? '...' : overdueCount}
+                      </span>
+                    </div>
+                  </>
+                )}
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="max-w-xs">
@@ -279,6 +294,13 @@ export const UnifiedManagerWidget = React.memo(({
                       <span className={cn('font-medium', getActivityColor(activityPercentage))}>
                         {activityPercentage}%
                       </span>
+                    </>
+                  )}
+                  
+                  {overdueCount > 0 && (
+                    <>
+                      <span className="text-muted-foreground">Просрочено задач:</span>
+                      <span className="font-medium text-destructive">{overdueCount}</span>
                     </>
                   )}
                 </div>
