@@ -84,7 +84,7 @@ export const useCreateKpiNotification = () => {
     mutationFn: async (params: {
       profile_id: string;
       organization_id: string;
-      notification_type: 'low_score' | 'low_calls' | 'low_answered_rate';
+      notification_type: 'low_score' | 'low_calls' | 'low_answered_rate' | 'low_activity';
       message: string;
       current_value?: number;
       threshold_value?: number;
