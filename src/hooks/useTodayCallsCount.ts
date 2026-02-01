@@ -40,10 +40,20 @@ export function useTodayCallsCount() {
       const incoming = calls.filter(c => c.direction === 'incoming').length;
       const outgoing = calls.filter(c => c.direction === 'outgoing').length;
 
+      // Get last call time (calls should be sorted by created_at DESC from API)
+      const sortedCalls = [...calls].sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      const lastCall = sortedCalls[0];
+      const lastCallTime = lastCall 
+        ? new Date(lastCall.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+        : null;
+
       return {
         total: calls.length,
         incoming,
         outgoing,
+        lastCallTime,
       };
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -55,6 +65,7 @@ export function useTodayCallsCount() {
     callsCount: data?.total ?? 0,
     incomingCalls: data?.incoming ?? 0,
     outgoingCalls: data?.outgoing ?? 0,
+    lastCallTime: data?.lastCallTime ?? null,
     isLoading,
     error,
     refetch,

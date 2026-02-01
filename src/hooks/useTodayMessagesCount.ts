@@ -17,7 +17,7 @@ export function useTodayMessagesCount() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['todayMessagesCount', user?.id, startOfDay],
     queryFn: async () => {
-      if (!user?.id) return { total: 0 };
+      if (!user?.id) return { total: 0, lastMessageTime: null };
 
       // Count outgoing messages sent by this user today
       const { count, error } = await supabase
@@ -30,10 +30,26 @@ export function useTodayMessagesCount() {
 
       if (error) {
         console.error('[useTodayMessagesCount] Error:', error);
-        return { total: 0 };
+        return { total: 0, lastMessageTime: null };
       }
 
-      return { total: count ?? 0 };
+      // Get last message time
+      const { data: lastMessage } = await supabase
+        .from('chat_messages')
+        .select('created_at')
+        .eq('direction', 'outgoing')
+        .eq('sender_id', user.id)
+        .gte('created_at', startOfDay)
+        .lte('created_at', endOfDay)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const lastMessageTime = lastMessage
+        ? new Date(lastMessage.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+        : null;
+
+      return { total: count ?? 0, lastMessageTime };
     },
     enabled: !!user?.id,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -43,6 +59,7 @@ export function useTodayMessagesCount() {
 
   return {
     messagesCount: data?.total ?? 0,
+    lastMessageTime: data?.lastMessageTime ?? null,
     isLoading,
     error,
     refetch,

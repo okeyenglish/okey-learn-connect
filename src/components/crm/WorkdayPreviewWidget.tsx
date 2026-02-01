@@ -17,20 +17,26 @@ interface WorkdayPreviewWidgetProps {
  * - Messages sent today
  * - Activity percentage
  */
-export function WorkdayPreviewWidget({ onClick, className }: WorkdayPreviewWidgetProps) {
-  const { activeTime, activityPercentage } = useActivityTracker();
-  const { callsCount, incomingCalls, outgoingCalls, isLoading: callsLoading } = useTodayCallsCount();
-  const { messagesCount, isLoading: messagesLoading } = useTodayMessagesCount();
+const MIN_SESSION_FOR_PERCENTAGE = 5 * 60 * 1000; // 5 минут
 
-  // Format active time
+export function WorkdayPreviewWidget({ onClick, className }: WorkdayPreviewWidgetProps) {
+  const { activeTime, activityPercentage, sessionDuration } = useActivityTracker();
+  const { callsCount, incomingCalls, outgoingCalls, lastCallTime, isLoading: callsLoading } = useTodayCallsCount();
+  const { messagesCount, lastMessageTime, isLoading: messagesLoading } = useTodayMessagesCount();
+
+  // Show activity percentage only after 5 minutes of session
+  const showActivityPercentage = sessionDuration >= MIN_SESSION_FOR_PERCENTAGE;
+
+  // Format active time - show seconds if less than a minute
   const formatTime = (ms: number) => {
-    const totalMinutes = Math.floor(ms / 60000);
+    const totalSeconds = Math.floor(ms / 1000);
+    if (totalSeconds < 60) {
+      return `${totalSeconds}с`;
+    }
+    const totalMinutes = Math.floor(totalSeconds / 60);
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
-    if (hours > 0) {
-      return `${hours}ч ${minutes}м`;
-    }
-    return `${minutes}м`;
+    return hours > 0 ? `${hours}ч ${minutes}м` : `${minutes}м`;
   };
 
   // Get activity color based on percentage
@@ -87,15 +93,18 @@ export function WorkdayPreviewWidget({ onClick, className }: WorkdayPreviewWidge
               </span>
             </div>
 
-            <span className="text-muted-foreground/50 hidden sm:inline">│</span>
-
-            {/* Activity Percentage */}
-            <div className="flex items-center gap-1">
-              <Zap className={cn('h-3.5 w-3.5', getActivityColor(activityPercentage))} />
-              <span className={cn('font-medium text-xs sm:text-sm', getActivityColor(activityPercentage))}>
-                {activityPercentage}%
-              </span>
-            </div>
+            {/* Activity Percentage - only show after 5 min */}
+            {showActivityPercentage && (
+              <>
+                <span className="text-muted-foreground/50 hidden sm:inline">│</span>
+                <div className="flex items-center gap-1">
+                  <Zap className={cn('h-3.5 w-3.5', getActivityColor(activityPercentage))} />
+                  <span className={cn('font-medium text-xs sm:text-sm', getActivityColor(activityPercentage))}>
+                    {activityPercentage}%
+                  </span>
+                </div>
+              </>
+            )}
           </button>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="max-w-xs">
@@ -113,10 +122,20 @@ export function WorkdayPreviewWidget({ onClick, className }: WorkdayPreviewWidge
               <span className="text-muted-foreground">Сообщения:</span>
               <span className="font-medium">{messagesCount}</span>
               
-              <span className="text-muted-foreground">Активность:</span>
-              <span className={cn('font-medium', getActivityColor(activityPercentage))}>
-                {activityPercentage}%
-              </span>
+              <span className="text-muted-foreground">Посл. звонок:</span>
+              <span className="font-medium">{lastCallTime || '—'}</span>
+              
+              <span className="text-muted-foreground">Посл. сообщение:</span>
+              <span className="font-medium">{lastMessageTime || '—'}</span>
+              
+              {showActivityPercentage && (
+                <>
+                  <span className="text-muted-foreground">Активность:</span>
+                  <span className={cn('font-medium', getActivityColor(activityPercentage))}>
+                    {activityPercentage}%
+                  </span>
+                </>
+              )}
             </div>
             <p className="text-xs text-muted-foreground pt-1 border-t">
               Нажмите для открытия полного дашборда
