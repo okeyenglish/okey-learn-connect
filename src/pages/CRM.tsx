@@ -4431,6 +4431,7 @@ const CRMContent = () => {
         onOpenChat={(clientId: string) => {
           handleChatClick(clientId, 'client');
         }}
+        onOpenScripts={() => setShowScriptsModal(true)}
       />
 
       {/* Мобильная нижняя навигация чатов - показываем только в списке (не в диалоге) */}
