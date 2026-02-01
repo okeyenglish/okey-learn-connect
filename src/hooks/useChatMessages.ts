@@ -510,6 +510,25 @@ export const useSendMessage = () => {
       phoneNumberId?: string;
       metadata?: Record<string, unknown>;
     }) => {
+      // Get organization_id from cache or fetch it to satisfy RLS on self-hosted
+      let organizationId: string | null = null;
+      
+      const cachedProfile = queryClient.getQueryData<{ organization_id: string }>(['profile']);
+      if (cachedProfile?.organization_id) {
+        organizationId = cachedProfile.organization_id;
+      } else {
+        // Fallback: fetch organization_id from profiles
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('organization_id')
+            .eq('id', userData.user.id)
+            .single();
+          organizationId = profile?.organization_id || null;
+        }
+      }
+
       const payload: Record<string, unknown> = {
         client_id: clientId,
         message_text: messageText,
@@ -517,12 +536,17 @@ export const useSendMessage = () => {
         is_read: messageType === 'manager', // Manager messages are marked as read
       };
 
+      // Add organization_id explicitly to satisfy RLS policies on self-hosted
+      if (organizationId) {
+        payload.organization_id = organizationId;
+      }
+
       // Keep self-hosted compatibility: only send optional columns when they exist
       if (phoneNumberId !== undefined) {
-        (payload as any).phone_number_id = phoneNumberId;
+        payload.phone_number_id = phoneNumberId;
       }
       if (metadata !== undefined) {
-        (payload as any).metadata = metadata;
+        payload.metadata = metadata;
       }
 
       const tryInsert = async (p: Record<string, unknown>) => {
@@ -549,8 +573,8 @@ export const useSendMessage = () => {
 
         if (missingMetadata || missingPhoneNumberId) {
           const retryPayload: Record<string, unknown> = { ...payload };
-          if (missingMetadata) delete (retryPayload as any).metadata;
-          if (missingPhoneNumberId) delete (retryPayload as any).phone_number_id;
+          if (missingMetadata) delete retryPayload.metadata;
+          if (missingPhoneNumberId) delete retryPayload.phone_number_id;
           return await tryInsert(retryPayload);
         }
 
