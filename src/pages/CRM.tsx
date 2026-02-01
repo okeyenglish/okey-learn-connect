@@ -968,6 +968,7 @@ const CRMContent = () => {
   useDocumentTitle(allUnreadCount, undefined, hasNewMessage);
 
   // Системные чаты (мемоизированы для предотвращения лишних пересчётов allChats)
+  // Communities убраны отсюда - они теперь в AI Hub
   const systemChats = useMemo(() => [
     {
       id: 'corporate',
@@ -991,18 +992,7 @@ const CRMContent = () => {
       timestamp: latestTeacher?.lastMessageTime ? new Date(latestTeacher.lastMessageTime).getTime() : 0,
       avatar_url: null,
     },
-    {
-      id: 'communities',
-      name: 'Сообщества',
-      phone: 'Группы мессенджеров',
-      lastMessage: latestCommunity?.lastMessage || 'Нет сообщений',
-      time: latestCommunity?.lastMessageTime ? formatTime(latestCommunity.lastMessageTime) : '',
-      unread: communityUnread,
-      type: 'communities' as const,
-      timestamp: latestCommunity?.lastMessageTime ? new Date(latestCommunity.lastMessageTime).getTime() : 0,
-      avatar_url: null,
-    },
-  ], [latestCorporate, corporateUnread, latestTeacher, teacherUnread, latestCommunity, communityUnread]);
+  ], [latestCorporate, corporateUnread, latestTeacher, teacherUnread]);
   
   const threadClientIdsSet = useMemo(() => new Set((threads || []).map(t => t.client_id)), [threads]);
 
@@ -1229,8 +1219,8 @@ const CRMContent = () => {
   )
     .filter(chat => !getChatState(chat.id).isArchived) // Скрываем архивированные чаты
     .filter(chat => {
-      // Skip filtering for corporate, teacher and community chats as they don't have client_id
-      if (chat.type === "corporate" || chat.type === "teachers" || chat.type === "communities") return true;
+      // Skip filtering for corporate and teacher chats as they don't have client_id
+      if (chat.type === "corporate" || chat.type === "teachers") return true;
       
       // Filter by client type using getClientStatus
       if (selectedClientType !== "all" && 'client_id' in chat && typeof chat.client_id === 'string') {
@@ -1246,7 +1236,7 @@ const CRMContent = () => {
     // Фильтр по филиалу клиента (из UI dropdown) - теперь используем branch из chat
     .filter(chat => {
       if (selectedBranch === "all") return true;
-      if (chat.type === "corporate" || chat.type === "teachers" || chat.type === "communities") return true;
+      if (chat.type === "corporate" || chat.type === "teachers") return true;
       
       // Используем branch напрямую из chat (теперь приходит из threads RPC)
       const clientBranch = isClientChat(chat) ? chat.branch : null;
@@ -1320,7 +1310,7 @@ const CRMContent = () => {
       .filter(chat => !getChatState(chat.id).isPinned)
       .filter(chat => {
         // Системные папки всегда отображаются
-        if (chat.type === 'corporate' || chat.type === 'teachers' || chat.type === 'communities') {
+        if (chat.type === 'corporate' || chat.type === 'teachers') {
           return true;
         }
         if (!showOnlyUnread) return true;
