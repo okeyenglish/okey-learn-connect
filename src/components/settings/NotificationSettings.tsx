@@ -68,6 +68,7 @@ export const NotificationSettings = () => {
         lesson: 'Звук урока',
         missed_call: 'Звук звонка',
         incoming_call: 'Рингтон входящего',
+        activity_warning: 'Предупреждение активности',
         default: 'Звук по умолчанию',
       };
       toast.success(labels[type] + ' воспроизведён');
