@@ -37,76 +37,40 @@
    - Алерты о длительной неактивности (>10 мин)
    - Сортировка: on_call → online → idle → offline
 
-### Интеграция: ✅
-- StaffActivityIndicator добавлен в UnifiedCRMHeader
-- Отображается для ролей: admin, manager, methodist, teacher
-
 ---
 
-## Статусы сотрудников
+## ✅ Фаза 2: Персистентность (ЗАВЕРШЕНА)
 
-| Статус | Условие | Цвет | Иконка |
-|--------|---------|------|--------|
-| Онлайн | Активность < 5 мин | Зеленый | Circle (filled) |
-| На звонке | Активный звонок в call_logs | Синий пульсирующий | Phone |
-| Неактивен | Активность 5+ мин | Желтый | Clock |
-| Оффлайн | Нет heartbeat 2+ мин | Серый | Circle (outline) |
+### Реализованные компоненты:
 
----
+1. **SQL миграция** (`docs/migrations/add_staff_work_tracking.sql`) ✅
+   - Таблица `staff_work_sessions` для рабочих сессий
+   - Таблица `staff_daily_stats` для агрегированной статистики
+   - RLS политики для безопасности данных
+   - Индексы для быстрого поиска
 
-## 🔲 Фаза 2: Персистентность (ПЛАНИРУЕТСЯ)
+2. **Edge Function** (`save-work-session`) ✅
+   - Upsert сессии по user_id + session_date
+   - Инкрементальное обновление active/idle/on_call секунд
+   - Tracking idle events и max idle streak
 
-### SQL миграция для self-hosted:
+3. **useSessionPersistence** (`src/hooks/useSessionPersistence.ts`) ✅
+   - Автоматическое сохранение каждые 5 минут
+   - Сохранение при закрытии/скрытии страницы (sendBeacon)
+   - Расчёт дельт с последнего сохранения
+   - Интегрирован в StaffActivityIndicator
+
+### Требуется выполнить SQL на self-hosted:
 ```sql
-CREATE TABLE IF NOT EXISTS staff_work_sessions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
-  organization_id UUID,
-  session_date DATE NOT NULL DEFAULT CURRENT_DATE,
-  session_start TIMESTAMPTZ,
-  session_end TIMESTAMPTZ,
-  total_online_seconds INT DEFAULT 0,
-  active_seconds INT DEFAULT 0,
-  idle_seconds INT DEFAULT 0,
-  on_call_seconds INT DEFAULT 0,
-  idle_events INT DEFAULT 0,
-  max_idle_streak_seconds INT DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(user_id, session_date)
-);
-
-CREATE TABLE IF NOT EXISTS staff_daily_stats (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
-  organization_id UUID,
-  stat_date DATE NOT NULL,
-  total_online_minutes INT DEFAULT 0,
-  active_minutes INT DEFAULT 0,
-  idle_minutes INT DEFAULT 0,
-  call_minutes INT DEFAULT 0,
-  calls_count INT DEFAULT 0,
-  messages_sent INT DEFAULT 0,
-  avg_response_time_seconds INT,
-  efficiency_score NUMERIC(5,2),
-  created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(user_id, stat_date)
-);
-
-CREATE INDEX idx_work_sessions_user_date ON staff_work_sessions(user_id, session_date);
-CREATE INDEX idx_daily_stats_user_date ON staff_daily_stats(user_id, stat_date);
+-- Выполните миграцию из docs/migrations/add_staff_work_tracking.sql
 ```
-
-### Edge Functions:
-- `save-work-session` - периодическое сохранение (каждые 5 мин)
-- `aggregate-staff-stats` - ежечасная агрегация
 
 ---
 
 ## 🔲 Фаза 3: Аналитика (ПЛАНИРУЕТСЯ)
 
 - Графики активности по дням/неделям
-- Cron-агрегация статистики
+- Cron-агрегация в staff_daily_stats
 - Уведомления о простоях в Telegram
 - Ежедневные/еженедельные отчёты
 
@@ -118,6 +82,17 @@ CREATE INDEX idx_daily_stats_user_date ON staff_daily_stats(user_id, stat_date);
 - Автоматические предупреждения
 - Отчёты в Telegram
 - Геймификация (бейджи, уровни)
+
+---
+
+## Статусы сотрудников
+
+| Статус | Условие | Цвет | Иконка |
+|--------|---------|------|--------|
+| Онлайн | Активность < 5 мин | 🟢 | Circle (filled) |
+| На звонке | Активный звонок | 🔵 | Phone |
+| Неактивен | Активность 5+ мин | 🟡 | Clock |
+| Оффлайн | Нет heartbeat 2+ мин | ⚪ | Circle (outline) |
 
 ---
 
