@@ -82,6 +82,16 @@ export const useStaffDirectMessages = (recipientUserId: string) => {
             (newMessage.sender_id === recipientUserId && newMessage.recipient_user_id === user.id)
           ) {
             queryClient.invalidateQueries({ queryKey: ['staff-direct-messages', recipientUserId] });
+            
+            // Play sound notification for incoming messages (not from current user)
+            if (newMessage.sender_id !== user.id) {
+              playNotificationSound(0.5, 'chat');
+              showBrowserNotification({
+                title: 'Новое сообщение',
+                body: newMessage.message_text?.slice(0, 100) || 'Новое сообщение от сотрудника',
+                tag: `staff-dm-${newMessage.sender_id}`,
+              });
+            }
           }
         }
       )
@@ -140,8 +150,19 @@ export const useStaffGroupMessages = (groupChatId: string) => {
           table: 'internal_staff_messages',
           filter: `group_chat_id=eq.${groupChatId}`,
         },
-        () => {
+        (payload) => {
+          const newMessage = payload.new as StaffMessage;
           queryClient.invalidateQueries({ queryKey: ['staff-group-messages', groupChatId] });
+          
+          // Play sound notification for incoming messages (not from current user)
+          if (user?.id && newMessage.sender_id !== user.id) {
+            playNotificationSound(0.5, 'chat');
+            showBrowserNotification({
+              title: 'Новое сообщение в группе',
+              body: newMessage.message_text?.slice(0, 100) || 'Новое сообщение в групповом чате',
+              tag: `staff-group-${groupChatId}`,
+            });
+          }
         }
       )
       .subscribe();
@@ -149,7 +170,7 @@ export const useStaffGroupMessages = (groupChatId: string) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [groupChatId, queryClient]);
+  }, [groupChatId, queryClient, user?.id]);
 
   return query;
 };
