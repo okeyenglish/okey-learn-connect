@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AddTeacherModal } from '@/components/admin/AddTeacherModal';
 import { EditTeacherModal } from '@/components/admin/EditTeacherModal';
+import { BulkProfileLinkModal } from '@/components/admin/BulkProfileLinkModal';
 import { useTeachers, getTeacherFullName } from '@/hooks/useTeachers';
 import { useTeacherInvitations } from '@/hooks/useTeacherInvitations';
 import { useOrganization } from '@/hooks/useOrganization';
@@ -32,6 +33,8 @@ import {
   XCircle,
   UserX,
   UserCheck,
+  Link2,
+  AlertCircle,
 } from 'lucide-react';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
@@ -52,6 +55,7 @@ export const TeachersManagementSection: React.FC = () => {
   // Статистика
   const pendingInvitations = invitations.filter(i => i.status === 'pending').length;
   const linkedTeachers = teachers.filter(t => t.profile_id).length;
+  const unlinkedTeachers = teachers.filter(t => !t.profile_id && t.is_active !== false).length;
   const activeTeachers = teachers.filter(t => t.is_active !== false);
   const inactiveTeachers = teachers.filter(t => t.is_active === false);
 
@@ -102,7 +106,16 @@ export const TeachersManagementSection: React.FC = () => {
             Управление преподавателями и приглашениями
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <BulkProfileLinkModal teachers={teachers} onLinked={() => refetch()}>
+            <Button variant="outline" className={unlinkedTeachers > 0 ? 'border-yellow-300 text-yellow-700 hover:bg-yellow-50' : ''}>
+              <Link2 className="h-4 w-4 mr-2" />
+              Привязка профилей
+              {unlinkedTeachers > 0 && (
+                <Badge variant="secondary" className="ml-2 bg-yellow-100 text-yellow-700">{unlinkedTeachers}</Badge>
+              )}
+            </Button>
+          </BulkProfileLinkModal>
           <Button variant="outline" onClick={() => navigate('/admin/teachers/invitations')}>
             <MailPlus className="h-4 w-4 mr-2" />
             Приглашения
@@ -124,7 +137,7 @@ export const TeachersManagementSection: React.FC = () => {
       </div>
 
       {/* Статистика */}
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Всего</CardTitle>
@@ -152,6 +165,16 @@ export const TeachersManagementSection: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{inactiveTeachers.length}</div>
+          </CardContent>
+        </Card>
+
+        <Card className={unlinkedTeachers > 0 ? 'border-yellow-200 bg-yellow-50/50 dark:bg-yellow-950/20' : ''}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Без профиля</CardTitle>
+            <AlertCircle className={`h-4 w-4 ${unlinkedTeachers > 0 ? 'text-yellow-500' : 'text-muted-foreground'}`} />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${unlinkedTeachers > 0 ? 'text-yellow-700' : ''}`}>{unlinkedTeachers}</div>
           </CardContent>
         </Card>
 
