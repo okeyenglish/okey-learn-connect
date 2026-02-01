@@ -510,21 +510,52 @@ export const useSendMessage = () => {
       phoneNumberId?: string;
       metadata?: Record<string, unknown>;
     }) => {
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .insert([{
-          client_id: clientId,
-          phone_number_id: phoneNumberId,
-          message_text: messageText,
-          message_type: messageType,
-          is_read: messageType === 'manager', // Manager messages are marked as read
-          metadata: metadata || null,
-        }])
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data as ChatMessage;
+      const payload: Record<string, unknown> = {
+        client_id: clientId,
+        message_text: messageText,
+        message_type: messageType,
+        is_read: messageType === 'manager', // Manager messages are marked as read
+      };
+
+      // Keep self-hosted compatibility: only send optional columns when they exist
+      if (phoneNumberId !== undefined) {
+        (payload as any).phone_number_id = phoneNumberId;
+      }
+      if (metadata !== undefined) {
+        (payload as any).metadata = metadata;
+      }
+
+      const tryInsert = async (p: Record<string, unknown>) => {
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .insert([p as any])
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data as ChatMessage;
+      };
+
+      try {
+        return await tryInsert(payload);
+      } catch (err: any) {
+        // If the self-hosted schema doesn't have optional columns yet, retry without them
+        const msg = String(err?.message || '');
+        const msgLower = msg.toLowerCase();
+        const isMissingColumn = msgLower.includes('does not exist') && msgLower.includes('column');
+
+        const missingMetadata = isMissingColumn && msgLower.includes('metadata');
+        const missingPhoneNumberId = isMissingColumn && msgLower.includes('phone_number_id');
+
+        if (missingMetadata || missingPhoneNumberId) {
+          const retryPayload: Record<string, unknown> = { ...payload };
+          if (missingMetadata) delete (retryPayload as any).metadata;
+          if (missingPhoneNumberId) delete (retryPayload as any).phone_number_id;
+          return await tryInsert(retryPayload);
+        }
+
+        throw err;
+      }
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', data.client_id] });
