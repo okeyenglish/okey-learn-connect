@@ -49,6 +49,10 @@ interface VoiceAssistantProps {
     editTask?: (taskId: string) => void;
   };
   onOpenChat?: (clientId: string) => void;
+  /** Initial message from AI assistant (e.g., for tab feedback prompt) */
+  initialAssistantMessage?: string | null;
+  /** Clear the initial message after it's been processed */
+  onClearInitialMessage?: () => void;
 }
 
 interface ChatMessage {
@@ -85,7 +89,9 @@ export default function VoiceAssistant({
   embedded = false,
   context,
   onOpenModal,
-  onOpenChat 
+  onOpenChat,
+  initialAssistantMessage,
+  onClearInitialMessage
 }: VoiceAssistantProps) {
   const [inputText, setInputText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -168,6 +174,19 @@ export default function VoiceAssistant({
       }
     }
   }, [isOpen, markAllAsRead]);
+
+  // Handle initial assistant message (e.g., from tab feedback)
+  useEffect(() => {
+    if (initialAssistantMessage && isOpen && !messagesLoading) {
+      // Add the assistant message to the conversation
+      addDbMessage('assistant', initialAssistantMessage).then(() => {
+        onClearInitialMessage?.();
+      }).catch((err) => {
+        console.error('[VoiceAssistant] Error adding initial message:', err);
+        onClearInitialMessage?.();
+      });
+    }
+  }, [initialAssistantMessage, isOpen, messagesLoading, addDbMessage, onClearInitialMessage]);
 
   const addMessage = useCallback(async (content: string, type: 'user' | 'assistant', isVoice = false) => {
     try {

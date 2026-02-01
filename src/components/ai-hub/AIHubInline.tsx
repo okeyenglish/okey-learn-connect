@@ -76,6 +76,10 @@ interface AIHubInlineProps {
   initialStaffUserId?: string | null;
   /** Clear the initialStaffUserId after it's been processed */
   onClearInitialStaffUserId?: () => void;
+  /** If set, auto-open AI assistant and show this message */
+  initialAssistantMessage?: string | null;
+  /** Clear the initialAssistantMessage after it's been processed */
+  onClearInitialAssistantMessage?: () => void;
 }
 
 interface ChatMessage {
@@ -122,7 +126,9 @@ export const AIHubInline = ({
   onOpenChat,
   onBack,
   initialStaffUserId,
-  onClearInitialStaffUserId
+  onClearInitialStaffUserId,
+  initialAssistantMessage,
+  onClearInitialAssistantMessage
 }: AIHubInlineProps) => {
   const [activeChat, setActiveChat] = useState<ChatItem | null>(null);
   const [message, setMessage] = useState('');
@@ -281,6 +287,17 @@ export const AIHubInline = ({
       onClearInitialStaffUserId?.();
     }
   }, [initialStaffUserId, staffChatItems, teacherChatItems, staffMembersLoading, teachersLoading, onClearInitialStaffUserId]);
+
+  // Auto-open AI assistant when initialAssistantMessage is provided
+  useEffect(() => {
+    if (!initialAssistantMessage) return;
+    
+    // Find the assistant chat item
+    const assistantChat = aiChats.find(chat => chat.type === 'assistant');
+    if (assistantChat) {
+      setActiveChat(assistantChat);
+    }
+  }, [initialAssistantMessage, aiChats]);
 
   useEffect(() => {
     const initialMessages: Record<string, ChatMessage[]> = {};
@@ -557,6 +574,8 @@ export const AIHubInline = ({
             context={context}
             onOpenModal={onOpenModal}
             onOpenChat={onOpenChat}
+            initialAssistantMessage={initialAssistantMessage}
+            onClearInitialMessage={onClearInitialAssistantMessage}
           />
         </div>
       </div>
