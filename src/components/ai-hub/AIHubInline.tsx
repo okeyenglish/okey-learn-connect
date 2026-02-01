@@ -517,21 +517,26 @@ export const AIHubInline = ({
   };
 
   const handleSelectChat = async (item: ChatItem) => {
-    // Check if teacher has profile link before opening chat
-    if (item.type === 'teacher' && item.data) {
-      const teacher = item.data as TeacherChatItem;
-      if (!teacher.profileId) {
-        toast.error('У преподавателя не привязан профиль пользователя');
-        return; // Don't open chat without profile link
+    try {
+      // Check if teacher has profile link before opening chat
+      if (item.type === 'teacher' && item.data) {
+        const teacher = item.data as TeacherChatItem;
+        if (!teacher.profileId) {
+          toast.error('У преподавателя не привязан профиль пользователя');
+          return; // Don't open chat without profile link
+        }
+        if (teacher.clientId) {
+          setTeacherClientId(teacher.clientId);
+        } else {
+          const clientId = await findOrCreateClient(teacher);
+          setTeacherClientId(clientId);
+        }
       }
-      if (teacher.clientId) {
-        setTeacherClientId(teacher.clientId);
-      } else {
-        const clientId = await findOrCreateClient(teacher);
-        setTeacherClientId(clientId);
-      }
+      setActiveChat(item);
+    } catch (error) {
+      console.error('[AIHubInline] handleSelectChat failed:', error);
+      toast.error('Не удалось открыть чат. Попробуйте ещё раз.');
     }
-    setActiveChat(item);
   };
 
   const handleBack = () => {

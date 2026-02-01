@@ -43,6 +43,7 @@ import { LinkedContacts } from "@/components/crm/LinkedContacts";
 import { FamilyCard } from "@/components/crm/FamilyCard";
 import { FamilyCardWrapper } from "@/components/crm/FamilyCardWrapper";
 import { ChatContextMenu } from "@/components/crm/ChatContextMenu";
+import { ChatListItem } from "@/components/crm/ChatListItem";
 import { VirtualizedChatList } from "@/components/crm/VirtualizedChatList";
 import { AddClientModal } from "@/components/crm/AddClientModal";
 import { ClientsList } from "@/components/crm/ClientsList";
@@ -3539,163 +3540,49 @@ const CRMContent = () => {
                           <div className="space-y-0">
                          {filteredChats
                            .filter(chat => getChatState(chat.id).isPinned)
-                          .map((chat) => {
-                            const chatState = getChatState(chat.id);
-                            const showEye = !!chatState?.isUnread;
-                            const unreadByMessages = chat.unread > 0;
-                            const displayUnread = showEye || unreadByMessages;
-                            return (
-                              <ChatContextMenu
-                                key={chat.id}
-                                onMarkUnread={() => handleChatAction(chat.id, 'unread')}
-                                onMarkRead={() => handleChatAction(chat.id, 'read')}
-                                onPinDialog={() => handleChatAction(chat.id, 'pin')}
-                                onArchive={() => handleChatAction(chat.id, 'archive')}
-                                onBlock={() => handleChatAction(chat.id, 'block')}
-                                onConvertToTeacher={() => handleConvertToTeacher(chat.id, chat.name, chat.phone, (chat as any).email)}
-                                isPinned={chatState.isPinned}
-                                isArchived={chatState.isArchived}
-                                isUnread={displayUnread}
-                              >
-                                 <button 
-                                   className={`w-full p-2 text-left rounded-lg transition-colors relative border ${
-                                     chat.id === activeChatId 
-                                       ? 'bg-accent/50 shadow-sm border-accent' 
-                                       : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
-                                   }`}
-                                   onClick={() => {
-                                     if (bulkSelectMode) {
-                                       const newSelected = new Set(selectedChatIds);
-                                       if (newSelected.has(chat.id)) {
-                                         newSelected.delete(chat.id);
-                                       } else {
-                                         newSelected.add(chat.id);
-                                       }
-                                       setSelectedChatIds(newSelected);
-                                     } else {
-                                       handleChatClick(chat.id, chat.type);
-                                     }
-                                   }}
-                                 >
-                                   <div className="flex items-center justify-between">
-                                     <div className="flex items-center gap-3">
-                                       {bulkSelectMode && (
-                                         <div 
-                                           className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                                             selectedChatIds.has(chat.id)
-                                               ? 'bg-primary border-primary'
-                                               : 'border-muted-foreground'
-                                           }`}
-                                         >
-                                           {selectedChatIds.has(chat.id) && (
-                                             <Check className="h-3 w-3 text-primary-foreground" />
-                                           )}
-                                         </div>
-                                       )}
-                                        {/* Avatar with messenger icon */}
-                                        <div className="relative flex-shrink-0">
-                                        {chat.type === 'corporate' ? (
-                                          <div className="w-10 h-10 rounded-full bg-[hsl(var(--avatar-blue))] flex items-center justify-center">
-                                            <Building2 className="h-5 w-5 text-white" />
-                                          </div>
-                                        ) : chat.type === 'teachers' ? (
-                                          <div className="w-10 h-10 rounded-full bg-[hsl(var(--avatar-purple))] flex items-center justify-center">
-                                            <GraduationCap className="h-5 w-5 text-white" />
-                                          </div>
-                                        ) : chat.avatar_url ? (
-                                          <img 
-                                            src={(chat.avatar_url || '').replace(/^http:\/\//i, 'https://')} 
-                                            alt={`${chat.name} avatar`} 
-                                            className="w-10 h-10 rounded-full object-cover ring-2 ring-border/30"
-                                            loading="lazy"
-                                            decoding="async"
-                                            referrerPolicy="no-referrer"
-                                            crossOrigin="anonymous"
-                                            onError={(e) => {
-                                              const target = e.currentTarget as HTMLImageElement;
-                                              target.style.display = 'none';
-                                              const fallback = target.nextElementSibling as HTMLElement;
-                                              if (fallback) fallback.style.display = 'flex';
-                                            }}
-                                          />
-                                        ) : null}
-                                        {/* Fallback initials (shown if no avatar or avatar fails) */}
-                                        {chat.type !== 'corporate' && chat.type !== 'teachers' && (
-                                          <div 
-                                            className={`w-10 h-10 rounded-full bg-[hsl(var(--avatar-blue))] flex items-center justify-center text-[hsl(var(--text-primary))] font-medium text-sm ${chat.avatar_url ? 'hidden' : ''}`}
-                                          >
-                                            {chat.name?.split(' ').map(n => n[0]).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?'}
-                                          </div>
-                                        )}
-                                        {/* Messenger icon badge */}
-                                        {(() => {
-                                          const messenger = (chat as any).last_unread_messenger;
-                                          if (!messenger) return null;
-                                          return (
-                                            <div 
-                                              className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-background shadow-sm ${
-                                                messenger === 'whatsapp' ? 'bg-[#25D366]' :
-                                                messenger === 'telegram' ? 'bg-[#0088cc]' :
-                                                messenger === 'max' ? 'bg-purple-500' :
-                                                messenger === 'chatos' ? 'bg-orange-500' :
-                                                messenger === 'calls' ? 'bg-red-500' : 'bg-gray-500'
-                                              }`}
-                                            >
-                                              {messenger === 'whatsapp' && (
-                                                <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 fill-white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                                              )}
-                                              {messenger === 'telegram' && (
-                                                <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 fill-white"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
-                                              )}
-                                              {messenger === 'max' && (
-                                                <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 fill-white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                              )}
-                                              {messenger === 'calls' && (
-                                                <Phone className="w-2 h-2 text-white" />
-                                              )}
-                                            </div>
-                                          );
-                                        })()}
-                                        </div>
-                                       
-                                          <div className="flex-1 min-w-0 overflow-hidden">
-                                            <div className="flex items-center gap-2">
-                                              <p className={`font-medium text-sm ${displayUnread ? 'font-bold' : ''} truncate`}>
-                                                {chat.name}
-                                              </p>
-                                                 <Badge variant="outline" className="text-xs h-4 bg-orange-100 text-orange-700 border-orange-300">
-                                                   В работе
-                                                 </Badge>
-                                            </div>
-                                           <p className="text-xs text-muted-foreground line-clamp-2 leading-snug break-words overflow-hidden">
-                                             {chat.lastMessage || "Привет! Как дела?"}
-                                           </p>
-                                         </div>
-                                     </div>
-                                    <div className="flex flex-col items-end">
-                                      <Pin className="h-3 w-3 text-orange-600 mb-1" />
-                                      <span className="text-xs text-muted-foreground">{chat.time}</span>
-{displayUnread && (
-       <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-sm mt-1 flex items-center gap-1">
-         {showEye ? (
-           <>
-             <Avatar className="h-4 w-4">
-               <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
-               <AvatarFallback className="text-[8px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
-             </Avatar>
-             <span>{Math.max(chat.unread || 0, 1)}</span>
-           </>
-         ) : (
-           chat.unread
-         )}
-       </span>
-     )}
-                                    </div>
-                                  </div>
-                                </button>
-                              </ChatContextMenu>
-                            );
-                          })}
+                           .map((chat) => {
+                             const chatState = getChatState(chat.id);
+                             const showEye = !!chatState?.isUnread;
+                             const unreadByMessages = Number(chat.unread) > 0;
+                             const displayUnread = showEye || unreadByMessages;
+                             const foundInMessages = (chat as any).foundInMessages || messageSearchClientIds.includes(chat.id);
+                             const messengerType = foundInMessages && getMessengerType ? getMessengerType(chat.id) : null;
+
+                             return (
+                               <ChatListItem
+                                 key={chat.id}
+                                 chat={chat}
+                                 isActive={chat.id === activeChatId}
+                                 isPinned={chatState.isPinned}
+                                 isArchived={chatState.isArchived}
+                                 displayUnread={displayUnread}
+                                 showEye={showEye}
+                                 isInWorkByOthers={isInWorkByOthers(chat.id)}
+                                 pinnedByUserName={getPinnedByUserName(chat.id)}
+                                 pinnedByUserId={getPinnedByUserId ? getPinnedByUserId(chat.id) : undefined}
+                                 isPinnedByUserOnline={isUserOnline && getPinnedByUserId ? isUserOnline(getPinnedByUserId(chat.id) || '') : false}
+                                 onMessageUser={handleMessageUser}
+                                 profile={profile}
+                                 bulkSelectMode={bulkSelectMode}
+                                 isSelected={selectedChatIds.has(chat.id)}
+                                 foundInMessages={foundInMessages}
+                                 searchQuery={chatSearchQuery}
+                                 typingInfo={typingByClient[chat.id] || null}
+                                 presenceInfo={presenceByClient[chat.id] || null}
+                                 isNewMessage={newMessageClientIds.has(chat.id)}
+                                 onChatClick={() => handleChatClick(chat.id, chat.type, foundInMessages, messengerType)}
+                                 onMarkUnread={() => handleChatAction(chat.id, 'unread')}
+                                 onMarkRead={() => handleChatAction(chat.id, 'read')}
+                                 onPinDialog={() => handleChatAction(chat.id, 'pin')}
+                                 onArchive={() => handleChatAction(chat.id, 'archive')}
+                                 onBlock={chat.type === 'client' ? () => handleChatAction(chat.id, 'block') : undefined}
+                                 onDelete={chat.type === 'client' ? () => handleDeleteChat(chat.id, chat.name) : undefined}
+                                 onLinkToClient={chat.type === 'client' ? () => handleLinkChat(chat.id, chat.name) : undefined}
+                                 onConvertToTeacher={chat.type === 'client' ? () => handleConvertToTeacher(chat.id, chat.name, chat.phone, (chat as any).email) : undefined}
+                                 onBulkSelect={() => handleBulkSelectToggle(chat.id)}
+                               />
+                             );
+                           })}
                         </div>
                       )}
                     </div>
