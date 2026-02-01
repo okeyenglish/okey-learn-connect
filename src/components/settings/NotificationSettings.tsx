@@ -19,7 +19,7 @@ const MESSENGERS = [
 ] as const;
 
 export const NotificationSettings = () => {
-  const { settings, isLoaded, saveSettings, toggleSound, toggleVibration, toggleActivityWarning, toggleMessengerMute, isMessengerMuted } = useNotificationSettings();
+  const { settings, isLoaded, saveSettings, toggleSound, toggleVibration, toggleActivityWarning, setActivityWarningThreshold, toggleMessengerMute, isMessengerMuted } = useNotificationSettings();
   const { isSupported, requestPermission } = useBrowserNotifications();
   const [browserPermission, setBrowserPermission] = useState<NotificationPermission>('default');
 
@@ -47,6 +47,11 @@ export const NotificationSettings = () => {
 
   const handleToggleActivityWarning = () => {
     toggleActivityWarning();
+    invalidateSettingsCache();
+  };
+
+  const handleThresholdChange = (value: number[]) => {
+    setActivityWarningThreshold(value[0]);
     invalidateSettingsCache();
   };
 
@@ -228,7 +233,7 @@ export const NotificationSettings = () => {
                 Предупреждение активности
               </Label>
               <p className="text-sm text-muted-foreground">
-                Звук при падении активности ниже 60%
+                Звук при падении активности ниже порога
               </p>
             </div>
           </div>
@@ -248,6 +253,30 @@ export const NotificationSettings = () => {
             />
           </div>
         </div>
+
+        {/* Activity threshold slider */}
+        {settings.activityWarningEnabled && (
+          <div className="space-y-3 pl-8">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm">Порог активности</Label>
+              <span className="text-sm text-muted-foreground">
+                {settings.activityWarningThreshold || 60}%
+              </span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-xs text-muted-foreground">30%</span>
+              <Slider
+                value={[settings.activityWarningThreshold || 60]}
+                onValueChange={handleThresholdChange}
+                min={30}
+                max={90}
+                step={5}
+                className="flex-1"
+              />
+              <span className="text-xs text-muted-foreground">90%</span>
+            </div>
+          </div>
+        )}
 
         {/* Messenger sound settings */}
         <div className="pt-4 border-t">

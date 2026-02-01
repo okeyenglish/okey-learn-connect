@@ -8,6 +8,7 @@ export interface NotificationSettings {
   vibrationEnabled: boolean;
   missedCallNotificationsEnabled: boolean;
   activityWarningEnabled: boolean;
+  activityWarningThreshold: number; // 30-90, default 60
   mutedMessengers: string[]; // e.g., ['whatsapp', 'telegram', 'max']
   mutedChats: string[]; // client IDs
 }
@@ -18,6 +19,7 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   vibrationEnabled: true,
   missedCallNotificationsEnabled: true,
   activityWarningEnabled: true,
+  activityWarningThreshold: 60,
   mutedMessengers: [],
   mutedChats: [],
 };
@@ -77,6 +79,10 @@ export const useNotificationSettings = () => {
     saveSettings({ activityWarningEnabled: !settings.activityWarningEnabled });
   }, [settings.activityWarningEnabled, saveSettings]);
 
+  const setActivityWarningThreshold = useCallback((threshold: number) => {
+    saveSettings({ activityWarningThreshold: Math.max(30, Math.min(90, threshold)) });
+  }, [saveSettings]);
+
   const toggleMessengerMute = useCallback((messenger: string) => {
     const current = settings.mutedMessengers || [];
     const updated = current.includes(messenger)
@@ -110,6 +116,7 @@ export const useNotificationSettings = () => {
     toggleVibration,
     toggleMissedCallNotifications,
     toggleActivityWarning,
+    setActivityWarningThreshold,
     toggleMessengerMute,
     toggleChatMute,
     isChatMuted,
