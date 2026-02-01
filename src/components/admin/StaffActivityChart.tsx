@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, BarChart3, TrendingUp, Clock, Users } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Building2, BarChart3, TrendingUp, Clock, Calendar } from 'lucide-react';
 import { useStaffHistoricalStats } from '@/hooks/useStaffHistoricalStats';
 import { usePersistedBranch } from '@/hooks/usePersistedBranch';
 import { useStaffOnlinePresence } from '@/hooks/useStaffOnlinePresence';
@@ -15,18 +16,23 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
   Legend,
   LineChart,
   Line
 } from 'recharts';
 
+const PERIOD_OPTIONS = [
+  { value: '7', label: '7 дней' },
+  { value: '14', label: '14 дней' },
+  { value: '30', label: '30 дней' },
+] as const;
+
 export const StaffActivityChart: React.FC = () => {
+  const [period, setPeriod] = useState<string>('14');
   const { selectedBranch, setSelectedBranch } = usePersistedBranch('all');
   const { allUsers } = useStaffOnlinePresence();
   const { aggregatedStats, isLoading, error } = useStaffHistoricalStats({ 
-    days: 14, 
+    days: parseInt(period, 10), 
     branch: selectedBranch 
   });
 
@@ -94,27 +100,51 @@ export const StaffActivityChart: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Header with Branch Filter */}
-      <div className="flex items-center justify-between">
+      {/* Header with Period and Branch Filters */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <h3 className="text-lg font-semibold flex items-center gap-2">
           <BarChart3 className="w-5 h-5" />
-          Историческая активность (14 дней)
+          Историческая активность
         </h3>
-        <div className="flex items-center gap-2">
-          <Building2 className="w-4 h-4 text-muted-foreground" />
-          <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Все филиалы" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Все филиалы</SelectItem>
-              {availableBranches.map(branch => (
-                <SelectItem key={branch} value={branch}>
-                  {branch}
-                </SelectItem>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Period Toggle */}
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <ToggleGroup 
+              type="single" 
+              value={period} 
+              onValueChange={(val) => val && setPeriod(val)}
+              className="bg-muted rounded-lg p-1"
+            >
+              {PERIOD_OPTIONS.map(opt => (
+                <ToggleGroupItem 
+                  key={opt.value} 
+                  value={opt.value}
+                  className="text-xs px-3 data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                >
+                  {opt.label}
+                </ToggleGroupItem>
               ))}
-            </SelectContent>
-          </Select>
+            </ToggleGroup>
+          </div>
+          
+          {/* Branch Filter */}
+          <div className="flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-muted-foreground" />
+            <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Все филиалы" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Все филиалы</SelectItem>
+                {availableBranches.map(branch => (
+                  <SelectItem key={branch} value={branch}>
+                    {branch}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
