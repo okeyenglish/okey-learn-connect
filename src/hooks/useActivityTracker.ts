@@ -1,10 +1,13 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useThrottle } from './useThrottle';
+import { playNotificationSound } from './useNotificationSound';
 
 export type ActivityStatus = 'online' | 'idle' | 'on_call' | 'offline';
 
 const IDLE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
 const ACTIVITY_UPDATE_INTERVAL = 30_000; // 30 seconds
+const LOW_ACTIVITY_THRESHOLD = 60; // percentage
+const MIN_SESSION_FOR_ALERT = 5 * 60 * 1000; // 5 minutes - don't alert before this
 
 interface ActivityState {
   status: ActivityStatus;
@@ -13,6 +16,7 @@ interface ActivityState {
   activeTime: number;
   idleTime: number;
   isOnCall: boolean;
+  lowActivityAlertShown: boolean;
 }
 
 const STORAGE_KEY = 'staff-activity-state';
@@ -61,6 +65,7 @@ export const useActivityTracker = (isOnCall: boolean = false) => {
       activeTime: loaded.activeTime || 0,
       idleTime: loaded.idleTime || 0,
       isOnCall: false,
+      lowActivityAlertShown: loaded.lowActivityAlertShown || false,
     };
   });
 
@@ -204,10 +209,36 @@ export const useActivityTracker = (isOnCall: boolean = false) => {
       activeTime: 0,
       idleTime: 0,
       isOnCall: false,
+      lowActivityAlertShown: false,
     };
     setState(newState);
     saveState(newState);
   }, []);
+
+  // Check for low activity and play warning sound
+  useEffect(() => {
+    // Only check after minimum session duration
+    if (sessionDuration < MIN_SESSION_FOR_ALERT) return;
+    
+    // Check if activity dropped below threshold and we haven't shown alert yet
+    if (activityPercentage < LOW_ACTIVITY_THRESHOLD && !state.lowActivityAlertShown) {
+      playNotificationSound(0.5, 'activity_warning');
+      setState(prev => {
+        const newState = { ...prev, lowActivityAlertShown: true };
+        saveState(newState);
+        return newState;
+      });
+    }
+    
+    // Reset alert flag if activity goes back above threshold (with 5% buffer)
+    if (activityPercentage >= LOW_ACTIVITY_THRESHOLD + 5 && state.lowActivityAlertShown) {
+      setState(prev => {
+        const newState = { ...prev, lowActivityAlertShown: false };
+        saveState(newState);
+        return newState;
+      });
+    }
+  }, [activityPercentage, sessionDuration, state.lowActivityAlertShown]);
 
   return {
     status: state.status,

@@ -1,7 +1,7 @@
 import { useCallback, useRef, useEffect, useState } from 'react';
 
 // Sound types for different notifications
-export type NotificationSoundType = 'chat' | 'lesson' | 'missed_call' | 'incoming_call' | 'default';
+export type NotificationSoundType = 'chat' | 'lesson' | 'missed_call' | 'incoming_call' | 'activity_warning' | 'default';
 
 // Base64 encoded sounds for different notification types
 // Default soft pop sound
@@ -141,6 +141,13 @@ function playGeneratedSound(type: NotificationSoundType, volume: number) {
         }
         break;
 
+      case 'activity_warning':
+        // Activity warning: Three descending tones (gentle alert)
+        playTone(ctx, gainNode, 659.25, now, 0.15); // E5
+        playTone(ctx, gainNode, 523.25, now + 0.18, 0.15); // C5
+        playTone(ctx, gainNode, 392.00, now + 0.36, 0.2); // G4
+        break;
+
       case 'default':
       default:
         // Default: Simple pop
@@ -208,6 +215,7 @@ const lastPlayedByType: Record<NotificationSoundType, number> = {
   lesson: 0,
   missed_call: 0,
   incoming_call: 0,
+  activity_warning: 0,
   default: 0,
 };
 const GLOBAL_MIN_INTERVAL = 500;
