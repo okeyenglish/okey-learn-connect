@@ -50,6 +50,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { usePendingGPTResponses } from "@/hooks/usePendingGPTResponses";
 import { useMarkChatMessagesAsReadByMessenger, useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
+import { useAutoMarkChatAsRead } from "@/hooks/useAutoMarkChatAsRead";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { getErrorMessage } from '@/lib/errorUtils';
@@ -320,6 +321,14 @@ export const ChatArea = ({
   const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
   const queryClient = useQueryClient();
   
+  // Auto-mark chat as read when opened with retry and fallback polling
+  const { forceSync } = useAutoMarkChatAsRead({
+    clientId: isTeacherMessages ? null : clientId, // Only for client chats
+    chatType: 'client',
+    isActive: !!clientId,
+    messengerType: activeMessengerTab === 'chatos' ? null : activeMessengerTab
+  });
+  
   // Chat takeover functionality
   const { 
     incomingRequest, 
@@ -479,6 +488,19 @@ export const ChatArea = ({
       window.removeEventListener('message-delivery-failed', handleDeliveryFailed);
     };
   }, [toast]);
+  
+  // Force sync unread counts when page becomes visible again (e.g., after switching tabs)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && clientId) {
+        console.log('[ChatArea] Page visible, forcing sync');
+        forceSync();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [clientId, forceSync]);
   
   // Наблюдение за шириной composer для адаптивной кнопки
   useEffect(() => {
