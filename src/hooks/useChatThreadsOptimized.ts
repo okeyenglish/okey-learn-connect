@@ -6,6 +6,20 @@ import { isGroupChatName, isTelegramGroup } from './useCommunityChats';
 import { useMemo, useEffect, useState, useCallback } from 'react';
 import { startMetric, endMetric } from '@/lib/performanceMetrics';
 
+// Helper to check if message is a system/internal message that shouldn't be shown in preview
+function isSystemPreviewMessage(text: string): boolean {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return (
+    lower.includes('crm_system_state_changed') ||
+    lower.includes('задача "') ||
+    lower.includes('задача создана') ||
+    lower.includes('задача выполнена') ||
+    lower.includes('задача отменена') ||
+    lower.startsWith('задача "')
+  );
+}
+
 interface RpcThreadRow {
   client_id: string;
   client_name?: string | null;
@@ -265,19 +279,25 @@ function mapRpcToThreads(data: RpcThreadRow[], startTime?: number): ChatThread[]
     return true;
   });
 
-  const threads: ChatThread[] = filteredData.map((row) => ({
-    client_id: row.client_id, // get_chat_threads_optimized returns client_id directly
-    client_name: row.client_name || '',
-    client_phone: row.client_phone || '',
-    client_branch: row.client_branch || null,
-    avatar_url: row.avatar_url || null,
-    telegram_avatar_url: row.telegram_avatar_url || null,
-    whatsapp_avatar_url: row.whatsapp_avatar_url || null,
-    max_avatar_url: row.max_avatar_url || null,
-    last_message: row.last_message_text || row.last_message || '',
-    last_message_time: row.last_message_time || '',
-    unread_count: Number(row.unread_count) || 0,
-    unread_by_messenger: {
+  const threads: ChatThread[] = filteredData.map((row) => {
+    // Get raw last message
+    const rawLastMessage = row.last_message_text || row.last_message || '';
+    // Filter out system messages from preview
+    const lastMessage = isSystemPreviewMessage(rawLastMessage) ? '' : rawLastMessage;
+    
+    return {
+      client_id: row.client_id, // get_chat_threads_optimized returns client_id directly
+      client_name: row.client_name || '',
+      client_phone: row.client_phone || '',
+      client_branch: row.client_branch || null,
+      avatar_url: row.avatar_url || null,
+      telegram_avatar_url: row.telegram_avatar_url || null,
+      whatsapp_avatar_url: row.whatsapp_avatar_url || null,
+      max_avatar_url: row.max_avatar_url || null,
+      last_message: lastMessage,
+      last_message_time: row.last_message_time || '',
+      unread_count: Number(row.unread_count) || 0,
+      unread_by_messenger: {
       whatsapp: Number(row.unread_whatsapp) || 0,
       telegram: Number(row.unread_telegram) || 0,
       max: Number(row.unread_max) || 0,
@@ -286,7 +306,8 @@ function mapRpcToThreads(data: RpcThreadRow[], startTime?: number): ChatThread[]
     } as UnreadByMessenger,
     last_unread_messenger: row.last_unread_messenger || row.last_messenger_type || null,
     messages: []
-  }));
+  };
+  });
 
   return threads;
 }
