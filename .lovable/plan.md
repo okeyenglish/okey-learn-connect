@@ -1,57 +1,68 @@
 
-# План: Исправление работы задач
-
-## Статус: ✅ Шаг 1 выполнен
+# План: Исправление отображения сообщений после операций с задачами
 
 ## Проблема
-Таблица `tasks` существует и содержит данные (видно на скриншоте), но:
-1. ~~Тип `Task` в TypeScript не содержит `organization_id`~~ ✅ ИСПРАВЛЕНО
-2. Запросы возвращают пустой массив `data: []` - вероятно, RLS политики блокируют доступ
+При создании/выполнении/отмене задачи системное уведомление добавляется в `chat_messages`, но чат не обновляется из-за несовпадения query keys:
 
-## Выполненные изменения
+- `useSendMessage` (используется в task notifications) инвалидирует `['chat-messages', clientId]`
+- `ChatArea` использует `useChatMessagesOptimized` с ключом `['chat-messages-optimized', clientId, limit]`
 
-### ✅ Шаг 1: Обновлён тип Task в database.types.ts
+Поэтому после изменения задачи уведомление видно в списке чатов (preview), но не в самом чате.
 
-Добавлены поля:
-- `organization_id: string` 
-- `created_by?: string | null`
+## Решение
 
-## Следующие шаги (выполнить на self-hosted Supabase)
+### Шаг 1: Обновить useSendMessage для инвалидации всех ключей
 
-### Шаг 2: Проверить RLS политики на api.academyos.ru
+**Файл:** `src/hooks/useChatMessages.ts`
 
-```sql
--- Проверить существующие политики
-SELECT schemaname, tablename, policyname, cmd, qual
-FROM pg_policies 
-WHERE tablename = 'tasks';
+В хуке `useSendMessage` добавить инвалидацию дополнительных query keys:
 
--- Если политик нет или они неверные, создать:
-ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view tasks in their organization" 
-ON public.tasks FOR SELECT 
-USING (organization_id = get_user_organization_id());
-
-CREATE POLICY "Users can create tasks in their organization" 
-ON public.tasks FOR INSERT 
-WITH CHECK (organization_id = get_user_organization_id());
-
-CREATE POLICY "Users can update tasks in their organization" 
-ON public.tasks FOR UPDATE 
-USING (organization_id = get_user_organization_id());
-
-CREATE POLICY "Service role full access to tasks" 
-ON public.tasks FOR ALL 
-USING (true);
+```typescript
+onSuccess: (data) => {
+  queryClient.invalidateQueries({ queryKey: ['chat-messages', data.client_id] });
+  // Добавить эти строки:
+  queryClient.invalidateQueries({ 
+    queryKey: ['chat-messages-optimized', data.client_id],
+    exact: false  // Инвалидирует все варианты с разными limit
+  });
+  queryClient.invalidateQueries({ 
+    queryKey: ['chat-messages-infinite-typed', data.client_id] 
+  });
+  queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+},
 ```
 
-### Шаг 3: Проверить Realtime
+### Шаг 2: Обновить useCompleteTask и useCancelTask
 
-```sql
--- Проверить включен ли Realtime для tasks
-SELECT * FROM pg_publication_tables WHERE tablename = 'tasks';
+**Файл:** `src/hooks/useTasks.ts`
 
--- Если нет, включить:
-ALTER PUBLICATION supabase_realtime ADD TABLE public.tasks;
+Добавить инвалидацию сообщений чата после выполнения/отмены задачи для гарантированного обновления:
+
+```typescript
+// В useCompleteTask.onSuccess:
+onSuccess: (data) => {
+  queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  // Добавить инвалидацию chat messages если есть client_id
+  if (data.client_id) {
+    queryClient.invalidateQueries({ 
+      queryKey: ['chat-messages-optimized', data.client_id],
+      exact: false 
+    });
+  }
+  toast.success("Задача выполнена");
+},
 ```
+
+## Изменяемые файлы
+
+| Файл | Изменение |
+|------|-----------|
+| `src/hooks/useChatMessages.ts` | Добавить инвалидацию `chat-messages-optimized` и `chat-messages-infinite-typed` в `useSendMessage` |
+| `src/hooks/useTasks.ts` | Добавить инвалидацию сообщений чата в `useCompleteTask` и `useCancelTask` |
+
+## Результат
+
+После изменений:
+- Уведомления о задачах появятся мгновенно в открытом чате
+- Не будет рассинхрона между списком чатов и самим чатом
+- Все query caches будут обновляться синхронно
