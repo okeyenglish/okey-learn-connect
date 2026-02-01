@@ -287,6 +287,8 @@ export const ChatArea = ({
   const chatosScrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const prevMessageCountRef = useRef<number>(0);
+  const lastMessageIdRef = useRef<string | null>(null);
   
   // Composer width detection
   const composerRef = useRef<HTMLDivElement>(null);
@@ -519,6 +521,9 @@ export const ChatArea = ({
   useEffect(() => {
     // When client changes, reset the flag so we can set the initial tab
     setInitialTabSet(null);
+    // Reset message tracking refs for new client
+    prevMessageCountRef.current = 0;
+    lastMessageIdRef.current = null;
   }, [clientId]);
   
   // Handle initial search query from message search (auto-open search modal)
@@ -792,18 +797,31 @@ export const ChatArea = ({
   // This reduces WebSocket connections from N (per chat) to 1 (per organization)
   // We only need to handle scroll-to-bottom for new messages locally
   useEffect(() => {
-    if (!clientId || !messagesData?.messages) return;
+    if (!clientId || !messagesData?.messages?.length) return;
     
-    // Store the message count to detect new messages
-    const currentCount = messagesData.messages.length;
-    const prevCountRef = { current: 0 };
+    const currentMessages = messagesData.messages;
+    const currentCount = currentMessages.length;
+    const lastMessage = currentMessages[currentMessages.length - 1];
+    const lastMessageId = lastMessage?.id;
     
-    // If message count increased, scroll to bottom
-    if (currentCount > prevCountRef.current && prevCountRef.current > 0) {
-      setTimeout(() => scrollToBottom(true), 100);
+    // Detect truly new message (different ID, not just count change from loading older)
+    if (lastMessageId && lastMessageId !== lastMessageIdRef.current) {
+      // Check if this is a NEW message (not loading older messages)
+      // New messages have newer timestamps, older messages have older timestamps
+      const isNewMessage = prevMessageCountRef.current > 0 && currentCount > prevMessageCountRef.current;
+      
+      if (isNewMessage) {
+        // Scroll to bottom immediately when new message arrives (like in messengers)
+        requestAnimationFrame(() => {
+          scrollToBottom(true);
+        });
+      }
+      
+      lastMessageIdRef.current = lastMessageId;
     }
-    prevCountRef.current = currentCount;
-  }, [clientId, messagesData?.messages?.length]);
+    
+    prevMessageCountRef.current = currentCount;
+  }, [clientId, messagesData?.messages, scrollToBottom]);
 
   // Check MAX availability when switching to MAX tab with no messages
   useEffect(() => {
