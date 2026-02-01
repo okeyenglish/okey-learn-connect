@@ -183,3 +183,41 @@ export const useBulkMarkChatsAsRead = () => {
     }
   });
 };
+
+// Batch operation to mark multiple chats as unread in one query
+export const useBulkMarkChatsAsUnread = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (clientIds: string[]) => {
+      if (!user) throw new Error('User not authenticated');
+      if (clientIds.length === 0) return;
+      
+      console.log('[BulkMarkAsUnread] Marking', clientIds.length, 'chats as unread');
+      
+      // Use a single query with .in() filter for batch update
+      const { error } = await supabase
+        .from('chat_messages')
+        .update({ 
+          is_read: false,
+          read_at: null
+        })
+        .in('client_id', clientIds);
+      
+      if (error) {
+        console.error('[BulkMarkAsUnread] Error:', error);
+        throw error;
+      }
+      
+      console.log('[BulkMarkAsUnread] Successfully marked all chats as unread');
+    },
+    onSuccess: () => {
+      // Invalidate all relevant queries once
+      queryClient.invalidateQueries({ queryKey: ['message-read-status'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-messages'] });
+      queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger'] });
+    }
+  });
+};
