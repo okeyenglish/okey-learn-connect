@@ -9,6 +9,13 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   Trophy, 
   TrendingUp, 
@@ -17,9 +24,10 @@ import {
   Medal,
   Clock,
   Activity,
-  Phone
+  Building2
 } from 'lucide-react';
 import { useStaffOnlinePresence, OnlineUser } from '@/hooks/useStaffOnlinePresence';
+import { usePersistedBranch } from '@/hooks/usePersistedBranch';
 import { cn } from '@/lib/utils';
 
 interface StaffMetrics {
@@ -101,9 +109,23 @@ const TrendIndicator: React.FC<{ value: number; threshold: number }> = ({ value,
 
 export const StaffComparisonTable: React.FC = () => {
   const { allUsers } = useStaffOnlinePresence();
+  const { selectedBranch, setSelectedBranch } = usePersistedBranch('all');
+
+  // Extract unique branches from users
+  const availableBranches = useMemo(() => {
+    const branches = new Set<string>();
+    allUsers.forEach(user => {
+      if (user.branch) branches.add(user.branch);
+    });
+    return Array.from(branches).sort();
+  }, [allUsers]);
 
   const staffMetrics = useMemo<StaffMetrics[]>(() => {
-    const metrics = allUsers
+    const filteredUsers = selectedBranch === 'all' 
+      ? allUsers 
+      : allUsers.filter(u => u.branch === selectedBranch);
+
+    const metrics = filteredUsers
       .map(user => {
         const activeTime = user.activeTime || 0;
         const idleTime = user.idleTime || 0;
@@ -138,7 +160,7 @@ export const StaffComparisonTable: React.FC = () => {
 
     // Assign ranks
     return metrics.map((m, index) => ({ ...m, rank: index + 1 }));
-  }, [allUsers]);
+  }, [allUsers, selectedBranch]);
 
   const avgActivity = staffMetrics.length > 0
     ? Math.round(staffMetrics.reduce((sum, s) => sum + s.activityPercent, 0) / staffMetrics.length)
@@ -164,11 +186,29 @@ export const StaffComparisonTable: React.FC = () => {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <CardTitle className="text-lg flex items-center gap-2">
           <Trophy className="w-5 h-5" />
           Рейтинг сотрудников по активности
         </CardTitle>
+        
+        {/* Branch Filter */}
+        <div className="flex items-center gap-2">
+          <Building2 className="w-4 h-4 text-muted-foreground" />
+          <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Все филиалы" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Все филиалы</SelectItem>
+              {availableBranches.map(branch => (
+                <SelectItem key={branch} value={branch}>
+                  {branch}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>

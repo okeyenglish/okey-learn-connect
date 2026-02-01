@@ -7,6 +7,7 @@ export interface OnlineUser {
   id: string;
   name: string;
   avatarUrl?: string | null;
+  branch?: string | null;
   lastSeen: number;
   isOnline: boolean;
   status?: ActivityStatus;
@@ -112,6 +113,7 @@ export const useStaffOnlinePresence = (extendedPayload?: ExtendedPresencePayload
 
     const userName = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Сотрудник';
     const avatarUrl = profile.avatar_url || null;
+    const userBranch = profile.branch || null;
 
     const channel = supabase.channel(PRESENCE_ROOM);
     channelRef.current = channel;
@@ -120,6 +122,7 @@ export const useStaffOnlinePresence = (extendedPayload?: ExtendedPresencePayload
       id: user.id,
       name: userName,
       avatarUrl,
+      branch: userBranch,
       lastSeen: Date.now(),
       isOnline: true,
       ...extendedPayloadRef.current,
@@ -152,6 +155,7 @@ export const useStaffOnlinePresence = (extendedPayload?: ExtendedPresencePayload
                   id: presence.id,
                   name: presence.name,
                   avatarUrl: presence.avatarUrl,
+                  branch: presence.branch,
                   lastSeen: presence.lastSeen,
                   isOnline,
                   // Extended fields
