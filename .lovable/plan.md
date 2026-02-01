@@ -1,92 +1,93 @@
 
-# План: Создание таблицы задач (tasks)
+# План: Исправление работы задач
 
-## ✅ Статус: Код обновлён
+## Проблема
+Таблица `tasks` существует и содержит данные (видно на скриншоте), но:
+1. Тип `Task` в TypeScript не содержит `organization_id` - код может работать некорректно
+2. Запросы возвращают пустой массив `data: []` - вероятно, RLS политики блокируют доступ
 
-Код обновлён для работы с `organization_id`. Ожидается выполнение SQL на self-hosted Supabase.
+## Решение
 
-## Выполненные изменения в коде:
+### Шаг 1: Обновить тип Task в database.types.ts
 
-### ✅ Шаг 2: useTasks.ts обновлён
-- Добавлен импорт `getCurrentOrganizationId` из `@/lib/organizationHelpers`
-- Интерфейс `CreateTaskData` расширен полем `organization_id`
-- Функция `useCreateTask` теперь автоматически получает `organization_id` перед созданием задачи
+Добавить поле `organization_id` в интерфейс Task:
 
-## Ожидается от пользователя:
+```typescript
+export interface Task {
+  id: string;
+  organization_id: string;  // <-- добавить
+  client_id?: string | null;
+  title: string;
+  description?: string | null;
+  priority: string;
+  status: string;
+  due_date?: string | null;
+  due_time?: string | null;
+  responsible?: string | null;
+  goal?: string | null;
+  method?: string | null;
+  direction?: string | null;
+  branch?: string | null;
+  created_by?: string | null; // <-- добавить если нет
+  created_at: string;
+  updated_at: string;
+  clients?: {
+    id: string;
+    name: string;
+    phone?: string | null;
+  } | null;
+}
+```
 
-### Шаг 1: Создать таблицу tasks в базе данных
-SQL для выполнения на self-hosted Supabase (api.academyos.ru):
+### Шаг 2: Проверить RLS политики на self-hosted Supabase
 
-```sql
--- 1. Создание таблицы tasks
-CREATE TABLE IF NOT EXISTS public.tasks (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID NOT NULL,
-  client_id UUID REFERENCES public.clients(id) ON DELETE SET NULL,
-  title TEXT NOT NULL,
-  description TEXT,
-  priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'cancelled')),
-  due_date DATE,
-  due_time TIME,
-  responsible TEXT,
-  goal TEXT,
-  method TEXT,
-  direction TEXT,
-  branch TEXT,
-  created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+Выполнить на `api.academyos.ru`:
 
--- 2. Включить RLS
+```text
+-- Проверить существующие политики
+SELECT schemaname, tablename, policyname, cmd, qual
+FROM pg_policies 
+WHERE tablename = 'tasks';
+
+-- Если политик нет, создать их:
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 
--- 3. RLS политики для multi-tenant изоляции
-CREATE POLICY "Users can view tasks in their organization" ON public.tasks
-  FOR SELECT USING (organization_id = get_user_organization_id());
+CREATE POLICY "Users can view tasks in their organization" 
+ON public.tasks FOR SELECT 
+USING (organization_id = get_user_organization_id());
 
-CREATE POLICY "Users can create tasks in their organization" ON public.tasks
-  FOR INSERT WITH CHECK (organization_id = get_user_organization_id());
+CREATE POLICY "Users can create tasks in their organization" 
+ON public.tasks FOR INSERT 
+WITH CHECK (organization_id = get_user_organization_id());
 
-CREATE POLICY "Users can update tasks in their organization" ON public.tasks
-  FOR UPDATE USING (organization_id = get_user_organization_id());
+CREATE POLICY "Users can update tasks in their organization" 
+ON public.tasks FOR UPDATE 
+USING (organization_id = get_user_organization_id());
 
-CREATE POLICY "Admins can delete tasks" ON public.tasks
-  FOR DELETE USING (
-    organization_id = get_user_organization_id() 
-    AND is_admin()
-  );
+CREATE POLICY "Service role full access to tasks" 
+ON public.tasks FOR ALL 
+USING (true);
+```
 
-CREATE POLICY "Service role full access to tasks" ON public.tasks
-  FOR ALL USING (true);
+### Шаг 3: Проверить Realtime
 
--- 4. Индексы для производительности
-CREATE INDEX IF NOT EXISTS idx_tasks_organization_id ON public.tasks(organization_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_client_id ON public.tasks(client_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_status ON public.tasks(status);
-CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON public.tasks(due_date);
-CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON public.tasks(created_at);
+```text
+-- Проверить включен ли Realtime для tasks
+SELECT * FROM pg_publication_tables WHERE tablename = 'tasks';
 
--- 5. Триггер для обновления updated_at
-CREATE OR REPLACE FUNCTION update_tasks_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER tasks_updated_at_trigger
-  BEFORE UPDATE ON public.tasks
-  FOR EACH ROW EXECUTE FUNCTION update_tasks_updated_at();
-
--- 6. Включить Realtime
+-- Если нет, включить:
 ALTER PUBLICATION supabase_realtime ADD TABLE public.tasks;
 ```
 
-## Результат после выполнения SQL
-- Задачи будут сохраняться в базе данных
-- Задачи будут изолированы по организациям (multi-tenant)
-- Realtime обновления будут работать
-- UI (список задач, календарь, создание/редактирование) заработает корректно
+## Изменяемые файлы
+
+| Файл | Изменение |
+|------|-----------|
+| `src/integrations/supabase/database.types.ts` | Добавить `organization_id` и `created_by` в интерфейс Task |
+
+## Результат
+
+После исправления:
+- TypeScript типы будут соответствовать реальной схеме БД
+- RLS будет правильно фильтровать данные по organization_id
+- Задачи будут отображаться в UI корректно
