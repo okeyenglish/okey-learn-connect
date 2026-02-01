@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useThrottle } from './useThrottle';
 import { playNotificationSound } from './useNotificationSound';
+import { getNotificationSettings } from './useNotificationSettings';
 
 export type ActivityStatus = 'online' | 'idle' | 'on_call' | 'offline';
 
@@ -219,6 +220,10 @@ export const useActivityTracker = (isOnCall: boolean = false) => {
   useEffect(() => {
     // Only check after minimum session duration
     if (sessionDuration < MIN_SESSION_FOR_ALERT) return;
+    
+    // Check if activity warning is enabled in settings
+    const notificationSettings = getNotificationSettings();
+    if (!notificationSettings.activityWarningEnabled) return;
     
     // Check if activity dropped below threshold and we haven't shown alert yet
     if (activityPercentage < LOW_ACTIVITY_THRESHOLD && !state.lowActivityAlertShown) {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Volume2, VolumeX, Vibrate, Bell, BellRing, MessageSquare, BellOff } from 'lucide-react';
+import { Volume2, VolumeX, Vibrate, Bell, BellRing, MessageSquare, BellOff, Zap } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
@@ -19,7 +19,7 @@ const MESSENGERS = [
 ] as const;
 
 export const NotificationSettings = () => {
-  const { settings, isLoaded, saveSettings, toggleSound, toggleVibration, toggleMessengerMute, isMessengerMuted } = useNotificationSettings();
+  const { settings, isLoaded, saveSettings, toggleSound, toggleVibration, toggleActivityWarning, toggleMessengerMute, isMessengerMuted } = useNotificationSettings();
   const { isSupported, requestPermission } = useBrowserNotifications();
   const [browserPermission, setBrowserPermission] = useState<NotificationPermission>('default');
 
@@ -42,6 +42,11 @@ export const NotificationSettings = () => {
 
   const handleToggleVibration = () => {
     toggleVibration();
+    invalidateSettingsCache();
+  };
+
+  const handleToggleActivityWarning = () => {
+    toggleActivityWarning();
     invalidateSettingsCache();
   };
 
@@ -210,6 +215,36 @@ export const NotificationSettings = () => {
               id="vibration-toggle"
               checked={settings.vibrationEnabled}
               onCheckedChange={handleToggleVibration}
+            />
+          </div>
+        </div>
+
+        {/* Activity warning toggle */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Zap className={`h-5 w-5 ${settings.activityWarningEnabled ? 'text-yellow-500' : 'text-muted-foreground'}`} />
+            <div>
+              <Label htmlFor="activity-warning-toggle" className="font-medium">
+                Предупреждение активности
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Звук при падении активности ниже 60%
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => testSound('activity_warning')}
+              className="text-xs"
+            >
+              Тест
+            </Button>
+            <Switch
+              id="activity-warning-toggle"
+              checked={settings.activityWarningEnabled}
+              onCheckedChange={handleToggleActivityWarning}
             />
           </div>
         </div>
