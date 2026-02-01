@@ -828,7 +828,7 @@ export const AIHubInline = ({
                 </div>
               ))
             )}
-            {(activeChat.type === 'teacher' || activeChat.type === 'group') && typingUsers.length > 0 && (
+            {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && typingUsers.length > 0 && (
               <StaffTypingIndicator typingUsers={typingUsers} />
             )}
           </div>
@@ -873,10 +873,10 @@ export const AIHubInline = ({
               value={message}
               onChange={(e) => {
                 setMessage(e.target.value);
-                if ((activeChat.type === 'teacher' || activeChat.type === 'group') && e.target.value.trim()) setTyping(true);
+                if ((activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && e.target.value.trim()) setTyping(true);
               }}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-              onBlur={() => { if (activeChat.type === 'teacher' || activeChat.type === 'group') stopTyping(); }}
+              onBlur={() => { if (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') stopTyping(); }}
               placeholder={getCurrentPlaceholder()}
               disabled={isProcessing || isRecording || sendStaffMessage.isPending}
               className="flex-1 h-9"
