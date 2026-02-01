@@ -72,6 +72,8 @@ import { ManagerMenu } from "@/components/crm/ManagerMenu";
 import { MobileChatNavigation } from "@/components/crm/MobileChatNavigation";
 import { MobileNewChatModal } from "@/components/crm/MobileNewChatModal";
 import { PostCallModerationModal } from "@/components/crm/PostCallModerationModal";
+import { WorkdayPreviewWidget } from "@/components/crm/WorkdayPreviewWidget";
+import { KnowledgeBaseDropdown } from "@/components/crm/KnowledgeBaseDropdown";
 import { usePostCallModeration } from "@/hooks/usePostCallModeration";
 
 import { EducationSubmenu } from "@/components/learning-groups/EducationSubmenu";
@@ -2098,24 +2100,8 @@ const CRMContent = () => {
                   <span className="hidden sm:inline">Загрузка данных...</span>
                 </div>
               )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowDashboardModal(true)}
-                className="flex items-center gap-2 px-3 h-10"
-              >
-                <BarChart3 className="h-4 w-4" />
-                <span className="text-sm">Дашборд</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowScriptsModal(true)}
-                className="flex items-center gap-2 px-3 h-10"
-              >
-                <MessageCircle className="h-4 w-4" />
-                <span className="text-sm">Скрипты</span>
-              </Button>
+              <WorkdayPreviewWidget onClick={() => setShowDashboardModal(true)} />
+              <KnowledgeBaseDropdown onOpenScripts={() => setShowScriptsModal(true)} />
               <ManagerMenu
                 managerName={profile && profile.first_name && profile.last_name 
                   ? `${profile.first_name} ${profile.last_name}` 
