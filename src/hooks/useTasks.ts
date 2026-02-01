@@ -332,8 +332,18 @@ export const useCompleteTask = () => {
         });
       });
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      // Инвалидация кэша сообщений чата для отображения уведомления о задаче
+      if (data?.client_id) {
+        queryClient.invalidateQueries({ 
+          queryKey: ['chat-messages-optimized', data.client_id],
+          exact: false 
+        });
+        queryClient.invalidateQueries({ 
+          queryKey: ['chat-messages-infinite-typed', data.client_id] 
+        });
+      }
       toast.success("Задача выполнена");
     },
     onError: (error, taskId) => {
@@ -381,8 +391,18 @@ export const useCancelTask = () => {
         });
       });
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      // Инвалидация кэша сообщений чата для отображения уведомления о задаче
+      if (data?.client_id) {
+        queryClient.invalidateQueries({ 
+          queryKey: ['chat-messages-optimized', data.client_id],
+          exact: false 
+        });
+        queryClient.invalidateQueries({ 
+          queryKey: ['chat-messages-infinite-typed', data.client_id] 
+        });
+      }
       toast.success("Задача отменена");
     },
     onError: (error, taskId) => {

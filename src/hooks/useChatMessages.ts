@@ -525,6 +525,14 @@ export const useSendMessage = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', data.client_id] });
+      // Инвалидация всех вариантов кэша сообщений чата для синхронизации
+      queryClient.invalidateQueries({ 
+        queryKey: ['chat-messages-optimized', data.client_id],
+        exact: false  // Инвалидирует все варианты с разными limit
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['chat-messages-infinite-typed', data.client_id] 
+      });
       queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
     },
   });
