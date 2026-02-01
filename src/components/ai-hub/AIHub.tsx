@@ -444,8 +444,13 @@ export const AIHub = ({
   };
 
   const handleSelectChat = async (item: ChatItem) => {
+    // Check if teacher has profile link before opening chat
     if (item.type === 'teacher' && item.data) {
       const teacher = item.data as TeacherChatItem;
+      if (!teacher.profileId) {
+        toast.error('У преподавателя не привязан профиль пользователя. Привяжите профиль для обмена сообщениями.');
+        return; // Don't open chat without profile link
+      }
       if (teacher.clientId) {
         setTeacherClientId(teacher.clientId);
       } else {
