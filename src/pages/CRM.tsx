@@ -26,7 +26,7 @@ import { useClientStatus } from "@/hooks/useClientStatus";
 import { useRealtimeMessages, useMarkAsRead, useMarkAsUnread } from "@/hooks/useChatMessages";
 import { useChatThreadsInfinite } from "@/hooks/useChatThreadsInfinite";
 // useTeacherLinkedClientIds removed - now using teacher_id directly in chat_messages
-import { useMarkChatMessagesAsRead, useBulkMarkChatsAsRead } from "@/hooks/useMessageReadStatus";
+import { useMarkChatMessagesAsRead, useBulkMarkChatsAsRead, useBulkMarkChatsAsUnread } from "@/hooks/useMessageReadStatus";
 import { useStudentsLazy } from "@/hooks/useStudentsLazy";
 import { useStudentsCount } from "@/hooks/useStudentsCount";
 import { useLeadsCount } from "@/hooks/useLeadsCount";
@@ -388,7 +388,7 @@ const CRMContent = () => {
   // Bulk action confirmation dialog
   const [bulkActionConfirm, setBulkActionConfirm] = useState<{ 
     open: boolean; 
-    action: 'read' | 'pin' | 'archive' | null;
+    action: 'read' | 'unread' | 'pin' | 'archive' | null;
     count: number;
   }>({ open: false, action: null, count: 0 });
   
@@ -443,6 +443,7 @@ const CRMContent = () => {
   const markAsUnreadMutation = useMarkAsUnread();
   const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
   const bulkMarkChatsAsReadMutation = useBulkMarkChatsAsRead();
+  const bulkMarkChatsAsUnreadMutation = useBulkMarkChatsAsUnread();
   const { 
     pinnedModals, 
     loading: pinnedLoading,
@@ -1699,6 +1700,14 @@ const CRMContent = () => {
         markChatAsReadGlobally(chatId);
         markAsRead(chatId);
       });
+    } else if (action === 'unread') {
+      // Use batch operation for efficiency - single database query
+      bulkMarkChatsAsUnreadMutation.mutate(chatIdsArray);
+      
+      // Update local state immediately for all chats
+      chatIdsArray.forEach(chatId => {
+        markAsUnread(chatId);
+      });
     } else if (action === 'pin') {
       chatIdsArray.forEach(chatId => togglePin(chatId));
     } else if (action === 'archive') {
@@ -1716,7 +1725,7 @@ const CRMContent = () => {
     setBulkSelectMode(false);
     setSelectedChatIds(new Set());
     setBulkActionConfirm({ open: false, action: null, count: 0 });
-  }, [selectedChatIds, bulkActionConfirm.action, markChatAsReadGlobally, bulkMarkChatsAsReadMutation, markAsRead, togglePin, toggleArchive, setBulkSelectMode, setSelectedChatIds, getChatState, isChatReadGlobally, startUndoTimer]);
+  }, [selectedChatIds, bulkActionConfirm.action, markChatAsReadGlobally, bulkMarkChatsAsReadMutation, bulkMarkChatsAsUnreadMutation, markAsRead, markAsUnread, togglePin, toggleArchive, setBulkSelectMode, setSelectedChatIds, getChatState, isChatReadGlobally, startUndoTimer]);
 
   const [activeFamilyMemberId, setActiveFamilyMemberId] = useState('550e8400-e29b-41d4-a716-446655440001');
 
@@ -3334,6 +3343,21 @@ const CRMContent = () => {
                               onClick={() => {
                                 setBulkActionConfirm({ 
                                   open: true, 
+                                  action: 'unread', 
+                                  count: selectedChatIds.size 
+                                });
+                              }}
+                            >
+                              <EyeOff className="h-4 w-4 mr-2" />
+                              Отметить непрочитанным
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start h-8 px-2"
+                              onClick={() => {
+                                setBulkActionConfirm({ 
+                                  open: true, 
                                   action: 'pin', 
                                   count: selectedChatIds.size 
                                 });
@@ -3377,6 +3401,21 @@ const CRMContent = () => {
                           title="Прочитать все"
                         >
                           <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={() => {
+                            setBulkActionConfirm({ 
+                              open: true, 
+                              action: 'unread', 
+                              count: selectedChatIds.size 
+                            });
+                          }}
+                          title="Отметить непрочитанным"
+                        >
+                          <EyeOff className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -4728,11 +4767,13 @@ const CRMContent = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>
               {bulkActionConfirm.action === 'read' && 'Отметить как прочитанные?'}
+              {bulkActionConfirm.action === 'unread' && 'Отметить как непрочитанные?'}
               {bulkActionConfirm.action === 'pin' && 'Закрепить чаты?'}
               {bulkActionConfirm.action === 'archive' && 'Архивировать чаты?'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {bulkActionConfirm.action === 'read' && `Вы уверены, что хотите отметить ${bulkActionConfirm.count} чатов как прочитанные? Действие можно отменить в течение 10 секунд.`}
+              {bulkActionConfirm.action === 'unread' && `Вы уверены, что хотите отметить ${bulkActionConfirm.count} чатов как непрочитанные? Действие можно отменить в течение 10 секунд.`}
               {bulkActionConfirm.action === 'pin' && `Вы уверены, что хотите закрепить ${bulkActionConfirm.count} чатов?`}
               {bulkActionConfirm.action === 'archive' && `Вы уверены, что хотите архивировать ${bulkActionConfirm.count} чатов?`}
             </AlertDialogDescription>
@@ -4741,6 +4782,7 @@ const CRMContent = () => {
             <AlertDialogCancel>Отмена</AlertDialogCancel>
             <AlertDialogAction onClick={confirmBulkAction}>
               {bulkActionConfirm.action === 'read' && 'Прочитать'}
+              {bulkActionConfirm.action === 'unread' && 'Не прочитано'}
               {bulkActionConfirm.action === 'pin' && 'Закрепить'}
               {bulkActionConfirm.action === 'archive' && 'Архивировать'}
             </AlertDialogAction>

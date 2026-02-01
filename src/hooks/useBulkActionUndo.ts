@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { toast } from "sonner";
 
 export interface BulkActionState {
-  action: 'read' | 'pin' | 'archive';
+  action: 'read' | 'unread' | 'pin' | 'archive';
   chatIds: string[];
   previousStates: Map<string, {
     isRead?: boolean;
@@ -46,6 +46,7 @@ export const useBulkActionUndo = ({ onUndo, timeoutMs = 10000 }: UseBulkActionUn
 
     const actionLabels = {
       read: 'прочитанными',
+      unread: 'непрочитанными',
       pin: 'закреплено',
       archive: 'архивировано'
     };
