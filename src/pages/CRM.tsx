@@ -192,6 +192,7 @@ import { cn } from "@/lib/utils";
 import { useCRMModals, useCRMState, useCRMTasks, useCRMSearch } from "@/pages/crm/hooks";
 import type { CRMChat, ClientCRMChat, SystemCRMChat, CorporateChat, PinnedModalType, RealtimePayload, GroupStudentRow } from "@/pages/crm/types";
 import { isClientChat } from "@/pages/crm/types";
+import { useTabFeedback, TAB_FEEDBACK_MESSAGE } from "@/hooks/useTabFeedback";
 
 const CRMContent = () => {
   const { user, profile, role, roles, signOut } = useAuth();
@@ -222,6 +223,24 @@ const CRMContent = () => {
   const crmState = useCRMState();
   const tasks = useCRMTasks();
   const search = useCRMSearch();
+
+  // Tab feedback - спрашиваем фидбек когда менеджер возвращается после ухода с вкладки
+  useTabFeedback({
+    minAwayTime: 30000, // 30 секунд
+    onShowFeedbackRequest: () => {
+      toast(TAB_FEEDBACK_MESSAGE, {
+        duration: 15000,
+        action: {
+          label: "Написать",
+          onClick: () => {
+            // Открыть AI ассистента для ввода фидбека
+            toast.info("Спасибо! Напишите ваш фидбек в чат с AI помощником 💬");
+          }
+        }
+      });
+    }
+  });
+  
   
   // Destructure all states for use in component
   const {
