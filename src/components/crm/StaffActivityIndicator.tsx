@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useActivityTracker, ActivityStatus } from '@/hooks/useActivityTracker';
+import { useSessionPersistence } from '@/hooks/useSessionPersistence';
 
 interface StatusConfig {
   label: string;
@@ -83,11 +84,24 @@ export const StaffActivityIndicator: React.FC<StaffActivityIndicatorProps> = ({
   const {
     status,
     lastActivity,
+    sessionStart,
     sessionDuration,
     activeTime,
     idleTime,
     activityPercentage,
+    isIdle,
   } = useActivityTracker(isOnCall);
+
+  // Persist session data to database
+  const currentIdleStreak = isIdle ? Date.now() - lastActivity : 0;
+  useSessionPersistence(
+    sessionStart,
+    activeTime,
+    idleTime,
+    0, // onCallTime - будет добавлено при интеграции с телефонией
+    isIdle,
+    currentIdleStreak
+  );
 
   // Force re-render every minute to update timer
   const [, setTick] = useState(0);
