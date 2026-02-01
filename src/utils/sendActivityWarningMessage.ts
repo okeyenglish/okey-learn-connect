@@ -7,6 +7,9 @@ interface ActivityStats {
   clientsWithUnread: number;
   newClientsToday: number;
   totalActiveChats: number;
+  pendingTasks: number;
+  overdueTasks: number;
+  todayTasks: number;
 }
 
 /**
@@ -50,13 +53,14 @@ export const resetActivityWarningFlag = () => {
 /**
  * Получает реальную статистику из базы данных
  */
-const fetchActivityStats = async (organizationId: string): Promise<ActivityStats> => {
+const fetchActivityStats = async (organizationId: string, userId: string): Promise<ActivityStats> => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayIso = today.toISOString();
+  const todayDate = today.toISOString().split('T')[0];
   
   // Параллельно получаем все данные
-  const [unreadResult, clientsResult, newClientsResult] = await Promise.all([
+  const [unreadResult, clientsResult, newClientsResult, pendingTasksResult, overdueTasksResult, todayTasksResult] = await Promise.all([
     // Неотвеченные входящие сообщения
     supabase
       .from('chat_messages')
@@ -80,6 +84,29 @@ const fetchActivityStats = async (organizationId: string): Promise<ActivityStats
       .select('id', { count: 'exact' })
       .eq('organization_id', organizationId)
       .gte('created_at', todayIso),
+    
+    // Незавершённые задачи пользователя
+    supabase
+      .from('staff_tasks')
+      .select('id', { count: 'exact' })
+      .eq('assignee_id', userId)
+      .in('status', ['pending', 'in_progress']),
+    
+    // Просроченные задачи (due_date < сегодня)
+    supabase
+      .from('staff_tasks')
+      .select('id', { count: 'exact' })
+      .eq('assignee_id', userId)
+      .in('status', ['pending', 'in_progress'])
+      .lt('due_date', todayDate),
+    
+    // Задачи на сегодня
+    supabase
+      .from('staff_tasks')
+      .select('id', { count: 'exact' })
+      .eq('assignee_id', userId)
+      .eq('due_date', todayDate)
+      .in('status', ['pending', 'in_progress']),
   ]);
   
   // Считаем уникальных клиентов с непрочитанными
@@ -92,6 +119,9 @@ const fetchActivityStats = async (organizationId: string): Promise<ActivityStats
     clientsWithUnread: uniqueClients.size,
     newClientsToday: newClientsResult.count || 0,
     totalActiveChats: uniqueClients.size,
+    pendingTasks: pendingTasksResult.count || 0,
+    overdueTasks: overdueTasksResult.count || 0,
+    todayTasks: todayTasksResult.count || 0,
   };
 };
 
@@ -104,6 +134,28 @@ const generateWarningMessage = (activityPercentage: number, stats: ActivityStats
   
   // Формируем блоки в зависимости от данных
   const blocks: string[] = [];
+  
+  // Просроченные задачи (приоритет!)
+  if (stats.overdueTasks > 0) {
+    const taskWord = stats.overdueTasks === 1 ? 'задача' : 
+      stats.overdueTasks < 5 ? 'задачи' : 'задач';
+    blocks.push(`🚨 **Просроченные задачи**
+У тебя **${stats.overdueTasks}** ${taskWord} с истёкшим сроком! Это требует немедленного внимания.`);
+  }
+  
+  // Задачи на сегодня
+  if (stats.todayTasks > 0) {
+    const taskWord = stats.todayTasks === 1 ? 'задача' : 
+      stats.todayTasks < 5 ? 'задачи' : 'задач';
+    blocks.push(`📋 **Задачи на сегодня**
+На сегодня запланировано **${stats.todayTasks}** ${taskWord}. Не забудь их выполнить!`);
+  }
+  
+  // Незавершённые задачи
+  if (stats.pendingTasks > 0 && stats.pendingTasks !== stats.todayTasks) {
+    blocks.push(`✅ **Незавершённые задачи**
+Всего у тебя **${stats.pendingTasks}** активных задач. Проверь приоритеты!`);
+  }
   
   // Неотвеченные сообщения
   if (stats.unreadMessages > 0) {
@@ -133,6 +185,7 @@ const generateWarningMessage = (activityPercentage: number, stats: ActivityStats
     'Сделай один звонок прямо сейчас — это запустит продуктивный поток.',
     'Ответь на 3 сообщения подряд — маленькие победы мотивируют!',
     'Проверь последние лиды — возможно, там есть горячие клиенты.',
+    'Закрой одну просроченную задачу — это снимет груз с плеч.',
   ];
   const randomTip = tips[Math.floor(Math.random() * tips.length)];
   blocks.push(`🎯 **Совет**
@@ -177,7 +230,7 @@ export const sendActivityWarningMessage = async (activityPercentage: number): Pr
     }
     
     // Получаем реальную статистику
-    const stats = await fetchActivityStats(profile.organization_id);
+    const stats = await fetchActivityStats(profile.organization_id, user.id);
     console.log('[sendActivityWarningMessage] Stats fetched:', stats);
     
     // Генерируем сообщение с реальными данными
