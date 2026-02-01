@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { useThrottle } from './useThrottle';
 import { playNotificationSound } from './useNotificationSound';
 import { getNotificationSettings } from './useNotificationSettings';
+import { sendActivityWarningMessage } from '@/utils/sendActivityWarningMessage';
 
 export type ActivityStatus = 'online' | 'idle' | 'on_call' | 'offline';
 
@@ -215,7 +216,7 @@ export const useActivityTracker = (isOnCall: boolean = false) => {
     saveState(newState);
   }, []);
 
-  // Check for low activity and play warning sound
+  // Check for low activity and play warning sound + send AI message
   useEffect(() => {
     // Only check after minimum session duration
     if (sessionDuration < MIN_SESSION_FOR_ALERT) return;
@@ -229,7 +230,14 @@ export const useActivityTracker = (isOnCall: boolean = false) => {
     
     // Check if activity dropped below threshold and we haven't shown alert yet
     if (activityPercentage < threshold && !state.lowActivityAlertShown) {
+      // Play warning sound
       playNotificationSound(0.5, 'activity_warning');
+      
+      // Send motivational message from AI assistant (async, fire and forget)
+      sendActivityWarningMessage(activityPercentage).catch(err => {
+        console.warn('[useActivityTracker] Failed to send AI message:', err);
+      });
+      
       setState(prev => {
         const newState = { ...prev, lowActivityAlertShown: true };
         saveState(newState);
