@@ -12,6 +12,8 @@ export interface ChatMessage {
   message_type: 'client' | 'manager' | 'system';
   system_type?: string;
   is_read: boolean;
+  /** Self-hosted: incoming/outgoing flag (incoming = false) */
+  is_outgoing?: boolean | null;
   call_duration?: string;
   created_at: string;
   file_url?: string;
@@ -63,6 +65,7 @@ interface MessageWithClient {
   messenger_type?: string | null;
   created_at: string;
   is_read: boolean;
+  is_outgoing?: boolean | null;
   salebot_message_id?: string | null;
   clients?: {
     id: string;
@@ -98,6 +101,7 @@ interface PhoneRow {
 interface UnreadMessageRow {
   messenger_type?: string | null;
   created_at: string;
+  is_outgoing?: boolean | null;
 }
 
 interface CallLogIdRow {
@@ -152,6 +156,7 @@ export const useChatThreads = () => {
           message_text,
           message_type,
           messenger_type,
+          is_outgoing,
           created_at,
           is_read,
           salebot_message_id,
@@ -175,7 +180,7 @@ export const useChatThreads = () => {
           console.warn('[useChatThreads] Join to clients failed, falling back:', error.message);
           const { data: noJoinData, error: noJoinError } = await supabase
             .from('chat_messages')
-            .select('client_id, message_text, message_type, messenger_type, created_at, is_read, salebot_message_id')
+             .select('client_id, message_text, message_type, messenger_type, is_outgoing, created_at, is_read, salebot_message_id')
             .order('created_at', { ascending: false })
             .limit(500);
 
@@ -265,8 +270,13 @@ export const useChatThreads = () => {
           thread.last_message_time = message.created_at;
         }
         
-        // Считаем только непрочитанные сообщения от клиентов, игнорируем сообщения менеджеров и системные
-        if (!message.is_read && message.message_type === 'client') {
+        // Считаем только непрочитанные ВХОДЯЩИЕ сообщения (от клиентов), игнорируем исходящие/системные
+        const anyMsg = message as unknown as Record<string, any>;
+        const isIncoming = anyMsg.is_outgoing === false || message.message_type === 'client';
+        const isSystemLikeText = typeof message.message_text === 'string' && /^crm_system_/i.test(message.message_text);
+        const isSystemRow = message.message_type === 'system' || message.messenger_type === 'system' || isSystemLikeText;
+
+        if (!message.is_read && isIncoming && !isSystemRow) {
           thread.unread_count++;
           
           // Подсчёт по мессенджерам и отслеживание последнего непрочитанного
@@ -407,18 +417,49 @@ export const useClientUnreadByMessenger = (clientId: string) => {
         return { counts: { whatsapp: 0, telegram: 0, max: 0, chatos: 0, email: 0, calls: 0 }, lastUnreadMessenger: null };
       }
 
-      // Fetch unread messages by messenger type with created_at to find the latest
-      const { data: messages, error: msgError } = await supabase
-        .from('chat_messages')
-        .select('messenger_type, created_at')
-        .eq('client_id', clientId)
-        .eq('is_read', false)
-        .eq('message_type', 'client')
-        .order('created_at', { ascending: false });
+      // Fetch unread INCOMING messages by messenger type.
+      // Self-hosted schema: incoming messages are marked by is_outgoing = false.
+      // Cloud/fallback schema: use message_type = 'client' if is_outgoing is unavailable.
+      let messages: UnreadMessageRow[] = [];
+      {
+        const trySelfHosted = async () => {
+          const { data, error } = await supabase
+            .from('chat_messages')
+            .select('messenger_type, created_at, is_outgoing')
+            .eq('client_id', clientId)
+            .eq('is_outgoing', false)
+            // Some rows may have NULL is_read; treat them as unread too
+            .or('is_read.is.null,is_read.eq.false')
+            .neq('messenger_type', 'system')
+            .order('created_at', { ascending: false });
+          if (error) throw error;
+          return (data || []) as unknown as UnreadMessageRow[];
+        };
 
-      if (msgError) {
-        console.error('[useClientUnreadByMessenger] Error:', msgError);
-        throw msgError;
+        const tryFallback = async () => {
+          const { data, error } = await supabase
+            .from('chat_messages')
+            .select('messenger_type, created_at')
+            .eq('client_id', clientId)
+            .eq('message_type', 'client')
+            .or('is_read.is.null,is_read.eq.false')
+            .neq('messenger_type', 'system')
+            .order('created_at', { ascending: false });
+          if (error) throw error;
+          return (data || []) as unknown as UnreadMessageRow[];
+        };
+
+        try {
+          messages = await trySelfHosted();
+        } catch (e: any) {
+          const msg = String(e?.message || '').toLowerCase();
+          const isMissingColumn = msg.includes('does not exist') && msg.includes('column') && msg.includes('is_outgoing');
+          if (isMissingColumn) {
+            messages = await tryFallback();
+          } else {
+            throw e;
+          }
+        }
       }
 
       const counts: UnreadByMessenger = { whatsapp: 0, telegram: 0, max: 0, chatos: 0, email: 0, calls: 0 };
