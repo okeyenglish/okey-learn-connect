@@ -6,12 +6,14 @@ interface SectionsState {
   aiSectionExpanded: boolean;
   staffSectionExpanded: boolean;
   knowledgeSectionExpanded: boolean;
+  communitiesSectionExpanded: boolean;
 }
 
 const DEFAULT_STATE: SectionsState = {
   aiSectionExpanded: false,
   staffSectionExpanded: true,
   knowledgeSectionExpanded: false,
+  communitiesSectionExpanded: false,
 };
 
 /**
@@ -57,6 +59,10 @@ export function usePersistedSections() {
     updateState({ knowledgeSectionExpanded: expanded });
   }, [updateState]);
 
+  const setCommunitiesSectionExpanded = useCallback((expanded: boolean) => {
+    updateState({ communitiesSectionExpanded: expanded });
+  }, [updateState]);
+
   const toggleAiSection = useCallback(() => {
     updateState({ aiSectionExpanded: !state.aiSectionExpanded });
   }, [state.aiSectionExpanded, updateState]);
@@ -69,15 +75,22 @@ export function usePersistedSections() {
     updateState({ knowledgeSectionExpanded: !state.knowledgeSectionExpanded });
   }, [state.knowledgeSectionExpanded, updateState]);
 
+  const toggleCommunitiesSection = useCallback(() => {
+    updateState({ communitiesSectionExpanded: !state.communitiesSectionExpanded });
+  }, [state.communitiesSectionExpanded, updateState]);
+
   return {
     aiSectionExpanded: state.aiSectionExpanded,
     staffSectionExpanded: state.staffSectionExpanded,
     knowledgeSectionExpanded: state.knowledgeSectionExpanded,
+    communitiesSectionExpanded: state.communitiesSectionExpanded,
     setAiSectionExpanded,
     setStaffSectionExpanded,
     setKnowledgeSectionExpanded,
+    setCommunitiesSectionExpanded,
     toggleAiSection,
     toggleStaffSection,
     toggleKnowledgeSection,
+    toggleCommunitiesSection,
   };
 }

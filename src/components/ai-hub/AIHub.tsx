@@ -40,6 +40,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useInternalChats, InternalChat } from '@/hooks/useInternalChats';
 import { useTeacherChats, TeacherChatItem, useEnsureTeacherClient } from '@/hooks/useTeacherChats';
 import { useAssistantMessages } from '@/hooks/useAssistantMessages';
+import { useCommunityChats } from '@/hooks/useCommunityChats';
 import { 
   useStaffDirectMessages, 
   useStaffGroupMessages, 
@@ -127,7 +128,14 @@ export const AIHub = ({
   const [teacherClientId, setTeacherClientId] = useState<string | null>(null);
   
   // Persisted sections state
-  const { aiSectionExpanded, toggleAiSection, knowledgeSectionExpanded, toggleKnowledgeSection } = usePersistedSections();
+  const { 
+    aiSectionExpanded, 
+    toggleAiSection, 
+    knowledgeSectionExpanded, 
+    toggleKnowledgeSection,
+    communitiesSectionExpanded,
+    toggleCommunitiesSection
+  } = usePersistedSections();
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -138,6 +146,7 @@ export const AIHub = ({
   // Data hooks
   const { data: internalChats, isLoading: chatsLoading } = useInternalChats();
   const { teachers, totalUnread: teachersUnread, isLoading: teachersLoading } = useTeacherChats(null);
+  const { communityChats, totalUnread: communityUnread, isLoading: communityLoading } = useCommunityChats();
   const { onlineUsers, isUserOnline, getLastSeenFormatted, onlineCount } = useStaffOnlinePresence();
   const { data: staffMembers } = useStaffMembers();
   
@@ -888,6 +897,76 @@ export const AIHub = ({
                 </div>
               )}
             </div>
+
+            {/* Communities Section - after Knowledge Base */}
+            {communityChats.length > 0 && (
+              <div className="space-y-1">
+                <button 
+                  onClick={toggleCommunitiesSection} 
+                  className="w-full px-3 py-2 flex items-center justify-between hover:bg-muted/30 transition-colors rounded-lg"
+                >
+                  <div className="flex items-center gap-2">
+                    {communitiesSectionExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium text-muted-foreground">Сообщества</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {communityUnread > 0 && (
+                      <Badge className="bg-destructive text-destructive-foreground text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full">
+                        {communityUnread}
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full">
+                      {communityChats.length}
+                    </Badge>
+                  </div>
+                </button>
+                
+                {communitiesSectionExpanded && (
+                  <div className="space-y-1 pl-2">
+                    {communityChats.map((community) => (
+                      <button 
+                        key={community.id}
+                        onClick={() => {
+                          // Open community chat in CRM
+                          onOpenChat?.(community.id);
+                          onToggle();
+                        }}
+                        className="w-full p-2.5 text-left rounded-lg transition-all duration-200 mb-1 border select-none bg-card hover:bg-accent/30 hover:shadow-sm border-border/50 max-w-full overflow-hidden"
+                      >
+                        <div className="flex items-start justify-between gap-2 max-w-full overflow-hidden">
+                          <div className="flex items-start gap-2 flex-1 min-w-0">
+                            <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30">
+                              <AvatarFallback className="bg-blue-500/10 text-blue-600">
+                                <Users className="h-4 w-4" />
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <p className="text-sm font-medium truncate">{community.name}</p>
+                                {community.unreadCount > 0 && (
+                                  <Badge className="bg-destructive text-destructive-foreground text-[10px] h-4 min-w-[18px] px-1 flex items-center justify-center rounded-full shrink-0">
+                                    {community.unreadCount}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                                  {community.messengerType === 'telegram' ? 'Telegram' : community.messengerType === 'whatsapp' ? 'WhatsApp' : 'MAX'}
+                                </Badge>
+                                {community.lastMessage && (
+                                  <span className="truncate">{community.lastMessage}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* AI Helpers Section - EXACT mobile layout */}
             {aiChatsListFiltered.length > 0 && (
