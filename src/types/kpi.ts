@@ -13,7 +13,7 @@ export interface KpiNotification {
   id: string;
   profile_id: string;
   organization_id: string;
-  notification_type: 'low_score' | 'low_calls' | 'low_answered_rate';
+  notification_type: 'low_score' | 'low_calls' | 'low_answered_rate' | 'low_activity';
   message: string;
   current_value: number | null;
   threshold_value: number | null;
@@ -40,4 +40,5 @@ export const KPI_NOTIFICATION_LABELS: Record<string, string> = {
   low_score: 'Низкая оценка звонков',
   low_calls: 'Мало звонков',
   low_answered_rate: 'Низкий процент отвеченных',
+  low_activity: 'Низкая активность',
 };
