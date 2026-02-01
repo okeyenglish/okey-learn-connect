@@ -4197,6 +4197,7 @@ const CRMContent = () => {
                     setQuickReplyCategory(null);
                   }}
                   quickReplyCategory={quickReplyCategory}
+                  onOpenScripts={() => setShowScriptsModal(true)}
                 />
               </Suspense>
             </div>

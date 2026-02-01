@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -27,7 +28,9 @@ import {
   Paperclip,
   FileText,
   Image as ImageIcon,
-  Download
+  Download,
+  BookOpen,
+  HelpCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { selfHostedPost } from '@/lib/selfHostedApi';
@@ -82,6 +85,8 @@ interface AIHubInlineProps {
   onClearInitialAssistantMessage?: () => void;
   /** Category for quick reply suggestions in AI assistant */
   quickReplyCategory?: 'activity_warning' | 'tab_feedback' | null;
+  /** Callback to open scripts modal from Knowledge Base */
+  onOpenScripts?: () => void;
 }
 
 interface ChatMessage {
@@ -122,7 +127,93 @@ interface ChatItem {
   data?: InternalChat | TeacherChatItem | StaffMember;
 }
 
-export const AIHubInline = ({ 
+// Knowledge Base Section Component
+const KnowledgeBaseSection = ({ 
+  expanded, 
+  onToggle, 
+  onOpenScripts 
+}: { 
+  expanded: boolean; 
+  onToggle: () => void;
+  onOpenScripts?: () => void;
+}) => {
+  const navigate = useNavigate();
+  
+  const knowledgeItems = [
+    { 
+      id: 'scripts', 
+      name: 'Скрипты продаж', 
+      icon: FileText,
+      onClick: () => onOpenScripts?.()
+    },
+    { 
+      id: 'faq', 
+      name: 'FAQ для клиентов', 
+      icon: HelpCircle,
+      onClick: () => navigate('/faq')
+    },
+    { 
+      id: 'training', 
+      name: 'Обучение', 
+      icon: GraduationCap,
+      disabled: true,
+      badge: 'скоро'
+    }
+  ];
+
+  return (
+    <div className="space-y-1">
+      <button 
+        onClick={onToggle} 
+        className="w-full px-3 py-2 flex items-center justify-between hover:bg-muted/30 transition-colors rounded-lg"
+      >
+        <div className="flex items-center gap-2">
+          {expanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+          <BookOpen className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-muted-foreground">База Знаний</span>
+        </div>
+        <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full">
+          {knowledgeItems.filter(i => !i.disabled).length}
+        </Badge>
+      </button>
+      
+      {expanded && (
+        <div className="space-y-1 pl-2">
+          {knowledgeItems.map((item) => (
+            <button 
+              key={item.id}
+              onClick={item.onClick}
+              disabled={item.disabled}
+              className={`w-full p-2.5 text-left rounded-lg transition-all duration-200 mb-1 border select-none 
+                ${item.disabled 
+                  ? 'opacity-50 cursor-not-allowed bg-muted/30' 
+                  : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
+                } max-w-full overflow-hidden`}
+            >
+              <div className="flex items-center gap-2">
+                <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30">
+                  <AvatarFallback className="bg-muted">
+                    <item.icon className="h-4 w-4 text-muted-foreground" />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{item.name}</p>
+                </div>
+                {item.badge && (
+                  <Badge variant="secondary" className="text-[10px] h-4 px-1.5 shrink-0">
+                    {item.badge}
+                  </Badge>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export const AIHubInline = ({
   context,
   onOpenModal,
   onOpenChat,
@@ -131,7 +222,8 @@ export const AIHubInline = ({
   onClearInitialStaffUserId,
   initialAssistantMessage,
   onClearInitialAssistantMessage,
-  quickReplyCategory
+  quickReplyCategory,
+  onOpenScripts
 }: AIHubInlineProps) => {
   const [activeChat, setActiveChat] = useState<ChatItem | null>(null);
   const [message, setMessage] = useState('');
@@ -145,7 +237,7 @@ export const AIHubInline = ({
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
   const [pendingFile, setPendingFile] = useState<{ url: string; name: string; type: string } | null>(null);
   
-  const { aiSectionExpanded, toggleAiSection } = usePersistedSections();
+  const { aiSectionExpanded, toggleAiSection, knowledgeSectionExpanded, toggleKnowledgeSection } = usePersistedSections();
   const { branchesForDropdown } = useUserAllowedBranches();
   const { onlineUsers, isUserOnline, getLastSeenFormatted, onlineCount } = useStaffOnlinePresence();
   
@@ -835,6 +927,13 @@ export const AIHubInline = ({
               <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
             </div>
           )}
+
+          {/* Knowledge Base Section - collapsible */}
+          <KnowledgeBaseSection 
+            expanded={knowledgeSectionExpanded}
+            onToggle={toggleKnowledgeSection}
+            onOpenScripts={onOpenScripts}
+          />
 
           {/* AI Helpers Section - collapsible */}
           {aiChatsList.length > 0 && (
