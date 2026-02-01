@@ -182,6 +182,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
       /^Новый платёж/i,
       /^Новый платеж/i,
       /^crm_system_/i,
+      /crm_system_state_changed/i, // Matches anywhere in message
     ];
     return systemPatterns.some(pattern => pattern.test(message));
   }, [message]);
