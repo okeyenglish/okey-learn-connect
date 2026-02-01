@@ -154,7 +154,7 @@ export const AIHub = ({
   const { unreadCount: assistantUnread } = useAssistantMessages();
 
   // Staff typing indicator
-  const typingChatId = activeChat?.type === 'teacher' 
+  const typingChatId = activeChat?.type === 'teacher' || activeChat?.type === 'staff'
     ? selectedStaffProfileId 
     : activeChat?.type === 'group' 
       ? activeChat.id 
@@ -633,8 +633,8 @@ export const AIHub = ({
                 </div>
               )}
               
-              {/* Staff typing indicator for teacher/group chats */}
-              {(activeChat.type === 'teacher' || activeChat.type === 'group') && typingUsers.length > 0 && (
+              {/* Staff typing indicator for teacher/staff/group chats */}
+              {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && typingUsers.length > 0 && (
                 <StaffTypingIndicator typingUsers={typingUsers} />
               )}
             </div>
@@ -648,7 +648,7 @@ export const AIHub = ({
                 onChange={(e) => {
                   setMessage(e.target.value);
                   // Trigger typing indicator for staff chats
-                  if (activeChat.type === 'teacher' || activeChat.type === 'group') {
+                  if (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') {
                     if (e.target.value.trim()) {
                       setTyping(true, e.target.value);
                     } else {
@@ -659,7 +659,7 @@ export const AIHub = ({
                 onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                 onBlur={() => {
                   // Stop typing when input loses focus
-                  if (activeChat.type === 'teacher' || activeChat.type === 'group') {
+                  if (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') {
                     stopTyping();
                   }
                 }}
