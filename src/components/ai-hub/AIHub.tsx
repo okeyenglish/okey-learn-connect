@@ -29,7 +29,9 @@ import {
   ChevronRight,
   BookOpen,
   FileText,
-  HelpCircle
+  HelpCircle,
+  Check,
+  CheckCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { selfHostedPost } from '@/lib/selfHostedApi';
@@ -77,6 +79,7 @@ interface ChatMessage {
   content: string;
   timestamp: Date;
   sender?: string;
+  is_read?: boolean;
 }
 
 type ConsultantType = 'lawyer' | 'accountant' | 'marketer' | 'hr' | 'methodist' | 'it';
@@ -405,16 +408,21 @@ export const AIHub = ({
       }
     }
     // For teacher/staff direct chats - use new internal_staff_messages table
-    else if (activeChat.type === 'teacher' && activeChat.data) {
-      const teacher = activeChat.data as TeacherChatItem;
-      if (!teacher.profileId) {
-        toast.error('У преподавателя не привязан профиль пользователя');
+    else if ((activeChat.type === 'teacher' || activeChat.type === 'staff') && activeChat.data) {
+      const profileId = activeChat.type === 'teacher' 
+        ? (activeChat.data as TeacherChatItem).profileId
+        : (activeChat.data as StaffMember).id;
+      
+      if (!profileId) {
+        toast.error(activeChat.type === 'teacher' 
+          ? 'У преподавателя не привязан профиль пользователя'
+          : 'Не удалось определить профиль сотрудника');
         return;
       }
       try {
-        // Use teacher.profileId as recipient - links to profiles/auth.users
+        // Use profileId as recipient - links to profiles/auth.users
         await sendStaffMessage.mutateAsync({
-          recipient_user_id: teacher.profileId,
+          recipient_user_id: profileId,
           message_text: message.trim(),
           message_type: 'text'
         });
@@ -447,14 +455,15 @@ export const AIHub = ({
   const getCurrentMessages = (): ChatMessage[] => {
     if (!activeChat) return [];
     
-    // For teacher direct messages - use staff messages
-    if (activeChat.type === 'teacher') {
+    // For teacher/staff direct messages - use staff messages
+    if (activeChat.type === 'teacher' || activeChat.type === 'staff') {
       return (staffDirectMessages || []).map((m) => ({
         id: m.id,
         type: m.sender_id === user?.id ? 'user' : 'assistant',
         content: m.message_text || '',
         timestamp: new Date(m.created_at),
-        sender: m.sender?.first_name
+        sender: m.sender?.first_name,
+        is_read: m.is_read
       })) as ChatMessage[];
     }
     
@@ -465,7 +474,8 @@ export const AIHub = ({
         type: m.sender_id === user?.id ? 'user' : 'assistant',
         content: m.message_text || '',
         timestamp: new Date(m.created_at),
-        sender: m.sender?.first_name
+        sender: m.sender?.first_name,
+        is_read: m.is_read
       })) as ChatMessage[];
     }
     
@@ -490,7 +500,7 @@ export const AIHub = ({
     item.type === 'assistant' || ['lawyer', 'accountant', 'marketer', 'hr', 'methodist', 'it'].includes(item.type)
   );
   const corporateChatsList = filteredChats.filter(item => 
-    item.type === 'group' || item.type === 'teacher'
+    item.type === 'group' || item.type === 'teacher' || item.type === 'staff'
   );
 
   // Render chat content (for AI assistant - show VoiceAssistant)
@@ -610,12 +620,20 @@ export const AIHub = ({
                         )}
                         <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1 px-1">
-                        {msg.timestamp.toLocaleTimeString('ru-RU', { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </p>
+                      <div className={`flex items-center gap-1 text-xs text-muted-foreground mt-1 px-1 ${msg.type === 'user' ? 'justify-end' : ''}`}>
+                        <span>
+                          {msg.timestamp.toLocaleTimeString('ru-RU', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </span>
+                        {/* Read indicator for user messages in staff chats */}
+                        {msg.type === 'user' && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
+                          msg.is_read 
+                            ? <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
+                            : <Check className="h-3.5 w-3.5" />
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))
