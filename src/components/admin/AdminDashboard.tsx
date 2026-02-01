@@ -33,6 +33,7 @@ import { WebhooksDirectory } from "./WebhooksDirectory";
 import { SystemMonitorPanel } from "./SystemMonitorPanel";
 import { TrialRequestsManager } from "./TrialRequestsManager";
 import { KpiManagementPage } from "./KpiManagementPage";
+import { StaffAnalyticsPage } from "./StaffAnalyticsPage";
 import { TeachersManagementSection } from "./TeachersManagementSection";
 import { ConversationIndexingPanel } from "./ConversationIndexingPanel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,6 +63,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <TeachersManagementSection />;
       case "kpi-management":
         return <KpiManagementPage />;
+      case "staff-analytics":
+        return <StaffAnalyticsPage />;
       case "ai-training":
         return <ConversationIndexingPanel />;
       case "faq":
@@ -205,6 +208,14 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle className="text-amber-600">🎯 KPI менеджеров</CardTitle>
                   <CardDescription>Целевые показатели и уведомления</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              {/* Активность команды */}
+              <Card className="cursor-pointer hover:bg-muted/50 border-teal-200" onClick={() => setCurrentSection("staff-analytics")}>
+                <CardHeader>
+                  <CardTitle className="text-teal-600">👥 Активность команды</CardTitle>
+                  <CardDescription>Мониторинг работы в реальном времени</CardDescription>
                 </CardHeader>
               </Card>
               
