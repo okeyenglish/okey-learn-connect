@@ -172,7 +172,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
     }
   };
 
-  // Detect system-like messages that come with manager type but should be displayed as system
+  // Detect system-like messages that should be displayed as system regardless of incoming/outgoing type
   const isAutoSystemMessage = useMemo(() => {
     const systemPatterns = [
       /^Клиент перемещен в/i,
@@ -184,16 +184,22 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
       /^crm_system_/i,
       /crm_system_state_changed/i, // Matches anywhere in message
     ];
-    return systemPatterns.some(pattern => pattern.test(message));
+    return systemPatterns.some((pattern) => pattern.test(message));
+  }, [message]);
+
+  const autoSystemDisplayText = useMemo(() => {
+    // Self-hosted often stores state-change as a raw marker in message_text
+    if (/crm_system_state_changed/i.test(message)) return 'Статус изменён';
+    return message;
   }, [message]);
 
   // If it looks like a system message, render it as simple centered text (same style as SalebotCallbackMessage)
-  if (type === 'manager' && isAutoSystemMessage) {
+  if (type !== 'comment' && isAutoSystemMessage) {
     return (
       <div className="flex justify-center my-1">
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
           <User className="h-3 w-3 text-muted-foreground/70" />
-          <span className="text-muted-foreground/70">{message}</span>
+          <span className="text-muted-foreground/70">{autoSystemDisplayText}</span>
           <span className="text-muted-foreground/40">·</span>
           <span className="text-muted-foreground/40">{time}</span>
         </div>

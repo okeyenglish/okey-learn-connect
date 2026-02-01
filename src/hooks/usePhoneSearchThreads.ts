@@ -49,6 +49,7 @@ interface MessageRow {
   is_read: boolean;
   messenger_type: string | null;
   message_type: string | null;
+  is_outgoing?: boolean | null;
 }
 
 /**
@@ -141,7 +142,7 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
   // Fetch last message for each client
   const { data: messagesRaw, error: messagesError } = await supabase
     .from('chat_messages')
-    .select('client_id, message_text, created_at, is_read, messenger_type, message_type')
+    .select('client_id, message_text, created_at, is_read, messenger_type, message_type, is_outgoing')
     .in('client_id', clientIds)
     .order('created_at', { ascending: false })
     .limit(clientIds.length * 10); // Get a few messages per client
@@ -177,7 +178,12 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
     .map((client) => {
       const clientMessages = messagesByClient.get(client.id) || [];
       const lastMessage = clientMessages[0];
-      const unreadMessages = clientMessages.filter((m) => !m.is_read && m.message_type === 'client');
+      // Self-hosted: incoming = is_outgoing false; fallback: message_type === 'client'
+      const unreadMessages = clientMessages.filter((m) => {
+        const isIncoming = m.is_outgoing === false || m.message_type === 'client';
+        const isSystem = m.messenger_type === 'system' || /^crm_system_/i.test(String(m.message_text || ''));
+        return !m.is_read && isIncoming && !isSystem;
+      });
 
       // Calculate unread by messenger
       const unreadByMessenger: UnreadByMessenger = {
@@ -189,10 +195,8 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
         calls: 0,
       };
       unreadMessages.forEach((m) => {
-        const type = m.messenger_type as keyof UnreadByMessenger;
-        if (type in unreadByMessenger) {
-          unreadByMessenger[type]++;
-        }
+        const type = (m.messenger_type || 'whatsapp') as keyof UnreadByMessenger;
+        if (type in unreadByMessenger) unreadByMessenger[type]++;
       });
 
       // Self-hosted schema doesn't have client_phone_numbers table
