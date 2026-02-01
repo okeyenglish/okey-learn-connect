@@ -281,6 +281,20 @@ export const useChatThreadsInfinite = () => {
   };
 };
 
+// Helper to check if message is a system/internal message that shouldn't be shown in preview
+function isSystemPreviewMessage(text: string): boolean {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return (
+    lower.includes('crm_system_state_changed') ||
+    lower.includes('задача "') ||
+    lower.includes('задача создана') ||
+    lower.includes('задача выполнена') ||
+    lower.includes('задача отменена') ||
+    lower.startsWith('задача "')
+  );
+}
+
 // Helper function to map RPC result to ChatThread format
 function mapRpcToThreads(data: RpcThreadRow[]): ChatThread[] {
   // Filter out group chats and system chats
@@ -312,34 +326,42 @@ function mapRpcToThreads(data: RpcThreadRow[]): ChatThread[] {
     return true;
   });
 
-  return filteredData.map((row) => ({
-    client_id: row.clt_id || row.client_id || '',
-    client_name: row.client_name || '',
-    first_name: row.first_name || null,
-    last_name: row.last_name || null,
-    middle_name: row.middle_name || null,
-    client_phone: row.client_phone || '',
-    client_branch: row.client_branch || null,
-    avatar_url: row.avatar_url || null,
-    telegram_avatar_url: row.telegram_avatar_url || null,
-    whatsapp_avatar_url: row.whatsapp_avatar_url || null,
-    max_avatar_url: row.max_avatar_url || null,
-    telegram_chat_id: row.telegram_chat_id || null,
-    whatsapp_chat_id: row.whatsapp_chat_id || null,
-    max_chat_id: row.max_chat_id || null,
-    last_message: row.last_message_text || row.last_message || '',
-    last_message_time: row.last_message_time,
-    unread_count: Number(row.unread_count) || 0,
-    unread_by_messenger: {
-      whatsapp: Number(row.unread_whatsapp) || 0,
-      telegram: Number(row.unread_telegram) || 0,
-      max: Number(row.unread_max) || 0,
-      email: Number(row.unread_email) || 0,
-      calls: Number(row.unread_calls) || 0,
-    } as UnreadByMessenger,
-    last_unread_messenger: row.last_unread_messenger || null,
-    messages: []
-  }));
+  return filteredData.map((row) => {
+    // Get raw last message
+    const rawLastMessage = row.last_message_text || row.last_message || '';
+    
+    // Filter out system messages from preview - show empty instead
+    const lastMessage = isSystemPreviewMessage(rawLastMessage) ? '' : rawLastMessage;
+    
+    return {
+      client_id: row.clt_id || row.client_id || '',
+      client_name: row.client_name || '',
+      first_name: row.first_name || null,
+      last_name: row.last_name || null,
+      middle_name: row.middle_name || null,
+      client_phone: row.client_phone || '',
+      client_branch: row.client_branch || null,
+      avatar_url: row.avatar_url || null,
+      telegram_avatar_url: row.telegram_avatar_url || null,
+      whatsapp_avatar_url: row.whatsapp_avatar_url || null,
+      max_avatar_url: row.max_avatar_url || null,
+      telegram_chat_id: row.telegram_chat_id || null,
+      whatsapp_chat_id: row.whatsapp_chat_id || null,
+      max_chat_id: row.max_chat_id || null,
+      last_message: lastMessage,
+      last_message_time: row.last_message_time,
+      unread_count: Number(row.unread_count) || 0,
+      unread_by_messenger: {
+        whatsapp: Number(row.unread_whatsapp) || 0,
+        telegram: Number(row.unread_telegram) || 0,
+        max: Number(row.unread_max) || 0,
+        email: Number(row.unread_email) || 0,
+        calls: Number(row.unread_calls) || 0,
+      } as UnreadByMessenger,
+      last_unread_messenger: row.last_unread_messenger || null,
+      messages: []
+    };
+  });
 }
 
 export default useChatThreadsInfinite;
