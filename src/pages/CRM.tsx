@@ -68,13 +68,12 @@ const IndividualLessonsModal = lazy(() => import("@/components/individual-lesson
 const WhatsAppSessionsModal = lazy(() => import("@/components/crm/WhatsAppSessionsModal").then(m => ({ default: m.WhatsAppSessionsModal })));
 
 import { PinnableModalHeader, PinnableDialogContent } from "@/components/crm/PinnableModal";
-import { ManagerMenu } from "@/components/crm/ManagerMenu";
+import { UnifiedManagerWidget } from "@/components/crm/UnifiedManagerWidget";
 import { MobileChatNavigation } from "@/components/crm/MobileChatNavigation";
 import { MobileNewChatModal } from "@/components/crm/MobileNewChatModal";
 import { PostCallModerationModal } from "@/components/crm/PostCallModerationModal";
-import { WorkdayPreviewWidget } from "@/components/crm/WorkdayPreviewWidget";
-import { KnowledgeBaseDropdown } from "@/components/crm/KnowledgeBaseDropdown";
 import { usePostCallModeration } from "@/hooks/usePostCallModeration";
+
 
 import { EducationSubmenu } from "@/components/learning-groups/EducationSubmenu";
 import { usePinnedModalsDB, PinnedModal } from "@/hooks/usePinnedModalsDB";
@@ -2088,12 +2087,12 @@ const CRMContent = () => {
               Чаты{totalUnreadCount > 0 && ` (${totalUnreadCount})`}
             </Button>
             <div className="px-3 h-full flex items-center border-l">
-              <ManagerMenu
+              <UnifiedManagerWidget
                 managerName={profile && profile.first_name && profile.last_name 
                   ? `${profile.first_name} ${profile.last_name}` 
                   : 'Менеджер'}
-                managerEmail={user?.email}
                 onSignOut={handleSignOut}
+                onDashboardClick={() => setShowDashboardModal(true)}
               />
             </div>
           </div>
@@ -2123,21 +2122,18 @@ const CRMContent = () => {
               )}
             </div>
             <div className="flex items-center gap-2 h-14">
-              <RealtimeStatusIndicator status={connectionStatus} />
               {(threadsLoading || pinnedLoading || chatStatesLoading || systemChatsLoading) && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
                   <span className="hidden sm:inline">Загрузка данных...</span>
                 </div>
               )}
-              <WorkdayPreviewWidget onClick={() => setShowDashboardModal(true)} />
-              <KnowledgeBaseDropdown onOpenScripts={() => setShowScriptsModal(true)} />
-              <ManagerMenu
+              <UnifiedManagerWidget
                 managerName={profile && profile.first_name && profile.last_name 
                   ? `${profile.first_name} ${profile.last_name}` 
                   : 'Менеджер'}
-                managerEmail={user?.email}
                 onSignOut={handleSignOut}
+                onDashboardClick={() => setShowDashboardModal(true)}
               />
             </div>
           </div>
