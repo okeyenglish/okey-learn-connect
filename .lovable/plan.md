@@ -1,186 +1,112 @@
 
-# План: Компактные уведомления о задачах в чате
 
-## Цель
-Заменить текущие блоки уведомлений о задачах в чате на компактный формат (как "Новый платёж" на скриншоте) с tooltip при наведении и модальным окном при клике.
+# План: Исправление отправки системных сообщений на self-hosted
 
-## Текущее состояние
-- Task notifications отправляются как system messages с текстом: `Задача "Название" создана на дату`
-- Отображаются как большие блоки в чате
-- Нет интерактивности (нельзя посмотреть детали или открыть задачу)
+## Проблема
+Системные сообщения о задачах не появляются в чате на self-hosted Supabase. Причина - RLS политика требует `organization_id = get_user_organization_id()`, а default может не срабатывать через PostgREST при INSERT.
 
 ## Решение
 
-### Шаг 1: Расширить useSendMessage для поддержки metadata
+### Шаг 1: Добавить organization_id в useSendMessage
 
 **Файл:** `src/hooks/useChatMessages.ts`
 
-Добавить поддержку поля `metadata` при отправке сообщений:
+При вставке сообщения нужно явно получить и передать `organization_id` текущего пользователя:
 
 ```typescript
-mutationFn: async ({
-  clientId,
-  messageText,
-  messageType = 'manager',
-  phoneNumberId,
-  metadata // Новое поле
-}: {
-  clientId: string;
-  messageText: string;
-  messageType?: 'client' | 'manager' | 'system';
-  phoneNumberId?: string;
-  metadata?: Record<string, unknown>; // Новый тип
-}) => {
-  const { data, error } = await supabase
-    .from('chat_messages')
-    .insert([{
-      client_id: clientId,
-      phone_number_id: phoneNumberId,
-      message_text: messageText,
-      message_type: messageType,
-      is_read: messageType === 'manager',
-      metadata, // Сохраняем metadata
-    }])
-    // ...
+mutationFn: async ({ clientId, messageText, messageType = 'manager', phoneNumberId, metadata }) => {
+  // Получаем organization_id текущего пользователя
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('organization_id')
+    .eq('id', (await supabase.auth.getUser()).data.user?.id)
+    .single();
+  
+  const payload = {
+    client_id: clientId,
+    message_text: messageText,
+    message_type: messageType,
+    is_read: messageType === 'manager',
+    organization_id: profile?.organization_id, // Явно передаем organization_id
+  };
+  // ...
 }
 ```
 
-### Шаг 2: Обновить useTaskNotifications для передачи task_id
+### Шаг 2: Кэширование organization_id
 
-**Файл:** `src/hooks/useTaskNotifications.ts`
+Чтобы не делать дополнительный запрос при каждой отправке, можно использовать React Query для кэширования profile с organization_id (уже есть в useAuth).
 
-Модифицировать функции для передачи taskId, responsible и других данных в metadata:
+**Оптимизированное решение:**
 
 ```typescript
-const sendTaskCreatedNotification = async (
-  clientId: string, 
-  taskTitle: string, 
-  dueDate: string,
-  taskId: string,
-  responsible?: string
-) => {
-  await sendMessage.mutateAsync({
-    clientId,
-    messageText: `Задача "${taskTitle}" создана на ${dueDate}`,
-    messageType: 'system',
-    metadata: {
-      type: 'task_notification',
-      action: 'created',
-      task_id: taskId,
-      task_title: taskTitle,
-      due_date: dueDate,
-      responsible
+export const useSendMessage = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ clientId, messageText, messageType, phoneNumberId, metadata }) => {
+      // Получаем organization_id из кэша профиля или запрашиваем
+      let organizationId: string | null = null;
+      
+      const cachedProfile = queryClient.getQueryData<{ organization_id: string }>(['profile']);
+      if (cachedProfile?.organization_id) {
+        organizationId = cachedProfile.organization_id;
+      } else {
+        // Fallback: запрос organization_id через RPC или profiles
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('organization_id')
+            .eq('id', userData.user.id)
+            .single();
+          organizationId = profile?.organization_id || null;
+        }
+      }
+
+      const payload = {
+        client_id: clientId,
+        message_text: messageText,
+        message_type: messageType,
+        is_read: messageType === 'manager',
+        ...(organizationId && { organization_id: organizationId }),
+        ...(phoneNumberId && { phone_number_id: phoneNumberId }),
+        ...(metadata && { metadata }),
+      };
+      
+      // ... insert logic
     }
   });
 };
 ```
 
-### Шаг 3: Создать компонент TaskNotificationMessage
+## Технические детали
 
-**Новый файл:** `src/components/crm/TaskNotificationMessage.tsx`
+### Почему default не работает
+- PostgREST передает `DEFAULT` только если поле отсутствует в payload
+- Если поле передается как `undefined` или не включено явно, оно может интерпретироваться как `null`
+- RLS политика `organization_id = get_user_organization_id()` проверяет значение, не default
 
-Компактное уведомление в стиле скриншота:
-
-```
-┌──────────────────────────────────────┐
-│  📋 Задача создана • 12:09           │  <- при hover показывает tooltip
-└──────────────────────────────────────┘
-```
-
-Функциональность:
-- **Иконка**: Зависит от типа (📋 создана, ✅ выполнена, ❌ отменена)
-- **Текст**: Компактный ("Задача создана", "Задача выполнена", "Задача отменена")
-- **Время**: Время создания сообщения
-- **Tooltip при наведении**: 
-  - Название задачи
-  - Исполнитель (кем выполнена/создана)
-  - Дата выполнения
-- **Клик**: Открывает ViewTaskModal
-
-### Шаг 4: Создать ViewTaskModal
-
-**Новый файл:** `src/components/crm/ViewTaskModal.tsx`
-
-Read-only модальное окно для просмотра задачи:
-- Название и описание задачи
-- Приоритет
-- Исполнитель
-- Дата выполнения
-- Статус
-- Кнопка "Редактировать" (открывает EditTaskModal)
-
-### Шаг 5: Интегрировать в ChatMessage.tsx
-
-**Файл:** `src/components/crm/ChatMessage.tsx`
-
-Заменить текущие блоки task notifications на TaskNotificationMessage:
-
-```typescript
-// Detect task notification from metadata or message text
-const isTaskNotification = useMemo(() => {
-  if (metadata?.type === 'task_notification') return true;
-  return message.includes('Задача "') && (
-    message.includes('создана на') ||
-    message.includes('успешно завершена') ||
-    message.includes('отменена')
-  );
-}, [metadata, message]);
-
-if (type === 'system' && isTaskNotification) {
-  return (
-    <TaskNotificationMessage
-      message={message}
-      time={time}
-      metadata={metadata}
-    />
-  );
-}
-```
-
-### Шаг 6: Обновить вызовы useTaskNotifications
-
-**Файлы:**
-- `src/components/crm/AddTaskModal.tsx`
-- `src/components/crm/ClientTasks.tsx`
-
-Передавать taskId и responsible при вызове notification функций.
-
-## Изменяемые файлы
+### Изменяемые файлы
 
 | Файл | Изменение |
 |------|-----------|
-| `src/hooks/useChatMessages.ts` | Добавить metadata в useSendMessage |
-| `src/hooks/useTaskNotifications.ts` | Добавить taskId и metadata в notification функции |
-| `src/components/crm/TaskNotificationMessage.tsx` | Создать новый компонент (компактное уведомление с tooltip) |
-| `src/components/crm/ViewTaskModal.tsx` | Создать модальное окно просмотра задачи |
-| `src/components/crm/ChatMessage.tsx` | Использовать TaskNotificationMessage |
-| `src/components/crm/AddTaskModal.tsx` | Передавать taskId в notification |
-| `src/components/crm/ClientTasks.tsx` | Передавать taskId в notification |
+| `src/hooks/useChatMessages.ts` | Добавить явную передачу organization_id в useSendMessage |
 
-## Визуальный результат
+### Альтернативный подход
 
-**До:**
-```
-┌─────────────────────────────────────────┐
-│  [+] Задача "Позвонить клиенту" создана │
-│      на 01.02.2026                      │
-└─────────────────────────────────────────┘
-```
+Если не хочется модифицировать mutation, можно изменить RLS политику на self-hosted:
 
-**После:**
-```
-      📋 Задача создана • 12:09
-        ↓ (при наведении)
-┌──────────────────────────────┐
-│ Позвонить клиенту            │
-│ Исполнитель: Иванов И.И.     │
-│ Дата: 01.02.2026             │
-└──────────────────────────────┘
+```sql
+-- Разрешить INSERT если organization_id NULL (сработает default) 
+-- или если он совпадает с организацией пользователя
+CREATE POLICY "Users can create messages in their organization" 
+ON chat_messages FOR INSERT 
+WITH CHECK (
+  organization_id IS NULL 
+  OR organization_id = get_user_organization_id()
+);
 ```
 
-## Fallback для старых сообщений
+Но это менее безопасно. Рекомендуется первый подход с явной передачей organization_id.
 
-Для сообщений без metadata парсить информацию из текста:
-- Название задачи: между кавычками `"Название"`
-- Тип действия: по ключевым словам (создана/завершена/отменена)
-- Задачу искать по названию и client_id
