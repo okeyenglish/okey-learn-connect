@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from "sonner";
 import type { Task } from '@/integrations/supabase/database.types';
+import { getCurrentOrganizationId } from '@/lib/organizationHelpers';
 
 export type { Task };
 
@@ -17,6 +18,7 @@ export interface CreateTaskData {
   goal?: string;
   method?: string;
   direction?: string;
+  organization_id?: string; // Will be auto-filled if not provided
 }
 
 export const useTasks = (clientId?: string) => {
@@ -77,9 +79,15 @@ export const useCreateTask = () => {
   
   return useMutation({
     mutationFn: async (taskData: CreateTaskData) => {
+      // Get organization_id if not provided
+      let organizationId = taskData.organization_id;
+      if (!organizationId) {
+        organizationId = await getCurrentOrganizationId();
+      }
+      
       const { data, error } = await supabase
         .from('tasks')
-        .insert([taskData])
+        .insert([{ ...taskData, organization_id: organizationId }])
         .select()
         .single();
       

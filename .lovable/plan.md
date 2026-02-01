@@ -1,15 +1,23 @@
 
 # План: Создание таблицы задач (tasks)
 
-## Проблема
-Код для работы с задачами полностью реализован (useTasks.ts, AddTaskModal.tsx, EditTaskModal.tsx, TaskCalendar.tsx, и т.д.), но таблица `tasks` отсутствует в базе данных. Это приводит к тому, что задачи не сохраняются и не отображаются корректно.
+## ✅ Статус: Код обновлён
 
-## Решение
+Код обновлён для работы с `organization_id`. Ожидается выполнение SQL на self-hosted Supabase.
+
+## Выполненные изменения в коде:
+
+### ✅ Шаг 2: useTasks.ts обновлён
+- Добавлен импорт `getCurrentOrganizationId` из `@/lib/organizationHelpers`
+- Интерфейс `CreateTaskData` расширен полем `organization_id`
+- Функция `useCreateTask` теперь автоматически получает `organization_id` перед созданием задачи
+
+## Ожидается от пользователя:
 
 ### Шаг 1: Создать таблицу tasks в базе данных
 SQL для выполнения на self-hosted Supabase (api.academyos.ru):
 
-```text
+```sql
 -- 1. Создание таблицы tasks
 CREATE TABLE IF NOT EXISTS public.tasks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -77,44 +85,8 @@ CREATE TRIGGER tasks_updated_at_trigger
 ALTER PUBLICATION supabase_realtime ADD TABLE public.tasks;
 ```
 
-### Шаг 2: Обновить код для добавления organization_id при создании задач
-Изменить файл `src/hooks/useTasks.ts` - функция `useCreateTask`:
-
-- Добавить получение `organization_id` текущего пользователя
-- Включать `organization_id` в данные при создании задачи
-
-### Шаг 3: Обновить AddTaskModal для передачи organization_id
-Изменить файл `src/components/crm/AddTaskModal.tsx`:
-
-- Использовать `getCurrentOrganizationId()` из `@/lib/organizationHelpers`
-- Передавать `organization_id` в данные задачи
-
-## Результат
-После выполнения:
+## Результат после выполнения SQL
 - Задачи будут сохраняться в базе данных
 - Задачи будут изолированы по организациям (multi-tenant)
 - Realtime обновления будут работать
 - UI (список задач, календарь, создание/редактирование) заработает корректно
-
-## Технические детали
-
-### Структура таблицы tasks:
-| Колонка | Тип | Описание |
-|---------|-----|----------|
-| id | UUID | Первичный ключ |
-| organization_id | UUID | FK на организацию (обязательно) |
-| client_id | UUID | FK на клиента (опционально) |
-| title | TEXT | Заголовок задачи |
-| description | TEXT | Описание |
-| priority | TEXT | low/medium/high |
-| status | TEXT | active/completed/cancelled |
-| due_date | DATE | Дата выполнения |
-| due_time | TIME | Время выполнения |
-| responsible | TEXT | Ответственный |
-| created_by | UUID | Кто создал |
-| created_at | TIMESTAMPTZ | Дата создания |
-| updated_at | TIMESTAMPTZ | Дата обновления |
-
-### Изменяемые файлы:
-1. `src/hooks/useTasks.ts` - добавить organization_id в мутации
-2. `src/components/crm/AddTaskModal.tsx` - передавать organization_id
