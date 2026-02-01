@@ -464,3 +464,9 @@ verify_jwt = false
 
 [functions.check-activity-kpi]
 verify_jwt = false
+
+[functions.task-reminders]
+verify_jwt = false
+
+[functions.native-push-register]
+verify_jwt = true
