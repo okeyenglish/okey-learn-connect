@@ -7,7 +7,6 @@ export type ActivityStatus = 'online' | 'idle' | 'on_call' | 'offline';
 
 const IDLE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
 const ACTIVITY_UPDATE_INTERVAL = 30_000; // 30 seconds
-const LOW_ACTIVITY_THRESHOLD = 60; // percentage
 const MIN_SESSION_FOR_ALERT = 5 * 60 * 1000; // 5 minutes - don't alert before this
 
 interface ActivityState {
@@ -225,8 +224,11 @@ export const useActivityTracker = (isOnCall: boolean = false) => {
     const notificationSettings = getNotificationSettings();
     if (!notificationSettings.activityWarningEnabled) return;
     
+    // Get threshold from settings (default 60%)
+    const threshold = notificationSettings.activityWarningThreshold || 60;
+    
     // Check if activity dropped below threshold and we haven't shown alert yet
-    if (activityPercentage < LOW_ACTIVITY_THRESHOLD && !state.lowActivityAlertShown) {
+    if (activityPercentage < threshold && !state.lowActivityAlertShown) {
       playNotificationSound(0.5, 'activity_warning');
       setState(prev => {
         const newState = { ...prev, lowActivityAlertShown: true };
@@ -236,7 +238,7 @@ export const useActivityTracker = (isOnCall: boolean = false) => {
     }
     
     // Reset alert flag if activity goes back above threshold (with 5% buffer)
-    if (activityPercentage >= LOW_ACTIVITY_THRESHOLD + 5 && state.lowActivityAlertShown) {
+    if (activityPercentage >= threshold + 5 && state.lowActivityAlertShown) {
       setState(prev => {
         const newState = { ...prev, lowActivityAlertShown: false };
         saveState(newState);
