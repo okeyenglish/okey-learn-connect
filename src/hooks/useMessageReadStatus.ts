@@ -144,3 +144,42 @@ export const useMessageReadCount = (messageId: string) => {
   
   return readStatuses?.length || 0;
 };
+
+// Batch operation to mark multiple chats as read in one query
+export const useBulkMarkChatsAsRead = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (clientIds: string[]) => {
+      if (!user) throw new Error('User not authenticated');
+      if (clientIds.length === 0) return;
+      
+      console.log('[BulkMarkAsRead] Marking', clientIds.length, 'chats as read');
+      
+      // Use a single query with .in() filter for batch update
+      const { error } = await supabase
+        .from('chat_messages')
+        .update({ 
+          is_read: true,
+          read_at: new Date().toISOString()
+        })
+        .in('client_id', clientIds)
+        .eq('is_read', false);
+      
+      if (error) {
+        console.error('[BulkMarkAsRead] Error:', error);
+        throw error;
+      }
+      
+      console.log('[BulkMarkAsRead] Successfully marked all chats as read');
+    },
+    onSuccess: () => {
+      // Invalidate all relevant queries once
+      queryClient.invalidateQueries({ queryKey: ['message-read-status'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-messages'] });
+      queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger'] });
+    }
+  });
+};

@@ -26,7 +26,7 @@ import { useClientStatus } from "@/hooks/useClientStatus";
 import { useRealtimeMessages, useMarkAsRead, useMarkAsUnread } from "@/hooks/useChatMessages";
 import { useChatThreadsInfinite } from "@/hooks/useChatThreadsInfinite";
 // useTeacherLinkedClientIds removed - now using teacher_id directly in chat_messages
-import { useMarkChatMessagesAsRead } from "@/hooks/useMessageReadStatus";
+import { useMarkChatMessagesAsRead, useBulkMarkChatsAsRead } from "@/hooks/useMessageReadStatus";
 import { useStudentsLazy } from "@/hooks/useStudentsLazy";
 import { useStudentsCount } from "@/hooks/useStudentsCount";
 import { useLeadsCount } from "@/hooks/useLeadsCount";
@@ -442,6 +442,7 @@ const CRMContent = () => {
   const markAsReadMutation = useMarkAsRead();
   const markAsUnreadMutation = useMarkAsUnread();
   const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
+  const bulkMarkChatsAsReadMutation = useBulkMarkChatsAsRead();
   const { 
     pinnedModals, 
     loading: pinnedLoading,
@@ -1690,10 +1691,12 @@ const CRMContent = () => {
     
     // Execute action
     if (action === 'read') {
+      // Use batch operation for efficiency - single database query
+      bulkMarkChatsAsReadMutation.mutate(chatIdsArray);
+      
+      // Update local state immediately for all chats
       chatIdsArray.forEach(chatId => {
         markChatAsReadGlobally(chatId);
-        markChatMessagesAsReadMutation.mutate(chatId);
-        markAsReadMutation.mutate(chatId);
         markAsRead(chatId);
       });
     } else if (action === 'pin') {
@@ -1713,7 +1716,7 @@ const CRMContent = () => {
     setBulkSelectMode(false);
     setSelectedChatIds(new Set());
     setBulkActionConfirm({ open: false, action: null, count: 0 });
-  }, [selectedChatIds, bulkActionConfirm.action, markChatAsReadGlobally, markChatMessagesAsReadMutation, markAsReadMutation, markAsRead, togglePin, toggleArchive, setBulkSelectMode, setSelectedChatIds, getChatState, isChatReadGlobally, startUndoTimer]);
+  }, [selectedChatIds, bulkActionConfirm.action, markChatAsReadGlobally, bulkMarkChatsAsReadMutation, markAsRead, togglePin, toggleArchive, setBulkSelectMode, setSelectedChatIds, getChatState, isChatReadGlobally, startUndoTimer]);
 
   const [activeFamilyMemberId, setActiveFamilyMemberId] = useState('550e8400-e29b-41d4-a716-446655440001');
 
