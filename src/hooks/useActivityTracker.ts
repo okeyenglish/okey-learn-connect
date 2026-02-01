@@ -51,11 +51,19 @@ const saveState = (state: ActivityState) => {
   }
 };
 
+interface UseActivityTrackerOptions {
+  isOnCall?: boolean;
+  /** Callback when activity drops below threshold - replaces default sound/message behavior */
+  onLowActivity?: (activityPercentage: number) => void;
+}
+
 /**
  * Hook to track user activity and determine idle status.
  * Uses throttled event listeners to minimize performance impact.
  */
-export const useActivityTracker = (isOnCall: boolean = false) => {
+export const useActivityTracker = (options: UseActivityTrackerOptions = {}) => {
+  const { isOnCall = false, onLowActivity } = options;
+  
   const [state, setState] = useState<ActivityState>(() => {
     const loaded = loadState();
     const now = Date.now();
@@ -216,7 +224,7 @@ export const useActivityTracker = (isOnCall: boolean = false) => {
     saveState(newState);
   }, []);
 
-  // Check for low activity and play warning sound + send AI message
+  // Check for low activity and trigger callback or default behavior
   useEffect(() => {
     // Only check after minimum session duration
     if (sessionDuration < MIN_SESSION_FOR_ALERT) return;
@@ -230,13 +238,18 @@ export const useActivityTracker = (isOnCall: boolean = false) => {
     
     // Check if activity dropped below threshold and we haven't shown alert yet
     if (activityPercentage < threshold && !state.lowActivityAlertShown) {
-      // Play warning sound
-      playNotificationSound(0.5, 'activity_warning');
-      
-      // Send motivational message from AI assistant (async, fire and forget)
-      sendActivityWarningMessage(activityPercentage).catch(err => {
-        console.warn('[useActivityTracker] Failed to send AI message:', err);
-      });
+      // If custom callback provided, use it instead of default behavior
+      if (onLowActivity) {
+        onLowActivity(activityPercentage);
+      } else {
+        // Default behavior: play warning sound
+        playNotificationSound(0.5, 'activity_warning');
+        
+        // Send motivational message from AI assistant (async, fire and forget)
+        sendActivityWarningMessage(activityPercentage).catch(err => {
+          console.warn('[useActivityTracker] Failed to send AI message:', err);
+        });
+      }
       
       setState(prev => {
         const newState = { ...prev, lowActivityAlertShown: true };
@@ -253,7 +266,7 @@ export const useActivityTracker = (isOnCall: boolean = false) => {
         return newState;
       });
     }
-  }, [activityPercentage, sessionDuration, state.lowActivityAlertShown]);
+  }, [activityPercentage, sessionDuration, state.lowActivityAlertShown, onLowActivity]);
 
   return {
     status: state.status,

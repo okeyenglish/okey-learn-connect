@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAssistantMessages, AssistantMessage } from '@/hooks/useAssistantMessages';
+import { QuickReplySuggestions } from '@/components/ai-hub/QuickReplySuggestions';
 
 // Browser API type extensions
 declare global {
@@ -53,6 +54,8 @@ interface VoiceAssistantProps {
   initialAssistantMessage?: string | null;
   /** Clear the initial message after it's been processed */
   onClearInitialMessage?: () => void;
+  /** Category for quick reply suggestions (shows buttons above input) */
+  quickReplyCategory?: 'activity_warning' | 'tab_feedback' | null;
 }
 
 interface ChatMessage {
@@ -91,7 +94,8 @@ export default function VoiceAssistant({
   onOpenModal,
   onOpenChat,
   initialAssistantMessage,
-  onClearInitialMessage
+  onClearInitialMessage,
+  quickReplyCategory
 }: VoiceAssistantProps) {
   const [inputText, setInputText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -751,6 +755,17 @@ export default function VoiceAssistant({
           </div>
         </ScrollArea>
 
+      {/* Quick Reply Suggestions */}
+      {quickReplyCategory && (
+        <QuickReplySuggestions
+          category={quickReplyCategory}
+          onSelectReply={(text) => {
+            processMessage(text);
+          }}
+          disabled={isProcessing}
+        />
+      )}
+
       {/* Input Area */}
       <div className="p-3 border-t bg-background absolute inset-x-0 bottom-0">
         <div className="flex gap-2 items-center">
@@ -928,6 +943,17 @@ export default function VoiceAssistant({
           )}
         </div>
       </ScrollArea>
+
+      {/* Quick Reply Suggestions */}
+      {quickReplyCategory && (
+        <QuickReplySuggestions
+          category={quickReplyCategory}
+          onSelectReply={(text) => {
+            processMessage(text);
+          }}
+          disabled={isProcessing}
+        />
+      )}
 
       {/* Input Area */}
       <div className="p-4 border-t shrink-0 sticky bottom-0 bg-background">

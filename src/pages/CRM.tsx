@@ -193,6 +193,11 @@ import { useCRMModals, useCRMState, useCRMTasks, useCRMSearch } from "@/pages/cr
 import type { CRMChat, ClientCRMChat, SystemCRMChat, CorporateChat, PinnedModalType, RealtimePayload, GroupStudentRow } from "@/pages/crm/types";
 import { isClientChat } from "@/pages/crm/types";
 import { useTabFeedback, TAB_FEEDBACK_MESSAGE } from "@/hooks/useTabFeedback";
+import { useActivityTracker } from "@/hooks/useActivityTracker";
+
+const LOW_ACTIVITY_MESSAGE = `⚠️ Внимание! Твоя активность за сегодняшнюю сессию упала ниже нормы. 
+
+Что произошло? Выбери один из вариантов ниже или напиши свою причину:`;
 
 const CRMContent = () => {
   const { user, profile, role, roles, signOut } = useAuth();
@@ -231,10 +236,19 @@ const CRMContent = () => {
       // Переключаемся на ChatOS и открываем чат с AI помощником
       setActiveChatType('chatos');
       setInitialAssistantMessage(TAB_FEEDBACK_MESSAGE);
+      setQuickReplyCategory('tab_feedback');
     }
   });
   
-  
+  // Activity tracker - открываем AI Hub при низкой активности вместо toast
+  useActivityTracker({
+    onLowActivity: (activityPercentage) => {
+      console.log('[CRM] Low activity detected:', activityPercentage, '% - opening AI Hub');
+      setActiveChatType('chatos');
+      setInitialAssistantMessage(LOW_ACTIVITY_MESSAGE);
+      setQuickReplyCategory('activity_warning');
+    }
+  });
   // Destructure all states for use in component
   const {
     openModal,
@@ -386,6 +400,8 @@ const CRMContent = () => {
   const [initialStaffUserId, setInitialStaffUserId] = useState<string | null>(null);
   // ChatOS - initial message for AI assistant (e.g., from tab feedback)
   const [initialAssistantMessage, setInitialAssistantMessage] = useState<string | null>(null);
+  // ChatOS - quick reply category for AI assistant
+  const [quickReplyCategory, setQuickReplyCategory] = useState<'activity_warning' | 'tab_feedback' | null>(null);
   const { data: deletedChats = [] } = useDeletedChats();
   
   // Критичные данные - загружаем ТОЛЬКО threads с infinite scroll (50 за раз)
@@ -4175,7 +4191,12 @@ const CRMContent = () => {
                   initialStaffUserId={initialStaffUserId}
                   onClearInitialStaffUserId={() => setInitialStaffUserId(null)}
                   initialAssistantMessage={initialAssistantMessage}
-                  onClearInitialAssistantMessage={() => setInitialAssistantMessage(null)}
+                  onClearInitialAssistantMessage={() => {
+                    setInitialAssistantMessage(null);
+                    // Clear quick reply category after first user response
+                    setQuickReplyCategory(null);
+                  }}
+                  quickReplyCategory={quickReplyCategory}
                 />
               </Suspense>
             </div>
