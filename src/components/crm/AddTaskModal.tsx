@@ -26,6 +26,8 @@ interface AddTaskModalProps {
   clientName?: string;
   clientId?: string;
   familyGroupId?: string;
+  /** Messenger tab where the user is currently viewing the dialog (to place notifications into the right tab). */
+  currentMessengerType?: string;
   isPinned?: boolean;
   onPin?: () => void;
   onUnpin?: () => void;
@@ -50,6 +52,7 @@ export const AddTaskModal = ({
   clientName,
   clientId,
   familyGroupId,
+  currentMessengerType,
   isPinned = false, 
   onPin, 
   onUnpin,
@@ -196,7 +199,8 @@ export const AddTaskModal = ({
           taskTitle, 
           formattedDate, 
           createdTask.id,
-          taskData.responsible
+          taskData.responsible,
+          currentMessengerType
         );
       }
 

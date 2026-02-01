@@ -3,12 +3,21 @@ import { useSendMessage } from './useChatMessages';
 export const useTaskNotifications = () => {
   const sendMessage = useSendMessage();
 
+  const normalizeMessengerType = (t?: string) => {
+    // chat_messages.messenger_type is enum on self-hosted;
+    // avoid invalid values like "calls" which would break INSERT.
+    const allowed = new Set(['whatsapp', 'telegram', 'max', 'chatos', 'email']);
+    if (t && allowed.has(t)) return t;
+    return 'whatsapp';
+  };
+
   const sendTaskCreatedNotification = async (
     clientId: string, 
     taskTitle: string, 
     dueDate: string,
     taskId?: string,
-    responsible?: string
+    responsible?: string,
+    messengerType?: string
   ) => {
     console.log('Sending task created notification to client:', clientId);
     try {
@@ -16,6 +25,7 @@ export const useTaskNotifications = () => {
         clientId,
         messageText: `Задача "${taskTitle}" создана на ${dueDate}`,
         messageType: 'system',
+        messengerType: normalizeMessengerType(messengerType),
         metadata: {
           type: 'task_notification',
           action: 'created',
@@ -35,13 +45,15 @@ export const useTaskNotifications = () => {
     clientId: string, 
     taskTitle: string,
     taskId?: string,
-    responsible?: string
+    responsible?: string,
+    messengerType?: string
   ) => {
     try {
       await sendMessage.mutateAsync({
         clientId,
         messageText: `Задача "${taskTitle}" успешно завершена`,
         messageType: 'system',
+        messengerType: normalizeMessengerType(messengerType),
         metadata: {
           type: 'task_notification',
           action: 'completed',
@@ -59,13 +71,15 @@ export const useTaskNotifications = () => {
     clientId: string, 
     taskTitle: string,
     taskId?: string,
-    responsible?: string
+    responsible?: string,
+    messengerType?: string
   ) => {
     try {
       await sendMessage.mutateAsync({
         clientId,
         messageText: `Задача "${taskTitle}" отменена`,
         messageType: 'system',
+        messengerType: normalizeMessengerType(messengerType),
         metadata: {
           type: 'task_notification',
           action: 'cancelled',
