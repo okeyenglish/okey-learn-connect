@@ -90,6 +90,22 @@ SELECT cron.schedule(
 - `0 * * * *` - Каждый час
 - `0 0 * * *` - Каждый день в полночь
 
+## Cron для агрегации статистики сотрудников
+
+```sql
+SELECT cron.schedule(
+  'aggregate-staff-stats-hourly',
+  '0 * * * *', -- каждый час
+  $$
+  SELECT net.http_post(
+    url := 'https://api.academyos.ru/functions/v1/aggregate-staff-stats',
+    headers := '{"Content-Type": "application/json", "Authorization": "Bearer ВСТАВЬТЕ_ANON_KEY"}'::jsonb,
+    body := '{}'::jsonb
+  ) AS request_id;
+  $$
+);
+```
+
 ## Мониторинг
 
 Создайте dashboard для мониторинга:
@@ -102,7 +118,7 @@ SELECT
   COUNT(*) FILTER (WHERE status = 'failed') as failed,
   AVG(EXTRACT(EPOCH FROM (end_time - start_time))) as avg_duration_seconds
 FROM cron.job_run_details
-WHERE job_name = 'openrouter-provisioner-every-minute'
+WHERE job_name IN ('openrouter-provisioner-every-minute', 'aggregate-staff-stats-hourly')
   AND start_time > NOW() - INTERVAL '1 hour';
 ```
 ```
