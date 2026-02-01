@@ -4105,7 +4105,10 @@ const CRMContent = () => {
                 clientComment={currentChatClientInfo.comment}
                 onMessageChange={setHasUnsavedChat}
                 activePhoneId={activePhoneId}
-                onOpenTaskModal={() => setShowAddTaskModal(true)}
+                onOpenTaskModal={() => {
+                  setPinnedTaskClientId(activeChatId || '');
+                  setShowAddTaskModal(true);
+                }}
                 onOpenInvoiceModal={() => setShowInvoiceModal(true)}
                 onBackToList={isMobile ? () => {
                   setActiveChatId('');
