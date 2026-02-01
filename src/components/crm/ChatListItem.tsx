@@ -189,15 +189,9 @@ export const ChatListItem = React.memo(({
     >
       <button 
         className={`w-full p-2 text-left rounded-lg transition-all duration-200 relative mb-0.5 border select-none touch-manipulation ${
-          isPinned 
-            ? `border-orange-200 bg-gradient-to-r ${
-                isActive 
-                  ? 'from-orange-50 to-orange-100/50 shadow-sm dark:from-orange-950 dark:to-orange-900/50' 
-                  : 'from-white to-orange-50/30 hover:to-orange-50 dark:from-background dark:to-orange-950/30 hover:shadow-sm'
-              }`
-            : isActive 
-              ? 'bg-accent/50 shadow-sm border-accent' 
-              : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
+          isActive 
+            ? 'bg-accent/50 shadow-sm border-accent' 
+            : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
         } ${bulkSelectMode && isSelected ? 'ring-2 ring-primary ring-offset-1' : ''} ${
           isNewMessage ? 'new-message-glow' : ''
         }`}
@@ -246,14 +240,8 @@ export const ChatListItem = React.memo(({
                   .slice(0, 2)
                   .toUpperCase() || '?'}
                 size="custom"
-                className={`h-9 w-9 ring-2 transition-all ${
-                  isPinned 
-                    ? 'ring-orange-200 shadow-sm' 
-                    : 'ring-border/30'
-                }`}
-                fallbackClassName={isPinned 
-                  ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white' 
-                  : 'bg-primary/15 text-primary'}
+                className="h-9 w-9 ring-2 ring-border/30"
+                fallbackClassName="bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))]"
                 rootMargin="200px"
               />
               {chat.last_unread_messenger && (
@@ -343,9 +331,7 @@ export const ChatListItem = React.memo(({
               <span className="text-[10px] text-muted-foreground font-medium">{chat.time}</span>
             </div>
             {displayUnread && (
-              <span className={`${
-                isPinned ? 'bg-gradient-to-r from-orange-500 to-orange-600' : 'bg-gradient-to-r from-primary to-primary/90'
-              } text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1`}>
+              <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1">
                 {showEye ? (
                   <>
                     <Avatar className="h-3.5 w-3.5">
