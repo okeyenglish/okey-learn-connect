@@ -2299,6 +2299,7 @@ export const ChatArea = ({
         <ClientTasks 
           clientName={clientName}
           clientId={clientId}
+          currentMessengerType={activeMessengerTab}
         />
       </div>
 
@@ -3583,6 +3584,7 @@ export const ChatArea = ({
           onOpenChange={setShowAddTaskModal}
           clientName={clientName}
           clientId={clientId}
+          currentMessengerType={activeMessengerTab}
         />
       )}
 

@@ -10,9 +10,11 @@ import { useTaskNotifications } from "@/hooks/useTaskNotifications";
 interface ClientTasksProps {
   clientId: string;
   clientName: string;
+  /** Messenger tab where the user is currently viewing the dialog (to place notifications into the right tab). */
+  currentMessengerType?: string;
 }
 
-export const ClientTasks = ({ clientId, clientName }: ClientTasksProps) => {
+export const ClientTasks = ({ clientId, clientName, currentMessengerType }: ClientTasksProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const { tasks, isLoading } = useTasks(clientId);
@@ -32,7 +34,7 @@ export const ClientTasks = ({ clientId, clientName }: ClientTasksProps) => {
     try {
       await completeTask.mutateAsync(taskId);
       if (task) {
-        await sendTaskCompletedNotification(clientId, task.title, taskId, task.responsible || undefined);
+        await sendTaskCompletedNotification(clientId, task.title, taskId, task.responsible || undefined, currentMessengerType);
       }
     } catch (error) {
       console.error('Error completing task:', error);
@@ -44,7 +46,7 @@ export const ClientTasks = ({ clientId, clientName }: ClientTasksProps) => {
     try {
       await cancelTask.mutateAsync(taskId);
       if (task) {
-        await sendTaskCancelledNotification(clientId, task.title, taskId, task.responsible || undefined);
+        await sendTaskCancelledNotification(clientId, task.title, taskId, task.responsible || undefined, currentMessengerType);
       }
     } catch (error) {
       console.error('Error cancelling task:', error);

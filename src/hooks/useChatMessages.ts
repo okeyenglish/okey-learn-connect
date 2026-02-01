@@ -543,13 +543,16 @@ export const useSendMessage = () => {
       messageText,
       messageType = 'manager',
       phoneNumberId,
-      metadata
+      metadata,
+      messengerType,
     }: {
       clientId: string;
       messageText: string;
       messageType?: 'client' | 'manager' | 'system';
       phoneNumberId?: string;
       metadata?: Record<string, unknown>;
+      /** Which messenger tab/thread this message belongs to (whatsapp/telegram/max/chatos/email). */
+      messengerType?: string;
     }) => {
       // Get organization_id from cache or fetch it to satisfy RLS on self-hosted
       let organizationId: string | null = null;
@@ -588,6 +591,9 @@ export const useSendMessage = () => {
       }
       if (metadata !== undefined) {
         payload.metadata = metadata;
+      }
+      if (messengerType !== undefined) {
+        payload.messenger_type = messengerType;
       }
 
       const tryInsert = async (p: Record<string, unknown>) => {
