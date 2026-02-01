@@ -90,7 +90,7 @@ export const StaffActivityIndicator: React.FC<StaffActivityIndicatorProps> = ({
     idleTime,
     activityPercentage,
     isIdle,
-  } = useActivityTracker(isOnCall);
+  } = useActivityTracker({ isOnCall });
 
   // Persist session data to database
   const currentIdleStreak = isIdle ? Date.now() - lastActivity : 0;

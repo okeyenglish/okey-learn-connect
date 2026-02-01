@@ -80,6 +80,8 @@ interface AIHubInlineProps {
   initialAssistantMessage?: string | null;
   /** Clear the initialAssistantMessage after it's been processed */
   onClearInitialAssistantMessage?: () => void;
+  /** Category for quick reply suggestions in AI assistant */
+  quickReplyCategory?: 'activity_warning' | 'tab_feedback' | null;
 }
 
 interface ChatMessage {
@@ -128,7 +130,8 @@ export const AIHubInline = ({
   initialStaffUserId,
   onClearInitialStaffUserId,
   initialAssistantMessage,
-  onClearInitialAssistantMessage
+  onClearInitialAssistantMessage,
+  quickReplyCategory
 }: AIHubInlineProps) => {
   const [activeChat, setActiveChat] = useState<ChatItem | null>(null);
   const [message, setMessage] = useState('');
@@ -576,13 +579,12 @@ export const AIHubInline = ({
             onOpenChat={onOpenChat}
             initialAssistantMessage={initialAssistantMessage}
             onClearInitialMessage={onClearInitialAssistantMessage}
+            quickReplyCategory={quickReplyCategory}
           />
         </div>
       </div>
     );
   }
-
-  // Render active chat (consultants, groups, teachers)
   if (activeChat) {
     const isLoading = activeChat.type === 'teacher' ? staffDirectLoading : activeChat.type === 'group' ? staffGroupLoading : false;
     const currentMessages = getCurrentMessages();
