@@ -702,6 +702,7 @@ export const AIHub = ({
   ])) as string[];
 
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
+  const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('all');
 
   // Filter by branch
   const branchFilteredChats = selectedBranch === 'all' 
@@ -723,9 +724,24 @@ export const AIHub = ({
   const aiChatsListFiltered = branchFilteredChats.filter(c => 
     ['assistant', 'lawyer', 'accountant', 'marketer', 'hr', 'methodist', 'it'].includes(c.type)
   );
-  const corporateChatsListFiltered = branchFilteredChats.filter(c => 
+  const corporateChatsListBase = branchFilteredChats.filter(c => 
     c.type === 'group' || c.type === 'teacher' || c.type === 'staff'
   );
+  
+  // Apply online filter to staff/teacher chats
+  const corporateChatsListFiltered = staffFilter === 'online' 
+    ? corporateChatsListBase.filter(item => {
+        if (item.type === 'teacher') {
+          const profileId = (item.data as TeacherChatItem)?.profileId;
+          return profileId ? isUserOnline(profileId) : false;
+        }
+        if (item.type === 'staff') {
+          const staffId = (item.data as StaffMember)?.id;
+          return staffId ? isUserOnline(staffId) : false;
+        }
+        return false; // Groups are excluded when filtering online
+      })
+    : corporateChatsListBase;
 
   // Main chat list - EXACT copy of mobile AIHubInline layout
   return (
@@ -968,19 +984,45 @@ export const AIHub = ({
             )}
 
             {/* Staff & Groups Section - EXACT mobile layout */}
-            {corporateChatsListFiltered.length > 0 && (
+            {corporateChatsListBase.length > 0 && (
               <div className="space-y-1">
                 <div className="px-3 py-2 flex items-center justify-between">
-                  <span className="text-sm font-medium text-muted-foreground">Сотрудники и группы</span>
-                  <div className="flex items-center gap-1">
-                    <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full mr-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-muted-foreground">Сотрудники и группы</span>
+                    <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full">
                       {corporateChatsListFiltered.length}
                     </Badge>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {/* Filter toggle: All / Online */}
+                    <div className="flex items-center bg-muted rounded-md p-0.5">
+                      <button
+                        onClick={() => setStaffFilter('all')}
+                        className={`px-2 py-1 text-xs rounded transition-colors ${
+                          staffFilter === 'all' 
+                            ? 'bg-background shadow-sm font-medium' 
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        Все
+                      </button>
+                      <button
+                        onClick={() => setStaffFilter('online')}
+                        className={`px-2 py-1 text-xs rounded transition-colors flex items-center gap-1 ${
+                          staffFilter === 'online' 
+                            ? 'bg-background shadow-sm font-medium' 
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                        Онлайн
+                      </button>
+                    </div>
                     <CreateStaffGroupModal onGroupCreated={() => queryClient.invalidateQueries({ queryKey: ['internal-chats'] })} />
                   </div>
                 </div>
                 
-                {corporateChatsListFiltered.map((item) => {
+                {corporateChatsListFiltered.length > 0 ? corporateChatsListFiltered.map((item) => {
                   const isTeacher = item.type === 'teacher';
                   const isStaff = item.type === 'staff';
                   const isGroup = item.type === 'group';
@@ -1057,7 +1099,11 @@ export const AIHub = ({
                       </div>
                     </button>
                   );
-                })}
+                }) : (
+                  <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                    {staffFilter === 'online' ? 'Нет сотрудников онлайн' : 'Нет сотрудников'}
+                  </div>
+                )}
               </div>
             )}
 

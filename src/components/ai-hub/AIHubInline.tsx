@@ -235,6 +235,7 @@ export const AIHubInline = ({
   const [isChatSearchOpen, setIsChatSearchOpen] = useState(false);
   const [teacherClientId, setTeacherClientId] = useState<string | null>(null);
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
+  const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('all');
   const [pendingFile, setPendingFile] = useState<{ url: string; name: string; type: string } | null>(null);
   
   const { aiSectionExpanded, toggleAiSection, knowledgeSectionExpanded, toggleKnowledgeSection } = usePersistedSections();
@@ -611,8 +612,8 @@ export const AIHubInline = ({
 
   const aiChatsList = filteredChats.filter(item => item.type === 'assistant' || ['lawyer', 'accountant', 'marketer', 'hr', 'methodist', 'it'].includes(item.type));
   
-  // Corporate chats sorted by: 1) unread, 2) online status, 3) last message time
-  const corporateChatsList = filteredChats
+  // Corporate chats base list sorted by: 1) unread, 2) online status, 3) last message time
+  const corporateChatsListBase = filteredChats
     .filter(item => item.type === 'group' || item.type === 'teacher' || item.type === 'staff')
     .sort((a, b) => {
       // Items with unread messages come first
@@ -642,6 +643,21 @@ export const AIHubInline = ({
       const bTime = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
       return bTime - aTime; // Descending (most recent first)
     });
+  
+  // Apply online filter
+  const corporateChatsList = staffFilter === 'online' 
+    ? corporateChatsListBase.filter(item => {
+        if (item.type === 'teacher') {
+          const profileId = (item.data as TeacherChatItem)?.profileId;
+          return profileId ? isUserOnline(profileId) : false;
+        }
+        if (item.type === 'staff') {
+          const staffId = (item.data as StaffMember)?.id;
+          return staffId ? isUserOnline(staffId) : false;
+        }
+        return false; // Groups excluded when filtering online
+      })
+    : corporateChatsListBase;
 
   // Render AI Assistant inline
   if (activeChat?.type === 'assistant') {
@@ -1046,19 +1062,45 @@ export const AIHubInline = ({
           )}
 
           {/* Staff & Groups Section */}
-          {corporateChatsList.length > 0 && (
+          {corporateChatsListBase.length > 0 && (
             <div className="space-y-1">
               <div className="px-3 py-2 flex items-center justify-between">
-                <span className="text-sm font-medium text-muted-foreground">Сотрудники и группы</span>
-                <div className="flex items-center gap-1">
-                  <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full mr-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">Сотрудники и группы</span>
+                  <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full">
                     {corporateChatsList.length}
                   </Badge>
+                </div>
+                <div className="flex items-center gap-1">
+                  {/* Filter toggle: All / Online */}
+                  <div className="flex items-center bg-muted rounded-md p-0.5">
+                    <button
+                      onClick={() => setStaffFilter('all')}
+                      className={`px-2 py-1 text-xs rounded transition-colors ${
+                        staffFilter === 'all' 
+                          ? 'bg-background shadow-sm font-medium' 
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      Все
+                    </button>
+                    <button
+                      onClick={() => setStaffFilter('online')}
+                      className={`px-2 py-1 text-xs rounded transition-colors flex items-center gap-1 ${
+                        staffFilter === 'online' 
+                          ? 'bg-background shadow-sm font-medium' 
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                      Онлайн
+                    </button>
+                  </div>
                   <CreateStaffGroupModal onGroupCreated={() => queryClient.invalidateQueries({ queryKey: ['internal-chats'] })} />
                 </div>
               </div>
               
-              {corporateChatsList.map((item) => {
+              {corporateChatsList.length > 0 ? corporateChatsList.map((item) => {
                 const isTeacher = item.type === 'teacher';
                 const isStaff = item.type === 'staff';
                 const isGroup = item.type === 'group';
@@ -1141,7 +1183,11 @@ export const AIHubInline = ({
                       </div>
                     </button>
                 );
-              })}
+              }) : (
+                <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                  {staffFilter === 'online' ? 'Нет сотрудников онлайн' : 'Нет сотрудников'}
+                </div>
+              )}
             </div>
           )}
 
