@@ -1,15 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 
 const STORAGE_KEY = 'ai-hub-sections-state';
 
 interface SectionsState {
   aiSectionExpanded: boolean;
   staffSectionExpanded: boolean;
+  knowledgeSectionExpanded: boolean;
 }
 
 const DEFAULT_STATE: SectionsState = {
   aiSectionExpanded: false,
   staffSectionExpanded: true,
+  knowledgeSectionExpanded: false,
 };
 
 /**
@@ -51,6 +53,10 @@ export function usePersistedSections() {
     updateState({ staffSectionExpanded: expanded });
   }, [updateState]);
 
+  const setKnowledgeSectionExpanded = useCallback((expanded: boolean) => {
+    updateState({ knowledgeSectionExpanded: expanded });
+  }, [updateState]);
+
   const toggleAiSection = useCallback(() => {
     updateState({ aiSectionExpanded: !state.aiSectionExpanded });
   }, [state.aiSectionExpanded, updateState]);
@@ -59,12 +65,19 @@ export function usePersistedSections() {
     updateState({ staffSectionExpanded: !state.staffSectionExpanded });
   }, [state.staffSectionExpanded, updateState]);
 
+  const toggleKnowledgeSection = useCallback(() => {
+    updateState({ knowledgeSectionExpanded: !state.knowledgeSectionExpanded });
+  }, [state.knowledgeSectionExpanded, updateState]);
+
   return {
     aiSectionExpanded: state.aiSectionExpanded,
     staffSectionExpanded: state.staffSectionExpanded,
+    knowledgeSectionExpanded: state.knowledgeSectionExpanded,
     setAiSectionExpanded,
     setStaffSectionExpanded,
+    setKnowledgeSectionExpanded,
     toggleAiSection,
     toggleStaffSection,
+    toggleKnowledgeSection,
   };
 }
