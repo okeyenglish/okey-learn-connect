@@ -1180,6 +1180,7 @@ export interface Textbook {
 
 export interface Task {
   id: string;
+  organization_id: string;
   client_id?: string | null;
   title: string;
   description?: string | null;
@@ -1192,6 +1193,7 @@ export interface Task {
   method?: string | null;
   direction?: string | null;
   branch?: string | null;
+  created_by?: string | null;
   created_at: string;
   updated_at: string;
   // Joined relation
