@@ -228,16 +228,9 @@ const CRMContent = () => {
   useTabFeedback({
     minAwayTime: 30000, // 30 секунд
     onShowFeedbackRequest: () => {
-      toast(TAB_FEEDBACK_MESSAGE, {
-        duration: 15000,
-        action: {
-          label: "Написать",
-          onClick: () => {
-            // Открыть AI ассистента для ввода фидбека
-            toast.info("Спасибо! Напишите ваш фидбек в чат с AI помощником 💬");
-          }
-        }
-      });
+      // Переключаемся на ChatOS и открываем чат с AI помощником
+      setActiveChatType('chatos');
+      setInitialAssistantMessage(TAB_FEEDBACK_MESSAGE);
     }
   });
   
@@ -391,6 +384,8 @@ const CRMContent = () => {
   
   // ChatOS - target staff user ID to auto-open a chat with
   const [initialStaffUserId, setInitialStaffUserId] = useState<string | null>(null);
+  // ChatOS - initial message for AI assistant (e.g., from tab feedback)
+  const [initialAssistantMessage, setInitialAssistantMessage] = useState<string | null>(null);
   const { data: deletedChats = [] } = useDeletedChats();
   
   // Критичные данные - загружаем ТОЛЬКО threads с infinite scroll (50 за раз)
@@ -4179,6 +4174,8 @@ const CRMContent = () => {
                   onBack={() => setActiveChatType('client')}
                   initialStaffUserId={initialStaffUserId}
                   onClearInitialStaffUserId={() => setInitialStaffUserId(null)}
+                  initialAssistantMessage={initialAssistantMessage}
+                  onClearInitialAssistantMessage={() => setInitialAssistantMessage(null)}
                 />
               </Suspense>
             </div>
