@@ -1629,6 +1629,15 @@ const CRMContent = () => {
     setActiveTab('teachers');
     setActiveChatId(null);
   }, [queryClient, setActiveTab, setActiveChatId]);
+
+  // Bulk read/unread works only for client chats where chatId is a UUID (client_id).
+  // If any non-UUID IDs slip into the selection (e.g. system chats), a single DB query may fail entirely.
+  const isUuid = useCallback(
+    (value: string) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value),
+    []
+  );
+
   const handleBulkUndo = useCallback((actionState: BulkActionState) => {
     console.log('[CRM] Undoing bulk action:', actionState.action, 'for', actionState.chatIds.length, 'chats');
     
@@ -1642,15 +1651,19 @@ const CRMContent = () => {
       if (actionState.action === 'read' && prevState) {
         // Restore unread state
         if (!prevState.isRead) {
-          chatsToMarkAsUnread.push(chatId);
-          markAsUnread(chatId);
+          if (isUuid(chatId)) {
+            chatsToMarkAsUnread.push(chatId);
+            markAsUnread(chatId);
+          }
         }
       } else if (actionState.action === 'unread' && prevState) {
         // Restore read state
         if (prevState.isRead) {
-          chatsToMarkAsRead.push(chatId);
-          markChatAsReadGlobally(chatId);
-          markAsRead(chatId);
+          if (isUuid(chatId)) {
+            chatsToMarkAsRead.push(chatId);
+            markChatAsReadGlobally(chatId);
+            markAsRead(chatId);
+          }
         }
       } else if (actionState.action === 'pin' && prevState) {
         // Restore previous pin state
@@ -1672,7 +1685,7 @@ const CRMContent = () => {
     if (chatsToMarkAsRead.length > 0) {
       bulkMarkChatsAsReadMutation.mutate(chatsToMarkAsRead);
     }
-  }, [markAsUnread, markAsRead, markChatAsReadGlobally, bulkMarkChatsAsUnreadMutation, bulkMarkChatsAsReadMutation, togglePin, toggleArchive]);
+  }, [markAsUnread, markAsRead, markChatAsReadGlobally, bulkMarkChatsAsUnreadMutation, bulkMarkChatsAsReadMutation, togglePin, toggleArchive, isUuid]);
 
   const { startUndoTimer } = useBulkActionUndo({
     onUndo: handleBulkUndo,
@@ -1685,12 +1698,26 @@ const CRMContent = () => {
     const action = bulkActionConfirm.action;
     
     if (!action) return;
+
+    const requiresDbUpdate = action === 'read' || action === 'unread';
+    const actionableChatIds = requiresDbUpdate ? chatIdsArray.filter(isUuid) : chatIdsArray;
+    const skippedChatIds = requiresDbUpdate ? chatIdsArray.filter((id) => !isUuid(id)) : [];
+    if (requiresDbUpdate && skippedChatIds.length > 0) {
+      toast.message(`Пропущено системных чатов: ${skippedChatIds.length}`);
+    }
+    if (requiresDbUpdate && actionableChatIds.length === 0) {
+      toast.message('Выбраны только системные чаты — действие недоступно');
+      setBulkSelectMode(false);
+      setSelectedChatIds(new Set());
+      setBulkActionConfirm({ open: false, action: null, count: 0 });
+      return;
+    }
     
-    console.log('[CRM] Bulk action confirmed:', action, 'for', chatIdsArray.length, 'chats');
+    console.log('[CRM] Bulk action confirmed:', action, 'for', actionableChatIds.length, 'chats');
     
     // Save previous states for undo
     const previousStates = new Map<string, { isRead?: boolean; isPinned?: boolean; isArchived?: boolean }>();
-    chatIdsArray.forEach(chatId => {
+    actionableChatIds.forEach(chatId => {
       const state = getChatState(chatId);
       previousStates.set(chatId, {
         isRead: isChatReadGlobally(chatId),
@@ -1702,31 +1729,41 @@ const CRMContent = () => {
     // Execute action
     if (action === 'read') {
       // Use batch operation for efficiency - single database query
-      bulkMarkChatsAsReadMutation.mutate(chatIdsArray);
+      bulkMarkChatsAsReadMutation.mutate(actionableChatIds, {
+        onError: (err) => {
+          console.error('[CRM] Bulk mark as read failed:', err);
+          toast.error('Не удалось отметить как прочитанное');
+        }
+      });
       
       // Update local state immediately for all chats
-      chatIdsArray.forEach(chatId => {
+      actionableChatIds.forEach(chatId => {
         markChatAsReadGlobally(chatId);
         markAsRead(chatId);
       });
     } else if (action === 'unread') {
       // Use batch operation for efficiency - single database query
-      bulkMarkChatsAsUnreadMutation.mutate(chatIdsArray);
+      bulkMarkChatsAsUnreadMutation.mutate(actionableChatIds, {
+        onError: (err) => {
+          console.error('[CRM] Bulk mark as unread failed:', err);
+          toast.error('Не удалось отметить как непрочитанное');
+        }
+      });
       
       // Update local state immediately for all chats
-      chatIdsArray.forEach(chatId => {
+      actionableChatIds.forEach(chatId => {
         markAsUnread(chatId);
       });
     } else if (action === 'pin') {
-      chatIdsArray.forEach(chatId => togglePin(chatId));
+      actionableChatIds.forEach(chatId => togglePin(chatId));
     } else if (action === 'archive') {
-      chatIdsArray.forEach(chatId => toggleArchive(chatId));
+      actionableChatIds.forEach(chatId => toggleArchive(chatId));
     }
     
     // Start undo timer with toast
     startUndoTimer({
       action,
-      chatIds: chatIdsArray,
+      chatIds: actionableChatIds,
       previousStates,
       timestamp: Date.now(),
     });
@@ -1734,7 +1771,7 @@ const CRMContent = () => {
     setBulkSelectMode(false);
     setSelectedChatIds(new Set());
     setBulkActionConfirm({ open: false, action: null, count: 0 });
-  }, [selectedChatIds, bulkActionConfirm.action, markChatAsReadGlobally, bulkMarkChatsAsReadMutation, bulkMarkChatsAsUnreadMutation, markAsRead, markAsUnread, togglePin, toggleArchive, setBulkSelectMode, setSelectedChatIds, getChatState, isChatReadGlobally, startUndoTimer]);
+  }, [selectedChatIds, bulkActionConfirm.action, markChatAsReadGlobally, bulkMarkChatsAsReadMutation, bulkMarkChatsAsUnreadMutation, markAsRead, markAsUnread, togglePin, toggleArchive, setBulkSelectMode, setSelectedChatIds, getChatState, isChatReadGlobally, startUndoTimer, isUuid]);
 
   const [activeFamilyMemberId, setActiveFamilyMemberId] = useState('550e8400-e29b-41d4-a716-446655440001');
 

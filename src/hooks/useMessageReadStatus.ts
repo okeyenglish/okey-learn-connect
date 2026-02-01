@@ -165,7 +165,8 @@ export const useBulkMarkChatsAsRead = () => {
           read_at: new Date().toISOString()
         })
         .in('client_id', clientIds)
-        .eq('is_read', false);
+        // Some rows may have is_read = NULL, treat them as unread
+        .or('is_read.is.null,is_read.eq.false');
       
       if (error) {
         console.error('[BulkMarkAsRead] Error:', error);
