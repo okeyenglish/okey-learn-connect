@@ -999,10 +999,7 @@ export const AIHub = ({
                             : 'text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        Все
-                        <Badge variant="outline" className="text-[10px] h-4 min-w-[20px] flex items-center justify-center rounded-full px-1">
-                          {corporateChatsListBase.length}
-                        </Badge>
+                        Все {corporateChatsListBase.length}
                       </button>
                       <button
                         onClick={() => setStaffFilter('online')}
