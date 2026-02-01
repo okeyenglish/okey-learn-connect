@@ -745,6 +745,8 @@ export const ChatArea = ({
     isForwarded: msg.is_forwarded || false,
     forwardedFrom: msg.forwarded_from || null,
     forwardedFromType: msg.forwarded_from_type || null,
+    // Task notification metadata
+    metadata: msg.metadata || null,
   }), [managerName]);
 
   // Format messages from React Query data using memoization for performance
@@ -2539,6 +2541,8 @@ export const ChatArea = ({
                             isHighlighted={msg.id === currentHighlightedId}
                             searchQuery={searchQuery}
                             isJustSent={isMessageJustSent(msg)}
+                            metadata={msg.metadata}
+                            clientId={clientId}
                           />
                         )}
                       </div>
@@ -2683,6 +2687,8 @@ export const ChatArea = ({
                             isHighlighted={msg.id === currentHighlightedId}
                             searchQuery={searchQuery}
                             isJustSent={isMessageJustSent(msg)}
+                            metadata={msg.metadata}
+                            clientId={clientId}
                           />
                         )}
                       </div>
@@ -2787,6 +2793,8 @@ export const ChatArea = ({
                             isHighlighted={msg.id === currentHighlightedId}
                             searchQuery={searchQuery}
                             isJustSent={isMessageJustSent(msg)}
+                            metadata={msg.metadata}
+                            clientId={clientId}
                           />
                         )}
                       </div>
@@ -2904,6 +2912,8 @@ export const ChatArea = ({
                             isHighlighted={msg.id === currentHighlightedId}
                             searchQuery={searchQuery}
                             isJustSent={isMessageJustSent(msg)}
+                            metadata={msg.metadata}
+                            clientId={clientId}
                           />
                         )}
                       </div>

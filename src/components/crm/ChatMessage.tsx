@@ -11,6 +11,7 @@ import { MessageDeliveryStatus, DeliveryStatus } from "./MessageDeliveryStatus";
 import { MessageReactions } from "./MessageReactions";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { LazyImage } from "./LazyImage";
+import { TaskNotificationMessage } from "./TaskNotificationMessage";
 
 import { highlightSearchText } from '@/utils/highlightText';
 
@@ -86,11 +87,26 @@ interface ChatMessageProps {
   animationIndex?: number;
   /** True if this message was just sent (triggers send animation) */
   isJustSent?: boolean;
+  /** Metadata for system messages (task notifications etc.) */
+  metadata?: Record<string, unknown> | null;
+  /** Client ID for task notifications */
+  clientId?: string;
 }
 
-const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, onResendMessage, onCancelRetry, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, messageTypeHint, whatsappChatId, externalMessageId, showAvatar = true, showName = true, isLastInGroup = true, onForwardMessage, onEnterSelectionMode, onQuoteMessage, isHighlighted = false, searchQuery, animationIndex, isJustSent = false }: ChatMessageProps) => {
+const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, onResendMessage, onCancelRetry, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, messageTypeHint, whatsappChatId, externalMessageId, showAvatar = true, showName = true, isLastInGroup = true, onForwardMessage, onEnterSelectionMode, onQuoteMessage, isHighlighted = false, searchQuery, animationIndex, isJustSent = false, metadata, clientId }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
+
+  // Detect task notification from metadata or message text
+  const isTaskNotification = useMemo(() => {
+    if (metadata?.type === 'task_notification') return true;
+    if (!message) return false;
+    return message.includes('Задача "') && (
+      message.includes('создана на') ||
+      message.includes('успешно завершена') ||
+      message.includes('отменена')
+    );
+  }, [metadata, message]);
 
   // Keep local rendered text in sync with realtime/optimistic updates
   useEffect(() => {
@@ -185,6 +201,18 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
   }
 
   if (type === 'system') {
+    // Task notifications - use compact TaskNotificationMessage component
+    if (isTaskNotification) {
+      return (
+        <TaskNotificationMessage
+          message={message}
+          time={time}
+          metadata={metadata as any}
+          clientId={clientId}
+        />
+      );
+    }
+
     if (systemType === 'missed-call') {
       return (
         <div className="flex justify-center my-2">
@@ -211,52 +239,6 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
             <Button size="sm" variant="outline" className="text-green-600 h-7 px-2">
               <FileSpreadsheet className="h-3 w-3" />
             </Button>
-          </div>
-        </div>
-      );
-    }
-
-    // Default system message display (for task notifications)
-    if (message.includes('создана на')) {
-      return (
-        <div className="flex justify-center my-2">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 max-w-md">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 bg-blue-100 rounded flex items-center justify-center flex-shrink-0">
-                <Plus className="h-3 w-3 text-blue-600" />
-              </div>
-              <div className="text-xs text-blue-800 font-medium">{message}</div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (message.includes('успешно завершена')) {
-      return (
-        <div className="flex justify-center my-2">
-          <div className="bg-green-50 border border-green-200 rounded-lg p-2 max-w-md">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 bg-green-100 rounded flex items-center justify-center flex-shrink-0">
-                <CheckCircle className="h-3 w-3 text-green-600" />
-              </div>
-              <div className="text-xs text-green-800 font-medium">{message}</div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (message.includes('отменена')) {
-      return (
-        <div className="flex justify-center my-2">
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 max-w-md">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 bg-orange-100 rounded flex items-center justify-center flex-shrink-0">
-                <XCircle className="h-3 w-3 text-orange-600" />
-              </div>
-              <div className="text-xs text-orange-800 font-medium">{message}</div>
-            </div>
           </div>
         </div>
       );

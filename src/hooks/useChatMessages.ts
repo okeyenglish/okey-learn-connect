@@ -501,12 +501,14 @@ export const useSendMessage = () => {
       clientId,
       messageText,
       messageType = 'manager',
-      phoneNumberId
+      phoneNumberId,
+      metadata
     }: {
       clientId: string;
       messageText: string;
       messageType?: 'client' | 'manager' | 'system';
       phoneNumberId?: string;
+      metadata?: Record<string, unknown>;
     }) => {
       const { data, error } = await supabase
         .from('chat_messages')
@@ -516,6 +518,7 @@ export const useSendMessage = () => {
           message_text: messageText,
           message_type: messageType,
           is_read: messageType === 'manager', // Manager messages are marked as read
+          metadata: metadata || null,
         }])
         .select()
         .single();

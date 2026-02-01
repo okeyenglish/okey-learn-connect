@@ -183,15 +183,21 @@ export const AddTaskModal = ({
         taskData.due_time = formData.time;
       }
 
-      await createTask.mutateAsync(taskData);
+      const createdTask = await createTask.mutateAsync(taskData);
       console.log('Task created successfully, hasClient:', hasClient, 'selectedClientId:', selectedClientId);
 
       // Send notification if this is a client task
-      if (hasClient && selectedClientId) {
+      if (hasClient && selectedClientId && createdTask) {
         const taskTitle = formData.description.substring(0, 100) || "Новая задача";
         const formattedDate = format(formData.date, 'dd.MM.yyyy', { locale: ru });
         console.log('Sending task created notification:', taskTitle, formattedDate);
-        await sendTaskCreatedNotification(selectedClientId, taskTitle, formattedDate);
+        await sendTaskCreatedNotification(
+          selectedClientId, 
+          taskTitle, 
+          formattedDate, 
+          createdTask.id,
+          taskData.responsible
+        );
       }
 
       // Reset form

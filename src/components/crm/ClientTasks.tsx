@@ -32,7 +32,7 @@ export const ClientTasks = ({ clientId, clientName }: ClientTasksProps) => {
     try {
       await completeTask.mutateAsync(taskId);
       if (task) {
-        await sendTaskCompletedNotification(clientId, task.title);
+        await sendTaskCompletedNotification(clientId, task.title, taskId, task.responsible || undefined);
       }
     } catch (error) {
       console.error('Error completing task:', error);
@@ -44,7 +44,7 @@ export const ClientTasks = ({ clientId, clientName }: ClientTasksProps) => {
     try {
       await cancelTask.mutateAsync(taskId);
       if (task) {
-        await sendTaskCancelledNotification(clientId, task.title);
+        await sendTaskCancelledNotification(clientId, task.title, taskId, task.responsible || undefined);
       }
     } catch (error) {
       console.error('Error cancelling task:', error);
