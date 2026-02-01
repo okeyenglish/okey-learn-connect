@@ -694,7 +694,7 @@ export const AIHubInline = ({
     );
   }
   if (activeChat) {
-    const isLoading = activeChat.type === 'teacher' ? staffDirectLoading : activeChat.type === 'group' ? staffGroupLoading : false;
+    const isLoading = (activeChat.type === 'teacher' || activeChat.type === 'staff') ? staffDirectLoading : activeChat.type === 'group' ? staffGroupLoading : false;
     const currentMessages = getCurrentMessages();
     const filteredMessages = getFilteredMessages(currentMessages);
     const matchCount = chatSearchQuery.trim() ? filteredMessages.length : 0;
@@ -1005,59 +1005,6 @@ export const AIHubInline = ({
                   </div>
                 </button>
               ))}
-            </div>
-          )}
-
-          {/* Online Staff Section */}
-          {onlineCount > 0 && (
-            <div className="space-y-1">
-              <div className="px-3 py-2 flex items-center gap-2">
-                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-sm font-medium text-muted-foreground">Сейчас онлайн</span>
-                <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full bg-green-50 text-green-700 border-green-200">
-                  {onlineCount}
-                </Badge>
-              </div>
-              
-              <div className="flex flex-wrap gap-1.5 px-3 pb-2">
-                {onlineUsers.map((onlineUser) => {
-                  // Find matching chat item for this online user
-                  const matchingChat = corporateChatsList.find(item => {
-                    if (item.type === 'teacher') {
-                      return (item.data as TeacherChatItem)?.profileId === onlineUser.id;
-                    }
-                    if (item.type === 'staff') {
-                      return (item.data as StaffMember)?.id === onlineUser.id;
-                    }
-                    return false;
-                  });
-                  
-                  const initials = onlineUser.name
-                    .split(' ')
-                    .map(n => n[0])
-                    .join('')
-                    .toUpperCase()
-                    .slice(0, 2) || '•';
-                  
-                  return (
-                    <button
-                      key={onlineUser.id}
-                      onClick={() => matchingChat && handleSelectChat(matchingChat)}
-                      disabled={!matchingChat}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 hover:bg-green-100 border border-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title={matchingChat ? `Написать ${onlineUser.name}` : onlineUser.name}
-                    >
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {initials}
-                      </span>
-                      <span className="text-xs font-medium text-green-700 max-w-[80px] truncate">
-                        {onlineUser.name.split(' ')[0]}
-                      </span>
-                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                    </button>
-                  );
-                })}
-              </div>
             </div>
           )}
 
