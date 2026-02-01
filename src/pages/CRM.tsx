@@ -4314,10 +4314,8 @@ const CRMContent = () => {
               : undefined
           }
           clientId={
-            pinnedTaskClientId && 
-            pinnedTaskClientId !== 'client-task' &&
-            getActiveClientInfo(pinnedTaskClientId).name !== 'Выберите чат' 
-              ? pinnedTaskClientId 
+            pinnedTaskClientId && pinnedTaskClientId !== 'client-task'
+              ? pinnedTaskClientId
               : undefined
           }
           familyGroupId={

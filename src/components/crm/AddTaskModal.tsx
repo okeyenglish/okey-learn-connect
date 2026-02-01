@@ -74,7 +74,7 @@ export const AddTaskModal = ({
   const [selectedClientName, setSelectedClientName] = useState<string | undefined>(clientName);
 
   // Whether we have a client context (from props or selection)
-  const hasClient = !!(selectedClientId && selectedClientName);
+  const hasClient = !!selectedClientId;
 
   // Family data for selected client/chat
   const [selectedFamilyGroupId, setSelectedFamilyGroupId] = useState<string | undefined>(familyGroupId);
@@ -97,7 +97,7 @@ export const AddTaskModal = ({
   // Автосинхронизация клиента и сброс полей при открытии модалки
   useEffect(() => {
     if (!open) return;
-    if (clientId && clientName) {
+    if (clientId) {
       setSelectedClientId(clientId);
       setSelectedClientName(clientName);
       if (familyGroupId) setSelectedFamilyGroupId(familyGroupId);
@@ -257,7 +257,7 @@ export const AddTaskModal = ({
         <PinnableModalHeader
           title={
             hasClient 
-              ? `Назначение задачи - ${selectedClientName}` 
+              ? `Назначение задачи - ${selectedClientName || 'клиент'}` 
               : "Новая задача"
           }
           isPinned={isPinned}
