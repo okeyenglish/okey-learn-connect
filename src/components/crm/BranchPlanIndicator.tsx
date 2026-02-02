@@ -21,7 +21,7 @@ function formatCurrency(value: number): string {
 
 function ProgressBar({ value, colorClass }: { value: number; colorClass: string }) {
   return (
-    <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-muted">
+    <div className="relative h-1.5 w-full overflow-hidden bg-muted">
       <div
         className={cn('h-full transition-all', colorClass)}
         style={{ width: `${Math.min(100, value)}%` }}
@@ -142,38 +142,50 @@ export const BranchPlanIndicator = React.memo(({ onDashboardClick }: BranchPlanI
           </div>
 
           {/* Revenue */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground flex items-center gap-1.5">
-                <TrendingUp className="h-3.5 w-3.5" />
-                Выручка
-              </span>
-              <span className="font-medium">
-                {formatCurrency(revenue)} / {formatCurrency(revenueTarget)} ₽
-              </span>
-            </div>
-            <ProgressBar value={revenuePercentage} colorClass={getProgressColor(revenuePercentage)} />
-            <div className="text-xs text-right text-muted-foreground">
-              {revenuePercentage}%
-            </div>
-          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="space-y-1.5 cursor-help">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground flex items-center gap-1.5">
+                      <TrendingUp className="h-3.5 w-3.5" />
+                      Выручка
+                    </span>
+                    <span className="font-medium">
+                      {formatCurrency(revenue)} / {formatCurrency(revenueTarget)} ₽
+                    </span>
+                  </div>
+                  <ProgressBar value={revenuePercentage} colorClass={getProgressColor(revenuePercentage)} />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                <p className="text-xs">{revenuePercentage}%</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           {/* New Students */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground flex items-center gap-1.5">
-                <Users className="h-3.5 w-3.5" />
-                Новые ученики
-              </span>
-              <span className="font-medium">
-                {newStudents} / {newStudentsTarget}
-              </span>
-            </div>
-            <ProgressBar value={newStudentsPercentage} colorClass={getProgressColor(newStudentsPercentage)} />
-            <div className="text-xs text-right text-muted-foreground">
-              {newStudentsPercentage}%
-            </div>
-          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="space-y-1.5 cursor-help">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground flex items-center gap-1.5">
+                      <Users className="h-3.5 w-3.5" />
+                      Новые ученики
+                    </span>
+                    <span className="font-medium">
+                      {newStudents} / {newStudentsTarget}
+                    </span>
+                  </div>
+                  <ProgressBar value={newStudentsPercentage} colorClass={getProgressColor(newStudentsPercentage)} />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                <p className="text-xs">{newStudentsPercentage}%</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           {/* Drops */}
           <div className="flex items-center justify-between text-sm">
