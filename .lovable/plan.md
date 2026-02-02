@@ -1,68 +1,110 @@
 
-# Plan: Fix Mobile Navigation Tab Switching
+# Plan: Fix Cross-Device Session Synchronization
 
-## Problem
-When clicking "Menu" in the mobile navigation, `activeTab` is set to `'menu'`. Clicking on "Clients", "Teachers", or "ChatOS" only changes `activeChatType` but does not reset `activeTab` back to `'chats'`, causing the menu to block all other views.
+## Problem Analysis
+Each device starts tracking from scratch and re-sends already-counted server data as new deltas, causing double-counting. The `useSessionPersistence` hook doesn't know that `activeTime` was loaded from server (not locally accumulated).
 
 ## Solution
-Update the mobile navigation handlers to also set `activeTab` to `'chats'` when switching away from the menu.
+Pass server baseline to `useSessionPersistence` and initialize `lastSavedRef` with server values when baseline arrives. This ensures only NEW activity (accumulated after sync) gets sent as deltas.
 
 ---
 
-## Changes
+## Technical Changes
 
-### File: `src/pages/CRM.tsx`
+### 1. Update `useSessionPersistence.ts`
+Add `serverBaseline` parameter and sync `lastSavedRef` when baseline arrives:
 
-Update the three mobile navigation handlers (lines ~1922-1948):
-
-**handleMobileChatOSClick:**
 ```typescript
-const handleMobileChatOSClick = () => {
-  setActiveChatType('chatos');
-  setActiveChatId(null);
-  setActiveTab('chats'); // <-- ADD THIS
-  if (isMobile) {
-    setLeftSidebarOpen(false);
-    setRightSidebarOpen(false);
-  }
-};
+export const useSessionPersistence = (
+  sessionStart: number,
+  activeTime: number,
+  idleTime: number,
+  onCallTime: number = 0,
+  isIdle: boolean = false,
+  currentIdleStreak: number = 0,
+  serverBaseline?: ServerSessionBaseline | null  // NEW PARAMETER
+) => {
+  // ... existing code ...
+
+  // NEW: Sync lastSavedRef with server baseline to prevent double-counting
+  const serverBaselineAppliedRef = useRef(false);
+  
+  useEffect(() => {
+    if (!serverBaseline || serverBaselineAppliedRef.current) return;
+    
+    // Server baseline loaded - initialize lastSavedRef to server values
+    // This prevents re-sending already-counted time as new deltas
+    const serverActiveMs = serverBaseline.activeSeconds * 1000;
+    const serverIdleMs = serverBaseline.idleSeconds * 1000;
+    const serverOnCallMs = serverBaseline.onCallSeconds * 1000;
+    
+    // Only apply if server has meaningful data
+    if (serverActiveMs > 0 || serverIdleMs > 0) {
+      console.log('[useSessionPersistence] Syncing with server baseline:', {
+        serverActive: serverBaseline.activeSeconds,
+        serverIdle: serverBaseline.idleSeconds,
+      });
+      
+      lastSavedRef.current = {
+        activeTime: Math.max(lastSavedRef.current.activeTime, serverActiveMs),
+        idleTime: Math.max(lastSavedRef.current.idleTime, serverIdleMs),
+        onCallTime: Math.max(lastSavedRef.current.onCallTime, serverOnCallMs),
+        timestamp: Date.now(),
+      };
+      
+      serverBaselineAppliedRef.current = true;
+    }
+  }, [serverBaseline]);
 ```
 
-**handleMobileTeachersClick:**
-```typescript
-const handleMobileTeachersClick = () => {
-  setActiveChatType('teachers');
-  setActiveChatId(null);
-  setActiveTab('chats'); // <-- ADD THIS
-  if (isMobile) {
-    setLeftSidebarOpen(false);
-    setRightSidebarOpen(false);
-  }
-};
-```
+### 2. Update `StaffActivityIndicator.tsx`
+Pass `serverBaseline` to `useSessionPersistence`:
 
-**handleMobileClientsClick:**
 ```typescript
-const handleMobileClientsClick = () => {
-  setActiveChatType('client');
-  setActiveChatId(null);
-  setActiveTab('chats'); // <-- ADD THIS
-  if (isMobile) {
-    setLeftSidebarOpen(false);
-    setRightSidebarOpen(false);
-  }
-};
+const { baseline: serverBaseline } = useTodayWorkSession();
+
+// ... useActivityTracker call ...
+
+useSessionPersistence(
+  sessionStart,
+  activeTime,
+  idleTime,
+  0,
+  isIdle,
+  currentIdleStreak,
+  serverBaseline  // NEW: Pass server baseline
+);
 ```
 
 ---
 
-## Result
+## Data Flow After Fix
 
-| Button Click | Before | After |
-|-------------|--------|-------|
-| ChatOS | Shows menu (blocked) | Shows AI Hub |
-| Teachers | Shows menu (blocked) | Shows teacher chats |
-| Clients | Shows menu (blocked) | Shows client chats |
-| Menu | Shows menu | Shows menu |
+```text
+Device A (Desktop):
+1. Start fresh, activeTime=0, lastSaved=0
+2. Work 2h → activeTime=2h
+3. Save delta: 2h - 0 = 2h → Server: 2h ✓
+4. lastSaved updated to 2h
 
-Now clicking any navigation button will properly switch the view by updating both `activeChatType` AND `activeTab`.
+Device B (PWA) opens:
+1. Fetch server baseline: 2h
+2. useActivityTracker syncs: activeTime = max(0, 2h) = 2h
+3. useSessionPersistence syncs lastSaved = max(0, 2h) = 2h  ← FIX
+4. Work 30min → activeTime = 2.5h
+5. Save delta: 2.5h - 2h = 0.5h → Server: 2h + 0.5h = 2.5h ✓
+```
+
+---
+
+## Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/hooks/useSessionPersistence.ts` | Add serverBaseline parameter, sync lastSavedRef |
+| `src/components/crm/StaffActivityIndicator.tsx` | Pass serverBaseline to useSessionPersistence |
+
+## Edge Cases Handled
+- First-time user: serverBaseline = 0, no sync needed
+- New day: Day change logic resets both tracker and persistence
+- Network failure: Falls back to local-only tracking until sync succeeds
