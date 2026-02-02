@@ -1035,6 +1035,12 @@ export const ChatArea = ({
 
   const handleSendMessage = async () => {
     if ((!message.trim() && attachedFiles.length === 0 && !paymentLinkAttachment) || loading || message.length > MAX_MESSAGE_LENGTH) return;
+    
+    // Prevent duplicate sends if countdown already in progress
+    if (pendingMessage) {
+      console.log('[ChatArea] Ignoring send - countdown already active');
+      return;
+    }
 
     // Подготавливаем текст с цитатой если есть
     let messageText = message.trim();
@@ -1184,6 +1190,19 @@ export const ChatArea = ({
                 description: `Не удалось отправить файл "${file.name}"`,
                 variant: "destructive",
               });
+              // Save failed message so user can retry
+              await supabase.from('chat_messages').insert({
+                client_id: clientId,
+                message_text: messageText || `[Файл: ${file.name}]`,
+                message_type: 'manager',
+                is_outgoing: true,
+                messenger_type: 'max',
+                message_status: 'failed',
+                file_url: file.url,
+                file_name: file.name,
+                file_type: file.type
+              });
+              queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
               return;
             }
           }
@@ -1195,6 +1214,16 @@ export const ChatArea = ({
               description: "Не удалось отправить сообщение",
               variant: "destructive",
             });
+            // Save failed message so user can retry
+            await supabase.from('chat_messages').insert({
+              client_id: clientId,
+              message_text: messageText,
+              message_type: 'manager',
+              is_outgoing: true,
+              messenger_type: 'max',
+              message_status: 'failed'
+            });
+            queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
             return;
           }
         }
@@ -1209,6 +1238,19 @@ export const ChatArea = ({
                 description: `Не удалось отправить файл "${file.name}"`,
                 variant: "destructive",
               });
+              // Save failed message so user can retry
+              await supabase.from('chat_messages').insert({
+                client_id: clientId,
+                message_text: messageText || `[Файл: ${file.name}]`,
+                message_type: 'manager',
+                is_outgoing: true,
+                messenger_type: 'telegram',
+                message_status: 'failed',
+                file_url: file.url,
+                file_name: file.name,
+                file_type: file.type
+              });
+              queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
               return;
             }
           }
@@ -1220,6 +1262,16 @@ export const ChatArea = ({
               description: "Не удалось отправить сообщение",
               variant: "destructive",
             });
+            // Save failed message so user can retry
+            await supabase.from('chat_messages').insert({
+              client_id: clientId,
+              message_text: messageText,
+              message_type: 'manager',
+              is_outgoing: true,
+              messenger_type: 'telegram',
+              message_status: 'failed'
+            });
+            queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
             return;
           }
         }
@@ -1285,6 +1337,19 @@ export const ChatArea = ({
                 description: `Не удалось отправить файл "${file.name}": ${result.error}`,
                 variant: "destructive",
               });
+              // Save failed message so user can retry
+              await supabase.from('chat_messages').insert({
+                client_id: clientId,
+                message_text: messageText || `[Файл: ${file.name}]`,
+                message_type: 'manager',
+                is_outgoing: true,
+                messenger_type: 'whatsapp',
+                message_status: 'failed',
+                file_url: file.url,
+                file_name: file.name,
+                file_type: file.type
+              });
+              queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
               return;
             }
           }
@@ -1298,6 +1363,16 @@ export const ChatArea = ({
                 description: textResult.error || "Не удалось отправить текстовое сообщение",
                 variant: "destructive",
               });
+              // Save failed message so user can retry
+              await supabase.from('chat_messages').insert({
+                client_id: clientId,
+                message_text: messageText,
+                message_type: 'manager',
+                is_outgoing: true,
+                messenger_type: 'whatsapp',
+                message_status: 'failed'
+              });
+              queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
               return;
             }
           }
@@ -1310,6 +1385,16 @@ export const ChatArea = ({
               description: result.error || "Не удалось отправить сообщение",
               variant: "destructive",
             });
+            // Save failed message so user can retry
+            await supabase.from('chat_messages').insert({
+              client_id: clientId,
+              message_text: messageText,
+              message_type: 'manager',
+              is_outgoing: true,
+              messenger_type: 'whatsapp',
+              message_status: 'failed'
+            });
+            queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
             return;
           }
         }
