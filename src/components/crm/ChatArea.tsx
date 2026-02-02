@@ -1243,6 +1243,7 @@ export const ChatArea = ({
               messenger: 'chatos',
               message_type: filesToSend.length > 0 ? 'file' : 'text',
               direction: 'outgoing',
+              is_outgoing: true, // Mark as outgoing for self-hosted schema compatibility
               sender_id: authUser?.id,
               sender_name: senderName,
               media_url: filesToSend[0]?.url,

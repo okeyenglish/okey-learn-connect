@@ -573,11 +573,13 @@ export const useSendMessage = () => {
         }
       }
 
+      const isOutgoingMessage = messageType === 'manager' || messageType === 'system';
       const payload: Record<string, unknown> = {
         client_id: clientId,
         message_text: messageText,
         message_type: messageType,
-        is_read: messageType === 'manager', // Manager messages are marked as read
+        is_outgoing: isOutgoingMessage, // Mark outgoing messages to exclude from unread count
+        is_read: isOutgoingMessage, // Outgoing messages are marked as read
       };
 
       // Add organization_id explicitly to satisfy RLS policies on self-hosted
