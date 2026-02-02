@@ -2112,48 +2112,17 @@ const CRMContent = () => {
   return (
       <TooltipProvider>
         <div className="crm-container h-[100svh] flex flex-col overflow-hidden">
-      {/* Фиксированные вкладки сверху на мобильной версии - скрываем когда открыт чат с клиентом */}
+      {/* Фиксированный хедер сверху на мобильной версии - скрываем когда открыт чат с клиентом */}
       {isMobile && !(activeChatId && activeChatType === 'client') && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b">
-          <div className="flex items-center h-11">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleTabChange('menu')}
-              className={`flex-1 rounded-none h-full text-sm font-medium transition-colors ${
-                activeTab === 'menu' 
-                  ? 'text-primary border-b-2 border-primary bg-transparent' 
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Меню
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                handleTabChange('chats');
-                if (isMobile && activeChatId) {
-                  setActiveChatId('');
-                }
-              }}
-              className={`flex-1 rounded-none h-full text-sm font-medium transition-colors ${
-                activeTab === 'chats' 
-                  ? 'text-primary border-b-2 border-primary bg-transparent' 
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Чаты{totalUnreadCount > 0 && ` (${totalUnreadCount})`}
-            </Button>
-            <div className="px-3 h-full flex items-center border-l">
-              <UnifiedManagerWidget
-                managerName={profile && profile.first_name && profile.last_name 
-                  ? `${profile.first_name} ${profile.last_name}` 
-                  : 'Менеджер'}
-                onSignOut={handleSignOut}
-                onDashboardClick={() => setShowDashboardModal(true)}
-              />
-            </div>
+          <div className="flex items-center justify-end h-11 px-3">
+            <UnifiedManagerWidget
+              managerName={profile && profile.first_name && profile.last_name 
+                ? `${profile.first_name} ${profile.last_name}` 
+                : 'Менеджер'}
+              onSignOut={handleSignOut}
+              onDashboardClick={() => setShowDashboardModal(true)}
+            />
           </div>
         </div>
       )}
@@ -4475,13 +4444,13 @@ const CRMContent = () => {
         onOpenScripts={() => setShowScriptsModal(true)}
       />
 
-      {/* Мобильная нижняя навигация чатов - показываем только в списке (не в диалоге) */}
-      {isMobile && activeTab === 'chats' && !activeChatId && (
+      {/* Мобильная нижняя навигация чатов - показываем когда не открыт диалог с клиентом */}
+      {isMobile && !activeChatId && (
         <MobileChatNavigation
           onChatOSClick={handleMobileChatOSClick}
           onTeachersClick={handleMobileTeachersClick}
           onClientsClick={handleMobileClientsClick}
-          onKPIClick={handleMobileKPIClick}
+          onMenuClick={() => handleTabChange('menu')}
           onNewChatClick={handleMobileNewChatClick}
           onPaymentClick={() => setShowInvoiceModal(true)}
           onTaskClick={() => setShowAddTaskModal(true)}
@@ -4489,8 +4458,7 @@ const CRMContent = () => {
           chatOSUnreadCount={staffUnreadCount + (assistantUnreadCount || 0)}
           teachersUnreadCount={teacherChats?.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0) || 0}
           clientsUnreadCount={threads?.filter((t: any) => t.unread_count > 0).length || 0}
-          kpiHasAlerts={false}
-          activeChatType={activeChatType}
+          activeChatType={activeTab === 'menu' ? 'menu' : activeChatType}
         />
       )}
 
