@@ -722,6 +722,7 @@ export const AIHubInline = ({
     const currentMessages = getCurrentMessages();
     const filteredMessages = getFilteredMessages(currentMessages);
     const matchCount = chatSearchQuery.trim() ? filteredMessages.length : 0;
+    const IconComponent = activeChat.icon || Users;
 
     return (
       <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-background">
@@ -731,8 +732,8 @@ export const AIHubInline = ({
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <Avatar className="h-9 w-9 shrink-0">
-            <AvatarFallback className={activeChat.iconBg}>
-              <activeChat.icon className={`h-5 w-5 ${activeChat.iconColor}`} />
+            <AvatarFallback className={activeChat.iconBg || 'bg-muted'}>
+              <IconComponent className={`h-5 w-5 ${activeChat.iconColor || 'text-muted-foreground'}`} />
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
