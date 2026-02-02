@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { Loader2, Activity, RefreshCw, ExternalLink } from 'lucide-react';
+import { Loader2, Activity, RefreshCw } from 'lucide-react';
 import { useStaffActivityLog } from '@/hooks/useStaffActivityLog';
 import { StaffActivityFilters } from './StaffActivityFilters';
 import { StaffActivityItem } from './StaffActivityItem';
@@ -76,7 +76,7 @@ export function StaffActivityFeed({
           </p>
         </div>
       ) : (
-        <ScrollArea className={compact ? 'h-[300px]' : 'h-[calc(100vh-280px)]'}>
+        <ScrollArea className={compact ? 'h-[300px]' : 'h-[60vh] max-h-[500px]'}>
           <div className="space-y-1">
             {activities.map((activity) => (
               <StaffActivityItem
@@ -87,19 +87,6 @@ export function StaffActivityFeed({
             ))}
           </div>
         </ScrollArea>
-      )}
-
-      {compact && activities.length > 0 && (
-        <div className="mt-4 pt-4 border-t">
-          <Button
-            variant="ghost"
-            className="w-full"
-            onClick={() => navigate('/crm/activity')}
-          >
-            Смотреть всю активность
-            <ExternalLink className="h-4 w-4 ml-2" />
-          </Button>
-        </div>
       )}
     </>
   );
@@ -113,7 +100,7 @@ export function StaffActivityFeed({
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <CardTitle className="flex items-center gap-2">
           <Activity className="h-5 w-5" />
-          Активность команды
+          {userId ? 'Мои действия' : 'Активность команды'}
         </CardTitle>
         <Button variant="ghost" size="icon" onClick={() => refetch()}>
           <RefreshCw className="h-4 w-4" />
