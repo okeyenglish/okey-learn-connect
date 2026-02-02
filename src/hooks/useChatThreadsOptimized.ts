@@ -296,6 +296,7 @@ function mapRpcToThreads(data: RpcThreadRow[], startTime?: number): ChatThread[]
       max_avatar_url: row.max_avatar_url || null,
       last_message: lastMessage,
       last_message_time: row.last_message_time || '',
+      last_message_messenger: row.last_messenger_type || row.last_unread_messenger || null,
       unread_count: Number(row.unread_count) || 0,
       unread_by_messenger: {
       whatsapp: Number(row.unread_whatsapp) || 0,

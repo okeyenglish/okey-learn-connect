@@ -52,6 +52,7 @@ export interface ChatThread {
   max_chat_id?: string | null;
   last_message: string;
   last_message_time: string;
+  last_message_messenger: string | null;
   unread_count: number;
   unread_by_messenger: UnreadByMessenger;
   last_unread_messenger: string | null;
@@ -250,6 +251,8 @@ export const useChatThreads = () => {
         // Обрабатываем даже если клиент не подтянулся из join (RLS/доступ)
         const safeClient = message.clients || { id: message.client_id, name: '', phone: '' };
         
+        const messengerOfMessage = message.messenger_type || 'whatsapp';
+        
         if (!threadsMap.has(clientId)) {
           threadsMap.set(clientId, {
             client_id: clientId,
@@ -257,6 +260,7 @@ export const useChatThreads = () => {
             client_phone: safeClient.phone || '',
             last_message: message.message_text,
             last_message_time: message.created_at,
+            last_message_messenger: messengerOfMessage,
             unread_count: 0,
             unread_by_messenger: createDefaultUnreadByMessenger(),
             last_unread_messenger: null,
@@ -268,6 +272,7 @@ export const useChatThreads = () => {
         if (new Date(message.created_at) > new Date(thread.last_message_time)) {
           thread.last_message = message.message_text;
           thread.last_message_time = message.created_at;
+          thread.last_message_messenger = messengerOfMessage;
         }
         
         // Считаем только непрочитанные ВХОДЯЩИЕ сообщения (от клиентов), игнорируем исходящие/системные
@@ -314,6 +319,7 @@ export const useChatThreads = () => {
             client_phone: client.phone || '',
             last_message: callMessage,
             last_message_time: call.started_at,
+            last_message_messenger: 'calls',
             unread_count: call.status === 'missed' ? 1 : 0,
             unread_by_messenger: createDefaultUnreadByMessenger(),
             last_unread_messenger: call.status === 'missed' ? 'calls' : null,

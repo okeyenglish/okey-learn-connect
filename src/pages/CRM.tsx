@@ -1121,6 +1121,7 @@ const CRMContent = () => {
           type: 'client' as const,
           timestamp: new Date(thread.last_message_time).getTime(),
           avatar_url: displayAvatar,
+          last_message_messenger: thread.last_message_messenger,
           last_unread_messenger: thread.last_unread_messenger
         };
       }),
@@ -1182,6 +1183,7 @@ const CRMContent = () => {
         type: 'client' as const,
         timestamp: thread.last_message_time ? new Date(thread.last_message_time).getTime() : 0,
         avatar_url: displayAvatar,
+        last_message_messenger: thread.last_message_messenger,
         last_unread_messenger: thread.last_unread_messenger,
         foundInMessages
       };

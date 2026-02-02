@@ -350,6 +350,7 @@ function mapRpcToThreads(data: RpcThreadRow[]): ChatThread[] {
       max_chat_id: row.max_chat_id || null,
       last_message: lastMessage,
       last_message_time: row.last_message_time,
+      last_message_messenger: row.last_unread_messenger || null,
       unread_count: Number(row.unread_count) || 0,
       unread_by_messenger: {
         whatsapp: Number(row.unread_whatsapp) || 0,
