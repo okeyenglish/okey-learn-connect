@@ -104,7 +104,8 @@ export const StaffActivityIndicator: React.FC<StaffActivityIndicatorProps> = ({
     idleTime,
     0, // onCallTime - будет добавлено при интеграции с телефонией
     isIdle,
-    currentIdleStreak
+    currentIdleStreak,
+    serverBaseline // Pass server baseline to prevent double-counting
   );
 
   // Force re-render every minute to update timer
