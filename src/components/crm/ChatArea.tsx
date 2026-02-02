@@ -1165,7 +1165,7 @@ export const ChatArea = ({
           message_type: 'manager',
           is_outgoing: true,
           messenger_type: messengerType,
-          status: 'failed'
+          message_status: 'failed'
         });
         
         queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
