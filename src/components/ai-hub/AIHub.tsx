@@ -135,6 +135,8 @@ export const AIHub = ({
   const [isRecording, setIsRecording] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [teacherClientId, setTeacherClientId] = useState<string | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState<string>('all');
+  const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('all');
   
   // Persisted sections state
   const { 
@@ -760,8 +762,7 @@ export const AIHub = ({
     ...groupChatItems.map(g => (g.data as InternalChat)?.branch).filter(Boolean),
   ])) as string[];
 
-  const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('all');
+  // selectedBranch and staffFilter moved to top with other useState hooks
 
   // Filter by branch
   const branchFilteredChats = selectedBranch === 'all' 
