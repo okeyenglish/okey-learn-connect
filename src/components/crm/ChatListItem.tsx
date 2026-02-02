@@ -81,6 +81,7 @@ interface ChatListItemProps {
     type: 'client' | 'corporate' | 'teachers';
     timestamp: number;
     avatar_url: string | null;
+    last_message_messenger?: string | null; // Messenger of the last message
     last_unread_messenger?: string | null; // Last messenger with unread message
   };
   isActive: boolean;
@@ -244,8 +245,8 @@ export const ChatListItem = React.memo(({
                 fallbackClassName="bg-[hsl(var(--avatar-blue))] text-[hsl(var(--text-primary))]"
                 rootMargin="200px"
               />
-              {chat.last_unread_messenger && (
-                <MessengerIcon messenger={chat.last_unread_messenger} />
+              {(chat.last_message_messenger || chat.last_unread_messenger) && (
+                <MessengerIcon messenger={chat.last_message_messenger || chat.last_unread_messenger || ''} />
               )}
             </div>
             

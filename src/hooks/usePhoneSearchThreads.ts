@@ -213,6 +213,7 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
         max_avatar_url: null, // Not in self-hosted schema
         last_message: lastMessage?.message_text || '',
         last_message_time: lastMessage?.created_at || null,
+        last_message_messenger: lastMessage?.messenger_type || null,
         unread_count: unreadMessages.length,
         unread_by_messenger: unreadByMessenger,
         last_unread_messenger: unreadMessages[0]?.messenger_type || null,
@@ -258,6 +259,7 @@ function mapRpcToThreads(data: RpcThreadRow[]): ChatThread[] {
     max_avatar_url: null, // Not in self-hosted schema
     last_message: row.last_message_text || row.last_message || '', // last_message_text from new RPC
     last_message_time: row.last_message_time || null,
+    last_message_messenger: row.last_unread_messenger || null,
     unread_count: Number(row.unread_count) || 0,
     unread_by_messenger: {
       whatsapp: Number(row.unread_whatsapp) || 0,

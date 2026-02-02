@@ -33,6 +33,7 @@ export interface SystemCRMChat extends BaseCRMChat {
 export interface ClientCRMChat extends BaseCRMChat {
   type: ClientChatType;
   branch?: string | null;
+  last_message_messenger?: string | null;
   last_unread_messenger?: string | null;
   foundInMessages?: boolean;
 }
