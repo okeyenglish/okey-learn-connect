@@ -74,9 +74,11 @@ export const useTodayWorkSession = () => {
         lastUpdated: data.updated_at,
       };
     },
-    enabled: !!user?.id,
-    staleTime: 60_000, // 1 minute
-    refetchOnWindowFocus: true, // Re-fetch when tab becomes visible
+  enabled: !!user?.id,
+  staleTime: 60_000, // 1 minute
+  refetchOnWindowFocus: true, // Re-fetch when tab becomes visible
+  refetchInterval: 60_000, // Auto-refresh every 60 seconds
+  refetchIntervalInBackground: false, // Don't poll when tab is inactive (save server load)
   });
 
   // Refetch when visibility changes to visible
