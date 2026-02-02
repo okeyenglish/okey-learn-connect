@@ -28,7 +28,8 @@ import {
   UserCheck,
   Briefcase,
   HardDrive,
-  Phone
+  Phone,
+  Activity
 } from 'lucide-react';
 
 export const UnifiedCRMHeader = () => {
@@ -175,6 +176,12 @@ export const UnifiedCRMHeader = () => {
           href: '/crm/sheets',
           icon: HardDrive,
           allowedRoles: ['admin', 'manager', 'methodist']
+        },
+        {
+          label: 'Активность',
+          href: '/crm/activity',
+          icon: Activity,
+          allowedRoles: ['admin', 'branch_manager']
         }
       );
     }
