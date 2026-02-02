@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { startOfMonth, endOfMonth, format, subDays, getDay, eachDayOfInterval, isWeekend, differenceInDays } from 'date-fns';
+import { startOfMonth, endOfMonth, format, subDays, eachDayOfInterval, isWeekend } from 'date-fns';
 
 export interface BranchPlanStats {
   revenue: number;
@@ -19,8 +19,12 @@ export interface BranchPlanStats {
   earnedSalary: number;
   workingDaysInMonth: number;
   workedDays: number;
-  bonusAmount: number;
-  bonusUnlocked: boolean;
+  // Bonus stats
+  studentsBonus: number;
+  studentsUnlocked: boolean;
+  planBonus: number;
+  planUnlocked: boolean;
+  lessonBonus: number;
   isLoading: boolean;
   error: Error | null;
 }
@@ -28,7 +32,8 @@ export interface BranchPlanStats {
 const DEFAULT_REVENUE_TARGET = 1000000;
 const DEFAULT_STUDENTS_TARGET = 10;
 const BASE_SALARY = 60000;
-const BONUS_AMOUNT = 10000;
+const STUDENTS_BONUS = 20000;
+const PLAN_BONUS = 20000;
 const STUDENTS_FOR_BONUS = 10;
 
 function getWorkingDaysInMonth(date: Date): number {
@@ -123,6 +128,47 @@ export function useBranchPlanStats(): BranchPlanStats {
       
       const { count: newStudentsMonth } = await studentsMonthQuery;
 
+      // Fetch new students IDs this month for lesson bonus calculation
+      let studentsMonthIdsQuery = supabase
+        .from('students')
+        .select('id')
+        .eq('organization_id', organizationId)
+        .gte('created_at', monthStart)
+        .lte('created_at', monthEnd + 'T23:59:59');
+      
+      if (!isAdmin && userBranch) {
+        studentsMonthIdsQuery = studentsMonthIdsQuery.eq('branch', userBranch);
+      }
+      
+      const { data: newStudentsList } = await studentsMonthIdsQuery;
+      const newStudentIds = newStudentsList?.map(s => s.id) || [];
+
+      // Calculate lesson bonus from payments for new students
+      let lessonBonus = 0;
+      if (newStudentIds.length > 0) {
+        let paymentsQuery = supabase
+          .from('payments')
+          .select('student_id, lessons_count')
+          .eq('organization_id', organizationId)
+          .eq('status', 'completed')
+          .gte('created_at', monthStart)
+          .in('student_id', newStudentIds);
+        
+        if (!isAdmin && userBranch) {
+          paymentsQuery = paymentsQuery.eq('branch', userBranch);
+        }
+        
+        const { data: newStudentPayments } = await paymentsQuery;
+        
+        lessonBonus = (newStudentPayments || []).reduce((sum, p) => {
+          const lessons = Number(p.lessons_count) || 0;
+          if (lessons >= 40) return sum + 5000;
+          if (lessons >= 24) return sum + 3000;
+          if (lessons >= 8) return sum + 1000;
+          return sum;
+        }, 0);
+      }
+
       // Fetch new students last 30 days (for conversion)
       let students30Query = supabase
         .from('students')
@@ -172,6 +218,7 @@ export function useBranchPlanStats(): BranchPlanStats {
         newStudentsTarget: studentsTarget,
         drops: drops || 0,
         newInquiries30: newInquiries30 || 0,
+        lessonBonus,
       };
     },
     enabled: !!organizationId,
@@ -186,6 +233,7 @@ export function useBranchPlanStats(): BranchPlanStats {
   const drops = data?.drops || 0;
   const newInquiries = data?.newInquiries30 || 0;
   const newStudents30 = data?.newStudents30 || 0;
+  const lessonBonus = data?.lessonBonus || 0;
 
   const revenuePercentage = Math.min(100, Math.round((revenue / revenueTarget) * 100));
   const newStudentsPercentage = Math.min(100, Math.round((newStudents / newStudentsTarget) * 100));
@@ -198,7 +246,10 @@ export function useBranchPlanStats(): BranchPlanStats {
   const workedDays = getWorkedDays(now);
   const dailyRate = BASE_SALARY / workingDaysInMonth;
   const earnedSalary = Math.round(dailyRate * workedDays);
-  const bonusUnlocked = newStudents >= STUDENTS_FOR_BONUS;
+
+  // Bonus calculations
+  const studentsUnlocked = newStudents >= STUDENTS_FOR_BONUS;
+  const planUnlocked = overallPercentage >= 100;
 
   return {
     revenue,
@@ -215,8 +266,11 @@ export function useBranchPlanStats(): BranchPlanStats {
     earnedSalary,
     workingDaysInMonth,
     workedDays,
-    bonusAmount: BONUS_AMOUNT,
-    bonusUnlocked,
+    studentsBonus: STUDENTS_BONUS,
+    studentsUnlocked,
+    planBonus: PLAN_BONUS,
+    planUnlocked,
+    lessonBonus,
     isLoading,
     error: error as Error | null,
   };

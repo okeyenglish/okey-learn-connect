@@ -1,6 +1,7 @@
 import React from 'react';
-import { TrendingUp, TrendingDown, Users, UserMinus, ArrowRightLeft, Wallet, Lock, Unlock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, UserMinus, ArrowRightLeft, Wallet, Lock, Unlock, Gift } from 'lucide-react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useBranchPlanStats } from '@/hooks/useBranchPlanStats';
 import { cn } from '@/lib/utils';
 
@@ -29,6 +30,49 @@ function ProgressBar({ value, colorClass }: { value: number; colorClass: string 
   );
 }
 
+interface BonusLineProps {
+  label: string;
+  amount: number;
+  unlocked: boolean;
+  tooltip: string;
+}
+
+function BonusLine({ label, amount, unlocked, tooltip }: BonusLineProps) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className={cn(
+            "flex items-center justify-between text-sm cursor-help",
+            unlocked ? "" : "opacity-50"
+          )}>
+            <span className={cn(
+              "flex items-center gap-1.5",
+              unlocked ? "text-green-600" : "text-muted-foreground"
+            )}>
+              {unlocked ? (
+                <Unlock className="h-3.5 w-3.5" />
+              ) : (
+                <Lock className="h-3.5 w-3.5" />
+              )}
+              {label}
+            </span>
+            <span className={cn(
+              "font-medium",
+              unlocked ? "text-green-600" : "text-muted-foreground"
+            )}>
+              +{amount.toLocaleString('ru-RU')} ₽
+            </span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="left">
+          <p className="text-xs">{tooltip}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 export const BranchPlanIndicator = React.memo(({ onDashboardClick }: BranchPlanIndicatorProps) => {
   const {
     revenue,
@@ -44,8 +88,11 @@ export const BranchPlanIndicator = React.memo(({ onDashboardClick }: BranchPlanI
     earnedSalary,
     workedDays,
     workingDaysInMonth,
-    bonusAmount,
-    bonusUnlocked,
+    studentsBonus,
+    studentsUnlocked,
+    planBonus,
+    planUnlocked,
+    lessonBonus,
     isLoading,
   } = useBranchPlanStats();
 
@@ -162,32 +209,35 @@ export const BranchPlanIndicator = React.memo(({ onDashboardClick }: BranchPlanI
             <div className="text-xs text-muted-foreground text-right">
               {workedDays} из {workingDaysInMonth} рабочих дней
             </div>
-            
-            {/* Bonus */}
-            <div className="flex items-center justify-between text-sm">
-              <span className={cn(
-                "flex items-center gap-1.5",
-                bonusUnlocked ? "text-green-600" : "text-muted-foreground"
-              )}>
-                {bonusUnlocked ? (
-                  <Unlock className="h-3.5 w-3.5" />
-                ) : (
-                  <Lock className="h-3.5 w-3.5" />
-                )}
-                Бонус
-              </span>
-              <span className={cn(
-                "font-medium",
-                bonusUnlocked ? "text-green-600" : "text-muted-foreground line-through"
-              )}>
-                +{bonusAmount.toLocaleString('ru-RU')} ₽
-              </span>
+          </div>
+
+          {/* Bonus Section */}
+          <div className="border-t pt-3 space-y-2">
+            <div className="flex items-center gap-1.5 text-sm font-medium">
+              <Gift className="h-3.5 w-3.5" />
+              Бонус
             </div>
-            {!bonusUnlocked && (
-              <div className="text-xs text-muted-foreground text-right">
-                Нужно 10 новых учеников ({newStudents}/10)
-              </div>
-            )}
+            
+            <BonusLine
+              label="За 10 учеников"
+              amount={studentsBonus}
+              unlocked={studentsUnlocked}
+              tooltip={`Нужно 10 новых учеников (${newStudents}/10)`}
+            />
+            
+            <BonusLine
+              label="За план"
+              amount={planBonus}
+              unlocked={planUnlocked}
+              tooltip="При выполнении плана"
+            />
+            
+            <BonusLine
+              label="За оплаты"
+              amount={lessonBonus}
+              unlocked={lessonBonus > 0}
+              tooltip="8 занятий = 1000₽, 24 = 3000₽, 40+ = 5000₽"
+            />
           </div>
 
           {/* Footer */}
