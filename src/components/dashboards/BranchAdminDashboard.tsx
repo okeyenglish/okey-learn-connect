@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Users, UserCheck, Calendar, DollarSign, Star, AlertCircle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { StaffActivityFeed } from "@/components/crm/staff-activity/StaffActivityFeed";
 
 export const BranchAdminDashboard = () => {
   // Mock data - replace with actual API calls
@@ -213,6 +214,13 @@ export const BranchAdminDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Staff Activity Widget */}
+      <StaffActivityFeed 
+        compact={true} 
+        showHeader={true}
+        showFilters={false}
+      />
     </div>
   );
 };

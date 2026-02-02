@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { CallStatisticsWidget } from "./CallStatisticsWidget";
+import { StaffActivityFeed } from "@/components/crm/staff-activity/StaffActivityFeed";
 
 export const OwnerDashboard = () => {
   // Current month revenue
@@ -345,6 +346,13 @@ export const OwnerDashboard = () => {
 
       {/* Call Statistics Widget */}
       <CallStatisticsWidget />
+
+      {/* Staff Activity Widget */}
+      <StaffActivityFeed 
+        compact={true} 
+        showHeader={true}
+        showFilters={false}
+      />
     </div>
   );
 };
