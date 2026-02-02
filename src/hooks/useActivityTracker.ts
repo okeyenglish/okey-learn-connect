@@ -19,7 +19,8 @@ interface ActivityState {
   idleTime: number;
   isOnCall: boolean;
   lowActivityAlertShown: boolean;
-  serverBaselineApplied: boolean;
+  lastServerActiveSeconds: number; // Track last synced server value
+  lastServerIdleSeconds: number;
 }
 
 const STORAGE_KEY = 'staff-activity-state';
@@ -80,7 +81,8 @@ export const useActivityTracker = (options: UseActivityTrackerOptions = {}) => {
       idleTime: loaded.idleTime || 0,
       isOnCall: false,
       lowActivityAlertShown: loaded.lowActivityAlertShown || false,
-      serverBaselineApplied: false,
+      lastServerActiveSeconds: loaded.lastServerActiveSeconds || 0,
+      lastServerIdleSeconds: loaded.lastServerIdleSeconds || 0,
     };
   });
 
@@ -167,44 +169,53 @@ export const useActivityTracker = (options: UseActivityTrackerOptions = {}) => {
   }, [isOnCall]);
 
   // Sync with server baseline (cross-device sync)
+  // Re-syncs whenever server has newer data (higher values)
   useEffect(() => {
-    if (!serverBaseline || state.serverBaselineApplied) return;
+    if (!serverBaseline) return;
 
     const serverActiveMs = serverBaseline.activeSeconds * 1000;
     const serverIdleMs = serverBaseline.idleSeconds * 1000;
 
-    // Use maximum values to avoid losing data from either device
+    // Only sync if server has new data (values increased from last sync)
+    const serverHasNewData = 
+      serverBaseline.activeSeconds > state.lastServerActiveSeconds ||
+      serverBaseline.idleSeconds > state.lastServerIdleSeconds;
+
+    if (!serverHasNewData) return;
+
     setState(prev => {
+      // Use maximum values to avoid losing data from either device
       const mergedActiveTime = Math.max(prev.activeTime, serverActiveMs);
       const mergedIdleTime = Math.max(prev.idleTime, serverIdleMs);
 
-      // Only update if server has more data
-      if (serverActiveMs <= prev.activeTime && serverIdleMs <= prev.idleTime) {
-        // Local is ahead - just mark baseline as applied
-        const newState = { ...prev, serverBaselineApplied: true };
-        saveState(newState);
-        return newState;
+      // Only update state if we're actually changing something
+      if (mergedActiveTime === prev.activeTime && 
+          mergedIdleTime === prev.idleTime &&
+          serverBaseline.activeSeconds === prev.lastServerActiveSeconds &&
+          serverBaseline.idleSeconds === prev.lastServerIdleSeconds) {
+        return prev;
       }
 
       console.log('[useActivityTracker] Synced with server baseline:', {
-        localActive: prev.activeTime,
-        serverActive: serverActiveMs,
-        mergedActive: mergedActiveTime,
-        localIdle: prev.idleTime,
-        serverIdle: serverIdleMs,
-        mergedIdle: mergedIdleTime,
+        localActive: Math.round(prev.activeTime / 1000),
+        serverActive: serverBaseline.activeSeconds,
+        mergedActive: Math.round(mergedActiveTime / 1000),
+        localIdle: Math.round(prev.idleTime / 1000),
+        serverIdle: serverBaseline.idleSeconds,
+        mergedIdle: Math.round(mergedIdleTime / 1000),
       });
 
       const newState: ActivityState = {
         ...prev,
         activeTime: mergedActiveTime,
         idleTime: mergedIdleTime,
-        serverBaselineApplied: true,
+        lastServerActiveSeconds: serverBaseline.activeSeconds,
+        lastServerIdleSeconds: serverBaseline.idleSeconds,
       };
       saveState(newState);
       return newState;
     });
-  }, [serverBaseline, state.serverBaselineApplied]);
+  }, [serverBaseline, state.lastServerActiveSeconds, state.lastServerIdleSeconds]);
 
   // Set up activity listeners
   useEffect(() => {
@@ -265,7 +276,8 @@ export const useActivityTracker = (options: UseActivityTrackerOptions = {}) => {
       idleTime: 0,
       isOnCall: false,
       lowActivityAlertShown: false,
-      serverBaselineApplied: false,
+      lastServerActiveSeconds: 0,
+      lastServerIdleSeconds: 0,
     };
     setState(newState);
     saveState(newState);

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sparkles, GraduationCap, Plus, Users, BarChart3, CreditCard, ListTodo, UserPlus, Briefcase, QrCode } from "lucide-react";
+import { Sparkles, GraduationCap, Plus, Users, Menu, CreditCard, ListTodo, UserPlus, Briefcase, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -9,7 +9,7 @@ interface MobileChatNavigationProps {
   onChatOSClick: () => void;
   onTeachersClick: () => void;
   onClientsClick: () => void;
-  onKPIClick: () => void;
+  onMenuClick: () => void;
   onNewChatClick: () => void;
   onPaymentClick?: () => void;
   onTaskClick?: () => void;
@@ -17,15 +17,14 @@ interface MobileChatNavigationProps {
   chatOSUnreadCount?: number;
   teachersUnreadCount?: number;
   clientsUnreadCount?: number;
-  kpiHasAlerts?: boolean;
-  activeChatType?: 'client' | 'corporate' | 'teachers' | 'communities' | 'chatos' | 'kpi';
+  activeChatType?: 'client' | 'corporate' | 'teachers' | 'communities' | 'chatos' | 'menu';
 }
 
 export const MobileChatNavigation = ({
   onChatOSClick,
   onTeachersClick,
   onClientsClick,
-  onKPIClick,
+  onMenuClick,
   onNewChatClick,
   onPaymentClick,
   onTaskClick,
@@ -33,7 +32,6 @@ export const MobileChatNavigation = ({
   chatOSUnreadCount = 0,
   teachersUnreadCount = 0,
   clientsUnreadCount = 0,
-  kpiHasAlerts = false,
   activeChatType
 }: MobileChatNavigationProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -188,11 +186,10 @@ export const MobileChatNavigation = ({
             isActive={activeChatType === 'client'}
           />
           <NavButton
-            icon={BarChart3}
-            label="KPI"
-            onClick={onKPIClick}
-            unreadCount={kpiHasAlerts ? 1 : 0}
-            isActive={activeChatType === 'kpi' || activeChatType === 'communities'}
+            icon={Menu}
+            label="Меню"
+            onClick={onMenuClick}
+            isActive={activeChatType === 'menu'}
           />
         </div>
       </div>
