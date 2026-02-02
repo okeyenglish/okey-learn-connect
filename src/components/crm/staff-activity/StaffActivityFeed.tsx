@@ -15,6 +15,7 @@ interface StaffActivityFeedProps {
   showFilters?: boolean;
   showHeader?: boolean;
   className?: string;
+  userId?: string;
 }
 
 export function StaffActivityFeed({
@@ -23,6 +24,7 @@ export function StaffActivityFeed({
   showFilters = true,
   showHeader = true,
   className,
+  userId,
 }: StaffActivityFeedProps) {
   const navigate = useNavigate();
   const [selectedBranches, setSelectedBranches] = useState<string[]>(['all']);
@@ -34,6 +36,7 @@ export function StaffActivityFeed({
   const { activities, isLoading, refetch } = useStaffActivityLog({
     branches: selectedBranches,
     actionTypes: selectedActionTypes,
+    userId,
     limit: compact ? 5 : limit,
   });
 
