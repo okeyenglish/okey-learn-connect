@@ -1,110 +1,138 @@
 
-# Plan: Fix Cross-Device Session Synchronization
+# Plan: Add Finance/Plan Indicator to CRM Header
 
-## Problem Analysis
-Each device starts tracking from scratch and re-sends already-counted server data as new deltas, causing double-counting. The `useSessionPersistence` hook doesn't know that `activeTime` was loaded from server (not locally accumulated).
+## Overview
+Add a "Finances" icon before the profile in the `UnifiedManagerWidget` showing plan completion percentage with detailed hover information and click-to-dashboard functionality.
 
-## Solution
-Pass server baseline to `useSessionPersistence` and initialize `lastSavedRef` with server values when baseline arrives. This ensures only NEW activity (accumulated after sync) gets sent as deltas.
+## Technical Implementation
 
----
+### 1. Create Database Table for Branch Plans
 
-## Technical Changes
+**File**: SQL Migration
 
-### 1. Update `useSessionPersistence.ts`
-Add `serverBaseline` parameter and sync `lastSavedRef` when baseline arrives:
-
-```typescript
-export const useSessionPersistence = (
-  sessionStart: number,
-  activeTime: number,
-  idleTime: number,
-  onCallTime: number = 0,
-  isIdle: boolean = false,
-  currentIdleStreak: number = 0,
-  serverBaseline?: ServerSessionBaseline | null  // NEW PARAMETER
-) => {
-  // ... existing code ...
-
-  // NEW: Sync lastSavedRef with server baseline to prevent double-counting
-  const serverBaselineAppliedRef = useRef(false);
-  
-  useEffect(() => {
-    if (!serverBaseline || serverBaselineAppliedRef.current) return;
-    
-    // Server baseline loaded - initialize lastSavedRef to server values
-    // This prevents re-sending already-counted time as new deltas
-    const serverActiveMs = serverBaseline.activeSeconds * 1000;
-    const serverIdleMs = serverBaseline.idleSeconds * 1000;
-    const serverOnCallMs = serverBaseline.onCallSeconds * 1000;
-    
-    // Only apply if server has meaningful data
-    if (serverActiveMs > 0 || serverIdleMs > 0) {
-      console.log('[useSessionPersistence] Syncing with server baseline:', {
-        serverActive: serverBaseline.activeSeconds,
-        serverIdle: serverBaseline.idleSeconds,
-      });
-      
-      lastSavedRef.current = {
-        activeTime: Math.max(lastSavedRef.current.activeTime, serverActiveMs),
-        idleTime: Math.max(lastSavedRef.current.idleTime, serverIdleMs),
-        onCallTime: Math.max(lastSavedRef.current.onCallTime, serverOnCallMs),
-        timestamp: Date.now(),
-      };
-      
-      serverBaselineAppliedRef.current = true;
-    }
-  }, [serverBaseline]);
-```
-
-### 2. Update `StaffActivityIndicator.tsx`
-Pass `serverBaseline` to `useSessionPersistence`:
-
-```typescript
-const { baseline: serverBaseline } = useTodayWorkSession();
-
-// ... useActivityTracker call ...
-
-useSessionPersistence(
-  sessionStart,
-  activeTime,
-  idleTime,
-  0,
-  isIdle,
-  currentIdleStreak,
-  serverBaseline  // NEW: Pass server baseline
+```sql
+CREATE TABLE public.branch_plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES organizations(id),
+  branch TEXT NOT NULL,
+  period_start DATE NOT NULL DEFAULT date_trunc('month', CURRENT_DATE),
+  period_end DATE NOT NULL DEFAULT (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month' - INTERVAL '1 day'),
+  revenue_target NUMERIC DEFAULT 1000000,
+  new_students_target INTEGER DEFAULT 10,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(organization_id, branch, period_start)
 );
+
+-- Enable RLS
+ALTER TABLE branch_plans ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies
+CREATE POLICY "Users can view plans for their org"
+  ON branch_plans FOR SELECT
+  USING (organization_id IN (
+    SELECT organization_id FROM profiles WHERE id = auth.uid()
+  ));
 ```
 
----
+### 2. Create Hook for Branch Plan Statistics
 
-## Data Flow After Fix
+**File**: `src/hooks/useBranchPlanStats.ts`
+
+This hook will fetch:
+- Current month revenue (from `payments` table)
+- New students this month (from `students` table, created_at >= month start)
+- Drops this month (students with status `archived`, `graduated`, `expelled` updated this month)
+- New inquiries (from `clients` table, created_at >= month start)
+- Plan targets (from `branch_plans` or defaults: revenue = 1,000,000, students = 10)
+
+```typescript
+interface BranchPlanStats {
+  revenue: number;
+  revenueTarget: number;
+  revenuePercentage: number;
+  newStudents: number;
+  newStudentsTarget: number;
+  newStudentsPercentage: number;
+  drops: number;
+  newInquiries: number;
+  conversion: number; // (newStudents / newInquiries) * 100
+  overallPercentage: number; // Average of revenue + students percentages
+  isLoading: boolean;
+}
+```
+
+### 3. Create BranchPlanIndicator Component
+
+**File**: `src/components/crm/BranchPlanIndicator.tsx`
+
+Features:
+- TrendingUp icon showing overall plan percentage
+- Color coding: green (>= 80%), yellow (60-79%), red (< 60%)
+- HoverCard on hover showing detailed breakdown
+- Click handler to open dashboard
 
 ```text
-Device A (Desktop):
-1. Start fresh, activeTime=0, lastSaved=0
-2. Work 2h → activeTime=2h
-3. Save delta: 2h - 0 = 2h → Server: 2h ✓
-4. lastSaved updated to 2h
-
-Device B (PWA) opens:
-1. Fetch server baseline: 2h
-2. useActivityTracker syncs: activeTime = max(0, 2h) = 2h
-3. useSessionPersistence syncs lastSaved = max(0, 2h) = 2h  ← FIX
-4. Work 30min → activeTime = 2.5h
-5. Save delta: 2.5h - 2h = 0.5h → Server: 2h + 0.5h = 2.5h ✓
+UI Layout (HoverCard Content):
++----------------------------------+
+| План филиала: 68%                |
++----------------------------------+
+| Выручка:         523,000 / 1M ₽  |
+| Новые ученики:   7 / 10          |
+| Дропы:           3               |
+| Конверсия:       35% (7/20)      |
++----------------------------------+
+| Нажмите для открытия дашборда    |
++----------------------------------+
 ```
 
----
+### 4. Update UnifiedManagerWidget
 
-## Files to Modify
+**File**: `src/components/crm/UnifiedManagerWidget.tsx`
 
-| File | Change |
+Changes:
+- Import `BranchPlanIndicator`
+- Add component between `StaffActivityPopover` and profile dropdown
+- Pass `onDashboardClick` prop for click handling
+
+```text
+Layout after changes:
+[ Stats Section | Activity Icon | Plan Icon | Profile Dropdown ]
+```
+
+### 5. For Managers (branch_manager role)
+
+The hook will aggregate data across all managers in their branch.
+
+### 6. For Admin/Owner Role
+
+The hook will aggregate data across all branches for the organization.
+
+## Data Sources
+
+| Metric | Table | Query Logic |
+|--------|-------|-------------|
+| Revenue | `payments` | SUM(amount) WHERE status='completed' AND created_at >= month_start |
+| New Students | `students` | COUNT WHERE created_at >= month_start |
+| Drops | `students` | COUNT WHERE status IN ('archived','graduated','expelled') AND updated_at >= month_start |
+| New Inquiries | `clients` | COUNT WHERE created_at >= month_start |
+| Targets | `branch_plans` | SELECT WHERE branch = user.branch OR defaults |
+
+## Files to Create/Modify
+
+| File | Action |
 |------|--------|
-| `src/hooks/useSessionPersistence.ts` | Add serverBaseline parameter, sync lastSavedRef |
-| `src/components/crm/StaffActivityIndicator.tsx` | Pass serverBaseline to useSessionPersistence |
+| `src/hooks/useBranchPlanStats.ts` | Create |
+| `src/components/crm/BranchPlanIndicator.tsx` | Create |
+| `src/components/crm/UnifiedManagerWidget.tsx` | Modify - add BranchPlanIndicator |
+| Database migration | Create branch_plans table |
 
-## Edge Cases Handled
-- First-time user: serverBaseline = 0, no sync needed
-- New day: Day change logic resets both tracker and persistence
-- Network failure: Falls back to local-only tracking until sync succeeds
+## Default Values
+- Revenue target: 1,000,000 RUB
+- New students target: 10
+
+## Edge Cases
+- No plan data: Use defaults
+- No branch assigned: Show org-wide stats
+- Admin role: Show aggregated stats for all branches
+- Zero inquiries: Show 0% conversion instead of NaN
