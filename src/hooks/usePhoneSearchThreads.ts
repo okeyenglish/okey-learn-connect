@@ -15,9 +15,12 @@ interface RpcThreadRow {
   whatsapp_avatar_url?: string | null;
   max_avatar_url?: string | null;
   telegram_chat_id?: string | null;
+  whatsapp_chat_id?: string | null;
+  max_chat_id?: string | null;
   last_message_text?: string | null;
   last_message?: string | null;
   last_message_time?: string | null;
+  last_messenger_type?: string | null;
   unread_count?: number | null;
   unread_whatsapp?: number | null;
   unread_telegram?: number | null;
@@ -248,27 +251,40 @@ function mapRpcToThreads(data: RpcThreadRow[]): ChatThread[] {
     return true;
   });
 
-  return filteredData.map((row) => ({
-    client_id: row.clt_id || row.client_id || '', // clt_id from new RPC, client_id fallback
-    client_name: row.client_name || '',
-    client_phone: row.client_phone || '',
-    client_branch: row.client_branch || null,
-    avatar_url: row.avatar_url || null,
-    telegram_avatar_url: null, // Not in self-hosted schema
-    whatsapp_avatar_url: null, // Not in self-hosted schema
-    max_avatar_url: null, // Not in self-hosted schema
-    last_message: row.last_message_text || row.last_message || '', // last_message_text from new RPC
-    last_message_time: row.last_message_time || null,
-    last_message_messenger: row.last_unread_messenger || null,
-    unread_count: Number(row.unread_count) || 0,
-    unread_by_messenger: {
-      whatsapp: Number(row.unread_whatsapp) || 0,
-      telegram: Number(row.unread_telegram) || 0,
-      max: Number(row.unread_max) || 0,
-      email: Number(row.unread_email) || 0,
-      calls: Number(row.unread_calls) || 0,
-    } as UnreadByMessenger,
-    last_unread_messenger: row.last_unread_messenger || null,
-    messages: [],
-  }));
+  return filteredData.map((row) => {
+    // Infer messenger type from chat IDs if not provided by RPC
+    let inferredMessenger: string | null = null;
+    if (!row.last_messenger_type && !row.last_unread_messenger) {
+      if (row.telegram_chat_id) inferredMessenger = 'telegram';
+      else if (row.whatsapp_chat_id) inferredMessenger = 'whatsapp';
+      else if (row.max_chat_id) inferredMessenger = 'max';
+    }
+    
+    return {
+      client_id: row.clt_id || row.client_id || '', // clt_id from new RPC, client_id fallback
+      client_name: row.client_name || '',
+      client_phone: row.client_phone || '',
+      client_branch: row.client_branch || null,
+      avatar_url: row.avatar_url || null,
+      telegram_avatar_url: null, // Not in self-hosted schema
+      whatsapp_avatar_url: null, // Not in self-hosted schema
+      max_avatar_url: null, // Not in self-hosted schema
+      telegram_chat_id: row.telegram_chat_id || null,
+      whatsapp_chat_id: row.whatsapp_chat_id || null,
+      max_chat_id: row.max_chat_id || null,
+      last_message: row.last_message_text || row.last_message || '', // last_message_text from new RPC
+      last_message_time: row.last_message_time || null,
+      last_message_messenger: row.last_messenger_type || row.last_unread_messenger || inferredMessenger,
+      unread_count: Number(row.unread_count) || 0,
+      unread_by_messenger: {
+        whatsapp: Number(row.unread_whatsapp) || 0,
+        telegram: Number(row.unread_telegram) || 0,
+        max: Number(row.unread_max) || 0,
+        email: Number(row.unread_email) || 0,
+        calls: Number(row.unread_calls) || 0,
+      } as UnreadByMessenger,
+      last_unread_messenger: row.last_unread_messenger || null,
+      messages: [],
+    };
+  });
 }
