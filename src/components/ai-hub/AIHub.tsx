@@ -1058,30 +1058,32 @@ export const AIHub = ({
                 <div className="px-3 py-2 flex items-center justify-between">
                   <span className="text-sm font-medium text-muted-foreground">Сотрудники и группы</span>
                   <div className="flex items-center gap-1">
-                    {/* Filter toggle: All / Online */}
-                    <div className="flex items-center bg-muted rounded-md p-0.5">
-                      <button
-                        onClick={() => setStaffFilter('all')}
-                        className={`px-2 py-1 text-xs rounded transition-colors flex items-center gap-1 ${
-                          staffFilter === 'all' 
-                            ? 'bg-background shadow-sm font-medium' 
-                            : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        Все {corporateChatsListBase.length}
-                      </button>
-                      <button
-                        onClick={() => setStaffFilter('online')}
-                        className={`px-2 py-1 text-xs rounded transition-colors flex items-center gap-1 ${
-                          staffFilter === 'online' 
-                            ? 'bg-background shadow-sm font-medium' 
-                            : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                        Онлайн
-                      </button>
-                    </div>
+                    {/* Filter toggle: All / Online - hidden when AI/Communities sections expanded */}
+                    {!aiSectionExpanded && !communitiesSectionExpanded && (
+                      <div className="flex items-center bg-muted rounded-md p-0.5">
+                        <button
+                          onClick={() => setStaffFilter('all')}
+                          className={`px-2 py-1 text-xs rounded transition-colors flex items-center gap-1 ${
+                            staffFilter === 'all' 
+                              ? 'bg-background shadow-sm font-medium' 
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          Все {corporateChatsListBase.length}
+                        </button>
+                        <button
+                          onClick={() => setStaffFilter('online')}
+                          className={`px-2 py-1 text-xs rounded transition-colors flex items-center gap-1 ${
+                            staffFilter === 'online' 
+                              ? 'bg-background shadow-sm font-medium' 
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                          Онлайн
+                        </button>
+                      </div>
+                    )}
                     <CreateStaffGroupModal onGroupCreated={() => queryClient.invalidateQueries({ queryKey: ['internal-chats'] })} />
                   </div>
                 </div>

@@ -8,6 +8,7 @@ export interface OnlineUser {
   name: string;
   avatarUrl?: string | null;
   branch?: string | null;
+  organizationId?: string | null;
   lastSeen: number;
   isOnline: boolean;
   status?: ActivityStatus;
@@ -17,7 +18,7 @@ export interface OnlineUser {
   activityPercentage?: number;
 }
 
-const PRESENCE_ROOM = 'staff-online-presence';
+const PRESENCE_ROOM_PREFIX = 'staff-online-presence';
 const HEARTBEAT_INTERVAL = 30_000; // 30 seconds
 const STALE_THRESHOLD = 60_000; // 1 minute - consider offline after this
 const LAST_SEEN_STORAGE_KEY = 'staff-last-seen';
@@ -109,13 +110,16 @@ export const useStaffOnlinePresence = (extendedPayload?: ExtendedPresencePayload
 
   // Track current user's presence
   useEffect(() => {
-    if (!user?.id || !profile) return;
+    if (!user?.id || !profile || !profile.organization_id) return;
 
     const userName = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Сотрудник';
     const avatarUrl = profile.avatar_url || null;
     const userBranch = profile.branch || null;
+    const organizationId = profile.organization_id;
 
-    const channel = supabase.channel(PRESENCE_ROOM);
+    // Channel scoped to organization for tenant isolation
+    const channelName = `${PRESENCE_ROOM_PREFIX}-${organizationId}`;
+    const channel = supabase.channel(channelName);
     channelRef.current = channel;
 
     const buildPresencePayload = () => ({
@@ -123,6 +127,7 @@ export const useStaffOnlinePresence = (extendedPayload?: ExtendedPresencePayload
       name: userName,
       avatarUrl,
       branch: userBranch,
+      organizationId,
       lastSeen: Date.now(),
       isOnline: true,
       ...extendedPayloadRef.current,
@@ -156,6 +161,7 @@ export const useStaffOnlinePresence = (extendedPayload?: ExtendedPresencePayload
                   name: presence.name,
                   avatarUrl: presence.avatarUrl,
                   branch: presence.branch,
+                  organizationId: presence.organizationId,
                   lastSeen: presence.lastSeen,
                   isOnline,
                   // Extended fields
