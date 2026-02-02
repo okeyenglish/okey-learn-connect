@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -6,6 +6,24 @@ import { AssistantMessage, AssistantMessageRole } from '@/integrations/supabase/
 import { performanceAnalytics } from '@/utils/performanceAnalytics';
 
 export type { AssistantMessage } from '@/integrations/supabase/database.types';
+
+// Дедупликация: хранит хэш последних сообщений для предотвращения дублей
+const recentMessageHashes = new Set<string>();
+const MAX_RECENT_HASHES = 50;
+
+// Генерирует хэш для дедупликации
+const getMessageHash = (role: string, content: string): string => {
+  return `${role}:${content.slice(0, 100).trim().toLowerCase()}`;
+};
+
+// Добавляет хэш в множество с ограничением размера
+const addToRecentHashes = (hash: string) => {
+  if (recentMessageHashes.size >= MAX_RECENT_HASHES) {
+    const first = recentMessageHashes.values().next().value;
+    if (first) recentMessageHashes.delete(first);
+  }
+  recentMessageHashes.add(hash);
+};
 
 export const useAssistantMessages = () => {
   const { user, profile } = useAuth();
@@ -79,11 +97,21 @@ export const useAssistantMessages = () => {
     refetchInterval: 60000, // OPTIMIZED: 30s → 60s to reduce DB load
   });
 
-  // Добавляем сообщение
+  // Добавляем сообщение с дедупликацией
   const addMessageMutation = useMutation({
-    mutationFn: async ({ role, content }: { role: AssistantMessageRole; content: string }) => {
+    mutationFn: async ({ role, content, skipDedupe = false }: { role: AssistantMessageRole; content: string; skipDedupe?: boolean }) => {
       if (!user?.id || !profile?.organization_id) {
         throw new Error('User not authenticated');
+      }
+      
+      // Дедупликация по контенту (пропускаем для явных пользовательских сообщений)
+      if (!skipDedupe) {
+        const hash = getMessageHash(role, content);
+        if (recentMessageHashes.has(hash)) {
+          console.log('[useAssistantMessages] Duplicate message blocked:', hash);
+          return null; // Возвращаем null вместо ошибки
+        }
+        addToRecentHashes(hash);
       }
       
       const { data, error } = await supabase
@@ -102,9 +130,15 @@ export const useAssistantMessages = () => {
       return data as AssistantMessage;
     },
     onSuccess: (newMessage) => {
+      if (!newMessage) return; // Дубликат был заблокирован
+      
       queryClient.setQueryData<AssistantMessage[]>(
         ['assistant-messages', user?.id],
-        (old = []) => [...old, newMessage]
+        (old = []) => {
+          // Ещё одна проверка на дубликат по ID
+          if (old.some(m => m.id === newMessage.id)) return old;
+          return [...old, newMessage];
+        }
       );
       // Обновляем счётчик непрочитанных
       if (newMessage.role === 'assistant') {
@@ -169,11 +203,22 @@ export const useAssistantMessages = () => {
         },
         (payload) => {
           const newMessage = payload.new as AssistantMessage;
+          
+          // Добавляем хэш в дедупликацию
+          const hash = getMessageHash(newMessage.role, newMessage.content);
+          addToRecentHashes(hash);
+          
           queryClient.setQueryData<AssistantMessage[]>(
             ['assistant-messages', user.id],
             (old = []) => {
-              // Избегаем дубликатов
+              // Избегаем дубликатов по ID
               if (old.some(m => m.id === newMessage.id)) return old;
+              // Также проверяем на недавние дубликаты по контенту (последние 3 сообщения)
+              const recent = old.slice(-3);
+              if (recent.some(m => m.role === newMessage.role && m.content.trim() === newMessage.content.trim())) {
+                console.log('[useAssistantMessages] Realtime content duplicate blocked');
+                return old;
+              }
               return [...old, newMessage];
             }
           );

@@ -180,17 +180,42 @@ export default function VoiceAssistant({
   }, [isOpen, markAllAsRead]);
 
   // Handle initial assistant message (e.g., from tab feedback)
+  // Use ref to prevent duplicate auto-initiation across re-renders
+  const initialMessageProcessedRef = useRef<string | null>(null);
+  
   useEffect(() => {
-    if (initialAssistantMessage && isOpen && !messagesLoading) {
-      // Add the assistant message to the conversation
-      addDbMessage('assistant', initialAssistantMessage).then(() => {
-        onClearInitialMessage?.();
-      }).catch((err) => {
-        console.error('[VoiceAssistant] Error adding initial message:', err);
-        onClearInitialMessage?.();
-      });
+    if (!initialAssistantMessage || !isOpen || messagesLoading) return;
+    
+    // Prevent duplicate processing of the same message
+    if (initialMessageProcessedRef.current === initialAssistantMessage) {
+      onClearInitialMessage?.();
+      return;
     }
-  }, [initialAssistantMessage, isOpen, messagesLoading, addDbMessage, onClearInitialMessage]);
+    
+    // Check if this message already exists in recent messages (last 5)
+    const recentMessages = messages.slice(-5);
+    const isDuplicate = recentMessages.some(
+      m => m.type === 'assistant' && m.content.trim() === initialAssistantMessage.trim()
+    );
+    
+    if (isDuplicate) {
+      console.log('[VoiceAssistant] Duplicate initial message blocked');
+      initialMessageProcessedRef.current = initialAssistantMessage;
+      onClearInitialMessage?.();
+      return;
+    }
+    
+    // Mark as processed before async operation
+    initialMessageProcessedRef.current = initialAssistantMessage;
+    
+    // Add the assistant message to the conversation
+    addDbMessage('assistant', initialAssistantMessage).then(() => {
+      onClearInitialMessage?.();
+    }).catch((err) => {
+      console.error('[VoiceAssistant] Error adding initial message:', err);
+      onClearInitialMessage?.();
+    });
+  }, [initialAssistantMessage, isOpen, messagesLoading, addDbMessage, onClearInitialMessage, messages]);
 
   const addMessage = useCallback(async (content: string, type: 'user' | 'assistant', isVoice = false) => {
     try {
