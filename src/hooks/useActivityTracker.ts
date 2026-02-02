@@ -3,6 +3,7 @@ import { useThrottle } from './useThrottle';
 import { playNotificationSound } from './useNotificationSound';
 import { getNotificationSettings } from './useNotificationSettings';
 import { sendActivityWarningMessage } from '@/utils/sendActivityWarningMessage';
+import type { ServerSessionBaseline } from './useTodayWorkSession';
 
 export type ActivityStatus = 'online' | 'idle' | 'on_call' | 'offline';
 
@@ -18,6 +19,7 @@ interface ActivityState {
   idleTime: number;
   isOnCall: boolean;
   lowActivityAlertShown: boolean;
+  serverBaselineApplied: boolean;
 }
 
 const STORAGE_KEY = 'staff-activity-state';
@@ -55,14 +57,17 @@ interface UseActivityTrackerOptions {
   isOnCall?: boolean;
   /** Callback when activity drops below threshold - replaces default sound/message behavior */
   onLowActivity?: (activityPercentage: number) => void;
+  /** Server baseline from useTodayWorkSession for cross-device sync */
+  serverBaseline?: ServerSessionBaseline | null;
 }
 
 /**
  * Hook to track user activity and determine idle status.
  * Uses throttled event listeners to minimize performance impact.
+ * Supports cross-device sync via serverBaseline parameter.
  */
 export const useActivityTracker = (options: UseActivityTrackerOptions = {}) => {
-  const { isOnCall = false, onLowActivity } = options;
+  const { isOnCall = false, onLowActivity, serverBaseline } = options;
   
   const [state, setState] = useState<ActivityState>(() => {
     const loaded = loadState();
@@ -75,6 +80,7 @@ export const useActivityTracker = (options: UseActivityTrackerOptions = {}) => {
       idleTime: loaded.idleTime || 0,
       isOnCall: false,
       lowActivityAlertShown: loaded.lowActivityAlertShown || false,
+      serverBaselineApplied: false,
     };
   });
 
@@ -160,6 +166,46 @@ export const useActivityTracker = (options: UseActivityTrackerOptions = {}) => {
     });
   }, [isOnCall]);
 
+  // Sync with server baseline (cross-device sync)
+  useEffect(() => {
+    if (!serverBaseline || state.serverBaselineApplied) return;
+
+    const serverActiveMs = serverBaseline.activeSeconds * 1000;
+    const serverIdleMs = serverBaseline.idleSeconds * 1000;
+
+    // Use maximum values to avoid losing data from either device
+    setState(prev => {
+      const mergedActiveTime = Math.max(prev.activeTime, serverActiveMs);
+      const mergedIdleTime = Math.max(prev.idleTime, serverIdleMs);
+
+      // Only update if server has more data
+      if (serverActiveMs <= prev.activeTime && serverIdleMs <= prev.idleTime) {
+        // Local is ahead - just mark baseline as applied
+        const newState = { ...prev, serverBaselineApplied: true };
+        saveState(newState);
+        return newState;
+      }
+
+      console.log('[useActivityTracker] Synced with server baseline:', {
+        localActive: prev.activeTime,
+        serverActive: serverActiveMs,
+        mergedActive: mergedActiveTime,
+        localIdle: prev.idleTime,
+        serverIdle: serverIdleMs,
+        mergedIdle: mergedIdleTime,
+      });
+
+      const newState: ActivityState = {
+        ...prev,
+        activeTime: mergedActiveTime,
+        idleTime: mergedIdleTime,
+        serverBaselineApplied: true,
+      };
+      saveState(newState);
+      return newState;
+    });
+  }, [serverBaseline, state.serverBaselineApplied]);
+
   // Set up activity listeners
   useEffect(() => {
     const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
@@ -219,6 +265,7 @@ export const useActivityTracker = (options: UseActivityTrackerOptions = {}) => {
       idleTime: 0,
       isOnCall: false,
       lowActivityAlertShown: false,
+      serverBaselineApplied: false,
     };
     setState(newState);
     saveState(newState);

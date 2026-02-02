@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useActivityTracker, ActivityStatus } from '@/hooks/useActivityTracker';
+import { useTodayWorkSession } from '@/hooks/useTodayWorkSession';
 import { useSessionPersistence } from '@/hooks/useSessionPersistence';
 
 interface StatusConfig {
@@ -81,6 +82,9 @@ export const StaffActivityIndicator: React.FC<StaffActivityIndicatorProps> = ({
   className,
   compact = false,
 }) => {
+  // Server baseline for cross-device sync
+  const { baseline: serverBaseline } = useTodayWorkSession();
+  
   const {
     status,
     lastActivity,
@@ -90,7 +94,7 @@ export const StaffActivityIndicator: React.FC<StaffActivityIndicatorProps> = ({
     idleTime,
     activityPercentage,
     isIdle,
-  } = useActivityTracker({ isOnCall });
+  } = useActivityTracker({ isOnCall, serverBaseline });
 
   // Persist session data to database
   const currentIdleStreak = isIdle ? Date.now() - lastActivity : 0;

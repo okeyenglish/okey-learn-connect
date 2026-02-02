@@ -22,6 +22,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useActivityTracker } from '@/hooks/useActivityTracker';
+import { useTodayWorkSession } from '@/hooks/useTodayWorkSession';
 import { useTodayCallsCount } from '@/hooks/useTodayCallsCount';
 import { useTodayMessagesCount } from '@/hooks/useTodayMessagesCount';
 import { useMyOverdueTasks } from '@/hooks/useMyOverdueTasks';
@@ -87,8 +88,11 @@ export const UnifiedManagerWidget = React.memo(({
   const [testPushLoading, setTestPushLoading] = useState(false);
   const isMobile = useIsMobile();
   
-  // Activity tracking
-  const { activeTime, activityPercentage, sessionDuration } = useActivityTracker();
+  // Server baseline for cross-device sync
+  const { baseline: serverBaseline } = useTodayWorkSession();
+  
+  // Activity tracking with server sync
+  const { activeTime, activityPercentage, sessionDuration } = useActivityTracker({ serverBaseline });
   const { callsCount, incomingCalls, outgoingCalls, lastCallTime, isLoading: callsLoading } = useTodayCallsCount();
   const { messagesCount, lastMessageTime, isLoading: messagesLoading } = useTodayMessagesCount();
   const { overdueCount, isLoading: overdueLoading } = useMyOverdueTasks();
