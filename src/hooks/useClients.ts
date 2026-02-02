@@ -71,9 +71,9 @@ export const useClients = (enabled: boolean = true) => {
           .from('clients')
           .select(`
             id, name, phone, email, notes, avatar_url, 
-            is_active, branch, created_at, updated_at
+            status, branch, created_at, updated_at
           `)
-          .eq('is_active', true)
+          .neq('status', 'deleted')
           .order('created_at', { ascending: false })
           .limit(500); // Prevent timeout - use search for more
         
@@ -232,8 +232,8 @@ export const useSearchClients = () => {
       // Self-hosted schema: search directly in clients table (no client_phone_numbers)
       const { data, error } = await supabase
         .from('clients')
-        .select('id, name, phone, email, notes, avatar_url, is_active, branch, created_at, updated_at')
-        .eq('is_active', true)
+        .select('id, name, phone, email, notes, avatar_url, status, branch, created_at, updated_at')
+        .neq('status', 'deleted')
         .or(`name.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`)
         .limit(20);
 
