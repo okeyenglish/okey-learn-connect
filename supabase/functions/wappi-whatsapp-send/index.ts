@@ -378,7 +378,7 @@ Deno.serve(async (req) => {
         message_text: message,
         message_type: 'manager',
         messenger_type: 'whatsapp',
-        status: messageStatus, // Use 'status' field for delivery tracking
+        message_status: messageStatus, // Use 'message_status' field for delivery tracking
         external_message_id: externalMessageId,
         is_outgoing: true,
         is_read: true,

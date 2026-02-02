@@ -255,8 +255,8 @@ Deno.serve(async (req) => {
 
     console.log('Green-API response:', greenApiResponse);
 
-    // Сохраняем сообщение в базу данных
-    const messageStatus = greenApiResponse.error ? 'failed' : 'queued';
+    // Сохраняем сообщение в базу данных - используем 'sent' сразу при успехе для мгновенной обратной связи
+    const messageStatus = greenApiResponse.error ? 'failed' : 'sent';
     
     const { data: savedMessage, error: saveError } = await supabase
       .from('chat_messages')

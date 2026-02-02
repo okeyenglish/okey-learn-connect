@@ -222,8 +222,8 @@ Deno.serve(async (req) => {
 
     console.log('WPP response:', wppResponse)
 
-    // Save message to database
-    const messageStatus = wppResponse.error ? 'failed' : 'queued'
+    // Save message to database - set 'sent' immediately on success for instant feedback
+    const messageStatus = wppResponse.error ? 'failed' : 'sent'
     
     const { data: savedMessage, error: saveError } = await supabase
       .from('chat_messages')
