@@ -1923,6 +1923,7 @@ const CRMContent = () => {
     // ChatOS shows inline AI Hub section (like clients list)
     setActiveChatType('chatos');
     setActiveChatId(null);
+    setActiveTab('chats');
     if (isMobile) {
       setLeftSidebarOpen(false);
       setRightSidebarOpen(false);
@@ -1932,6 +1933,7 @@ const CRMContent = () => {
   const handleMobileTeachersClick = () => {
     setActiveChatType('teachers');
     setActiveChatId(null);
+    setActiveTab('chats');
     if (isMobile) {
       setLeftSidebarOpen(false);
       setRightSidebarOpen(false);
@@ -1941,6 +1943,7 @@ const CRMContent = () => {
   const handleMobileClientsClick = () => {
     setActiveChatType('client');
     setActiveChatId(null);
+    setActiveTab('chats');
     if (isMobile) {
       setLeftSidebarOpen(false);
       setRightSidebarOpen(false);
