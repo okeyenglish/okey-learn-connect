@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { StudentsModal } from './StudentsModal';
 import { TelephonyModal } from '@/components/settings/TelephonyModal';
 import { StaffActivityIndicator } from './StaffActivityIndicator';
+import { StaffActivityPopover } from './StaffActivityPopover';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrganization } from '@/hooks/useOrganization';
 import { useToast } from '@/hooks/use-toast';
@@ -284,6 +285,11 @@ export const UnifiedCRMHeader = () => {
             <div className="md:hidden">
               <StaffActivityIndicator compact />
             </div>
+          )}
+
+          {/* Activity Popover - visible for all staff */}
+          {hasAnyRole(['admin', 'manager', 'methodist', 'teacher', 'branch_manager']) && (
+            <StaffActivityPopover />
           )}
           
           {/* Профиль пользователя */}
