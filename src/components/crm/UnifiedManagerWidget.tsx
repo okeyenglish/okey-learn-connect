@@ -19,6 +19,7 @@ import { ChangePasswordModal } from "./ChangePasswordModal";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { AdminModal } from "@/components/admin/AdminModal";
 import { StaffActivityPopover } from "./StaffActivityPopover";
+import { BranchPlanIndicator } from "./BranchPlanIndicator";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -318,6 +319,9 @@ export const UnifiedManagerWidget = React.memo(({
 
           {/* Activity Popover */}
           <StaffActivityPopover />
+
+          {/* Branch Plan Indicator */}
+          <BranchPlanIndicator onDashboardClick={onDashboardClick} />
 
           {/* Manager Menu Section */}
           <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
