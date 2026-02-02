@@ -355,7 +355,7 @@ export const ChatArea = ({
       // Update status to 'queued'
       await supabase
         .from('chat_messages')
-        .update({ status: 'queued' })
+        .update({ message_status: 'queued' })
         .eq('id', messageId);
       
       queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
@@ -383,7 +383,7 @@ export const ChatArea = ({
         // Update status - retry metadata will be cleared by clearRetryCountInDB
         await supabase
           .from('chat_messages')
-          .update({ status: 'sent' })
+          .update({ message_status: 'sent' })
           .eq('id', messageId);
         
         queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
@@ -401,7 +401,7 @@ export const ChatArea = ({
       
       await supabase
         .from('chat_messages')
-        .update({ status: 'failed' })
+        .update({ message_status: 'failed' })
         .eq('id', messageId);
       
       queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
@@ -1896,7 +1896,7 @@ export const ChatArea = ({
     // Update status to 'queued' optimistically
     await supabase
       .from('chat_messages')
-      .update({ status: 'queued' })
+      .update({ message_status: 'queued' })
       .eq('id', messageId);
     
     // Invalidate cache to show queued status
@@ -1935,7 +1935,7 @@ export const ChatArea = ({
       // Update original message status to 'sent' and remove the old failed record
       await supabase
         .from('chat_messages')
-        .update({ status: 'sent' })
+        .update({ message_status: 'sent' })
         .eq('id', messageId);
 
       queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
@@ -1948,7 +1948,7 @@ export const ChatArea = ({
       // Update status back to 'failed'
       await supabase
         .from('chat_messages')
-        .update({ status: 'failed' })
+        .update({ message_status: 'failed' })
         .eq('id', messageId);
 
       queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
