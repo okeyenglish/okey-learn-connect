@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 
 export interface TakeoverRequest {
@@ -30,7 +30,6 @@ interface TakeoverBroadcastPayload {
  * Uses Supabase Realtime broadcast for instant communication
  */
 export const useChatTakeover = (clientId: string | null) => {
-  const { toast } = useToast();
   const { user, profile } = useAuth();
   const [pendingRequest, setPendingRequest] = useState<TakeoverRequest | null>(null);
   const [incomingRequest, setIncomingRequest] = useState<TakeoverRequest | null>(null);
@@ -71,19 +70,12 @@ export const useChatTakeover = (clientId: string | null) => {
           // Response to our takeover request
           if (pendingRequest?.id === data.response.requestId) {
             if (data.response.approved) {
-              toast({
-                title: "Чат передан",
-                description: "Вы получили управление чатом",
-              });
+              toast.success('Чат передан — Вы получили управление чатом');
               if (data.response.draftText) {
                 setReceivedDraft(data.response.draftText);
               }
             } else {
-              toast({
-                title: "Запрос отклонён",
-                description: "Менеджер отказался передавать чат",
-                variant: "destructive",
-              });
+              toast.error('Запрос отклонён — Менеджер отказался передавать чат');
             }
             setPendingRequest(null);
           }
@@ -99,7 +91,7 @@ export const useChatTakeover = (clientId: string | null) => {
         channelRef.current = null;
       }
     };
-  }, [clientId, pendingRequest, toast]);
+  }, [clientId, pendingRequest]);
 
   // Request takeover from another manager
   const requestTakeover = useCallback(async (
@@ -131,11 +123,8 @@ export const useChatTakeover = (clientId: string | null) => {
       } as TakeoverBroadcastPayload,
     });
 
-    toast({
-      title: "Запрос отправлен",
-      description: `Ожидаем ответа от ${targetUserName}`,
-    });
-  }, [clientId, toast]);
+    toast.info(`Запрос отправлен — Ожидаем ответа от ${targetUserName}`);
+  }, [clientId]);
 
   // Respond to incoming takeover request
   const respondToRequest = useCallback(async (approved: boolean, draftText?: string) => {
@@ -155,14 +144,11 @@ export const useChatTakeover = (clientId: string | null) => {
     });
 
     if (approved) {
-      toast({
-        title: "Чат передан",
-        description: `${incomingRequest.requesterName} теперь ведёт этот чат`,
-      });
+      toast.success(`Чат передан — ${incomingRequest.requesterName} теперь ведёт этот чат`);
     }
 
     setIncomingRequest(null);
-  }, [incomingRequest, toast]);
+  }, [incomingRequest]);
 
   // Clear received draft after it's been used
   const clearReceivedDraft = useCallback(() => {
