@@ -18,7 +18,7 @@ export const useDeletedChats = () => {
       const { data, error } = await supabase
         .from('clients')
         .select('id, name, phone, branch, last_message_at, updated_at')
-        .eq('is_active', false)
+        .eq('status', 'deleted')
         .order('updated_at', { ascending: false });
 
       if (error) {
@@ -39,7 +39,7 @@ export const useRestoreChat = () => {
     mutationFn: async (chatId: string) => {
       const { error } = await supabase
         .from('clients')
-        .update({ is_active: true })
+        .update({ status: 'active' })
         .eq('id', chatId);
 
       if (error) throw error;

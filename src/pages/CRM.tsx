@@ -1577,7 +1577,7 @@ const CRMContent = () => {
     try {
       const { error } = await supabase
         .from('clients')
-        .update({ is_active: false })
+        .update({ status: 'deleted' })
         .eq('id', deleteChatDialog.chatId);
       if (error) throw error;
       
