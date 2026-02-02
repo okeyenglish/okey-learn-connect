@@ -31,6 +31,7 @@ interface RpcThreadRow {
   last_message_text?: string;
   last_message?: string;
   last_message_time?: string;
+  last_messenger_type?: string | null;
   unread_count?: number;
   unread_whatsapp?: number;
   unread_telegram?: number;
@@ -333,6 +334,14 @@ function mapRpcToThreads(data: RpcThreadRow[]): ChatThread[] {
     // Filter out system messages from preview - show empty instead
     const lastMessage = isSystemPreviewMessage(rawLastMessage) ? '' : rawLastMessage;
     
+    // Infer messenger type from chat IDs if not provided by RPC
+    let inferredMessenger: string | null = null;
+    if (!row.last_messenger_type && !row.last_unread_messenger) {
+      if (row.telegram_chat_id) inferredMessenger = 'telegram';
+      else if (row.whatsapp_chat_id) inferredMessenger = 'whatsapp';
+      else if (row.max_chat_id) inferredMessenger = 'max';
+    }
+    
     return {
       client_id: row.clt_id || row.client_id || '',
       client_name: row.client_name || '',
@@ -350,7 +359,7 @@ function mapRpcToThreads(data: RpcThreadRow[]): ChatThread[] {
       max_chat_id: row.max_chat_id || null,
       last_message: lastMessage,
       last_message_time: row.last_message_time,
-      last_message_messenger: row.last_unread_messenger || null,
+      last_message_messenger: row.last_messenger_type || row.last_unread_messenger || inferredMessenger,
       unread_count: Number(row.unread_count) || 0,
       unread_by_messenger: {
         whatsapp: Number(row.unread_whatsapp) || 0,
