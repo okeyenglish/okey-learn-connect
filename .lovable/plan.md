@@ -1,79 +1,77 @@
 
-# План: Исправление краша при клике на диалог в AI Hub
+## Что реально происходит (переформулировка проблемы)
 
-## Причина проблемы
+При клике на диалог в AI Hub на десктопе приложение падает в “белый экран”. Это выглядит как “обновление страницы”, но по факту чаще всего это аварийный сброс React из‑за ошибки рендера.
 
-Функция `handleSelectChat` в `AIHub.tsx` (строка 465) является асинхронной, но **не имеет блока try-catch**. Когда вызывается `findOrCreateClient(teacher)` и происходит ошибка (например, ошибка Supabase), Promise rejection не обрабатывается, что приводит к краху всего React-приложения (белый экран).
+У нас уже есть симптом из runtime ошибок: **“Rendered fewer hooks than expected”** — это классическая ошибка, когда внутри одного компонента хуки вызываются не всегда.
 
-```text
-// Текущий проблемный код (строки 465-481):
-const handleSelectChat = async (item: ChatItem) => {
-  if (item.type === 'teacher' && item.data) {
-    const teacher = item.data as TeacherChatItem;
-    if (!teacher.profileId) {
-      toast.error('...');
-      return;
-    }
-    if (teacher.clientId) {
-      setTeacherClientId(teacher.clientId);
-    } else {
-      const clientId = await findOrCreateClient(teacher); // <-- ОШИБКА ЗДЕСЬ КРАШИТ ВСЁ
-      setTeacherClientId(clientId);
-    }
-  }
-  setActiveChat(item); // <-- Если выше была ошибка, это не выполнится
-};
-```
+## Изоляция места, где ломается
 
-## Решение
+Файл: `src/components/ai-hub/AIHub.tsx`
 
-Обернуть всё тело функции `handleSelectChat` в блок `try-catch` с выводом toast об ошибке.
+Критическая конструкция в текущем коде:
+- Внутри компонента `AIHub` есть **ранние `return`**:
+  - `if (activeChat?.type === 'assistant') return (...)` (примерно строки 545+)
+  - `if (activeChat) return (...)` (примерно строки 584+)
+- Но ниже по файлу объявлены хуки:
+  - `const [selectedBranch, setSelectedBranch] = useState('all');`
+  - `const [staffFilter, setStaffFilter] = useState('all');`
+  (примерно строки 763–764)
 
-```text
-const handleSelectChat = async (item: ChatItem) => {
-  try {
-    // Check if teacher has profile link before opening chat
-    if (item.type === 'teacher' && item.data) {
-      const teacher = item.data as TeacherChatItem;
-      if (!teacher.profileId) {
-        toast.error('У преподавателя не привязан профиль...');
-        return;
-      }
-      if (teacher.clientId) {
-        setTeacherClientId(teacher.clientId);
-      } else {
-        const clientId = await findOrCreateClient(teacher);
-        setTeacherClientId(clientId);
-      }
-    }
-    setActiveChat(item);
-  } catch (error) {
-    console.error('[AIHub] Error selecting chat:', error);
-    toast.error('Не удалось открыть чат. Попробуйте ещё раз.');
-  }
-};
-```
+Когда `activeChat` становится не `null` (после клика на диалог), компонент начинает возвращаться раньше и **перестаёт вызывать эти `useState`** → React видит “меньше хуков, чем ожидалось” → падает рендер.
 
----
+### Do I know what the issue is?
+Да. Это нарушение “Rules of Hooks”: хуки объявлены после ветвления с `return`.
 
-## Файлы для изменения
+## Решение (что будем менять)
 
-| Файл | Изменение |
-|------|-----------|
-| `src/components/ai-hub/AIHub.tsx` | Добавить try-catch в `handleSelectChat` (строки 465-481) |
+### 1) Исправить нарушение хуков в `AIHub.tsx`
+Сделать так, чтобы **все хуки вызывались всегда** в одном и том же порядке.
 
----
+Самый короткий и безопасный фикс:
+- Перенести `useState` для `selectedBranch` и `staffFilter` вверх, рядом с остальными `useState` (до любых `return`).
+- Удалить/переместить текущие объявления (строки ~763-764), чтобы не было дублей.
 
-## Технические детали
+Это устранит “Rendered fewer hooks than expected” и снимет основной краш при выборе чата.
 
-### Почему это работает
+### 2) (Рекомендуемый харднинг) Убрать ранние `return` через лёгкий рефакторинг
+Чтобы такие ошибки не возвращались при будущих правках:
 
-1. **React Error Boundaries не ловят async-ошибки** — только ошибки в рендере и lifecycle методах
-2. **Unhandled promise rejections** вызывают краш приложения
-3. Обёртка в `try-catch` перехватывает любые ошибки и показывает пользователю понятное сообщение вместо белого экрана
+- Вынести разные режимы UI в отдельные компоненты:
+  - `AIHubChatView` (экран переписки)
+  - `AIHubListView` (список чатов)
+- В `AIHub` оставить только верхнеуровневые хуки/данные + переключение, что показывать.
 
-### Ожидаемый результат
+Плюсы: проще поддерживать, меньше риск “сломать хуки” снова.
 
-- При клике на любой диалог (сотрудник, преподаватель, AI-помощник) приложение не крашится
-- Если возникает ошибка (например, сетевая), пользователь видит toast "Не удалось открыть чат"
-- Приложение остаётся работоспособным
+### 3) Диагностика “ощущения перезагрузки”
+После фикса хуков:
+- Проверим, что при клике на чат не происходит реального перехода на `/` (вкладка Network → Document запросы).
+- Если всё же есть реальная перезагрузка, добавим защиту: явные `type="button"` для всех “сырых” `<button>` внутри списка (не shadcn `<Button />`), чтобы исключить случайный submit (редко, но бывает при нетипичных обёртках/порталах).
+
+## Порядок работ
+
+1. Открыть `src/components/ai-hub/AIHub.tsx`
+2. Переместить:
+   - `const [selectedBranch, setSelectedBranch] = useState<string>('all');`
+   - `const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('all');`
+   вверх, к остальным `useState` (примерно после `teacherClientId` и прочих state).
+3. Удалить старые объявления этих хуков внизу (строки ~763-764).
+4. (Опционально, но желательно) Внести минимальный рефакторинг: вынести `activeChat`-ветки в дочерние компоненты, чтобы в основном компоненте не было ранних `return` до хуков.
+5. Протестировать на десктопе:
+   - открыть AI Hub
+   - кликнуть по сотруднику
+   - кликнуть по AI помощнику/консультанту
+   - убедиться, что белого экрана нет, чат открывается стабильно
+
+## Файлы, которые будут изменены
+
+- `src/components/ai-hub/AIHub.tsx`
+  - перенос `useState` (обязательный)
+  - возможный рефакторинг на 2 подкомпонента (рекомендуемый)
+
+## Критерии готовности
+
+- На десктопе клик по любому диалогу **не приводит** к белому экрану.
+- Ошибка “Rendered fewer hooks than expected” больше не появляется.
+- На мобильной версии поведение не ломается (регрессия отсутствует).
