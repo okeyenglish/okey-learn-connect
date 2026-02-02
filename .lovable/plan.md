@@ -1,138 +1,100 @@
 
-# Plan: Add Finance/Plan Indicator to CRM Header
+# Plan: Update Branch Plan Indicator with Enhanced Bonus System
 
 ## Overview
-Add a "Finances" icon before the profile in the `UnifiedManagerWidget` showing plan completion percentage with detailed hover information and click-to-dashboard functionality.
+Update the bonus section in the BranchPlanIndicator to show:
+1. Three separate bonus lines with different unlock conditions
+2. A "locked" visual state for unavailable bonuses (opacity/greyed out, not strikethrough)
+3. Tooltip on hover showing requirements only for the 10-student bonus
 
-## Technical Implementation
+## Technical Changes
 
-### 1. Create Database Table for Branch Plans
+### 1. Update `useBranchPlanStats.ts`
 
-**File**: SQL Migration
+Add calculation for the lesson-based bonus from first-time clients this month:
+- Query payments for new students created this month
+- Sum bonuses based on `lessons_count`:
+  - 8 lessons = 1,000₽
+  - 24 lessons = 3,000₽  
+  - 40+ lessons = 5,000₽
 
-```sql
-CREATE TABLE public.branch_plans (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID NOT NULL REFERENCES organizations(id),
-  branch TEXT NOT NULL,
-  period_start DATE NOT NULL DEFAULT date_trunc('month', CURRENT_DATE),
-  period_end DATE NOT NULL DEFAULT (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month' - INTERVAL '1 day'),
-  revenue_target NUMERIC DEFAULT 1000000,
-  new_students_target INTEGER DEFAULT 10,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(organization_id, branch, period_start)
-);
-
--- Enable RLS
-ALTER TABLE branch_plans ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies
-CREATE POLICY "Users can view plans for their org"
-  ON branch_plans FOR SELECT
-  USING (organization_id IN (
-    SELECT organization_id FROM profiles WHERE id = auth.uid()
-  ));
-```
-
-### 2. Create Hook for Branch Plan Statistics
-
-**File**: `src/hooks/useBranchPlanStats.ts`
-
-This hook will fetch:
-- Current month revenue (from `payments` table)
-- New students this month (from `students` table, created_at >= month start)
-- Drops this month (students with status `archived`, `graduated`, `expelled` updated this month)
-- New inquiries (from `clients` table, created_at >= month start)
-- Plan targets (from `branch_plans` or defaults: revenue = 1,000,000, students = 10)
-
+Add new fields to interface:
 ```typescript
 interface BranchPlanStats {
-  revenue: number;
-  revenueTarget: number;
-  revenuePercentage: number;
-  newStudents: number;
-  newStudentsTarget: number;
-  newStudentsPercentage: number;
-  drops: number;
-  newInquiries: number;
-  conversion: number; // (newStudents / newInquiries) * 100
-  overallPercentage: number; // Average of revenue + students percentages
-  isLoading: boolean;
+  // ... existing fields
+  studentsBonus: number;       // +20,000₽ for 10 students
+  planBonus: number;           // +20,000₽ for plan completion
+  lessonBonus: number;         // Calculated from lessons_count
+  studentsUnlocked: boolean;   // newStudents >= 10
+  planUnlocked: boolean;       // overallPercentage >= 100
 }
 ```
 
-### 3. Create BranchPlanIndicator Component
+### 2. Update `BranchPlanIndicator.tsx`
 
-**File**: `src/components/crm/BranchPlanIndicator.tsx`
-
-Features:
-- TrendingUp icon showing overall plan percentage
-- Color coding: green (>= 80%), yellow (60-79%), red (< 60%)
-- HoverCard on hover showing detailed breakdown
-- Click handler to open dashboard
+#### Visual Changes for Bonus Section:
 
 ```text
-UI Layout (HoverCard Content):
-+----------------------------------+
-| План филиала: 68%                |
-+----------------------------------+
-| Выручка:         523,000 / 1M ₽  |
-| Новые ученики:   7 / 10          |
-| Дропы:           3               |
-| Конверсия:       35% (7/20)      |
-+----------------------------------+
-| Нажмите для открытия дашборда    |
-+----------------------------------+
+┌─────────────────────────────────────────┐
+│ 💰 Заработано           3,000 ₽         │
+│           1 из 20 рабочих дней          │
+├─────────────────────────────────────────┤
+│ Бонус                                   │
+│                                         │
+│ 🔒 За 10 учеников      +20,000 ₽       │ ← Grey/locked, hover shows (0/10)
+│ 🔒 За план             +20,000 ₽       │ ← Grey/locked, hover shows "При выполнении плана"
+│ 🔓 За оплаты           +5,000 ₽        │ ← Green if > 0, grey if 0
+└─────────────────────────────────────────┘
 ```
 
-### 4. Update UnifiedManagerWidget
+#### Changes:
+1. Remove strikethrough styling from locked bonuses
+2. Add `opacity-50` and grey styling to locked bonus blocks
+3. Add individual HoverCard/Tooltip for each bonus:
+   - "За 10 учеников" hover: "Нужно 10 новых учеников (0/10)"
+   - "За план" hover: "При выполнении плана"
+   - "За оплаты" hover: "8 занятий = 1000₽, 24 = 3000₽, 40+ = 5000₽"
+4. Show unlock icon (Unlock) when condition is met, lock icon (Lock) when not
 
-**File**: `src/components/crm/UnifiedManagerWidget.tsx`
+### 3. Fix Build Error
 
-Changes:
-- Import `BranchPlanIndicator`
-- Add component between `StaffActivityPopover` and profile dropdown
-- Pass `onDashboardClick` prop for click handling
+Remove unused imports in `useBranchPlanStats.ts`:
+- `getDay` - not used
+- `differenceInDays` - not used
 
-```text
-Layout after changes:
-[ Stats Section | Activity Icon | Plan Icon | Profile Dropdown ]
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `src/hooks/useBranchPlanStats.ts` | Add lesson bonus calculation, new bonus fields, remove unused imports |
+| `src/components/crm/BranchPlanIndicator.tsx` | Redesign bonus section with 3 lines, hover tooltips, locked styling |
+
+## Database Query for Lesson Bonus
+
+```typescript
+// Get payments for new students this month
+const { data: newStudentPayments } = await supabase
+  .from('payments')
+  .select('student_id, lessons_count')
+  .eq('organization_id', organizationId)
+  .eq('status', 'completed')
+  .gte('created_at', monthStart)
+  .in('student_id', newStudentIds);
+
+// Calculate bonus
+const lessonBonus = newStudentPayments.reduce((sum, p) => {
+  const lessons = p.lessons_count || 0;
+  if (lessons >= 40) return sum + 5000;
+  if (lessons >= 24) return sum + 3000;
+  if (lessons >= 8) return sum + 1000;
+  return sum;
+}, 0);
 ```
 
-### 5. For Managers (branch_manager role)
+## Bonus Unlock Conditions
 
-The hook will aggregate data across all managers in their branch.
-
-### 6. For Admin/Owner Role
-
-The hook will aggregate data across all branches for the organization.
-
-## Data Sources
-
-| Metric | Table | Query Logic |
-|--------|-------|-------------|
-| Revenue | `payments` | SUM(amount) WHERE status='completed' AND created_at >= month_start |
-| New Students | `students` | COUNT WHERE created_at >= month_start |
-| Drops | `students` | COUNT WHERE status IN ('archived','graduated','expelled') AND updated_at >= month_start |
-| New Inquiries | `clients` | COUNT WHERE created_at >= month_start |
-| Targets | `branch_plans` | SELECT WHERE branch = user.branch OR defaults |
-
-## Files to Create/Modify
-
-| File | Action |
-|------|--------|
-| `src/hooks/useBranchPlanStats.ts` | Create |
-| `src/components/crm/BranchPlanIndicator.tsx` | Create |
-| `src/components/crm/UnifiedManagerWidget.tsx` | Modify - add BranchPlanIndicator |
-| Database migration | Create branch_plans table |
-
-## Default Values
-- Revenue target: 1,000,000 RUB
-- New students target: 10
-
-## Edge Cases
-- No plan data: Use defaults
-- No branch assigned: Show org-wide stats
-- Admin role: Show aggregated stats for all branches
-- Zero inquiries: Show 0% conversion instead of NaN
+| Bonus | Amount | Condition |
+|-------|--------|-----------|
+| За 10 учеников | +20,000₽ | `newStudents >= 10` |
+| За план | +20,000₽ | `overallPercentage >= 100` |
+| За оплаты | variable | Sum of lesson bonuses |
