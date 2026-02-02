@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import type { ServerSessionBaseline } from '@/hooks/useTodayWorkSession';
 
 const SAVE_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const SESSION_DATE_KEY = 'work-session-date';
@@ -24,7 +25,8 @@ export const useSessionPersistence = (
   idleTime: number,
   onCallTime: number = 0,
   isIdle: boolean = false,
-  currentIdleStreak: number = 0
+  currentIdleStreak: number = 0,
+  serverBaseline?: ServerSessionBaseline | null
 ) => {
   const { user, profile } = useAuth();
   const lastSavedRef = useRef<{
@@ -41,6 +43,7 @@ export const useSessionPersistence = (
   const idleEventTriggeredRef = useRef(false);
   const maxIdleStreakRef = useRef(0);
   const saveInProgressRef = useRef(false);
+  const serverBaselineAppliedRef = useRef(false);
 
   // Get current session date in local timezone
   const getSessionDate = () => {
@@ -144,6 +147,32 @@ export const useSessionPersistence = (
       idleEventTriggeredRef.current = false;
     }
   }, [isIdle]);
+
+  // Sync lastSavedRef with server baseline to prevent double-counting
+  useEffect(() => {
+    if (!serverBaseline || serverBaselineAppliedRef.current) return;
+    
+    const serverActiveMs = serverBaseline.activeSeconds * 1000;
+    const serverIdleMs = serverBaseline.idleSeconds * 1000;
+    const serverOnCallMs = serverBaseline.onCallSeconds * 1000;
+    
+    // Only apply if server has meaningful data
+    if (serverActiveMs > 0 || serverIdleMs > 0) {
+      console.log('[useSessionPersistence] Syncing with server baseline:', {
+        serverActive: serverBaseline.activeSeconds,
+        serverIdle: serverBaseline.idleSeconds,
+      });
+      
+      lastSavedRef.current = {
+        activeTime: Math.max(lastSavedRef.current.activeTime, serverActiveMs),
+        idleTime: Math.max(lastSavedRef.current.idleTime, serverIdleMs),
+        onCallTime: Math.max(lastSavedRef.current.onCallTime, serverOnCallMs),
+        timestamp: Date.now(),
+      };
+      
+      serverBaselineAppliedRef.current = true;
+    }
+  }, [serverBaseline]);
 
   // Check if day changed and reset tracking
   useEffect(() => {
