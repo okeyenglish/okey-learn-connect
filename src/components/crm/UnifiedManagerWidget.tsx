@@ -18,6 +18,7 @@ import { ProfileModal } from "./ProfileModal";
 import { ChangePasswordModal } from "./ChangePasswordModal";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { AdminModal } from "@/components/admin/AdminModal";
+import { StaffActivityPopover } from "./StaffActivityPopover";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -314,6 +315,9 @@ export const UnifiedManagerWidget = React.memo(({
               </div>
             </TooltipContent>
           </Tooltip>
+
+          {/* Activity Popover */}
+          <StaffActivityPopover />
 
           {/* Manager Menu Section */}
           <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
