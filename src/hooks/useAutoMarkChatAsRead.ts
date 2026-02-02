@@ -94,25 +94,21 @@ export const useAutoMarkChatAsRead = ({
     }
   }, [clientId, user, chatType, queryClient]);
 
-  // Auto-mark as read when chat becomes active
-  useEffect(() => {
-    if (!isActive || !clientId || !user) return;
-    if (chatType !== 'client') return; // Only for client chats
-    
-    // Skip if already marked this chat
-    if (markedAsReadRef.current === clientId) return;
-    
-    // Reset retry counter for new chat
-    retryCountRef.current = 0;
-    
-    // Small delay to ensure chat is fully loaded before marking
-    const markTimeout = setTimeout(() => {
-      console.log('[AutoMarkRead] Auto-marking chat as read:', clientId, messengerType || 'all');
-      markAsReadMutation.mutate({ cId: clientId, messenger: messengerType });
-    }, 500);
-
-    return () => clearTimeout(markTimeout);
-  }, [isActive, clientId, chatType, user, messengerType]);
+  // DISABLED: Auto-mark as read when chat becomes active
+  // Chats should only be marked as read:
+  // 1. When explicitly marked via button
+  // 2. When "Не требует ответа" is clicked
+  // 3. When staff member replies in the chat
+  // useEffect(() => {
+  //   if (!isActive || !clientId || !user) return;
+  //   if (chatType !== 'client') return;
+  //   if (markedAsReadRef.current === clientId) return;
+  //   retryCountRef.current = 0;
+  //   const markTimeout = setTimeout(() => {
+  //     markAsReadMutation.mutate({ cId: clientId, messenger: messengerType });
+  //   }, 500);
+  //   return () => clearTimeout(markTimeout);
+  // }, [isActive, clientId, chatType, user, messengerType]);
 
   // Reset marked status when switching chats
   useEffect(() => {
