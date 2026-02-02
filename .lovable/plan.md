@@ -1,86 +1,79 @@
 
-# План: Исправление видимости онлайн-статуса и скрытие переключателя
+# План: Исправление краша при клике на диалог в AI Hub
 
-## Проблема 1: Пользователи не видят друг друга онлайн
+## Причина проблемы
 
-### Причина
-Канал присутствия (`staff-online-presence`) глобальный и не привязан к организации. Нужно добавить фильтрацию по `organization_id`.
+Функция `handleSelectChat` в `AIHub.tsx` (строка 465) является асинхронной, но **не имеет блока try-catch**. Когда вызывается `findOrCreateClient(teacher)` и происходит ошибка (например, ошибка Supabase), Promise rejection не обрабатывается, что приводит к краху всего React-приложения (белый экран).
 
-### Решение
-1. Изменить имя канала на организационное: `staff-online-presence-{organizationId}`
-2. При обработке событий sync проверять, что пользователи из одной организации
-3. Добавить трекинг `organization_id` в payload присутствия
-
-### Файл: `src/hooks/useStaffOnlinePresence.ts`
 ```text
-// Было:
-const PRESENCE_ROOM = 'staff-online-presence';
-
-// Станет:
-const PRESENCE_ROOM_PREFIX = 'staff-online-presence';
-// Канал: `staff-online-presence-${profile.organization_id}`
+// Текущий проблемный код (строки 465-481):
+const handleSelectChat = async (item: ChatItem) => {
+  if (item.type === 'teacher' && item.data) {
+    const teacher = item.data as TeacherChatItem;
+    if (!teacher.profileId) {
+      toast.error('...');
+      return;
+    }
+    if (teacher.clientId) {
+      setTeacherClientId(teacher.clientId);
+    } else {
+      const clientId = await findOrCreateClient(teacher); // <-- ОШИБКА ЗДЕСЬ КРАШИТ ВСЁ
+      setTeacherClientId(clientId);
+    }
+  }
+  setActiveChat(item); // <-- Если выше была ошибка, это не выполнится
+};
 ```
 
-### Изменения в buildPresencePayload:
+## Решение
+
+Обернуть всё тело функции `handleSelectChat` в блок `try-catch` с выводом toast об ошибке.
+
 ```text
-const buildPresencePayload = () => ({
-  id: user.id,
-  name: userName,
-  avatarUrl,
-  branch: userBranch,
-  organizationId: profile.organization_id, // НОВОЕ
-  lastSeen: Date.now(),
-  isOnline: true,
-  ...extendedPayloadRef.current,
-});
+const handleSelectChat = async (item: ChatItem) => {
+  try {
+    // Check if teacher has profile link before opening chat
+    if (item.type === 'teacher' && item.data) {
+      const teacher = item.data as TeacherChatItem;
+      if (!teacher.profileId) {
+        toast.error('У преподавателя не привязан профиль...');
+        return;
+      }
+      if (teacher.clientId) {
+        setTeacherClientId(teacher.clientId);
+      } else {
+        const clientId = await findOrCreateClient(teacher);
+        setTeacherClientId(clientId);
+      }
+    }
+    setActiveChat(item);
+  } catch (error) {
+    console.error('[AIHub] Error selecting chat:', error);
+    toast.error('Не удалось открыть чат. Попробуйте ещё раз.');
+  }
+};
 ```
 
 ---
 
-## Проблема 2: Переключатель "Все/Онлайн" виден при раскрытых секциях
+## Файлы для изменения
 
-### Причина
-Переключатель всегда показывается в секции "Сотрудники и группы", даже когда раскрыты "AI Помощники" или "Сообщества".
-
-### Решение
-Скрыть переключатель когда `aiSectionExpanded` или `communitiesSectionExpanded` равны `true`.
-
-### Файл: `src/components/ai-hub/AIHub.tsx` (строки ~1060-1085)
-```text
-// Добавить условие:
-const showStaffFilter = !aiSectionExpanded && !communitiesSectionExpanded;
-
-// В разметке:
-{showStaffFilter && (
-  <div className="flex items-center bg-muted rounded-md p-0.5">
-    ...переключатель...
-  </div>
-)}
-```
+| Файл | Изменение |
+|------|-----------|
+| `src/components/ai-hub/AIHub.tsx` | Добавить try-catch в `handleSelectChat` (строки 465-481) |
 
 ---
 
 ## Технические детали
 
-### Файлы для изменения
-| Файл | Изменение |
-|------|-----------|
-| `src/hooks/useStaffOnlinePresence.ts` | Добавить организационную изоляцию канала |
-| `src/components/ai-hub/AIHub.tsx` | Скрыть переключатель при раскрытых секциях |
+### Почему это работает
 
-### Шаги реализации
-
-1. **useStaffOnlinePresence.ts**:
-   - Получить `organization_id` из профиля
-   - Создать канал с суффиксом организации
-   - Добавить `organizationId` в payload
-   - Фильтровать пользователей по организации при sync
-
-2. **AIHub.tsx**:
-   - Добавить переменную `showStaffFilter`
-   - Обернуть toggle в условный рендеринг
+1. **React Error Boundaries не ловят async-ошибки** — только ошибки в рендере и lifecycle методах
+2. **Unhandled promise rejections** вызывают краш приложения
+3. Обёртка в `try-catch` перехватывает любые ошибки и показывает пользователю понятное сообщение вместо белого экрана
 
 ### Ожидаемый результат
-- Все сотрудники одной организации видят друг друга онлайн
-- Сотрудники разных организаций изолированы
-- Переключатель скрыт когда раскрыты AI/Сообщества секции
+
+- При клике на любой диалог (сотрудник, преподаватель, AI-помощник) приложение не крашится
+- Если возникает ошибка (например, сетевая), пользователь видит toast "Не удалось открыть чат"
+- Приложение остаётся работоспособным
