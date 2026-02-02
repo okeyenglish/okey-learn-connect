@@ -264,9 +264,25 @@ export const LinkChatToClientModal = ({
       const currentHasValidPhone = currentClient.phone && isLikelyPhoneNumber(currentClient.phone);
       
       if (!targetHasValidPhone && currentHasValidPhone) {
-        // Target has no valid phone, but source does - transfer it
-        targetUpdateData.phone = currentClient.phone;
-        console.log("Transferring valid phone from source to target:", currentClient.phone);
+        // Before transferring, check if phone already exists on ANY other active client
+        const phoneDigits = currentClient.phone.replace(/\D/g, '').slice(-10);
+        const { data: existingClients } = await supabase
+          .from('clients')
+          .select('id, name, phone')
+          .eq('is_active', true)
+          .neq('id', chatClientId)
+          .neq('id', selectedClientId)
+          .ilike('phone', `%${phoneDigits}%`)
+          .limit(1);
+        
+        if (existingClients && existingClients.length > 0) {
+          console.log("Phone already exists on another client, skipping transfer:", existingClients[0]);
+          // Don't transfer the phone - it will cause a duplicate error
+        } else {
+          // Target has no valid phone, but source does - transfer it
+          targetUpdateData.phone = currentClient.phone;
+          console.log("Transferring valid phone from source to target:", currentClient.phone);
+        }
       } else if (targetHasValidPhone && !currentHasValidPhone && targetClient.phone !== currentClient.phone) {
         // Target has valid phone, source doesn't - keep target's phone (already there, no action needed)
         console.log("Keeping target's valid phone:", targetClient.phone);
@@ -448,14 +464,29 @@ export const LinkChatToClientModal = ({
           }
           
           // Update target client's main phone if they don't have one (and target phone is valid)
+          // But first check if phone already exists on another client to avoid trigger errors
           if (!targetClient.phone || !isLikelyPhoneNumber(targetClient.phone)) {
-            const { error: updatePhoneError } = await supabase
-              .from("clients")
-              .update({ phone: currentClient.phone })
-              .eq("id", selectedClientId);
+            const phoneCheckDigits = currentClient.phone.replace(/\D/g, '').slice(-10);
+            const { data: existingPhoneClients } = await supabase
+              .from('clients')
+              .select('id')
+              .eq('is_active', true)
+              .neq('id', chatClientId)
+              .neq('id', selectedClientId)
+              .ilike('phone', `%${phoneCheckDigits}%`)
+              .limit(1);
             
-            if (updatePhoneError) {
-              console.error("Error updating target phone:", updatePhoneError);
+            if (!existingPhoneClients || existingPhoneClients.length === 0) {
+              const { error: updatePhoneError } = await supabase
+                .from("clients")
+                .update({ phone: currentClient.phone })
+                .eq("id", selectedClientId);
+              
+              if (updatePhoneError) {
+                console.error("Error updating target phone:", updatePhoneError);
+              }
+            } else {
+              console.log("Skipping phone update - exists on another client");
             }
           }
         } else {
@@ -736,7 +767,7 @@ export const LinkChatToClientModal = ({
                           </p>
                           {client.client_number && (
                             <span className="text-[10px] text-muted-foreground font-mono">
-                              #C{client.client_number}
+                              #{client.client_number}
                             </span>
                           )}
                         </div>
