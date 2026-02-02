@@ -162,7 +162,8 @@ function checkIfConfigured(messengerType: MessengerType, provider: string | null
         return !!(settings.instanceId && settings.apiToken);
       }
     case 'telegram':
-      return !!(settings.botToken || settings.wappiProfileId);
+      // Wappi.pro Telegram uses profileId + apiToken
+      return !!(settings.profileId && settings.apiToken);
     case 'max':
       return !!(settings.instanceId && settings.apiToken);
     default:
