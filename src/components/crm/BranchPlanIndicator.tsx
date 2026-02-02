@@ -1,5 +1,5 @@
 import React from 'react';
-import { TrendingUp, TrendingDown, Users, UserMinus, ArrowRightLeft } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, UserMinus, ArrowRightLeft, Wallet, Lock, Unlock } from 'lucide-react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { useBranchPlanStats } from '@/hooks/useBranchPlanStats';
 import { cn } from '@/lib/utils';
@@ -41,6 +41,11 @@ export const BranchPlanIndicator = React.memo(({ onDashboardClick }: BranchPlanI
     newInquiries,
     conversion,
     overallPercentage,
+    earnedSalary,
+    workedDays,
+    workingDaysInMonth,
+    bonusAmount,
+    bonusUnlocked,
     isLoading,
   } = useBranchPlanStats();
 
@@ -132,15 +137,57 @@ export const BranchPlanIndicator = React.memo(({ onDashboardClick }: BranchPlanI
             <span className="font-medium">{drops}</span>
           </div>
 
-          {/* Conversion */}
+          {/* Conversion (last 30 days) */}
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground flex items-center gap-1.5">
               <ArrowRightLeft className="h-3.5 w-3.5" />
-              Конверсия
+              Конверсия (30 дн.)
             </span>
             <span className="font-medium">
-              {conversion}% ({newStudents}/{newInquiries})
+              {conversion}%
             </span>
+          </div>
+
+          {/* Salary Section */}
+          <div className="border-t pt-3 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground flex items-center gap-1.5">
+                <Wallet className="h-3.5 w-3.5" />
+                Заработано
+              </span>
+              <span className="font-medium text-green-600">
+                {earnedSalary.toLocaleString('ru-RU')} ₽
+              </span>
+            </div>
+            <div className="text-xs text-muted-foreground text-right">
+              {workedDays} из {workingDaysInMonth} рабочих дней
+            </div>
+            
+            {/* Bonus */}
+            <div className="flex items-center justify-between text-sm">
+              <span className={cn(
+                "flex items-center gap-1.5",
+                bonusUnlocked ? "text-green-600" : "text-muted-foreground"
+              )}>
+                {bonusUnlocked ? (
+                  <Unlock className="h-3.5 w-3.5" />
+                ) : (
+                  <Lock className="h-3.5 w-3.5" />
+                )}
+                Бонус
+              </span>
+              <span className={cn(
+                "font-medium",
+                bonusUnlocked ? "text-green-600" : "text-muted-foreground line-through"
+              )}>
+                +{bonusAmount.toLocaleString('ru-RU')} ₽
+              </span>
+            </div>
+            {!bonusUnlocked && (
+              <div className="text-xs text-muted-foreground text-right">
+                Нужно 10 новых учеников ({newStudents}/10)
+              </div>
+            )}
           </div>
 
           {/* Footer */}
