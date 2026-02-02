@@ -1270,9 +1270,15 @@ const CRMContent = () => {
       if (aPinned && !bPinned) return -1;
       if (!aPinned && bPinned) return 1;
       
-      // В рамках закрепленных/не закрепленных: сначала непрочитанные
-      const aChatState = getChatState(a.id);
-      const bChatState = getChatState(b.id);
+      // При активном поиске: сначала люди (имя/телефон), потом сообщения
+      if (chatSearchQuery.length >= 2) {
+        const aFoundInMessages = (a as any).foundInMessages || messageSearchClientIds.includes(a.id);
+        const bFoundInMessages = (b as any).foundInMessages || messageSearchClientIds.includes(b.id);
+        // Люди (не найденные в сообщениях) идут первыми
+        if (!aFoundInMessages && bFoundInMessages) return -1;
+        if (aFoundInMessages && !bFoundInMessages) return 1;
+      }
+      
       // Сначала непрочитанные (по сообщениям / ручной отметке)
       const aUnread = a.unread > 0;
       const bUnread = b.unread > 0;
