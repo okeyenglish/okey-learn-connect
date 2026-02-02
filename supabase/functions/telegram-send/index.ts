@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
         message_text: text || (fileUrl ? '[Файл]' : ''),
         message_type: 'manager', // outgoing message from manager
         messenger_type: 'telegram',
-        status: 'sent', // Use 'status' field for delivery tracking
+        message_status: 'sent', // Use 'message_status' field for delivery tracking
         is_outgoing: true,
         is_read: true,
         external_message_id: sendResult.messageId,

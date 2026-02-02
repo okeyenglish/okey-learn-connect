@@ -1250,7 +1250,7 @@ export const ChatArea = ({
               file_name: filesToSend[0]?.name,
               media_type: filesToSend[0]?.type,
               is_read: true,
-              status: 'sent',
+              message_status: 'sent',
               organization_id: orgId as string,
             });
 
