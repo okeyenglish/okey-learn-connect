@@ -1,112 +1,89 @@
 
-
-# План: Исправление отправки системных сообщений на self-hosted
+# План: Синхронизация статистики активности между устройствами
 
 ## Проблема
-Системные сообщения о задачах не появляются в чате на self-hosted Supabase. Причина - RLS политика требует `organization_id = get_user_organization_id()`, а default может не срабатывать через PostgREST при INSERT.
+Статистика менеджера (время, звонки, сообщения, активность) хранится локально в `localStorage` каждого устройства. Desktop и PWA показывают разные данные, потому что каждое устройство ведёт независимый подсчёт.
 
 ## Решение
+Добавить загрузку начального состояния из базы данных при инициализации трекера. Все устройства будут стартовать с одной базовой точки (агрегированные данные за сегодня из `staff_work_sessions`).
 
-### Шаг 1: Добавить organization_id в useSendMessage
+---
 
-**Файл:** `src/hooks/useChatMessages.ts`
+## Технические изменения
 
-При вставке сообщения нужно явно получить и передать `organization_id` текущего пользователя:
+### 1. Создать хук для загрузки сессии из БД
+**Файл:** `src/hooks/useTodayWorkSession.ts`
 
-```typescript
-mutationFn: async ({ clientId, messageText, messageType = 'manager', phoneNumberId, metadata }) => {
-  // Получаем organization_id текущего пользователя
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .eq('id', (await supabase.auth.getUser()).data.user?.id)
-    .single();
-  
-  const payload = {
-    client_id: clientId,
-    message_text: messageText,
-    message_type: messageType,
-    is_read: messageType === 'manager',
-    organization_id: profile?.organization_id, // Явно передаем organization_id
-  };
-  // ...
-}
+Новый хук будет:
+- Запрашивать запись `staff_work_sessions` за сегодня для текущего пользователя
+- Возвращать `active_seconds`, `idle_seconds`, `session_start`
+- Кэшировать результат через React Query
+
+### 2. Модифицировать useActivityTracker
+**Файл:** `src/hooks/useActivityTracker.ts`
+
+Изменения:
+- Добавить параметр `serverBaseline` для начальных значений с сервера
+- При инициализации:
+  - Сначала загрузить локальное состояние
+  - Сравнить с серверным baseline
+  - Взять максимум из локального и серверного (чтобы не терять данные)
+- Добавить синхронизацию при возврате на вкладку (`visibilitychange`)
+
+### 3. Обновить UnifiedManagerWidget
+**Файл:** `src/components/crm/UnifiedManagerWidget.tsx`
+
+Изменения:
+- Подключить `useTodayWorkSession` для получения серверного baseline
+- Передать baseline в `useActivityTracker`
+- Добавить индикатор синхронизации (опционально)
+
+### 4. Добавить периодическую синхронизацию
+**Файл:** `src/hooks/useActivityTracker.ts`
+
+- При `visibilitychange === 'visible'` — перезапрашивать данные с сервера
+- Объединять локальную дельту с серверным baseline
+
+---
+
+## Алгоритм синхронизации
+
+```text
+При старте приложения:
+1. Загрузить локальное состояние из localStorage
+2. Загрузить сессию за сегодня из staff_work_sessions
+3. Если серверные данные новее или больше:
+   - Использовать серверные как baseline
+   - Сбросить локальную дельту
+4. Если локальные данные больше:
+   - Сохранить дельту на сервер
+   - Продолжить с локальными
+
+При переключении вкладки (из hidden в visible):
+1. Перезапросить серверную сессию
+2. Объединить: baseline = max(local, server)
 ```
 
-### Шаг 2: Кэширование organization_id
+---
 
-Чтобы не делать дополнительный запрос при каждой отправке, можно использовать React Query для кэширования profile с organization_id (уже есть в useAuth).
+## Миграции БД
+Не требуются — таблица `staff_work_sessions` уже существует на self-hosted сервере.
 
-**Оптимизированное решение:**
+---
 
-```typescript
-export const useSendMessage = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async ({ clientId, messageText, messageType, phoneNumberId, metadata }) => {
-      // Получаем organization_id из кэша профиля или запрашиваем
-      let organizationId: string | null = null;
-      
-      const cachedProfile = queryClient.getQueryData<{ organization_id: string }>(['profile']);
-      if (cachedProfile?.organization_id) {
-        organizationId = cachedProfile.organization_id;
-      } else {
-        // Fallback: запрос organization_id через RPC или profiles
-        const { data: userData } = await supabase.auth.getUser();
-        if (userData.user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('organization_id')
-            .eq('id', userData.user.id)
-            .single();
-          organizationId = profile?.organization_id || null;
-        }
-      }
+## Файлы для изменения
 
-      const payload = {
-        client_id: clientId,
-        message_text: messageText,
-        message_type: messageType,
-        is_read: messageType === 'manager',
-        ...(organizationId && { organization_id: organizationId }),
-        ...(phoneNumberId && { phone_number_id: phoneNumberId }),
-        ...(metadata && { metadata }),
-      };
-      
-      // ... insert logic
-    }
-  });
-};
-```
+| Файл | Действие |
+|------|----------|
+| `src/hooks/useTodayWorkSession.ts` | Создать (новый хук для загрузки сессии) |
+| `src/hooks/useActivityTracker.ts` | Модифицировать (добавить синхронизацию) |
+| `src/components/crm/UnifiedManagerWidget.tsx` | Модифицировать (подключить синхронизацию) |
+| `src/components/crm/StaffActivityIndicator.tsx` | Модифицировать (подключить синхронизацию) |
 
-## Технические детали
+---
 
-### Почему default не работает
-- PostgREST передает `DEFAULT` только если поле отсутствует в payload
-- Если поле передается как `undefined` или не включено явно, оно может интерпретироваться как `null`
-- RLS политика `organization_id = get_user_organization_id()` проверяет значение, не default
-
-### Изменяемые файлы
-
-| Файл | Изменение |
-|------|-----------|
-| `src/hooks/useChatMessages.ts` | Добавить явную передачу organization_id в useSendMessage |
-
-### Альтернативный подход
-
-Если не хочется модифицировать mutation, можно изменить RLS политику на self-hosted:
-
-```sql
--- Разрешить INSERT если organization_id NULL (сработает default) 
--- или если он совпадает с организацией пользователя
-CREATE POLICY "Users can create messages in their organization" 
-ON chat_messages FOR INSERT 
-WITH CHECK (
-  organization_id IS NULL 
-  OR organization_id = get_user_organization_id()
-);
-```
-
-Но это менее безопасно. Рекомендуется первый подход с явной передачей organization_id.
-
+## Ожидаемый результат
+- Все устройства показывают одинаковую статистику
+- При открытии на новом устройстве — данные подтягиваются с сервера
+- Локальное отслеживание остаётся для отзывчивости UI
+- Данные объединяются со всех устройств в единую сессию
