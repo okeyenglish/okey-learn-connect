@@ -72,6 +72,12 @@ interface AIHubProps {
   onOpenChat?: (clientId: string) => void;
   /** Callback to open scripts modal from Knowledge Base */
   onOpenScripts?: () => void;
+  /** If set, auto-open AI assistant and show this message */
+  initialAssistantMessage?: string | null;
+  /** Clear the initialAssistantMessage after it's been processed */
+  onClearInitialAssistantMessage?: () => void;
+  /** Category for quick reply suggestions in AI assistant */
+  quickReplyCategory?: 'activity_warning' | 'tab_feedback' | null;
 }
 
 interface ChatMessage {
@@ -116,7 +122,10 @@ export const AIHub = ({
   context,
   onOpenModal,
   onOpenChat,
-  onOpenScripts
+  onOpenScripts,
+  initialAssistantMessage,
+  onClearInitialAssistantMessage,
+  quickReplyCategory
 }: AIHubProps) => {
   const navigate = useNavigate();
   const [activeChat, setActiveChat] = useState<ChatItem | null>(null);
@@ -327,6 +336,16 @@ export const AIHub = ({
     });
     setMessages(initialMessages);
   }, []);
+
+  // Auto-open AI assistant when initialAssistantMessage is provided
+  useEffect(() => {
+    if (!initialAssistantMessage || !isOpen) return;
+    
+    const assistantChat = aiChats.find(chat => chat.type === 'assistant');
+    if (assistantChat) {
+      setActiveChat(assistantChat);
+    }
+  }, [initialAssistantMessage, isOpen, aiChats]);
 
   // Auto-scroll
   useEffect(() => {
@@ -546,6 +565,9 @@ export const AIHub = ({
               context={context}
               onOpenModal={onOpenModal}
               onOpenChat={onOpenChat}
+              initialAssistantMessage={initialAssistantMessage}
+              onClearInitialMessage={onClearInitialAssistantMessage}
+              quickReplyCategory={quickReplyCategory}
             />
           </div>
         </SheetContent>

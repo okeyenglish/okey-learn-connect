@@ -233,8 +233,8 @@ const CRMContent = () => {
   useTabFeedback({
     minAwayTime: 30000, // 30 секунд
     onShowFeedbackRequest: () => {
-      // Переключаемся на ChatOS и открываем чат с AI помощником
-      setActiveChatType('chatos');
+      // Открываем AI Hub popup вместо переключения на ChatOS
+      setVoiceAssistantOpen(true);
       setInitialAssistantMessage(TAB_FEEDBACK_MESSAGE);
       setQuickReplyCategory('tab_feedback');
     }
@@ -243,8 +243,8 @@ const CRMContent = () => {
   // Activity tracker - открываем AI Hub при низкой активности вместо toast
   useActivityTracker({
     onLowActivity: (activityPercentage) => {
-      console.log('[CRM] Low activity detected:', activityPercentage, '% - opening AI Hub');
-      setActiveChatType('chatos');
+      console.log('[CRM] Low activity detected:', activityPercentage, '% - opening AI Hub popup');
+      setVoiceAssistantOpen(true);
       setInitialAssistantMessage(LOW_ACTIVITY_MESSAGE);
       setQuickReplyCategory('activity_warning');
     }
@@ -4445,6 +4445,12 @@ const CRMContent = () => {
           handleChatClick(clientId, 'client');
         }}
         onOpenScripts={() => setShowScriptsModal(true)}
+        initialAssistantMessage={initialAssistantMessage}
+        onClearInitialAssistantMessage={() => {
+          setInitialAssistantMessage(null);
+          setQuickReplyCategory(null);
+        }}
+        quickReplyCategory={quickReplyCategory}
       />
 
       {/* Мобильная нижняя навигация чатов - показываем когда не открыт диалог с клиентом */}
