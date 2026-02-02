@@ -21,9 +21,7 @@ import {
   ChevronRight,
   Zap
 } from 'lucide-react';
-import { WhatsAppSettings } from './WhatsAppSettings';
-import { MaxGreenApiSettings } from './MaxGreenApiSettings';
-import { TelegramWappiSettings } from './TelegramWappiSettings';
+import { WhatsAppIntegrations, TelegramIntegrations, MaxIntegrations } from './integrations';
 import { SalebotSettings } from './SalebotSettings';
 import { OpenAISettings } from './OpenAISettings';
 import { OnlinePBXSettings } from './OnlinePBXSettings';
@@ -256,9 +254,9 @@ export const MessengersSettings: React.FC = () => {
           </Button>
         </div>
 
-        {activeTab === 'whatsapp' && <WhatsAppSettings />}
-        {activeTab === 'telegram' && <TelegramWappiSettings />}
-        {activeTab === 'max' && <MaxGreenApiSettings />}
+        {activeTab === 'whatsapp' && <WhatsAppIntegrations />}
+        {activeTab === 'telegram' && <TelegramIntegrations />}
+        {activeTab === 'max' && <MaxIntegrations />}
         {activeTab === 'salebot' && <SalebotSettings />}
         {activeTab === 'onlinepbx' && <OnlinePBXSettings />}
         {activeTab === 'openai' && <OpenAISettings />}
