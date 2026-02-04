@@ -1,6 +1,8 @@
 import React from 'react';
 import { MessageSquare } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { IntegrationsList, SettingsFieldConfig } from './IntegrationsList';
+import { WppQuickConnect } from './WppQuickConnect';
 
 // WhatsApp provider options
 const whatsappProviders = [
@@ -17,7 +19,7 @@ const whatsappProviders = [
   { 
     value: 'wpp', 
     label: 'WPP Connect', 
-    description: 'Self-hosted, полный контроль' 
+    description: 'Быстрое подключение в один клик' 
   },
 ];
 
@@ -67,36 +69,39 @@ const whatsappFields: SettingsFieldConfig[] = [
     required: true,
     showForProviders: ['wappi'],
   },
-  // WPP Connect fields (New API - msg.academyos.ru)
-  {
-    key: 'wppApiKey',
-    label: 'API Key',
-    type: 'password',
-    placeholder: '••••••••••••••••••••••••••••••••',
-    helpText: 'Уникальный API ключ вашей организации для WPP платформы',
-    required: true,
-    showForProviders: ['wpp'],
-  },
-  {
-    key: 'wppAccountNumber',
-    label: 'Номер WhatsApp',
-    type: 'text',
-    placeholder: '79990001122',
-    helpText: 'Номер телефона WhatsApp аккаунта (только цифры)',
-    required: true,
-    showForProviders: ['wpp'],
-  },
+  // WPP Connect - no manual fields needed (auto-provisioning)
 ];
 
 export const WhatsAppIntegrations: React.FC = () => {
   return (
-    <IntegrationsList
-      messengerType="whatsapp"
-      title="WhatsApp аккаунты"
-      description="Управление подключенными номерами WhatsApp"
-      icon={<MessageSquare className="h-6 w-6 text-green-600" />}
-      providerOptions={whatsappProviders}
-      settingsFields={whatsappFields}
-    />
+    <div className="space-y-6">
+      {/* Quick Connect Card for WPP */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <MessageSquare className="h-6 w-6 text-green-600" />
+            <div>
+              <CardTitle>Быстрое подключение WhatsApp</CardTitle>
+              <CardDescription>
+                Подключите WhatsApp в один клик — просто отсканируйте QR-код
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <WppQuickConnect />
+        </CardContent>
+      </Card>
+
+      {/* Standard integrations list for other providers */}
+      <IntegrationsList
+        messengerType="whatsapp"
+        title="Другие WhatsApp провайдеры"
+        description="Green API, Wappi.pro и другие"
+        icon={<MessageSquare className="h-6 w-6 text-green-600" />}
+        providerOptions={whatsappProviders.filter(p => p.value !== 'wpp')}
+        settingsFields={whatsappFields}
+      />
+    </div>
   );
 };
