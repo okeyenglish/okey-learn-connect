@@ -2,7 +2,7 @@ import React from 'react';
 import { MessageSquare } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { IntegrationsList, SettingsFieldConfig } from './IntegrationsList';
-import { WppQuickConnect } from './WppQuickConnect';
+import { WppConnectPanel } from './WppConnectPanel';
 
 // WhatsApp provider options
 const whatsappProviders = [
@@ -89,7 +89,7 @@ export const WhatsAppIntegrations: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <WppQuickConnect />
+          <WppConnectPanel />
         </CardContent>
       </Card>
 
