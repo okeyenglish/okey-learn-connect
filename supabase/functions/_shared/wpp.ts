@@ -148,42 +148,42 @@ export class WppMsgClient {
   }
 
   /**
-   * Create new API key for a client/organization
-   * POST /auth/keys { clientId }
-   * Returns { apiKey, session }
+   * Create new client on WPP Platform
+   * POST /api/integrations/wpp/create
+   * Authorization: Bearer <SUPABASE_JWT>
+   * Returns { apiKey, session, status }
    */
-  static async createApiKey(
+  static async createClient(
     baseUrl: string, 
-    masterApiKey: string, 
-    clientId: string
-  ): Promise<{ apiKey: string; session: string }> {
-    const url = `${baseUrl.replace(/\/+$/, '')}/auth/keys`;
-    console.log(`[WppMsgClient] Creating API key for client ${clientId}`);
+    supabaseJwt: string
+  ): Promise<{ apiKey: string; session: string; status: string }> {
+    const url = `${baseUrl.replace(/\/+$/, '')}/api/integrations/wpp/create`;
+    console.log(`[WppMsgClient] Creating client via ${url}`);
 
     const res = await fetch(url, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${masterApiKey}`,
+        'Authorization': `Bearer ${supabaseJwt}`,
       },
-      body: JSON.stringify({ clientId }),
     });
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`Failed to create API key: ${res.status} ${text}`);
+      throw new Error(`Failed to create WPP client: ${res.status} ${text}`);
     }
 
     const data = await res.json();
     
     if (!data.apiKey) {
-      throw new Error('API key creation response missing apiKey field');
+      throw new Error('WPP client creation response missing apiKey field');
     }
 
-    console.log(`[WppMsgClient] ✓ API key created for ${clientId}`);
+    console.log(`[WppMsgClient] ✓ Client created, session: ${data.session}`);
     return {
       apiKey: data.apiKey,
-      session: data.session || `client_${clientId}`,
+      session: data.session,
+      status: data.status || 'starting',
     };
   }
 
