@@ -470,3 +470,6 @@ verify_jwt = false
 
 [functions.native-push-register]
 verify_jwt = true
+
+[functions.wpp-provision]
+verify_jwt = true
