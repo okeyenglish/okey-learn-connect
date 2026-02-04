@@ -1,150 +1,120 @@
 
 
-## План: Сохранение и использование JWT токена напрямую
+## План: Исправление сохранения JWT токена для WPP
 
 ### Текущая проблема
 
-Сейчас при каждом запросе к WPP Platform (QR, статус) код:
-1. Берёт `apiKey` из `messenger_integrations.settings.wppApiKey`
-2. Делает запрос `POST /auth/token { apiKey }` для получения JWT
-3. Использует JWT для авторизации запроса
+QR-код не отображается потому что JWT токен не сохраняется в базу данных. Это происходит в двух случаях:
 
-Если `apiKey` устарел или невалиден, получаем `401 Invalid token`.
+1. **wpp-create для существующего клиента** - создаётся WppMsgClient, получается JWT через apiKey, но токен НЕ сохраняется в `messenger_integrations.settings`
 
-### Решение
+2. **wpp-qr/wpp-status** - неправильное условие `wpp.tokenExpiry > 0` проверяется ДО вызова `getToken()`, поэтому токен не обновляется в базе
 
-Сохранять JWT токен сразу после создания клиента и использовать его напрямую без дополнительного запроса `/auth/token`.
-
-### Архитектура
+### Архитектура исправления
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                   СОЗДАНИЕ КЛИЕНТА (wpp-create)                        │
+│                   wpp-create (существующий клиент)                      │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  1. POST /api/integrations/wpp/create (с WPP_SECRET)                   │
-│     → получаем apiKey, session                                         │
+│  БЫЛО:                                                                  │
+│  1. Создаём WppMsgClient({ apiKey })                                   │
+│  2. Вызываем startAccount() → внутри getToken() получает JWT           │
+│  3. JWT НЕ сохраняется ❌                                               │
 │                                                                         │
-│  2. POST /auth/token { apiKey }                                        │
-│     → получаем JWT token                                               │
-│                                                                         │
-│  3. Сохраняем в messenger_integrations.settings:                       │
-│     - wppApiKey                                                        │
-│     - wppAccountNumber                                                 │
-│     - wppJwtToken        ← НОВОЕ                                       │
-│     - wppJwtExpiresAt    ← НОВОЕ                                       │
+│  СТАНЕТ:                                                                │
+│  1. Создаём WppMsgClient({ apiKey, jwtToken?, jwtExpiresAt? })         │
+│  2. Вызываем startAccount()                                            │
+│  3. Получаем текущий токен через wpp.getToken()                        │
+│  4. Сохраняем wppJwtToken + wppJwtExpiresAt в базу ✓                   │
 └─────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                   ЗАПРОСЫ (wpp-qr, wpp-status)                         │
+│                   wpp-qr / wpp-status                                   │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  1. Читаем settings из messenger_integrations                          │
+│  БЫЛО:                                                                  │
+│  const currentToken = wpp.tokenExpiry > 0 ? await wpp.getToken() : null │
+│  // tokenExpiry = 0 до первого getToken() → токен не сохраняется ❌     │
 │                                                                         │
-│  2. Если wppJwtToken есть И не истёк:                                  │
-│     → используем напрямую (без /auth/token)                            │
-│                                                                         │
-│  3. Если токен истёк:                                                  │
-│     → получаем новый через POST /auth/token { apiKey }                 │
-│     → обновляем в базе                                                 │
-│                                                                         │
-│  4. Делаем запрос с Authorization: Bearer <JWT>                        │
+│  СТАНЕТ:                                                                │
+│  const currentToken = await wpp.getToken();  // Всегда получаем токен  │
+│  if (currentToken !== wppJwtToken) {                                   │
+│    // Сохраняем в базу ✓                                               │
+│  }                                                                      │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Изменения в коде
+### Изменения в файлах
 
-#### 1. `supabase/functions/_shared/wpp.ts`
+#### 1. `supabase/functions/wpp-create/index.ts`
 
-Добавить альтернативный конструктор с прямым JWT:
-
-```typescript
-export interface WppMsgClientOptions {
-  baseUrl: string;
-  apiKey?: string;      // Для получения JWT
-  jwtToken?: string;    // Прямой JWT (приоритет)
-  jwtExpiresAt?: number; // Unix timestamp истечения
-  timeoutMs?: number;
-}
-```
-
-Обновить метод `getToken()`:
-- Если передан `jwtToken` и он не истёк - вернуть его
-- Иначе получить новый через `apiKey`
-- Вернуть callback для обновления токена в базе
-
-Добавить статический метод для получения JWT после создания клиента:
+**Строки 80-143** - добавить сохранение JWT для существующего клиента:
 
 ```typescript
-static async getInitialToken(baseUrl: string, apiKey: string): Promise<{token: string, expiresAt: number}>
-```
-
-#### 2. `supabase/functions/wpp-create/index.ts`
-
-После создания клиента:
-1. Сразу получить JWT через `WppMsgClient.getInitialToken()`
-2. Сохранить в settings: `wppJwtToken`, `wppJwtExpiresAt`
-
-```typescript
-const newClient = await WppMsgClient.createClient(WPP_BASE_URL, WPP_SECRET, orgId);
-
-// Получить JWT сразу
-const { token, expiresAt } = await WppMsgClient.getInitialToken(WPP_BASE_URL, newClient.apiKey);
-
-const newSettings = {
-  wppApiKey: newClient.apiKey,
-  wppAccountNumber: newClient.session,
-  wppJwtToken: token,           // ← НОВОЕ
-  wppJwtExpiresAt: expiresAt,   // ← НОВОЕ
-};
-```
-
-#### 3. `supabase/functions/wpp-qr/index.ts`
-
-Использовать сохранённый JWT:
-
-```typescript
-const settings = integration.settings as Record<string, any>;
-
-// Проверить есть ли валидный JWT
-let jwtToken = settings.wppJwtToken;
-let jwtExpiresAt = settings.wppJwtExpiresAt;
-
-const isTokenValid = jwtToken && jwtExpiresAt && Date.now() < jwtExpiresAt - 60000;
-
+// После строки 86 (создание WppMsgClient)
 const wpp = new WppMsgClient({
   baseUrl: WPP_BASE_URL,
   apiKey: settings.wppApiKey,
-  jwtToken: isTokenValid ? jwtToken : undefined,
-  jwtExpiresAt: isTokenValid ? jwtExpiresAt : undefined,
+  jwtToken: settings.wppJwtToken,     // ← Добавить
+  jwtExpiresAt: settings.wppJwtExpiresAt, // ← Добавить
 });
 
-// Если токен обновился - сохранить в базу
-const newToken = await wpp.getToken();
-if (newToken !== jwtToken) {
+// После получения результата (startAccount или getAccountStatus)
+// Перед return добавить сохранение токена:
+const currentToken = await wpp.getToken();
+if (currentToken !== settings.wppJwtToken) {
+  console.log('[wpp-create] Saving JWT token for existing integration');
   await supabaseClient
     .from('messenger_integrations')
     .update({
-      settings: { ...settings, wppJwtToken: newToken, wppJwtExpiresAt: wpp.tokenExpiry }
+      settings: { 
+        ...settings, 
+        wppJwtToken: currentToken, 
+        wppJwtExpiresAt: wpp.tokenExpiry 
+      },
+      updated_at: new Date().toISOString(),
     })
-    .eq('id', integration.id);
+    .eq('id', existingIntegration.id);
 }
 ```
 
-#### 4. `supabase/functions/wpp-status/index.ts`
+#### 2. `supabase/functions/wpp-qr/index.ts`
 
-Аналогичные изменения для использования сохранённого JWT.
+**Строка 123** - убрать неправильное условие:
 
-### Файлы для изменения
+```typescript
+// БЫЛО:
+const currentToken = wpp.tokenExpiry > 0 ? await wpp.getToken() : null;
 
-| Файл | Изменение |
-|------|-----------|
-| `supabase/functions/_shared/wpp.ts` | Добавить поддержку прямого JWT, метод `getInitialToken()` |
-| `supabase/functions/wpp-create/index.ts` | Сохранять JWT после создания клиента |
-| `supabase/functions/wpp-qr/index.ts` | Использовать сохранённый JWT |
-| `supabase/functions/wpp-status/index.ts` | Использовать сохранённый JWT |
+// СТАНЕТ:
+const currentToken = await wpp.getToken();
+```
+
+#### 3. `supabase/functions/wpp-status/index.ts`
+
+**Строка 186** - аналогичное исправление:
+
+```typescript
+// БЫЛО:
+const currentToken = wpp.tokenExpiry > 0 ? await wpp.getToken().catch(() => null) : null;
+
+// СТАНЕТ:
+const currentToken = await wpp.getToken().catch(() => null);
+```
 
 ### Результат
 
-- QR-код будет отображаться без ошибок `401 Invalid token`
-- Меньше запросов к WPP Platform (не нужен `/auth/token` каждый раз)
-- Автоматическое обновление JWT при истечении
+После исправлений:
+- JWT токен будет сохраняться в базу при первом получении
+- При последующих запросах токен будет читаться из базы
+- Если токен истёк - автоматически обновится и сохранится
+- QR-код будет отображаться без ошибки `401 Invalid token`
+
+### Порядок выполнения
+
+1. Исправить `wpp-create/index.ts` - добавить сохранение JWT для существующего клиента
+2. Исправить `wpp-qr/index.ts` - убрать условие `tokenExpiry > 0`
+3. Исправить `wpp-status/index.ts` - убрать условие `tokenExpiry > 0`
+4. Задеплоить edge functions
+5. Удалить старую интеграцию (SQL: `DELETE FROM messenger_integrations WHERE provider='wpp'`)
+6. Переподключить WhatsApp через UI
 
