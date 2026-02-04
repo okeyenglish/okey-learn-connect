@@ -1,77 +1,209 @@
 
-## Что реально происходит (переформулировка проблемы)
+# План: Миграция WPP на новый API msg.academyos.ru
 
-При клике на диалог в AI Hub на десктопе приложение падает в “белый экран”. Это выглядит как “обновление страницы”, но по факту чаще всего это аварийный сброс React из‑за ошибки рендера.
+## Текущая архитектура (старая)
+- API в стиле WPP Connect: `/api/{session}/{secret}/generate-token`
+- Глобальный секрет `WPP_SECRET` / `WPP_AGG_TOKEN` для всех организаций
+- Сессии именуются как `org_{uuid}`
 
-У нас уже есть симптом из runtime ошибок: **“Rendered fewer hooks than expected”** — это классическая ошибка, когда внутри одного компонента хуки вызываются не всегда.
+## Новая архитектура (msg.academyos.ru)
+- Аутентификация: `POST /auth/token` с `{ "apiKey": "YOUR_API_KEY" }` возвращает JWT
+- Аккаунты (номера телефонов) вместо сессий
+- **Каждая организация имеет свой API Key** (хранится в `messenger_integrations.settings.wppApiKey`)
+- Новый формат сообщений с `account` параметром
 
-## Изоляция места, где ломается
+---
 
-Файл: `src/components/ai-hub/AIHub.tsx`
+## Изменения базы данных
 
-Критическая конструкция в текущем коде:
-- Внутри компонента `AIHub` есть **ранние `return`**:
-  - `if (activeChat?.type === 'assistant') return (...)` (примерно строки 545+)
-  - `if (activeChat) return (...)` (примерно строки 584+)
-- Но ниже по файлу объявлены хуки:
-  - `const [selectedBranch, setSelectedBranch] = useState('all');`
-  - `const [staffFilter, setStaffFilter] = useState('all');`
-  (примерно строки 763–764)
+### Поля в `messenger_integrations.settings` для provider='wpp'
+```text
+{
+  "wppApiKey": "API_KEY_для_организации",     // Required - уникальный ключ
+  "wppAccountNumber": "79990001122",          // Required - номер WhatsApp аккаунта
+  "wppWebhookUrl": "auto-generated"           // Автоматически
+}
+```
 
-Когда `activeChat` становится не `null` (после клика на диалог), компонент начинает возвращаться раньше и **перестаёт вызывать эти `useState`** → React видит “меньше хуков, чем ожидалось” → падает рендер.
+---
 
-### Do I know what the issue is?
-Да. Это нарушение “Rules of Hooks”: хуки объявлены после ветвления с `return`.
+## Файлы для изменения
 
-## Решение (что будем менять)
+### 1. `supabase/functions/_shared/wpp.ts` - Полная переработка
 
-### 1) Исправить нарушение хуков в `AIHub.tsx`
-Сделать так, чтобы **все хуки вызывались всегда** в одном и том же порядке.
+**Новый WppClient:**
+```text
+class WppMsgClient {
+  constructor(baseUrl: string, apiKey: string) {}
+  
+  async getToken(): Promise<string>
+  // POST /auth/token { apiKey } → { token }
+  
+  async startAccount(number: string): Promise<StartResult>
+  // POST /api/accounts/start { number }
+  
+  async getAccountStatus(number: string): Promise<AccountStatus>
+  // GET /api/accounts/{number}/status
+  
+  async getAccountQr(number: string): Promise<string | null>
+  // GET /api/accounts/{number}/qr
+  
+  async deleteAccount(number: string): Promise<void>
+  // DELETE /api/accounts/{number}
+  
+  async registerWebhook(number: string, url: string): Promise<void>
+  // POST /api/webhooks/{number} { url }
+  
+  async sendText(account: string, to: string, text: string): Promise<TaskResult>
+  // POST /api/messages/text { account, to, text }
+  
+  async sendImage(account: string, to: string, imageUrl: string, caption?: string)
+  async sendVideo(account: string, to: string, videoUrl: string)
+  async sendFile(account: string, to: string, fileUrl: string, filename: string)
+  async sendAudio(account: string, to: string, audioUrl: string)
+}
+```
 
-Самый короткий и безопасный фикс:
-- Перенести `useState` для `selectedBranch` и `staffFilter` вверх, рядом с остальными `useState` (до любых `return`).
-- Удалить/переместить текущие объявления (строки ~763-764), чтобы не было дублей.
+### 2. `supabase/functions/wpp-start/index.ts`
+```text
+// Логика:
+1. Получить integrationId из запроса или найти primary WPP интеграцию
+2. Достать wppApiKey и wppAccountNumber из settings
+3. Создать WppMsgClient с apiKey организации
+4. Вызвать startAccount(number)
+5. Если нужен QR → вернуть
+6. Зарегистрировать webhook: POST /api/webhooks/{number}
+```
 
-Это устранит “Rendered fewer hooks than expected” и снимет основной краш при выборе чата.
+### 3. `supabase/functions/wpp-status/index.ts`
+```text
+// Логика:
+1. Найти WPP интеграцию организации
+2. Создать WppMsgClient с её apiKey
+3. Проверить статус через GET /api/accounts/{number}/status
+4. Если нужен QR → GET /api/accounts/{number}/qr
+```
 
-### 2) (Рекомендуемый харднинг) Убрать ранние `return` через лёгкий рефакторинг
-Чтобы такие ошибки не возвращались при будущих правках:
+### 4. `supabase/functions/wpp-send/index.ts`
+```text
+// Логика:
+1. Найти WPP интеграцию для отправки (primary или из integration_id)
+2. Создать WppMsgClient
+3. Отправить сообщение через /api/messages/text|image|video|file
 
-- Вынести разные режимы UI в отдельные компоненты:
-  - `AIHubChatView` (экран переписки)
-  - `AIHubListView` (список чатов)
-- В `AIHub` оставить только верхнеуровневые хуки/данные + переключение, что показывать.
+// Новый формат запроса:
+POST /api/messages/text
+{
+  "account": "79990001122",  // номер аккаунта организации
+  "to": "79991112233",       // номер получателя
+  "text": "Hello!"
+}
+```
 
-Плюсы: проще поддерживать, меньше риск “сломать хуки” снова.
+### 5. `supabase/functions/wpp-webhook/index.ts`
+```text
+// Новый формат событий (из документации):
+{
+  "id": "evt_123",
+  "type": "message.incoming" | "qr" | "connected" | "offline" | "message.sent",
+  "created": 1234567890,
+  "data": { ... }
+}
 
-### 3) Диагностика “ощущения перезагрузки”
-После фикса хуков:
-- Проверим, что при клике на чат не происходит реального перехода на `/` (вкладка Network → Document запросы).
-- Если всё же есть реальная перезагрузка, добавим защиту: явные `type="button"` для всех “сырых” `<button>` внутри списка (не shadcn `<Button />`), чтобы исключить случайный submit (редко, но бывает при нетипичных обёртках/порталах).
+// Изменения:
+1. Парсить новый формат событий
+2. Для "qr" → сохранить QR в whatsapp_sessions
+3. Для "connected" → обновить статус
+4. Для "message.incoming" → создать chat_message
+```
 
-## Порядок работ
+### 6. `supabase/functions/wpp-disconnect/index.ts`
+```text
+// DELETE /api/accounts/{number}
+```
 
-1. Открыть `src/components/ai-hub/AIHub.tsx`
-2. Переместить:
-   - `const [selectedBranch, setSelectedBranch] = useState<string>('all');`
-   - `const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('all');`
-   вверх, к остальным `useState` (примерно после `teacherClientId` и прочих state).
-3. Удалить старые объявления этих хуков внизу (строки ~763-764).
-4. (Опционально, но желательно) Внести минимальный рефакторинг: вынести `activeChat`-ветки в дочерние компоненты, чтобы в основном компоненте не было ранних `return` до хуков.
-5. Протестировать на десктопе:
-   - открыть AI Hub
-   - кликнуть по сотруднику
-   - кликнуть по AI помощнику/консультанту
-   - убедиться, что белого экрана нет, чат открывается стабильно
+### 7. `src/components/admin/integrations/WhatsAppIntegrations.tsx`
+```text
+// Обновить поля для provider='wpp':
+- wppApiKey (обязательное) - API ключ организации
+- wppAccountNumber (обязательное) - номер телефона аккаунта
+```
 
-## Файлы, которые будут изменены
+---
 
-- `src/components/ai-hub/AIHub.tsx`
-  - перенос `useState` (обязательный)
-  - возможный рефакторинг на 2 подкомпонента (рекомендуемый)
+## Последовательность действий
 
-## Критерии готовности
+### Этап 1: SDK и утилиты
+1. Создать новый `WppMsgClient` в `_shared/wpp.ts`
+2. Сохранить старый класс для обратной совместимости
 
-- На десктопе клик по любому диалогу **не приводит** к белому экрану.
-- Ошибка “Rendered fewer hooks than expected” больше не появляется.
-- На мобильной версии поведение не ломается (регрессия отсутствует).
+### Этап 2: Edge Functions
+3. Обновить `wpp-start` - использовать настройки из интеграции
+4. Обновить `wpp-status` - новые эндпоинты
+5. Обновить `wpp-send` - новый формат сообщений
+6. Обновить `wpp-webhook` - новый формат событий
+7. Обновить `wpp-disconnect` - новый эндпоинт
+
+### Этап 3: UI
+8. Обновить форму настроек WPP в админке
+
+---
+
+## API Mapping (Старый → Новый)
+
+| Операция | Старый API | Новый API |
+|----------|-----------|-----------|
+| Токен | `POST /api/{session}/{secret}/generate-token` | `POST /auth/token` + `{ apiKey }` |
+| Старт | `POST /session/{session}/start` | `POST /api/accounts/start` |
+| Статус | `GET /session/{session}/status` | `GET /api/accounts/{number}/status` |
+| QR | `GET /session/{session}/qr-code` | `GET /api/accounts/{number}/qr` |
+| Отключение | `POST /api/{session}/logout-session` | `DELETE /api/accounts/{number}` |
+| Webhook | В body startSession | `POST /api/webhooks/{number}` |
+| Текст | `POST /api/{session}/send-message` | `POST /api/messages/text` |
+| Файл | `POST /api/{session}/send-file-base64` | `POST /api/messages/image\|video\|file` |
+
+---
+
+## Формат webhook событий (Новый)
+
+```text
+// Входящее сообщение
+{
+  "id": "evt_123",
+  "type": "message.incoming",
+  "created": 1234567890,
+  "data": {
+    "account": "79990001122",
+    "from": "79991112233", 
+    "text": "Привет",
+    "timestamp": 1234567890
+  }
+}
+
+// QR код
+{
+  "type": "qr",
+  "data": {
+    "account": "79990001122",
+    "qr": "base64..."
+  }
+}
+
+// Подключение
+{
+  "type": "connected",
+  "data": {
+    "account": "79990001122"
+  }
+}
+```
+
+---
+
+## Результат
+
+После миграции:
+- Каждая организация имеет собственный API ключ
+- Поддержка нескольких WhatsApp аккаунтов на организацию
+- Унифицированный формат с другими интеграциями (Green API, Wappi)
+- Все настройки в `messenger_integrations.settings`
