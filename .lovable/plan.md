@@ -1,120 +1,102 @@
 
 
-## План: Исправление сохранения JWT токена для WPP
+## План: Исправление WPP Provision и деплой на self-hosted
 
-### Текущая проблема
+### Диагностика проблемы
 
-QR-код не отображается потому что JWT токен не сохраняется в базу данных. Это происходит в двух случаях:
+Логи показывают, что `wpp-qr` и `wpp-status` работают на self-hosted, но `wpp-provision` (которую вызывает UI) - **не оставляет логов**. Это означает:
 
-1. **wpp-create для существующего клиента** - создаётся WppMsgClient, получается JWT через apiKey, но токен НЕ сохраняется в `messenger_integrations.settings`
+1. **Функция `wpp-provision` не задеплоена** на self-hosted сервер (api.academyos.ru)
+2. Edge Functions на self-hosted не синхронизируются автоматически с Lovable Cloud
 
-2. **wpp-qr/wpp-status** - неправильное условие `wpp.tokenExpiry > 0` проверяется ДО вызова `getToken()`, поэтому токен не обновляется в базе
-
-### Архитектура исправления
+### Архитектура проблемы
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                   wpp-create (существующий клиент)                      │
+│                          Текущая ситуация                               │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  БЫЛО:                                                                  │
-│  1. Создаём WppMsgClient({ apiKey })                                   │
-│  2. Вызываем startAccount() → внутри getToken() получает JWT           │
-│  3. JWT НЕ сохраняется ❌                                               │
 │                                                                         │
-│  СТАНЕТ:                                                                │
-│  1. Создаём WppMsgClient({ apiKey, jwtToken?, jwtExpiresAt? })         │
-│  2. Вызываем startAccount()                                            │
-│  3. Получаем текущий токен через wpp.getToken()                        │
-│  4. Сохраняем wppJwtToken + wppJwtExpiresAt в базу ✓                   │
+│  [Браузер]                                                              │
+│      │                                                                  │
+│      ├─→ POST /wpp-provision ─→ api.academyos.ru ─→ 404 или старый код │
+│      │                                                                  │
+│      ├─→ POST /wpp-qr ─────────→ api.academyos.ru ─→ Работает (логи +) │
+│      │                                                                  │
+│      └─→ POST /wpp-status ─────→ api.academyos.ru ─→ Работает (логи +) │
+│                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
+```
 
-┌─────────────────────────────────────────────────────────────────────────┐
-│                   wpp-qr / wpp-status                                   │
-├─────────────────────────────────────────────────────────────────────────┤
-│  БЫЛО:                                                                  │
-│  const currentToken = wpp.tokenExpiry > 0 ? await wpp.getToken() : null │
-│  // tokenExpiry = 0 до первого getToken() → токен не сохраняется ❌     │
-│                                                                         │
-│  СТАНЕТ:                                                                │
-│  const currentToken = await wpp.getToken();  // Всегда получаем токен  │
-│  if (currentToken !== wppJwtToken) {                                   │
-│    // Сохраняем в базу ✓                                               │
-│  }                                                                      │
-└─────────────────────────────────────────────────────────────────────────┘
+### Необходимые действия
+
+#### 1. Проверить наличие функции на сервере
+
+```bash
+docker exec supabase-edge-functions ls -la /home/deno/functions/ | grep wpp
+```
+
+Ожидаемый результат должен включать:
+- wpp-create
+- wpp-provision
+- wpp-qr
+- wpp-status
+- и другие wpp-* функции
+
+#### 2. Исправить баг в wpp-provision
+
+В строке 155 используется `is_enabled: true`, но схема базы данных использует `is_active`. Нужно исправить:
+
+```typescript
+// БЫЛО:
+is_enabled: true,
+
+// СТАНЕТ:
+is_active: true,
+```
+
+#### 3. Деплой функций на self-hosted
+
+После исправления кода необходимо скопировать обновлённые edge functions на self-hosted сервер:
+
+```bash
+# На сервере - остановить функции
+docker stop supabase-edge-functions
+
+# Скопировать обновлённые функции
+# (требуется scp или rsync с локальной машины)
+
+# Запустить функции
+docker start supabase-edge-functions
+```
+
+#### 4. Проверить логи после деплоя
+
+```bash
+docker logs supabase-edge-functions --tail 50 2>&1 | grep -i provision
 ```
 
 ### Изменения в файлах
 
-#### 1. `supabase/functions/wpp-create/index.ts`
+#### `supabase/functions/wpp-provision/index.ts`
 
-**Строки 80-143** - добавить сохранение JWT для существующего клиента:
-
-```typescript
-// После строки 86 (создание WppMsgClient)
-const wpp = new WppMsgClient({
-  baseUrl: WPP_BASE_URL,
-  apiKey: settings.wppApiKey,
-  jwtToken: settings.wppJwtToken,     // ← Добавить
-  jwtExpiresAt: settings.wppJwtExpiresAt, // ← Добавить
-});
-
-// После получения результата (startAccount или getAccountStatus)
-// Перед return добавить сохранение токена:
-const currentToken = await wpp.getToken();
-if (currentToken !== settings.wppJwtToken) {
-  console.log('[wpp-create] Saving JWT token for existing integration');
-  await supabaseClient
-    .from('messenger_integrations')
-    .update({
-      settings: { 
-        ...settings, 
-        wppJwtToken: currentToken, 
-        wppJwtExpiresAt: wpp.tokenExpiry 
-      },
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', existingIntegration.id);
-}
-```
-
-#### 2. `supabase/functions/wpp-qr/index.ts`
-
-**Строка 123** - убрать неправильное условие:
+Строка 155: исправить имя колонки
 
 ```typescript
-// БЫЛО:
-const currentToken = wpp.tokenExpiry > 0 ? await wpp.getToken() : null;
-
-// СТАНЕТ:
-const currentToken = await wpp.getToken();
+// Строка 154-156
+is_primary: true,
+is_active: true,  // было is_enabled
+settings: {
 ```
-
-#### 3. `supabase/functions/wpp-status/index.ts`
-
-**Строка 186** - аналогичное исправление:
-
-```typescript
-// БЫЛО:
-const currentToken = wpp.tokenExpiry > 0 ? await wpp.getToken().catch(() => null) : null;
-
-// СТАНЕТ:
-const currentToken = await wpp.getToken().catch(() => null);
-```
-
-### Результат
-
-После исправлений:
-- JWT токен будет сохраняться в базу при первом получении
-- При последующих запросах токен будет читаться из базы
-- Если токен истёк - автоматически обновится и сохранится
-- QR-код будет отображаться без ошибки `401 Invalid token`
 
 ### Порядок выполнения
 
-1. Исправить `wpp-create/index.ts` - добавить сохранение JWT для существующего клиента
-2. Исправить `wpp-qr/index.ts` - убрать условие `tokenExpiry > 0`
-3. Исправить `wpp-status/index.ts` - убрать условие `tokenExpiry > 0`
-4. Задеплоить edge functions
-5. Удалить старую интеграцию (SQL: `DELETE FROM messenger_integrations WHERE provider='wpp'`)
-6. Переподключить WhatsApp через UI
+1. Исправить `is_enabled` на `is_active` в `wpp-provision/index.ts`
+2. Деплой на Lovable Cloud (автоматически)
+3. **Вручную задеплоить** edge functions на self-hosted (api.academyos.ru)
+4. Проверить логи `docker logs supabase-edge-functions --tail 50 | grep provision`
+5. Протестировать подключение WhatsApp
+
+### Критично
+
+Изменения в Edge Functions на self-hosted сервере (api.academyos.ru) **требуют ручного деплоя**. Lovable Cloud и self-hosted не синхронизируются автоматически.
 
