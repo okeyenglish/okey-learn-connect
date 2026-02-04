@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
     console.log('[wpp-qr] QR result:', qr ? 'received' : 'null');
 
     // Если токен обновился - сохраняем в базу
-    const currentToken = wpp.tokenExpiry > 0 ? await wpp.getToken() : null;
+    const currentToken = await wpp.getToken();
     if (currentToken && currentToken !== wppJwtToken) {
       console.log('[wpp-qr] Saving refreshed JWT token to DB');
       await supabaseClient
