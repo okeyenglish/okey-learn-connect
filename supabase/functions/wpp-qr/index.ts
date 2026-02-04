@@ -91,6 +91,8 @@ Deno.serve(async (req) => {
     const settings = (integration.settings || {}) as Record<string, any>;
     const wppApiKey = settings.wppApiKey;
     const wppAccountNumber = settings.wppAccountNumber;
+    let wppJwtToken = settings.wppJwtToken;
+    let wppJwtExpiresAt = settings.wppJwtExpiresAt;
 
     // Verify session matches
     if (wppAccountNumber !== session) {
@@ -102,14 +104,37 @@ Deno.serve(async (req) => {
       return errorResponse('WPP API key not configured', 400);
     }
 
-    // Get QR from WPP platform
+    // Проверяем валидность сохранённого JWT (с запасом 60 сек)
+    const isTokenValid = wppJwtToken && wppJwtExpiresAt && Date.now() < wppJwtExpiresAt - 60_000;
+    console.log('[wpp-qr] JWT token valid:', isTokenValid, 'expires:', wppJwtExpiresAt ? new Date(wppJwtExpiresAt).toISOString() : 'N/A');
+
+    // Создаём клиента с JWT если валиден, иначе с apiKey для обновления
     const wpp = new WppMsgClient({
       baseUrl: WPP_BASE_URL,
       apiKey: wppApiKey,
+      jwtToken: isTokenValid ? wppJwtToken : undefined,
+      jwtExpiresAt: isTokenValid ? wppJwtExpiresAt : undefined,
     });
 
     const qr = await wpp.getAccountQr(wppAccountNumber);
     console.log('[wpp-qr] QR result:', qr ? 'received' : 'null');
+
+    // Если токен обновился - сохраняем в базу
+    const currentToken = wpp.tokenExpiry > 0 ? await wpp.getToken() : null;
+    if (currentToken && currentToken !== wppJwtToken) {
+      console.log('[wpp-qr] Saving refreshed JWT token to DB');
+      await supabaseClient
+        .from('messenger_integrations')
+        .update({
+          settings: { 
+            ...settings, 
+            wppJwtToken: currentToken, 
+            wppJwtExpiresAt: wpp.tokenExpiry 
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', integration.id);
+    }
 
     const response: WppQrResponse = {
       success: true,
