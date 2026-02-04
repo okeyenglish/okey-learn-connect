@@ -31,7 +31,9 @@ export interface WppTaskResult {
 
 export interface WppMsgClientOptions {
   baseUrl: string;
-  apiKey: string;
+  apiKey?: string;       // Для получения JWT (если jwtToken не передан)
+  jwtToken?: string;     // Прямой JWT (приоритет)
+  jwtExpiresAt?: number; // Unix timestamp истечения JWT
   timeoutMs?: number;
 }
 
@@ -41,16 +43,29 @@ export interface WppMsgClientOptions {
 
 export class WppMsgClient {
   private baseUrl: string;
-  private apiKey: string;
+  private apiKey: string | undefined;
   private timeoutMs: number;
   private cachedToken: string | null = null;
-  private tokenExpiry: number = 0;
+  private _tokenExpiry: number = 0;
 
   constructor(options: WppMsgClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, '');
     this.apiKey = options.apiKey;
     this.timeoutMs = options.timeoutMs ?? 30_000;
-    console.log(`[WppMsgClient] Initialized for ${this.baseUrl}`);
+    
+    // Если передан готовый JWT токен - использовать его
+    if (options.jwtToken) {
+      this.cachedToken = options.jwtToken;
+      this._tokenExpiry = options.jwtExpiresAt || (Date.now() + 3600 * 1000);
+      console.log(`[WppMsgClient] Initialized with pre-loaded JWT (expires: ${new Date(this._tokenExpiry).toISOString()})`);
+    } else {
+      console.log(`[WppMsgClient] Initialized for ${this.baseUrl}`);
+    }
+  }
+
+  // Публичный геттер для получения expiry токена
+  get tokenExpiry(): number {
+    return this._tokenExpiry;
   }
 
   private maskKey(key: string): string {
@@ -115,8 +130,12 @@ export class WppMsgClient {
    */
   async getToken(): Promise<string> {
     // Return cached token if still valid (with 60s buffer)
-    if (this.cachedToken && Date.now() < this.tokenExpiry - 60_000) {
+    if (this.cachedToken && Date.now() < this._tokenExpiry - 60_000) {
       return this.cachedToken;
+    }
+
+    if (!this.apiKey) {
+      throw new Error('Cannot refresh token: apiKey not provided');
     }
 
     const url = `${this.baseUrl}/auth/token`;
@@ -141,10 +160,41 @@ export class WppMsgClient {
 
     this.cachedToken = data.token;
     // Assume token valid for 1 hour if not specified
-    this.tokenExpiry = Date.now() + (data.expiresIn || 3600) * 1000;
+    this._tokenExpiry = Date.now() + (data.expiresIn || 3600) * 1000;
     
-    console.log(`[WppMsgClient] ✓ Token obtained`);
+    console.log(`[WppMsgClient] ✓ Token obtained, expires: ${new Date(this._tokenExpiry).toISOString()}`);
     return this.cachedToken;
+  }
+
+  /**
+   * Static method to get initial JWT token after creating a client
+   * Used immediately after createClient() to save the token in DB
+   */
+  static async getInitialToken(baseUrl: string, apiKey: string): Promise<{ token: string; expiresAt: number }> {
+    const url = `${baseUrl.replace(/\/+$/, '')}/auth/token`;
+    console.log(`[WppMsgClient] Getting initial token from ${url}`);
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Failed to get initial token: ${res.status} ${text}`);
+    }
+
+    const data = await res.json();
+    
+    if (!data.token) {
+      throw new Error('Token response missing token field');
+    }
+
+    const expiresAt = Date.now() + (data.expiresIn || 3600) * 1000;
+    console.log(`[WppMsgClient] ✓ Initial token obtained, expires: ${new Date(expiresAt).toISOString()}`);
+    
+    return { token: data.token, expiresAt };
   }
 
   /**

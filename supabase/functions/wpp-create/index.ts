@@ -150,9 +150,16 @@ Deno.serve(async (req) => {
     const newClient = await WppMsgClient.createClient(WPP_BASE_URL, WPP_SECRET, orgId);
     console.log('[wpp-create] New client created:', newClient.session, 'status:', newClient.status);
 
+    // Сразу получаем JWT токен и сохраняем его
+    console.log('[wpp-create] Getting initial JWT token...');
+    const { token: jwtToken, expiresAt: jwtExpiresAt } = await WppMsgClient.getInitialToken(WPP_BASE_URL, newClient.apiKey);
+    console.log('[wpp-create] JWT token obtained, expires:', new Date(jwtExpiresAt).toISOString());
+
     const newSettings = {
       wppApiKey: newClient.apiKey,
       wppAccountNumber: newClient.session,
+      wppJwtToken: jwtToken,         // ← Сохраняем JWT
+      wppJwtExpiresAt: jwtExpiresAt, // ← Сохраняем время истечения
     };
 
     // Save or update integration
