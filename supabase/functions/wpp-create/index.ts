@@ -8,9 +8,8 @@ import {
 } from '../_shared/types.ts';
 
 const WPP_BASE_URL = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
-const WPP_API_KEY = Deno.env.get('WPP_API_KEY');
 
-console.log('[wpp-create] Configuration:', { WPP_BASE_URL, hasApiKey: !!WPP_API_KEY });
+console.log('[wpp-create] Configuration:', { WPP_BASE_URL });
 
 interface WppCreateResponse {
   success: boolean;
@@ -26,25 +25,19 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    // Check master API key
-    if (!WPP_API_KEY) {
-      console.error('[wpp-create] WPP_API_KEY not configured');
-      return errorResponse('WPP_API_KEY not configured', 500);
-    }
-
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Verify JWT
+    // Get user JWT from Authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return errorResponse('Missing authorization', 401);
     }
 
-    const token = authHeader.replace(/^Bearer\s+/i, '');
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
+    const userJwt = authHeader.replace(/^Bearer\s+/i, '');
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(userJwt);
     
     if (userError || !user) {
       return errorResponse('Unauthorized', 401);
@@ -62,10 +55,9 @@ Deno.serve(async (req) => {
     }
 
     const orgId = profile.organization_id;
-    const clientId = orgId.substring(0, 8);
-    console.log('[wpp-create] Org ID:', orgId, 'Client ID:', clientId);
+    console.log('[wpp-create] Org ID:', orgId);
 
-    // Check for existing WPP integration
+    // Check for existing WPP integration with credentials
     const { data: existingIntegration } = await supabaseClient
       .from('messenger_integrations')
       .select('id, settings')
@@ -143,15 +135,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Create new API key via WPP platform
-    console.log('[wpp-create] Creating new API key for client:', clientId);
-    const newCredentials = await WppMsgClient.createApiKey(WPP_BASE_URL, WPP_API_KEY, clientId);
-    console.log('[wpp-create] New credentials created:', newCredentials.session);
+    // =========================================================================
+    // Create new client on WPP Platform
+    // POST /api/integrations/wpp/create with user's Supabase JWT
+    // =========================================================================
+    console.log('[wpp-create] Creating new client on WPP Platform');
+    
+    const newClient = await WppMsgClient.createClient(WPP_BASE_URL, userJwt);
+    console.log('[wpp-create] New client created:', newClient.session, 'status:', newClient.status);
 
-    const accountNumber = newCredentials.session || `org_${clientId}`;
     const newSettings = {
-      wppApiKey: newCredentials.apiKey,
-      wppAccountNumber: accountNumber,
+      wppApiKey: newClient.apiKey,
+      wppAccountNumber: newClient.session,
     };
 
     // Save or update integration
@@ -177,20 +172,20 @@ Deno.serve(async (req) => {
         });
     }
 
-    // Start the account to get QR
+    // Now use the new API key to get JWT and start account
     const wpp = new WppMsgClient({
       baseUrl: WPP_BASE_URL,
-      apiKey: newCredentials.apiKey,
+      apiKey: newClient.apiKey,
     });
 
-    const startResult = await wpp.startAccount(accountNumber);
+    const startResult = await wpp.startAccount(newClient.session);
     console.log('[wpp-create] New account start result:', startResult.state);
 
     if (startResult.state === 'qr') {
       const response: WppCreateResponse = {
         success: true,
-        session: accountNumber,
-        apiKey: maskApiKey(newCredentials.apiKey),
+        session: newClient.session,
+        apiKey: maskApiKey(newClient.apiKey),
         status: 'qr_issued',
         qrcode: startResult.qr,
       };
@@ -202,8 +197,8 @@ Deno.serve(async (req) => {
     if (startResult.state === 'connected') {
       const response: WppCreateResponse = {
         success: true,
-        session: accountNumber,
-        apiKey: maskApiKey(newCredentials.apiKey),
+        session: newClient.session,
+        apiKey: maskApiKey(newClient.apiKey),
         status: 'connected',
       };
       return new Response(JSON.stringify(response), {
@@ -214,8 +209,8 @@ Deno.serve(async (req) => {
     // Return starting status
     const response: WppCreateResponse = {
       success: true,
-      session: accountNumber,
-      apiKey: maskApiKey(newCredentials.apiKey),
+      session: newClient.session,
+      apiKey: maskApiKey(newClient.apiKey),
       status: 'starting',
     };
     return new Response(JSON.stringify(response), {
