@@ -1,6 +1,8 @@
 
 # План: Web-панель клиента для WPP Messaging Platform
 
+## ✅ Статус: Реализовано
+
 ## Обзор
 
 Создание нового интерфейса подключения WhatsApp с автоматической интеграцией через backend. Пользователь не вводит API ключи - всё создаётся автоматически при нажатии кнопки.
@@ -18,45 +20,37 @@
    [Polling каждые 2с]    [messenger_integrations]
 ```
 
-## Изменения
+## Реализованные изменения
 
 ### 1. Edge Functions (для self-hosted сервера)
 
-**wpp-create** - создание интеграции:
-- Endpoint: POST /functions/v1/wpp-create
-- Входные данные: JWT токен в Authorization header
-- Действия:
-  1. Проверка JWT, получение user_id и organization_id
-  2. Проверка существующей интеграции в `messenger_integrations`
-  3. Если нет - создание нового API ключа через WPP платформу
-  4. Сохранение в БД
-- Ответ: `{ success, session, apiKey, status }`
+| Файл | Статус | Описание |
+|------|--------|----------|
+| `supabase/functions/wpp-create/index.ts` | ✅ Создан | Автоматическое создание интеграции |
+| `supabase/functions/wpp-qr/index.ts` | ✅ Создан | Получение QR-кода |
+| `supabase/functions/wpp-status/index.ts` | ✅ Существует | Проверка статуса |
 
-**wpp-qr** - получение QR:
-- Endpoint: GET /functions/v1/wpp-qr?session={session}
-- Входные данные: JWT токен, session в query
-- Действия: Запрос QR у WPP платформы
-- Ответ: `{ success, qr }`
+### 2. Frontend
 
-**wpp-status** (обновление):
-- Endpoint: GET /functions/v1/wpp-status?session={session}
-- Входные данные: JWT токен, session в query  
-- Действия: Запрос статуса у WPP платформы
-- Ответ: `{ success, status, account_number }`
+| Файл | Статус | Описание |
+|------|--------|----------|
+| `src/lib/wppApi.ts` | ✅ Обновлён | Новые методы wppCreate, wppQr, wppGetStatus |
+| `src/components/admin/integrations/WppConnectPanel.tsx` | ✅ Создан | Новый компонент с polling |
+| `src/components/admin/integrations/WhatsAppIntegrations.tsx` | ✅ Обновлён | Использует WppConnectPanel |
 
-### 2. Frontend компонент
+## ⚠️ Требуется ручной деплой
 
-**WppConnectPanel** - полная замена WppQuickConnect:
+Edge Functions необходимо вручную задеплоить на self-hosted сервер (api.academyos.ru):
 
-```text
-+----------------------------------------+
-|  WhatsApp Integration                   |
-|----------------------------------------|
-| [Не подключен]                         |
-|                                        |
-|  [  Подключить WhatsApp  ]             |
-|                                        |
-+----------------------------------------+
+```bash
+# Скопировать файлы на сервер:
+# - supabase/functions/wpp-create/index.ts
+# - supabase/functions/wpp-qr/index.ts
+
+# Или задеплоить через Supabase CLI
+supabase functions deploy wpp-create --project-ref your-ref
+supabase functions deploy wpp-qr --project-ref your-ref
+```
 
 ↓ После клика (loading)
 
