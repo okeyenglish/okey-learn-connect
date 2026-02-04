@@ -24,6 +24,8 @@ interface ProvisionResponse {
   qrcode?: string;
   integration_id?: string;
   account_number?: string;
+  api_key?: string;    // New: per-org API key from WPP platform
+  session?: string;    // New: session name
   error?: string;
 }
 
@@ -99,9 +101,9 @@ Deno.serve(async (req) => {
     const orgId = profile.organization_id;
     console.log(`[wpp-provision] Organization: ${orgId}`);
 
-    // Generate account number from org ID (e.g., "org_abc12345")
-    const accountNumber = `org_${orgId.substring(0, 8).replace(/-/g, '')}`;
-    console.log(`[wpp-provision] Account number: ${accountNumber}`);
+    // Client ID for WPP platform (based on org ID)
+    const clientId = orgId.substring(0, 8).replace(/-/g, '');
+    console.log(`[wpp-provision] Client ID: ${clientId}`);
 
     // Check if WPP integration already exists for this org
     const { data: existingIntegration, error: checkError } = await supabase
@@ -117,63 +119,79 @@ Deno.serve(async (req) => {
     }
 
     let integrationId: string;
+    let orgApiKey: string;
+    let sessionName: string;
 
-    if (existingIntegration) {
-      // Use existing integration
+    if (existingIntegration?.settings?.wppApiKey) {
+      // Use existing integration with API key
       integrationId = existingIntegration.id;
+      orgApiKey = existingIntegration.settings.wppApiKey;
+      sessionName = existingIntegration.settings.wppAccountNumber || `client_${clientId}`;
       console.log(`[wpp-provision] Using existing integration: ${integrationId}`);
+    } else {
+      // Create new API key on WPP platform
+      console.log(`[wpp-provision] Creating new API key for client ${clientId}`);
+      
+      const keyResult = await WppMsgClient.createApiKey(WPP_BASE_URL, WPP_API_KEY, clientId);
+      orgApiKey = keyResult.apiKey;
+      sessionName = keyResult.session;
+      
+      console.log(`[wpp-provision] ✓ API key created, session: ${sessionName}`);
 
-      // Update settings with account number if needed
-      if (!existingIntegration.settings?.wppAccountNumber) {
+      if (existingIntegration) {
+        // Update existing integration with new API key
+        integrationId = existingIntegration.id;
         await supabase
           .from('messenger_integrations')
           .update({
             settings: {
               ...existingIntegration.settings,
-              wppAccountNumber: accountNumber,
+              wppApiKey: orgApiKey,
+              wppAccountNumber: sessionName,
             },
           })
           .eq('id', integrationId);
-      }
-    } else {
-      // Create new integration
-      const { data: newIntegration, error: insertError } = await supabase
-        .from('messenger_integrations')
-        .insert({
-          organization_id: orgId,
-          messenger_type: 'whatsapp',
-          provider: 'wpp',
-          name: 'WhatsApp (WPP)',
-          is_primary: true,
-          is_enabled: true,
-          settings: {
-            wppAccountNumber: accountNumber,
-          },
-        })
-        .select()
-        .single();
+      } else {
+        // Create new integration
+        const { data: newIntegration, error: insertError } = await supabase
+          .from('messenger_integrations')
+          .insert({
+            organization_id: orgId,
+            messenger_type: 'whatsapp',
+            provider: 'wpp',
+            name: 'WhatsApp (WPP)',
+            is_primary: true,
+            is_enabled: true,
+            settings: {
+              wppApiKey: orgApiKey,
+              wppAccountNumber: sessionName,
+            },
+          })
+          .select()
+          .single();
 
-      if (insertError || !newIntegration) {
-        console.error('[wpp-provision] Insert error:', insertError);
-        throw new Error('Не удалось создать интеграцию');
-      }
+        if (insertError || !newIntegration) {
+          console.error('[wpp-provision] Insert error:', insertError);
+          throw new Error('Не удалось создать интеграцию');
+        }
 
-      integrationId = newIntegration.id;
-      console.log(`[wpp-provision] Created new integration: ${integrationId}`);
+        integrationId = newIntegration.id;
+        console.log(`[wpp-provision] Created new integration: ${integrationId}`);
+      }
     }
 
-    // Initialize WPP client with global API key
+    // Initialize WPP client with organization's API key
     const wpp = new WppMsgClient({
       baseUrl: WPP_BASE_URL,
-      apiKey: WPP_API_KEY,
+      apiKey: orgApiKey,
     });
 
     // Build webhook URL
-    const webhookUrl = `${SUPABASE_URL}/functions/v1/wpp-webhook?account=${accountNumber}`;
+    const webhookUrl = `${SUPABASE_URL}/functions/v1/wpp-webhook?account=${sessionName}`;
     console.log(`[wpp-provision] Webhook URL: ${webhookUrl}`);
 
     // Start account and get QR if needed
-    const result = await wpp.ensureAccountWithQr(accountNumber, webhookUrl, 30);
+    const result = await wpp.ensureAccountWithQr(sessionName, webhookUrl, 30);
     console.log(`[wpp-provision] WPP result state: ${result.state}`);
 
     // Build response
@@ -183,7 +201,9 @@ Deno.serve(async (req) => {
               result.state === 'connected' ? 'connected' : 
               result.state === 'error' ? 'error' : 'starting',
       integration_id: integrationId,
-      account_number: accountNumber,
+      account_number: sessionName,
+      api_key: orgApiKey,
+      session: sessionName,
     };
 
     if (result.state === 'qr') {
