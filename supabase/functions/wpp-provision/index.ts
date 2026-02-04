@@ -1,12 +1,12 @@
 /**
  * WPP Provision - Auto-provisioning for WhatsApp WPP integration
  * 
- * New flow (per WPP Platform documentation):
+ * Architecture (server-to-server with WPP_SECRET):
  * 1. User clicks "Connect WhatsApp"
- * 2. This function calls WPP Platform /api/integrations/wpp/create with user's Supabase JWT
- * 3. WPP Platform creates client, returns { apiKey, session, status }
- * 4. We save apiKey, then use it to get JWT from /auth/token
- * 5. All subsequent requests use that JWT
+ * 2. Edge Function validates user via Supabase JWT
+ * 3. Edge Function calls WPP Platform with WPP_SECRET + organizationId
+ * 4. WPP Platform creates client, returns { apiKey, session, status }
+ * 5. We save apiKey, then use it to get JWT from /auth/token
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -23,7 +23,6 @@ interface ProvisionResponse {
   qrcode?: string;
   integration_id?: string;
   account_number?: string;
-  api_key?: string;
   session?: string;
   error?: string;
 }
@@ -41,9 +40,14 @@ Deno.serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const WPP_BASE_URL = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
+    const WPP_SECRET = Deno.env.get('WPP_SECRET');
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       throw new Error('Missing Supabase configuration');
+    }
+
+    if (!WPP_SECRET) {
+      throw new Error('WPP_SECRET not configured');
     }
 
     // Get user JWT from Authorization header
@@ -115,12 +119,11 @@ Deno.serve(async (req) => {
       console.log(`[wpp-provision] Using existing integration: ${integrationId}`);
     } else {
       // =========================================================================
-      // Create new client on WPP Platform
-      // POST /api/integrations/wpp/create with user's Supabase JWT
+      // Create new client on WPP Platform using WPP_SECRET (server-to-server)
       // =========================================================================
-      console.log(`[wpp-provision] Creating new client on WPP Platform`);
+      console.log(`[wpp-provision] Creating new client on WPP Platform with WPP_SECRET`);
       
-      const newClient = await WppMsgClient.createClient(WPP_BASE_URL, userJwt);
+      const newClient = await WppMsgClient.createClient(WPP_BASE_URL, WPP_SECRET, orgId);
       orgApiKey = newClient.apiKey;
       sessionName = newClient.session;
       
