@@ -8,8 +8,9 @@ import {
 } from '../_shared/types.ts';
 
 const WPP_BASE_URL = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
+const WPP_SECRET = Deno.env.get('WPP_SECRET');
 
-console.log('[wpp-create] Configuration:', { WPP_BASE_URL });
+console.log('[wpp-create] Configuration:', { WPP_BASE_URL, hasSecret: !!WPP_SECRET });
 
 interface WppCreateResponse {
   success: boolean;
@@ -25,6 +26,12 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
+    // Check WPP_SECRET
+    if (!WPP_SECRET) {
+      console.error('[wpp-create] WPP_SECRET not configured');
+      return errorResponse('WPP_SECRET not configured', 500);
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -136,12 +143,11 @@ Deno.serve(async (req) => {
     }
 
     // =========================================================================
-    // Create new client on WPP Platform
-    // POST /api/integrations/wpp/create with user's Supabase JWT
+    // Create new client on WPP Platform using WPP_SECRET (server-to-server)
     // =========================================================================
-    console.log('[wpp-create] Creating new client on WPP Platform');
+    console.log('[wpp-create] Creating new client on WPP Platform with WPP_SECRET');
     
-    const newClient = await WppMsgClient.createClient(WPP_BASE_URL, userJwt);
+    const newClient = await WppMsgClient.createClient(WPP_BASE_URL, WPP_SECRET, orgId);
     console.log('[wpp-create] New client created:', newClient.session, 'status:', newClient.status);
 
     const newSettings = {

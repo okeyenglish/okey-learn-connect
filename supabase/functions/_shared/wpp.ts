@@ -148,24 +148,27 @@ export class WppMsgClient {
   }
 
   /**
-   * Create new client on WPP Platform
+   * Create new client on WPP Platform (server-to-server)
    * POST /api/integrations/wpp/create
-   * Authorization: Bearer <SUPABASE_JWT>
+   * Authorization: Bearer <WPP_SECRET>
+   * Body: { organizationId }
    * Returns { apiKey, session, status }
    */
   static async createClient(
     baseUrl: string, 
-    supabaseJwt: string
+    wppSecret: string,
+    organizationId: string
   ): Promise<{ apiKey: string; session: string; status: string }> {
     const url = `${baseUrl.replace(/\/+$/, '')}/api/integrations/wpp/create`;
-    console.log(`[WppMsgClient] Creating client via ${url}`);
+    console.log(`[WppMsgClient] Creating client via ${url} for org ${organizationId}`);
 
     const res = await fetch(url, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseJwt}`,
+        'Authorization': `Bearer ${wppSecret}`,
       },
+      body: JSON.stringify({ organizationId }),
     });
 
     if (!res.ok) {
