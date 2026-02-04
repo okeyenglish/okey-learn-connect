@@ -25,6 +25,8 @@ interface ProvisionResponse {
   qrcode?: string;
   integration_id?: string;
   account_number?: string;
+  api_key?: string;
+  session?: string;
   error?: string;
 }
 

@@ -147,6 +147,46 @@ export class WppMsgClient {
     return this.cachedToken;
   }
 
+  /**
+   * Create new API key for a client/organization
+   * POST /auth/keys { clientId }
+   * Returns { apiKey, session }
+   */
+  static async createApiKey(
+    baseUrl: string, 
+    masterApiKey: string, 
+    clientId: string
+  ): Promise<{ apiKey: string; session: string }> {
+    const url = `${baseUrl.replace(/\/+$/, '')}/auth/keys`;
+    console.log(`[WppMsgClient] Creating API key for client ${clientId}`);
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${masterApiKey}`,
+      },
+      body: JSON.stringify({ clientId }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Failed to create API key: ${res.status} ${text}`);
+    }
+
+    const data = await res.json();
+    
+    if (!data.apiKey) {
+      throw new Error('API key creation response missing apiKey field');
+    }
+
+    console.log(`[WppMsgClient] ✓ API key created for ${clientId}`);
+    return {
+      apiKey: data.apiKey,
+      session: data.session || `client_${clientId}`,
+    };
+  }
+
   // ==========================================================================
   // Account Management
   // ==========================================================================

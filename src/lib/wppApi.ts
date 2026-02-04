@@ -16,6 +16,8 @@ export interface WppProvisionResponse {
   qrcode?: string;
   integration_id?: string;
   account_number?: string;
+  api_key?: string;    // Per-org API key from WPP platform
+  session?: string;    // Session name
   error?: string;
 }
 
