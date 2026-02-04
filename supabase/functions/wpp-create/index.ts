@@ -80,24 +80,48 @@ Deno.serve(async (req) => {
     if (existingIntegration && settings.wppApiKey && settings.wppAccountNumber) {
       console.log('[wpp-create] Found existing integration:', existingIntegration.id);
       
+      // Проверяем валидность сохранённого JWT (с запасом 60 сек)
+      const isTokenValid = settings.wppJwtToken && settings.wppJwtExpiresAt && Date.now() < settings.wppJwtExpiresAt - 60_000;
+      
       const wpp = new WppMsgClient({
         baseUrl: WPP_BASE_URL,
         apiKey: settings.wppApiKey,
+        jwtToken: isTokenValid ? settings.wppJwtToken : undefined,
+        jwtExpiresAt: isTokenValid ? settings.wppJwtExpiresAt : undefined,
       });
 
       // Check current status
       const accountStatus = await wpp.getAccountStatus(settings.wppAccountNumber);
       console.log('[wpp-create] Existing account status:', accountStatus.status);
 
+      // Helper function to save JWT and return response
+      const saveTokenAndReturn = async (response: WppCreateResponse) => {
+        const currentToken = await wpp.getToken();
+        if (currentToken && currentToken !== settings.wppJwtToken) {
+          console.log('[wpp-create] Saving JWT token for existing integration');
+          await supabaseClient
+            .from('messenger_integrations')
+            .update({
+              settings: { 
+                ...settings, 
+                wppJwtToken: currentToken, 
+                wppJwtExpiresAt: wpp.tokenExpiry 
+              },
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingIntegration.id);
+        }
+        return new Response(JSON.stringify(response), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      };
+
       if (accountStatus.status === 'connected') {
-        const response: WppCreateResponse = {
+        return saveTokenAndReturn({
           success: true,
           session: settings.wppAccountNumber,
           apiKey: maskApiKey(settings.wppApiKey),
           status: 'connected',
-        };
-        return new Response(JSON.stringify(response), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
 
@@ -106,39 +130,30 @@ Deno.serve(async (req) => {
       console.log('[wpp-create] Start result:', startResult.state);
 
       if (startResult.state === 'qr') {
-        const response: WppCreateResponse = {
+        return saveTokenAndReturn({
           success: true,
           session: settings.wppAccountNumber,
           apiKey: maskApiKey(settings.wppApiKey),
           status: 'qr_issued',
           qrcode: startResult.qr,
-        };
-        return new Response(JSON.stringify(response), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
 
       if (startResult.state === 'connected') {
-        const response: WppCreateResponse = {
+        return saveTokenAndReturn({
           success: true,
           session: settings.wppAccountNumber,
           apiKey: maskApiKey(settings.wppApiKey),
           status: 'connected',
-        };
-        return new Response(JSON.stringify(response), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
 
       // Return starting status
-      const response: WppCreateResponse = {
+      return saveTokenAndReturn({
         success: true,
         session: settings.wppAccountNumber,
         apiKey: maskApiKey(settings.wppApiKey),
         status: 'starting',
-      };
-      return new Response(JSON.stringify(response), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 

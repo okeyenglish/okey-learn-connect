@@ -183,7 +183,7 @@ Deno.serve(async (req) => {
     console.log('[wpp-status] Account status:', accountStatus);
 
     // Если токен обновился - сохраняем в базу
-    const currentToken = wpp.tokenExpiry > 0 ? await wpp.getToken().catch(() => null) : null;
+    const currentToken = await wpp.getToken().catch(() => null);
     if (currentToken && currentToken !== wppJwtToken && integration) {
       console.log('[wpp-status] Saving refreshed JWT token to DB');
       await supabaseClient
