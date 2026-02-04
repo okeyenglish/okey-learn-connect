@@ -1,66 +1,212 @@
 
+# План: Web-панель клиента для WPP Messaging Platform
 
-# План: Упрощённый флоу подключения WPP WhatsApp
+## Обзор
 
-## ✅ РЕАЛИЗОВАНО
+Создание нового интерфейса подключения WhatsApp с автоматической интеграцией через backend. Пользователь не вводит API ключи - всё создаётся автоматически при нажатии кнопки.
 
-## Текущий флоу (сложный) → ЗАМЕНЁН
+## Архитектура
+
 ```text
-Пользователь → Вводит API Key → Вводит номер телефона → Сохраняет → Нажимает "Подключить" → QR → Сканирует
++------------------+     +-------------------+     +------------------+
+|   Frontend UI    |---->|  Edge Functions   |---->|  WPP Platform    |
+|  (React + Poll)  |<----|  (Self-hosted)    |<----|  msg.academyos.ru|
++------------------+     +-------------------+     +------------------+
+        |                        |
+        |   JWT Auth             |   Master API Key
+        v                        v
+   [Polling каждые 2с]    [messenger_integrations]
 ```
 
-## Новый флоу (упрощённый) → РАБОТАЕТ
+## Изменения
+
+### 1. Edge Functions (для self-hosted сервера)
+
+**wpp-create** - создание интеграции:
+- Endpoint: POST /functions/v1/wpp-create
+- Входные данные: JWT токен в Authorization header
+- Действия:
+  1. Проверка JWT, получение user_id и organization_id
+  2. Проверка существующей интеграции в `messenger_integrations`
+  3. Если нет - создание нового API ключа через WPP платформу
+  4. Сохранение в БД
+- Ответ: `{ success, session, apiKey, status }`
+
+**wpp-qr** - получение QR:
+- Endpoint: GET /functions/v1/wpp-qr?session={session}
+- Входные данные: JWT токен, session в query
+- Действия: Запрос QR у WPP платформы
+- Ответ: `{ success, qr }`
+
+**wpp-status** (обновление):
+- Endpoint: GET /functions/v1/wpp-status?session={session}
+- Входные данные: JWT токен, session в query  
+- Действия: Запрос статуса у WPP платформы
+- Ответ: `{ success, status, account_number }`
+
+### 2. Frontend компонент
+
+**WppConnectPanel** - полная замена WppQuickConnect:
+
 ```text
-Пользователь → Нажимает "Подключить WhatsApp" → QR появляется сразу → Сканирует → Готово!
++----------------------------------------+
+|  WhatsApp Integration                   |
+|----------------------------------------|
+| [Не подключен]                         |
+|                                        |
+|  [  Подключить WhatsApp  ]             |
+|                                        |
++----------------------------------------+
+
+↓ После клика (loading)
+
++----------------------------------------+
+|  WhatsApp Integration                   |
+|----------------------------------------|
+| [Ожидание QR-кода...]                  |
+|  ⏳ Загрузка...                        |
++----------------------------------------+
+
+↓ QR получен
+
++----------------------------------------+
+|  WhatsApp Integration                   |
+|----------------------------------------|
+| Отсканируйте QR-код                    |
+|                                        |
+|     ┌─────────────┐                    |
+|     │   QR CODE   │                    |
+|     │             │                    |
+|     └─────────────┘                    |
+|                                        |
+| Session: client_abc123                 |
+| [Обновить QR]                          |
++----------------------------------------+
+
+↓ После сканирования
+
++----------------------------------------+
+|  WhatsApp Integration                   |
+|----------------------------------------|
+| ✅ WhatsApp подключён                  |
+|                                        |
+| Session:  client_abc123                |
+| API Key:  key_xxx••••••                |
+| Статус:   🟢 Подключено                |
+|                                        |
+| [Отключить]                            |
++----------------------------------------+
 ```
 
----
+### 3. Логика polling
 
-## Созданные файлы
+```text
+1. Клик "Подключить WhatsApp"
+   └─> POST /wpp-create
+       └─> Получаем { session, apiKey, status }
 
-| Файл | Описание |
+2. Если status != "connected"
+   └─> Запускаем polling каждые 2 секунды:
+       ├─> GET /wpp-qr?session=xxx
+       │   └─> Если qr !== null → показываем QR
+       └─> GET /wpp-status?session=xxx
+           └─> Если status === "connected" → останавливаем polling
+
+3. После connected:
+   └─> Показываем панель с данными
+   └─> Обновляем список интеграций
+```
+
+### 4. Файлы для изменения
+
+| Файл | Действие |
 |------|----------|
-| `supabase/functions/wpp-provision/index.ts` | Edge Function для auto-provisioning |
-| `src/components/admin/integrations/WppQuickConnect.tsx` | UI компонент с QR модалкой |
+| `supabase/functions/wpp-create/index.ts` | Создать |
+| `supabase/functions/wpp-qr/index.ts` | Создать |
+| `supabase/functions/wpp-status/index.ts` | Обновить |
+| `src/lib/wppApi.ts` | Обновить под новый API |
+| `src/components/admin/integrations/WppConnectPanel.tsx` | Создать (замена WppQuickConnect) |
+| `src/components/admin/integrations/WhatsAppIntegrations.tsx` | Обновить |
 
-## Изменённые файлы
+## Технические детали
 
-| Файл | Изменения |
-|------|-----------|
-| `src/lib/wppApi.ts` | Добавлена функция `wppProvision()` |
-| `src/components/admin/integrations/WhatsAppIntegrations.tsx` | Добавлен WppQuickConnect, убраны поля для WPP |
-| `supabase/config.toml` | Добавлена конфигурация wpp-provision |
+### wpp-create Edge Function
 
----
+```typescript
+// Псевдокод
+POST /wpp-create
+Authorization: Bearer {JWT}
 
-## Архитектура решения
-
-### Ключевые изменения:
-1. **Глобальный API Key** — один ключ `WPP_API_KEY` для всех организаций (уже в секретах)
-2. **Автоматический account number** — генерируется как `org_${orgId.substring(0,8)}`
-3. **Edge Function `wpp-provision`** — создаёт интеграцию + запускает аккаунт + возвращает QR
-
----
-
-## Деплой на Self-Hosted
-
-Для применения на `api.academyos.ru`:
-
-```bash
-# Скопировать файлы:
-supabase/functions/wpp-provision/index.ts
-
-# Деплой:
-supabase functions deploy wpp-provision
+1. Проверяем JWT → user_id
+2. Получаем organization_id из profiles
+3. Генерируем clientId = org_id.substring(0,8)
+4. Проверяем messenger_integrations:
+   - Если есть с wppApiKey → возвращаем существующий
+   - Если нет → WppMsgClient.createApiKey(masterKey, clientId)
+5. Сохраняем в messenger_integrations
+6. Возвращаем { success, session, apiKey, status: "starting" }
 ```
 
----
+### wpp-qr Edge Function
 
-## Результат
+```typescript
+// Псевдокод  
+GET /wpp-qr?session={session}
+Authorization: Bearer {JWT}
 
-После реализации:
-- Пользователь видит одну кнопку "Подключить WhatsApp"
-- Нажимает → видит QR
-- Сканирует телефоном → подключено
-- Никаких API ключей, никаких номеров вводить не нужно!
+1. Проверяем JWT
+2. Находим интеграцию по session в settings.wppAccountNumber
+3. Создаём WppMsgClient с orgApiKey
+4. Вызываем wpp.getAccountQr(session)
+5. Возвращаем { success, qr }
+```
 
+### Frontend polling
+
+```typescript
+// Псевдокод React hook
+const useWppConnection = () => {
+  const [status, setStatus] = useState('idle');
+  const [qr, setQr] = useState(null);
+  const [session, setSession] = useState(null);
+  
+  const connect = async () => {
+    setStatus('loading');
+    const result = await selfHostedPost('wpp-create');
+    setSession(result.data.session);
+    
+    if (result.data.status === 'connected') {
+      setStatus('connected');
+      return;
+    }
+    
+    // Start polling
+    const pollInterval = setInterval(async () => {
+      const [qrRes, statusRes] = await Promise.all([
+        selfHostedGet(`wpp-qr?session=${result.data.session}`),
+        selfHostedGet(`wpp-status?session=${result.data.session}`)
+      ]);
+      
+      if (qrRes.data?.qr) setQr(qrRes.data.qr);
+      if (statusRes.data?.status === 'connected') {
+        setStatus('connected');
+        clearInterval(pollInterval);
+      }
+    }, 2000);
+  };
+  
+  return { status, qr, session, connect };
+};
+```
+
+## Последовательность реализации
+
+1. Создать Edge Functions (wpp-create, wpp-qr, обновить wpp-status)
+2. Обновить src/lib/wppApi.ts с новыми методами
+3. Создать новый компонент WppConnectPanel
+4. Интегрировать в WhatsAppIntegrations
+5. Удалить старый WppQuickConnect
+
+## Требования к деплою
+
+После реализации необходимо вручную задеплоить Edge Functions на self-hosted сервер (api.academyos.ru), так как они не синхронизируются автоматически с Lovable Cloud.
