@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
       return errorResponse('Missing authorization', 401);
     }
 
-    const token = authHeader.replace('Bearer ', '');
+    const token = authHeader.replace(/^Bearer\s+/i, '');
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
     
     if (userError || !user) {
