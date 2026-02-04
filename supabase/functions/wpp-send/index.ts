@@ -1,91 +1,35 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1'
+import { WppMsgClient } from '../_shared/wpp.ts'
 import { 
   corsHeaders, 
   successResponse, 
   errorResponse,
   getErrorMessage,
   handleCors,
-  type WppSendRequest,
-  type WppSendResponse,
-  type WppApiResponse,
 } from '../_shared/types.ts'
 
-// Generate WPP token for session
-async function generateWppToken(sessionName: string, wppHost: string, wppSecret: string): Promise<string> {
-  const tokenUrl = `${wppHost}/api/${encodeURIComponent(sessionName)}/${wppSecret}/generate-token`
-  console.log('Requesting WPP token:', tokenUrl)
-  
-  // First attempt: POST
-  let res = await fetch(tokenUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${wppSecret}` } })
-  console.log('WPP token response status (POST):', res.status)
-  console.log('WPP token response headers (POST):', Object.fromEntries(res.headers.entries()))
+const WPP_BASE_URL = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru'
 
-  // Helper to extract token from a response
-  const parseToken = async (response: Response, label: string): Promise<string | null> => {
-    const ct = response.headers.get('content-type') || ''
-    const bodyText = await response.text()
-    console.log(`WPP token response content-type (${label}):`, ct)
-    console.log(`WPP token response body (${label}):`, bodyText)
-
-    if (!response.ok) {
-      console.error(`WPP token generation failed (${label}):`, bodyText)
-      return null
-    }
-
-    if (ct.includes('application/json')) {
-      try {
-        const json = JSON.parse(bodyText)
-        if (json?.token && typeof json.token === 'string') return json.token
-      } catch (e) {
-        console.error('Failed to parse JSON token:', e)
-      }
-    }
-
-    // Fallback: plain text token
-    if (bodyText && bodyText.trim().length > 0) {
-      return bodyText.trim()
-    }
-
-    // Fallback: headers
-    const headerAuth = response.headers.get('authorization') || response.headers.get('Authorization')
-    const headerToken = response.headers.get('x-token') || response.headers.get('X-Token')
-    if (headerAuth) return headerAuth.replace(/^Bearer\s+/i, '').trim()
-    if (headerToken) return headerToken.trim()
-
-    return null
-  }
-
-  let token = await parseToken(res, 'POST')
-
-  // Second attempt: GET if POST failed to yield token
-  if (!token) {
-    console.log('Retrying WPP token request with GET')
-    res = await fetch(tokenUrl, { method: 'GET', headers: { 'Authorization': `Bearer ${wppSecret}` } })
-    console.log('WPP token response status (GET):', res.status)
-    token = await parseToken(res, 'GET')
-  }
-
-  if (!token) {
-    throw new Error('Failed to generate WPP token: empty or unrecognized response')
-  }
-
-  console.log('Successfully obtained WPP token')
-  return token
+interface WppSendRequest {
+  clientId: string;
+  message?: string;
+  text?: string;
+  phoneNumber?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  action?: 'test_connection';
+  integration_id?: string;
 }
 
-// Get organization's session name from user
-async function getOrgSessionName(userId: string, supabaseClient: ReturnType<typeof createClient>): Promise<string> {
-  const { data: profile, error } = await supabaseClient
-    .from('profiles')
-    .select('organization_id')
-    .eq('id', userId)
-    .single()
-
-  if (error || !profile?.organization_id) {
-    throw new Error('Organization not found for user')
-  }
-
-  return `org_${profile.organization_id}`
+interface WppSendResponse {
+  success: boolean;
+  messageId?: string;
+  taskId?: string;
+  savedMessageId?: string;
+  status?: number | string;
+  message?: string;
+  error?: string;
 }
 
 Deno.serve(async (req) => {
@@ -97,13 +41,6 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
-
-    const WPP_BASE_URL = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru'
-    const WPP_AGG_TOKEN = Deno.env.get('WPP_AGG_TOKEN')
-    
-    if (!WPP_AGG_TOKEN) {
-      throw new Error('WPP_AGG_TOKEN is not configured')
-    }
 
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
@@ -117,40 +54,79 @@ Deno.serve(async (req) => {
       return errorResponse('Unauthorized', 401)
     }
 
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile?.organization_id) {
+      return errorResponse('Organization not found', 404)
+    }
+
+    const orgId = profile.organization_id
     const payload = await req.json().catch(() => ({} as WppSendRequest))
+
+    // Find WPP integration
+    let integrationQuery = supabase
+      .from('messenger_integrations')
+      .select('id, settings')
+      .eq('organization_id', orgId)
+      .eq('messenger_type', 'whatsapp')
+      .eq('provider', 'wpp')
+      .eq('is_active', true)
+
+    if (payload.integration_id) {
+      integrationQuery = integrationQuery.eq('id', payload.integration_id)
+    } else {
+      integrationQuery = integrationQuery.eq('is_primary', true)
+    }
+
+    const { data: integration } = await integrationQuery.maybeSingle()
+
+    if (!integration) {
+      // Fallback to any active WPP integration
+      const { data: anyIntegration } = await supabase
+        .from('messenger_integrations')
+        .select('id, settings')
+        .eq('organization_id', orgId)
+        .eq('messenger_type', 'whatsapp')
+        .eq('provider', 'wpp')
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle()
+
+      if (!anyIntegration) {
+        return errorResponse('WPP integration not configured', 404)
+      }
+    }
+
+    const settings = (integration?.settings || {}) as Record<string, any>
+    const wppApiKey = settings.wppApiKey
+    const wppAccountNumber = settings.wppAccountNumber
+
+    if (!wppApiKey || !wppAccountNumber) {
+      return errorResponse('wppApiKey or wppAccountNumber not configured', 400)
+    }
+
+    // Create WPP client
+    const wpp = new WppMsgClient({
+      baseUrl: WPP_BASE_URL,
+      apiKey: wppApiKey,
+    })
 
     // Handle test connection
     if (payload?.action === 'test_connection') {
       console.log('Testing WPP connection...')
       
       try {
-        const sessionName = await getOrgSessionName(user.id, supabase)
-        let wppToken: string
-        try {
-          wppToken = await generateWppToken(sessionName, WPP_BASE_URL, WPP_AGG_TOKEN)
-        } catch {
-          console.warn('Falling back to aggregator token for health check')
-          wppToken = WPP_AGG_TOKEN
-        }
-        
-        const healthUrl = `${WPP_BASE_URL}/health`
-        console.log('Testing connection to:', healthUrl)
-        
-        const response = await fetch(healthUrl, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${wppToken}`,
-          },
-        })
-
-        const isHealthy = response.ok
-        console.log('Health check result:', isHealthy, response.status)
+        const status = await wpp.getAccountStatus(wppAccountNumber)
+        const isHealthy = status.status === 'connected'
 
         const testResponse: WppSendResponse = { 
           success: isHealthy,
-          status: response.status,
-          message: isHealthy ? 'WPP connection successful' : 'WPP connection failed',
-          session: sessionName
+          status: status.status,
+          message: isHealthy ? 'WPP connection successful' : `Status: ${status.status}`,
         }
 
         return successResponse(testResponse)
@@ -160,19 +136,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    const { clientId, message, phoneNumber, fileUrl, fileName } = payload
+    // Send message
+    const { clientId, message, text, phoneNumber, fileUrl, fileName, fileType } = payload
+    const messageText = message || text || ''
     
-    console.log('Sending WPP message:', { clientId, message, phoneNumber, fileUrl, fileName })
-
-    // Get organization session
-    const sessionName = await getOrgSessionName(user.id, supabase)
-    let wppToken: string
-    try {
-      wppToken = await generateWppToken(sessionName, WPP_BASE_URL, WPP_AGG_TOKEN)
-    } catch {
-      console.warn('Falling back to aggregator token for send')
-      wppToken = WPP_AGG_TOKEN
-    }
+    console.log('Sending WPP message:', { clientId, messageText: messageText.substring(0, 50), phoneNumber, fileUrl })
 
     // Get client data
     const { data: client, error: clientError } = await supabase
@@ -182,70 +150,71 @@ Deno.serve(async (req) => {
       .single()
 
     if (clientError || !client) {
-      throw new Error(`Client not found: ${clientError?.message}`)
+      return errorResponse(`Client not found: ${clientError?.message}`, 404)
     }
 
     // Determine phone number
     const phone = phoneNumber || client.phone
     if (!phone) {
-      throw new Error('No phone number available for client')
+      return errorResponse('No phone number available for client', 400)
     }
     
-    // Format phone for WhatsApp
+    // Format phone for WhatsApp API (just digits)
     const cleanPhone = phone.replace(/[^\d]/g, '')
-    const to = `${cleanPhone}@c.us`
+    const to = cleanPhone // New API expects clean phone number
 
-    let wppResponse: WppApiResponse
+    console.log('[wpp-send] Sending to:', to)
 
-    // Send message through WPP
+    let wppResult: { success: boolean; taskId?: string; error?: string }
+
+    // Send message through new WPP API
     if (fileUrl) {
       console.log('Sending media message via WPP')
-      wppResponse = await sendMediaMessage(
-        wppToken,
-        sessionName,
-        to,
-        fileUrl,
-        WPP_BASE_URL,
-        fileName,
-        message
-      )
+      
+      // Determine media type
+      const mediaType = fileType || getFileTypeFromUrl(fileUrl)
+      
+      if (mediaType === 'image') {
+        wppResult = await wpp.sendImage(wppAccountNumber, to, fileUrl, messageText)
+      } else if (mediaType === 'video') {
+        wppResult = await wpp.sendVideo(wppAccountNumber, to, fileUrl, messageText)
+      } else if (mediaType === 'audio') {
+        wppResult = await wpp.sendAudio(wppAccountNumber, to, fileUrl)
+      } else {
+        wppResult = await wpp.sendFile(wppAccountNumber, to, fileUrl, fileName || 'file')
+      }
     } else {
       console.log('Sending text message via WPP')
-      wppResponse = await sendTextMessage(
-        wppToken,
-        sessionName,
-        to,
-        message,
-        WPP_BASE_URL
-      )
+      wppResult = await wpp.sendText(wppAccountNumber, to, messageText)
     }
 
-    console.log('WPP response:', wppResponse)
+    console.log('WPP result:', wppResult)
 
-    // Save message to database - set 'sent' immediately on success for instant feedback
-    const messageStatus = wppResponse.error ? 'failed' : 'sent'
+    // Save message to database
+    const messageStatus = wppResult.success ? 'sent' : 'failed'
     
     const { data: savedMessage, error: saveError } = await supabase
       .from('chat_messages')
       .insert({
         client_id: clientId,
-        message_text: message,
-        message_type: 'manager',
-        messenger_type: 'whatsapp',
-        message_status: messageStatus,
-        external_message_id: wppResponse.id,
-        is_outgoing: true,
+        organization_id: orgId,
+        content: messageText,
+        direction: 'outgoing',
+        message_type: fileUrl ? getFileTypeFromUrl(fileUrl) : 'text',
+        messenger: 'whatsapp',
+        status: messageStatus,
+        external_id: wppResult.taskId,
         is_read: true,
-        file_url: fileUrl,
+        media_url: fileUrl,
         file_name: fileName,
-        file_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null
+        media_type: fileUrl ? getMimeTypeFromUrl(fileUrl) : null,
+        sender_id: user.id,
       })
       .select()
       .single()
 
     if (saveError) {
       console.error('Error saving message to database:', saveError)
-      throw saveError
     }
 
     // Update client last message time
@@ -253,18 +222,18 @@ Deno.serve(async (req) => {
       .from('clients')
       .update({ 
         last_message_at: new Date().toISOString(),
-        whatsapp_chat_id: to
+        whatsapp_id: to
       })
       .eq('id', clientId)
 
     const response: WppSendResponse = {
-      success: !wppResponse.error,
-      messageId: wppResponse.id,
+      success: wppResult.success,
+      taskId: wppResult.taskId,
       savedMessageId: savedMessage?.id,
     }
     
-    if (wppResponse.error) {
-      response.error = wppResponse.error
+    if (!wppResult.success) {
+      response.error = wppResult.error || 'Failed to send message'
     }
     
     return successResponse(response)
@@ -275,98 +244,25 @@ Deno.serve(async (req) => {
   }
 })
 
-// Send text message via WPP API
-async function sendTextMessage(
-  wppToken: string,
-  sessionName: string,
-  to: string,
-  text: string,
-  wppHost: string
-): Promise<WppApiResponse> {
-  const url = `${wppHost}/api/${encodeURIComponent(sessionName)}/send-message`
-  
-  console.log('Sending text message to WPP:', url)
-  
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${wppToken}`,
-    },
-    body: JSON.stringify({
-      phone: to,
-      message: text,
-    }),
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error('WPP API error:', response.status, errorText)
-    throw new Error(`WPP API request failed: ${response.status} - ${errorText}`)
-  }
-
-  return await response.json()
-}
-
-// Send media message via WPP API
-async function sendMediaMessage(
-  wppToken: string,
-  sessionName: string,
-  to: string,
-  fileUrl: string,
-  wppHost: string,
-  fileName?: string,
-  caption?: string
-): Promise<WppApiResponse> {
-  const url = `${wppHost}/api/${encodeURIComponent(sessionName)}/send-file-base64`
-  
-  console.log('Sending media message to WPP:', url)
-  
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${wppToken}`,
-    },
-    body: JSON.stringify({
-      phone: to,
-      base64: fileUrl,
-      filename: fileName || 'file',
-      caption: caption || '',
-      mimetype: getMimeTypeFromUrl(fileUrl),
-    }),
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error('WPP API error:', response.status, errorText)
-    throw new Error(`WPP API request failed: ${response.status} - ${errorText}`)
-  }
-
-  return await response.json()
-}
-
-function getFileTypeFromUrl(url: string): string | null {
+function getFileTypeFromUrl(url: string): string {
   try {
     const urlObj = new URL(url)
     const pathname = urlObj.pathname
     const extension = pathname.split('.').pop()?.toLowerCase()
     
-    if (!extension) return null
+    if (!extension) return 'file'
     
     const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp']
     const videoTypes = ['mp4', 'avi', 'mov', 'wmv', 'flv']
-    const audioTypes = ['mp3', 'wav', 'ogg', 'm4a']
-    const documentTypes = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']
+    const audioTypes = ['mp3', 'wav', 'ogg', 'm4a', 'opus']
     
     if (imageTypes.includes(extension)) return 'image'
     if (videoTypes.includes(extension)) return 'video'
     if (audioTypes.includes(extension)) return 'audio'
-    if (documentTypes.includes(extension)) return 'document'
     
     return 'file'
   } catch {
-    return null
+    return 'file'
   }
 }
 
@@ -384,6 +280,8 @@ function getMimeTypeFromUrl(url: string): string | undefined {
     'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'mp3': 'audio/mpeg',
     'wav': 'audio/wav',
+    'ogg': 'audio/ogg',
+    'opus': 'audio/opus',
   }
   return extension ? mimeTypes[extension] : undefined
 }

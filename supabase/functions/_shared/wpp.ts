@@ -1,3 +1,463 @@
+/**
+ * WPP Platform SDK for msg.academyos.ru
+ * 
+ * New API architecture:
+ * - Authentication via POST /auth/token with { apiKey }
+ * - Account-based (phone numbers) instead of session-based
+ * - Per-organization API keys stored in messenger_integrations.settings.wppApiKey
+ */
+
+// ============================================================================
+// Types
+// ============================================================================
+
+export type WppStartResult =
+  | { state: 'connected' }
+  | { state: 'qr'; qr: string }
+  | { state: 'starting' }
+  | { state: 'timeout' }
+  | { state: 'error'; message: string };
+
+export interface WppAccountStatus {
+  status: 'connected' | 'starting' | 'offline' | 'qr_required';
+}
+
+export interface WppTaskResult {
+  success: boolean;
+  taskId?: string;
+  status?: string;
+  error?: string;
+}
+
+export interface WppMsgClientOptions {
+  baseUrl: string;
+  apiKey: string;
+  timeoutMs?: number;
+}
+
+// ============================================================================
+// New WPP Platform Client (msg.academyos.ru)
+// ============================================================================
+
+export class WppMsgClient {
+  private baseUrl: string;
+  private apiKey: string;
+  private timeoutMs: number;
+  private cachedToken: string | null = null;
+  private tokenExpiry: number = 0;
+
+  constructor(options: WppMsgClientOptions) {
+    this.baseUrl = options.baseUrl.replace(/\/+$/, '');
+    this.apiKey = options.apiKey;
+    this.timeoutMs = options.timeoutMs ?? 30_000;
+    console.log(`[WppMsgClient] Initialized for ${this.baseUrl}`);
+  }
+
+  private maskKey(key: string): string {
+    if (key.length < 8) return '***';
+    return `${key.substring(0, 4)}***${key.slice(-4)}`;
+  }
+
+  private async _fetch(
+    url: string,
+    init: RequestInit = {},
+    authRequired = true
+  ): Promise<any> {
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), this.timeoutMs);
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        ...(init.headers as Record<string, string> || {}),
+      };
+
+      if (authRequired) {
+        const token = await this.getToken();
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      console.log(`[WppMsgClient] ${init.method || 'GET'} ${url}`);
+
+      const res = await fetch(url, {
+        ...init,
+        headers,
+        signal: ac.signal,
+      });
+
+      console.log(`[WppMsgClient] Response: ${res.status} ${res.statusText}`);
+
+      const text = await res.text();
+      
+      if (!res.ok) {
+        console.error(`[WppMsgClient] Error body: ${text.substring(0, 500)}`);
+        throw new Error(`HTTP ${res.status}: ${text.substring(0, 200)}`);
+      }
+
+      try {
+        return JSON.parse(text);
+      } catch {
+        return text;
+      }
+    } finally {
+      clearTimeout(t);
+    }
+  }
+
+  // ==========================================================================
+  // Authentication
+  // ==========================================================================
+
+  /**
+   * Get JWT token from API
+   * POST /auth/token { apiKey }
+   */
+  async getToken(): Promise<string> {
+    // Return cached token if still valid (with 60s buffer)
+    if (this.cachedToken && Date.now() < this.tokenExpiry - 60_000) {
+      return this.cachedToken;
+    }
+
+    const url = `${this.baseUrl}/auth/token`;
+    console.log(`[WppMsgClient] Getting token from ${url}`);
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey: this.apiKey }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Failed to get token: ${res.status} ${text}`);
+    }
+
+    const data = await res.json();
+    
+    if (!data.token) {
+      throw new Error('Token response missing token field');
+    }
+
+    this.cachedToken = data.token;
+    // Assume token valid for 1 hour if not specified
+    this.tokenExpiry = Date.now() + (data.expiresIn || 3600) * 1000;
+    
+    console.log(`[WppMsgClient] ✓ Token obtained`);
+    return this.cachedToken;
+  }
+
+  // ==========================================================================
+  // Account Management
+  // ==========================================================================
+
+  /**
+   * Start a WhatsApp account
+   * POST /api/accounts/start { number }
+   */
+  async startAccount(number: string): Promise<WppStartResult> {
+    const url = `${this.baseUrl}/api/accounts/start`;
+    
+    try {
+      const result = await this._fetch(url, {
+        method: 'POST',
+        body: JSON.stringify({ number }),
+      });
+
+      console.log(`[WppMsgClient] Start account result:`, JSON.stringify(result).substring(0, 300));
+
+      // Check if QR is needed
+      if (result.qr) {
+        return { state: 'qr', qr: result.qr };
+      }
+
+      // Check status
+      const status = (result.status || result.state || '').toLowerCase();
+      if (status === 'connected' || status === 'ready') {
+        return { state: 'connected' };
+      }
+
+      if (status === 'starting' || status === 'pending') {
+        return { state: 'starting' };
+      }
+
+      return { state: 'starting' };
+    } catch (error: any) {
+      console.error(`[WppMsgClient] Start account error:`, error);
+      return { state: 'error', message: error.message };
+    }
+  }
+
+  /**
+   * Get account status
+   * GET /api/accounts/{number}/status
+   */
+  async getAccountStatus(number: string): Promise<WppAccountStatus> {
+    const url = `${this.baseUrl}/api/accounts/${encodeURIComponent(number)}/status`;
+    
+    try {
+      const result = await this._fetch(url, { method: 'GET' });
+      const status = (result.status || 'offline').toLowerCase();
+      
+      return {
+        status: status === 'connected' ? 'connected' : 
+                status === 'starting' ? 'starting' : 
+                status === 'offline' ? 'offline' : 'qr_required'
+      };
+    } catch (error) {
+      console.error(`[WppMsgClient] Get status error:`, error);
+      return { status: 'offline' };
+    }
+  }
+
+  /**
+   * Get QR code for account
+   * GET /api/accounts/{number}/qr
+   */
+  async getAccountQr(number: string): Promise<string | null> {
+    const url = `${this.baseUrl}/api/accounts/${encodeURIComponent(number)}/qr`;
+    
+    try {
+      const result = await this._fetch(url, { method: 'GET' });
+      return result.qr || null;
+    } catch (error) {
+      console.error(`[WppMsgClient] Get QR error:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Delete/disconnect an account
+   * DELETE /api/accounts/{number}
+   */
+  async deleteAccount(number: string): Promise<void> {
+    const url = `${this.baseUrl}/api/accounts/${encodeURIComponent(number)}`;
+    
+    await this._fetch(url, { method: 'DELETE' });
+    console.log(`[WppMsgClient] ✓ Account ${number} deleted`);
+  }
+
+  /**
+   * Register webhook for account
+   * POST /api/webhooks/{number} { url }
+   */
+  async registerWebhook(number: string, webhookUrl: string): Promise<void> {
+    const url = `${this.baseUrl}/api/webhooks/${encodeURIComponent(number)}`;
+    
+    await this._fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ url: webhookUrl }),
+    });
+    
+    console.log(`[WppMsgClient] ✓ Webhook registered for ${number}`);
+  }
+
+  // ==========================================================================
+  // Messaging
+  // ==========================================================================
+
+  /**
+   * Send text message
+   * POST /api/messages/text { account, to, text }
+   */
+  async sendText(account: string, to: string, text: string, priority?: 'high' | 'normal' | 'low'): Promise<WppTaskResult> {
+    const url = `${this.baseUrl}/api/messages/text`;
+    
+    const result = await this._fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ account, to, text, priority }),
+    });
+
+    return {
+      success: result.success !== false,
+      taskId: result.taskId,
+      status: result.status,
+    };
+  }
+
+  /**
+   * Send image message
+   * POST /api/messages/image { account, to, url, caption }
+   */
+  async sendImage(account: string, to: string, imageUrl: string, caption?: string): Promise<WppTaskResult> {
+    const url = `${this.baseUrl}/api/messages/image`;
+    
+    const result = await this._fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ account, to, url: imageUrl, caption }),
+    });
+
+    return {
+      success: result.success !== false,
+      taskId: result.taskId,
+      status: result.status,
+    };
+  }
+
+  /**
+   * Send video message
+   * POST /api/messages/video { account, to, url }
+   */
+  async sendVideo(account: string, to: string, videoUrl: string, caption?: string): Promise<WppTaskResult> {
+    const url = `${this.baseUrl}/api/messages/video`;
+    
+    const result = await this._fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ account, to, url: videoUrl, caption }),
+    });
+
+    return {
+      success: result.success !== false,
+      taskId: result.taskId,
+      status: result.status,
+    };
+  }
+
+  /**
+   * Send file/document message
+   * POST /api/messages/file { account, to, url, filename }
+   */
+  async sendFile(account: string, to: string, fileUrl: string, filename: string): Promise<WppTaskResult> {
+    const url = `${this.baseUrl}/api/messages/file`;
+    
+    const result = await this._fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ account, to, url: fileUrl, filename }),
+    });
+
+    return {
+      success: result.success !== false,
+      taskId: result.taskId,
+      status: result.status,
+    };
+  }
+
+  /**
+   * Send audio message
+   * POST /api/messages/audio { account, to, url }
+   */
+  async sendAudio(account: string, to: string, audioUrl: string): Promise<WppTaskResult> {
+    const url = `${this.baseUrl}/api/messages/audio`;
+    
+    const result = await this._fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ account, to, url: audioUrl }),
+    });
+
+    return {
+      success: result.success !== false,
+      taskId: result.taskId,
+      status: result.status,
+    };
+  }
+
+  /**
+   * Send location message
+   * POST /api/messages/location { account, to, lat, lng, name, address }
+   */
+  async sendLocation(
+    account: string, 
+    to: string, 
+    lat: number, 
+    lng: number, 
+    name?: string, 
+    address?: string
+  ): Promise<WppTaskResult> {
+    const url = `${this.baseUrl}/api/messages/location`;
+    
+    const result = await this._fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ account, to, lat, lng, name, address }),
+    });
+
+    return {
+      success: result.success !== false,
+      taskId: result.taskId,
+      status: result.status,
+    };
+  }
+
+  // ==========================================================================
+  // High-level helpers
+  // ==========================================================================
+
+  /**
+   * Ensure account is started and get QR if needed
+   * Polls for QR code or connected state
+   */
+  async ensureAccountWithQr(number: string, webhookUrl?: string, pollSeconds = 30): Promise<WppStartResult> {
+    try {
+      // Start the account
+      const startResult = await this.startAccount(number);
+      
+      if (startResult.state === 'connected') {
+        if (webhookUrl) {
+          await this.registerWebhook(number, webhookUrl).catch(e => 
+            console.warn(`[WppMsgClient] Webhook registration failed:`, e)
+          );
+        }
+        return startResult;
+      }
+
+      if (startResult.state === 'qr') {
+        if (webhookUrl) {
+          await this.registerWebhook(number, webhookUrl).catch(e => 
+            console.warn(`[WppMsgClient] Webhook registration failed:`, e)
+          );
+        }
+        return startResult;
+      }
+
+      if (startResult.state === 'error') {
+        return startResult;
+      }
+
+      // Poll for status/QR
+      const deadline = Date.now() + pollSeconds * 1000;
+      let attempts = 0;
+
+      while (Date.now() < deadline) {
+        attempts++;
+        console.log(`[WppMsgClient] Polling status... attempt ${attempts}`);
+        
+        await new Promise(r => setTimeout(r, 2000));
+
+        // Check status
+        const status = await this.getAccountStatus(number);
+        
+        if (status.status === 'connected') {
+          if (webhookUrl) {
+            await this.registerWebhook(number, webhookUrl).catch(e => 
+              console.warn(`[WppMsgClient] Webhook registration failed:`, e)
+            );
+          }
+          return { state: 'connected' };
+        }
+
+        // Try to get QR
+        const qr = await this.getAccountQr(number);
+        if (qr) {
+          if (webhookUrl) {
+            await this.registerWebhook(number, webhookUrl).catch(e => 
+              console.warn(`[WppMsgClient] Webhook registration failed:`, e)
+            );
+          }
+          return { state: 'qr', qr };
+        }
+      }
+
+      return { state: 'timeout' };
+    } catch (error: any) {
+      console.error(`[WppMsgClient] ensureAccountWithQr error:`, error);
+      return { state: 'error', message: error.message };
+    }
+  }
+}
+
+// ============================================================================
+// Legacy WPP Client (for backward compatibility during migration)
+// ============================================================================
+
 // Normalize session name: remove dashes, spaces, transliterate cyrillic
 function normalizeSessionName(raw: string, fallback = 'default'): string {
   const mapRu: Record<string, string> = {
@@ -33,6 +493,9 @@ export interface WppClientOptions {
   pollSeconds?: number;
 }
 
+/**
+ * @deprecated Use WppMsgClient instead for new integrations
+ */
 export class WppClient {
   private base: string;
   private session: string;
