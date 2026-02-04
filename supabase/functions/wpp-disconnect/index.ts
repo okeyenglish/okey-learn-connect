@@ -1,29 +1,31 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
-import { WppClient } from '../_shared/wpp.ts';
+import { WppMsgClient } from '../_shared/wpp.ts';
+import { 
+  corsHeaders, 
+  errorResponse,
+  getErrorMessage,
+  handleCors,
+} from '../_shared/types.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const WPP_BASE_URL = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
 
-const BASE = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
-const SECRET = Deno.env.get('WPP_SECRET') || '';
+console.log('[wpp-disconnect] Configuration:', { WPP_BASE_URL });
 
-console.log('[wpp-disconnect] Configuration:', {
-  BASE,
-  SECRET: SECRET ? `${SECRET.substring(0, 4)}***${SECRET.slice(-4)}` : 'MISSING'
-});
+interface WppDisconnectRequest {
+  integration_id?: string;
+}
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    const body = await req.json().catch(() => ({})) as WppDisconnectRequest;
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -57,23 +59,55 @@ Deno.serve(async (req) => {
     }
 
     const orgId = profile.organization_id;
-    // Use org-specific session (without dashes for WPP compatibility)
-    const sessionName = `org_${orgId.replace(/-/g, '')}`;
-
     console.log('[wpp-disconnect] Org ID:', orgId);
-    console.log('[wpp-disconnect] Session:', sessionName);
 
-    // Use WppClient SDK
-    const wpp = new WppClient({
-      baseUrl: BASE,
-      session: sessionName,
-      secret: SECRET,
+    // Find WPP integration
+    let integrationQuery = supabaseClient
+      .from('messenger_integrations')
+      .select('id, settings')
+      .eq('organization_id', orgId)
+      .eq('messenger_type', 'whatsapp')
+      .eq('provider', 'wpp')
+      .eq('is_active', true);
+
+    if (body.integration_id) {
+      integrationQuery = integrationQuery.eq('id', body.integration_id);
+    } else {
+      integrationQuery = integrationQuery.eq('is_primary', true);
+    }
+
+    const { data: integration } = await integrationQuery.maybeSingle();
+
+    if (!integration) {
+      return new Response(JSON.stringify({ error: 'WPP integration not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const settings = (integration.settings || {}) as Record<string, any>;
+    const wppApiKey = settings.wppApiKey;
+    const wppAccountNumber = settings.wppAccountNumber;
+
+    if (!wppApiKey || !wppAccountNumber) {
+      return new Response(JSON.stringify({ error: 'wppApiKey or wppAccountNumber not configured' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('[wpp-disconnect] Account number:', wppAccountNumber);
+
+    // Create WPP client and delete account
+    const wpp = new WppMsgClient({
+      baseUrl: WPP_BASE_URL,
+      apiKey: wppApiKey,
     });
 
-    const wppToken = await wpp.getToken();
-    await wpp.logout(wppToken);
+    await wpp.deleteAccount(wppAccountNumber);
 
     // Update session status in DB
+    const sessionName = `wpp_${wppAccountNumber}`;
     await supabaseClient
       .from('whatsapp_sessions')
       .upsert({
@@ -83,16 +117,16 @@ Deno.serve(async (req) => {
         last_qr_b64: null,
         last_qr_at: null,
         updated_at: new Date().toISOString(),
-      }, { onConflict: 'organization_id' });
+      }, { onConflict: 'session_name' });
 
     return new Response(
-      JSON.stringify({ ok: true, status: 'disconnected' }),
+      JSON.stringify({ ok: true, success: true, status: 'disconnected' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('[wpp-disconnect] Error:', error);
     return new Response(
-      JSON.stringify({ ok: false, error: error.message }),
+      JSON.stringify({ ok: false, success: false, error: getErrorMessage(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

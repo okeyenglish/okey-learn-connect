@@ -1,23 +1,29 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
-import { WppClient } from '../_shared/wpp.ts';
+import { WppMsgClient } from '../_shared/wpp.ts';
 import { 
   corsHeaders, 
   errorResponse,
   getErrorMessage,
   handleCors,
-  type WppStatusRequest,
-  type WppStatusResponse,
-  type WppSessionResult,
 } from '../_shared/types.ts';
 
-const BASE = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
-const SECRET = Deno.env.get('WPP_SECRET') || '';
+const WPP_BASE_URL = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
 
-console.log('[wpp-status] Configuration:', {
-  BASE,
-  SECRET: SECRET ? `${SECRET.substring(0, 4)}***${SECRET.slice(-4)}` : 'MISSING'
-});
+console.log('[wpp-status] Configuration:', { WPP_BASE_URL });
 
+interface WppStatusRequest {
+  force?: boolean;
+  integration_id?: string;
+}
+
+interface WppStatusResponse {
+  success: boolean;
+  status: 'connected' | 'qr_issued' | 'qr_pending' | 'disconnected' | 'error';
+  qrcode?: string;
+  last_qr_at?: string;
+  account_number?: string;
+  message?: string;
+}
 
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -29,7 +35,6 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Read request body to get force flag
     const body = await req.json().catch(() => ({})) as WppStatusRequest;
     const force = body?.force === true;
     console.log('[wpp-status] Force refresh:', force);
@@ -57,17 +62,74 @@ Deno.serve(async (req) => {
     }
 
     const orgId = profile.organization_id;
-    // Use org-specific session (without dashes for WPP compatibility)
-    const sessionName = `org_${orgId.replace(/-/g, '')}`;
-
     console.log('[wpp-status] Org ID:', orgId);
-    console.log('[wpp-status] Session:', sessionName);
+
+    // Find WPP integration for this organization
+    let integrationQuery = supabaseClient
+      .from('messenger_integrations')
+      .select('id, settings, is_primary')
+      .eq('organization_id', orgId)
+      .eq('messenger_type', 'whatsapp')
+      .eq('provider', 'wpp')
+      .eq('is_active', true);
+
+    if (body.integration_id) {
+      integrationQuery = integrationQuery.eq('id', body.integration_id);
+    } else {
+      integrationQuery = integrationQuery.eq('is_primary', true);
+    }
+
+    const { data: integration } = await integrationQuery.maybeSingle();
+
+    if (!integration) {
+      // Fallback: find any active WPP integration
+      const { data: anyIntegration } = await supabaseClient
+        .from('messenger_integrations')
+        .select('id, settings')
+        .eq('organization_id', orgId)
+        .eq('messenger_type', 'whatsapp')
+        .eq('provider', 'wpp')
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle();
+
+      if (!anyIntegration) {
+        const response: WppStatusResponse = {
+          success: true,
+          status: 'disconnected',
+          message: 'WPP integration not configured'
+        };
+        return new Response(
+          JSON.stringify(response),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    const settings = (integration?.settings || {}) as Record<string, any>;
+    const wppApiKey = settings.wppApiKey;
+    const wppAccountNumber = settings.wppAccountNumber;
+
+    if (!wppApiKey || !wppAccountNumber) {
+      const response: WppStatusResponse = {
+        success: true,
+        status: 'disconnected',
+        message: 'wppApiKey or wppAccountNumber not configured'
+      };
+      return new Response(
+        JSON.stringify(response),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const sessionName = `wpp_${wppAccountNumber}`;
+    console.log('[wpp-status] Account number:', wppAccountNumber);
 
     // Check cached QR from DB
     const { data: session } = await supabaseClient
       .from('whatsapp_sessions')
       .select('status, last_qr_b64, last_qr_at')
-      .eq('organization_id', orgId)
+      .eq('session_name', sessionName)
       .maybeSingle();
 
     // If we have a recent QR (< 25s) and status is qr_issued, return it to avoid hammering WPP
@@ -79,7 +141,8 @@ Deno.serve(async (req) => {
         const cachedResponse: WppStatusResponse = { 
           success: true,
           status: 'qr_issued', 
-          qrcode: session.last_qr_b64 
+          qrcode: session.last_qr_b64,
+          account_number: wppAccountNumber
         };
         return new Response(
           JSON.stringify(cachedResponse),
@@ -88,12 +151,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    // If already connected, return early
-    if (session?.status === 'connected') {
+    // If already connected, return early (unless force)
+    if (!force && session?.status === 'connected') {
       console.log('[wpp-status] Already connected');
       const connectedResponse: WppStatusResponse = { 
         success: true,
-        status: 'connected' 
+        status: 'connected',
+        account_number: wppAccountNumber
       };
       return new Response(
         JSON.stringify(connectedResponse),
@@ -101,41 +165,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Otherwise, check live status
-    const wpp = new WppClient({
-      baseUrl: BASE,
-      session: sessionName,
-      secret: SECRET,
-      pollSeconds: 10, // Shorter polling for status check
+    // Otherwise, check live status via API
+    const wpp = new WppMsgClient({
+      baseUrl: WPP_BASE_URL,
+      apiKey: wppApiKey,
     });
 
-    const result = await wpp.ensureSessionWithQr() as WppSessionResult;
+    const accountStatus = await wpp.getAccountStatus(wppAccountNumber);
+    console.log('[wpp-status] Account status:', accountStatus);
 
-    if (result.state === 'qr') {
-      await supabaseClient
-        .from('whatsapp_sessions')
-        .upsert({
-          organization_id: orgId,
-          session_name: sessionName,
-          status: 'qr_issued',
-          last_qr_b64: result.base64,
-          last_qr_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'organization_id' });
-
-      const qrResponse: WppStatusResponse = { 
-        success: true,
-        status: 'qr_issued', 
-        qrcode: result.base64,
-        last_qr_at: new Date().toISOString()
-      };
-      return new Response(
-        JSON.stringify(qrResponse),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
-      );
-    }
-
-    if (result.state === 'connected') {
+    if (accountStatus.status === 'connected') {
       await supabaseClient
         .from('whatsapp_sessions')
         .upsert({
@@ -145,23 +184,55 @@ Deno.serve(async (req) => {
           last_qr_b64: null,
           last_qr_at: null,
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'organization_id' });
+        }, { onConflict: 'session_name' });
 
-      const connectedResponse: WppStatusResponse = { 
+      const response: WppStatusResponse = { 
         success: true,
-        status: 'connected' 
+        status: 'connected',
+        account_number: wppAccountNumber
       };
       return new Response(
-        JSON.stringify(connectedResponse),
+        JSON.stringify(response),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
       );
     }
 
-    // timeout or error
+    // Try to get QR if not connected
+    if (accountStatus.status === 'qr_required' || accountStatus.status === 'starting') {
+      const qr = await wpp.getAccountQr(wppAccountNumber);
+      
+      if (qr) {
+        await supabaseClient
+          .from('whatsapp_sessions')
+          .upsert({
+            organization_id: orgId,
+            session_name: sessionName,
+            status: 'qr_issued',
+            last_qr_b64: qr,
+            last_qr_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'session_name' });
+
+        const response: WppStatusResponse = { 
+          success: true,
+          status: 'qr_issued', 
+          qrcode: qr,
+          last_qr_at: new Date().toISOString(),
+          account_number: wppAccountNumber
+        };
+        return new Response(
+          JSON.stringify(response),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
+        );
+      }
+    }
+
+    // Status is offline or no QR available
     const pendingResponse: WppStatusResponse = { 
       success: true,
-      status: 'qr_pending', 
-      message: 'QR code not ready yet' 
+      status: accountStatus.status === 'offline' ? 'disconnected' : 'qr_pending', 
+      message: accountStatus.status === 'offline' ? 'Account is offline' : 'QR code not ready yet',
+      account_number: wppAccountNumber
     };
     return new Response(
       JSON.stringify(pendingResponse),

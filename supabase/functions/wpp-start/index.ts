@@ -1,22 +1,28 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
-import { WppClient } from '../_shared/wpp.ts';
+import { WppMsgClient } from '../_shared/wpp.ts';
 import { 
   corsHeaders, 
   errorResponse,
   getErrorMessage,
   handleCors,
-  type WppStartRequest,
-  type WppStartResponse,
-  type WppSessionResult,
 } from '../_shared/types.ts';
 
-const BASE = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
-const SECRET = Deno.env.get('WPP_SECRET') || '';
+const WPP_BASE_URL = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru';
 
-console.log('[wpp-start] Configuration:', {
-  BASE,
-  SECRET: SECRET ? `${SECRET.substring(0, 4)}***${SECRET.slice(-4)}` : 'MISSING'
-});
+console.log('[wpp-start] Configuration:', { WPP_BASE_URL });
+
+interface WppStartRequest {
+  integration_id?: string;
+}
+
+interface WppStartResponse {
+  success: boolean;
+  ok: boolean;
+  status: 'connected' | 'qr_issued' | 'timeout' | 'error' | 'starting';
+  qrcode?: string;
+  account_number?: string;
+  error?: string;
+}
 
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -28,9 +34,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Read request body for custom session suffix
     const body = await req.json().catch(() => ({})) as WppStartRequest;
-    const sessionSuffix = body?.session_suffix || '';
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -55,49 +59,92 @@ Deno.serve(async (req) => {
     }
 
     const orgId = profile.organization_id;
-    // Use org-specific session (without dashes for WPP compatibility)
-    // Add optional suffix for multiple sessions per organization
-    const baseSessionName = `org_${orgId.replace(/-/g, '')}`;
-    const sessionName = sessionSuffix ? `${baseSessionName}_${sessionSuffix}` : baseSessionName;
-    const PUBLIC_URL = Deno.env.get('SUPABASE_URL')?.replace('/rest/v1', '');
-    const webhookUrl = `${PUBLIC_URL}/functions/v1/wpp-webhook`;
-
     console.log('[wpp-start] Org ID:', orgId);
-    console.log('[wpp-start] Session:', sessionName);
-    console.log('[wpp-start] Session suffix:', sessionSuffix || 'none');
+
+    // Find WPP integration for this organization
+    let integrationQuery = supabaseClient
+      .from('messenger_integrations')
+      .select('id, settings, is_primary')
+      .eq('organization_id', orgId)
+      .eq('messenger_type', 'whatsapp')
+      .eq('provider', 'wpp')
+      .eq('is_active', true);
+
+    if (body.integration_id) {
+      integrationQuery = integrationQuery.eq('id', body.integration_id);
+    } else {
+      integrationQuery = integrationQuery.eq('is_primary', true);
+    }
+
+    const { data: integration, error: integrationError } = await integrationQuery.maybeSingle();
+
+    if (integrationError || !integration) {
+      // Fallback: find any active WPP integration
+      const { data: anyIntegration } = await supabaseClient
+        .from('messenger_integrations')
+        .select('id, settings, is_primary')
+        .eq('organization_id', orgId)
+        .eq('messenger_type', 'whatsapp')
+        .eq('provider', 'wpp')
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle();
+
+      if (!anyIntegration) {
+        return errorResponse('WPP integration not configured. Please add wppApiKey and wppAccountNumber in settings.', 404);
+      }
+    }
+
+    const settings = (integration?.settings || {}) as Record<string, any>;
+    const wppApiKey = settings.wppApiKey;
+    const wppAccountNumber = settings.wppAccountNumber;
+
+    if (!wppApiKey) {
+      return errorResponse('wppApiKey not configured in integration settings', 400);
+    }
+
+    if (!wppAccountNumber) {
+      return errorResponse('wppAccountNumber not configured in integration settings', 400);
+    }
+
+    console.log('[wpp-start] Account number:', wppAccountNumber);
+
+    // Build webhook URL
+    const PUBLIC_URL = Deno.env.get('SUPABASE_URL')?.replace('/rest/v1', '');
+    const webhookUrl = `${PUBLIC_URL}/functions/v1/wpp-webhook?account=${wppAccountNumber}`;
     console.log('[wpp-start] Webhook URL:', webhookUrl);
 
-    // Use WppClient SDK
-    const wpp = new WppClient({
-      baseUrl: BASE,
-      session: sessionName,
-      secret: SECRET,
-      pollSeconds: 30,
+    // Create WppMsgClient with organization's API key
+    const wpp = new WppMsgClient({
+      baseUrl: WPP_BASE_URL,
+      apiKey: wppApiKey,
     });
 
-    const result = await wpp.ensureSessionWithQr(webhookUrl) as WppSessionResult;
+    // Start account and get QR if needed
+    const result = await wpp.ensureAccountWithQr(wppAccountNumber, webhookUrl, 30);
 
     if (result.state === 'qr') {
+      // Save QR to whatsapp_sessions
       await supabaseClient
         .from('whatsapp_sessions')
         .upsert({
           organization_id: orgId,
-          session_name: sessionName,
+          session_name: `wpp_${wppAccountNumber}`,
           status: 'qr_issued',
-          last_qr_b64: result.base64,
+          last_qr_b64: result.qr,
           last_qr_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }, { onConflict: 'session_name' });
 
-      const qrResponse: WppStartResponse = { 
+      const response: WppStartResponse = { 
         success: true,
         ok: true, 
         status: 'qr_issued', 
-        qrcode: result.base64, 
-        session_name: sessionName 
+        qrcode: result.qr, 
+        account_number: wppAccountNumber 
       };
       return new Response(
-        JSON.stringify(qrResponse),
+        JSON.stringify(response),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -107,35 +154,48 @@ Deno.serve(async (req) => {
         .from('whatsapp_sessions')
         .upsert({
           organization_id: orgId,
-          session_name: sessionName,
+          session_name: `wpp_${wppAccountNumber}`,
           status: 'connected',
           last_qr_b64: null,
           last_qr_at: null,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'session_name' });
 
-      const connectedResponse: WppStartResponse = { 
+      const response: WppStartResponse = { 
         success: true,
         ok: true, 
         status: 'connected', 
-        session_name: sessionName 
+        account_number: wppAccountNumber 
       };
       return new Response(
-        JSON.stringify(connectedResponse),
+        JSON.stringify(response),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (result.state === 'timeout') {
-      const timeoutResponse: WppStartResponse = { 
+      const response: WppStartResponse = { 
         success: false,
         ok: false, 
         status: 'timeout',
         error: 'Timeout waiting for QR code' 
       };
       return new Response(
-        JSON.stringify(timeoutResponse),
+        JSON.stringify(response),
         { status: 408, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (result.state === 'starting') {
+      const response: WppStartResponse = { 
+        success: true,
+        ok: true, 
+        status: 'starting',
+        account_number: wppAccountNumber 
+      };
+      return new Response(
+        JSON.stringify(response),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
