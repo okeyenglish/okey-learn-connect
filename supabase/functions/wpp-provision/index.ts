@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
             provider: 'wpp',
             name: 'WhatsApp (WPP)',
             is_primary: true,
-            is_enabled: true,
+            is_active: true,
             settings: {
               wppApiKey: orgApiKey,
               wppAccountNumber: sessionName,
