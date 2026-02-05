@@ -392,9 +392,9 @@ export class WppMsgClient {
 
   /**
    * Send image message
-   * POST /api/messages/image { account, to, url, caption }
+   * POST /api/messages/image { account, to, base64, caption }
    */
-  async sendImage(account: string, to: string, imageUrl: string, caption?: string): Promise<WppTaskResult> {
+  async sendImage(account: string, to: string, imageData: string, caption?: string): Promise<WppTaskResult> {
     const url = `${this.baseUrl}/api/messages/image`;
     
     const result = await this._fetch(url, {
@@ -402,7 +402,7 @@ export class WppMsgClient {
       body: JSON.stringify({ 
         account, 
         to, 
-        url: imageUrl,
+        base64: imageData,
         caption: caption || '',
       }),
     });
@@ -417,9 +417,9 @@ export class WppMsgClient {
 
   /**
    * Send video message
-   * POST /api/messages/video { account, to, url, caption }
+   * POST /api/messages/video { account, to, base64, caption }
    */
-  async sendVideo(account: string, to: string, videoUrl: string, caption?: string): Promise<WppTaskResult> {
+  async sendVideo(account: string, to: string, videoData: string, caption?: string): Promise<WppTaskResult> {
     const url = `${this.baseUrl}/api/messages/video`;
     
     const result = await this._fetch(url, {
@@ -427,7 +427,7 @@ export class WppMsgClient {
       body: JSON.stringify({ 
         account, 
         to, 
-        url: videoUrl,
+        base64: videoData,
         caption: caption || '',
       }),
     });
@@ -442,9 +442,9 @@ export class WppMsgClient {
 
   /**
    * Send file/document message
-   * POST /api/messages/file { account, to, url, filename }
+   * POST /api/messages/file { account, to, base64, filename }
    */
-  async sendFile(account: string, to: string, fileUrl: string, filename: string): Promise<WppTaskResult> {
+  async sendFile(account: string, to: string, fileData: string, filename: string): Promise<WppTaskResult> {
     const url = `${this.baseUrl}/api/messages/file`;
     
     const result = await this._fetch(url, {
@@ -452,7 +452,7 @@ export class WppMsgClient {
       body: JSON.stringify({ 
         account, 
         to, 
-        url: fileUrl,
+        base64: fileData,
         filename,
       }),
     });
@@ -467,9 +467,9 @@ export class WppMsgClient {
 
   /**
    * Send audio message
-   * POST /api/messages/audio { account, to, url }
+   * POST /api/messages/audio { account, to, base64 }
    */
-  async sendAudio(account: string, to: string, audioUrl: string): Promise<WppTaskResult> {
+  async sendAudio(account: string, to: string, audioData: string): Promise<WppTaskResult> {
     const url = `${this.baseUrl}/api/messages/audio`;
     
     const result = await this._fetch(url, {
@@ -477,7 +477,7 @@ export class WppMsgClient {
       body: JSON.stringify({ 
         account, 
         to, 
-        url: audioUrl,
+        base64: audioData,
       }),
     });
 
