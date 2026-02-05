@@ -200,28 +200,32 @@ Deno.serve(async (req) => {
     // Save message to database
     const messageStatus = wppResult.success ? 'sent' : 'failed'
     
+    console.log('[wpp-send] Saving message to DB, clientId:', clientId, 'orgId:', orgId)
+    
     const { data: savedMessage, error: saveError } = await supabase
       .from('chat_messages')
       .insert({
         client_id: clientId,
         organization_id: orgId,
-        message_text: messageText,
-        is_outgoing: true,
-        message_type: 'manager',
-        messenger_type: 'whatsapp',
-        message_status: messageStatus,
-        external_message_id: wppResult.taskId,
+        content: messageText,
+        direction: 'outgoing',
+        message_type: 'text',
+        messenger: 'whatsapp',
+        status: messageStatus,
+        external_id: wppResult.taskId,
         is_read: true,
-        file_url: fileUrl,
-        file_name: fileName,
-        file_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null,
+        media_url: fileUrl || null,
+        file_name: fileName || null,
+        media_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null,
         sender_id: user.id,
       })
       .select()
       .single()
 
     if (saveError) {
-      console.error('Error saving message to database:', saveError)
+      console.error('[wpp-send] Error saving message to database:', saveError)
+    } else {
+      console.log('[wpp-send] Message saved, id:', savedMessage?.id)
     }
 
     // Update client last message time
