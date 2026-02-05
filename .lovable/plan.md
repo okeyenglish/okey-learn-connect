@@ -1,54 +1,146 @@
 
 
-## План: Исправление обработки ошибок в max-webhook и whatsapp-webhook
+## План: Авто-рефреш JWT токенов для WPP интеграции
 
-### Проблема
+### Корневая причина проблемы
 
-Функции `max-webhook` и `whatsapp-webhook` возвращают HTTP 500 при получении некорректных данных, потому что не проверяют наличие обязательных полей перед их использованием.
+JWT токены WPP Platform живут **15 минут**. Текущая реализация:
+1. `wpp-send` создаёт `WppMsgClient` с `apiKey` каждый раз
+2. Не использует кешированный `wppJwtToken` из БД
+3. При истечении apiKey (на стороне WPP Platform) — всё ломается
 
-Строка 40 в `max-webhook/index.ts`:
-```typescript
-const instanceId = String(instanceData.idInstance);  // CRASH если instanceData undefined
+### Решение
+
+Добавить единый паттерн работы с JWT токенами во всех WPP функциях:
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                    Новый flow авторизации                        │
+├─────────────────────────────────────────────────────────────────┤
+│  1. Читаем wppJwtToken + wppJwtExpiresAt из БД                  │
+│  2. Если токен валиден (expires > now + 60s) → используем       │
+│  3. Если истёк → получаем новый через apiKey                    │
+│  4. Если apiKey невалиден → ошибка + инструкция force_recreate  │
+│  5. Сохраняем обновлённый токен обратно в БД                    │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### Решение
+### Изменения в файлах
 
-Добавить валидацию входящих данных в начале обработки webhook.
+#### 1. `supabase/functions/wpp-send/index.ts`
 
-#### Файл: `supabase/functions/max-webhook/index.ts`
-
-**Изменение 1:** После строки 35 добавить проверку:
-
+**Текущий код (строки 104-116):**
 ```typescript
-// Validate required webhook fields
-if (!instanceData?.idInstance) {
-  console.log('[max-webhook] Invalid payload - missing instanceData.idInstance');
-  return successResponse({ status: 'ignored', reason: 'invalid payload' });
+const settings = (integration?.settings || {}) as Record<string, any>
+const wppApiKey = settings.wppApiKey
+const wppAccountNumber = settings.wppAccountNumber
+// ...
+const wpp = new WppMsgClient({
+  baseUrl: WPP_BASE_URL,
+  apiKey: wppApiKey,
+})
+```
+
+**Новый код:**
+```typescript
+const settings = (integration?.settings || {}) as Record<string, any>
+const wppApiKey = settings.wppApiKey
+const wppAccountNumber = settings.wppAccountNumber
+let wppJwtToken = settings.wppJwtToken
+let wppJwtExpiresAt = settings.wppJwtExpiresAt
+
+// Проверяем валидность кешированного JWT (с буфером 60 сек)
+const isTokenValid = wppJwtToken && wppJwtExpiresAt && Date.now() < wppJwtExpiresAt - 60_000
+
+const wpp = new WppMsgClient({
+  baseUrl: WPP_BASE_URL,
+  apiKey: wppApiKey,
+  jwtToken: isTokenValid ? wppJwtToken : undefined,
+  jwtExpiresAt: isTokenValid ? wppJwtExpiresAt : undefined,
+})
+
+// После отправки — сохраняем обновлённый токен если изменился
+// (добавить в конец функции)
+```
+
+**Добавить после успешной отправки (перед return):**
+```typescript
+// Сохраняем обновлённый JWT токен в БД если он изменился
+try {
+  const currentToken = await wpp.getToken()
+  if (currentToken && currentToken !== wppJwtToken) {
+    await supabase
+      .from('messenger_integrations')
+      .update({
+        settings: {
+          ...settings,
+          wppJwtToken: currentToken,
+          wppJwtExpiresAt: wpp.tokenExpiry,
+        },
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', integration.id)
+    console.log('[wpp-send] JWT token refreshed and saved')
+  }
+} catch (e) {
+  console.warn('[wpp-send] Failed to save refreshed token:', e)
 }
 ```
 
-#### Файл: `supabase/functions/whatsapp-webhook/index.ts`
+---
 
-Аналогичная проверка для GreenAPI WhatsApp webhook (если там такая же проблема).
+#### 2. `supabase/functions/_shared/wpp.ts`
+
+Добавить обработку ошибки "Invalid API key" в методе `getToken()`:
+
+**Текущий код (строки 150-153):**
+```typescript
+if (!res.ok) {
+  const text = await res.text()
+  throw new Error(`Failed to get token: ${res.status} ${text}`)
+}
+```
+
+**Новый код:**
+```typescript
+if (!res.ok) {
+  const text = await res.text()
+  // Специальная обработка невалидного API key
+  if (text.includes('Invalid API key') || res.status === 401) {
+    throw new Error('INVALID_API_KEY: API key expired or invalid. Use force_recreate to generate new session.')
+  }
+  throw new Error(`Failed to get token: ${res.status} ${text}`)
+}
+```
+
+---
+
+#### 3. Аналогичные изменения в других WPP функциях
+
+Применить тот же паттерн в:
+- `wpp-status/index.ts` — уже использует кеширование (проверить)
+- `wpp-webhook/index.ts` — добавить кеширование
 
 ---
 
 ### Техническая справка
 
-| Что | Почему |
-|-----|--------|
-| Возвращаем 200 OK вместо 500 | Чтобы Green API не делал повторные попытки для невалидных запросов |
-| Логируем причину | Для диагностики в логах |
-| Проверка `instanceData?.idInstance` | Optional chaining защищает от undefined |
+| Компонент | Назначение |
+|-----------|------------|
+| `wppJwtToken` | Кешированный JWT токен в settings |
+| `wppJwtExpiresAt` | Unix timestamp истечения (ms) |
+| Буфер 60 сек | Обновляем токен за минуту до истечения |
+| `INVALID_API_KEY` | Специальный код ошибки для UI |
 
 ---
 
-### Шаги реализации
+### Порядок реализации
 
-1. Добавить валидацию в `max-webhook/index.ts` (строки 36-40)
-2. Проверить и добавить аналогичную валидацию в `whatsapp-webhook/index.ts`
-3. Задеплоить функции через GitHub Actions
-4. Протестировать webhook с тестовым запросом
+1. Обновить `wpp-send/index.ts` — добавить чтение/сохранение JWT из БД
+2. Обновить `_shared/wpp.ts` — улучшить обработку ошибок
+3. Проверить `wpp-status/index.ts` и `wpp-webhook/index.ts`
+4. Задеплоить на сервер
+5. Протестировать отправку сообщений
 
