@@ -1,84 +1,82 @@
 
-## Исправление восстановления удалённых клиентов
+## Исправление: колонка `status` не существует на self-hosted
 
 ### Проблема
-При создании нового чата с телефоном удалённого клиента:
-1. `checkExistingPhone` не находит клиента (из-за формата телефона)
-2. `createClient` выбрасывает ошибку 23505 (unique constraint)
-3. Логика восстановления в catch-блоке не срабатывает корректно
+Из логов консоли:
+```
+column clients.status does not exist
+```
 
-### Причина
-Код проверяет `error?.code === '23505'`, но после этого при fetch клиента или его восстановлении что-то идёт не так, и показывается fallback toast "Ошибка при создании клиента".
+На self-hosted схеме (api.academyos.ru) используется поле `is_active` (boolean), а не `status` (string):
+- `is_active = true` → активный клиент
+- `is_active = false` → удалённый клиент
 
-### Решение
+Код пытается обращаться к `status`, которой не существует.
+
+---
+
+### Технические изменения
 
 #### `src/components/crm/NewChatModal.tsx`
 
-Улучшить обработку ошибки 23505:
+**Строки 192-220** - заменить `status` на `is_active`:
 
 ```typescript
-// Строки 178-226: улучшить catch-блок
+// БЫЛО:
+const { data: existingClient, error: fetchError } = await supabase
+  .from('clients')
+  .select('id, name, status')
+  .eq('id', existingId)
+  .maybeSingle();
 
-} catch (error: any) {
-  console.error('Error creating client:', error);
-  
-  // Handle unique constraint violation (23505)
-  if (error?.code === '23505' || error?.message?.includes('23505')) {
-    // Extract client ID from error message
-    const idMatch = error?.message?.match(/ID:\s*([a-f0-9-]{36})/i);
-    
-    if (idMatch) {
-      const existingId = idMatch[1];
-      console.log('[NewChatModal] Found existing client ID:', existingId);
-      
-      try {
-        // Fetch existing client
-        const { data: existingClient, error: fetchError } = await supabase
-          .from('clients')
-          .select('id, name, status')
-          .eq('id', existingId)
-          .maybeSingle();  // Использовать maybeSingle вместо single
-        
-        console.log('[NewChatModal] Fetched client:', existingClient, 'error:', fetchError);
-        
-        if (existingClient) {
-          // Restore if deleted, or just navigate
-          if (existingClient.status === 'deleted') {
-            const { error: restoreError } = await supabase
-              .from('clients')
-              .update({ status: 'active', name: newContactData.name })
-              .eq('id', existingId);
-            
-            if (restoreError) {
-              console.error('[NewChatModal] Restore error:', restoreError);
-            } else {
-              invalidateAfterRestore();
-              toast.success(`Чат восстановлен: ${newContactData.name}`);
-            }
-          } else {
-            toast.info(`Клиент найден: ${existingClient.name}`);
-          }
-          
-          onExistingClientFound?.(existingId);
-          setNewContactData({ name: "", phone: "" });
-          setOpen(false);
-          return;  // Важно: return здесь чтобы не показывать ошибку
-        }
-      } catch (restoreError) {
-        console.error('[NewChatModal] Error in restore flow:', restoreError);
-      }
-    }
+if (existingClient) {
+  if (existingClient.status === 'deleted') {
+    const { error: restoreError } = await supabase
+      .from('clients')
+      .update({ status: 'active', name: newContactData.name })
+      .eq('id', existingId);
+    ...
   }
-  
-  toast.error("Ошибка при создании клиента");
+}
+
+// СТАНЕТ:
+const { data: existingClient, error: fetchError } = await supabase
+  .from('clients')
+  .select('id, name, is_active')
+  .eq('id', existingId)
+  .maybeSingle();
+
+if (existingClient) {
+  // is_active = false means deleted
+  if (existingClient.is_active === false) {
+    const { error: restoreError } = await supabase
+      .from('clients')
+      .update({ is_active: true, name: newContactData.name })
+      .eq('id', existingId);
+    ...
+  }
 }
 ```
 
-### Ключевые изменения:
-1. Добавить проверку `error?.message?.includes('23505')` как fallback
-2. Использовать `.maybeSingle()` вместо `.single()` чтобы избежать ошибки если клиент не найден
-3. Добавить console.log для отладки
-4. Убедиться что return вызывается после успешного восстановления
+#### `src/components/crm/MobileNewChatModal.tsx`
 
-### Также исправить в MobileNewChatModal.tsx
-Аналогичные изменения нужно внести в мобильную версию модального окна.
+Аналогичные изменения - заменить `status` на `is_active`.
+
+---
+
+### Схема полей
+
+| Lovable Cloud | Self-hosted | Значение |
+|--------------|-------------|----------|
+| `status: 'active'` | `is_active: true` | Активный |
+| `status: 'deleted'` | `is_active: false` | Удалён |
+
+---
+
+### Результат
+После исправления при создании чата с удалённым телефоном:
+1. Ловится ошибка 23505
+2. Извлекается ID клиента из сообщения
+3. Запрашивается клиент с полем `is_active` (не `status`)
+4. Если `is_active = false` → восстанавливаем через `update({ is_active: true })`
+5. Переходим к существующему чату
