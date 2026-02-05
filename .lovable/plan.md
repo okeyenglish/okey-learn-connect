@@ -1,121 +1,116 @@
 
+## Диагностика WPP: отправка и приём сообщений
 
-## Исправление схемы chat_messages для WPP функций
+### Статус кода
+Текущий код Edge-функций **корректен** и использует правильную схему для self-hosted базы:
 
-### Проблема
-Функции `wpp-send` и `wpp-webhook` используют колонки из Lovable Cloud схемы, но self-hosted база (api.academyos.ru) имеет другую структуру.
-
-### Сравнение схем
-
-| wpp-send/webhook (НЕПРАВИЛЬНО) | Self-hosted (ПРАВИЛЬНО) |
-|--------------------------------|------------------------|
-| `content` | `message_text` |
-| `direction: 'outgoing'` | `is_outgoing: true` |
-| `messenger: 'whatsapp'` | `messenger_type: 'whatsapp'` |
-| `status` | `message_status` |
-| `media_url` | `file_url` |
-| `media_type` | `file_type` |
-| `message_type: 'text'` | `message_type: 'manager'` / `'client'` |
+| Поле | Значение |
+|------|----------|
+| `message_text` | текст сообщения |
+| `is_outgoing` | boolean (true/false) |
+| `message_type` | 'manager' / 'client' |
+| `messenger_type` | 'whatsapp' |
+| `message_status` | 'sent' / 'delivered' / 'failed' |
+| `external_message_id` | taskId от WPP |
 
 ---
 
-### Изменения в `supabase/functions/wpp-send/index.ts`
+### Причина проблемы
 
-**Строки 196-214** - исправить insert:
+**Функции Lovable Cloud и self-hosted не синхронизированы автоматически.**
 
-```typescript
-// БЫЛО:
-.insert({
-  client_id: clientId,
-  organization_id: orgId,
-  content: messageText,           // ❌
-  direction: 'outgoing',          // ❌
-  message_type: fileUrl ? ... : 'text', // ❌
-  messenger: 'whatsapp',          // ❌
-  status: messageStatus,          // ❌
-  media_url: fileUrl,             // ❌
-  media_type: ...                 // ❌
-})
-
-// СТАНЕТ:
-.insert({
-  client_id: clientId,
-  organization_id: orgId,
-  message_text: messageText,      // ✅
-  is_outgoing: true,              // ✅
-  message_type: 'manager',        // ✅ исходящее = от менеджера
-  messenger_type: 'whatsapp',     // ✅
-  message_status: messageStatus,  // ✅
-  is_read: true,
-  file_url: fileUrl,              // ✅
-  file_name: fileName,
-  file_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null,  // ✅
-  external_message_id: wppResult.taskId,
-  sender_id: user.id,
-})
-```
+При изменении Edge-функций в Lovable:
+- Lovable Cloud — деплоятся автоматически
+- Self-hosted (api.academyos.ru) — требуют **ручного деплоя**
 
 ---
 
-### Изменения в `supabase/functions/wpp-webhook/index.ts`
+### Действия для исправления
 
-**Строки 239-252** (сообщение от преподавателя) - исправить insert:
+#### 1. Ручной деплой на self-hosted сервер
 
-```typescript
-// БЫЛО:
-await supabase.from('chat_messages').insert({
-  teacher_id: teacherData.id,
-  content: messageText,           // ❌
-  direction: isFromMe ? 'outgoing' : 'incoming', // ❌
-  messenger: 'whatsapp',          // ❌
-  media_url: media?.url,          // ❌
-  media_type: media?.mimetype,    // ❌
-});
+Подключиться к серверу и выполнить:
 
-// СТАНЕТ:
-await supabase.from('chat_messages').insert({
-  teacher_id: teacherData.id,
-  client_id: null,
-  organization_id: organizationId,
-  message_text: messageText,      // ✅
-  message_type: isFromMe ? 'manager' : 'client', // ✅
-  messenger_type: 'whatsapp',     // ✅
-  is_outgoing: isFromMe,          // ✅
-  is_read: isFromMe,
-  file_url: media?.url || null,   // ✅
-  file_name: media?.filename || null,
-  file_type: media?.mimetype ? getFileTypeFromMime(media.mimetype) : null, // ✅
-  external_message_id: messageId || (data as any).id || null,
-});
+```bash
+# Скопировать обновлённые функции
+cp -r /путь/к/новым/функциям/* /home/automation/supabase-project/volumes/functions/
+
+# Перезапустить контейнер
+cd /home/automation/supabase-project
+docker compose restart functions
 ```
 
-**Строки 310-324** (сообщение от клиента) - аналогичные исправления:
+Файлы для обновления:
+- `supabase/functions/wpp-send/index.ts`
+- `supabase/functions/wpp-webhook/index.ts`
 
-```typescript
-// СТАНЕТ:
-const { error: messageError } = await supabase
-  .from('chat_messages')
-  .insert({
-    client_id: client.id,
-    organization_id: organizationId,
-    message_text: messageText,      // ✅
-    message_type: isFromMe ? 'manager' : 'client', // ✅
-    messenger_type: 'whatsapp',     // ✅
-    is_outgoing: isFromMe,          // ✅
-    is_read: isFromMe,
-    file_url: media?.url || null,   // ✅
-    file_name: media?.filename || null,
-    file_type: media?.mimetype ? getFileTypeFromMime(media.mimetype) : null, // ✅
-    external_message_id: messageId || (data as any).id || null,
-  });
+#### 2. Проверка логов после деплоя
+
+```bash
+docker compose logs -f functions --tail=100
+```
+
+Искать:
+- `[wpp-send] Sending to:` — отправка работает
+- `[wpp-webhook] Processing message from:` — приём работает
+- Ошибки типа `column ... does not exist` — схема не обновилась
+
+#### 3. Проверка интеграции в БД
+
+Убедиться, что WPP интеграция настроена:
+
+```sql
+SELECT id, name, provider, is_active, 
+       settings->>'wppAccountNumber' as account,
+       settings->>'wppApiKey' IS NOT NULL as has_key
+FROM messenger_integrations
+WHERE messenger_type = 'whatsapp' AND provider = 'wpp';
+```
+
+#### 4. Тест отправки сообщения
+
+После деплоя — отправить тестовое сообщение через UI и проверить:
+- Появилось ли сообщение в `chat_messages` с `messenger_type = 'whatsapp'`
+- Есть ли ошибки в логах
+
+---
+
+### Техническая схема работы WPP
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│                        ОТПРАВКА                               │
+├──────────────────────────────────────────────────────────────┤
+│  UI → selfHostedPost('wpp-send') → api.academyos.ru          │
+│                           │                                   │
+│                           ▼                                   │
+│  wpp-send:  1. Auth check                                    │
+│             2. Find integration (settings.wppAccountNumber)  │
+│             3. WppMsgClient.sendText()                       │
+│             4. INSERT chat_messages (is_outgoing=true)       │
+│             5. Return { success, taskId }                    │
+└──────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────┐
+│                        ПРИЁМ                                  │
+├──────────────────────────────────────────────────────────────┤
+│  WPP Platform → POST /wpp-webhook?account=xxx                │
+│                           │                                   │
+│                           ▼                                   │
+│  wpp-webhook: 1. Parse event type                            │
+│               2. Find organization by account                │
+│               3. Check teacher_id OR client_id               │
+│               4. INSERT chat_messages (is_outgoing=false)    │
+│               5. Update client.last_message_at               │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ### Результат
 
-После исправлений:
-- Отправка сообщений через WPP будет корректно сохраняться в БД
-- Входящие сообщения через webhook будут правильно записываться
-- Сообщения появятся в CRM интерфейсе
+После ручного деплоя на self-hosted:
+- Отправка сообщений через WPP будет работать
+- Входящие сообщения будут сохраняться в `chat_messages`
+- Сообщения появятся в UI чата CRM
 
