@@ -11,7 +11,8 @@ import {
 const WPP_BASE_URL = Deno.env.get('WPP_BASE_URL') || 'https://msg.academyos.ru'
 
 interface WppSendRequest {
-  clientId: string;
+  clientId?: string;  // Now optional if phoneNumber is provided
+  teacherId?: string; // For sending to teachers directly
   message?: string;
   text?: string;
   phoneNumber?: string;
@@ -145,26 +146,35 @@ Deno.serve(async (req) => {
     }
 
     // Send message
-    const { clientId, message, text, phoneNumber, fileUrl, fileName, fileType } = payload
+    const { clientId, teacherId, message, text, phoneNumber, fileUrl, fileName, fileType } = payload
     const messageText = message || text || ''
     
-    console.log('Sending WPP message:', { clientId, messageText: messageText.substring(0, 50), phoneNumber, fileUrl })
+    console.log('Sending WPP message:', { clientId, teacherId, messageText: messageText.substring(0, 50), phoneNumber, fileUrl })
 
-    // Get client data
-    const { data: client, error: clientError } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('id', clientId)
-      .single()
-
-    if (clientError || !client) {
-      return errorResponse(`Client not found: ${clientError?.message}`, 404)
+    // Validate: either clientId or (teacherId + phoneNumber) must be provided
+    if (!clientId && !teacherId && !phoneNumber) {
+      return errorResponse('Either clientId or (teacherId + phoneNumber) must be provided', 400)
     }
 
-    // Determine phone number
-    const phone = phoneNumber || client.phone
+    // Get client data (skip if sending to teacher directly with phone)
+    let client: any = null
+    if (clientId) {
+      const { data, error: clientError } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('id', clientId)
+        .single()
+
+      if (clientError || !data) {
+        return errorResponse(`Client not found: ${clientError?.message}`, 404)
+      }
+      client = data
+    }
+
+    // Determine phone number: explicit phoneNumber > client.phone
+    const phone = phoneNumber || client?.phone
     if (!phone) {
-      return errorResponse('No phone number available for client', 400)
+      return errorResponse('No phone number available - provide phoneNumber or valid clientId', 400)
     }
     
     // Format phone for WhatsApp API with Russian number normalization
@@ -200,16 +210,14 @@ Deno.serve(async (req) => {
     // Save message to database
     const messageStatus = wppResult.success ? 'sent' : 'failed'
     
-    console.log('[wpp-send] Saving message to DB, clientId:', clientId, 'orgId:', orgId)
+    console.log('[wpp-send] Saving message to DB, clientId:', clientId, 'teacherId:', teacherId, 'orgId:', orgId)
     
     // Save message to database with resilient insert
     let savedMessage: any = null
     let saveError: any = null
 
-    // First attempt with all columns (self-hosted schema)
-    // Note: sender_id removed - column doesn't exist on self-hosted
-    const fullInsert = {
-      client_id: clientId,
+    // Build insert object - use teacher_id if sending to teacher, otherwise client_id
+    const baseInsert: Record<string, any> = {
       organization_id: orgId,
       message_text: messageText,
       is_outgoing: true,
@@ -223,9 +231,17 @@ Deno.serve(async (req) => {
       file_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null,
     }
 
+    // Set either client_id or teacher_id
+    if (teacherId) {
+      baseInsert.teacher_id = teacherId
+      baseInsert.client_id = null
+    } else if (clientId) {
+      baseInsert.client_id = clientId
+    }
+
     const result1 = await supabase
       .from('chat_messages')
-      .insert(fullInsert)
+      .insert(baseInsert)
       .select()
       .maybeSingle()
 
@@ -233,15 +249,20 @@ Deno.serve(async (req) => {
       console.warn('[wpp-send] Full insert failed, trying minimal:', result1.error.message)
       
       // Fallback: minimal columns only
-      // Note: message_type is NOT NULL on self-hosted, must include it
-      const minimalInsert = {
-        client_id: clientId,
+      const minimalInsert: Record<string, any> = {
         organization_id: orgId,
         message_text: messageText,
         is_outgoing: true,
         message_type: 'manager',
         is_read: true,
         external_message_id: wppResult.taskId || null,
+      }
+      
+      if (teacherId) {
+        minimalInsert.teacher_id = teacherId
+        minimalInsert.client_id = null
+      } else if (clientId) {
+        minimalInsert.client_id = clientId
       }
       
       const result2 = await supabase
@@ -262,14 +283,24 @@ Deno.serve(async (req) => {
       console.log('[wpp-send] Message saved, id:', savedMessage?.id)
     }
 
-    // Update client last message time
-    await supabase
-      .from('clients')
-      .update({ 
-        last_message_at: new Date().toISOString(),
-        whatsapp_id: to
-      })
-      .eq('id', clientId)
+    // Update client/teacher last message time
+    if (clientId) {
+      await supabase
+        .from('clients')
+        .update({ 
+          last_message_at: new Date().toISOString(),
+          whatsapp_id: to
+        })
+        .eq('id', clientId)
+    } else if (teacherId) {
+      // Update teacher's whatsapp_id if needed
+      await supabase
+        .from('teachers')
+        .update({ 
+          whatsapp_id: to
+        })
+        .eq('id', teacherId)
+    }
 
     const response: WppSendResponse = {
       success: wppResult.success,

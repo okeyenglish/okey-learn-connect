@@ -11,6 +11,7 @@ interface SendMessageParams {
   clientId: string;
   message: string;
   phoneNumber?: string;
+  teacherId?: string;
   fileUrl?: string;
   fileName?: string;
 }
@@ -195,8 +196,8 @@ export const useWhatsApp = () => {
     }
   }, [toast, getMessengerSettings, retryStatus]);
 
-  const sendTextMessage = useCallback(async (clientId: string, message: string, phoneNumber?: string) => {
-    return sendMessage({ clientId, message, phoneNumber });
+  const sendTextMessage = useCallback(async (clientId: string, message: string, phoneNumber?: string, teacherId?: string) => {
+    return sendMessage({ clientId, message, phoneNumber, teacherId });
   }, [sendMessage]);
 
   const sendFileMessage = useCallback(async (
@@ -204,12 +205,14 @@ export const useWhatsApp = () => {
     fileUrl: string, 
     fileName: string, 
     caption?: string,
-    phoneNumber?: string
+    phoneNumber?: string,
+    teacherId?: string
   ) => {
     return sendMessage({ 
       clientId, 
       message: caption || '', 
       phoneNumber, 
+      teacherId,
       fileUrl, 
       fileName 
     });
