@@ -274,7 +274,7 @@ async function handleIncomingMessage(
       console.log('Push notification sent for Telegram message to', userIds.length, 'users in org:', organizationId, 'result:', pushResult);
       
       // Log push result for diagnostics
-      await supabase.from('webhook_logs').insert({
+      supabase.from('webhook_logs').insert({
         messenger_type: 'push-diagnostic',
         event_type: 'telegram-push-sent',
         webhook_data: {
@@ -285,7 +285,9 @@ async function handleIncomingMessage(
           timestamp: new Date().toISOString(),
         },
         processed: true
-      }).catch((e: unknown) => console.error('[telegram-webhook] Failed to log push result:', e));
+      }).then(({ error }) => {
+        if (error) console.error('[telegram-webhook] Failed to log push result:', error)
+      });
     }
   } catch (pushErr) {
     console.error('Error sending push notification:', pushErr);

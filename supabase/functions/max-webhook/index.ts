@@ -256,7 +256,7 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
       console.log('Push notification sent for MAX message to', userIds.length, 'users in org:', organizationId, 'result:', pushResult);
       
       // Log push result for diagnostics
-      await supabase.from('webhook_logs').insert({
+      supabase.from('webhook_logs').insert({
         messenger_type: 'push-diagnostic',
         event_type: 'max-push-sent',
         webhook_data: {
@@ -267,7 +267,9 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
           timestamp: new Date().toISOString(),
         },
         processed: true
-      }).catch((e: unknown) => console.error('[max-webhook] Failed to log push result:', e));
+      }).then(({ error }) => {
+        if (error) console.error('[max-webhook] Failed to log push result:', error)
+      });
     }
   } catch (pushErr) {
     console.error('Error sending push notification:', pushErr);

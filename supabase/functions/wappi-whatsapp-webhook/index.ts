@@ -426,7 +426,7 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
       console.log('Push notification sent for WhatsApp message to', userIds.length, 'users in org:', organizationId, 'result:', pushResult);
       
       // Log push result for diagnostics
-      await supabase.from('webhook_logs').insert({
+      supabase.from('webhook_logs').insert({
         messenger_type: 'push-diagnostic',
         event_type: 'whatsapp-push-sent',
         webhook_data: {
@@ -437,7 +437,9 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
           timestamp: new Date().toISOString(),
         },
         processed: true
-      }).catch((e: unknown) => console.error('[wappi-webhook] Failed to log push result:', e));
+      }).then(({ error }) => {
+        if (error) console.error('[wappi-webhook] Failed to log push result:', error)
+      });
     }
   } catch (pushErr) {
     console.error('Error sending push notification:', pushErr);
