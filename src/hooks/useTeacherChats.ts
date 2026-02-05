@@ -303,7 +303,7 @@ export const useTeacherChats = (branch?: string | null) => {
               // Get last message and unread count for this client
               const { data: lastMsg } = await supabase
                 .from('chat_messages')
-                .select('content, created_at, messenger, is_read, direction')
+                .select('message_text, content, created_at, messenger_type, messenger, is_read, is_outgoing')
                 .eq('client_id', matchedClient.id)
                 .order('created_at', { ascending: false })
                 .limit(1)
@@ -313,7 +313,7 @@ export const useTeacherChats = (branch?: string | null) => {
                 .from('chat_messages')
                 .select('id', { count: 'exact', head: true })
                 .eq('client_id', matchedClient.id)
-                .eq('direction', 'incoming')
+                .eq('is_outgoing', false)
                 .eq('is_read', false);
               
               results.push({
@@ -321,8 +321,8 @@ export const useTeacherChats = (branch?: string | null) => {
                 client_id: matchedClient.id,
                 unread_count: unreadCount || 0,
                 last_message_time: lastMsg?.created_at || null,
-                last_message_text: lastMsg?.content || null,
-                last_messenger_type: lastMsg?.messenger || null,
+                last_message_text: lastMsg?.message_text || lastMsg?.content || null,
+                last_messenger_type: lastMsg?.messenger_type || lastMsg?.messenger || null,
               });
             }
           }
@@ -348,7 +348,7 @@ export const useTeacherChats = (branch?: string | null) => {
             // Get last message info
             const { data: lastMsg } = await supabase
               .from('chat_messages')
-              .select('content, created_at, messenger, is_read, direction')
+              .select('message_text, content, created_at, messenger_type, messenger, is_read, is_outgoing')
               .eq('client_id', matchedClient.id)
               .order('created_at', { ascending: false })
               .limit(1)
@@ -358,7 +358,7 @@ export const useTeacherChats = (branch?: string | null) => {
               .from('chat_messages')
               .select('id', { count: 'exact', head: true })
               .eq('client_id', matchedClient.id)
-              .eq('direction', 'incoming')
+              .eq('is_outgoing', false)
               .eq('is_read', false);
             
             results.push({
@@ -366,8 +366,8 @@ export const useTeacherChats = (branch?: string | null) => {
               client_id: matchedClient.id,
               unread_count: unreadCount || 0,
               last_message_time: lastMsg?.created_at || null,
-              last_message_text: lastMsg?.content || null,
-              last_messenger_type: lastMsg?.messenger || null,
+              last_message_text: lastMsg?.message_text || lastMsg?.content || null,
+              last_messenger_type: lastMsg?.messenger_type || lastMsg?.messenger || null,
             });
           }
         }
