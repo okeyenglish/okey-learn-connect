@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
       if (phoneRecord) {
         chatId = phoneRecord.whatsapp_chat_id as string | null;
         if (!chatId && phoneRecord.phone) {
-          const cleanPhone = (phoneRecord.phone as string).replace(/[^\d]/g, '');
+          const cleanPhone = normalizePhoneForWhatsApp(phoneRecord.phone as string);
           chatId = `${cleanPhone}@c.us`;
         }
         console.log('Using specified phone:', phoneId, 'chatId:', chatId);
@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
       if (primaryPhone) {
         chatId = primaryPhone.whatsapp_chat_id as string | null;
         if (!chatId && primaryPhone.phone) {
-          const cleanPhone = (primaryPhone.phone as string).replace(/[^\d]/g, '');
+          const cleanPhone = normalizePhoneForWhatsApp(primaryPhone.phone as string);
           chatId = `${cleanPhone}@c.us`;
         }
         console.log('Using primary phone chatId:', chatId);
@@ -233,8 +233,9 @@ Deno.serve(async (req) => {
         throw new Error('No phone number available for client');
       }
       
-      // Форматируем номер для WhatsApp (убираем + и другие символы)
-      const cleanPhone = phone.replace(/[^\d]/g, '');
+      // Форматируем номер для WhatsApp с нормализацией российских номеров
+      const cleanPhone = normalizePhoneForWhatsApp(phone);
+      console.log('[whatsapp-send] Normalized phone:', cleanPhone, '(original:', phone, ')');
       chatId = `${cleanPhone}@c.us`;
       
       // Сохраняем chat ID в базе данных
@@ -432,4 +433,28 @@ async function getInstanceState(
     // Возвращаем "сырое" тело, чтобы увидеть, что именно прислал Green-API
     return { raw: text, error: 'NON_JSON_RESPONSE' };
   }
+}
+
+/**
+ * Нормализует телефон для WhatsApp API (Green API)
+ * - 9852615056 → 79852615056 (Россия)
+ * - 89852615056 → 79852615056 (Россия)
+ * - 79852615056 → 79852615056 (Россия)
+ * - 380501234567 → 380501234567 (Украина, без изменений)
+ */
+function normalizePhoneForWhatsApp(phone: string): string {
+  // Убираем все кроме цифр
+  let cleaned = phone.replace(/\D/g, '');
+  
+  // Если 11 цифр и начинается с 8 (российский формат) → заменяем на 7
+  if (cleaned.length === 11 && cleaned.startsWith('8')) {
+    cleaned = '7' + cleaned.substring(1);
+  }
+  
+  // Если 10 цифр и начинается с 9 → добавляем 7 (российский мобильный)
+  if (cleaned.length === 10 && cleaned.startsWith('9')) {
+    cleaned = '7' + cleaned;
+  }
+  
+  return cleaned;
 }
