@@ -50,14 +50,15 @@ export const useChatThreadsInfinite = () => {
   const queryClient = useQueryClient();
   const { checkAndFetchMissingAvatars } = useBulkAvatarFetch();
 
-  // Query to get deleted client IDs (status = 'deleted')
+  // Query to get deleted client IDs (is_active = false for self-hosted)
   const { data: deletedClientIds = [] } = useQuery({
     queryKey: ['deleted-client-ids'],
     queryFn: async () => {
+      // Self-hosted uses is_active (boolean) instead of status (string)
       const { data, error } = await supabase
         .from('clients')
         .select('id')
-        .eq('status', 'deleted');
+        .eq('is_active', false);
       
       if (error) {
         console.warn('[useChatThreadsInfinite] Error fetching deleted clients:', error.message);
