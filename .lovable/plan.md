@@ -1,52 +1,50 @@
 
-
-## Исправление ошибки `.catch()` в wpp-webhook
+## Исправление: Добавить обработку event type `chat`
 
 ### Проблема
-Строка 88: `.catch()` нельзя использовать на Supabase query builder — это не Promise.
+Входящие сообщения WPP Platform приходят с `type: "chat"`, но этот тип не обрабатывается в switch-case. Код попадает в `default` и выводит "Unhandled event type: chat".
 
 ### Решение
 
 **Файл:** `supabase/functions/wpp-webhook/index.ts`
 
-**Было (строки 79-88):**
-```typescript
-// Log webhook event
-await supabase
-  .from('webhook_logs')
-  .insert({
-    messenger_type: 'whatsapp',
-    event_type: eventType,
-    webhook_data: event,
-    processed: false
-  })
-  .catch(e => console.warn('[wpp-webhook] Failed to log event:', e))
+Добавить `case 'chat':` в switch-case для обработки входящих сообщений:
+
+```text
+Строки 194-204 (до):
+      case 'message.incoming':
+      case 'message':
+      case 'message_in':
+      case 'messages.upsert':
+        // Incoming message...
+
+Строки 194-205 (после):
+      case 'message.incoming':
+      case 'message':
+      case 'message_in':
+      case 'messages.upsert':
+      case 'chat':                      // <-- ДОБАВИТЬ
+        // Incoming message...
 ```
 
-**Станет:**
-```typescript
-// Log webhook event (fire-and-forget)
-supabase
-  .from('webhook_logs')
-  .insert({
-    messenger_type: 'whatsapp',
-    event_type: eventType,
-    webhook_data: event,
-    processed: false
-  })
-  .then(({ error }) => {
-    if (error) console.warn('[wpp-webhook] Failed to log event:', error)
-  })
-```
-
-**Дополнительно:** Обновить версию на `v2.4.1` (строка 10).
+**Дополнительно:** Обновить версию на `v2.5.1` (строка 11).
 
 ### После деплоя
-Проверить на self-hosted:
 ```bash
-curl -X POST https://api.academyos.ru/functions/v1/wpp-webhook \
-  -H "Content-Type: application/json" \
-  -d '{"type":"test","data":{}}'
-```
-Ожидаемый ответ: `{"ok":true,"_version":"v2.4.1"}`
+# 1. Скопировать функции
+rsync -avz ./supabase/functions/ \
+  automation@api.academyos.ru:/home/automation/supabase-project/volumes/functions/
 
+# 2. Перезапустить
+docker compose restart functions
+
+# 3. Проверить версию и обработку
+docker compose logs functions | grep wpp-webhook | tail -10
+```
+
+Ожидаемый результат в логах:
+```
+[wpp-webhook][v2.5.1] Event type: chat Account: 0000000000009
+[wpp-webhook] handleIncomingMessage called with: { from: "+79852615056", ... }
+[wpp-webhook] ✅ Message saved: <uuid> for client: <uuid>
+```
