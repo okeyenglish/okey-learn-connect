@@ -1247,10 +1247,11 @@ export interface MessengerIntegration {
   organization_id: string;
   name: string;
   messenger_type: string; // 'whatsapp', 'telegram', 'max'
-  provider_type: MessengerIntegrationProvider;
+  provider_type?: MessengerIntegrationProvider; // Lovable Cloud
+  provider?: MessengerIntegrationProvider; // Self-hosted
   is_active: boolean;
   is_primary: boolean;
-  priority: number;
+  priority?: number;
   webhook_key: string;
   settings: Json | null;
   created_at: string;
