@@ -8,7 +8,7 @@ import {
 } from '../_shared/types.ts'
 
 // Version for debugging stale deployments
-const VERSION = "v2.5.0";
+const VERSION = "v2.5.1";
 const DEPLOYED_AT = "2026-02-05T22:00:00Z";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
@@ -195,6 +195,7 @@ Deno.serve(async (req) => {
       case 'message':
       case 'message_in':
       case 'messages.upsert':
+      case 'chat':
         // Incoming message - handle both flat and nested formats
         if (isFlatMessage) {
           await handleIncomingMessage(payload, organizationId)
