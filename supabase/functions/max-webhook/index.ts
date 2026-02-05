@@ -36,6 +36,12 @@ Deno.serve(async (req) => {
 
     const { typeWebhook, instanceData, senderData, messageData, idMessage, timestamp } = body;
 
+    // Validate required webhook fields
+    if (!instanceData?.idInstance) {
+      console.log('[max-webhook] Invalid payload - missing instanceData.idInstance');
+      return successResponse({ status: 'ignored', reason: 'invalid payload' });
+    }
+
     // Find organization by instanceId
     const instanceId = String(instanceData.idInstance);
     
