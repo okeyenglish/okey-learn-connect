@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Users, Calendar, ArrowLeft, Phone, MessageSquare } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +18,7 @@ import { ChatArea } from './ChatArea';
 import { TeacherSchedulePanel } from './TeacherSchedulePanel';
 import { TeacherChatList } from './TeacherChatList';
 import { TeacherChatSkeleton } from './TeacherChatSkeleton';
+import { DeleteChatDialog } from './DeleteChatDialog';
 import { useAuth } from '@/hooks/useAuth';
 
 interface TeacherChatAreaProps {
@@ -36,6 +38,14 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const [filterSubject, setFilterSubject] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [deleteTeacherDialog, setDeleteTeacherDialog] = useState<{
+    open: boolean;
+    teacherId: string;
+    teacherName: string;
+  }>({ open: false, teacherId: '', teacherName: '' });
+  const [isDeletingTeacher, setIsDeletingTeacher] = useState(false);
+  
+  const queryClient = useQueryClient();
   
   // Cache for resolved client IDs to avoid repeated lookups
   const clientIdCache = React.useRef<Map<string, string>>(new Map());
@@ -358,12 +368,47 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   }, [pinnedTeacherIds, togglePin, toast]);
 
   const handleDeleteChat = useCallback((teacherId: string) => {
-    toast({
-      title: "Удаление чата",
-      description: "Функция удаления в разработке",
-      variant: "destructive",
-    });
-  }, [toast]);
+    const teacher = dbTeachers?.find(t => t.id === teacherId);
+    const teacherName = teacher 
+      ? `${teacher.lastName || ''} ${teacher.firstName || ''}`.trim() || 'Преподаватель'
+      : 'Преподаватель';
+    setDeleteTeacherDialog({ open: true, teacherId, teacherName });
+  }, [dbTeachers]);
+
+  const confirmDeleteTeacher = useCallback(async () => {
+    if (!deleteTeacherDialog.teacherId) return;
+    setIsDeletingTeacher(true);
+    try {
+      const { error } = await supabase
+        .from('teachers')
+        .update({ is_active: false })
+        .eq('id', deleteTeacherDialog.teacherId);
+      
+      if (error) throw error;
+      
+      queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
+      queryClient.invalidateQueries({ queryKey: ['teachers'] });
+      
+      if (selectedTeacherId === deleteTeacherDialog.teacherId) {
+        onSelectTeacher(null);
+      }
+      
+      setDeleteTeacherDialog({ open: false, teacherId: '', teacherName: '' });
+      toast({
+        title: "Преподаватель деактивирован",
+        description: `"${deleteTeacherDialog.teacherName}" удалён из списка`,
+      });
+    } catch (error) {
+      console.error('Error deactivating teacher:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось деактивировать преподавателя",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingTeacher(false);
+    }
+  }, [deleteTeacherDialog, selectedTeacherId, onSelectTeacher, queryClient, toast]);
 
   const teacherListProps = {
     isLoading: isLoadingTeachers,
@@ -569,6 +614,15 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
           </Tabs>
         )}
       </div>
+
+      {/* Delete confirmation dialog */}
+      <DeleteChatDialog
+        open={deleteTeacherDialog.open}
+        onOpenChange={(open) => setDeleteTeacherDialog(prev => ({ ...prev, open }))}
+        chatName={deleteTeacherDialog.teacherName}
+        onConfirm={confirmDeleteTeacher}
+        isDeleting={isDeletingTeacher}
+      />
     </div>
   );
 };
