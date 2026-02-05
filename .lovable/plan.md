@@ -1,82 +1,121 @@
 
-## Исправление: колонка `status` не существует на self-hosted
+
+## Исправление схемы chat_messages для WPP функций
 
 ### Проблема
-Из логов консоли:
-```
-column clients.status does not exist
-```
+Функции `wpp-send` и `wpp-webhook` используют колонки из Lovable Cloud схемы, но self-hosted база (api.academyos.ru) имеет другую структуру.
 
-На self-hosted схеме (api.academyos.ru) используется поле `is_active` (boolean), а не `status` (string):
-- `is_active = true` → активный клиент
-- `is_active = false` → удалённый клиент
+### Сравнение схем
 
-Код пытается обращаться к `status`, которой не существует.
+| wpp-send/webhook (НЕПРАВИЛЬНО) | Self-hosted (ПРАВИЛЬНО) |
+|--------------------------------|------------------------|
+| `content` | `message_text` |
+| `direction: 'outgoing'` | `is_outgoing: true` |
+| `messenger: 'whatsapp'` | `messenger_type: 'whatsapp'` |
+| `status` | `message_status` |
+| `media_url` | `file_url` |
+| `media_type` | `file_type` |
+| `message_type: 'text'` | `message_type: 'manager'` / `'client'` |
 
 ---
 
-### Технические изменения
+### Изменения в `supabase/functions/wpp-send/index.ts`
 
-#### `src/components/crm/NewChatModal.tsx`
-
-**Строки 192-220** - заменить `status` на `is_active`:
+**Строки 196-214** - исправить insert:
 
 ```typescript
 // БЫЛО:
-const { data: existingClient, error: fetchError } = await supabase
-  .from('clients')
-  .select('id, name, status')
-  .eq('id', existingId)
-  .maybeSingle();
-
-if (existingClient) {
-  if (existingClient.status === 'deleted') {
-    const { error: restoreError } = await supabase
-      .from('clients')
-      .update({ status: 'active', name: newContactData.name })
-      .eq('id', existingId);
-    ...
-  }
-}
+.insert({
+  client_id: clientId,
+  organization_id: orgId,
+  content: messageText,           // ❌
+  direction: 'outgoing',          // ❌
+  message_type: fileUrl ? ... : 'text', // ❌
+  messenger: 'whatsapp',          // ❌
+  status: messageStatus,          // ❌
+  media_url: fileUrl,             // ❌
+  media_type: ...                 // ❌
+})
 
 // СТАНЕТ:
-const { data: existingClient, error: fetchError } = await supabase
-  .from('clients')
-  .select('id, name, is_active')
-  .eq('id', existingId)
-  .maybeSingle();
-
-if (existingClient) {
-  // is_active = false means deleted
-  if (existingClient.is_active === false) {
-    const { error: restoreError } = await supabase
-      .from('clients')
-      .update({ is_active: true, name: newContactData.name })
-      .eq('id', existingId);
-    ...
-  }
-}
+.insert({
+  client_id: clientId,
+  organization_id: orgId,
+  message_text: messageText,      // ✅
+  is_outgoing: true,              // ✅
+  message_type: 'manager',        // ✅ исходящее = от менеджера
+  messenger_type: 'whatsapp',     // ✅
+  message_status: messageStatus,  // ✅
+  is_read: true,
+  file_url: fileUrl,              // ✅
+  file_name: fileName,
+  file_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null,  // ✅
+  external_message_id: wppResult.taskId,
+  sender_id: user.id,
+})
 ```
-
-#### `src/components/crm/MobileNewChatModal.tsx`
-
-Аналогичные изменения - заменить `status` на `is_active`.
 
 ---
 
-### Схема полей
+### Изменения в `supabase/functions/wpp-webhook/index.ts`
 
-| Lovable Cloud | Self-hosted | Значение |
-|--------------|-------------|----------|
-| `status: 'active'` | `is_active: true` | Активный |
-| `status: 'deleted'` | `is_active: false` | Удалён |
+**Строки 239-252** (сообщение от преподавателя) - исправить insert:
+
+```typescript
+// БЫЛО:
+await supabase.from('chat_messages').insert({
+  teacher_id: teacherData.id,
+  content: messageText,           // ❌
+  direction: isFromMe ? 'outgoing' : 'incoming', // ❌
+  messenger: 'whatsapp',          // ❌
+  media_url: media?.url,          // ❌
+  media_type: media?.mimetype,    // ❌
+});
+
+// СТАНЕТ:
+await supabase.from('chat_messages').insert({
+  teacher_id: teacherData.id,
+  client_id: null,
+  organization_id: organizationId,
+  message_text: messageText,      // ✅
+  message_type: isFromMe ? 'manager' : 'client', // ✅
+  messenger_type: 'whatsapp',     // ✅
+  is_outgoing: isFromMe,          // ✅
+  is_read: isFromMe,
+  file_url: media?.url || null,   // ✅
+  file_name: media?.filename || null,
+  file_type: media?.mimetype ? getFileTypeFromMime(media.mimetype) : null, // ✅
+  external_message_id: messageId || (data as any).id || null,
+});
+```
+
+**Строки 310-324** (сообщение от клиента) - аналогичные исправления:
+
+```typescript
+// СТАНЕТ:
+const { error: messageError } = await supabase
+  .from('chat_messages')
+  .insert({
+    client_id: client.id,
+    organization_id: organizationId,
+    message_text: messageText,      // ✅
+    message_type: isFromMe ? 'manager' : 'client', // ✅
+    messenger_type: 'whatsapp',     // ✅
+    is_outgoing: isFromMe,          // ✅
+    is_read: isFromMe,
+    file_url: media?.url || null,   // ✅
+    file_name: media?.filename || null,
+    file_type: media?.mimetype ? getFileTypeFromMime(media.mimetype) : null, // ✅
+    external_message_id: messageId || (data as any).id || null,
+  });
+```
 
 ---
 
 ### Результат
-После исправления при создании чата с удалённым телефоном:
-1. Ловится ошибка 23505
-2. Извлекается ID клиента из сообщения
-3. Запрашивается клиент с полем `is_active` (не `status`)
-4. Если `is_active = false` → восстанавливаем через `update({ is_active: true })`
-5. Переходим к существующему чату
+
+После исправлений:
+- Отправка сообщений через WPP будет корректно сохраняться в БД
+- Входящие сообщения через webhook будут правильно записываться
+- Сообщения появятся в CRM интерфейсе
+
