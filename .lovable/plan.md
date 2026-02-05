@@ -1,83 +1,81 @@
 
-## Исправление ошибки PGRST203: Конфликт перегрузок get_chat_threads_paginated
+## Исправление: Реализация удаления чата преподавателя
 
-### Проблема
-PostgREST не может выбрать между двумя версиями функции:
-- `get_chat_threads_paginated(p_limit, p_offset)` — 2 параметра
-- `get_chat_threads_paginated(p_limit, p_offset, p_search)` — 3 параметра
+На скриншоте видно, что при попытке удалить преподавателя "Дан Иил" появляется тост "Функция удаления в разработке". Сейчас функция `handleDeleteChat` в `TeacherChatArea.tsx` просто показывает этот тост вместо реального действия.
 
-При вызове с 2 параметрами обе функции подходят, что вызывает ошибку PGRST203.
+### Что будет сделано
 
-### Решение
+Реализую полноценное удаление (деактивацию) преподавателей:
 
-#### Часть 1: Frontend — добавить PGRST203 в circuit breaker (временная мера)
+1. **Диалог подтверждения** - перед удалением покажется окно с запросом подтверждения
+2. **Мягкое удаление** - преподаватель деактивируется (`is_active = false`), но не удаляется из базы
+3. **Обновление списка** - после удаления список преподавателей обновится автоматически
 
-**Файл:** `src/hooks/useChatThreadsInfinite.ts`
+### Изменения в файле
 
-Добавить код `PGRST203` в список ошибок, при которых отключается RPC:
+**Файл:** `src/components/crm/TeacherChatArea.tsx`
 
-```text
-Строки 94-95 (до):
-if (error.code === '42883' || error.code === 'PGRST202' || error.code === '42703') {
-
-Строки 94-95 (после):
-if (error.code === '42883' || error.code === 'PGRST202' || error.code === '42703' || error.code === 'PGRST203') {
-```
-
-Также добавить в строку 143:
-```text
-if (error?.code === '42883' || error?.code === 'PGRST202' || error?.code === '42703') return false;
-
-→
-
-if (error?.code === '42883' || error?.code === 'PGRST202' || error?.code === '42703' || error?.code === 'PGRST203') return false;
-```
-
-#### Часть 2: SQL скрипт для self-hosted — удалить дубликат функции
-
-**Создать файл:** `docs/fix-chat-threads-paginated-overload.sql`
-
-```sql
--- Исправление ошибки PGRST203: удаление перегруженной версии функции
--- Выполнить на self-hosted Supabase (api.academyos.ru)
-
--- 1. Удалить ВСЕ версии функции (включая с p_search)
-DROP FUNCTION IF EXISTS public.get_chat_threads_paginated(integer, integer);
-DROP FUNCTION IF EXISTS public.get_chat_threads_paginated(integer, integer, text);
-DROP FUNCTION IF EXISTS public.get_chat_threads_paginated(p_limit integer, p_offset integer);
-DROP FUNCTION IF EXISTS public.get_chat_threads_paginated(p_limit integer, p_offset integer, p_search text);
-
--- 2. Пересоздать только 2-параметровую версию
-CREATE FUNCTION get_chat_threads_paginated(...)
--- (полная реализация функции из последней миграции)
-
--- 3. Выдать права
-GRANT EXECUTE ON FUNCTION get_chat_threads_paginated(integer, integer) TO authenticated;
-
--- 4. Проверить что осталась только одна версия
-SELECT proname, pronargs, proargtypes 
-FROM pg_proc 
-WHERE proname = 'get_chat_threads_paginated';
-```
-
-### Деплой
-
-1. **Frontend**: Автоматически деплоится при коммите
-2. **SQL**: Запустить вручную на self-hosted:
-   ```bash
-   docker compose exec db psql -U postgres -d postgres -f /path/to/fix-chat-threads-paginated-overload.sql
-   ```
-   Или через SQL editor в Supabase Studio.
-
-### Ожидаемый результат
-
-- Ошибка PGRST203 исчезнет
-- Чаты будут загружаться корректно
-- В базе останется только одна версия функции
+| Изменение | Описание |
+|-----------|----------|
+| Импорт | Добавить `DeleteChatDialog` и `useQueryClient` |
+| Состояние | Добавить `deleteTeacherDialog` и `isDeletingTeacher` |
+| handleDeleteChat | Находит имя преподавателя и открывает диалог подтверждения |
+| confirmDeleteTeacher | Выполняет `UPDATE teachers SET is_active = false` |
+| JSX | Добавить компонент `DeleteChatDialog` в конец |
 
 ### Технические детали
 
-| Изменение | Файл | Описание |
-|-----------|------|----------|
-| Circuit breaker | `src/hooks/useChatThreadsInfinite.ts` | Добавить PGRST203 в список обрабатываемых ошибок |
-| SQL fix | `docs/fix-chat-threads-paginated-overload.sql` | Скрипт удаления дубликата функции |
+```text
+Строка ~360-366 (до):
+const handleDeleteChat = useCallback((teacherId: string) => {
+  toast({
+    title: "Удаление чата",
+    description: "Функция удаления в разработке",
+    variant: "destructive",
+  });
+}, [toast]);
+
+Строка ~360-380 (после):
+const handleDeleteChat = useCallback((teacherId: string) => {
+  const teacher = dbTeachers?.find(t => t.id === teacherId);
+  const teacherName = teacher 
+    ? `${teacher.last_name || ''} ${teacher.first_name || ''}`.trim() || 'Преподаватель'
+    : 'Преподаватель';
+  setDeleteTeacherDialog({ open: true, teacherId, teacherName });
+}, [dbTeachers]);
+
+// + confirmDeleteTeacher:
+const confirmDeleteTeacher = useCallback(async () => {
+  if (!deleteTeacherDialog.teacherId) return;
+  setIsDeletingTeacher(true);
+  try {
+    const { error } = await supabase
+      .from('teachers')
+      .update({ is_active: false })
+      .eq('id', deleteTeacherDialog.teacherId);
+    if (error) throw error;
+    
+    queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
+    queryClient.invalidateQueries({ queryKey: ['teachers'] });
+    
+    if (selectedTeacherId === deleteTeacherDialog.teacherId) {
+      onSelectTeacher(null);
+    }
+    setDeleteTeacherDialog({ open: false, teacherId: '', teacherName: '' });
+    toast.success(`Преподаватель "${deleteTeacherDialog.teacherName}" деактивирован`);
+  } catch (error) {
+    console.error('Error deactivating teacher:', error);
+    toast.error('Не удалось деактивировать преподавателя');
+  } finally {
+    setIsDeletingTeacher(false);
+  }
+}, [deleteTeacherDialog, selectedTeacherId, onSelectTeacher, queryClient]);
+```
+
+### Поведение после реализации
+
+1. Нажатие "Удалить" в контекстном меню преподавателя → открывается диалог подтверждения
+2. Нажатие "Удалить" в диалоге → преподаватель деактивируется в базе
+3. Преподаватель исчезает из списка активных
+4. Данные сохраняются для истории (уроки, сообщения и т.д.)
+5. При необходимости можно восстановить через админ-панель (установить `is_active = true`)
