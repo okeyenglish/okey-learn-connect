@@ -1,116 +1,96 @@
 
-## Диагностика WPP: отправка и приём сообщений
 
-### Статус кода
-Текущий код Edge-функций **корректен** и использует правильную схему для self-hosted базы:
+## Исправление Edge Functions на Self-Hosted Сервере
 
-| Поле | Значение |
-|------|----------|
-| `message_text` | текст сообщения |
-| `is_outgoing` | boolean (true/false) |
-| `message_type` | 'manager' / 'client' |
-| `messenger_type` | 'whatsapp' |
-| `message_status` | 'sent' / 'delivered' / 'failed' |
-| `external_message_id` | taskId от WPP |
+### Выявленные проблемы
 
----
+| Функция | Ошибка | Причина |
+|---------|--------|---------|
+| `wpp-create` | `401 Invalid token` | Неверный или просроченный `WPP_SECRET` |
+| `max-webhook` | `Identifier 'maxUserId' has already been declared` | Устаревший код на сервере с дублированием |
+| `whatsapp-webhook` | `Identifier 'normalizePhone' has already been declared` | Устаревший код на сервере с дублированием |
 
-### Причина проблемы
+### Анализ
 
-**Функции Lovable Cloud и self-hosted не синхронизированы автоматически.**
+**Текущий код в Lovable корректен** - дубликатов нет:
+- `max-webhook`: одно объявление `extractPhoneFromChatId` (строка 785)
+- `whatsapp-webhook`: одно объявление `normalizePhone` (строка 637)
 
-При изменении Edge-функций в Lovable:
-- Lovable Cloud — деплоятся автоматически
-- Self-hosted (api.academyos.ru) — требуют **ручного деплоя**
+**Проблема**: На сервере находятся старые версии файлов с дублирующимися объявлениями.
 
 ---
 
-### Действия для исправления
+### План действий
 
-#### 1. Ручной деплой на self-hosted сервер
+#### 1. Синхронизация кода на self-hosted сервере
 
-Подключиться к серверу и выполнить:
+На сервере `api.academyos.ru` выполнить:
 
 ```bash
-# Скопировать обновлённые функции
-cp -r /путь/к/новым/функциям/* /home/automation/supabase-project/volumes/functions/
+cd /home/automation/supabase-project
+
+# Скачать актуальный код из репозитория
+git pull origin main
+
+# Синхронизировать Edge Functions
+rsync -avz --delete ./supabase/functions/ ./volumes/functions/
 
 # Перезапустить контейнер
-cd /home/automation/supabase-project
 docker compose restart functions
+
+# Проверить логи
+docker compose logs --tail=50 functions
 ```
 
-Файлы для обновления:
-- `supabase/functions/wpp-send/index.ts`
-- `supabase/functions/wpp-webhook/index.ts`
+#### 2. Проверка WPP_SECRET
 
-#### 2. Проверка логов после деплоя
+Убедиться что переменная установлена в `.env` или `docker-compose.yml`:
 
 ```bash
-docker compose logs -f functions --tail=100
+# Проверить .env
+grep WPP_SECRET .env
+
+# Если отсутствует - добавить
+echo 'WPP_SECRET=your_wpp_platform_secret' >> .env
 ```
 
-Искать:
-- `[wpp-send] Sending to:` — отправка работает
-- `[wpp-webhook] Processing message from:` — приём работает
-- Ошибки типа `column ... does not exist` — схема не обновилась
+Проверить что `docker-compose.yml` пробрасывает переменную в контейнер functions:
 
-#### 3. Проверка интеграции в БД
-
-Убедиться, что WPP интеграция настроена:
-
-```sql
-SELECT id, name, provider, is_active, 
-       settings->>'wppAccountNumber' as account,
-       settings->>'wppApiKey' IS NOT NULL as has_key
-FROM messenger_integrations
-WHERE messenger_type = 'whatsapp' AND provider = 'wpp';
+```yaml
+functions:
+  environment:
+    - WPP_SECRET=${WPP_SECRET}
 ```
 
-#### 4. Тест отправки сообщения
+#### 3. Проверка работоспособности после деплоя
 
-После деплоя — отправить тестовое сообщение через UI и проверить:
-- Появилось ли сообщение в `chat_messages` с `messenger_type = 'whatsapp'`
-- Есть ли ошибки в логах
+```bash
+# Проверить статус функций
+curl -s https://api.academyos.ru/functions/v1/edge-health-monitor
 
----
-
-### Техническая схема работы WPP
-
-```text
-┌──────────────────────────────────────────────────────────────┐
-│                        ОТПРАВКА                               │
-├──────────────────────────────────────────────────────────────┤
-│  UI → selfHostedPost('wpp-send') → api.academyos.ru          │
-│                           │                                   │
-│                           ▼                                   │
-│  wpp-send:  1. Auth check                                    │
-│             2. Find integration (settings.wppAccountNumber)  │
-│             3. WppMsgClient.sendText()                       │
-│             4. INSERT chat_messages (is_outgoing=true)       │
-│             5. Return { success, taskId }                    │
-└──────────────────────────────────────────────────────────────┘
-
-┌──────────────────────────────────────────────────────────────┐
-│                        ПРИЁМ                                  │
-├──────────────────────────────────────────────────────────────┤
-│  WPP Platform → POST /wpp-webhook?account=xxx                │
-│                           │                                   │
-│                           ▼                                   │
-│  wpp-webhook: 1. Parse event type                            │
-│               2. Find organization by account                │
-│               3. Check teacher_id OR client_id               │
-│               4. INSERT chat_messages (is_outgoing=false)    │
-│               5. Update client.last_message_at               │
-└──────────────────────────────────────────────────────────────┘
+# Проверить отсутствие ошибок в логах
+docker compose logs --tail=20 functions | grep -E "(error|Error|ERROR)"
 ```
 
 ---
 
-### Результат
+### Техническое объяснение ошибок
 
-После ручного деплоя на self-hosted:
-- Отправка сообщений через WPP будет работать
-- Входящие сообщения будут сохраняться в `chat_messages`
-- Сообщения появятся в UI чата CRM
+**SyntaxError "Identifier has already been declared"** означает что в файле есть два объявления одной переменной/функции. Это происходит когда:
+
+1. Файл редактировался вручную и случайно добавился дубликат
+2. При merge-конфликте код не был правильно очищен
+3. Старая версия файла содержит duplicate, новая - нет
+
+Deno Edge Runtime проверяет синтаксис при загрузке функции. Если находит duplicate identifier - функция не запускается.
+
+---
+
+### Ожидаемый результат
+
+После синхронизации:
+- `wpp-create` начнёт аутентифицироваться (если `WPP_SECRET` валиден)
+- `max-webhook` будет обрабатывать входящие MAX сообщения
+- `whatsapp-webhook` будет обрабатывать входящие WhatsApp сообщения
+- WPP интеграция заработает для отправки и приёма сообщений
 
