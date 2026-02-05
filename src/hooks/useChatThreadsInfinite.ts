@@ -91,7 +91,7 @@ export const useChatThreadsInfinite = () => {
 
       if (error) {
         // If function not found - disable RPC permanently for this session
-        if (error.code === '42883' || error.code === 'PGRST202' || error.code === '42703') {
+        if (error.code === '42883' || error.code === 'PGRST202' || error.code === '42703' || error.code === 'PGRST203') {
           console.warn('[useChatThreadsInfinite] Disabling broken paginated RPC:', error.code, error.message);
           usePaginatedRpc = false;
           return { threads: [], hasMore: false, pageParam, executionTime: 0 };
@@ -140,7 +140,7 @@ export const useChatThreadsInfinite = () => {
     initialPageParam: 0,
     retry: (failureCount, error: any) => {
       // Don't retry if function doesn't exist
-      if (error?.code === '42883' || error?.code === 'PGRST202' || error?.code === '42703') return false;
+      if (error?.code === '42883' || error?.code === 'PGRST202' || error?.code === '42703' || error?.code === 'PGRST203') return false;
       return failureCount < 1;
     },
     ...chatListQueryConfig,
