@@ -128,8 +128,58 @@ export const MobileNewChatModal = ({
         onCreateChat?.(client);
         setNewContactData({ name: "", phone: "" });
         onOpenChange(false);
-      } catch (error) {
-        console.error('Error creating client:', error);
+      } catch (error: any) {
+        console.error('[MobileNewChatModal] Error creating client:', error);
+        
+        // Handle unique constraint violation (23505) - client exists but wasn't found
+        if (error?.code === '23505' || error?.message?.includes('23505')) {
+          const idMatch = error?.message?.match(/ID:\s*([a-f0-9-]{36})/i);
+          console.log('[MobileNewChatModal] 23505 error, extracted ID:', idMatch?.[1]);
+          
+          if (idMatch) {
+            const existingId = idMatch[1];
+            
+            try {
+              const { data: existingClient, error: fetchError } = await supabase
+                .from('clients')
+                .select('id, name, status')
+                .eq('id', existingId)
+                .maybeSingle();
+              
+              console.log('[MobileNewChatModal] Fetched client:', existingClient, 'error:', fetchError);
+              
+              if (existingClient) {
+                if (existingClient.status === 'deleted') {
+                  const { error: restoreError } = await supabase
+                    .from('clients')
+                    .update({ status: 'active', name: newContactData.name })
+                    .eq('id', existingId);
+                  
+                  if (restoreError) {
+                    console.error('[MobileNewChatModal] Restore error:', restoreError);
+                  } else {
+                    invalidateAfterRestore();
+                    toast.success(`Чат восстановлен: ${newContactData.name}`, {
+                      description: "Клиент был ранее удалён и теперь восстановлен",
+                    });
+                  }
+                } else {
+                  toast.info(`Клиент найден: ${existingClient.name}`, {
+                    description: "Переходим к существующему чату",
+                  });
+                }
+                
+                onExistingClientFound?.(existingId);
+                setNewContactData({ name: "", phone: "" });
+                onOpenChange(false);
+                return;
+              }
+            } catch (restoreError) {
+              console.error('[MobileNewChatModal] Error in restore flow:', restoreError);
+            }
+          }
+        }
+        
         toast.error("Ошибка при создании клиента");
       }
     }
