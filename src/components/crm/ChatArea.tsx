@@ -1478,18 +1478,23 @@ export const ChatArea = ({
             .update({ is_read: true })
             .eq('teacher_id', actualTeacherId)
             .eq('is_read', false);
-          queryClient.invalidateQueries({ queryKey: ['teacher-chat-messages-v2', actualTeacherId] });
+          // Await query refetch before scrolling for teacher messages
+          await queryClient.refetchQueries({ queryKey: ['teacher-chat-messages-v2', actualTeacherId] });
           queryClient.invalidateQueries({ queryKey: ['teacher-conversations'] });
+          
+          // For teacher messages, wait for DOM update then scroll
+          requestAnimationFrame(() => {
+            setTimeout(() => scrollToBottom(true), 100);
+          });
         } else {
           await markChatMessagesAsReadMutation.mutateAsync(clientId);
+          // Smooth scroll to bottom after sending message
+          setTimeout(() => scrollToBottom(true), 300);
         }
         console.log('Marked all messages as read after sending reply');
       } catch (e) {
         console.warn('Failed to mark messages as read:', e);
       }
-      
-      // Smooth scroll to bottom after sending message
-      setTimeout(() => scrollToBottom(true), 300);
     } catch (error: unknown) {
       toast({
         title: "Ошибка отправки",
