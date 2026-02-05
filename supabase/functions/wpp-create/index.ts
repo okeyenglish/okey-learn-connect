@@ -134,6 +134,16 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Build webhook URL and register it
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+      const webhookUrl = `${SUPABASE_URL}/functions/v1/wpp-webhook?account=${settings.wppAccountNumber}`;
+      console.log('[wpp-create] Webhook URL:', webhookUrl);
+
+      // Register webhook for existing integration
+      await wpp.registerWebhook(settings.wppAccountNumber, webhookUrl).catch(e => 
+        console.warn('[wpp-create] Webhook registration failed:', e)
+      );
+
       // Try to start account and get QR
       const startResult = await wpp.startAccount(settings.wppAccountNumber);
       console.log('[wpp-create] Start result:', startResult.state);
@@ -232,7 +242,13 @@ Deno.serve(async (req) => {
       apiKey: newClient.apiKey,
     });
 
-    const startResult = await wpp.startAccount(newClient.session);
+    // Build webhook URL
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const webhookUrl = `${SUPABASE_URL}/functions/v1/wpp-webhook?account=${newClient.session}`;
+    console.log('[wpp-create] Webhook URL:', webhookUrl);
+
+    // Start account WITH webhook registration
+    const startResult = await wpp.ensureAccountWithQr(newClient.session, webhookUrl, 30);
     console.log('[wpp-create] New account start result:', startResult.state);
 
     if (startResult.state === 'qr') {
