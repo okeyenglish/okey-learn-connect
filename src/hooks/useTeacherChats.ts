@@ -268,6 +268,74 @@ export const useTeacherChats = (branch?: string | null) => {
         
         if (!teachersList?.length) return [];
         
+        // =============================================================
+        // STEP 1: Try direct teacher_id query (new self-hosted architecture)
+        // Messages are stored directly with teacher_id, not via clients table
+        // =============================================================
+        const teacherIds = teachersList.map(t => t.id);
+        
+        // @ts-ignore - teacher_id column exists in self-hosted schema
+        const { data: directMessages, error: directError } = await (supabase
+          .from('chat_messages') as any)
+          .select('teacher_id, message_text, content, created_at, messenger_type, messenger, is_read, is_outgoing')
+          .in('teacher_id', teacherIds)
+          .order('created_at', { ascending: false });
+        
+        // Handle potential missing column (42703) gracefully
+        if (directError) {
+          if (directError.code === '42703') {
+            console.log('[useTeacherChats] teacher_id column not found, falling back to client matching');
+          } else {
+            console.warn('[useTeacherChats] Direct teacher_id query error:', directError);
+          }
+        }
+        
+        // If direct query works and returns data, use it
+        if (!directError && directMessages && directMessages.length > 0) {
+          console.log('[useTeacherChats] Found messages via teacher_id:', directMessages.length);
+          
+          // Group messages by teacher_id
+          const messagesByTeacher = new Map<string, any[]>();
+          directMessages.forEach((msg: any) => {
+            if (!msg.teacher_id) return;
+            if (!messagesByTeacher.has(msg.teacher_id)) {
+              messagesByTeacher.set(msg.teacher_id, []);
+            }
+            messagesByTeacher.get(msg.teacher_id)!.push(msg);
+          });
+          
+          // Build results from grouped messages
+          const directResults: TeacherUnreadCount[] = [];
+          teachersList.forEach(teacher => {
+            const messages = messagesByTeacher.get(teacher.id);
+            if (messages && messages.length > 0) {
+              const lastMsg = messages[0]; // Already sorted desc
+              const unreadCount = messages.filter((m: any) => 
+                !m.is_read && (m.is_outgoing === false)
+              ).length;
+              
+              directResults.push({
+                teacher_id: teacher.id,
+                client_id: `teacher:${teacher.id}`, // Special marker for direct teacher messages
+                unread_count: unreadCount,
+                last_message_time: lastMsg.created_at,
+                last_message_text: lastMsg.message_text || lastMsg.content || null,
+                last_messenger_type: lastMsg.messenger_type || lastMsg.messenger || null,
+              });
+            }
+          });
+          
+          if (directResults.length > 0) {
+            console.log('[useTeacherChats] Direct teacher_id query returned', directResults.length, 'conversations');
+            return directResults;
+          }
+        }
+        
+        console.log('[useTeacherChats] No messages via teacher_id, falling back to client matching...');
+        // =============================================================
+        // STEP 2: Fallback to client matching by phone (legacy architecture)
+        // =============================================================
+        
         // Get all clients that might be linked to teachers (by phone pattern or name prefix)
         const { data: teacherClients } = await supabase
           .from('clients')

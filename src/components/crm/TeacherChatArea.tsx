@@ -145,8 +145,25 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
       // If teacher already has a linked client, use it immediately
       if (teacher.clientId) {
+        // Check if this is a direct teacher message marker (teacher:xxx)
+        if (teacher.clientId.startsWith('teacher:')) {
+          // Direct teacher messages - use the special marker
+          clientIdCache.current.set(selectedTeacherId, teacher.clientId);
+          setResolvedClientId(teacher.clientId);
+          return;
+        }
+        
         clientIdCache.current.set(selectedTeacherId, teacher.clientId);
         setResolvedClientId(teacher.clientId);
+        return;
+      }
+      
+      // Check if teacher has messages via teacher_id (lastMessageTime set but no clientId)
+      if (teacher.lastMessageTime) {
+        // Teacher has messages directly via teacher_id - use special marker
+        const directMarker = `teacher:${selectedTeacherId}`;
+        clientIdCache.current.set(selectedTeacherId, directMarker);
+        setResolvedClientId(directMarker);
         return;
       }
 
