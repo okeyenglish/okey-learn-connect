@@ -106,7 +106,18 @@ Deno.serve(async (req) => {
 
     await wpp.deleteAccount(wppAccountNumber);
 
-    // Update session status in DB
+    // Deactivate and delete the integration from messenger_integrations
+    const { error: deleteError } = await supabaseClient
+      .from('messenger_integrations')
+      .delete()
+      .eq('id', integration.id);
+
+    if (deleteError) {
+      console.error('[wpp-disconnect] Failed to delete integration:', deleteError);
+      // Still return success since WPP account was deleted
+    }
+
+    // Update session status in DB (if whatsapp_sessions table is used)
     const sessionName = `wpp_${wppAccountNumber}`;
     await supabaseClient
       .from('whatsapp_sessions')
@@ -118,6 +129,8 @@ Deno.serve(async (req) => {
         last_qr_at: null,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'session_name' });
+
+    console.log('[wpp-disconnect] Successfully disconnected and deleted integration:', integration.id);
 
     return new Response(
       JSON.stringify({ ok: true, success: true, status: 'disconnected' }),
