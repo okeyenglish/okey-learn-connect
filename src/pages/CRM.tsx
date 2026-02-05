@@ -1885,20 +1885,22 @@ const CRMContent = () => {
     return getActiveClientInfo(activeChatId);
   }, [activeChatId, activeChatType, activeClientInfo, clients, threads]);
 
-  const handleCreateNewChat = async (contactInfo: any) => {
+  const handleCreateNewChat = async (clientData: any) => {
     try {
-      // Create new client in database
-      const newClient = await createClient.mutateAsync({
-        name: contactInfo.name,
-        phone: contactInfo.phone,
-        is_active: true
-      });
+      // clientData is the already created client from NewChatModal
+      const clientId = clientData?.id;
+      const clientName = clientData?.name;
+      
+      if (!clientId) {
+        console.error('handleCreateNewChat: no client id provided');
+        return;
+      }
       
       // Create initial system message directly
       await supabase.from('chat_messages').insert([
         {
-          client_id: newClient.id,
-          message_text: `Создан чат с ${contactInfo.name}`,
+          client_id: clientId,
+          message_text: `Создан чат с ${clientName || 'клиентом'}`,
           message_type: 'system',
           is_read: false,
         }
@@ -1906,12 +1908,12 @@ const CRMContent = () => {
 
       // Refresh threads and messages
       queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-      queryClient.invalidateQueries({ queryKey: ['chat-messages', newClient.id] });
+      queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
       
       // Switch to the new client's chat
-      handleChatClick(newClient.id, 'client');
+      handleChatClick(clientId, 'client');
       
-      console.log('Новый клиент создан:', newClient);
+      console.log('Новый клиент создан:', clientData);
     } catch (error) {
       console.error('Ошибка при создании клиента:', error);
     }

@@ -175,8 +175,53 @@ export const NewChatModal = ({ children, onCreateChat, onExistingClientFound }: 
         onCreateChat?.(result);
         setNewContactData({ name: "", phone: "" });
         setOpen(false);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error creating client:', error);
+        
+        // Handle unique constraint violation (23505) - client exists but wasn't found
+        if (error?.code === '23505' && error?.message) {
+          // Extract client ID from error message like "Клиент с таким телефоном уже существует (ID: uuid)"
+          const idMatch = error.message.match(/ID:\s*([a-f0-9-]{36})/i);
+          if (idMatch) {
+            const existingId = idMatch[1];
+            
+            // Try to restore the client
+            try {
+              const { data: existingClient, error: fetchError } = await supabase
+                .from('clients')
+                .select('id, name, status')
+                .eq('id', existingId)
+                .single();
+              
+              if (!fetchError && existingClient) {
+                // Restore the client if deleted
+                if (existingClient.status === 'deleted') {
+                  await supabase
+                    .from('clients')
+                    .update({ status: 'active', name: newContactData.name })
+                    .eq('id', existingId);
+                  
+                  invalidateAfterRestore();
+                  toast.success(`Чат восстановлен: ${newContactData.name}`, {
+                    description: "Клиент был ранее удалён и теперь восстановлен",
+                  });
+                } else {
+                  toast.info(`Клиент найден: ${existingClient.name}`, {
+                    description: "Переходим к существующему чату",
+                  });
+                }
+                
+                onExistingClientFound?.(existingId);
+                setNewContactData({ name: "", phone: "" });
+                setOpen(false);
+                return;
+              }
+            } catch (restoreError) {
+              console.error('Error restoring client:', restoreError);
+            }
+          }
+        }
+        
         toast.error("Ошибка при создании клиента");
       }
     }
