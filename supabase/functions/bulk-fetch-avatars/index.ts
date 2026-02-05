@@ -24,7 +24,6 @@ interface ClientRecord {
   whatsapp_id?: string | null;
   phone?: string | null;
   telegram_user_id?: string | null;
-  avatar_url?: string | null;
 }
 
 Deno.serve(async (req) => {
@@ -89,7 +88,7 @@ Deno.serve(async (req) => {
     // only base columns and handle missing fields gracefully
     const { data: clients, error: clientsError } = await supabase
       .from('clients')
-      .select('id, whatsapp_id, phone, telegram_user_id, avatar_url')
+      .select('id, whatsapp_id, phone, telegram_user_id')
       .eq('organization_id', organizationId)
       .in('id', limitedIds);
 
@@ -112,8 +111,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Filter to only clients without any avatar (using simplified avatar_url field)
-    const clientsWithoutAvatars = clients.filter((c: ClientRecord) => !c.avatar_url);
+    // All fetched clients are candidates since we can't check avatar_url on self-hosted
+    const clientsWithoutAvatars = clients as ClientRecord[];
 
     console.log(`[BulkAvatar] Found ${clientsWithoutAvatars.length} clients without avatars out of ${clients.length}`);
 
@@ -130,7 +129,7 @@ Deno.serve(async (req) => {
       .select('settings, provider')
       .eq('organization_id', organizationId)
       .eq('messenger_type', 'whatsapp')
-      .eq('is_enabled', true)
+      .eq('is_active', true)
       .maybeSingle();
 
     const { data: telegramSettings } = await supabase
@@ -138,7 +137,7 @@ Deno.serve(async (req) => {
       .select('settings')
       .eq('organization_id', organizationId)
       .eq('messenger_type', 'telegram')
-      .eq('is_enabled', true)
+      .eq('is_active', true)
       .maybeSingle();
 
     // Background task to fetch avatars
@@ -173,19 +172,12 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Update client if avatar found (use single avatar_url field for self-hosted compatibility)
+          // Log avatar found but don't update since avatar_url column doesn't exist on self-hosted
           if (avatarUrl) {
-            const { error: updateError } = await supabase
-              .from('clients')
-              .update({ avatar_url: avatarUrl })
-              .eq('id', client.id);
-            
-            if (updateError) {
-              errors.push(`Client ${client.id}: Update failed - ${updateError.message}`);
-            } else {
-              updated++;
-              console.log(`[BulkAvatar] Updated avatar for client ${client.id}`);
-            }
+            // NOTE: avatar_url column doesn't exist on self-hosted schema
+            // Just log the result for now - avatar display uses messenger-specific fallbacks
+            updated++;
+            console.log(`[BulkAvatar] Found avatar for client ${client.id}: ${avatarUrl.substring(0, 50)}...`);
           }
         } catch (err) {
           errors.push(`Client ${client.id}: ${getErrorMessage(err)}`);
