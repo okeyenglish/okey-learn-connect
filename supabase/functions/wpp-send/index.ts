@@ -167,11 +167,10 @@ Deno.serve(async (req) => {
       return errorResponse('No phone number available for client', 400)
     }
     
-    // Format phone for WhatsApp API (just digits)
-    const cleanPhone = phone.replace(/[^\d]/g, '')
-    const to = cleanPhone // New API expects clean phone number
+    // Format phone for WhatsApp API with Russian number normalization
+    const to = normalizePhoneForWpp(phone)
 
-    console.log('[wpp-send] Sending to:', to)
+    console.log('[wpp-send] Sending to:', to, '(original:', phone, ')')
 
     let wppResult: { success: boolean; taskId?: string; error?: string }
 
@@ -313,4 +312,28 @@ function getMimeTypeFromUrl(url: string): string | undefined {
     'opus': 'audio/opus',
   }
   return extension ? mimeTypes[extension] : undefined
+}
+
+/**
+ * Нормализует телефон для WhatsApp API
+ * - 9852615056 → 79852615056 (Россия)
+ * - 89852615056 → 79852615056 (Россия)
+ * - 79852615056 → 79852615056 (Россия)
+ * - 380501234567 → 380501234567 (Украина, без изменений)
+ */
+function normalizePhoneForWpp(phone: string): string {
+  // Убираем все кроме цифр
+  let cleaned = phone.replace(/\D/g, '')
+  
+  // Если 11 цифр и начинается с 8 (российский формат) → заменяем на 7
+  if (cleaned.length === 11 && cleaned.startsWith('8')) {
+    cleaned = '7' + cleaned.substring(1)
+  }
+  
+  // Если 10 цифр и начинается с 9 → добавляем 7 (российский мобильный)
+  if (cleaned.length === 10 && cleaned.startsWith('9')) {
+    cleaned = '7' + cleaned
+  }
+  
+  return cleaned
 }
