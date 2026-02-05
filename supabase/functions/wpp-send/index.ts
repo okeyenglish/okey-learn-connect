@@ -104,15 +104,23 @@ Deno.serve(async (req) => {
     const settings = (integration?.settings || {}) as Record<string, any>
     const wppApiKey = settings.wppApiKey
     const wppAccountNumber = settings.wppAccountNumber
+    const wppJwtToken = settings.wppJwtToken
+    const wppJwtExpiresAt = settings.wppJwtExpiresAt
 
     if (!wppApiKey || !wppAccountNumber) {
       return errorResponse('wppApiKey or wppAccountNumber not configured', 400)
     }
 
-    // Create WPP client
+    // Проверяем валидность кешированного JWT (с буфером 60 сек)
+    const isTokenValid = wppJwtToken && wppJwtExpiresAt && Date.now() < wppJwtExpiresAt - 60_000
+    console.log('[wpp-send] JWT token valid:', isTokenValid, 'expires:', wppJwtExpiresAt ? new Date(wppJwtExpiresAt).toISOString() : 'N/A')
+
+    // Create WPP client with cached token if valid
     const wpp = new WppMsgClient({
       baseUrl: WPP_BASE_URL,
       apiKey: wppApiKey,
+      jwtToken: isTokenValid ? wppJwtToken : undefined,
+      jwtExpiresAt: isTokenValid ? wppJwtExpiresAt : undefined,
     })
 
     // Handle test connection
@@ -234,6 +242,27 @@ Deno.serve(async (req) => {
     
     if (!wppResult.success) {
       response.error = wppResult.error || 'Failed to send message'
+    }
+
+    // Сохраняем обновлённый JWT токен в БД если он изменился
+    try {
+      const currentToken = await wpp.getToken()
+      if (currentToken && currentToken !== wppJwtToken && integration) {
+        await supabase
+          .from('messenger_integrations')
+          .update({
+            settings: {
+              ...settings,
+              wppJwtToken: currentToken,
+              wppJwtExpiresAt: wpp.tokenExpiry,
+            },
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', integration.id)
+        console.log('[wpp-send] JWT token refreshed and saved')
+      }
+    } catch (e) {
+      console.warn('[wpp-send] Failed to save refreshed token:', e)
     }
     
     return successResponse(response)
