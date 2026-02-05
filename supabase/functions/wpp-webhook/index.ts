@@ -8,7 +8,7 @@ import {
 } from '../_shared/types.ts'
 
 // Version for debugging stale deployments
-const VERSION = "v2.4.0";
+const VERSION = "v2.4.1";
 const DEPLOYED_AT = "2026-02-05T18:30:00Z";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
@@ -76,8 +76,8 @@ Deno.serve(async (req) => {
     console.log(`[wpp-webhook][${VERSION}] Event type:`, eventType, 'Account from query:', accountFromQuery)
     console.log('[wpp-webhook] Account from query:', accountFromQuery)
 
-    // Log webhook event
-    await supabase
+    // Log webhook event (fire-and-forget)
+    supabase
       .from('webhook_logs')
       .insert({
         messenger_type: 'whatsapp',
@@ -85,7 +85,9 @@ Deno.serve(async (req) => {
         webhook_data: event,
         processed: false
       })
-      .catch(e => console.warn('[wpp-webhook] Failed to log event:', e))
+      .then(({ error }) => {
+        if (error) console.warn('[wpp-webhook] Failed to log event:', error)
+      })
 
     // Extract account number from event or query
     const account = event.data?.account || accountFromQuery
