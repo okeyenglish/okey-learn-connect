@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
           chatId = String(phoneRecord.max_user_id);
         }
         if (!chatId && phoneRecord.phone) {
-          const cleanPhone = phoneRecord.phone.replace(/[^\d]/g, '');
+          const cleanPhone = normalizePhoneForMax(phoneRecord.phone);
           chatId = `${cleanPhone}@c.us`;
         }
         console.log('Using specified phone:', phoneId, 'chatId:', chatId);
@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
           chatId = String(primaryPhone.max_user_id);
         }
         if (!chatId && primaryPhone.phone) {
-          const cleanPhone = primaryPhone.phone.replace(/[^\d]/g, '');
+          const cleanPhone = normalizePhoneForMax(primaryPhone.phone);
           chatId = `${cleanPhone}@c.us`;
         }
         console.log('Using primary phone chatId:', chatId);
@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
     
     // Priority 4: Use client's phone
     if (!chatId && client.phone) {
-      const cleanPhone = client.phone.replace(/[^\d]/g, '');
+      const cleanPhone = normalizePhoneForMax(client.phone);
       chatId = `${cleanPhone}@c.us`;
     }
 
@@ -272,3 +272,27 @@ Deno.serve(async (req) => {
     return errorResponse(getErrorMessage(error), 500);
   }
 });
+
+/**
+ * Нормализует телефон для MAX API (Green API WhatsApp)
+ * - 9852615056 → 79852615056 (Россия)
+ * - 89852615056 → 79852615056 (Россия)
+ * - 79852615056 → 79852615056 (Россия)
+ * - 380501234567 → 380501234567 (Украина, без изменений)
+ */
+function normalizePhoneForMax(phone: string): string {
+  // Убираем все кроме цифр
+  let cleaned = phone.replace(/\D/g, '');
+  
+  // Если 11 цифр и начинается с 8 (российский формат) → заменяем на 7
+  if (cleaned.length === 11 && cleaned.startsWith('8')) {
+    cleaned = '7' + cleaned.substring(1);
+  }
+  
+  // Если 10 цифр и начинается с 9 → добавляем 7 (российский мобильный)
+  if (cleaned.length === 10 && cleaned.startsWith('9')) {
+    cleaned = '7' + cleaned;
+  }
+  
+  return cleaned;
+}
