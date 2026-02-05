@@ -1240,6 +1240,23 @@ export interface MessengerSettings {
   updated_at: string;
 }
 
+export type MessengerIntegrationProvider = 'greenapi' | 'wpp' | 'wappi';
+
+export interface MessengerIntegration {
+  id: string;
+  organization_id: string;
+  name: string;
+  messenger_type: string; // 'whatsapp', 'telegram', 'max'
+  provider_type: MessengerIntegrationProvider;
+  is_active: boolean;
+  is_primary: boolean;
+  priority: number;
+  webhook_key: string;
+  settings: Json | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface GlobalChatReadStatus {
   id?: string;
   chat_id: string;
@@ -2119,6 +2136,14 @@ export interface CustomDatabase {
         Update: Partial<MessengerSettings>;
         Relationships: [
           { foreignKeyName: "messenger_settings_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
+      };
+      messenger_integrations: {
+        Row: MessengerIntegration;
+        Insert: Partial<MessengerIntegration>;
+        Update: Partial<MessengerIntegration>;
+        Relationships: [
+          { foreignKeyName: "messenger_integrations_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
         ];
       };
       global_chat_read_status: {

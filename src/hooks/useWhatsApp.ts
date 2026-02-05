@@ -44,7 +44,40 @@ export const useWhatsApp = () => {
 
   const getMessengerSettings = useCallback(async (): Promise<WhatsAppSettings | null> => {
     try {
-      // RLS will automatically filter by organization_id
+      // First try to get from messenger_integrations (new table on self-hosted)
+      const { data: integration, error: integrationError } = await supabase
+        .from('messenger_integrations')
+        .select('*')
+        .eq('messenger_type', 'whatsapp')
+        .eq('is_active', true)
+        .order('is_primary', { ascending: false })
+        .order('priority', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (!integrationError && integration) {
+        const settings = integration.settings as Record<string, any> | null;
+        const provider = (integration.provider_type || 'greenapi') as 'greenapi' | 'wpp' | 'wappi';
+        
+        console.log('[useWhatsApp] Using messenger_integrations, provider:', provider, 'name:', integration.name);
+        
+        return {
+          provider,
+          instanceId: settings?.instanceId || '',
+          apiToken: settings?.apiToken || '',
+          apiUrl: settings?.apiUrl || 'https://api.green-api.com',
+          webhookUrl: '',
+          isEnabled: integration.is_active || false,
+          wppSession: settings?.wppAccountNumber || settings?.wppSession || 'default',
+          wppBaseUrl: settings?.wppBaseUrl || '',
+          wppApiKey: settings?.wppApiKey || '',
+          wppWebhookSecret: settings?.wppWebhookSecret || '',
+          wappiProfileId: settings?.wappiProfileId || '',
+          wappiApiToken: settings?.wappiApiToken || ''
+        };
+      }
+
+      // Fallback to messenger_settings (old table, Lovable Cloud)
       const { data, error } = await supabase
         .from('messenger_settings')
         .select('*')
@@ -61,6 +94,8 @@ export const useWhatsApp = () => {
 
       const settings = data.settings as Record<string, any> | null;
       const provider = (data.provider === 'wpp' ? 'wpp' : data.provider === 'wappi' ? 'wappi' : 'greenapi') as 'greenapi' | 'wpp' | 'wappi';
+      
+      console.log('[useWhatsApp] Using messenger_settings (fallback), provider:', provider);
       
       return {
         provider,
