@@ -7,6 +7,10 @@ import {
   getErrorMessage,
 } from '../_shared/types.ts'
 
+// Version for debugging stale deployments
+const VERSION = "v2.4.0";
+const DEPLOYED_AT = "2026-02-05T18:30:00Z";
+
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
@@ -52,6 +56,8 @@ interface WppMessageData {
 }
 
 Deno.serve(async (req) => {
+  console.log(`[wpp-webhook][${VERSION}] Request received at ${new Date().toISOString()}`);
+  
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
@@ -59,13 +65,15 @@ Deno.serve(async (req) => {
     const rawBody = await req.text()
     const url = new URL(req.url)
     
+    console.log(`[wpp-webhook][${VERSION}] Raw body:`, rawBody.substring(0, 500));
+    
     // Get account from query params (set by our webhook registration)
     const accountFromQuery = url.searchParams.get('account')
 
     const event: WppWebhookEvent = JSON.parse(rawBody)
     const eventType = event.type || event.event || 'unknown'
     
-    console.log('[wpp-webhook] Received event:', eventType)
+    console.log(`[wpp-webhook][${VERSION}] Event type:`, eventType, 'Account from query:', accountFromQuery)
     console.log('[wpp-webhook] Account from query:', accountFromQuery)
 
     // Log webhook event
@@ -201,11 +209,17 @@ Deno.serve(async (req) => {
         console.log('[wpp-webhook] Unhandled event type:', eventType)
     }
 
-    return successResponse({ ok: true })
+    return new Response(
+      JSON.stringify({ ok: true, _version: VERSION }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
 
   } catch (error: unknown) {
-    console.error('[wpp-webhook] Error:', error)
-    return errorResponse(getErrorMessage(error), 500)
+    console.error(`[wpp-webhook][${VERSION}] Error:`, error)
+    return new Response(
+      JSON.stringify({ ok: false, error: getErrorMessage(error), _version: VERSION }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
 })
 
