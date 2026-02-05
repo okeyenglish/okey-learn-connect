@@ -207,6 +207,7 @@ Deno.serve(async (req) => {
     let saveError: any = null
 
     // First attempt with all columns (self-hosted schema)
+    // Note: sender_id removed - column doesn't exist on self-hosted
     const fullInsert = {
       client_id: clientId,
       organization_id: orgId,
@@ -220,7 +221,6 @@ Deno.serve(async (req) => {
       file_url: fileUrl || null,
       file_name: fileName || null,
       file_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null,
-      sender_id: user.id,
     }
 
     const result1 = await supabase
@@ -232,12 +232,14 @@ Deno.serve(async (req) => {
     if (result1.error) {
       console.warn('[wpp-send] Full insert failed, trying minimal:', result1.error.message)
       
-      // Fallback: minimal columns only (compatible with any schema)
+      // Fallback: minimal columns only
+      // Note: message_type is NOT NULL on self-hosted, must include it
       const minimalInsert = {
         client_id: clientId,
         organization_id: orgId,
         message_text: messageText,
         is_outgoing: true,
+        message_type: 'manager',
         is_read: true,
         external_message_id: wppResult.taskId || null,
       }
