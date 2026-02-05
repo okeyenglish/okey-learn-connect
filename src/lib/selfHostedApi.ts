@@ -74,7 +74,14 @@ function isRetryable(status: number, retryableStatuses: number[]): boolean {
  */
 export async function getAuthToken(): Promise<string | null> {
   const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token || null;
+  const token = session?.access_token || null;
+  console.log('[selfHostedApi] getAuthToken:', {
+    hasSession: !!session,
+    hasToken: !!token,
+    tokenPreview: token ? token.slice(0, 30) + '...' : 'null',
+    expiresAt: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'N/A',
+  });
+  return token;
 }
 
 /**

@@ -132,14 +132,23 @@ export const useWhatsApp = () => {
     retryStatus.reset();
     
     try {
-      console.log('[useWhatsApp] Sending WhatsApp message:', params);
+      console.log('[useWhatsApp] === SEND MESSAGE START ===');
+      console.log('[useWhatsApp] Params:', JSON.stringify(params, null, 2));
+      console.log('[useWhatsApp] phoneNumber:', params.phoneNumber || 'NOT PROVIDED');
 
       // Получаем настройки для определения провайдера
       const settings = await getMessengerSettings();
+      console.log('[useWhatsApp] Settings from DB:', settings ? JSON.stringify({
+        provider: settings.provider,
+        isEnabled: settings.isEnabled,
+        wppSession: settings.wppSession,
+        hasWppApiKey: !!settings.wppApiKey,
+      }, null, 2) : 'NULL - no settings found!');
+      
       const provider = settings?.provider || 'greenapi';
       const functionName = provider === 'wpp' ? 'wpp-send' : provider === 'wappi' ? 'wappi-whatsapp-send' : 'whatsapp-send';
       
-      console.log('[useWhatsApp] Resolved provider:', provider, '-> calling:', functionName);
+      console.log('[useWhatsApp] Provider:', provider, '| Function:', functionName);
 
       // Create retry config with UI callbacks
       const retryConfig: RetryConfig = {
