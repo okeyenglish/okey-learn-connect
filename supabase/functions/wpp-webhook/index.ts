@@ -8,8 +8,8 @@ import {
 } from '../_shared/types.ts'
 
 // Version for debugging stale deployments
-const VERSION = "v2.5.2";
-const DEPLOYED_AT = "2026-02-05T22:00:00Z";
+const VERSION = "v2.6.0";
+const DEPLOYED_AT = "2026-02-05T23:00:00Z";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -23,13 +23,18 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey)
  *   "account": "0000000000009",
  *   "from": "+79852615056",
  *   "raw_from": "79852615056@c.us",
- *   "text": "Привет"
+ *   "text": "Привет",
+ *   "type": "chat" | "image" | "file" | "audio" | "video"
  * }
  * 
- * 2. Event-wrapped format (legacy):
+ * 2. Media format:
  * {
- *   "type": "message.incoming",
- *   "data": { ... }
+ *   "type": "image",
+ *   "media": {
+ *     "mimetype": "image/jpeg",
+ *     "filename": "file",
+ *     "base64": "/9j/4AAQSkZJRgABAQ..."
+ *   }
  * }
  */
 
@@ -46,6 +51,7 @@ interface WppWebhookPayload {
     url?: string;
     mimetype?: string;
     filename?: string;
+    base64?: string;  // Base64-encoded file data
   };
   // Event wrapper fields
   type?: string;
@@ -204,6 +210,22 @@ Deno.serve(async (req) => {
         }
         break
 
+      // Media message types
+      case 'image':
+      case 'file':
+      case 'audio':
+      case 'video':
+      case 'document':
+      case 'ptt':      // Push-to-talk (voice messages)
+      case 'sticker':
+        console.log(`[wpp-webhook] Processing media type: ${eventType}`)
+        if (isFlatMessage) {
+          await handleIncomingMessage(payload, organizationId)
+        } else {
+          await handleIncomingMessage(payload.data || payload, organizationId)
+        }
+        break
+
       case 'message.sent':
         // Message sent confirmation
         console.log('[wpp-webhook] Message sent:', payload.data?.taskId)
@@ -246,14 +268,73 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
   // Support both flat format (from, raw_from) and nested format
   const fromField = data.from || (data as any).raw_from
   const rawFrom = data.raw_from || data.from
-  const messageText = data.text || data.body || (data.media ? '[Media]' : '')
   const isFromMe = data.fromMe === true
+  
+  // Process media if present
+  let fileUrl: string | null = null
+  let fileName: string | null = null
+  let fileType: string | null = null
+  
+  if (data.media) {
+    const media = data.media
+    fileType = media.mimetype ? getFileTypeFromMime(media.mimetype) : null
+    fileName = media.filename || `${fileType || 'file'}_${Date.now()}`
+    
+    // If base64 is present, save to storage
+    if (media.base64) {
+      try {
+        console.log('[wpp-webhook] Processing base64 media, mimetype:', media.mimetype)
+        
+        // Decode base64 to binary
+        const base64Data = media.base64
+        const binaryString = atob(base64Data)
+        const bytes = new Uint8Array(binaryString.length)
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i)
+        }
+        
+        const ext = getExtensionFromMime(media.mimetype || 'application/octet-stream')
+        const storagePath = `wpp/${organizationId}/${Date.now()}_${fileName}.${ext}`
+        
+        console.log('[wpp-webhook] Uploading to storage:', storagePath, 'size:', bytes.length)
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('chat-media')
+          .upload(storagePath, bytes, {
+            contentType: media.mimetype || 'application/octet-stream',
+            upsert: false,
+          })
+        
+        if (uploadError) {
+          console.error('[wpp-webhook] Storage upload error:', uploadError.message)
+        } else {
+          // Get public URL
+          const { data: publicUrlData } = supabase.storage
+            .from('chat-media')
+            .getPublicUrl(storagePath)
+          fileUrl = publicUrlData.publicUrl
+          console.log('[wpp-webhook] ✅ Media saved to storage:', fileUrl)
+        }
+      } catch (e) {
+        console.error('[wpp-webhook] Error processing base64:', e)
+      }
+    } else if (media.url) {
+      // If URL is provided, use it directly
+      fileUrl = media.url
+      console.log('[wpp-webhook] Using media URL:', fileUrl)
+    }
+  }
+  
+  // Build message text - use [Media] placeholder if no text but has media
+  const messageText = data.text || data.body || (fileUrl ? `[${fileType || 'Media'}]` : '')
   
   console.log('[wpp-webhook] handleIncomingMessage called with:', { 
     from: fromField, 
     raw_from: rawFrom, 
     text: messageText?.substring(0, 50),
-    isFromMe 
+    isFromMe,
+    hasMedia: !!data.media,
+    fileUrl: fileUrl?.substring(0, 50)
   })
   
   if (!fromField) {
@@ -292,9 +373,9 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
       messenger_type: 'whatsapp',
       is_outgoing: isFromMe,
       is_read: isFromMe,
-      file_url: data.media?.url || null,
-      file_name: data.media?.filename || null,
-      file_type: data.media?.mimetype ? getFileTypeFromMime(data.media.mimetype) : null,
+      file_url: fileUrl,
+      file_name: fileName,
+      file_type: fileType,
       external_message_id: data.messageId || (data as any).id || null,
     })
     
@@ -391,7 +472,7 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
   }
   
   // Save message
-  console.log('[wpp-webhook] Inserting message for client:', client.id, 'text:', messageText?.substring(0, 30))
+  console.log('[wpp-webhook] Inserting message for client:', client.id, 'text:', messageText?.substring(0, 30), 'fileUrl:', fileUrl?.substring(0, 50))
   
   const { data: insertedMessage, error: messageError } = await supabase
     .from('chat_messages')
@@ -403,9 +484,9 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
       messenger_type: 'whatsapp',
       is_outgoing: isFromMe,
       is_read: isFromMe,
-      file_url: data.media?.url || null,
-      file_name: data.media?.filename || null,
-      file_type: data.media?.mimetype ? getFileTypeFromMime(data.media.mimetype) : null,
+      file_url: fileUrl,
+      file_name: fileName,
+      file_type: fileType,
       external_message_id: data.messageId || (data as any).id || null,
     })
     .select('id')
@@ -435,7 +516,7 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
       console.log('[wpp-webhook] ✅ Message saved (minimal):', retryMsg?.id, 'for client:', client.id)
     }
   } else {
-    console.log('[wpp-webhook] ✅ Message saved:', insertedMessage?.id, 'for client:', client.id)
+    console.log('[wpp-webhook] ✅ Message saved:', insertedMessage?.id, 'for client:', client.id, 'with media:', !!fileUrl)
   }
 }
 
@@ -461,4 +542,26 @@ function getFileTypeFromMime(mime: string): string {
   if (mime.startsWith('audio/')) return 'audio'
   if (mime.includes('pdf') || mime.includes('document')) return 'document'
   return 'file'
+}
+
+function getExtensionFromMime(mime: string): string {
+  const mimeMap: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'video/mp4': 'mp4',
+    'video/3gpp': '3gp',
+    'video/quicktime': 'mov',
+    'audio/ogg': 'ogg',
+    'audio/mpeg': 'mp3',
+    'audio/mp4': 'm4a',
+    'audio/opus': 'opus',
+    'application/pdf': 'pdf',
+    'application/msword': 'doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+    'application/vnd.ms-excel': 'xls',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  }
+  return mimeMap[mime] || 'bin'
 }
