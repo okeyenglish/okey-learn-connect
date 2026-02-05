@@ -132,6 +132,20 @@ export const ChatArea = ({
   // Detect if this is a direct teacher message (teacher:xxx marker pattern)
   const isDirectTeacherMessage = clientId?.startsWith('teacher:') ?? false;
   const actualTeacherId = isDirectTeacherMessage ? clientId.replace('teacher:', '') : null;
+  
+  // Helper to build message record with correct client_id/teacher_id
+  const buildMessageRecord = (baseRecord: Record<string, any>) => {
+    if (isDirectTeacherMessage && actualTeacherId) {
+      // For direct teacher messages, use teacher_id instead of client_id
+      const { client_id, ...rest } = baseRecord;
+      return {
+        ...rest,
+        teacher_id: actualTeacherId,
+        client_id: null, // Explicitly null for teacher messages
+      };
+    }
+    return baseRecord;
+  };
 
   // React Query for messages - replaces useState + loadMessages for caching
   const [messageLimit, setMessageLimit] = useState(100);
@@ -1171,6 +1185,11 @@ export const ChatArea = ({
 
   const sendMessageNow = async (messageText: string, filesToSend: Array<{url: string, name: string, type: string, size: number}> = []) => {
     try {
+      // For direct teacher messages (teacher:xxx), we need special handling
+      // Use teacher's phone directly since clientId is not a valid UUID
+      const effectiveClientId = isDirectTeacherMessage ? null : clientId;
+      const effectivePhone = isDirectTeacherMessage ? clientPhone : undefined;
+      
       // Determine which messenger to use
       const messengerType: MessengerType = activeMessengerTab === 'max' ? 'max' 
         : activeMessengerTab === 'telegram' ? 'telegram' 
@@ -1350,9 +1369,12 @@ export const ChatArea = ({
         }
       } else {
         // Send via WhatsApp (default)
+        // For teachers, use phone directly; for clients, use clientId lookup
+        const whatsappClientId = isDirectTeacherMessage ? '' : clientId;
+        
         if (filesToSend.length > 0) {
           for (const file of filesToSend) {
-            const result = await sendFileMessage(clientId, file.url, file.name, messageText);
+            const result = await sendFileMessage(whatsappClientId, file.url, file.name, messageText, effectivePhone);
             if (!result.success) {
               toast({
                 title: "Ошибка отправки файла",
@@ -1360,7 +1382,7 @@ export const ChatArea = ({
                 variant: "destructive",
               });
               // Save failed message so user can retry
-              await supabase.from('chat_messages').insert({
+              await supabase.from('chat_messages').insert(buildMessageRecord({
                 client_id: clientId,
                 message_text: messageText || `[Файл: ${file.name}]`,
                 message_type: 'manager',
@@ -1370,15 +1392,18 @@ export const ChatArea = ({
                 file_url: file.url,
                 file_name: file.name,
                 file_type: file.type
-              });
+              }));
               queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
+              if (isDirectTeacherMessage) {
+                queryClient.invalidateQueries({ queryKey: ['teacher-chat-messages-v2', actualTeacherId] });
+              }
               return;
             }
           }
           
           // If we have files and text, send text separately only if it's not just a caption
           if (messageText && messageText !== '[Файл]') {
-            const textResult = await sendTextMessage(clientId, messageText);
+            const textResult = await sendTextMessage(whatsappClientId, messageText, effectivePhone);
             if (!textResult.success) {
               toast({
                 title: "Ошибка отправки текста",
@@ -1386,21 +1411,24 @@ export const ChatArea = ({
                 variant: "destructive",
               });
               // Save failed message so user can retry
-              await supabase.from('chat_messages').insert({
+              await supabase.from('chat_messages').insert(buildMessageRecord({
                 client_id: clientId,
                 message_text: messageText,
                 message_type: 'manager',
                 is_outgoing: true,
                 messenger_type: 'whatsapp',
                 message_status: 'failed'
-              });
+              }));
               queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
+              if (isDirectTeacherMessage) {
+                queryClient.invalidateQueries({ queryKey: ['teacher-chat-messages-v2', actualTeacherId] });
+              }
               return;
             }
           }
         } else if (messageText) {
           // Send text message only
-          const result = await sendTextMessage(clientId, messageText);
+          const result = await sendTextMessage(whatsappClientId, messageText, effectivePhone);
           if (!result.success) {
             toast({
               title: "Ошибка отправки",
@@ -1408,37 +1436,54 @@ export const ChatArea = ({
               variant: "destructive",
             });
             // Save failed message so user can retry
-            await supabase.from('chat_messages').insert({
+            await supabase.from('chat_messages').insert(buildMessageRecord({
               client_id: clientId,
               message_text: messageText,
               message_type: 'manager',
               is_outgoing: true,
               messenger_type: 'whatsapp',
               message_status: 'failed'
-            });
+            }));
             queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
+            if (isDirectTeacherMessage) {
+              queryClient.invalidateQueries({ queryKey: ['teacher-chat-messages-v2', actualTeacherId] });
+            }
             return;
           }
         }
       }
 
       // Remove any pending GPT suggestions for this client after a successful send
-      try {
-        await supabase
-          .from('pending_gpt_responses')
-          .delete()
-          .eq('client_id', clientId)
-          .eq('status', 'pending');
-        console.log('Cleared pending GPT responses after manual send');
-      } catch (e) {
-        console.warn('Failed to clear pending GPT responses:', e);
+      // Skip for teacher messages since they don't have pending GPT responses
+      if (!isDirectTeacherMessage) {
+        try {
+          await supabase
+            .from('pending_gpt_responses')
+            .delete()
+            .eq('client_id', clientId)
+            .eq('status', 'pending');
+          console.log('Cleared pending GPT responses after manual send');
+        } catch (e) {
+          console.warn('Failed to clear pending GPT responses:', e);
+        }
       }
       
-      // Mark all client messages as read after sending a reply
+      // Mark all messages as read after sending a reply
       // If we replied - it means we've seen all their messages
       try {
-        await markChatMessagesAsReadMutation.mutateAsync(clientId);
-        console.log('Marked all client messages as read after sending reply');
+        if (isDirectTeacherMessage && actualTeacherId) {
+          // Mark teacher messages as read
+          // @ts-ignore - teacher_id exists in self-hosted
+          await (supabase.from('chat_messages') as any)
+            .update({ is_read: true })
+            .eq('teacher_id', actualTeacherId)
+            .eq('is_read', false);
+          queryClient.invalidateQueries({ queryKey: ['teacher-chat-messages-v2', actualTeacherId] });
+          queryClient.invalidateQueries({ queryKey: ['teacher-conversations'] });
+        } else {
+          await markChatMessagesAsReadMutation.mutateAsync(clientId);
+        }
+        console.log('Marked all messages as read after sending reply');
       } catch (e) {
         console.warn('Failed to mark messages as read:', e);
       }
