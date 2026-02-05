@@ -89,7 +89,7 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Sort teachers: pinned first, then by lastMessageAt
+  // Sort teachers: pinned first, then unread, then by lastMessageAt
   const sortedTeachers = useMemo(() => {
     return [...filteredTeachers].sort((a, b) => {
       const aPinned = (pinCounts[a.id] || 0) > 0;
@@ -99,10 +99,19 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
       if (aPinned && !bPinned) return -1;
       if (!aPinned && bPinned) return 1;
       
-      // Within same pin status, sort by lastMessageTime (newest first)
+      // Within same pin status, unread first
+      const aUnread = a.unreadMessages > 0;
+      const bUnread = b.unreadMessages > 0;
+      if (aUnread && !bUnread) return -1;
+      if (!aUnread && bUnread) return 1;
+      
+      // Then sort by lastMessageTime (newest first)
       const aTime = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
       const bTime = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
-      return bTime - aTime;
+      if (bTime !== aTime) return bTime - aTime;
+      
+      // Finally alphabetically by name
+      return (a.fullName || '').localeCompare(b.fullName || '', 'ru');
     });
   }, [filteredTeachers, pinCounts]);
 

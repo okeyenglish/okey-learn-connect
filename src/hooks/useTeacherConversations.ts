@@ -146,6 +146,20 @@ export const useTeacherConversations = (branch?: string | null) => {
 
   // Real-time subscription for new teacher messages
   useEffect(() => {
+    let debounceTimer: NodeJS.Timeout | null = null;
+    
+    const debouncedRefetch = () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      debounceTimer = setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['teacher-conversations'] });
+        debounceTimer = null;
+      }, 300);
+    };
+    
+    // Subscribe to chat_messages without filter - check teacher_id in callback
+    // The filter 'teacher_id=neq.null' doesn't work reliably with postgres_changes
     const channel = supabase
       .channel('teacher-conversations-realtime')
       .on(
@@ -153,11 +167,13 @@ export const useTeacherConversations = (branch?: string | null) => {
         { 
           event: 'INSERT', 
           schema: 'public', 
-          table: 'chat_messages',
-          filter: 'teacher_id=neq.null'
+          table: 'chat_messages'
         },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['teacher-conversations'] });
+        (payload) => {
+          const newRecord = payload.new as Record<string, unknown>;
+          if (newRecord && newRecord.teacher_id) {
+            debouncedRefetch();
+          }
         }
       )
       .on(
@@ -165,16 +181,21 @@ export const useTeacherConversations = (branch?: string | null) => {
         { 
           event: 'UPDATE', 
           schema: 'public', 
-          table: 'chat_messages',
-          filter: 'teacher_id=neq.null'
+          table: 'chat_messages'
         },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['teacher-conversations'] });
+        (payload) => {
+          const newRecord = payload.new as Record<string, unknown>;
+          if (newRecord && newRecord.teacher_id) {
+            debouncedRefetch();
+          }
         }
       )
       .subscribe();
 
     return () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
