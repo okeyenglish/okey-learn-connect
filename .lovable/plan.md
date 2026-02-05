@@ -1,69 +1,77 @@
 
 
-## Исправление: Использование session name из WPP Platform
+## Исправление: Правильный endpoint для установки webhook сессии
 
 ### Проблема
-В базе данных self-hosted сервера сохранён старый `wppAccountNumber = "client_system"`, хотя WPP Platform генерирует уникальные session ID (например `"0000000000001"`). При повторном подключении код находит существующую интеграцию и не создаёт новый клиент.
-
-### Решение
-
-#### Шаг 1: Немедленное исправление на сервере
-
-Удалить старую интеграцию в базе, чтобы при следующем подключении создался новый клиент с правильным session ID:
-
-```bash
-# На self-hosted сервере
-docker exec -it supabase-db psql -U postgres -d postgres -c "
-  DELETE FROM messenger_integrations 
-  WHERE provider = 'wpp' 
-  AND settings->>'wppAccountNumber' = 'client_system';
-"
+Метод `registerWebhook` использует старый endpoint:
+```
+POST /api/webhooks/{number}
 ```
 
-#### Шаг 2: Улучшение кода (опционально)
-
-Добавить параметр `force_recreate` в `wpp-create`, чтобы можно было пересоздать клиент без удаления записи в базе.
-
-**Файл: `supabase/functions/wpp-create/index.ts`**
-
-1. Добавить в интерфейс запроса:
-```typescript
-interface WppCreateRequest {
-  force_recreate?: boolean;
-}
+Правильный endpoint (из твоей WPP Platform):
 ```
-
-2. Изменить условие проверки существующей интеграции (строки 79-80):
-```typescript
-const body = await req.json().catch(() => ({})) as WppCreateRequest;
-const forceRecreate = body.force_recreate === true;
-
-// If integration exists with credentials AND not force recreate
-if (!forceRecreate && existingIntegration && settings.wppApiKey && settings.wppAccountNumber) {
-  // ... existing logic
-}
+POST /internal/session/{sessionId}/webhook
+body: { url: "..." }
 ```
-
-Это позволит UI передать `force_recreate: true` для принудительного пересоздания сессии.
 
 ---
 
-### Порядок действий
+### Технические изменения
 
-1. **Немедленно**: Выполнить SQL команду на сервере для удаления старой интеграции
-2. **После удаления**: Нажать "Подключить WhatsApp" снова - будет создан новый клиент с правильным session ID
-3. **Опционально**: Применить изменения в код для добавления `force_recreate`
+#### `supabase/functions/_shared/wpp.ts`
 
-### Техническая деталь
+**Строки 334-347** - обновить метод `registerWebhook`:
 
-WPP Platform API `/api/integrations/wpp/create` возвращает:
-```json
-{
-  "session": "0000000000001",  // ← уникальный ID сессии
-  "apiKey": "...",
-  "status": "starting"
+```typescript
+// БЫЛО:
+/**
+ * Register webhook for account
+ * POST /api/webhooks/{number} { url }
+ */
+async registerWebhook(number: string, webhookUrl: string): Promise<void> {
+  const url = `${this.baseUrl}/api/webhooks/${encodeURIComponent(number)}`;
+  
+  await this._fetch(url, {
+    method: 'POST',
+    body: JSON.stringify({ url: webhookUrl }),
+  });
+  
+  console.log(`[WppMsgClient] ✓ Webhook registered for ${number}`);
+}
+
+// СТАНЕТ:
+/**
+ * Set webhook for a session
+ * POST /internal/session/{sessionId}/webhook
+ */
+async registerWebhook(sessionId: string, webhookUrl: string): Promise<void> {
+  const url = `${this.baseUrl}/internal/session/${encodeURIComponent(sessionId)}/webhook`;
+  
+  console.log(`[WppMsgClient] Setting webhook for session ${sessionId}: ${webhookUrl}`);
+  await this._fetch(url, {
+    method: 'POST',
+    body: JSON.stringify({ url: webhookUrl }),
+  });
+  
+  console.log(`[WppMsgClient] ✓ Webhook registered for session ${sessionId}`);
 }
 ```
 
-Этот `session` должен сохраняться в `settings.wppAccountNumber` и использоваться во всех последующих API вызовах.
+---
+
+### Что это исправит
+
+После этого изменения:
+- `wpp-create` и `wpp-provision` будут корректно регистрировать webhook для каждой сессии
+- WPP Platform будет знать куда отправлять события для сессии `0000000000001`, `0000000000002` и т.д.
+
+### Пример потока
+
+```
+1. Lovable создаёт сессию → получает session = "0000000000001"
+2. Lovable вызывает POST /internal/session/0000000000001/webhook
+   body: { url: "https://api.academyos.ru/functions/v1/wpp-webhook?account=0000000000001" }
+3. WPP Platform сохраняет: webhooks["0000000000001"] = "https://..."
+4. При событии → sendWebhook("0000000000001", payload) → отправка на Lovable
+```
 
