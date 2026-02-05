@@ -16,7 +16,8 @@ import { useTypingStatus } from "@/hooks/useTypingStatus";
 import { useClientUnreadByMessenger, type ChatMessage as ChatMessageRow } from "@/hooks/useChatMessages";
 import { useViewedMissedCalls } from "@/hooks/useViewedMissedCalls";
 import { useChatMessagesOptimized, useMessageStatusRealtime } from "@/hooks/useChatMessagesOptimized";
-import { useTeacherChatMessages } from "@/hooks/useTeacherChats";
+import { useTeacherChatMessages as useTeacherChatMessagesByClientId } from "@/hooks/useTeacherChats";
+import { useTeacherChatMessages as useTeacherChatMessagesByTeacherId } from "@/hooks/useTeacherChatMessagesV2";
 import { useAutoRetryMessages } from "@/hooks/useAutoRetryMessages";
 import { useAutoCacheImages, ImageCacheProgress } from "@/hooks/useAutoCacheImages";
 import { useCallLogsRealtime } from "@/hooks/useCallLogsRealtime";
@@ -127,6 +128,10 @@ export const ChatArea = ({
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   
   const isTeacherMessages = messagesSource === 'teacher';
+  
+  // Detect if this is a direct teacher message (teacher:xxx marker pattern)
+  const isDirectTeacherMessage = clientId?.startsWith('teacher:') ?? false;
+  const actualTeacherId = isDirectTeacherMessage ? clientId.replace('teacher:', '') : null;
 
   // React Query for messages - replaces useState + loadMessages for caching
   const [messageLimit, setMessageLimit] = useState(100);
@@ -136,10 +141,23 @@ export const ChatArea = ({
     data: defaultMessagesData,
     isLoading: defaultLoadingMessages,
     isFetching: defaultFetchingMessages,
-  } = useChatMessagesOptimized(clientId, messageLimit, !isTeacherMessages);
+  } = useChatMessagesOptimized(clientId, messageLimit, !isTeacherMessages && !isDirectTeacherMessage);
 
-  // Teacher source (SECURITY DEFINER RPC). Disabled unless this chat explicitly requests it.
-  const teacherMessagesQuery = useTeacherChatMessages(clientId, isTeacherMessages);
+  // Teacher source via client_id (legacy - SECURITY DEFINER RPC)
+  const teacherMessagesQueryByClientId = useTeacherChatMessagesByClientId(
+    clientId, 
+    isTeacherMessages && !isDirectTeacherMessage
+  );
+  
+  // Teacher source via teacher_id directly (new architecture for self-hosted)
+  const teacherMessagesQueryByTeacherId = useTeacherChatMessagesByTeacherId(
+    actualTeacherId || ''
+  );
+  
+  // Select the appropriate teacher messages query based on pattern
+  const teacherMessagesQuery = isDirectTeacherMessage 
+    ? teacherMessagesQueryByTeacherId 
+    : teacherMessagesQueryByClientId;
 
   const normalizedTeacherMessages = useMemo<ChatMessageRow[]>(() => {
     if (!isTeacherMessages) return [];
