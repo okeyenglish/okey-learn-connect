@@ -134,9 +134,9 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Build webhook URL and register it
-      const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-      const webhookUrl = `${SUPABASE_URL}/functions/v1/wpp-webhook?account=${settings.wppAccountNumber}`;
+      // Build webhook URL using self-hosted URL for production
+      const SELF_HOSTED_URL = Deno.env.get('SELF_HOSTED_URL') || Deno.env.get('SUPABASE_URL');
+      const webhookUrl = `${SELF_HOSTED_URL}/functions/v1/wpp-webhook?account=${settings.wppAccountNumber}`;
       console.log('[wpp-create] Webhook URL:', webhookUrl);
 
       // Register webhook for existing integration
@@ -242,9 +242,9 @@ Deno.serve(async (req) => {
       apiKey: newClient.apiKey,
     });
 
-    // Build webhook URL
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const webhookUrl = `${SUPABASE_URL}/functions/v1/wpp-webhook?account=${newClient.session}`;
+    // Build webhook URL using self-hosted URL for production
+    const SELF_HOSTED_URL = Deno.env.get('SELF_HOSTED_URL') || Deno.env.get('SUPABASE_URL');
+    const webhookUrl = `${SELF_HOSTED_URL}/functions/v1/wpp-webhook?account=${newClient.session}`;
     console.log('[wpp-create] Webhook URL:', webhookUrl);
 
     // Start account WITH webhook registration
