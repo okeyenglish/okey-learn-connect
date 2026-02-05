@@ -1,77 +1,75 @@
 
-
-## Исправление: Правильный endpoint для установки webhook сессии
+## Добавление регистрации webhook в wpp-create
 
 ### Проблема
-Метод `registerWebhook` использует старый endpoint:
-```
-POST /api/webhooks/{number}
-```
+Функция `wpp-create` не регистрирует webhook на WPP Platform:
 
-Правильный endpoint (из твоей WPP Platform):
-```
-POST /internal/session/{sessionId}/webhook
-body: { url: "..." }
-```
+| Функция | Webhook |
+|---------|---------|
+| `wpp-provision` | Регистрирует через `ensureAccountWithQr(sessionName, webhookUrl)` |
+| `wpp-create` | Не регистрирует - вызывает только `startAccount(session)` |
 
----
+Поэтому при подключении через `wpp-create` WPP Platform не знает куда отправлять входящие сообщения.
 
-### Технические изменения
+### Решение
 
-#### `supabase/functions/_shared/wpp.ts`
+#### Изменения в `supabase/functions/wpp-create/index.ts`
 
-**Строки 334-347** - обновить метод `registerWebhook`:
+1. Добавить построение webhook URL после создания клиента
+2. Вызвать `registerWebhook` или использовать `ensureAccountWithQr` вместо `startAccount`
 
 ```typescript
+// Строки ~229-236: заменить startAccount на ensureAccountWithQr с webhook
+
 // БЫЛО:
-/**
- * Register webhook for account
- * POST /api/webhooks/{number} { url }
- */
-async registerWebhook(number: string, webhookUrl: string): Promise<void> {
-  const url = `${this.baseUrl}/api/webhooks/${encodeURIComponent(number)}`;
-  
-  await this._fetch(url, {
-    method: 'POST',
-    body: JSON.stringify({ url: webhookUrl }),
-  });
-  
-  console.log(`[WppMsgClient] ✓ Webhook registered for ${number}`);
-}
+const wpp = new WppMsgClient({
+  baseUrl: WPP_BASE_URL,
+  apiKey: newClient.apiKey,
+});
+
+const startResult = await wpp.startAccount(newClient.session);
 
 // СТАНЕТ:
-/**
- * Set webhook for a session
- * POST /internal/session/{sessionId}/webhook
- */
-async registerWebhook(sessionId: string, webhookUrl: string): Promise<void> {
-  const url = `${this.baseUrl}/internal/session/${encodeURIComponent(sessionId)}/webhook`;
-  
-  console.log(`[WppMsgClient] Setting webhook for session ${sessionId}: ${webhookUrl}`);
-  await this._fetch(url, {
-    method: 'POST',
-    body: JSON.stringify({ url: webhookUrl }),
-  });
-  
-  console.log(`[WppMsgClient] ✓ Webhook registered for session ${sessionId}`);
-}
+const wpp = new WppMsgClient({
+  baseUrl: WPP_BASE_URL,
+  apiKey: newClient.apiKey,
+});
+
+// Build webhook URL
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+const webhookUrl = `${SUPABASE_URL}/functions/v1/wpp-webhook?account=${newClient.session}`;
+console.log('[wpp-create] Webhook URL:', webhookUrl);
+
+// Start account WITH webhook registration
+const startResult = await wpp.ensureAccountWithQr(newClient.session, webhookUrl, 30);
 ```
 
----
+3. То же самое для существующих интеграций (строки ~137-139):
 
-### Что это исправит
+```typescript
+// При работе с существующей интеграцией тоже регистрируем webhook
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+const webhookUrl = `${SUPABASE_URL}/functions/v1/wpp-webhook?account=${settings.wppAccountNumber}`;
 
-После этого изменения:
-- `wpp-create` и `wpp-provision` будут корректно регистрировать webhook для каждой сессии
-- WPP Platform будет знать куда отправлять события для сессии `0000000000001`, `0000000000002` и т.д.
-
-### Пример потока
-
+// Регистрируем webhook при старте
+await wpp.registerWebhook(settings.wppAccountNumber, webhookUrl).catch(e => 
+  console.warn('[wpp-create] Webhook registration failed:', e)
+);
 ```
-1. Lovable создаёт сессию → получает session = "0000000000001"
-2. Lovable вызывает POST /internal/session/0000000000001/webhook
+
+### Поток после исправления
+
+```text
+1. Lovable вызывает wpp-create
+2. Создаётся сессия → session = "0000000000001"
+3. Lovable вызывает POST /internal/session/0000000000001/webhook
    body: { url: "https://api.academyos.ru/functions/v1/wpp-webhook?account=0000000000001" }
-3. WPP Platform сохраняет: webhooks["0000000000001"] = "https://..."
-4. При событии → sendWebhook("0000000000001", payload) → отправка на Lovable
+4. WPP Platform сохраняет: webhooks["0000000000001"] = webhook URL
+5. При входящем сообщении → WPP отправляет событие на Lovable
 ```
 
+### Результат
+После изменений WPP Platform будет знать куда отправлять:
+- Входящие сообщения (`message.received`)
+- Статусы доставки (`message.sent`, `message.delivered`)  
+- События подключения (`session.connected`, `session.disconnected`)
