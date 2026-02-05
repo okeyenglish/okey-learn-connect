@@ -12,6 +12,10 @@ const WPP_SECRET = Deno.env.get('WPP_SECRET');
 
 console.log('[wpp-create] Configuration:', { WPP_BASE_URL, hasSecret: !!WPP_SECRET });
 
+interface WppCreateRequest {
+  force_recreate?: boolean;
+}
+
 interface WppCreateResponse {
   success: boolean;
   session?: string;
@@ -64,6 +68,11 @@ Deno.serve(async (req) => {
     const orgId = profile.organization_id;
     console.log('[wpp-create] Org ID:', orgId);
 
+    // Parse request body for force_recreate flag
+    const body = await req.json().catch(() => ({})) as WppCreateRequest;
+    const forceRecreate = body.force_recreate === true;
+    console.log('[wpp-create] Force recreate:', forceRecreate);
+
     // Check for existing WPP integration with credentials
     const { data: existingIntegration } = await supabaseClient
       .from('messenger_integrations')
@@ -76,8 +85,8 @@ Deno.serve(async (req) => {
 
     const settings = (existingIntegration?.settings || {}) as Record<string, any>;
 
-    // If integration exists with credentials, check status and return
-    if (existingIntegration && settings.wppApiKey && settings.wppAccountNumber) {
+    // If integration exists with credentials AND not force recreate, check status and return
+    if (!forceRecreate && existingIntegration && settings.wppApiKey && settings.wppAccountNumber) {
       console.log('[wpp-create] Found existing integration:', existingIntegration.id);
       
       // Проверяем валидность сохранённого JWT (с запасом 60 сек)
