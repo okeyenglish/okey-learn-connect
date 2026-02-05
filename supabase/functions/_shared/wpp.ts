@@ -76,7 +76,8 @@ export class WppMsgClient {
   private async _fetch(
     url: string,
     init: RequestInit = {},
-    authRequired = true
+    authRequired = true,
+    _isRetry = false  // Флаг для предотвращения бесконечного retry
   ): Promise<any> {
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), this.timeoutMs);
@@ -106,6 +107,15 @@ export class WppMsgClient {
       const text = await res.text();
       
       if (!res.ok) {
+        // Если 401 и это не retry - попробовать обновить токен и повторить
+        if (res.status === 401 && authRequired && !_isRetry) {
+          console.log('[WppMsgClient] Got 401, clearing token and retrying...');
+          this.cachedToken = null;
+          this._tokenExpiry = 0;
+          clearTimeout(t);
+          return this._fetch(url, init, authRequired, true);
+        }
+        
         console.error(`[WppMsgClient] Error body: ${text.substring(0, 500)}`);
         throw new Error(`HTTP ${res.status}: ${text.substring(0, 200)}`);
       }
