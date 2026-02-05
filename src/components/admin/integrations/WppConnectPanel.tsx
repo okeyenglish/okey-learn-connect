@@ -48,8 +48,14 @@ export const WppConnectPanel: React.FC<WppConnectPanelProps> = ({ onConnected })
       try {
         // Poll both QR and status in parallel
         const [qrResult, statusResult] = await Promise.all([
-          wppQr(session).catch(() => ({ success: false, qr: null })),
-          wppGetStatus(session, true).catch(() => ({ success: false, status: 'error' as const })),
+          wppQr(session).catch((err) => {
+            console.error('[WppConnectPanel] QR fetch error:', err);
+            return { success: false, qr: null };
+          }),
+          wppGetStatus(session, true).catch((err) => {
+            console.error('[WppConnectPanel] Status fetch error:', err);
+            return { success: false, status: 'error' as const };
+          }),
         ]);
 
         console.log('[WppConnectPanel] Poll results:', { qr: !!qrResult.qr, status: statusResult.status });

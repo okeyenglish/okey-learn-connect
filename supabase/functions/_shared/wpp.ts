@@ -326,7 +326,12 @@ export class WppMsgClient {
     
     try {
       const result = await this._fetch(url, { method: 'GET' });
-      return result.qr || null;
+      console.log('[WppMsgClient] QR response keys:', Object.keys(result || {}));
+      
+      // Поддержка разных форматов ответа
+      const qr = result?.qr || result?.qrCode || result?.qrcode || result?.data?.qr || null;
+      console.log('[WppMsgClient] QR extracted:', qr ? `yes (${qr.length} chars)` : 'no');
+      return qr;
     } catch (error) {
       console.error(`[WppMsgClient] Get QR error:`, error);
       return null;

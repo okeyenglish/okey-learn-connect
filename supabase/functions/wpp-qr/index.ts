@@ -118,8 +118,32 @@ Deno.serve(async (req) => {
       jwtExpiresAt: isTokenValid ? wppJwtExpiresAt : undefined,
     });
 
-    const qr = await wpp.getAccountQr(wppAccountNumber);
-    console.log('[wpp-qr] QR result:', qr ? `received (${qr.length} chars)` : 'null');
+    // Детальное логирование запроса QR
+    const qrUrl = `${WPP_BASE_URL}/api/accounts/${encodeURIComponent(wppAccountNumber)}/qr`;
+    console.log('[wpp-qr] Fetching QR from:', qrUrl);
+
+    const token = await wpp.getToken();
+    const qrResponse = await fetch(qrUrl, {
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+
+    console.log('[wpp-qr] QR API response status:', qrResponse.status);
+    const qrData = await qrResponse.text();
+    console.log('[wpp-qr] QR API raw response:', qrData.substring(0, 500));
+
+    let qr: string | null = null;
+    try {
+      const parsed = JSON.parse(qrData);
+      console.log('[wpp-qr] Parsed response keys:', Object.keys(parsed));
+      // Поддержка разных форматов ответа
+      qr = parsed.qr || parsed.qrCode || parsed.qrcode || parsed.data?.qr || null;
+      console.log('[wpp-qr] Parsed QR:', qr ? `found (${qr.length} chars)` : 'null');
+    } catch (e) {
+      console.error('[wpp-qr] Failed to parse QR response:', e);
+    }
 
     // Если токен обновился - сохраняем в базу
     const currentToken = await wpp.getToken();
