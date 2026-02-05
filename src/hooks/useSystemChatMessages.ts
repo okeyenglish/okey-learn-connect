@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTeacherChats } from '@/hooks/useTeacherChats';
+import { useTeacherConversations } from '@/hooks/useTeacherConversations';
 
 // Hook to fetch last message and unread count for system chats (corporate/teachers)
 export const useSystemChatMessages = () => {
@@ -85,23 +86,47 @@ export const useSystemChatMessages = () => {
     },
   });
 
-  // Use the new teacher chats hook
+  // Use the teacher chats hook for teacher list
   const { teachers: teacherChatsFromHook, totalUnread: teachersTotalUnread, isLoading: teachersLoading } = useTeacherChats(null);
+  
+  // Also get teacher conversations (direct teacher_id messages) for preview data
+  const { conversations: teacherConversations, totalUnread: conversationsUnread, isLoading: conversationsLoading } = useTeacherConversations();
 
-  // Transform teacher chats to match expected format
+  // Merge data: useTeacherChats for teacher list, useTeacherConversations for direct teacher_id messages
   const teacherChats = useMemo(() => {
-    return teacherChatsFromHook.map(teacher => ({
-      id: teacher.id,
-      name: teacher.fullName,
-      branch: teacher.branch,
-      lastMessage: teacher.lastMessageText || '',
-      lastMessageTime: teacher.lastMessageTime || '',
-      unreadCount: teacher.unreadMessages,
-      type: 'teachers',
-      clientId: teacher.clientId,
-      phone: teacher.phone,
-    }));
-  }, [teacherChatsFromHook]);
+    // Build a map of teacher_id -> conversation data (from useTeacherConversations)
+    const convMap = new Map<string, {
+      lastMessage: string;
+      lastMessageTime: string;
+      unreadCount: number;
+    }>();
+    
+    teacherConversations.forEach(conv => {
+      convMap.set(conv.teacherId, {
+        lastMessage: conv.lastMessageText || '',
+        lastMessageTime: conv.lastMessageTime || '',
+        unreadCount: conv.unreadCount,
+      });
+    });
+    
+    // Map teacher list and merge with conversation data
+    return teacherChatsFromHook.map(teacher => {
+      const conv = convMap.get(teacher.id);
+      
+      return {
+        id: teacher.id,
+        name: teacher.fullName,
+        branch: teacher.branch,
+        // Prefer conversation data if available (direct teacher_id messages)
+        lastMessage: conv?.lastMessage || teacher.lastMessageText || '',
+        lastMessageTime: conv?.lastMessageTime || teacher.lastMessageTime || '',
+        unreadCount: conv?.unreadCount ?? teacher.unreadMessages ?? 0,
+        type: 'teachers',
+        clientId: teacher.clientId || (conv ? `teacher:${teacher.id}` : null),
+        phone: teacher.phone,
+      };
+    });
+  }, [teacherChatsFromHook, teacherConversations]);
 
   useEffect(() => {
     if (corporateChatsData) {
@@ -147,10 +172,13 @@ export const useSystemChatMessages = () => {
     };
   }, [queryClient]);
 
+  // Use conversationsUnread as primary source (from direct teacher_id messages)
+  const effectiveTeachersUnread = conversationsUnread > 0 ? conversationsUnread : teachersTotalUnread;
+
   return {
     corporateChats,
     teacherChats,
-    teachersTotalUnread,
-    isLoading: corporateLoading || teachersLoading,
+    teachersTotalUnread: effectiveTeachersUnread,
+    isLoading: corporateLoading || teachersLoading || conversationsLoading,
   };
 };
