@@ -60,8 +60,10 @@ export interface WppStartResponse {
  * POST /wpp-create
  * Returns session, apiKey (masked), status, and optionally QR code
  */
-export const wppCreate = async (): Promise<WppCreateResponse> => {
-  const response = await selfHostedPost<WppCreateResponse>('wpp-create', {});
+export const wppCreate = async (forceRecreate = false): Promise<WppCreateResponse> => {
+  const response = await selfHostedPost<WppCreateResponse>('wpp-create', {
+    force_recreate: forceRecreate,
+  });
   
   if (!response.success) {
     throw new Error(response.error || 'Failed to create WPP integration');
