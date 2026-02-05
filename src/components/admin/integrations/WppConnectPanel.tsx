@@ -232,9 +232,15 @@ export const WppConnectPanel: React.FC<WppConnectPanelProps> = ({ onConnected })
     }
   };
 
-  const handleDisconnect = async (session: string) => {
+  const handleDisconnect = async (integrationId: string) => {
     try {
-      await wppDisconnect(session);
+      await wppDisconnect(integrationId);
+      // Remove from local state immediately
+      setSessionsStatus(prev => {
+        const updated = new Map(prev);
+        updated.delete(integrationId);
+        return updated;
+      });
       toast.success('WhatsApp отключен');
       refetch();
     } catch (err: unknown) {
@@ -325,7 +331,7 @@ export const WppConnectPanel: React.FC<WppConnectPanelProps> = ({ onConnected })
                     variant="outline" 
                     size="sm"
                     className="text-destructive hover:text-destructive flex-shrink-0"
-                    onClick={() => handleDisconnect(info.session)}
+                    onClick={() => handleDisconnect(info.integration.id)}
                   >
                     <Power className="h-4 w-4 mr-1" />
                     Отключить

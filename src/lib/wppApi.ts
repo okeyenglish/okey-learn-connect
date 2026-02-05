@@ -151,10 +151,11 @@ export const wppStart = async (sessionSuffix?: string): Promise<WppStartResponse
 
 /**
  * Disconnect a WPP session
+ * @param integrationId - ID of the integration from messenger_integrations table
  */
-export const wppDisconnect = async (sessionName: string): Promise<void> => {
+export const wppDisconnect = async (integrationId: string): Promise<void> => {
   const response = await selfHostedPost('wpp-disconnect', {
-    session_name: sessionName,
+    integration_id: integrationId,
   });
   
   if (!response.success) {
