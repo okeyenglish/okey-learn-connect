@@ -1,128 +1,90 @@
 
-## План: Исправить обработку истёкшего JWT токена в WPP клиенте
+## План: Диагностика и исправление отправки WhatsApp сообщений
 
-### Проблема
-Когда JWT токен истекает во время отправки сообщения, метод `_fetch` возвращает ошибку `HTTP 401: Invalid token` вместо того, чтобы автоматически обновить токен и повторить запрос.
+### Текущая ситуация
+1. **Сервер**: Файлы `wpp-send/index.ts` и `_shared/wpp.ts` обновлены и содержат retry логику
+2. **Проблема**: С UI не отправляются запросы к `wpp-send` - функция вообще не вызывается
+3. **Логи**: Пусто на сервере, нет network requests в браузере
 
 ### Корневая причина
-В файле `supabase/functions/_shared/wpp.ts` метод `_fetch` не имеет логики retry при получении 401 ошибки. Токен может истечь между проверкой валидности и фактическим запросом.
+После анализа кода выяснилось, что проблема может быть в одном из мест:
 
-### Решение
-Добавить автоматический retry в метод `_fetch`:
+1. **Авторизация** - `selfHostedApi.getAuthToken()` возвращает `null` → запрос блокируется до вызова API
+2. **getMessengerSettings()** возвращает `null` → провайдер не определяется
+3. **Ошибка в UI** - функция `sendTextMessage` не вызывается
 
-**Файл:** `supabase/functions/_shared/wpp.ts`
-**Метод:** `_fetch` (строки 76-121)
+### Решение: Добавить диагностическое логирование
 
-**Текущая логика:**
-```text
-┌─────────────────────┐
-│ _fetch()            │
-├─────────────────────┤
-│ 1. getToken()       │
-│ 2. fetch()          │
-│ 3. if 401 → ERROR   │ ← Проблема: нет retry
-└─────────────────────┘
-```
+**Файл 1:** `src/hooks/useWhatsApp.ts`
 
-**Новая логика:**
-```text
-┌─────────────────────────────┐
-│ _fetch() with retry         │
-├─────────────────────────────┤
-│ 1. getToken()               │
-│ 2. fetch()                  │
-│ 3. if 401:                  │
-│    a. clear cached token    │
-│    b. getToken() (refresh)  │
-│    c. retry fetch() once    │
-│ 4. return result            │
-└─────────────────────────────┘
-```
-
-### Изменения в коде
-
-**Файл:** `supabase/functions/_shared/wpp.ts`
-
-Обновить метод `_fetch` для добавления retry при 401:
+Добавить console.log в функцию `sendMessage` для понимания, где происходит сбой:
 
 ```typescript
-private async _fetch(
-  url: string,
-  init: RequestInit = {},
-  authRequired = true,
-  _isRetry = false  // Флаг для предотвращения бесконечного retry
-): Promise<any> {
-  const ac = new AbortController();
-  const t = setTimeout(() => ac.abort(), this.timeoutMs);
-
+const sendMessage = useCallback(async (params: SendMessageParams) => {
+  setLoading(true);
+  retryStatus.reset();
+  
   try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      ...(init.headers as Record<string, string> || {}),
-    };
+    console.log('[useWhatsApp] === SEND MESSAGE START ===');
+    console.log('[useWhatsApp] Params:', params);
 
-    if (authRequired) {
-      const token = await this.getToken();
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    console.log(`[WppMsgClient] ${init.method || 'GET'} ${url}`);
-
-    const res = await fetch(url, {
-      ...init,
-      headers,
-      signal: ac.signal,
-    });
-
-    console.log(`[WppMsgClient] Response: ${res.status} ${res.statusText}`);
-
-    const text = await res.text();
+    const settings = await getMessengerSettings();
+    console.log('[useWhatsApp] Settings:', settings);  // <-- Диагностика
     
-    if (!res.ok) {
-      // Если 401 и это не retry - попробовать обновить токен и повторить
-      if (res.status === 401 && authRequired && !_isRetry) {
-        console.log('[WppMsgClient] Got 401, clearing token and retrying...');
-        this.cachedToken = null;
-        this._tokenExpiry = 0;
-        clearTimeout(t);
-        return this._fetch(url, init, authRequired, true);
-      }
-      
-      console.error(`[WppMsgClient] Error body: ${text.substring(0, 500)}`);
-      throw new Error(`HTTP ${res.status}: ${text.substring(0, 200)}`);
-    }
+    const provider = settings?.provider || 'greenapi';
+    const functionName = provider === 'wpp' ? 'wpp-send' : ...;
+    
+    console.log('[useWhatsApp] Provider:', provider, 'Function:', functionName);
+    
+    // ... rest of code
+```
 
-    try {
-      return JSON.parse(text);
-    } catch {
-      return text;
-    }
-  } finally {
-    clearTimeout(t);
-  }
+**Файл 2:** `src/lib/selfHostedApi.ts`
+
+Добавить логирование авторизации:
+
+```typescript
+export async function getAuthToken(): Promise<string | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  console.log('[selfHostedApi] Auth session:', !!session, 'Token:', session?.access_token?.slice(0, 20) + '...');
+  return session?.access_token || null;
 }
 ```
 
-### После внесения изменений
+### Альтернативное решение: Проверка на сервере
 
-Скопируйте обновлённый файл на сервер:
+Выполните на сервере для тестирования с валидным токеном:
 
 ```bash
-cd /home/automation/supabase-project
+# 1. Получить токен авторизации (из браузера DevTools → Application → Local Storage → sb-api-academyos-auth-token)
+# Или войти через API:
+TOKEN=$(curl -s -X POST 'https://api.academyos.ru/auth/v1/token?grant_type=password' \
+  -H "apikey: YOUR_ANON_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"YOUR_EMAIL","password":"YOUR_PASSWORD"}' | jq -r '.access_token')
 
-# Скопировать обновлённый wpp.ts
-cat > volumes/functions/_shared/wpp.ts << 'WPPEOF'
-[содержимое файла]
-WPPEOF
+# 2. Тест wpp-send с авторизацией
+curl -X POST https://api.academyos.ru/functions/v1/wpp-send \
+  -H "Content-Type: application/json" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY5MDg4ODgzLCJleHAiOjE5MjY3Njg4ODN9.WEsCyaCdQvxzVObedC-A9hWTJUSwI_p9nCG1wlbaNEg" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"action":"test_connection"}'
 
-# Перезапустить функции
-docker compose restart functions
+# 3. Проверить логи
+docker compose logs functions --tail 50 | grep -E "(wpp-send|WppMsgClient)"
 ```
 
 ### Ожидаемый результат
 
-После исправления:
-- При получении 401 токен будет автоматически обновлён
-- Запрос будет повторён с новым токеном
-- Сообщения будут отправляться без ошибок авторизации
+После добавления логирования в консоли браузера будет видно:
+- Получает ли `getMessengerSettings()` настройки WPP интеграции
+- Есть ли авторизационный токен
+- Какой endpoint вызывается
+
+Это позволит точно определить место сбоя.
+
+### Шаги
+
+1. Я добавлю диагностическое логирование в код
+2. После деплоя откройте DevTools → Console и попробуйте отправить сообщение
+3. Скопируйте логи сюда для анализа
