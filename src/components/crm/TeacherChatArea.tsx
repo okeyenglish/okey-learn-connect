@@ -117,7 +117,68 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const refetchAllTeacherData = useCallback(() => {
     refetchTeachers();
     refetchConversations();
-  }, [refetchTeachers, refetchConversations]);
+    // Also invalidate system chat messages for the preview in main CRM list
+    queryClient.invalidateQueries({ queryKey: ['teacher-conversations'] });
+    queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
+  }, [refetchTeachers, refetchConversations, queryClient]);
+  
+  // Real-time subscription for teacher messages - updates preview and sorting
+  useEffect(() => {
+    let debounceTimer: NodeJS.Timeout | null = null;
+    
+    const debouncedRefetch = () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      debounceTimer = setTimeout(() => {
+        refetchAllTeacherData();
+        debounceTimer = null;
+      }, 500); // 500ms debounce to avoid too many refetches
+    };
+    
+    // Subscribe to all chat_messages changes - filter by teacher_id in callback
+    const channel = supabase
+      .channel('teacher-chat-area-realtime')
+      .on(
+        'postgres_changes',
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'chat_messages'
+        },
+        (payload) => {
+          // Check if message is for a teacher (has teacher_id)
+          const newRecord = payload.new as Record<string, unknown>;
+          if (newRecord && newRecord.teacher_id) {
+            console.log('[TeacherChatArea] New teacher message, refreshing list');
+            debouncedRefetch();
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'chat_messages'
+        },
+        (payload) => {
+          // Check if message is for a teacher
+          const newRecord = payload.new as Record<string, unknown>;
+          if (newRecord && newRecord.teacher_id) {
+            debouncedRefetch();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      supabase.removeChannel(channel);
+    };
+  }, [refetchAllTeacherData]);
   
   // Get all teacher IDs for shared states hook
   const teacherIds = useMemo(() => dbTeachers?.map(t => t.id) || [], [dbTeachers]);

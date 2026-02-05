@@ -134,33 +134,45 @@ export const useSystemChatMessages = () => {
     }
   }, [corporateChatsData]);
 
-  // Debounced real-time subscription for corporate chats
+  // Debounced real-time subscription for all system chats (corporate + teachers)
   useEffect(() => {
     let debounceTimer: NodeJS.Timeout | null = null;
-    let pendingRefetch = false;
 
-    const debouncedRefetch = () => {
-      pendingRefetch = true;
-      
+    const debouncedRefetch = (includeTeachers: boolean) => {
       if (debounceTimer) {
         clearTimeout(debounceTimer);
       }
       
       debounceTimer = setTimeout(() => {
-        if (pendingRefetch) {
-          queryClient.refetchQueries({ queryKey: ['system-chats', 'corporate'] });
-          pendingRefetch = false;
+        queryClient.refetchQueries({ queryKey: ['system-chats', 'corporate'] });
+        if (includeTeachers) {
+          // Refetch teacher conversations for updated previews
+          queryClient.invalidateQueries({ queryKey: ['teacher-conversations'] });
         }
         debounceTimer = null;
-      }, 2000);
+      }, 500);
     };
 
     const channel = supabase
-      .channel('corporate-chats-realtime')
+      .channel('system-chats-realtime')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_messages' },
-        debouncedRefetch
+        (payload) => {
+          const newRecord = payload.new as Record<string, unknown>;
+          // Check if it's a teacher message
+          const isTeacherMessage = newRecord && newRecord.teacher_id;
+          debouncedRefetch(!!isTeacherMessage);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'chat_messages' },
+        (payload) => {
+          const newRecord = payload.new as Record<string, unknown>;
+          const isTeacherMessage = newRecord && newRecord.teacher_id;
+          debouncedRefetch(!!isTeacherMessage);
+        }
       )
       .subscribe();
 
