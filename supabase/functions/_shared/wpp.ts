@@ -332,18 +332,19 @@ export class WppMsgClient {
   }
 
   /**
-   * Register webhook for account
-   * POST /api/webhooks/{number} { url }
+   * Set webhook for a session
+   * POST /internal/session/{sessionId}/webhook
    */
-  async registerWebhook(number: string, webhookUrl: string): Promise<void> {
-    const url = `${this.baseUrl}/api/webhooks/${encodeURIComponent(number)}`;
+  async registerWebhook(sessionId: string, webhookUrl: string): Promise<void> {
+    const url = `${this.baseUrl}/internal/session/${encodeURIComponent(sessionId)}/webhook`;
     
+    console.log(`[WppMsgClient] Setting webhook for session ${sessionId}: ${webhookUrl}`);
     await this._fetch(url, {
       method: 'POST',
       body: JSON.stringify({ url: webhookUrl }),
     });
     
-    console.log(`[WppMsgClient] ✓ Webhook registered for ${number}`);
+    console.log(`[WppMsgClient] ✓ Webhook registered for session ${sessionId}`);
   }
 
   // ==========================================================================
