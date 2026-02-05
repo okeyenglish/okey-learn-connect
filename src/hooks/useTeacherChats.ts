@@ -247,17 +247,141 @@ export const useTeacherChats = (branch?: string | null) => {
   // Load unread counts in parallel (not dependent on teachers)
   const { data: unreadCounts, isLoading: unreadLoading } = useQuery({
     queryKey: ['teacher-chats', 'unread-counts'],
-    queryFn: async () => {
+    queryFn: async (): Promise<TeacherUnreadCount[]> => {
+      // Try RPC first
       const { data, error } = await supabase.rpc('get_teacher_unread_counts');
-      if (error) {
-        console.error('Error fetching teacher unread counts:', error);
+      
+      // If RPC works and returns data, use it
+      if (!error && data && data.length > 0) {
+        return data as TeacherUnreadCount[];
+      }
+      
+      // Fallback: Direct query for self-hosted environments without the RPC function
+      console.log('[useTeacherChats] RPC returned empty, using direct query fallback');
+      
+      try {
+        // Get teachers with their phone numbers
+        const { data: teachersList } = await supabase
+          .from('teachers')
+          .select('id, phone')
+          .eq('is_active', true);
+        
+        if (!teachersList?.length) return [];
+        
+        // Get all clients that might be linked to teachers (by phone pattern or name prefix)
+        const { data: teacherClients } = await supabase
+          .from('clients')
+          .select('id, phone, name')
+          .or('name.ilike.Преподаватель:%,name.ilike.%педагог%')
+          .limit(500);
+        
+        if (!teacherClients?.length) {
+          // Try matching by phone instead
+          const phones = teachersList.map(t => t.phone).filter(Boolean);
+          if (phones.length === 0) return [];
+          
+          const { data: phoneClients } = await supabase
+            .from('clients')
+            .select('id, phone')
+            .not('phone', 'is', null)
+            .limit(1000);
+          
+          if (!phoneClients?.length) return [];
+          
+          // Match teachers to clients by normalized phone
+          const results: TeacherUnreadCount[] = [];
+          for (const teacher of teachersList) {
+            if (!teacher.phone) continue;
+            const teacherNorm = normalizePhone(teacher.phone);
+            if (!teacherNorm) continue;
+            
+            const matchedClient = phoneClients.find(c => 
+              c.phone && normalizePhone(c.phone) === teacherNorm
+            );
+            
+            if (matchedClient) {
+              // Get last message and unread count for this client
+              const { data: lastMsg } = await supabase
+                .from('chat_messages')
+                .select('content, created_at, messenger, is_read, direction')
+                .eq('client_id', matchedClient.id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              
+              const { count: unreadCount } = await supabase
+                .from('chat_messages')
+                .select('id', { count: 'exact', head: true })
+                .eq('client_id', matchedClient.id)
+                .eq('direction', 'incoming')
+                .eq('is_read', false);
+              
+              results.push({
+                teacher_id: teacher.id,
+                client_id: matchedClient.id,
+                unread_count: unreadCount || 0,
+                last_message_time: lastMsg?.created_at || null,
+                last_message_text: lastMsg?.content || null,
+                last_messenger_type: lastMsg?.messenger || null,
+              });
+            }
+          }
+          
+          return results;
+        }
+        
+        // Match by name prefix "Преподаватель: ..."
+        const results: TeacherUnreadCount[] = [];
+        for (const teacher of teachersList) {
+          // Try to find by phone first
+          let matchedClient = null;
+          if (teacher.phone) {
+            const teacherNorm = normalizePhone(teacher.phone);
+            if (teacherNorm) {
+              matchedClient = teacherClients.find(c => 
+                c.phone && normalizePhone(c.phone) === teacherNorm
+              );
+            }
+          }
+          
+          if (matchedClient) {
+            // Get last message info
+            const { data: lastMsg } = await supabase
+              .from('chat_messages')
+              .select('content, created_at, messenger, is_read, direction')
+              .eq('client_id', matchedClient.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            
+            const { count: unreadCount } = await supabase
+              .from('chat_messages')
+              .select('id', { count: 'exact', head: true })
+              .eq('client_id', matchedClient.id)
+              .eq('direction', 'incoming')
+              .eq('is_read', false);
+            
+            results.push({
+              teacher_id: teacher.id,
+              client_id: matchedClient.id,
+              unread_count: unreadCount || 0,
+              last_message_time: lastMsg?.created_at || null,
+              last_message_text: lastMsg?.content || null,
+              last_messenger_type: lastMsg?.messenger || null,
+            });
+          }
+        }
+        
+        console.log('[useTeacherChats] Fallback found', results.length, 'teacher-client links');
+        return results;
+      } catch (fallbackError) {
+        console.error('[useTeacherChats] Fallback query failed:', fallbackError);
         return [];
       }
-      return (data || []) as TeacherUnreadCount[];
     },
     staleTime: 10000,
     gcTime: 60000,
-    enabled: true, // Load immediately, not dependent on teachers
+    enabled: true,
   });
 
   // Combine data from MV or legacy approach
