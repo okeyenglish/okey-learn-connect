@@ -1,53 +1,72 @@
 
 
-## План: Добавить нормализацию российских телефонов в whatsapp-send
+## План: Исправить wpp-send для сохранения сообщений в БД
 
-### Проблема
-При отправке WhatsApp сообщений через Green API номер `9852615056` отправляется как `9852615056@c.us` вместо `79852615056@c.us`, что приводит к ошибке доставки.
+### Диагноз проблемы
+1. Фронтенд корректно определяет провайдер WPP и вызывает `wpp-send`
+2. WPP Platform отвечает успешно (`taskId` возвращается)
+3. **НО**: Сообщение не сохраняется в `chat_messages` на сервере
+4. **Причина**: На сервере старая версия `wpp-send/index.ts` без кода сохранения в БД
 
 ### Решение
-Добавить функцию `normalizePhoneForWhatsApp` в edge function `whatsapp-send/index.ts` (аналогично тому, что уже сделано в `wpp-send` и `max-send`).
 
-### Изменения в файле
+**Шаг 1**: Обновить файл на сервере
 
-**Файл:** `supabase/functions/whatsapp-send/index.ts`
+Выполнить на сервере:
 
-1. **Добавить функцию нормализации в конец файла:**
+```bash
+cat > /home/automation/supabase-project/volumes/functions/wpp-send/index.ts << 'WPPEOF'
+[содержимое актуального файла из Lovable]
+WPPEOF
+```
+
+**Шаг 2**: Перезапустить функции
+
+```bash
+docker compose restart functions
+```
+
+**Шаг 3**: Проверить логи после отправки тестового сообщения
+
+```bash
+docker compose logs functions 2>&1 | grep "\[wpp-send\]" | tail -20
+```
+
+### Ключевые строки которые должны быть в wpp-send (200-225):
+
 ```typescript
-function normalizePhoneForWhatsApp(phone: string): string {
-  let cleaned = phone.replace(/\D/g, '');
-  
-  // 89852615056 -> 79852615056
-  if (cleaned.length === 11 && cleaned.startsWith('8')) {
-    cleaned = '7' + cleaned.substring(1);
-  }
-  
-  // 9852615056 -> 79852615056
-  if (cleaned.length === 10 && cleaned.startsWith('9')) {
-    cleaned = '7' + cleaned;
-  }
-  
-  return cleaned;
+// Save message to database
+const messageStatus = wppResult.success ? 'sent' : 'failed'
+
+const { data: savedMessage, error: saveError } = await supabase
+  .from('chat_messages')
+  .insert({
+    client_id: clientId,
+    organization_id: orgId,
+    message_text: messageText,
+    is_outgoing: true,
+    message_type: 'manager',
+    messenger_type: 'whatsapp',
+    message_status: messageStatus,
+    external_message_id: wppResult.taskId,
+    is_read: true,
+    file_url: fileUrl,
+    file_name: fileName,
+    file_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null,
+    sender_id: user.id,
+  })
+  .select()
+  .single()
+
+if (saveError) {
+  console.error('Error saving message to database:', saveError)
 }
 ```
 
-2. **Заменить 3 места где формируется chatId:**
+### Ожидаемый результат
 
-- **Строка 172:** `const cleanPhone = normalizePhoneForWhatsApp(phoneRecord.phone);`
-- **Строка 191:** `const cleanPhone = normalizePhoneForWhatsApp(primaryPhone.phone);`
-- **Строка 237:** `const cleanPhone = normalizePhoneForWhatsApp(phone);`
-
-3. **Добавить логирование для отладки (строка ~238):**
-```typescript
-console.log('[whatsapp-send] Normalized phone:', cleanPhone, '(original:', phone, ')');
-```
-
-### Команда для сервера
-
-После того как я внесу изменения в код Lovable, нужно будет:
-1. Скопировать обновлённый файл на сервер
-2. Перезапустить контейнер functions
-
-### Результат
-Номера `9852615056`, `89852615056`, `+7 985 261-50-56` будут корректно преобразовываться в `79852615056@c.us` перед отправкой в Green API.
+После обновления:
+- Ответ от `wpp-send` будет содержать `savedMessageId`
+- Сообщения будут появляться в чате сразу после отправки
+- В логах будет видно `[wpp-send] Sending to: 7XXXXXXXXXX` и результат сохранения
 
