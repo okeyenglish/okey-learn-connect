@@ -88,6 +88,14 @@ Deno.serve(async (req) => {
     const webhook: GreenAPIWebhook = await req.json()
     console.log('Received webhook:', JSON.stringify(webhook, null, 2))
 
+    // Validate required webhook fields early
+    if (!webhook.instanceData?.idInstance) {
+      console.log('[whatsapp-webhook] Invalid payload - missing instanceData.idInstance');
+      return new Response(JSON.stringify({ status: 'ignored', reason: 'invalid payload' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Resolve organization_id from instanceId in webhook
     const organizationId = await resolveOrganizationIdFromWebhook(webhook)
     console.log('Resolved organization_id:', organizationId)
