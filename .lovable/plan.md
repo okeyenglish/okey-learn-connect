@@ -1,96 +1,54 @@
 
 
-## Исправление Edge Functions на Self-Hosted Сервере
+## План: Исправление обработки ошибок в max-webhook и whatsapp-webhook
 
-### Выявленные проблемы
+### Проблема
 
-| Функция | Ошибка | Причина |
-|---------|--------|---------|
-| `wpp-create` | `401 Invalid token` | Неверный или просроченный `WPP_SECRET` |
-| `max-webhook` | `Identifier 'maxUserId' has already been declared` | Устаревший код на сервере с дублированием |
-| `whatsapp-webhook` | `Identifier 'normalizePhone' has already been declared` | Устаревший код на сервере с дублированием |
+Функции `max-webhook` и `whatsapp-webhook` возвращают HTTP 500 при получении некорректных данных, потому что не проверяют наличие обязательных полей перед их использованием.
 
-### Анализ
-
-**Текущий код в Lovable корректен** - дубликатов нет:
-- `max-webhook`: одно объявление `extractPhoneFromChatId` (строка 785)
-- `whatsapp-webhook`: одно объявление `normalizePhone` (строка 637)
-
-**Проблема**: На сервере находятся старые версии файлов с дублирующимися объявлениями.
-
----
-
-### План действий
-
-#### 1. Синхронизация кода на self-hosted сервере
-
-На сервере `api.academyos.ru` выполнить:
-
-```bash
-cd /home/automation/supabase-project
-
-# Скачать актуальный код из репозитория
-git pull origin main
-
-# Синхронизировать Edge Functions
-rsync -avz --delete ./supabase/functions/ ./volumes/functions/
-
-# Перезапустить контейнер
-docker compose restart functions
-
-# Проверить логи
-docker compose logs --tail=50 functions
-```
-
-#### 2. Проверка WPP_SECRET
-
-Убедиться что переменная установлена в `.env` или `docker-compose.yml`:
-
-```bash
-# Проверить .env
-grep WPP_SECRET .env
-
-# Если отсутствует - добавить
-echo 'WPP_SECRET=your_wpp_platform_secret' >> .env
-```
-
-Проверить что `docker-compose.yml` пробрасывает переменную в контейнер functions:
-
-```yaml
-functions:
-  environment:
-    - WPP_SECRET=${WPP_SECRET}
-```
-
-#### 3. Проверка работоспособности после деплоя
-
-```bash
-# Проверить статус функций
-curl -s https://api.academyos.ru/functions/v1/edge-health-monitor
-
-# Проверить отсутствие ошибок в логах
-docker compose logs --tail=20 functions | grep -E "(error|Error|ERROR)"
+Строка 40 в `max-webhook/index.ts`:
+```typescript
+const instanceId = String(instanceData.idInstance);  // CRASH если instanceData undefined
 ```
 
 ---
 
-### Техническое объяснение ошибок
+### Решение
 
-**SyntaxError "Identifier has already been declared"** означает что в файле есть два объявления одной переменной/функции. Это происходит когда:
+Добавить валидацию входящих данных в начале обработки webhook.
 
-1. Файл редактировался вручную и случайно добавился дубликат
-2. При merge-конфликте код не был правильно очищен
-3. Старая версия файла содержит duplicate, новая - нет
+#### Файл: `supabase/functions/max-webhook/index.ts`
 
-Deno Edge Runtime проверяет синтаксис при загрузке функции. Если находит duplicate identifier - функция не запускается.
+**Изменение 1:** После строки 35 добавить проверку:
+
+```typescript
+// Validate required webhook fields
+if (!instanceData?.idInstance) {
+  console.log('[max-webhook] Invalid payload - missing instanceData.idInstance');
+  return successResponse({ status: 'ignored', reason: 'invalid payload' });
+}
+```
+
+#### Файл: `supabase/functions/whatsapp-webhook/index.ts`
+
+Аналогичная проверка для GreenAPI WhatsApp webhook (если там такая же проблема).
 
 ---
 
-### Ожидаемый результат
+### Техническая справка
 
-После синхронизации:
-- `wpp-create` начнёт аутентифицироваться (если `WPP_SECRET` валиден)
-- `max-webhook` будет обрабатывать входящие MAX сообщения
-- `whatsapp-webhook` будет обрабатывать входящие WhatsApp сообщения
-- WPP интеграция заработает для отправки и приёма сообщений
+| Что | Почему |
+|-----|--------|
+| Возвращаем 200 OK вместо 500 | Чтобы Green API не делал повторные попытки для невалидных запросов |
+| Логируем причину | Для диагностики в логах |
+| Проверка `instanceData?.idInstance` | Optional chaining защищает от undefined |
+
+---
+
+### Шаги реализации
+
+1. Добавить валидацию в `max-webhook/index.ts` (строки 36-40)
+2. Проверить и добавить аналогичную валидацию в `whatsapp-webhook/index.ts`
+3. Задеплоить функции через GitHub Actions
+4. Протестировать webhook с тестовым запросом
 
