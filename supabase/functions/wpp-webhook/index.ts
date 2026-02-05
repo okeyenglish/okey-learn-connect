@@ -8,7 +8,7 @@ import {
 } from '../_shared/types.ts'
 
 // Version for debugging stale deployments
-const VERSION = "v2.5.1";
+const VERSION = "v2.5.2";
 const DEPLOYED_AT = "2026-02-05T22:00:00Z";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
@@ -271,13 +271,13 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
   
   console.log('[wpp-webhook] Extracted phone:', phone, 'whatsappChatId:', whatsappChatId)
 
-  // Check if sender is a teacher (by phone or whatsapp_id)
+  // Check if sender is a teacher (by phone)
   const { data: teacherData } = await supabase
     .from('teachers')
     .select('id, first_name, last_name')
     .eq('organization_id', organizationId)
     .eq('is_active', true)
-    .or(`phone.eq.${phone},whatsapp_id.eq.${phone}`)
+    .ilike('phone', `%${phone.slice(-10)}`)
     .maybeSingle()
 
   if (teacherData) {
@@ -312,10 +312,10 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
   
   let { data: client } = await supabase
     .from('clients')
-    .select('id, organization_id, name, phone, whatsapp_id, whatsapp_chat_id')
+    .select('id, organization_id, name, phone')
     .eq('organization_id', organizationId)
     .eq('is_active', true)
-    .or(`phone.eq.${phone},whatsapp_id.eq.${phone},whatsapp_chat_id.eq.${whatsappChatId}`)
+    .ilike('phone', `%${phone.slice(-10)}`)
     .maybeSingle()
 
   console.log('[wpp-webhook] Client search result:', client ? `found: ${client.id} (${client.name})` : 'not found')
@@ -329,8 +329,6 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
         organization_id: organizationId,
         name: phone,
         phone: phone,
-        whatsapp_id: phone,
-        whatsapp_chat_id: whatsappChatId,
         is_active: true,
       })
       .select('id, organization_id, name')
@@ -344,7 +342,7 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
           .from('clients')
           .select('id, organization_id, name')
           .eq('organization_id', organizationId)
-          .or(`phone.eq.${phone},whatsapp_id.eq.${phone}`)
+          .ilike('phone', `%${phone.slice(-10)}`)
           .maybeSingle()
         
         if (existingClient) {
@@ -371,13 +369,11 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
     return
   }
 
-  // Update client: last message time, whatsapp fields
+  // Update client: last message time
   const { error: updateError } = await supabase
     .from('clients')
     .update({ 
       last_message_at: new Date().toISOString(),
-      whatsapp_id: phone,
-      whatsapp_chat_id: whatsappChatId,
     })
     .eq('id', client.id)
 
