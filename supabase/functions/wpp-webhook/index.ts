@@ -240,15 +240,15 @@ async function handleIncomingMessage(data: WppMessageData, organizationId: strin
       teacher_id: teacherData.id,
       client_id: null,
       organization_id: organizationId,
-      content: messageText,
-      direction: isFromMe ? 'outgoing' : 'incoming',
-      message_type: media?.mimetype ? getFileTypeFromMime(media.mimetype) : 'text',
+      message_text: messageText,
+      message_type: isFromMe ? 'manager' : 'client',
+      messenger_type: 'whatsapp',
+      is_outgoing: isFromMe,
       is_read: isFromMe,
-      messenger: 'whatsapp',
-      media_url: media?.url || null,
+      file_url: media?.url || null,
       file_name: media?.filename || null,
-      media_type: media?.mimetype || null,
-      external_id: messageId || (data as any).id || null,
+      file_type: media?.mimetype ? getFileTypeFromMime(media.mimetype) : null,
+      external_message_id: messageId || (data as any).id || null,
     })
     
     return
@@ -312,15 +312,15 @@ async function handleIncomingMessage(data: WppMessageData, organizationId: strin
     .insert({
       client_id: client.id,
       organization_id: organizationId,
-      content: messageText,
-      direction: isFromMe ? 'outgoing' : 'incoming',
-      message_type: media?.mimetype ? getFileTypeFromMime(media.mimetype) : 'text',
+      message_text: messageText,
+      message_type: isFromMe ? 'manager' : 'client',
+      messenger_type: 'whatsapp',
+      is_outgoing: isFromMe,
       is_read: isFromMe,
-      messenger: 'whatsapp',
-      media_url: media?.url || null,
+      file_url: media?.url || null,
       file_name: media?.filename || null,
-      media_type: media?.mimetype || null,
-      external_id: messageId || (data as any).id || null,
+      file_type: media?.mimetype ? getFileTypeFromMime(media.mimetype) : null,
+      external_message_id: messageId || (data as any).id || null,
     })
 
   if (messageError) {
@@ -337,12 +337,12 @@ async function handleMessageStatus(data: any) {
 
   console.log('[wpp-webhook] Message status update:', id || taskId, status)
   
-  // Update message status if we have the external_id
+  // Update message status if we have the external_message_id
   if (status && (id || taskId)) {
     await supabase
       .from('chat_messages')
-      .update({ status: status })
-      .eq('external_id', id || taskId)
+      .update({ message_status: status })
+      .eq('external_message_id', id || taskId)
   }
 }
 
