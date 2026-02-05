@@ -1,75 +1,84 @@
 
-## Добавление регистрации webhook в wpp-create
+## Исправление восстановления удалённых клиентов
 
 ### Проблема
-Функция `wpp-create` не регистрирует webhook на WPP Platform:
+При создании нового чата с телефоном удалённого клиента:
+1. `checkExistingPhone` не находит клиента (из-за формата телефона)
+2. `createClient` выбрасывает ошибку 23505 (unique constraint)
+3. Логика восстановления в catch-блоке не срабатывает корректно
 
-| Функция | Webhook |
-|---------|---------|
-| `wpp-provision` | Регистрирует через `ensureAccountWithQr(sessionName, webhookUrl)` |
-| `wpp-create` | Не регистрирует - вызывает только `startAccount(session)` |
-
-Поэтому при подключении через `wpp-create` WPP Platform не знает куда отправлять входящие сообщения.
+### Причина
+Код проверяет `error?.code === '23505'`, но после этого при fetch клиента или его восстановлении что-то идёт не так, и показывается fallback toast "Ошибка при создании клиента".
 
 ### Решение
 
-#### Изменения в `supabase/functions/wpp-create/index.ts`
+#### `src/components/crm/NewChatModal.tsx`
 
-1. Добавить построение webhook URL после создания клиента
-2. Вызвать `registerWebhook` или использовать `ensureAccountWithQr` вместо `startAccount`
-
-```typescript
-// Строки ~229-236: заменить startAccount на ensureAccountWithQr с webhook
-
-// БЫЛО:
-const wpp = new WppMsgClient({
-  baseUrl: WPP_BASE_URL,
-  apiKey: newClient.apiKey,
-});
-
-const startResult = await wpp.startAccount(newClient.session);
-
-// СТАНЕТ:
-const wpp = new WppMsgClient({
-  baseUrl: WPP_BASE_URL,
-  apiKey: newClient.apiKey,
-});
-
-// Build webhook URL
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-const webhookUrl = `${SUPABASE_URL}/functions/v1/wpp-webhook?account=${newClient.session}`;
-console.log('[wpp-create] Webhook URL:', webhookUrl);
-
-// Start account WITH webhook registration
-const startResult = await wpp.ensureAccountWithQr(newClient.session, webhookUrl, 30);
-```
-
-3. То же самое для существующих интеграций (строки ~137-139):
+Улучшить обработку ошибки 23505:
 
 ```typescript
-// При работе с существующей интеграцией тоже регистрируем webhook
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-const webhookUrl = `${SUPABASE_URL}/functions/v1/wpp-webhook?account=${settings.wppAccountNumber}`;
+// Строки 178-226: улучшить catch-блок
 
-// Регистрируем webhook при старте
-await wpp.registerWebhook(settings.wppAccountNumber, webhookUrl).catch(e => 
-  console.warn('[wpp-create] Webhook registration failed:', e)
-);
+} catch (error: any) {
+  console.error('Error creating client:', error);
+  
+  // Handle unique constraint violation (23505)
+  if (error?.code === '23505' || error?.message?.includes('23505')) {
+    // Extract client ID from error message
+    const idMatch = error?.message?.match(/ID:\s*([a-f0-9-]{36})/i);
+    
+    if (idMatch) {
+      const existingId = idMatch[1];
+      console.log('[NewChatModal] Found existing client ID:', existingId);
+      
+      try {
+        // Fetch existing client
+        const { data: existingClient, error: fetchError } = await supabase
+          .from('clients')
+          .select('id, name, status')
+          .eq('id', existingId)
+          .maybeSingle();  // Использовать maybeSingle вместо single
+        
+        console.log('[NewChatModal] Fetched client:', existingClient, 'error:', fetchError);
+        
+        if (existingClient) {
+          // Restore if deleted, or just navigate
+          if (existingClient.status === 'deleted') {
+            const { error: restoreError } = await supabase
+              .from('clients')
+              .update({ status: 'active', name: newContactData.name })
+              .eq('id', existingId);
+            
+            if (restoreError) {
+              console.error('[NewChatModal] Restore error:', restoreError);
+            } else {
+              invalidateAfterRestore();
+              toast.success(`Чат восстановлен: ${newContactData.name}`);
+            }
+          } else {
+            toast.info(`Клиент найден: ${existingClient.name}`);
+          }
+          
+          onExistingClientFound?.(existingId);
+          setNewContactData({ name: "", phone: "" });
+          setOpen(false);
+          return;  // Важно: return здесь чтобы не показывать ошибку
+        }
+      } catch (restoreError) {
+        console.error('[NewChatModal] Error in restore flow:', restoreError);
+      }
+    }
+  }
+  
+  toast.error("Ошибка при создании клиента");
+}
 ```
 
-### Поток после исправления
+### Ключевые изменения:
+1. Добавить проверку `error?.message?.includes('23505')` как fallback
+2. Использовать `.maybeSingle()` вместо `.single()` чтобы избежать ошибки если клиент не найден
+3. Добавить console.log для отладки
+4. Убедиться что return вызывается после успешного восстановления
 
-```text
-1. Lovable вызывает wpp-create
-2. Создаётся сессия → session = "0000000000001"
-3. Lovable вызывает POST /internal/session/0000000000001/webhook
-   body: { url: "https://api.academyos.ru/functions/v1/wpp-webhook?account=0000000000001" }
-4. WPP Platform сохраняет: webhooks["0000000000001"] = webhook URL
-5. При входящем сообщении → WPP отправляет событие на Lovable
-```
-
-### Результат
-После изменений WPP Platform будет знать куда отправлять:
-- Входящие сообщения (`message.received`)
-- Статусы доставки (`message.sent`, `message.delivered`)  
-- События подключения (`session.connected`, `session.disconnected`)
+### Также исправить в MobileNewChatModal.tsx
+Аналогичные изменения нужно внести в мобильную версию модального окна.
