@@ -160,7 +160,8 @@ export const ChatArea = ({
     : teacherMessagesQueryByClientId;
 
   const normalizedTeacherMessages = useMemo<ChatMessageRow[]>(() => {
-    if (!isTeacherMessages) return [];
+    // Process teacher messages for both legacy (messagesSource='teacher') and direct (teacher:xxx) modes
+    if (!isTeacherMessages && !isDirectTeacherMessage) return [];
     const rows = (teacherMessagesQuery.messages || []) as Array<Record<string, unknown>>;
     const mapped = rows.map((m) => {
       const anyMsg = m as Record<string, any>;
@@ -200,14 +201,17 @@ export const ChatArea = ({
       // Deterministic tie-breaker when created_at is equal
       return String(a.id).localeCompare(String(b.id));
     });
-  }, [clientId, isTeacherMessages, teacherMessagesQuery.messages]);
+  }, [clientId, isTeacherMessages, isDirectTeacherMessage, teacherMessagesQuery.messages]);
 
-  const messagesData = isTeacherMessages
+  // Use teacher messages when either messagesSource='teacher' or clientId starts with 'teacher:'
+  const useTeacherSource = isTeacherMessages || isDirectTeacherMessage;
+  
+  const messagesData = useTeacherSource
     ? { messages: normalizedTeacherMessages, hasMore: false, totalCount: normalizedTeacherMessages.length }
     : defaultMessagesData;
 
-  const loadingMessages = isTeacherMessages ? teacherMessagesQuery.isLoading : defaultLoadingMessages;
-  const fetchingMessages = isTeacherMessages ? teacherMessagesQuery.isFetching : defaultFetchingMessages;
+  const loadingMessages = useTeacherSource ? teacherMessagesQuery.isLoading : defaultLoadingMessages;
+  const fetchingMessages = useTeacherSource ? teacherMessagesQuery.isFetching : defaultFetchingMessages;
 
   const hasMoreMessages = messagesData?.hasMore ?? false;
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
