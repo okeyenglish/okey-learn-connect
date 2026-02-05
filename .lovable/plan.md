@@ -1,167 +1,146 @@
 
-## Анализ проблемы
 
-### Проблема 1: Кнопка "Удалить" не работает
-В `IntegrationsList.tsx` AlertDialogAction автоматически закрывает диалог при клике, что может прерывать async операцию удаления до её завершения.
+## Проблема: QR не доходит до UI
 
-**Текущий код (строка 279-290):**
-```typescript
-<AlertDialogAction
-  onClick={handleDelete}  // Async функция
-  className="bg-destructive..."
-  disabled={isDeleting}
->
-```
+### Текущая ситуация
 
-AlertDialogAction из Radix UI закрывает диалог сразу после клика, не дожидаясь завершения async `handleDelete()`.
+1. **WPP Platform работает корректно** - логи показывают "QR GENERATED FOR: 0000000000004"
+2. **UI polling получает** `{ qr: false, status: 'disconnected' }` - значит QR не возвращается
+3. **Цепочка вызовов:**
+   - UI → `wppQr(session)` → `selfHostedGet('wpp-qr?session=...')`
+   - `wpp-qr` → `wpp.getAccountQr(number)` → `GET /api/accounts/{number}/qr`
+   - Где-то здесь QR теряется
 
-### Проблема 2: WPP сессия застревает в "Ожидание QR-кода"
-`WppConnectPanel` показывает loading с Session: 0000000000003, но QR не появляется. Это может быть связано с:
-- Старой сессией, которую нужно удалить
-- Webhook не зарегистрирован на правильный URL
+### Вероятные причины
 
----
+1. **Эндпоинт `/api/accounts/{number}/qr` возвращает данные в другом формате**
+   - Код ожидает `{ qr: '...' }`, но может быть `{ qrCode: '...' }` или `{ data: { qr: '...' } }`
 
-## План исправления
+2. **Ошибка авторизации при вызове WPP Platform API**
+   - JWT токен может быть невалидным
 
-### 1. Исправить удаление интеграции
+3. **Таймаут или сетевая ошибка** между Edge Function и WPP Platform
 
-**Файл:** `src/components/admin/integrations/IntegrationsList.tsx`
+### План исправления
 
-Заменить AlertDialogAction на обычную Button с ручным управлением закрытием диалога:
+#### 1. Добавить детальное логирование в `wpp-qr`
 
-```typescript
-<AlertDialogFooter>
-  <AlertDialogCancel disabled={isDeleting}>Отмена</AlertDialogCancel>
-  <Button
-    variant="destructive"
-    onClick={async (e) => {
-      e.preventDefault();
-      if (!deleteConfirmId) return;
-      try {
-        await deleteIntegration(deleteConfirmId);
-        setDeleteConfirmId(null);
-      } catch (error) {
-        console.error('Delete failed:', error);
-      }
-    }}
-    disabled={isDeleting}
-  >
-    {isDeleting ? (
-      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-    ) : (
-      <Trash2 className="h-4 w-4 mr-2" />
-    )}
-    Удалить
-  </Button>
-</AlertDialogFooter>
-```
+Файл: `supabase/functions/wpp-qr/index.ts`
 
-Также убрать вызов `deleteIntegration` из `handleDelete`, так как теперь логика inline.
-
-### 2. Исправить WppConnectPanel - добавить "force_recreate"
-
-**Файл:** `src/lib/wppApi.ts`
-
-Добавить опцию `forceRecreate` в `wppCreate`:
+Заменить вызов `getAccountQr` на прямой запрос с логированием:
 
 ```typescript
-export const wppCreate = async (forceRecreate = false): Promise<WppCreateResponse> => {
-  const response = await selfHostedPost<WppCreateResponse>('wpp-create', {
-    force_recreate: forceRecreate
-  });
-  ...
-};
-```
+// Вместо:
+const qr = await wpp.getAccountQr(wppAccountNumber);
 
-**Файл:** `src/components/admin/integrations/WppConnectPanel.tsx`
+// Сделать:
+const qrUrl = `${WPP_BASE_URL}/api/accounts/${encodeURIComponent(wppAccountNumber)}/qr`;
+console.log('[wpp-qr] Fetching QR from:', qrUrl);
 
-Добавить кнопку "Создать новую сессию" для случаев когда текущая застряла:
+const token = await wpp.getToken();
+const qrResponse = await fetch(qrUrl, {
+  headers: { 
+    'Authorization': `Bearer ${token}`,
+    'Accept': 'application/json',
+  },
+});
 
-```typescript
-// В loading state добавить кнопку отмены/пересоздания
-if (status === 'loading') {
-  return (
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex flex-col items-center gap-4 py-8">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Ожидание QR-кода...</p>
-          {connectionData?.session && (
-            <p className="text-xs text-muted-foreground">Session: {connectionData.session}</p>
-          )}
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => {
-              stopPolling();
-              setStatus('idle');
-            }}
-          >
-            Отмена
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
+console.log('[wpp-qr] QR API response status:', qrResponse.status);
+const qrData = await qrResponse.text();
+console.log('[wpp-qr] QR API raw response:', qrData.substring(0, 500));
+
+let qr: string | null = null;
+try {
+  const parsed = JSON.parse(qrData);
+  // Попробовать разные поля
+  qr = parsed.qr || parsed.qrCode || parsed.qrcode || parsed.data?.qr || null;
+  console.log('[wpp-qr] Parsed QR:', qr ? `found (${qr.length} chars)` : 'null');
+} catch (e) {
+  console.error('[wpp-qr] Failed to parse QR response:', e);
 }
 ```
 
----
+#### 2. Добавить логирование ошибок в UI
 
-## Технические изменения
+Файл: `src/components/admin/integrations/WppConnectPanel.tsx`
 
-### Файл 1: `src/components/admin/integrations/IntegrationsList.tsx`
-
-Строки 268-293 - заменить AlertDialogAction на Button с async обработкой:
+В polling убрать catch который скрывает ошибки:
 
 ```typescript
-<AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => {
-  if (!open && !isDeleting) setDeleteConfirmId(null);
-}}>
-  <AlertDialogContent className="z-[9999]">
-    <AlertDialogHeader>
-      <AlertDialogTitle>Удалить интеграцию?</AlertDialogTitle>
-      <AlertDialogDescription>
-        Это действие нельзя отменить. Интеграция будет удалена, и все связанные
-        с ней настройки будут потеряны.
-      </AlertDialogDescription>
-    </AlertDialogHeader>
-    <AlertDialogFooter>
-      <AlertDialogCancel disabled={isDeleting}>Отмена</AlertDialogCancel>
-      <Button
-        variant="destructive"
-        onClick={async () => {
-          if (!deleteConfirmId) return;
-          try {
-            await deleteIntegration(deleteConfirmId);
-            setDeleteConfirmId(null);
-          } catch (error) {
-            console.error('Delete failed:', error);
-          }
-        }}
-        disabled={isDeleting}
-      >
-        {isDeleting ? (
-          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-        ) : (
-          <Trash2 className="h-4 w-4 mr-2" />
-        )}
-        Удалить
-      </Button>
-    </AlertDialogFooter>
-  </AlertDialogContent>
-</AlertDialog>
+// Текущий код скрывает ошибки:
+wppQr(session).catch(() => ({ success: false, qr: null }))
+
+// Заменить на:
+wppQr(session).catch((err) => {
+  console.error('[WppConnectPanel] QR fetch error:', err);
+  return { success: false, qr: null };
+})
 ```
 
-### Файл 2: `src/components/admin/integrations/WppConnectPanel.tsx`
+#### 3. Проверить формат ответа WPP Platform API
 
-Добавить кнопку отмены в loading state (строки 176-189).
+На сервере WPP Platform проверить какой формат возвращает `/api/accounts/{number}/qr`:
 
----
+```bash
+curl -X GET "http://localhost:3000/api/accounts/0000000000004/qr" \
+  -H "Authorization: Bearer <JWT>" | jq .
+```
 
-## Ожидаемый результат
+#### 4. Обновить метод `getAccountQr` в SDK
 
-1. Кнопка "Удалить" будет работать - диалог не закроется до завершения операции
-2. При застревании на "Ожидание QR-кода" можно будет отменить и попробовать снова
-3. Toast уведомления покажут результат операции
+Файл: `supabase/functions/_shared/wpp.ts`
+
+Если формат ответа отличается, обновить парсинг:
+
+```typescript
+async getAccountQr(number: string): Promise<string | null> {
+  const url = `${this.baseUrl}/api/accounts/${encodeURIComponent(number)}/qr`;
+  
+  try {
+    const result = await this._fetch(url, { method: 'GET' });
+    console.log('[WppMsgClient] QR response keys:', Object.keys(result));
+    
+    // Поддержка разных форматов ответа
+    const qr = result.qr || result.qrCode || result.qrcode || result.data?.qr || null;
+    console.log('[WppMsgClient] QR extracted:', qr ? 'yes' : 'no');
+    return qr;
+  } catch (error) {
+    console.error(`[WppMsgClient] Get QR error:`, error);
+    return null;
+  }
+}
+```
+
+### Технические изменения
+
+#### Файл 1: `supabase/functions/wpp-qr/index.ts`
+- Добавить детальное логирование HTTP ответа от WPP Platform
+- Поддержка разных форматов ответа (`qr`, `qrCode`, `qrcode`, `data.qr`)
+
+#### Файл 2: `src/components/admin/integrations/WppConnectPanel.tsx`
+- Логировать ошибки вместо их подавления в catch
+
+#### Файл 3: `supabase/functions/_shared/wpp.ts`
+- Обновить `getAccountQr()` для поддержки разных форматов
+
+### После деплоя
+
+```bash
+# Скопировать обновленные функции
+rsync -avz ./supabase/functions/wpp-qr/ root@185.23.35.9:/home/automation/supabase-project/volumes/functions/wpp-qr/
+rsync -avz ./supabase/functions/_shared/ root@185.23.35.9:/home/automation/supabase-project/volumes/functions/_shared/
+
+# Рестарт
+docker compose restart functions
+
+# Проверить логи
+docker compose logs functions --tail 100 | grep wpp-qr
+```
+
+### Ожидаемый результат
+
+После этих изменений:
+1. Логи покажут точную причину почему QR не возвращается
+2. Если проблема в формате - автоматически исправится поддержкой разных полей
+3. UI будет логировать ошибки для отладки
+
