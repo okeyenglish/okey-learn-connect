@@ -57,7 +57,16 @@ export const useWhatsApp = () => {
 
       if (!integrationError && integration) {
         const settings = integration.settings as Record<string, any> | null;
-        const provider = (integration.provider_type || 'greenapi') as 'greenapi' | 'wpp' | 'wappi';
+        // Self-hosted uses 'provider', Lovable Cloud might use 'provider_type'
+        const rawProvider = (integration as any).provider || (integration as any).provider_type || 'greenapi';
+        const provider = rawProvider as 'greenapi' | 'wpp' | 'wappi';
+        
+        console.log('[useWhatsApp] Integration found:', { 
+          name: integration.name, 
+          provider, 
+          rawProvider: (integration as any).provider,
+          is_primary: integration.is_primary 
+        });
         
         console.log('[useWhatsApp] Using messenger_integrations, provider:', provider, 'name:', integration.name);
         
@@ -123,12 +132,14 @@ export const useWhatsApp = () => {
     retryStatus.reset();
     
     try {
-      console.log('Sending WhatsApp message:', params);
+      console.log('[useWhatsApp] Sending WhatsApp message:', params);
 
       // Получаем настройки для определения провайдера
       const settings = await getMessengerSettings();
       const provider = settings?.provider || 'greenapi';
       const functionName = provider === 'wpp' ? 'wpp-send' : provider === 'wappi' ? 'wappi-whatsapp-send' : 'whatsapp-send';
+      
+      console.log('[useWhatsApp] Resolved provider:', provider, '-> calling:', functionName);
 
       // Create retry config with UI callbacks
       const retryConfig: RetryConfig = {
