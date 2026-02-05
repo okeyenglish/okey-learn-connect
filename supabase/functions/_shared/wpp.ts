@@ -372,14 +372,18 @@ export class WppMsgClient {
 
   /**
    * Send text message
-   * POST /api/messages/text { account, to, text, priority }
+   * POST /api/messages { type: "text", to, text }
    */
   async sendText(account: string, to: string, text: string, priority?: 'high' | 'normal' | 'low'): Promise<WppTaskResult> {
-    const url = `${this.baseUrl}/api/messages/text`;
+    const url = `${this.baseUrl}/api/messages`;
     
     const result = await this._fetch(url, {
       method: 'POST',
-      body: JSON.stringify({ account, to, text, priority }),
+      body: JSON.stringify({ 
+        type: 'text',
+        to, 
+        text,
+      }),
     });
 
     return {
@@ -392,17 +396,17 @@ export class WppMsgClient {
 
   /**
    * Send image message
-   * POST /api/messages/image { account, to, base64, caption }
+   * POST /api/messages { type: "image", to, url, caption }
    */
-  async sendImage(account: string, to: string, imageData: string, caption?: string): Promise<WppTaskResult> {
-    const url = `${this.baseUrl}/api/messages/image`;
+  async sendImage(account: string, to: string, imageUrl: string, caption?: string): Promise<WppTaskResult> {
+    const url = `${this.baseUrl}/api/messages`;
     
     const result = await this._fetch(url, {
       method: 'POST',
       body: JSON.stringify({ 
-        account, 
+        type: 'image',
         to, 
-        base64: imageData,
+        url: imageUrl,
         caption: caption || '',
       }),
     });
@@ -417,18 +421,19 @@ export class WppMsgClient {
 
   /**
    * Send video message
-   * POST /api/messages/video { account, to, base64, caption }
+   * POST /api/messages { type: "file", to, url, filename }
    */
-  async sendVideo(account: string, to: string, videoData: string, caption?: string): Promise<WppTaskResult> {
-    const url = `${this.baseUrl}/api/messages/video`;
+  async sendVideo(account: string, to: string, videoUrl: string, caption?: string): Promise<WppTaskResult> {
+    const url = `${this.baseUrl}/api/messages`;
     
+    // Video отправляется как file
     const result = await this._fetch(url, {
       method: 'POST',
       body: JSON.stringify({ 
-        account, 
+        type: 'file',
         to, 
-        base64: videoData,
-        caption: caption || '',
+        url: videoUrl,
+        filename: 'video.mp4',
       }),
     });
 
@@ -442,17 +447,17 @@ export class WppMsgClient {
 
   /**
    * Send file/document message
-   * POST /api/messages/file { account, to, base64, filename }
+   * POST /api/messages { type: "file", to, url, filename }
    */
-  async sendFile(account: string, to: string, fileData: string, filename: string): Promise<WppTaskResult> {
-    const url = `${this.baseUrl}/api/messages/file`;
+  async sendFile(account: string, to: string, fileUrl: string, filename: string): Promise<WppTaskResult> {
+    const url = `${this.baseUrl}/api/messages`;
     
     const result = await this._fetch(url, {
       method: 'POST',
       body: JSON.stringify({ 
-        account, 
+        type: 'file',
         to, 
-        base64: fileData,
+        url: fileUrl,
         filename,
       }),
     });
@@ -467,17 +472,19 @@ export class WppMsgClient {
 
   /**
    * Send audio message
-   * POST /api/messages/audio { account, to, base64 }
+   * POST /api/messages { type: "file", to, url, filename }
    */
-  async sendAudio(account: string, to: string, audioData: string): Promise<WppTaskResult> {
-    const url = `${this.baseUrl}/api/messages/audio`;
+  async sendAudio(account: string, to: string, audioUrl: string): Promise<WppTaskResult> {
+    const url = `${this.baseUrl}/api/messages`;
     
+    // Audio отправляется как file
     const result = await this._fetch(url, {
       method: 'POST',
       body: JSON.stringify({ 
-        account, 
+        type: 'file',
         to, 
-        base64: audioData,
+        url: audioUrl,
+        filename: 'audio.mp3',
       }),
     });
 
