@@ -52,12 +52,12 @@ export const MobileNewChatModal = ({
       // Normalize phone for comparison (last 10 digits)
       const normalizedPhone = phone.replace(/\D/g, '').slice(-10);
       
-      // First check for active clients
+      // First check for active clients (is_active = true on self-hosted)
       const { data: activeClients, error: activeError } = await supabase
         .from('clients')
-        .select('id, name, phone, email, status')
+        .select('id, name, phone, email, is_active')
         .or(`phone.ilike.%${normalizedPhone}%`)
-        .neq('status', 'deleted')
+        .eq('is_active', true)
         .limit(5);
       
       if (activeError) throw activeError;
@@ -72,12 +72,12 @@ export const MobileNewChatModal = ({
         return 'found';
       }
       
-      // Check for deleted clients - restore if found
+      // Check for deleted clients (is_active = false) - restore if found
       const { data: deletedClients, error: deletedError } = await supabase
         .from('clients')
         .select('id, name, phone, email')
         .or(`phone.ilike.%${normalizedPhone}%`)
-        .eq('status', 'deleted')
+        .eq('is_active', false)
         .limit(5);
       
       if (deletedError) throw deletedError;
@@ -88,7 +88,7 @@ export const MobileNewChatModal = ({
         // Restore the deleted client
         const { error: restoreError } = await supabase
           .from('clients')
-          .update({ status: 'active' })
+          .update({ is_active: true })
           .eq('id', deletedClient.id);
         
         if (restoreError) throw restoreError;
@@ -142,17 +142,18 @@ export const MobileNewChatModal = ({
             try {
               const { data: existingClient, error: fetchError } = await supabase
                 .from('clients')
-                .select('id, name, status')
+                .select('id, name, is_active')
                 .eq('id', existingId)
                 .maybeSingle();
               
               console.log('[MobileNewChatModal] Fetched client:', existingClient, 'error:', fetchError);
               
               if (existingClient) {
-                if (existingClient.status === 'deleted') {
+                // is_active = false means deleted on self-hosted
+                if (existingClient.is_active === false) {
                   const { error: restoreError } = await supabase
                     .from('clients')
-                    .update({ status: 'active', name: newContactData.name })
+                    .update({ is_active: true, name: newContactData.name })
                     .eq('id', existingId);
                   
                   if (restoreError) {

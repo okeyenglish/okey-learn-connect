@@ -15,10 +15,11 @@ export const useDeletedChats = () => {
   return useQuery({
     queryKey: ['deleted-chats'],
     queryFn: async () => {
+      // Self-hosted uses is_active (boolean) instead of status (string)
       const { data, error } = await supabase
         .from('clients')
         .select('id, name, phone, branch, last_message_at, updated_at')
-        .eq('status', 'deleted')
+        .eq('is_active', false)
         .order('updated_at', { ascending: false });
 
       if (error) {
@@ -37,9 +38,10 @@ export const useRestoreChat = () => {
 
   return useMutation({
     mutationFn: async (chatId: string) => {
+      // Self-hosted uses is_active (boolean) instead of status (string)
       const { error } = await supabase
         .from('clients')
-        .update({ status: 'active' })
+        .update({ is_active: true })
         .eq('id', chatId);
 
       if (error) throw error;
