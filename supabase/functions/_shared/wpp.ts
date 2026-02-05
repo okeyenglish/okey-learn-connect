@@ -149,6 +149,10 @@ export class WppMsgClient {
 
     if (!res.ok) {
       const text = await res.text();
+      // Специальная обработка невалидного API key
+      if (text.includes('Invalid API key') || res.status === 401) {
+        throw new Error('INVALID_API_KEY: API key expired or invalid. Use force_recreate to generate new session.');
+      }
       throw new Error(`Failed to get token: ${res.status} ${text}`);
     }
 
