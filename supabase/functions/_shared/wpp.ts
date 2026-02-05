@@ -367,101 +367,132 @@ export class WppMsgClient {
   }
 
   // ==========================================================================
-  // Messaging
+  // Messaging (WPPConnect Server API format)
   // ==========================================================================
 
   /**
    * Send text message
-   * POST /api/messages/text { account, to, text }
+   * WPPConnect: POST /api/{session}/send-message { phone, message, isGroup }
    */
   async sendText(account: string, to: string, text: string, priority?: 'high' | 'normal' | 'low'): Promise<WppTaskResult> {
-    const url = `${this.baseUrl}/api/messages/text`;
+    const url = `${this.baseUrl}/api/${encodeURIComponent(account)}/send-message`;
     
     const result = await this._fetch(url, {
       method: 'POST',
-      body: JSON.stringify({ account, to, text, priority }),
+      body: JSON.stringify({ 
+        phone: to, 
+        isGroup: false,
+        message: text,
+      }),
     });
 
     return {
-      success: result.success !== false,
-      taskId: result.taskId,
+      success: result.status !== 'error',
+      taskId: result.ids?.[0]?.id || result.id,
       status: result.status,
+      error: result.message,
     };
   }
 
   /**
    * Send image message
-   * POST /api/messages/image { account, to, url, caption }
+   * WPPConnect: POST /api/{session}/send-image { phone, path, caption, isGroup }
    */
   async sendImage(account: string, to: string, imageUrl: string, caption?: string): Promise<WppTaskResult> {
-    const url = `${this.baseUrl}/api/messages/image`;
+    const url = `${this.baseUrl}/api/${encodeURIComponent(account)}/send-image`;
     
     const result = await this._fetch(url, {
       method: 'POST',
-      body: JSON.stringify({ account, to, url: imageUrl, caption }),
+      body: JSON.stringify({ 
+        phone: to, 
+        isGroup: false,
+        filename: 'image',
+        caption: caption || '',
+        path: imageUrl,
+      }),
     });
 
     return {
-      success: result.success !== false,
-      taskId: result.taskId,
+      success: result.status !== 'error',
+      taskId: result.ids?.[0]?.id || result.id,
       status: result.status,
+      error: result.message,
     };
   }
 
   /**
    * Send video message
-   * POST /api/messages/video { account, to, url }
+   * WPPConnect: POST /api/{session}/send-file { phone, path, filename, caption, isGroup }
    */
   async sendVideo(account: string, to: string, videoUrl: string, caption?: string): Promise<WppTaskResult> {
-    const url = `${this.baseUrl}/api/messages/video`;
+    const url = `${this.baseUrl}/api/${encodeURIComponent(account)}/send-file`;
     
     const result = await this._fetch(url, {
       method: 'POST',
-      body: JSON.stringify({ account, to, url: videoUrl, caption }),
+      body: JSON.stringify({ 
+        phone: to, 
+        isGroup: false,
+        filename: 'video.mp4',
+        caption: caption || '',
+        path: videoUrl,
+      }),
     });
 
     return {
-      success: result.success !== false,
-      taskId: result.taskId,
+      success: result.status !== 'error',
+      taskId: result.ids?.[0]?.id || result.id,
       status: result.status,
+      error: result.message,
     };
   }
 
   /**
    * Send file/document message
-   * POST /api/messages/file { account, to, url, filename }
+   * WPPConnect: POST /api/{session}/send-file { phone, path, filename, isGroup }
    */
   async sendFile(account: string, to: string, fileUrl: string, filename: string): Promise<WppTaskResult> {
-    const url = `${this.baseUrl}/api/messages/file`;
+    const url = `${this.baseUrl}/api/${encodeURIComponent(account)}/send-file`;
     
     const result = await this._fetch(url, {
       method: 'POST',
-      body: JSON.stringify({ account, to, url: fileUrl, filename }),
+      body: JSON.stringify({ 
+        phone: to, 
+        isGroup: false,
+        filename: filename,
+        path: fileUrl,
+      }),
     });
 
     return {
-      success: result.success !== false,
-      taskId: result.taskId,
+      success: result.status !== 'error',
+      taskId: result.ids?.[0]?.id || result.id,
       status: result.status,
+      error: result.message,
     };
   }
 
   /**
    * Send audio message
-   * POST /api/messages/audio { account, to, url }
+   * WPPConnect: POST /api/{session}/send-file { phone, path, filename, isGroup }
    */
   async sendAudio(account: string, to: string, audioUrl: string): Promise<WppTaskResult> {
-    const url = `${this.baseUrl}/api/messages/audio`;
+    const url = `${this.baseUrl}/api/${encodeURIComponent(account)}/send-file`;
     
     const result = await this._fetch(url, {
       method: 'POST',
-      body: JSON.stringify({ account, to, url: audioUrl }),
+      body: JSON.stringify({ 
+        phone: to, 
+        isGroup: false,
+        filename: 'audio.mp3',
+        path: audioUrl,
+      }),
     });
 
     return {
-      success: result.success !== false,
-      taskId: result.taskId,
+      success: result.status !== 'error',
+      taskId: result.ids?.[0]?.id || result.id,
       status: result.status,
+      error: result.message,
     };
   }
 
