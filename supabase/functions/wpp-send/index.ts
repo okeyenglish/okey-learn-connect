@@ -202,28 +202,60 @@ Deno.serve(async (req) => {
     
     console.log('[wpp-send] Saving message to DB, clientId:', clientId, 'orgId:', orgId)
     
-    const { data: savedMessage, error: saveError } = await supabase
+    // Save message to database with resilient insert
+    let savedMessage: any = null
+    let saveError: any = null
+
+    // First attempt with all columns (self-hosted schema)
+    const fullInsert = {
+      client_id: clientId,
+      organization_id: orgId,
+      message_text: messageText,
+      is_outgoing: true,
+      message_type: 'manager',
+      messenger_type: 'whatsapp',
+      message_status: messageStatus,
+      external_message_id: wppResult.taskId || null,
+      is_read: true,
+      file_url: fileUrl || null,
+      file_name: fileName || null,
+      file_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null,
+      sender_id: user.id,
+    }
+
+    const result1 = await supabase
       .from('chat_messages')
-      .insert({
+      .insert(fullInsert)
+      .select()
+      .maybeSingle()
+
+    if (result1.error) {
+      console.warn('[wpp-send] Full insert failed, trying minimal:', result1.error.message)
+      
+      // Fallback: minimal columns only (compatible with any schema)
+      const minimalInsert = {
         client_id: clientId,
         organization_id: orgId,
         message_text: messageText,
         is_outgoing: true,
-        message_type: 'manager',
-        messenger_type: 'whatsapp',
-        message_status: messageStatus,
-        external_message_id: wppResult.taskId || null,
         is_read: true,
-        file_url: fileUrl || null,
-        file_name: fileName || null,
-        file_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null,
-        sender_id: user.id,
-      })
-      .select()
-      .single()
+        external_message_id: wppResult.taskId || null,
+      }
+      
+      const result2 = await supabase
+        .from('chat_messages')
+        .insert(minimalInsert)
+        .select()
+        .maybeSingle()
+      
+      savedMessage = result2.data
+      saveError = result2.error
+    } else {
+      savedMessage = result1.data
+    }
 
     if (saveError) {
-      console.error('[wpp-send] Error saving message to database:', saveError)
+      console.error('[wpp-send] Error saving message to database:', JSON.stringify(saveError))
     } else {
       console.log('[wpp-send] Message saved, id:', savedMessage?.id)
     }
