@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useTeacherChats, useEnsureTeacherClient, TeacherChatItem } from '@/hooks/useTeacherChats';
+import { useTeacherConversations } from '@/hooks/useTeacherConversations';
 import { useTeacherPinnedDB } from '@/hooks/useTeacherPinnedDB';
 import { useSharedTeacherChatStates } from '@/hooks/useSharedTeacherChatStates';
 import { useToast } from '@/hooks/use-toast';
@@ -76,6 +77,48 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const { teachers: dbTeachers, isLoading: isLoadingTeachers, totalTeachers, refetch: refetchTeachers } = useTeacherChats(null);
   const { findOrCreateClient } = useEnsureTeacherClient();
   
+  // Also load teacher conversations data (uses teacher_id directly in chat_messages)
+  // This works on self-hosted where messages are stored with teacher_id
+  const { conversations: teacherConversations, refetch: refetchConversations } = useTeacherConversations();
+  
+  // Merge teacher conversations data into dbTeachers for display
+  const teachersWithMessages = useMemo(() => {
+    if (!dbTeachers) return [];
+    
+    // Build a map of teacher_id -> conversation data
+    const conversationMap = new Map<string, typeof teacherConversations[0]>();
+    (teacherConversations || []).forEach(conv => {
+      conversationMap.set(conv.teacherId, conv);
+    });
+    
+    // Merge conversation data into teacher records
+    return dbTeachers.map(teacher => {
+      const conv = conversationMap.get(teacher.id);
+      if (conv) {
+        // Use conversation data if available
+        return {
+          ...teacher,
+          unreadMessages: conv.unreadCount,
+          lastMessageTime: conv.lastMessageTime,
+          lastMessageText: conv.lastMessageText,
+          lastMessengerType: conv.lastMessengerType,
+          lastSeen: conv.lastMessageTime 
+            ? new Date(conv.lastMessageTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+            : teacher.lastSeen,
+          // Set a special marker for direct teacher_id messages
+          clientId: teacher.clientId || (conv.lastMessageTime ? `teacher:${teacher.id}` : null),
+        };
+      }
+      return teacher;
+    });
+  }, [dbTeachers, teacherConversations]);
+  
+  // Combined refetch function for both data sources
+  const refetchAllTeacherData = useCallback(() => {
+    refetchTeachers();
+    refetchConversations();
+  }, [refetchTeachers, refetchConversations]);
+  
   // Get all teacher IDs for shared states hook
   const teacherIds = useMemo(() => dbTeachers?.map(t => t.id) || [], [dbTeachers]);
   
@@ -137,7 +180,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       }
 
       // Find teacher by id and get their clientId
-      const teacher = dbTeachers.find(t => t.id === selectedTeacherId);
+      const teacher = teachersWithMessages.find(t => t.id === selectedTeacherId);
       if (!teacher) { 
         // Teacher not loaded yet - will resolve when teachers load
         return; 
@@ -176,9 +219,9 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     };
     
     resolve();
-  }, [selectedTeacherId, userBranch, dbTeachers, findOrCreateClient]);
+  }, [selectedTeacherId, userBranch, teachersWithMessages, findOrCreateClient]);
 
-  const teachers = dbTeachers || [];
+  const teachers = teachersWithMessages || [];
   
   // Extract unique branches and subjects for filters
   const uniqueBranches = useMemo(() => {
@@ -312,11 +355,11 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       });
       
       // Invalidate queries to refresh UI
-      refetchTeachers();
+      refetchAllTeacherData();
     } catch (error) {
       console.error('Error in handleMarkUnread:', error);
     }
-  }, [teachers, toast, refetchTeachers]);
+  }, [teachers, toast, refetchAllTeacherData]);
 
   const handleMarkRead = useCallback(async (teacherId: string) => {
     // Find the teacher to get their clientId
@@ -359,11 +402,11 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       });
       
       // Invalidate queries to refresh UI
-      refetchTeachers();
+      refetchAllTeacherData();
     } catch (error) {
       console.error('Error in handleMarkRead:', error);
     }
-  }, [teachers, toast, refetchTeachers]);
+  }, [teachers, toast, refetchAllTeacherData]);
 
   const handlePinDialog = useCallback(async (teacherId: string) => {
     const isPinned = pinnedTeacherIds.has(teacherId);
