@@ -1,45 +1,77 @@
 
 
-## План: Синхронизация схемы БД для messenger_integrations
+## Исправление дублирующихся объявлений в Edge Functions
 
-### Диагностика
+### Проблема
+На self-hosted сервере Edge Functions не загружаются из-за синтаксических ошибок:
+- `Identifier 'maxUserId' has already been declared` в max-webhook
+- `Identifier 'normalizePhone' has already been declared` в whatsapp-webhook
 
-Подтверждено несоответствие схемы:
-- **Self-hosted БД**: использует колонку `is_enabled`
-- **Код Edge Functions**: использует колонку `is_active`
+### Причина
+Дублирующиеся объявления переменных/функций в одном файле.
 
-### Решение
+---
 
-Добавить колонку `is_active` в self-hosted БД и синхронизировать данные из `is_enabled`.
+### Исправление 1: max-webhook/index.ts
 
-### SQL миграция для self-hosted
+**Строка 227** - удалить повторное объявление `const maxUserId`:
 
-Выполни на сервере:
+```typescript
+// БЫЛО (строка 227):
+const maxUserId = extractPhoneFromChatId(chatId);
 
-```bash
-docker exec -it supabase-db psql -U postgres -d postgres -c "
--- Добавить колонку is_active
-ALTER TABLE messenger_integrations ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
-
--- Синхронизировать значения из is_enabled
-UPDATE messenger_integrations SET is_active = is_enabled WHERE is_active IS NULL;
-"
+// СТАНЕТ:
+const maxUserIdForSync = extractPhoneFromChatId(chatId);
 ```
 
-### Проверка после миграции
-
-```bash
-# Проверить что колонка добавлена
-docker exec -it supabase-db psql -U postgres -d postgres -c "SELECT id, name, is_enabled, is_active FROM messenger_integrations;"
+И обновить вызов ниже:
+```typescript
+await syncTeacherFromClient(supabase, client.id, {
+  phone: senderPhoneNumber ? String(senderPhoneNumber) : null,
+  maxUserId: maxUserIdForSync,  // <- использовать новое имя
+  maxChatId: chatId
+});
 ```
 
-### Изменения в коде
+---
 
-Изменения в коде **не требуются** - код уже использует `is_active`, нужно только обновить схему БД.
+### Исправление 2: whatsapp-webhook/index.ts
+
+Объединить две функции `normalizePhone` в одну (строки 637-640 и 1159-1164):
+
+**Оставить одну функцию** в начале файла (после импортов):
+```typescript
+function normalizePhone(phone: string | null | undefined): string {
+  if (!phone) return '';
+  let cleaned = phone.replace(/\D/g, '');
+  // Normalize 8XXXXXXXXXX to 7XXXXXXXXXX for Russian numbers
+  if (cleaned.length === 11 && cleaned.startsWith('8')) {
+    cleaned = '7' + cleaned.slice(1);
+  }
+  return cleaned;
+}
+```
+
+**Удалить вторую функцию** на строках 1159-1171.
+
+---
 
 ### Порядок выполнения
 
-1. Выполнить SQL миграцию на self-hosted
-2. Проверить что колонка добавлена
-3. Протестировать подключение WhatsApp через UI
+1. Исправить max-webhook/index.ts (переименовать переменную)
+2. Исправить whatsapp-webhook/index.ts (удалить дубликат функции)
+3. Развернуть на self-hosted сервер
+4. Перезапустить Edge Functions контейнер
+5. Протестировать подключение WhatsApp
+
+---
+
+### Техническая заметка
+
+После применения изменений выполнить на сервере:
+```bash
+cd /home/automation/supabase-project
+docker compose restart functions
+docker logs supabase-edge-functions 2>&1 | grep -i "error" | tail -20
+```
 
