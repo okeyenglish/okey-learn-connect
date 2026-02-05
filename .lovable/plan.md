@@ -1,115 +1,83 @@
 
-## Исправление wpp-webhook для совместимости с self-hosted схемой
+## Исправление ошибки PGRST203: Конфликт перегрузок get_chat_threads_paginated
 
 ### Проблема
-Self-hosted база данных НЕ имеет колонок `whatsapp_id` и `whatsapp_chat_id` в таблице `clients`. При попытке создать или обновить клиента с этими полями возникает ошибка `PGRST204`.
+PostgREST не может выбрать между двумя версиями функции:
+- `get_chat_threads_paginated(p_limit, p_offset)` — 2 параметра
+- `get_chat_threads_paginated(p_limit, p_offset, p_search)` — 3 параметра
+
+При вызове с 2 параметрами обе функции подходят, что вызывает ошибку PGRST203.
 
 ### Решение
-Обновить `supabase/functions/wpp-webhook/index.ts` чтобы:
 
-1. **Поиск клиента** - искать только по `phone` (строка ~315-319)
-2. **Создание клиента** - не указывать `whatsapp_id`, `whatsapp_chat_id` (строки ~328-335)
-3. **Обновление клиента** - убрать `whatsapp_id`, `whatsapp_chat_id` (строки ~375-381)
-4. **SELECT клиента** - убрать эти поля из выборки (строка ~315)
+#### Часть 1: Frontend — добавить PGRST203 в circuit breaker (временная мера)
 
-### Изменения в коде
+**Файл:** `src/hooks/useChatThreadsInfinite.ts`
 
-**Файл:** `supabase/functions/wpp-webhook/index.ts`
+Добавить код `PGRST203` в список ошибок, при которых отключается RPC:
 
-**Строки 313-319 (поиск клиента):**
-```typescript
-// До:
-let { data: client } = await supabase
-  .from('clients')
-  .select('id, organization_id, name, phone, whatsapp_id, whatsapp_chat_id')
-  .eq('organization_id', organizationId)
-  .eq('is_active', true)
-  .or(`phone.eq.${phone},whatsapp_id.eq.${phone},whatsapp_chat_id.eq.${whatsappChatId}`)
-  .maybeSingle()
+```text
+Строки 94-95 (до):
+if (error.code === '42883' || error.code === 'PGRST202' || error.code === '42703') {
 
-// После:
-let { data: client } = await supabase
-  .from('clients')
-  .select('id, organization_id, name, phone')
-  .eq('organization_id', organizationId)
-  .eq('is_active', true)
-  .ilike('phone', `%${phone.slice(-10)}`)  // Поиск по последним 10 цифрам
-  .maybeSingle()
+Строки 94-95 (после):
+if (error.code === '42883' || error.code === 'PGRST202' || error.code === '42703' || error.code === 'PGRST203') {
 ```
 
-**Строки 326-337 (создание клиента):**
-```typescript
-// До:
-const { data: newClient, error: createError } = await supabase
-  .from('clients')
-  .insert({
-    organization_id: organizationId,
-    name: phone,
-    phone: phone,
-    whatsapp_id: phone,
-    whatsapp_chat_id: whatsappChatId,
-    is_active: true,
-  })
+Также добавить в строку 143:
+```text
+if (error?.code === '42883' || error?.code === 'PGRST202' || error?.code === '42703') return false;
 
-// После:
-const { data: newClient, error: createError } = await supabase
-  .from('clients')
-  .insert({
-    organization_id: organizationId,
-    name: phone,
-    phone: phone,
-    is_active: true,
-  })
+→
+
+if (error?.code === '42883' || error?.code === 'PGRST202' || error?.code === '42703' || error?.code === 'PGRST203') return false;
 ```
 
-**Строки 375-386 (обновление клиента):**
-```typescript
-// До:
-const { error: updateError } = await supabase
-  .from('clients')
-  .update({ 
-    last_message_at: new Date().toISOString(),
-    whatsapp_id: phone,
-    whatsapp_chat_id: whatsappChatId,
-  })
-  .eq('id', client.id)
+#### Часть 2: SQL скрипт для self-hosted — удалить дубликат функции
 
-// После:
-const { error: updateError } = await supabase
-  .from('clients')
-  .update({ 
-    last_message_at: new Date().toISOString(),
-  })
-  .eq('id', client.id)
+**Создать файл:** `docs/fix-chat-threads-paginated-overload.sql`
+
+```sql
+-- Исправление ошибки PGRST203: удаление перегруженной версии функции
+-- Выполнить на self-hosted Supabase (api.academyos.ru)
+
+-- 1. Удалить ВСЕ версии функции (включая с p_search)
+DROP FUNCTION IF EXISTS public.get_chat_threads_paginated(integer, integer);
+DROP FUNCTION IF EXISTS public.get_chat_threads_paginated(integer, integer, text);
+DROP FUNCTION IF EXISTS public.get_chat_threads_paginated(p_limit integer, p_offset integer);
+DROP FUNCTION IF EXISTS public.get_chat_threads_paginated(p_limit integer, p_offset integer, p_search text);
+
+-- 2. Пересоздать только 2-параметровую версию
+CREATE FUNCTION get_chat_threads_paginated(...)
+-- (полная реализация функции из последней миграции)
+
+-- 3. Выдать права
+GRANT EXECUTE ON FUNCTION get_chat_threads_paginated(integer, integer) TO authenticated;
+
+-- 4. Проверить что осталась только одна версия
+SELECT proname, pronargs, proargtypes 
+FROM pg_proc 
+WHERE proname = 'get_chat_threads_paginated';
 ```
 
-**Также обновить строки 343-348 (поиск при unique constraint):**
-```typescript
-// До:
-.or(`phone.eq.${phone},whatsapp_id.eq.${phone}`)
+### Деплой
 
-// После:
-.ilike('phone', `%${phone.slice(-10)}`)
-```
-
-**Обновить VERSION на `v2.5.2`**
-
-### После деплоя
-```bash
-rsync -avz ./supabase/functions/ \
-  automation@api.academyos.ru:/home/automation/supabase-project/volumes/functions/
-
-docker compose restart functions
-
-docker compose logs functions | grep wpp-webhook | tail -15
-```
+1. **Frontend**: Автоматически деплоится при коммите
+2. **SQL**: Запустить вручную на self-hosted:
+   ```bash
+   docker compose exec db psql -U postgres -d postgres -f /path/to/fix-chat-threads-paginated-overload.sql
+   ```
+   Или через SQL editor в Supabase Studio.
 
 ### Ожидаемый результат
-```
-[wpp-webhook][v2.5.2] Event type: chat Account: 0000000000009
-[wpp-webhook] Searching for client with org: ... phone: 79852615056
-[wpp-webhook] Client search result: not found
-[wpp-webhook] Creating new client for: 79852615056
-[wpp-webhook] New client created: <uuid>
-[wpp-webhook] ✅ Message saved: <uuid> for client: <uuid>
-```
+
+- Ошибка PGRST203 исчезнет
+- Чаты будут загружаться корректно
+- В базе останется только одна версия функции
+
+### Технические детали
+
+| Изменение | Файл | Описание |
+|-----------|------|----------|
+| Circuit breaker | `src/hooks/useChatThreadsInfinite.ts` | Добавить PGRST203 в список обрабатываемых ошибок |
+| SQL fix | `docs/fix-chat-threads-paginated-overload.sql` | Скрипт удаления дубликата функции |
