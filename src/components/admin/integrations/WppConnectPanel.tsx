@@ -183,6 +183,16 @@ export const WppConnectPanel: React.FC<WppConnectPanelProps> = ({ onConnected })
             {connectionData?.session && (
               <p className="text-xs text-muted-foreground">Session: {connectionData.session}</p>
             )}
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                stopPolling();
+                setStatus('idle');
+              }}
+            >
+              Отмена
+            </Button>
           </div>
         </CardContent>
       </Card>

@@ -265,7 +265,9 @@ export const IntegrationsList: React.FC<IntegrationsListProps> = ({
       )}
 
       {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => {
+        if (!open && !isDeleting) setDeleteConfirmId(null);
+      }}>
         <AlertDialogContent className="z-[9999]">
           <AlertDialogHeader>
             <AlertDialogTitle>Удалить интеграцию?</AlertDialogTitle>
@@ -275,10 +277,18 @@ export const IntegrationsList: React.FC<IntegrationsListProps> = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            <AlertDialogCancel disabled={isDeleting}>Отмена</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!deleteConfirmId) return;
+                try {
+                  await deleteIntegration(deleteConfirmId);
+                  setDeleteConfirmId(null);
+                } catch (error) {
+                  console.error('Delete failed:', error);
+                }
+              }}
               disabled={isDeleting}
             >
               {isDeleting ? (
@@ -287,7 +297,7 @@ export const IntegrationsList: React.FC<IntegrationsListProps> = ({
                 <Trash2 className="h-4 w-4 mr-2" />
               )}
               Удалить
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
