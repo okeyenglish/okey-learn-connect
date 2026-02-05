@@ -1,72 +1,71 @@
 
 
-## План: Исправить wpp-send для сохранения сообщений в БД
+## План: Диагностика и исправление отправки сообщений через WPP
 
-### Диагноз проблемы
-1. Фронтенд корректно определяет провайдер WPP и вызывает `wpp-send`
-2. WPP Platform отвечает успешно (`taskId` возвращается)
-3. **НО**: Сообщение не сохраняется в `chat_messages` на сервере
-4. **Причина**: На сервере старая версия `wpp-send/index.ts` без кода сохранения в БД
+### Обнаруженная проблема
+В логах сервера и сетевых запросах браузера **нет ни одного вызова к `wpp-send`**. При этом другие edge функции (`get-call-logs`, `max-webhook`) работают нормально.
 
-### Решение
+### Вероятная причина
+Фронтенд запрашивает таблицу `messenger_integrations`, но:
+1. Либо таблица пустая/не содержит записи с `provider = 'wpp'`
+2. Либо есть несколько записей и выбирается не та (GreenAPI вместо WPP)
 
-**Шаг 1**: Обновить файл на сервере
+### Диагностические команды для сервера
 
-Выполнить на сервере:
-
-```bash
-cat > /home/automation/supabase-project/volumes/functions/wpp-send/index.ts << 'WPPEOF'
-[содержимое актуального файла из Lovable]
-WPPEOF
-```
-
-**Шаг 2**: Перезапустить функции
+Выполните на сервере (в директории `/home/automation/supabase-project`):
 
 ```bash
-docker compose restart functions
+# 1. Проверить содержимое messenger_integrations
+docker compose exec db psql -U postgres -d postgres -c "SELECT id, name, provider, messenger_type, is_active, is_primary, priority FROM messenger_integrations WHERE messenger_type = 'whatsapp';"
+
+# 2. Проверить схему chat_messages 
+docker compose exec db psql -U postgres -d postgres -c "SELECT column_name FROM information_schema.columns WHERE table_name = 'chat_messages' ORDER BY ordinal_position;"
+
+# 3. Проверить логи за последние 10 минут с фильтром
+docker compose logs functions --since 10m 2>&1 | grep -E "(wpp-send|whatsapp-send|Routing)" | tail -30
 ```
 
-**Шаг 3**: Проверить логи после отправки тестового сообщения
+### План исправления (после диагностики)
 
-```bash
-docker compose logs functions 2>&1 | grep "\[wpp-send\]" | tail -20
+**Шаг 1**: Обновить запись в `messenger_integrations` чтобы WPP был приоритетным:
+```sql
+-- Сделать все WhatsApp интеграции неосновными
+UPDATE messenger_integrations SET is_primary = false WHERE messenger_type = 'whatsapp';
+
+-- Установить WPP как основную и активную
+UPDATE messenger_integrations SET is_primary = true, is_active = true, priority = 1 WHERE provider = 'wpp' AND messenger_type = 'whatsapp';
 ```
 
-### Ключевые строки которые должны быть в wpp-send (200-225):
-
+**Шаг 2**: Добавить логирование в начало `wpp-send/index.ts`:
 ```typescript
-// Save message to database
-const messageStatus = wppResult.success ? 'sent' : 'failed'
-
-const { data: savedMessage, error: saveError } = await supabase
-  .from('chat_messages')
-  .insert({
-    client_id: clientId,
-    organization_id: orgId,
-    message_text: messageText,
-    is_outgoing: true,
-    message_type: 'manager',
-    messenger_type: 'whatsapp',
-    message_status: messageStatus,
-    external_message_id: wppResult.taskId,
-    is_read: true,
-    file_url: fileUrl,
-    file_name: fileName,
-    file_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null,
-    sender_id: user.id,
-  })
-  .select()
-  .single()
-
-if (saveError) {
-  console.error('Error saving message to database:', saveError)
-}
+// Сразу после Deno.serve(async (req) => {
+console.log('[wpp-send] Function called, method:', req.method)
 ```
+
+**Шаг 3**: Перезапустить функции и протестировать отправку.
+
+### Технические детали
+
+Фронтенд (`useWhatsApp.ts`) выбирает провайдер так:
+```typescript
+const { data: integration } = await supabase
+  .from('messenger_integrations')
+  .select('*')
+  .eq('messenger_type', 'whatsapp')
+  .eq('is_active', true)
+  .order('is_primary', { ascending: false })
+  .order('priority', { ascending: true })
+  .limit(1)
+  .maybeSingle();
+```
+
+Если в таблице есть активная запись GreenAPI с `is_primary = true`, она будет выбрана вместо WPP.
 
 ### Ожидаемый результат
 
-После обновления:
-- Ответ от `wpp-send` будет содержать `savedMessageId`
-- Сообщения будут появляться в чате сразу после отправки
-- В логах будет видно `[wpp-send] Sending to: 7XXXXXXXXXX` и результат сохранения
+После исправления:
+- Фронтенд определит `provider = 'wpp'`
+- Вызовет функцию `wpp-send`
+- В логах сервера появятся записи `[wpp-send] Function called`
+- Сообщения будут отправляться и сохраняться в БД
 
