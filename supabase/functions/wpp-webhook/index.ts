@@ -8,8 +8,8 @@ import {
 } from '../_shared/types.ts'
 
 // Version for debugging stale deployments
-const VERSION = "v2.4.1";
-const DEPLOYED_AT = "2026-02-05T18:30:00Z";
+const VERSION = "v2.4.2";
+const DEPLOYED_AT = "2026-02-05T21:00:00Z";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -234,19 +234,20 @@ async function handleIncomingMessage(data: WppMessageData, organizationId: strin
     return
   }
 
-  // Extract phone number
-  const phone = from.replace('@c.us', '').replace('@s.whatsapp.net', '').replace(/[^\d]/g, '')
+  // Extract phone number - keep raw and normalized versions
+  const rawPhone = from.replace('@c.us', '').replace('@s.whatsapp.net', '')
+  const phone = rawPhone.replace(/[^\d]/g, '')
   const messageText = text || body || (media ? '[Media]' : '')
   
-  console.log('[wpp-webhook] Processing message from:', phone, 'isFromMe:', isFromMe)
+  console.log('[wpp-webhook] Processing message from:', phone, 'raw:', rawPhone, 'isFromMe:', isFromMe)
 
-  // Check if sender is a teacher
+  // Check if sender is a teacher (by phone or whatsapp_id)
   const { data: teacherData } = await supabase
     .from('teachers')
     .select('id, first_name, last_name')
     .eq('organization_id', organizationId)
-    .eq('whatsapp_id', phone)
     .eq('is_active', true)
+    .or(`phone.eq.${phone},whatsapp_id.eq.${phone}`)
     .maybeSingle()
 
   if (teacherData) {
@@ -270,13 +271,18 @@ async function handleIncomingMessage(data: WppMessageData, organizationId: strin
     return
   }
 
-  // Find or create client
+  // Find client by multiple fields: phone, whatsapp_id, whatsapp_chat_id
+  console.log('[wpp-webhook] Searching for client with org:', organizationId, 'phone:', phone)
+  
   let { data: client } = await supabase
     .from('clients')
-    .select('id, organization_id, name')
-    .eq('phone', phone)
+    .select('id, organization_id, name, phone, whatsapp_id, whatsapp_chat_id')
     .eq('organization_id', organizationId)
+    .eq('is_active', true)
+    .or(`phone.eq.${phone},whatsapp_id.eq.${phone},whatsapp_chat_id.eq.${rawPhone}`)
     .maybeSingle()
+
+  console.log('[wpp-webhook] Client search result:', client ? `found: ${client.id}` : 'not found')
 
   if (!client && !isFromMe) {
     console.log('[wpp-webhook] Creating new client for:', phone)
@@ -287,31 +293,59 @@ async function handleIncomingMessage(data: WppMessageData, organizationId: strin
         organization_id: organizationId,
         name: phone,
         phone: phone,
+        whatsapp_id: phone,
+        whatsapp_chat_id: rawPhone,
+        is_active: true,
       })
       .select('id, organization_id, name')
       .single()
 
     if (createError) {
-      console.error('[wpp-webhook] Error creating client:', createError)
-      return
+      // Try to find by unique constraint error (client might be soft-deleted)
+      if (createError.code === '23505') {
+        console.log('[wpp-webhook] Client exists (unique constraint), restoring...')
+        const { data: existingClient } = await supabase
+          .from('clients')
+          .select('id, organization_id, name')
+          .eq('organization_id', organizationId)
+          .or(`phone.eq.${phone},whatsapp_id.eq.${phone}`)
+          .maybeSingle()
+        
+        if (existingClient) {
+          // Reactivate soft-deleted client
+          await supabase
+            .from('clients')
+            .update({ is_active: true })
+            .eq('id', existingClient.id)
+          client = existingClient
+        }
+      } else {
+        console.error('[wpp-webhook] Error creating client:', createError)
+        return
+      }
+    } else {
+      client = newClient
     }
-    
-    client = newClient
   }
 
   if (!client) {
-    console.log('[wpp-webhook] No client found, skipping')
+    console.log('[wpp-webhook] No client found and cannot create, skipping')
     return
   }
 
-  // Update client last message time
-  await supabase
+  // Update client: last message time, whatsapp fields
+  const { error: updateError } = await supabase
     .from('clients')
     .update({ 
       last_message_at: new Date().toISOString(),
-      whatsapp_id: phone
+      whatsapp_id: phone,
+      whatsapp_chat_id: rawPhone,
     })
     .eq('id', client.id)
+
+  if (updateError) {
+    console.warn('[wpp-webhook] Error updating client:', updateError.message)
+  }
 
   // If outgoing message from phone, mark all unread as read
   if (isFromMe) {
@@ -323,7 +357,9 @@ async function handleIncomingMessage(data: WppMessageData, organizationId: strin
   }
   
   // Save message
-  const { error: messageError } = await supabase
+  console.log('[wpp-webhook] Inserting message for client:', client.id, 'org:', organizationId)
+  
+  const { data: insertedMessage, error: messageError } = await supabase
     .from('chat_messages')
     .insert({
       client_id: client.id,
@@ -338,11 +374,33 @@ async function handleIncomingMessage(data: WppMessageData, organizationId: strin
       file_type: media?.mimetype ? getFileTypeFromMime(media.mimetype) : null,
       external_message_id: messageId || (data as any).id || null,
     })
+    .select('id')
+    .single()
 
   if (messageError) {
-    console.error('[wpp-webhook] Error saving message:', messageError)
+    console.error('[wpp-webhook] Error saving message:', messageError.message, messageError.code)
+    
+    // Fallback: try with minimal fields
+    console.log('[wpp-webhook] Retrying with minimal fields...')
+    const { error: retryError } = await supabase
+      .from('chat_messages')
+      .insert({
+        client_id: client.id,
+        organization_id: organizationId,
+        message_text: messageText,
+        message_type: isFromMe ? 'manager' : 'client',
+        is_outgoing: isFromMe,
+        is_read: isFromMe,
+        external_message_id: messageId || (data as any).id || null,
+      })
+    
+    if (retryError) {
+      console.error('[wpp-webhook] Retry also failed:', retryError.message)
+    } else {
+      console.log('[wpp-webhook] Message saved (minimal fields) for client:', client.id)
+    }
   } else {
-    console.log('[wpp-webhook] Message saved for client:', client.id)
+    console.log('[wpp-webhook] ✅ Message saved:', insertedMessage?.id, 'for client:', client.id)
   }
 }
 
