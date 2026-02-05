@@ -122,10 +122,10 @@ Deno.serve(async (req) => {
     const qrUrl = `${WPP_BASE_URL}/api/accounts/${encodeURIComponent(wppAccountNumber)}/qr`;
     console.log('[wpp-qr] Fetching QR from:', qrUrl);
 
-    const token = await wpp.getToken();
+    const wppToken = await wpp.getToken();
     const qrResponse = await fetch(qrUrl, {
       headers: { 
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${wppToken}`,
         'Accept': 'application/json',
       },
     });
