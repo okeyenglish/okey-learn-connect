@@ -636,7 +636,16 @@ async function handleIncomingCall(webhook: GreenAPIWebhook, organizationId: stri
 // Normalize phone number to digits only for consistent matching
 function normalizePhone(phone: string | null | undefined): string {
   if (!phone) return '';
-  return phone.replace(/\D/g, '');
+  let cleaned = phone.replace(/\D/g, '');
+  // Normalize 8XXXXXXXXXX to 7XXXXXXXXXX for Russian numbers
+  if (cleaned.startsWith('8') && cleaned.length === 11) {
+    cleaned = '7' + cleaned.substring(1);
+  }
+  // Normalize 10-digit numbers starting with 9 (add 7 prefix)
+  if (cleaned.length === 10 && cleaned.startsWith('9')) {
+    cleaned = '7' + cleaned;
+  }
+  return cleaned;
 }
 
 async function findOrCreateClient(phoneNumber: string, displayName: string | undefined, organizationId: string) {
@@ -1153,19 +1162,6 @@ function extractPhoneFromChatId(chatId: string): string {
     return `+${phoneNumber}`
   }
   return chatId // Возвращаем как есть, если не удалось распарсить
-}
-
-// Normalize phone to standard format (79161234567)
-function normalizePhone(phone: string | null): string | null {
-  if (!phone) return null;
-  let cleaned = phone.replace(/\D/g, '');
-  if (cleaned.startsWith('8') && cleaned.length === 11) {
-    cleaned = '7' + cleaned.substring(1);
-  }
-  if (cleaned.length === 10 && cleaned.startsWith('9')) {
-    cleaned = '7' + cleaned;
-  }
-  return cleaned;
 }
 
 // Sync teacher data from linked client

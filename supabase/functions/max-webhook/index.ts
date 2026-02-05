@@ -224,10 +224,10 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
   console.log(`Saved incoming MAX message for client ${client.id}`);
 
   // Sync teacher data if this client is linked to a teacher
-  const maxUserId = extractPhoneFromChatId(chatId);
+  const maxUserIdForSync = extractPhoneFromChatId(chatId);
   await syncTeacherFromClient(supabase, client.id, {
     phone: senderPhoneNumber ? String(senderPhoneNumber) : null,
-    maxUserId: maxUserId,
+    maxUserId: maxUserIdForSync,
     maxChatId: chatId
   });
 
