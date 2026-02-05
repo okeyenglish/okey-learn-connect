@@ -320,14 +320,15 @@ export class WppMsgClient {
   }
 
   /**
-   * Delete/disconnect an account
-   * DELETE /api/accounts/{number}
+   * Stop/disconnect a session
+   * POST /internal/session/{sessionId}/stop
    */
-  async deleteAccount(number: string): Promise<void> {
-    const url = `${this.baseUrl}/api/accounts/${encodeURIComponent(number)}`;
+  async deleteAccount(sessionId: string): Promise<void> {
+    const url = `${this.baseUrl}/internal/session/${encodeURIComponent(sessionId)}/stop`;
     
-    await this._fetch(url, { method: 'DELETE' });
-    console.log(`[WppMsgClient] ✓ Account ${number} deleted`);
+    console.log(`[WppMsgClient] Stopping session: ${sessionId}`);
+    await this._fetch(url, { method: 'POST' });
+    console.log(`[WppMsgClient] ✓ Session ${sessionId} stopped`);
   }
 
   /**
