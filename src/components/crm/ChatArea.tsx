@@ -1374,7 +1374,7 @@ export const ChatArea = ({
         
         if (filesToSend.length > 0) {
           for (const file of filesToSend) {
-            const result = await sendFileMessage(whatsappClientId, file.url, file.name, messageText, effectivePhone);
+            const result = await sendFileMessage(whatsappClientId, file.url, file.name, messageText, effectivePhone, actualTeacherId || undefined);
             if (!result.success) {
               toast({
                 title: "Ошибка отправки файла",
@@ -1403,7 +1403,7 @@ export const ChatArea = ({
           
           // If we have files and text, send text separately only if it's not just a caption
           if (messageText && messageText !== '[Файл]') {
-            const textResult = await sendTextMessage(whatsappClientId, messageText, effectivePhone);
+            const textResult = await sendTextMessage(whatsappClientId, messageText, effectivePhone, actualTeacherId || undefined);
             if (!textResult.success) {
               toast({
                 title: "Ошибка отправки текста",
@@ -1428,7 +1428,7 @@ export const ChatArea = ({
           }
         } else if (messageText) {
           // Send text message only
-          const result = await sendTextMessage(whatsappClientId, messageText, effectivePhone);
+          const result = await sendTextMessage(whatsappClientId, messageText, effectivePhone, actualTeacherId || undefined);
           if (!result.success) {
             toast({
               title: "Ошибка отправки",
