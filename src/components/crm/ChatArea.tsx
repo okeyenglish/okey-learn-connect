@@ -866,22 +866,40 @@ export const ChatArea = ({
     
     // Detect truly new message (different ID, not just count change from loading older)
     if (lastMessageId && lastMessageId !== lastMessageIdRef.current) {
-      // Check if this is a NEW message (not loading older messages)
-      // New messages have newer timestamps, older messages have older timestamps
-      const isNewMessage = prevMessageCountRef.current > 0 && currentCount > prevMessageCountRef.current;
-      
-      if (isNewMessage) {
-        // Scroll to bottom immediately when new message arrives (like in messengers)
-        requestAnimationFrame(() => {
-          scrollToBottom(true);
-        });
+      // For teacher messages (useTeacherSource), always scroll on new message
+      // since refs may not track properly after query invalidation
+      if (useTeacherSource) {
+        // Check if it's actually a new message (not initial load or loading older)
+        // by comparing timestamps - new messages have recent timestamps
+        const lastMsgTime = new Date(lastMessage.created_at).getTime();
+        const now = Date.now();
+        const isRecentMessage = now - lastMsgTime < 60000; // Within last minute
+        
+        if (isRecentMessage && lastMessageIdRef.current !== null) {
+          // This is a new incoming message - scroll to it
+          requestAnimationFrame(() => {
+            scrollToBottom(true);
+          });
+        }
+      } else {
+        // Original logic for regular client chats
+        // Check if this is a NEW message (not loading older messages)
+        // New messages have newer timestamps, older messages have older timestamps
+        const isNewMessage = prevMessageCountRef.current > 0 && currentCount > prevMessageCountRef.current;
+        
+        if (isNewMessage) {
+          // Scroll to bottom immediately when new message arrives (like in messengers)
+          requestAnimationFrame(() => {
+            scrollToBottom(true);
+          });
+        }
       }
       
       lastMessageIdRef.current = lastMessageId;
     }
     
     prevMessageCountRef.current = currentCount;
-  }, [clientId, messagesData?.messages, scrollToBottom]);
+  }, [clientId, messagesData?.messages, scrollToBottom, useTeacherSource]);
 
   // Check MAX availability when switching to MAX tab with no messages
   useEffect(() => {
