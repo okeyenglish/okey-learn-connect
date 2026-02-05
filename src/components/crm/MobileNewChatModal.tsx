@@ -11,6 +11,7 @@ import {
 import { useSearchClients, useCreateClient } from "@/hooks/useClients";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface MobileNewChatModalProps {
   open: boolean;
@@ -33,29 +34,72 @@ export const MobileNewChatModal = ({
   
   const { searchClients, searchResults, isSearching } = useSearchClients();
   const createClient = useCreateClient();
+  const queryClient = useQueryClient();
 
-  const checkExistingPhone = async (phone: string) => {
-    if (!phone || phone.length < 5) return;
+  const invalidateAfterRestore = () => {
+    queryClient.invalidateQueries({ queryKey: ['deleted-chats'] });
+    queryClient.invalidateQueries({ queryKey: ['deleted-client-ids'] });
+    queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+    queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
+    queryClient.invalidateQueries({ queryKey: ['clients'] });
+  };
+
+  const checkExistingPhone = async (phone: string): Promise<'found' | 'restored' | false> => {
+    if (!phone || phone.length < 5) return false;
     
     setIsCheckingPhone(true);
     try {
-      // Check in clients table
-      const { data: clients, error: clientError } = await supabase
+      // Normalize phone for comparison (last 10 digits)
+      const normalizedPhone = phone.replace(/\D/g, '').slice(-10);
+      
+      // First check for active clients
+      const { data: activeClients, error: activeError } = await supabase
         .from('clients')
-        .select('id, name, phone, email')
-        .or(`phone.ilike.%${phone}%`)
-        .eq('is_active', true);
+        .select('id, name, phone, email, status')
+        .or(`phone.ilike.%${normalizedPhone}%`)
+        .neq('status', 'deleted')
+        .limit(5);
       
-      if (clientError) throw clientError;
+      if (activeError) throw activeError;
       
-      if (clients && clients.length > 0) {
-        const existingClient = clients[0];
+      if (activeClients && activeClients.length > 0) {
+        const existingClient = activeClients[0];
         toast.info(`Клиент найден: ${existingClient.name}`, {
           description: "Переходим к существующему чату",
         });
         onExistingClientFound?.(existingClient.id);
         onOpenChange(false);
-        return true;
+        return 'found';
+      }
+      
+      // Check for deleted clients - restore if found
+      const { data: deletedClients, error: deletedError } = await supabase
+        .from('clients')
+        .select('id, name, phone, email')
+        .or(`phone.ilike.%${normalizedPhone}%`)
+        .eq('status', 'deleted')
+        .limit(5);
+      
+      if (deletedError) throw deletedError;
+      
+      if (deletedClients && deletedClients.length > 0) {
+        const deletedClient = deletedClients[0];
+        
+        // Restore the deleted client
+        const { error: restoreError } = await supabase
+          .from('clients')
+          .update({ status: 'active' })
+          .eq('id', deletedClient.id);
+        
+        if (restoreError) throw restoreError;
+        
+        invalidateAfterRestore();
+        toast.success(`Чат восстановлен: ${deletedClient.name}`, {
+          description: "Клиент был ранее удалён и теперь восстановлен",
+        });
+        onExistingClientFound?.(deletedClient.id);
+        onOpenChange(false);
+        return 'restored';
       }
       
       return false;
@@ -70,18 +114,18 @@ export const MobileNewChatModal = ({
   const handleCreateFromNewContact = async () => {
     if (newContactData.name && newContactData.phone) {
       // First check if phone already exists
-      const phoneExists = await checkExistingPhone(newContactData.phone);
-      if (phoneExists) return;
+      const result = await checkExistingPhone(newContactData.phone);
+      if (result) return;
       
       try {
-        const result = await createClient.mutateAsync({
+        const client = await createClient.mutateAsync({
           name: newContactData.name,
           phone: newContactData.phone,
           is_active: true
         });
         
         toast.success("Новый клиент создан");
-        onCreateChat?.(result);
+        onCreateChat?.(client);
         setNewContactData({ name: "", phone: "" });
         onOpenChange(false);
       } catch (error) {
