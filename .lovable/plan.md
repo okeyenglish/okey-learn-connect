@@ -1,146 +1,186 @@
 
 
-## Проблема: QR не доходит до UI
+## Проблема: WPP подключение не сохраняется после перезагрузки
 
 ### Текущая ситуация
 
-1. **WPP Platform работает корректно** - логи показывают "QR GENERATED FOR: 0000000000004"
-2. **UI polling получает** `{ qr: false, status: 'disconnected' }` - значит QR не возвращается
-3. **Цепочка вызовов:**
-   - UI → `wppQr(session)` → `selfHostedGet('wpp-qr?session=...')`
-   - `wpp-qr` → `wpp.getAccountQr(number)` → `GET /api/accounts/{number}/qr`
-   - Где-то здесь QR теряется
+`WppConnectPanel` хранит данные о подключении (`session`, `apiKey`) только в локальном состоянии React:
+```typescript
+const [connectionData, setConnectionData] = useState<ConnectionData | null>(null);
+```
 
-### Вероятные причины
+При перезагрузке страницы это состояние теряется, хотя данные интеграции **уже сохранены** в таблице `messenger_integrations` через `wpp-create`.
 
-1. **Эндпоинт `/api/accounts/{number}/qr` возвращает данные в другом формате**
-   - Код ожидает `{ qr: '...' }`, но может быть `{ qrCode: '...' }` или `{ data: { qr: '...' } }`
+### Решение
 
-2. **Ошибка авторизации при вызове WPP Platform API**
-   - JWT токен может быть невалидным
+Переделать `WppConnectPanel` для работы с БД через существующий хук `useMessengerIntegrations`:
 
-3. **Таймаут или сетевая ошибка** между Edge Function и WPP Platform
+1. При загрузке компонента читать существующие WPP интеграции из БД
+2. Показывать статус каждой сессии (connected/disconnected)
+3. Позволять добавлять новые сессии
 
-### План исправления
+---
 
-#### 1. Добавить детальное логирование в `wpp-qr`
+## Архитектура компонента
 
-Файл: `supabase/functions/wpp-qr/index.ts`
+```text
+WppConnectPanel
+├── Загрузка: useMessengerIntegrations('whatsapp')
+│   └── Фильтр: provider === 'wpp'
+├── Отображение списка WPP интеграций
+│   ├── Для каждой: проверка статуса через wppGetStatus()
+│   └── UI: Session, API Key, кнопка Отключить
+└── Кнопка "Подключить новый WhatsApp"
+    └── wppCreate(force_recreate: true) для новой сессии
+```
 
-Заменить вызов `getAccountQr` на прямой запрос с логированием:
+---
+
+## Технические изменения
+
+### Файл: `src/components/admin/integrations/WppConnectPanel.tsx`
+
+#### 1. Импорты и типы
 
 ```typescript
-// Вместо:
-const qr = await wpp.getAccountQr(wppAccountNumber);
+import { useMessengerIntegrations, MessengerIntegration } from '@/hooks/useMessengerIntegrations';
+import { useQuery } from '@tanstack/react-query';
 
-// Сделать:
-const qrUrl = `${WPP_BASE_URL}/api/accounts/${encodeURIComponent(wppAccountNumber)}/qr`;
-console.log('[wpp-qr] Fetching QR from:', qrUrl);
-
-const token = await wpp.getToken();
-const qrResponse = await fetch(qrUrl, {
-  headers: { 
-    'Authorization': `Bearer ${token}`,
-    'Accept': 'application/json',
-  },
-});
-
-console.log('[wpp-qr] QR API response status:', qrResponse.status);
-const qrData = await qrResponse.text();
-console.log('[wpp-qr] QR API raw response:', qrData.substring(0, 500));
-
-let qr: string | null = null;
-try {
-  const parsed = JSON.parse(qrData);
-  // Попробовать разные поля
-  qr = parsed.qr || parsed.qrCode || parsed.qrcode || parsed.data?.qr || null;
-  console.log('[wpp-qr] Parsed QR:', qr ? `found (${qr.length} chars)` : 'null');
-} catch (e) {
-  console.error('[wpp-qr] Failed to parse QR response:', e);
+interface WppSessionInfo {
+  integration: MessengerIntegration;
+  status: 'connected' | 'disconnected' | 'checking';
+  session: string;
+  apiKey: string;
 }
 ```
 
-#### 2. Добавить логирование ошибок в UI
-
-Файл: `src/components/admin/integrations/WppConnectPanel.tsx`
-
-В polling убрать catch который скрывает ошибки:
+#### 2. Загрузка существующих интеграций
 
 ```typescript
-// Текущий код скрывает ошибки:
-wppQr(session).catch(() => ({ success: false, qr: null }))
+const { integrations, isLoading: integrationsLoading, refetch } = useMessengerIntegrations('whatsapp');
 
-// Заменить на:
-wppQr(session).catch((err) => {
-  console.error('[WppConnectPanel] QR fetch error:', err);
-  return { success: false, qr: null };
-})
+// Фильтруем только WPP провайдер
+const wppIntegrations = integrations.filter(i => i.provider === 'wpp');
 ```
 
-#### 3. Проверить формат ответа WPP Platform API
-
-На сервере WPP Platform проверить какой формат возвращает `/api/accounts/{number}/qr`:
-
-```bash
-curl -X GET "http://localhost:3000/api/accounts/0000000000004/qr" \
-  -H "Authorization: Bearer <JWT>" | jq .
-```
-
-#### 4. Обновить метод `getAccountQr` в SDK
-
-Файл: `supabase/functions/_shared/wpp.ts`
-
-Если формат ответа отличается, обновить парсинг:
+#### 3. Проверка статуса при загрузке
 
 ```typescript
-async getAccountQr(number: string): Promise<string | null> {
-  const url = `${this.baseUrl}/api/accounts/${encodeURIComponent(number)}/qr`;
+// Для каждой интеграции проверяем статус
+const [sessionsStatus, setSessionsStatus] = useState<Map<string, WppSessionInfo>>(new Map());
+
+useEffect(() => {
+  const checkStatuses = async () => {
+    for (const integration of wppIntegrations) {
+      const settings = integration.settings as Record<string, any>;
+      const session = settings.wppAccountNumber;
+      const apiKey = settings.wppApiKey;
+      
+      if (!session) continue;
+      
+      // Проверяем статус через API
+      const statusResult = await wppGetStatus(session, false);
+      
+      setSessionsStatus(prev => new Map(prev).set(integration.id, {
+        integration,
+        status: statusResult.status === 'connected' ? 'connected' : 'disconnected',
+        session,
+        apiKey: maskApiKey(apiKey),
+      }));
+    }
+  };
+  
+  if (wppIntegrations.length > 0) {
+    checkStatuses();
+  }
+}, [wppIntegrations]);
+```
+
+#### 4. UI компонента
+
+```typescript
+// Показываем список существующих сессий
+return (
+  <div className="space-y-4">
+    {/* Существующие сессии */}
+    {Array.from(sessionsStatus.values()).map((info) => (
+      <Card key={info.integration.id}>
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+            <div>
+              <h3 className="font-medium">WhatsApp подключён</h3>
+              <Badge>{info.status === 'connected' ? '🟢 Подключено' : '🔴 Отключено'}</Badge>
+            </div>
+          </div>
+          
+          <div className="mt-4 space-y-2">
+            <div className="flex justify-between p-2 bg-muted rounded">
+              <span>Session:</span>
+              <code>{info.session}</code>
+            </div>
+            <div className="flex justify-between p-2 bg-muted rounded">
+              <span>API Key:</span>
+              <code>{info.apiKey}</code>
+            </div>
+          </div>
+          
+          <Button variant="outline" onClick={() => handleDisconnect(info.session)}>
+            <Power className="h-4 w-4 mr-2" />
+            Отключить
+          </Button>
+        </CardContent>
+      </Card>
+    ))}
+    
+    {/* Кнопка добавления новой сессии */}
+    <Button onClick={() => handleConnect(true)} className="w-full">
+      <Plus className="h-4 w-4 mr-2" />
+      Подключить ещё один WhatsApp
+    </Button>
+  </div>
+);
+```
+
+#### 5. Создание новой сессии
+
+```typescript
+const handleConnect = async (forceNew = false) => {
+  setConnectingStatus('loading');
   
   try {
-    const result = await this._fetch(url, { method: 'GET' });
-    console.log('[WppMsgClient] QR response keys:', Object.keys(result));
+    const result = await wppCreate(forceNew);
     
-    // Поддержка разных форматов ответа
-    const qr = result.qr || result.qrCode || result.qrcode || result.data?.qr || null;
-    console.log('[WppMsgClient] QR extracted:', qr ? 'yes' : 'no');
-    return qr;
-  } catch (error) {
-    console.error(`[WppMsgClient] Get QR error:`, error);
-    return null;
+    if (result.status === 'qr_issued') {
+      setQrCode(result.qrcode);
+      setNewSession(result.session);
+      // Начать polling
+    }
+    
+    // Обновить список интеграций
+    refetch();
+  } catch (err) {
+    // Обработка ошибок
   }
-}
+};
 ```
 
-### Технические изменения
+---
 
-#### Файл 1: `supabase/functions/wpp-qr/index.ts`
-- Добавить детальное логирование HTTP ответа от WPP Platform
-- Поддержка разных форматов ответа (`qr`, `qrCode`, `qrcode`, `data.qr`)
+## Логика состояний
 
-#### Файл 2: `src/components/admin/integrations/WppConnectPanel.tsx`
-- Логировать ошибки вместо их подавления в catch
+| Состояние | Отображение |
+|-----------|-------------|
+| Загрузка интеграций | Spinner |
+| Нет WPP интеграций | Кнопка "Подключить WhatsApp" |
+| Есть интеграции | Список сессий + кнопка "Добавить ещё" |
+| Подключение новой | QR-код в диалоге |
 
-#### Файл 3: `supabase/functions/_shared/wpp.ts`
-- Обновить `getAccountQr()` для поддержки разных форматов
+---
 
-### После деплоя
+## Ожидаемый результат
 
-```bash
-# Скопировать обновленные функции
-rsync -avz ./supabase/functions/wpp-qr/ root@185.23.35.9:/home/automation/supabase-project/volumes/functions/wpp-qr/
-rsync -avz ./supabase/functions/_shared/ root@185.23.35.9:/home/automation/supabase-project/volumes/functions/_shared/
-
-# Рестарт
-docker compose restart functions
-
-# Проверить логи
-docker compose logs functions --tail 100 | grep wpp-qr
-```
-
-### Ожидаемый результат
-
-После этих изменений:
-1. Логи покажут точную причину почему QR не возвращается
-2. Если проблема в формате - автоматически исправится поддержкой разных полей
-3. UI будет логировать ошибки для отладки
+1. **После перезагрузки** - подключённые сессии отображаются из БД
+2. **Можно добавить несколько сессий** - кнопка "Подключить ещё один WhatsApp"
+3. **Статус проверяется онлайн** - при загрузке компонента проверяется актуальный статус через `wpp-status`
 
