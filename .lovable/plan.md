@@ -1,46 +1,167 @@
 
+## Анализ проблемы
 
-## Оптимизация: Убрать account из query string
+### Проблема 1: Кнопка "Удалить" не работает
+В `IntegrationsList.tsx` AlertDialogAction автоматически закрывает диалог при клике, что может прерывать async операцию удаления до её завершения.
 
-### Текущее состояние
-- Webhook URL: `https://api.academyos.ru/functions/v1/wpp-webhook?account=0000000000002`
-- `wpp-webhook` уже поддерживает fallback: `event.data?.account || accountFromQuery` (строка 83)
-
-### Изменения
-
-**`supabase/functions/wpp-create/index.ts`**
-
-Строка 139 - убрать `?account=`:
+**Текущий код (строка 279-290):**
 ```typescript
-// До:
-const webhookUrl = `${SELF_HOSTED_URL}/functions/v1/wpp-webhook?account=${settings.wppAccountNumber}`;
-
-// После:
-const webhookUrl = `${SELF_HOSTED_URL}/functions/v1/wpp-webhook`;
+<AlertDialogAction
+  onClick={handleDelete}  // Async функция
+  className="bg-destructive..."
+  disabled={isDeleting}
+>
 ```
 
-Строка 247 - убрать `?account=`:
+AlertDialogAction из Radix UI закрывает диалог сразу после клика, не дожидаясь завершения async `handleDelete()`.
+
+### Проблема 2: WPP сессия застревает в "Ожидание QR-кода"
+`WppConnectPanel` показывает loading с Session: 0000000000003, но QR не появляется. Это может быть связано с:
+- Старой сессией, которую нужно удалить
+- Webhook не зарегистрирован на правильный URL
+
+---
+
+## План исправления
+
+### 1. Исправить удаление интеграции
+
+**Файл:** `src/components/admin/integrations/IntegrationsList.tsx`
+
+Заменить AlertDialogAction на обычную Button с ручным управлением закрытием диалога:
+
 ```typescript
-// До:
-const webhookUrl = `${SELF_HOSTED_URL}/functions/v1/wpp-webhook?account=${newClient.session}`;
-
-// После:
-const webhookUrl = `${SELF_HOSTED_URL}/functions/v1/wpp-webhook`;
+<AlertDialogFooter>
+  <AlertDialogCancel disabled={isDeleting}>Отмена</AlertDialogCancel>
+  <Button
+    variant="destructive"
+    onClick={async (e) => {
+      e.preventDefault();
+      if (!deleteConfirmId) return;
+      try {
+        await deleteIntegration(deleteConfirmId);
+        setDeleteConfirmId(null);
+      } catch (error) {
+        console.error('Delete failed:', error);
+      }
+    }}
+    disabled={isDeleting}
+  >
+    {isDeleting ? (
+      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+    ) : (
+      <Trash2 className="h-4 w-4 mr-2" />
+    )}
+    Удалить
+  </Button>
+</AlertDialogFooter>
 ```
 
-### Почему это безопасно
-`wpp-webhook` уже получает `account` из body:
+Также убрать вызов `deleteIntegration` из `handleDelete`, так как теперь логика inline.
+
+### 2. Исправить WppConnectPanel - добавить "force_recreate"
+
+**Файл:** `src/lib/wppApi.ts`
+
+Добавить опцию `forceRecreate` в `wppCreate`:
+
 ```typescript
-const account = event.data?.account || accountFromQuery
+export const wppCreate = async (forceRecreate = false): Promise<WppCreateResponse> => {
+  const response = await selfHostedPost<WppCreateResponse>('wpp-create', {
+    force_recreate: forceRecreate
+  });
+  ...
+};
 ```
 
-WPP Platform передаёт `account` в `data.account` при каждом событии.
+**Файл:** `src/components/admin/integrations/WppConnectPanel.tsx`
 
-### После деплоя
-```bash
-rsync -avz ./supabase/functions/wpp-create/ root@185.23.35.9:/home/automation/supabase-project/volumes/functions/wpp-create/
-docker compose restart functions
+Добавить кнопку "Создать новую сессию" для случаев когда текущая застряла:
 
-# Перерегистрировать webhook с новым URL (без ?account=)
+```typescript
+// В loading state добавить кнопку отмены/пересоздания
+if (status === 'loading') {
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <div className="flex flex-col items-center gap-4 py-8">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Ожидание QR-кода...</p>
+          {connectionData?.session && (
+            <p className="text-xs text-muted-foreground">Session: {connectionData.session}</p>
+          )}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => {
+              stopPolling();
+              setStatus('idle');
+            }}
+          >
+            Отмена
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 ```
 
+---
+
+## Технические изменения
+
+### Файл 1: `src/components/admin/integrations/IntegrationsList.tsx`
+
+Строки 268-293 - заменить AlertDialogAction на Button с async обработкой:
+
+```typescript
+<AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => {
+  if (!open && !isDeleting) setDeleteConfirmId(null);
+}}>
+  <AlertDialogContent className="z-[9999]">
+    <AlertDialogHeader>
+      <AlertDialogTitle>Удалить интеграцию?</AlertDialogTitle>
+      <AlertDialogDescription>
+        Это действие нельзя отменить. Интеграция будет удалена, и все связанные
+        с ней настройки будут потеряны.
+      </AlertDialogDescription>
+    </AlertDialogHeader>
+    <AlertDialogFooter>
+      <AlertDialogCancel disabled={isDeleting}>Отмена</AlertDialogCancel>
+      <Button
+        variant="destructive"
+        onClick={async () => {
+          if (!deleteConfirmId) return;
+          try {
+            await deleteIntegration(deleteConfirmId);
+            setDeleteConfirmId(null);
+          } catch (error) {
+            console.error('Delete failed:', error);
+          }
+        }}
+        disabled={isDeleting}
+      >
+        {isDeleting ? (
+          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+        ) : (
+          <Trash2 className="h-4 w-4 mr-2" />
+        )}
+        Удалить
+      </Button>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
+```
+
+### Файл 2: `src/components/admin/integrations/WppConnectPanel.tsx`
+
+Добавить кнопку отмены в loading state (строки 176-189).
+
+---
+
+## Ожидаемый результат
+
+1. Кнопка "Удалить" будет работать - диалог не закроется до завершения операции
+2. При застревании на "Ожидание QR-кода" можно будет отменить и попробовать снова
+3. Toast уведомления покажут результат операции
