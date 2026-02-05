@@ -1,111 +1,168 @@
 
-## Исправление: Отображение сообщений преподавателей
+## Исправление: Отправка медиафайлов через WPP
 
-### Корневая причина
+### Проблема
 
-Проблема в архитектурном несоответствии:
+Ошибка `Cannot POST /api/messages/image` (HTTP 404) указывает на несоответствие между SDK и реальным API сервера:
 
-| Хук | Метод поиска сообщений | Работает? |
-|-----|------------------------|-----------|
-| `useTeacherConversations.ts` | `teacher_id` напрямую в `chat_messages` | Да (но не используется) |
-| `useTeacherChats.ts` | Через `clients` по телефону | Нет (клиенты не совпадают) |
+| Компонент | Текущий формат | Ожидаемый сервером |
+|-----------|----------------|-------------------|
+| WppMsgClient | `/api/messages/image` | `/api/{account}/send-image` |
+| WppMsgClient | `/api/messages/video` | `/api/{account}/send-file` |
+| WppMsgClient | `/api/messages/file` | `/api/{account}/send-file` |
 
-`TeacherChatArea.tsx` использует `useTeacherChats`, который ищет сообщения через matching телефонов преподавателей с клиентами. Но на self-hosted сообщения хранятся напрямую с `teacher_id` в `chat_messages`, без связи с таблицей `clients`.
+WPP Platform (msg.academyos.ru) использует стандартный WPPConnect Server API, где эндпоинты имеют формат `/api/{session}/send-*`.
 
 ### План исправления
 
-#### Файл: `src/hooks/useTeacherChats.ts`
+#### Файл: `supabase/functions/_shared/wpp.ts`
 
-**1. Добавить прямой поиск по `teacher_id` в начале fallback логики**
+**1. Обновить метод `sendImage` (строки 396-409)**
 
-Перед текущей логикой поиска через `clients` (строки 260-380), добавить попытку найти сообщения напрямую по `teacher_id`:
-
-```text
-// НОВЫЙ БЛОК: Прямой поиск по teacher_id (строки ~262-295)
-
-// Step 1: Try direct teacher_id query (new architecture)
-const teacherIds = teachersList.map(t => t.id);
-
-const { data: directMessages, error: directError } = await supabase
-  .from('chat_messages')
-  .select('teacher_id, message_text, content, created_at, messenger_type, messenger, is_read, is_outgoing')
-  .in('teacher_id', teacherIds)
-  .order('created_at', { ascending: false });
-
-// If direct query works and returns data, use it
-if (!directError && directMessages && directMessages.length > 0) {
-  console.log('[useTeacherChats] Found messages via teacher_id:', directMessages.length);
+```typescript
+async sendImage(account: string, to: string, imageUrl: string, caption?: string): Promise<WppTaskResult> {
+  // WPPConnect format: /api/{session}/send-image
+  const url = `${this.baseUrl}/api/${encodeURIComponent(account)}/send-image`;
   
-  // Group by teacher_id
-  const messagesByTeacher = new Map();
-  directMessages.forEach(msg => {
-    if (!msg.teacher_id) return;
-    if (!messagesByTeacher.has(msg.teacher_id)) {
-      messagesByTeacher.set(msg.teacher_id, []);
-    }
-    messagesByTeacher.get(msg.teacher_id).push(msg);
+  const result = await this._fetch(url, {
+    method: 'POST',
+    body: JSON.stringify({ 
+      phone: to, 
+      isGroup: false,
+      filename: 'image',
+      caption: caption || '',
+      base64: imageUrl,  // WPPConnect expects base64 OR path
+      path: imageUrl,    // URL also supported
+    }),
   });
-  
-  // Build results
-  const results = [];
-  teachersList.forEach(teacher => {
-    const messages = messagesByTeacher.get(teacher.id);
-    if (messages && messages.length > 0) {
-      const lastMsg = messages[0];
-      const unreadCount = messages.filter(m => 
-        !m.is_read && (m.is_outgoing === false)
-      ).length;
-      
-      results.push({
-        teacher_id: teacher.id,
-        client_id: null, // Direct teacher messages don't use client_id
-        unread_count: unreadCount,
-        last_message_time: lastMsg.created_at,
-        last_message_text: lastMsg.message_text || lastMsg.content || null,
-        last_messenger_type: lastMsg.messenger_type || lastMsg.messenger || null,
-      });
-    }
-  });
-  
-  if (results.length > 0) {
-    console.log('[useTeacherChats] Direct teacher_id query returned', results.length, 'conversations');
-    return results;
-  }
-}
 
-console.log('[useTeacherChats] No messages via teacher_id, falling back to client matching...');
-
-// EXISTING CODE CONTINUES (client matching via phone)
-```
-
-**2. Обработка отсутствия колонки `teacher_id`**
-
-Если колонка `teacher_id` не существует в `chat_messages` (ошибка 42703), продолжить с текущей логикой:
-
-```text
-if (directError) {
-  // Column might not exist - fall back to client matching
-  if (directError.code === '42703') {
-    console.log('[useTeacherChats] teacher_id column not found, using client fallback');
-  } else {
-    console.warn('[useTeacherChats] Direct query error:', directError);
-  }
+  return {
+    success: result.status !== 'error',
+    taskId: result.ids?.[0]?.id || result.id,
+    status: result.status,
+    error: result.message,
+  };
 }
 ```
 
-**3. Обновить `TeacherChatItem.clientId` для поддержки null**
+**2. Обновить метод `sendVideo` (строки 415-428)**
 
-Для сообщений с `teacher_id` напрямую, `clientId` будет `null`. Нужно обновить компонент `ChatArea` или добавить логику разрешения:
+```typescript
+async sendVideo(account: string, to: string, videoUrl: string, caption?: string): Promise<WppTaskResult> {
+  // WPPConnect: video отправляется через send-file
+  const url = `${this.baseUrl}/api/${encodeURIComponent(account)}/send-file`;
+  
+  const result = await this._fetch(url, {
+    method: 'POST',
+    body: JSON.stringify({ 
+      phone: to, 
+      isGroup: false,
+      filename: 'video.mp4',
+      caption: caption || '',
+      path: videoUrl,
+    }),
+  });
 
-В `TeacherChatArea.tsx` (строки 146-170), добавить альтернативную ветку:
+  return {
+    success: result.status !== 'error',
+    taskId: result.ids?.[0]?.id || result.id,
+    status: result.status,
+    error: result.message,
+  };
+}
+```
 
-```text
-// If teacher has messages via teacher_id (no clientId), use special handling
-if (!teacher.clientId && teacher.lastMessageTime) {
-  // Messages exist via teacher_id - pass teacherId to ChatArea
-  // ChatArea should handle teacherId-based message loading
-  setResolvedClientId(`teacher:${selectedTeacherId}`);
-  return;
+**3. Обновить метод `sendFile` (строки 434-447)**
+
+```typescript
+async sendFile(account: string, to: string, fileUrl: string, filename: string): Promise<WppTaskResult> {
+  const url = `${this.baseUrl}/api/${encodeURIComponent(account)}/send-file`;
+  
+  const result = await this._fetch(url, {
+    method: 'POST',
+    body: JSON.stringify({ 
+      phone: to, 
+      isGroup: false,
+      filename: filename,
+      path: fileUrl,
+    }),
+  });
+
+  return {
+    success: result.status !== 'error',
+    taskId: result.ids?.[0]?.id || result.id,
+    status: result.status,
+    error: result.message,
+  };
+}
+```
+
+**4. Обновить метод `sendAudio` (строки 453-466)**
+
+```typescript
+async sendAudio(account: string, to: string, audioUrl: string): Promise<WppTaskResult> {
+  // WPPConnect: POST /api/{session}/send-ptt-status для голосовых или send-file для аудио
+  const url = `${this.baseUrl}/api/${encodeURIComponent(account)}/send-file`;
+  
+  const result = await this._fetch(url, {
+    method: 'POST',
+    body: JSON.stringify({ 
+      phone: to, 
+      isGroup: false,
+      filename: 'audio.mp3',
+      path: audioUrl,
+    }),
+  });
+
+  return {
+    success: result.status !== 'error',
+    taskId: result.ids?.[0]?.id || result.id,
+    status: result.status,
+    error: result.message,
+  };
+}
+```
+
+**5. Обновить метод `sendText` (строки 377-390)**
+
+```typescript
+async sendText(account: string, to: string, text: string, priority?: 'high' | 'normal' | 'low'): Promise<WppTaskResult> {
+  // WPPConnect format: /api/{session}/send-message
+  const url = `${this.baseUrl}/api/${encodeURIComponent(account)}/send-message`;
+  
+  const result = await this._fetch(url, {
+    method: 'POST',
+    body: JSON.stringify({ 
+      phone: to, 
+      isGroup: false,
+      message: text,
+    }),
+  });
+
+  return {
+    success: result.status !== 'error',
+    taskId: result.ids?.[0]?.id || result.id,
+    status: result.status,
+    error: result.message,
+  };
+}
+```
+
+### Технические детали
+
+**Формат WPPConnect Server API:**
+
+| Тип | Эндпоинт | Body |
+|-----|----------|------|
+| Текст | `POST /api/{session}/send-message` | `{ phone, message, isGroup }` |
+| Изображение | `POST /api/{session}/send-image` | `{ phone, path, caption, isGroup }` |
+| Файл/Видео | `POST /api/{session}/send-file` | `{ phone, path, filename, isGroup }` |
+
+**Формат ответа WPPConnect:**
+```json
+{
+  "status": "success",
+  "ids": [{ "id": "true_xxx", "_serialized": "..." }]
 }
 ```
 
@@ -113,12 +170,10 @@ if (!teacher.clientId && teacher.lastMessageTime) {
 
 | Файл | Изменения |
 |------|-----------|
-| `src/hooks/useTeacherChats.ts` | Добавить прямой поиск по `teacher_id` перед fallback |
-| `src/components/crm/TeacherChatArea.tsx` | Обработать случай когда `clientId = null` но сообщения есть |
+| `supabase/functions/_shared/wpp.ts` | Обновить все методы send* для использования WPPConnect формата |
 
 ### Ожидаемый результат
 
-1. Сообщения преподавателей из salebot/WhatsApp/Telegram будут отображаться
-2. Превью последнего сообщения появится в списке
-3. Счётчик непрочитанных будет работать
-4. Обратная совместимость со старой архитектурой (через clients) сохранится
+1. Изображения, видео, аудио и документы будут успешно отправляться через WPP
+2. Ошибка 404 `/api/messages/image` исчезнет
+3. Сообщения будут корректно сохраняться в БД с правильным `external_message_id`
