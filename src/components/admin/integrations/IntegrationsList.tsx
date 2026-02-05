@@ -266,7 +266,7 @@ export const IntegrationsList: React.FC<IntegrationsListProps> = ({
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="z-[9999]">
           <AlertDialogHeader>
             <AlertDialogTitle>Удалить интеграцию?</AlertDialogTitle>
             <AlertDialogDescription>

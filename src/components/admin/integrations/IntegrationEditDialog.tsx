@@ -141,7 +141,7 @@ export const IntegrationEditDialog: React.FC<IntegrationEditDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg z-[9999]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>
