@@ -88,6 +88,8 @@ Deno.serve(async (req) => {
       return errorResponse('WPP integration not found', 404);
     }
 
+    console.log('[wpp-qr] Integration found:', integration.id, 'settings keys:', Object.keys(integration.settings || {}));
+
     const settings = (integration.settings || {}) as Record<string, any>;
     const wppApiKey = settings.wppApiKey;
     const wppAccountNumber = settings.wppAccountNumber;
@@ -117,7 +119,7 @@ Deno.serve(async (req) => {
     });
 
     const qr = await wpp.getAccountQr(wppAccountNumber);
-    console.log('[wpp-qr] QR result:', qr ? 'received' : 'null');
+    console.log('[wpp-qr] QR result:', qr ? `received (${qr.length} chars)` : 'null');
 
     // Если токен обновился - сохраняем в базу
     const currentToken = await wpp.getToken();

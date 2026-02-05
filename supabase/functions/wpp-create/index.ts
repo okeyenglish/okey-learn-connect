@@ -179,15 +179,22 @@ Deno.serve(async (req) => {
 
     // Save or update integration
     if (existingIntegration) {
-      await supabaseClient
+      const { error: updateError } = await supabaseClient
         .from('messenger_integrations')
         .update({
           settings: { ...settings, ...newSettings },
           updated_at: new Date().toISOString(),
         })
         .eq('id', existingIntegration.id);
+
+      if (updateError) {
+        console.error('[wpp-create] Failed to update integration:', updateError);
+        return errorResponse('Failed to update integration: ' + updateError.message, 500);
+      }
+
+      console.log('[wpp-create] Integration updated:', existingIntegration.id);
     } else {
-      await supabaseClient
+      const { data: insertedIntegration, error: insertError } = await supabaseClient
         .from('messenger_integrations')
         .insert({
           organization_id: orgId,
@@ -196,8 +203,18 @@ Deno.serve(async (req) => {
           name: 'WhatsApp (WPP)',
           is_active: true,
           is_primary: true,
+          webhook_key: crypto.randomUUID(),
           settings: newSettings,
-        });
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('[wpp-create] Failed to save integration:', insertError);
+        return errorResponse('Failed to save integration: ' + insertError.message, 500);
+      }
+
+      console.log('[wpp-create] Integration saved:', insertedIntegration.id);
     }
 
     // Now use the new API key to get JWT and start account
