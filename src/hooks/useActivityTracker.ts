@@ -10,6 +10,8 @@ export type ActivityStatus = 'online' | 'idle' | 'on_call' | 'offline';
 const IDLE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
 const ACTIVITY_UPDATE_INTERVAL = 30_000; // 30 seconds
 const MIN_SESSION_FOR_ALERT = 5 * 60 * 1000; // 5 minutes - don't alert before this
+const MOUNT_GRACE_PERIOD = 60_000; // 1 minute after mount - don't show alert (wait for server sync)
+const ALERT_SHOWN_KEY = 'staff-activity-alert-shown-date'; // Separate from state to persist across reloads
 
 interface ActivityState {
   status: ActivityStatus;
@@ -21,6 +23,7 @@ interface ActivityState {
   lowActivityAlertShown: boolean;
   lastServerActiveSeconds: number; // Track last synced server value
   lastServerIdleSeconds: number;
+  serverSessionStartApplied: boolean; // Flag that sessionStart was synced from server
 }
 
 const STORAGE_KEY = 'staff-activity-state';
@@ -36,8 +39,11 @@ const loadState = (): Partial<ActivityState> => {
     if (isFreshSession) {
       // Mark this browser session as started
       sessionStorage.setItem(SESSION_KEY, Date.now().toString());
-      // Don't load old state for fresh sessions - prevents AI assistant popup on reload
-      return {};
+      // Return minimal state - wait for server data to sync
+      // This prevents AI assistant popup on reload
+      return {
+        serverSessionStartApplied: false, // Will be synced from server
+      };
     }
     
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -47,7 +53,9 @@ const loadState = (): Partial<ActivityState> => {
       const today = new Date().toDateString();
       const sessionDay = new Date(parsed.sessionStart).toDateString();
       if (today !== sessionDay) {
-        return {};
+        return {
+          serverSessionStartApplied: false,
+        };
       }
       return parsed;
     }
@@ -95,8 +103,12 @@ export const useActivityTracker = (options: UseActivityTrackerOptions = {}) => {
       lowActivityAlertShown: loaded.lowActivityAlertShown || false,
       lastServerActiveSeconds: loaded.lastServerActiveSeconds || 0,
       lastServerIdleSeconds: loaded.lastServerIdleSeconds || 0,
+      serverSessionStartApplied: loaded.serverSessionStartApplied || false,
     };
   });
+
+  // Ref to track mount time for grace period
+  const mountTimeRef = useRef(Date.now());
 
   const lastCheckRef = useRef(Date.now());
   const frameRef = useRef<number | null>(null);
@@ -182,52 +194,69 @@ export const useActivityTracker = (options: UseActivityTrackerOptions = {}) => {
 
   // Sync with server baseline (cross-device sync)
   // Re-syncs whenever server has newer data (higher values)
+  // Also syncs sessionStart from server for accurate activity percentage calculation
   useEffect(() => {
     if (!serverBaseline) return;
 
     const serverActiveMs = serverBaseline.activeSeconds * 1000;
     const serverIdleMs = serverBaseline.idleSeconds * 1000;
 
-    // Only sync if server has new data (values increased from last sync)
-    const serverHasNewData = 
-      serverBaseline.activeSeconds > state.lastServerActiveSeconds ||
-      serverBaseline.idleSeconds > state.lastServerIdleSeconds;
-
-    if (!serverHasNewData) return;
-
     setState(prev => {
-      // Use maximum values to avoid losing data from either device
-      const mergedActiveTime = Math.max(prev.activeTime, serverActiveMs);
-      const mergedIdleTime = Math.max(prev.idleTime, serverIdleMs);
+      const updates: Partial<ActivityState> = {};
+      let hasChanges = false;
 
-      // Only update state if we're actually changing something
-      if (mergedActiveTime === prev.activeTime && 
-          mergedIdleTime === prev.idleTime &&
-          serverBaseline.activeSeconds === prev.lastServerActiveSeconds &&
-          serverBaseline.idleSeconds === prev.lastServerIdleSeconds) {
-        return prev;
+      // Sync sessionStart from server (only once per session)
+      // This fixes cross-device sync where local sessionStart would be "now" on new device
+      if (serverBaseline.sessionStart && !prev.serverSessionStartApplied) {
+        const serverSessionStart = new Date(serverBaseline.sessionStart).getTime();
+        // Use server sessionStart if it's earlier than local (real session started earlier)
+        if (serverSessionStart < prev.sessionStart) {
+          updates.sessionStart = serverSessionStart;
+          console.log('[useActivityTracker] Synced sessionStart from server:', {
+            localSessionStart: new Date(prev.sessionStart).toISOString(),
+            serverSessionStart: new Date(serverSessionStart).toISOString(),
+          });
+          hasChanges = true;
+        }
+        updates.serverSessionStartApplied = true;
+        hasChanges = true;
       }
 
-      console.log('[useActivityTracker] Synced with server baseline:', {
-        localActive: Math.round(prev.activeTime / 1000),
-        serverActive: serverBaseline.activeSeconds,
-        mergedActive: Math.round(mergedActiveTime / 1000),
-        localIdle: Math.round(prev.idleTime / 1000),
-        serverIdle: serverBaseline.idleSeconds,
-        mergedIdle: Math.round(mergedIdleTime / 1000),
-      });
+      // Only sync active/idle time if server has new data (values increased from last sync)
+      const serverHasNewData = 
+        serverBaseline.activeSeconds > prev.lastServerActiveSeconds ||
+        serverBaseline.idleSeconds > prev.lastServerIdleSeconds;
 
-      const newState: ActivityState = {
-        ...prev,
-        activeTime: mergedActiveTime,
-        idleTime: mergedIdleTime,
-        lastServerActiveSeconds: serverBaseline.activeSeconds,
-        lastServerIdleSeconds: serverBaseline.idleSeconds,
-      };
+      if (serverHasNewData) {
+        // Use maximum values to avoid losing data from either device
+        const mergedActiveTime = Math.max(prev.activeTime, serverActiveMs);
+        const mergedIdleTime = Math.max(prev.idleTime, serverIdleMs);
+
+        if (mergedActiveTime !== prev.activeTime || mergedIdleTime !== prev.idleTime) {
+          console.log('[useActivityTracker] Synced activity from server:', {
+            localActive: Math.round(prev.activeTime / 1000),
+            serverActive: serverBaseline.activeSeconds,
+            mergedActive: Math.round(mergedActiveTime / 1000),
+            localIdle: Math.round(prev.idleTime / 1000),
+            serverIdle: serverBaseline.idleSeconds,
+            mergedIdle: Math.round(mergedIdleTime / 1000),
+          });
+        }
+
+        updates.activeTime = mergedActiveTime;
+        updates.idleTime = mergedIdleTime;
+        updates.lastServerActiveSeconds = serverBaseline.activeSeconds;
+        updates.lastServerIdleSeconds = serverBaseline.idleSeconds;
+        hasChanges = true;
+      }
+
+      if (!hasChanges) return prev;
+
+      const newState: ActivityState = { ...prev, ...updates };
       saveState(newState);
       return newState;
     });
-  }, [serverBaseline, state.lastServerActiveSeconds, state.lastServerIdleSeconds]);
+  }, [serverBaseline]);
 
   // Set up activity listeners
   useEffect(() => {
@@ -290,13 +319,22 @@ export const useActivityTracker = (options: UseActivityTrackerOptions = {}) => {
       lowActivityAlertShown: false,
       lastServerActiveSeconds: 0,
       lastServerIdleSeconds: 0,
+      serverSessionStartApplied: false,
     };
     setState(newState);
     saveState(newState);
+    // Also clear the persistent alert flag
+    localStorage.removeItem(ALERT_SHOWN_KEY);
+    // Reset mount time ref for new grace period
+    mountTimeRef.current = now;
   }, []);
 
   // Check for low activity and trigger callback or default behavior
   useEffect(() => {
+    // Grace period after mount - wait for server sync before checking
+    const timeSinceMount = Date.now() - mountTimeRef.current;
+    if (timeSinceMount < MOUNT_GRACE_PERIOD) return;
+
     // Only check after minimum session duration
     if (sessionDuration < MIN_SESSION_FOR_ALERT) return;
     
@@ -307,8 +345,14 @@ export const useActivityTracker = (options: UseActivityTrackerOptions = {}) => {
     // Get threshold from settings (default 60%)
     const threshold = notificationSettings.activityWarningThreshold || 60;
     
-    // Check if activity dropped below threshold and we haven't shown alert yet
-    if (activityPercentage < threshold && !state.lowActivityAlertShown) {
+    // Check if alert was already shown today (using separate localStorage key)
+    // This persists across page reloads within the same day
+    const today = new Date().toDateString();
+    const alertShownDate = localStorage.getItem(ALERT_SHOWN_KEY);
+    const alertAlreadyShownToday = alertShownDate === today;
+    
+    // Check if activity dropped below threshold and we haven't shown alert yet today
+    if (activityPercentage < threshold && !alertAlreadyShownToday) {
       // If custom callback provided, use it instead of default behavior
       if (onLowActivity) {
         onLowActivity(activityPercentage);
@@ -322,6 +366,9 @@ export const useActivityTracker = (options: UseActivityTrackerOptions = {}) => {
         });
       }
       
+      // Save alert shown date to separate localStorage key (persists across reloads)
+      localStorage.setItem(ALERT_SHOWN_KEY, today);
+      
       setState(prev => {
         const newState = { ...prev, lowActivityAlertShown: true };
         saveState(newState);
@@ -331,6 +378,7 @@ export const useActivityTracker = (options: UseActivityTrackerOptions = {}) => {
     
     // Reset alert flag if activity goes back above threshold (with 5% buffer)
     if (activityPercentage >= threshold + 5 && state.lowActivityAlertShown) {
+      localStorage.removeItem(ALERT_SHOWN_KEY);
       setState(prev => {
         const newState = { ...prev, lowActivityAlertShown: false };
         saveState(newState);
