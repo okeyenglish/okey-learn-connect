@@ -534,21 +534,9 @@ export class WppMsgClient {
     }
   }
 
-  /**
-   * Delete message by waMessageId
-   * DELETE /api/messages/{waMessageId}?to={phoneNumber}
-   */
-  async deleteMessageByWaId(waMessageId: string, to: string): Promise<{ success: boolean; error?: string }> {
-    const url = `${this.baseUrl}/api/messages/${encodeURIComponent(waMessageId)}?to=${encodeURIComponent(to)}`;
-    
-    try {
-      await this._fetch(url, { method: 'DELETE' });
-      return { success: true };
-    } catch (error: any) {
-      console.error(`[WppMsgClient] Delete message by waId error:`, error);
-      return { success: false, error: error.message };
-    }
-  }
+  // Note: deleteMessageByWaId removed - API expects taskId, not waMessageId
+  // Use deleteMessage(taskId) for deletions
+  // waMessageId is only used for reactions
 
   /**
    * Send location message

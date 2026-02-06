@@ -1,38 +1,42 @@
 
-## План: ✅ DONE - Исправление обработки медиа в wpp-webhook
+## ✅ WPP API: Исправлено удаление и реакции
 
-### Проблема (решена)
+### Архитектура ID (подтверждено)
 
-WPP платформа отправляла медиа с плейсхолдерами `[Image]`, `[Video]` в поле text.
+| Операция | API | ID |
+|----------|-----|-----|
+| **Удаление** | `DELETE /api/messages/:taskId` | taskId |
+| **Реакция** | `POST /api/messages/react` | waMessageId + to |
 
-### Что сделано (v2.7.0)
+### Хранение ID в БД
 
-1. ✅ Добавлена функция `stripMediaPlaceholder()` для очистки плейсхолдеров
-2. ✅ Изменено построение текста - теперь показывается только реальный caption
-3. ✅ Улучшено логирование ошибок загрузки в storage с подсказкой о бакете
+- `external_message_id` = **taskId** (для удаления исходящих)
+- `metadata.waMessageId` = **waMessageId** (для реакций на исходящие)
+- Для входящих: `external_message_id` = waMessageId (исходно)
 
-### Результат
+### Изменённые файлы
 
-| До | После |
-|----|-------|
-| `[Image]` в тексте | Пустой текст, медиа отображается UI |
-| `[Image] фото с отпуска` | `фото с отпуска` + медиа |
+1. **`_shared/wpp.ts`**
+   - Удалён `deleteMessageByWaId()` (был неправильный)
+   - `deleteMessage(taskId)` - остаётся для удаления
 
-### Self-hosted deployment
+2. **`wpp-webhook/index.ts`**
+   - `handleMessageStatus`: сохраняет `waMessageId` в **metadata**, не перезаписывает `external_message_id`
+
+3. **`wpp-delete/index.ts`**
+   - Использует `deleteMessage(taskId)` где `taskId = external_message_id`
+
+4. **`wpp-react/index.ts`**
+   - Берёт `waMessageId` из `metadata.waMessageId` (исходящие) или `external_message_id` (входящие)
+
+### Self-hosted
 
 ```bash
-# На api.academyos.ru:
-# 1. Скопировать supabase/functions/wpp-webhook/index.ts
-# 2. Перезапустить
+# Скопировать файлы:
+# - supabase/functions/_shared/wpp.ts
+# - supabase/functions/wpp-webhook/index.ts  
+# - supabase/functions/wpp-delete/index.ts
+# - supabase/functions/wpp-react/index.ts
+
 docker compose restart functions
-```
-
-### Проверка бакета
-
-```sql
--- Если медиа не загружается:
-SELECT * FROM storage.buckets WHERE id = 'chat-media';
-
--- Создать если нет:
-INSERT INTO storage.buckets (id, name, public) VALUES ('chat-media', 'chat-media', true);
 ```

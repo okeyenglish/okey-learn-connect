@@ -14,23 +14,6 @@ interface DeleteMessageRequest {
   messageId: string;
 }
 
-/**
- * Normalize phone number for WPP API (expects +7XXXXXXXXXX format)
- */
-function normalizePhoneForWpp(phone: string): string {
-  // Remove all non-digit characters
-  let digits = phone.replace(/\D/g, '');
-  
-  // Russian number normalization
-  if (digits.length === 10 && digits.startsWith('9')) {
-    digits = '7' + digits;
-  } else if (digits.length === 11 && digits.startsWith('8')) {
-    digits = '7' + digits.slice(1);
-  }
-  
-  return '+' + digits;
-}
-
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -45,10 +28,10 @@ Deno.serve(async (req) => {
 
     console.log('[wpp-delete] Deleting message:', messageId);
 
-    // Get message info from database including client_id and teacher_id
+    // Get message info from database
     const { data: messageData, error: fetchError } = await supabase
       .from('chat_messages')
-      .select('external_message_id, client_id, teacher_id, organization_id')
+      .select('external_message_id, organization_id')
       .eq('id', messageId)
       .single();
 
@@ -57,10 +40,10 @@ Deno.serve(async (req) => {
       return errorResponse('Message not found', 404);
     }
 
-    const waMessageId = messageData.external_message_id;
-    if (!waMessageId) {
+    const taskId = messageData.external_message_id;
+    if (!taskId) {
       // No external ID - just mark as deleted locally
-      console.log('[wpp-delete] No external message ID - marking as deleted locally only');
+      console.log('[wpp-delete] No external message ID (taskId) - marking as deleted locally only');
       
       const { error: updateError } = await supabase
         .from('chat_messages')
@@ -76,57 +59,10 @@ Deno.serve(async (req) => {
       
       return successResponse({ 
         success: true, 
-        message: 'Message deleted locally (no WPP message ID)',
+        message: 'Message deleted locally (no WPP taskId)',
         wppDeleted: false,
       });
     }
-
-    // Get phone number from client or teacher
-    let phoneNumber: string | null = null;
-    
-    if (messageData.client_id) {
-      const { data: client } = await supabase
-        .from('clients')
-        .select('phone')
-        .eq('id', messageData.client_id)
-        .single();
-      phoneNumber = client?.phone;
-      console.log('[wpp-delete] Got phone from client:', phoneNumber);
-    } else if (messageData.teacher_id) {
-      const { data: teacher } = await supabase
-        .from('teachers')
-        .select('phone')
-        .eq('id', messageData.teacher_id)
-        .single();
-      phoneNumber = teacher?.phone;
-      console.log('[wpp-delete] Got phone from teacher:', phoneNumber);
-    }
-
-    if (!phoneNumber) {
-      console.warn('[wpp-delete] No phone number found - deleting locally only');
-      
-      const { error: updateError } = await supabase
-        .from('chat_messages')
-        .update({ 
-          message_text: '[Сообщение удалено]',
-          external_message_id: null,
-        })
-        .eq('id', messageId);
-
-      if (updateError) {
-        console.error('[wpp-delete] Error updating message in database:', updateError);
-      }
-      
-      return successResponse({ 
-        success: true, 
-        message: 'Message deleted locally (no phone number)',
-        wppDeleted: false,
-      });
-    }
-
-    // Normalize phone for WPP API
-    const to = normalizePhoneForWpp(phoneNumber);
-    console.log('[wpp-delete] Normalized phone:', to);
 
     // Get WPP integration for this organization
     const { data: integration } = await supabase
@@ -164,9 +100,10 @@ Deno.serve(async (req) => {
       jwtExpiresAt: isTokenValid ? wppJwtExpiresAt : undefined,
     });
 
-    // Delete message via WPP API with waMessageId and phone
-    console.log('[wpp-delete] Calling DELETE /api/messages/' + waMessageId + ' with to:', to);
-    const deleteResult = await wpp.deleteMessageByWaId(waMessageId, to);
+    // Delete message via WPP API using taskId
+    // API: DELETE /api/messages/:taskId
+    console.log('[wpp-delete] Calling DELETE /api/messages/' + taskId);
+    const deleteResult = await wpp.deleteMessage(taskId);
 
     // Handle WPP API response
     // "not found" means message already deleted or doesn't exist on WPP - we still mark as deleted locally

@@ -54,10 +54,10 @@ Deno.serve(async (req) => {
       return errorResponse(`Unsupported emoji. Supported: ${SUPPORTED_EMOJIS.join(' ')}`, 400);
     }
 
-    // Get message info from database including client_id and teacher_id
+    // Get message info from database including metadata for waMessageId
     const { data: messageData, error: fetchError } = await supabase
       .from('chat_messages')
-      .select('external_message_id, client_id, teacher_id, organization_id, is_outgoing')
+      .select('external_message_id, metadata, client_id, teacher_id, organization_id, is_outgoing')
       .eq('id', messageId)
       .single();
 
@@ -66,10 +66,17 @@ Deno.serve(async (req) => {
       return errorResponse('Message not found', 404);
     }
 
-    const waMessageId = messageData.external_message_id;
+    // Get waMessageId:
+    // - For outgoing messages: stored in metadata.waMessageId (after status webhook)
+    // - For incoming messages: stored in external_message_id directly
+    const metadata = (messageData.metadata || {}) as Record<string, any>;
+    const waMessageId = metadata.waMessageId || messageData.external_message_id;
+    
+    console.log('[wpp-react] waMessageId source:', metadata.waMessageId ? 'metadata' : 'external_message_id', '| value:', waMessageId);
+    
     if (!waMessageId) {
-      // If no external_message_id, just save the reaction locally (message sent via other provider)
-      console.log('[wpp-react] No external message ID - saving reaction locally only');
+      // If no waMessageId anywhere, just save the reaction locally (message sent via other provider)
+      console.log('[wpp-react] No waMessageId found - saving reaction locally only');
       return successResponse({ 
         success: true, 
         message: 'Reaction saved locally (no WPP message ID)',
