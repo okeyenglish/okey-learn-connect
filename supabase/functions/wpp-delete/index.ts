@@ -86,9 +86,20 @@ Deno.serve(async (req) => {
     console.log('[wpp-delete] Calling DELETE /api/messages/' + taskId);
     const deleteResult = await wpp.deleteMessage(taskId);
 
-    if (!deleteResult.success) {
+    // Handle WPP API response
+    // "not found" means message already deleted or doesn't exist on WPP - we still mark as deleted locally
+    const isNotFoundError = deleteResult.error?.includes('not found') || 
+                            deleteResult.error?.includes('404') ||
+                            deleteResult.error?.includes('HTTP 400');
+    
+    if (!deleteResult.success && !isNotFoundError) {
+      // Real error (auth, network, etc.) - fail the request
       console.error('[wpp-delete] WPP API error:', deleteResult.error);
       return errorResponse(`Failed to delete message from WhatsApp: ${deleteResult.error}`, 500);
+    }
+
+    if (isNotFoundError) {
+      console.log('[wpp-delete] Message not found on WPP (already deleted or different provider) - marking as deleted locally');
     }
 
     // Mark message as deleted in database
