@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
     // Get message info from database
     const { data: messageData, error: fetchError } = await supabase
       .from('chat_messages')
-      .select('external_message_id, client_id, organization_id')
+      .select('external_id, client_id, organization_id')
       .eq('id', messageId)
       .single();
 
@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
       return errorResponse('Message not found', 404);
     }
 
-    const taskId = messageData.external_message_id;
+    const taskId = messageData.external_id;
     if (!taskId) {
       return errorResponse('No external message ID (taskId) found - message cannot be deleted from WhatsApp', 400);
     }
@@ -95,8 +95,8 @@ Deno.serve(async (req) => {
     const { error: updateError } = await supabase
       .from('chat_messages')
       .update({ 
-        message_text: '[Сообщение удалено]',
-        external_message_id: null,
+        content: '[Сообщение удалено]',
+        external_id: null,
       })
       .eq('id', messageId);
 

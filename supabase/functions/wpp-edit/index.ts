@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     // Get message info from database
     const { data: messageData, error: fetchError } = await supabase
       .from('chat_messages')
-      .select('external_message_id, client_id, organization_id')
+      .select('external_id, client_id, organization_id')
       .eq('id', messageId)
       .single();
 
@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
       return errorResponse('Message not found', 404);
     }
 
-    const oldTaskId = messageData.external_message_id;
+    const oldTaskId = messageData.external_id;
     if (!oldTaskId) {
       return errorResponse('No external message ID (taskId) found - message cannot be edited in WhatsApp', 400);
     }
@@ -132,8 +132,8 @@ Deno.serve(async (req) => {
     const { error: updateError } = await supabase
       .from('chat_messages')
       .update({ 
-        message_text: newMessage.trim(),
-        external_message_id: newTaskId || null,
+        content: newMessage.trim(),
+        external_id: newTaskId || null,
       })
       .eq('id', messageId);
 
