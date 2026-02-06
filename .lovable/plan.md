@@ -1,80 +1,98 @@
 
-## План: Исправление удаления и реакций WPP
+## План: Исправление обработки медиа в wpp-webhook
 
-### ✅ Статус: ВЫПОЛНЕНО
+### Проблема
 
-### Реализованные изменения
-
-#### 1. ✅ `WppMsgClient.reactToMessage` - обновлён формат запроса
-
-**Файл:** `supabase/functions/_shared/wpp.ts`
-
-```typescript
-async reactToMessage(waMessageId: string, emoji: string, to: string)
-// POST /api/messages/react { to, waMessageId, emoji }
-```
-
-#### 2. ✅ `WppMsgClient.deleteMessageByWaId` - новый метод удаления
-
-```typescript
-async deleteMessageByWaId(waMessageId: string, to: string)
-// DELETE /api/messages/{waMessageId}?to={phoneNumber}
-```
-
-#### 3. ✅ `wpp-react` edge function - получение телефона
-
-**Файл:** `supabase/functions/wpp-react/index.ts`
-
-- Получает телефон из `clients` или `teachers` по `client_id`/`teacher_id`
-- Нормализует номер для WPP API (`+7XXXXXXXXXX`)
-- Отправляет реакцию с правильным форматом: `{ to, waMessageId, emoji }`
-
-#### 4. ✅ `wpp-delete` edge function - удаление с телефоном
-
-**Файл:** `supabase/functions/wpp-delete/index.ts`
-
-- Получает телефон аналогично `wpp-react`
-- Использует новый метод `deleteMessageByWaId(waMessageId, to)`
-- Graceful handling если сообщение не найдено на WPP
-
-#### 5. ✅ `wpp-webhook` - сохранение waMessageId из статуса
-
-**Файл:** `supabase/functions/wpp-webhook/index.ts`
-
-```typescript
-async function handleMessageStatus(data: any) {
-  const { id, status, taskId, waMessageId } = data;
-  
-  // Если получили waMessageId - обновляем external_message_id
-  if (taskId && waMessageId) {
-    await supabase
-      .from('chat_messages')
-      .update({ 
-        message_status: status,
-        external_message_id: waMessageId,
-      })
-      .eq('external_message_id', taskId);
+WPP платформа отправляет входящие медиа-сообщения в формате:
+```json
+{
+  "text": "[Image]" или "[Image] какой-то caption",
+  "type": "image",
+  "media": {
+    "mimetype": "image/jpeg",
+    "filename": "photo.jpg",
+    "base64": "AAAA...."
   }
 }
 ```
 
-### Деплой на self-hosted
+Текущий код использует `data.text` напрямую, сохраняя `[Image]` как текст сообщения вместо реального файла.
 
-Для применения изменений на `api.academyos.ru`:
+### Решение
 
+#### 1. Добавить функцию очистки плейсхолдеров
+
+```typescript
+function stripMediaPlaceholder(text: string | undefined): string {
+  if (!text) return '';
+  // Убираем [Image], [Video], [Audio], [Document], [File], [Sticker], [Voice]
+  return text
+    .replace(/^\[(Image|Video|Audio|Document|File|Sticker|Voice|Media)\]\s*/i, '')
+    .trim();
+}
+```
+
+#### 2. Изменить построение текста сообщения
+
+**Было (строка 329):**
+```typescript
+const messageText = data.text || data.body || (fileUrl ? `[${fileType || 'Media'}]` : '')
+```
+
+**Станет:**
+```typescript
+// Если есть медиа, очищаем плейсхолдеры из текста
+const rawText = data.text || data.body || '';
+const cleanText = data.media ? stripMediaPlaceholder(rawText) : rawText;
+// Плейсхолдер только если нет ни текста, ни медиа
+const messageText = cleanText || (fileUrl ? '' : '');
+```
+
+#### 3. Улучшить логирование ошибок загрузки
+
+Добавить проверку существования бакета и более детальные ошибки:
+
+```typescript
+if (uploadError) {
+  console.error('[wpp-webhook] Storage upload error:', {
+    message: uploadError.message,
+    hint: uploadError.message.includes('not found') 
+      ? 'Bucket "chat-media" may not exist. Create it in Supabase Storage.' 
+      : undefined
+  });
+}
+```
+
+### Файл для изменения
+
+`supabase/functions/wpp-webhook/index.ts`
+
+### После изменений
+
+На self-hosted сервере (`api.academyos.ru`):
 ```bash
-# Скопировать файлы
-cp supabase/functions/_shared/wpp.ts /home/automation/supabase-project/volumes/functions/_shared/
-cp supabase/functions/wpp-react/index.ts /home/automation/supabase-project/volumes/functions/wpp-react/
-cp supabase/functions/wpp-delete/index.ts /home/automation/supabase-project/volumes/functions/wpp-delete/
-cp supabase/functions/wpp-webhook/index.ts /home/automation/supabase-project/volumes/functions/wpp-webhook/
-
-# Перезапустить функции
+# Копировать файл
+# Перезапустить
 docker compose restart functions
 ```
 
-### Важное примечание
+### Проверка бакета на self-hosted
 
-**Реакции и удаление для исходящих сообщений** будут работать только после того, как webhook получит `waMessageId` в событии статуса (`message.status`). 
+Если медиа не сохраняется, проверить что бакет `chat-media` создан:
+```sql
+-- В supabase postgres
+SELECT * FROM storage.buckets WHERE id = 'chat-media';
+```
 
-Если ваш WPP API не присылает `waMessageId` в webhook статуса - реакции/удаление будут работать только для **входящих** сообщений (у которых `waMessageId` сохраняется сразу).
+Если нет — создать через dashboard или SQL:
+```sql
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('chat-media', 'chat-media', true);
+```
+
+### Ожидаемый результат
+
+| До | После |
+|----|-------|
+| `[Image]` в тексте, `file_url: null` | Пустой текст (или caption), `file_url: https://...` |
+| `[Image] фото с отпуска` | `фото с отпуска`, `file_url: https://...` |
