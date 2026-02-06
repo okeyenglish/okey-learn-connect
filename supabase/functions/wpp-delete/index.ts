@@ -55,11 +55,11 @@ serve(async (req) => {
       );
     }
 
-    // Get client data for phone number
+    // Get client data for phone number - use client_id from message record for consistency
     const { data: clientData, error: clientError } = await supabase
       .from('clients')
       .select('phone')
-      .eq('id', clientId)
+      .eq('id', messageData.client_id)
       .single();
 
     if (clientError || !clientData) {
