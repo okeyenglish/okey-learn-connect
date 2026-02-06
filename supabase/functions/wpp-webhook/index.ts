@@ -289,8 +289,10 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
   
   if (data.media) {
     const media = data.media
-    fileType = media.mimetype ? getFileTypeFromMime(media.mimetype) : null
-    fileName = media.filename || `${fileType || 'file'}_${Date.now()}`
+    // Save actual MIME type (not generic category) for proper rendering
+    fileType = media.mimetype || null
+    const fileCategory = media.mimetype ? getFileTypeFromMime(media.mimetype) : 'file'
+    fileName = media.filename || `${fileCategory}_${Date.now()}`
     
     // If base64 is present, save to storage
     if (media.base64) {

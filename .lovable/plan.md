@@ -1,110 +1,78 @@
 
-## План: Исправление реакций на сообщения
+## План: Исправление отображения медиафайлов WPP
 
 ### Проблема
 
-Таблица `message_reactions` на self-hosted сервере (`api.academyos.ru`) **не содержит колонку `user_type`**, но код пытается её записывать:
+Медиафайлы (изображения, видео, аудио) не отображаются в чате для входящих сообщений WhatsApp через WPP.
 
-```
-Error: Could not find the 'user_type' column of 'message_reactions' in the schema cache
-```
+### Диагностика
 
-### Решение
+1. **wpp-webhook** сохранял `file_type` как просто 'image' вместо полного MIME-типа 'image/jpeg'
+2. **wpp-download** возвращал blob вместо `{downloadUrl: string}`, что несовместимо с фронтендом
+3. Компонент `OptimizedAttachedFile` не мог определить тип файла и показывал плейсхолдер
 
-Убрать `user_type` из операций записи в базу данных и сделать поле опциональным в типах.
+### Исправления
 
-### Изменения
+#### 1. `supabase/functions/wpp-webhook/index.ts`
 
-#### 1. `src/hooks/useBatchMessageReactions.ts`
-
-**Строка 141-146** - убрать `user_type`:
+**Строка 290-293** - сохранять полный MIME-тип:
 
 ```typescript
 // Было:
-.upsert({
-  message_id: messageId,
-  user_id: user.id,
-  user_type: 'manager',  // ❌ Колонка не существует
-  emoji: emoji,
-}, ...
+fileType = media.mimetype ? getFileTypeFromMime(media.mimetype) : null
+fileName = media.filename || `${fileType || 'file'}_${Date.now()}`
 
-// Станет:
-.upsert({
-  message_id: messageId,
-  user_id: user.id,
-  emoji: emoji,
-}, ...
+// Стало:
+fileType = media.mimetype || null  // Сохраняем реальный MIME-тип
+const fileCategory = media.mimetype ? getFileTypeFromMime(media.mimetype) : 'file'
+fileName = media.filename || `${fileCategory}_${Date.now()}`
 ```
 
-#### 2. `src/hooks/useMessageReactions.ts`
+#### 2. `supabase/functions/wpp-download/index.ts`
 
-**Строка 105-110** - убрать `user_type`:
+Полностью переписана функция:
+- Сначала ищет `file_url` в базе данных (файлы уже сохранены wpp-webhook)
+- Если не найдено, скачивает с WPP API и сохраняет в Storage
+- Возвращает `{downloadUrl: string}` вместо blob
 
-```typescript
-// Было:
-.upsert({
-  message_id: messageId,
-  user_id: user.id,
-  user_type: 'manager',  // ❌ Колонка не существует
-  emoji: emoji,
-}, ...
+### Развёртывание на Self-Hosted
 
-// Станет:
-.upsert({
-  message_id: messageId,
-  user_id: user.id,
-  emoji: emoji,
-}, ...
+**Скопировать обновлённые функции:**
+
+```bash
+# Скопировать файлы на сервер
+scp supabase/functions/wpp-webhook/index.ts server:/path/to/functions/wpp-webhook/
+scp supabase/functions/wpp-download/index.ts server:/path/to/functions/wpp-download/
+
+# Перезапустить functions контейнер
+docker compose restart functions
 ```
 
-#### 3. `src/integrations/supabase/database.types.ts`
+**Создать Storage bucket (если не существует):**
 
-**Строка 698-705** - сделать `user_type` опциональным для совместимости:
+```sql
+-- Выполнить в SQL редакторе Supabase
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('chat-media', 'chat-media', true)
+ON CONFLICT (id) DO NOTHING;
 
-```typescript
-// Было:
-export interface MessageReaction {
-  id: string;
-  message_id: string;
-  user_id: string;
-  user_type: string;  // ❌ Обязательное поле
-  emoji: string;
-  created_at: string;
-}
+-- RLS политики для публичного доступа
+CREATE POLICY "Public read access" ON storage.objects
+  FOR SELECT USING (bucket_id = 'chat-media');
 
-// Станет:
-export interface MessageReaction {
-  id: string;
-  message_id: string;
-  user_id: string;
-  user_type?: string;  // ✅ Опциональное поле
-  emoji: string;
-  created_at: string;
-}
+CREATE POLICY "Service role write access" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = 'chat-media');
 ```
 
 ### Ожидаемый результат
 
 После исправлений:
-- Реакции будут сохраняться локально в БД
-- WPP edge function `wpp-react` будет вызываться и отправлять реакцию в WhatsApp
-- Ошибка `PGRST204` исчезнет
+- Новые входящие медиафайлы будут сохраняться с правильным MIME-типом
+- Компонент `OptimizedAttachedFile` корректно определит тип и покажет превью
+- При ошибке загрузки файл будет скачан с WPP API и сохранён в Storage
 
-### Файлы для изменения
+---
 
-| Файл | Изменение |
-|------|-----------|
-| `src/hooks/useBatchMessageReactions.ts` | Убрать `user_type: 'manager'` из upsert |
-| `src/hooks/useMessageReactions.ts` | Убрать `user_type: 'manager'` из upsert |
-| `src/integrations/supabase/database.types.ts` | Сделать `user_type` опциональным |
+## Предыдущее: Исправление реакций на сообщения
 
-### Техническое примечание
-
-На self-hosted сервере таблица `message_reactions` имеет структуру:
-- `id` (uuid)
-- `message_id` (uuid)
-- `user_id` (uuid)
-- `emoji` (text)
-- `created_at` (timestamp)
-
-Колонка `user_type` отсутствует и не нужна, т.к. все реакции из CRM — от менеджеров.
+✅ Выполнено. Убрана колонка `user_type` из upsert операций в `useBatchMessageReactions.ts` и `useMessageReactions.ts`.
