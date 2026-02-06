@@ -8,7 +8,7 @@ import {
 } from '../_shared/types.ts'
 
 // Version for debugging stale deployments
-const VERSION = "v2.7.0";
+const VERSION = "v2.8.0";
 const DEPLOYED_AT = "2026-02-06T12:00:00Z";
 
 /**
@@ -72,7 +72,7 @@ interface WppWebhookPayload {
   // QR/Status fields
   qr?: string;
   qrcode?: string;
-  status?: string;
+  status?: 'sent' | 'delivered' | 'read' | 'deleted' | string;
   session?: string;
 }
 
@@ -243,10 +243,16 @@ Deno.serve(async (req) => {
         console.log('[wpp-webhook] Message sent:', payload.data?.taskId)
         break
 
+      case 'delivery':
+        // New delivery status format: { type: "delivery", account, messageId, status }
+        console.log('[wpp-webhook] Delivery status:', payload.messageId, '->', payload.status)
+        await handleDeliveryStatus(payload.messageId, payload.status)
+        break
+
       case 'message.status':
       case 'message_status':
       case 'messages.update':
-        // Message status update
+        // Message status update (legacy format)
         await handleMessageStatus(payload.data || payload)
         break
 
@@ -543,12 +549,62 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
   }
 }
 
+/**
+ * Handle new delivery status format:
+ * { type: "delivery", account: "...", messageId: "...", status: "sent|delivered|read|deleted" }
+ */
+async function handleDeliveryStatus(messageId: string | undefined, status: string | undefined) {
+  if (!messageId || !status) {
+    console.log('[wpp-webhook] Missing messageId or status in delivery event')
+    return
+  }
+
+  console.log('[wpp-webhook] Processing delivery status:', messageId, '->', status)
+
+  // Map WPP status to our message_status
+  const statusMap: Record<string, string> = {
+    'sent': 'sent',
+    'delivered': 'delivered',
+    'read': 'read',
+    'deleted': 'deleted',
+  }
+  const mappedStatus = statusMap[status] || status
+
+  // Try to find message by external_message_id (taskId) first
+  const { data: msgByTask, error: taskError } = await supabase
+    .from('chat_messages')
+    .update({ message_status: mappedStatus })
+    .eq('external_message_id', messageId)
+    .select('id')
+    .maybeSingle()
+
+  if (msgByTask) {
+    console.log('[wpp-webhook] ✓ Delivery status updated for message:', msgByTask.id, '->', mappedStatus)
+    return
+  }
+
+  // Fallback: try to find by waMessageId in metadata
+  const { data: msgByWa, error: waError } = await supabase
+    .from('chat_messages')
+    .update({ message_status: mappedStatus })
+    .filter('metadata->waMessageId', 'eq', `"${messageId}"`)
+    .select('id')
+    .maybeSingle()
+
+  if (msgByWa) {
+    console.log('[wpp-webhook] ✓ Delivery status updated (by waMessageId):', msgByWa.id, '->', mappedStatus)
+    return
+  }
+
+  console.warn('[wpp-webhook] Message not found for delivery status:', messageId)
+}
+
 async function handleMessageStatus(data: any) {
   const { id, status, taskId, waMessageId } = data
   
   if (!id && !taskId && !waMessageId) return
 
-  console.log('[wpp-webhook] Message status update:', { id, taskId, waMessageId, status })
+  console.log('[wpp-webhook] Message status update (legacy):', { id, taskId, waMessageId, status })
   
   // If we have both taskId and waMessageId, save waMessageId in metadata (for reactions)
   // Keep taskId as external_message_id (for deletions)
