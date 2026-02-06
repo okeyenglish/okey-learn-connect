@@ -24,10 +24,22 @@ interface ActivityState {
 }
 
 const STORAGE_KEY = 'staff-activity-state';
+const SESSION_KEY = 'staff-activity-session-id';
 
 // Load state from localStorage
 const loadState = (): Partial<ActivityState> => {
   try {
+    // Check if this is a fresh browser session (new tab, hard refresh)
+    const currentSessionId = sessionStorage.getItem(SESSION_KEY);
+    const isFreshSession = !currentSessionId;
+    
+    if (isFreshSession) {
+      // Mark this browser session as started
+      sessionStorage.setItem(SESSION_KEY, Date.now().toString());
+      // Don't load old state for fresh sessions - prevents AI assistant popup on reload
+      return {};
+    }
+    
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
