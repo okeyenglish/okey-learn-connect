@@ -18,6 +18,23 @@ interface ReactMessageRequest {
   emoji: string;
 }
 
+/**
+ * Normalize phone number for WPP API (expects +7XXXXXXXXXX format)
+ */
+function normalizePhoneForWpp(phone: string): string {
+  // Remove all non-digit characters
+  let digits = phone.replace(/\D/g, '');
+  
+  // Russian number normalization
+  if (digits.length === 10 && digits.startsWith('9')) {
+    digits = '7' + digits;
+  } else if (digits.length === 11 && digits.startsWith('8')) {
+    digits = '7' + digits.slice(1);
+  }
+  
+  return '+' + digits;
+}
+
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -37,10 +54,10 @@ Deno.serve(async (req) => {
       return errorResponse(`Unsupported emoji. Supported: ${SUPPORTED_EMOJIS.join(' ')}`, 400);
     }
 
-    // Get message info from database
+    // Get message info from database including client_id and teacher_id
     const { data: messageData, error: fetchError } = await supabase
       .from('chat_messages')
-      .select('external_message_id, client_id, organization_id')
+      .select('external_message_id, client_id, teacher_id, organization_id, is_outgoing')
       .eq('id', messageId)
       .single();
 
@@ -49,8 +66,8 @@ Deno.serve(async (req) => {
       return errorResponse('Message not found', 404);
     }
 
-    const taskId = messageData.external_message_id;
-    if (!taskId) {
+    const waMessageId = messageData.external_message_id;
+    if (!waMessageId) {
       // If no external_message_id, just save the reaction locally (message sent via other provider)
       console.log('[wpp-react] No external message ID - saving reaction locally only');
       return successResponse({ 
@@ -59,6 +76,36 @@ Deno.serve(async (req) => {
         wppSent: false,
       });
     }
+
+    // Get phone number from client or teacher
+    let phoneNumber: string | null = null;
+    
+    if (messageData.client_id) {
+      const { data: client } = await supabase
+        .from('clients')
+        .select('phone')
+        .eq('id', messageData.client_id)
+        .single();
+      phoneNumber = client?.phone;
+      console.log('[wpp-react] Got phone from client:', phoneNumber);
+    } else if (messageData.teacher_id) {
+      const { data: teacher } = await supabase
+        .from('teachers')
+        .select('phone')
+        .eq('id', messageData.teacher_id)
+        .single();
+      phoneNumber = teacher?.phone;
+      console.log('[wpp-react] Got phone from teacher:', phoneNumber);
+    }
+
+    if (!phoneNumber) {
+      console.warn('[wpp-react] No phone number found for message recipient');
+      return errorResponse('Phone number not found for message recipient', 400);
+    }
+
+    // Normalize phone for WPP API
+    const to = normalizePhoneForWpp(phoneNumber);
+    console.log('[wpp-react] Normalized phone:', to);
 
     // Get WPP integration for this organization
     const { data: integration } = await supabase
@@ -96,9 +143,9 @@ Deno.serve(async (req) => {
       jwtExpiresAt: isTokenValid ? wppJwtExpiresAt : undefined,
     });
 
-    // Send reaction via WPP API
-    console.log('[wpp-react] Calling POST /api/messages/react with taskId:', taskId, 'emoji:', emoji);
-    const reactResult = await wpp.reactToMessage(taskId, emoji);
+    // Send reaction via WPP API with correct format: { to, waMessageId, emoji }
+    console.log('[wpp-react] Calling POST /api/messages/react with:', { to, waMessageId, emoji });
+    const reactResult = await wpp.reactToMessage(waMessageId, emoji, to);
 
     if (!reactResult.success) {
       console.error('[wpp-react] WPP API error:', reactResult.error);

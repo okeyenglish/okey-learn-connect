@@ -516,20 +516,36 @@ export class WppMsgClient {
 
   /**
    * React to a message
-   * POST /api/messages/react { taskId, emoji }
+   * POST /api/messages/react { to, waMessageId, emoji }
    * Supported emojis: 🔥 😂 👍 ❤️ 😡
    */
-  async reactToMessage(taskId: string, emoji: string): Promise<{ success: boolean; error?: string }> {
+  async reactToMessage(waMessageId: string, emoji: string, to: string): Promise<{ success: boolean; error?: string }> {
     const url = `${this.baseUrl}/api/messages/react`;
     
     try {
       const result = await this._fetch(url, {
         method: 'POST',
-        body: JSON.stringify({ taskId, emoji }),
+        body: JSON.stringify({ to, waMessageId, emoji }),
       });
       return { success: result.status !== 'error', error: result.message };
     } catch (error: any) {
       console.error(`[WppMsgClient] React to message error:`, error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Delete message by waMessageId
+   * DELETE /api/messages/{waMessageId}?to={phoneNumber}
+   */
+  async deleteMessageByWaId(waMessageId: string, to: string): Promise<{ success: boolean; error?: string }> {
+    const url = `${this.baseUrl}/api/messages/${encodeURIComponent(waMessageId)}?to=${encodeURIComponent(to)}`;
+    
+    try {
+      await this._fetch(url, { method: 'DELETE' });
+      return { success: true };
+    } catch (error: any) {
+      console.error(`[WppMsgClient] Delete message by waId error:`, error);
       return { success: false, error: error.message };
     }
   }

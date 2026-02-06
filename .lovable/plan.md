@@ -1,31 +1,52 @@
 
 ## План: Исправление удаления и реакций WPP
 
-### Проблема
+### ✅ Статус: ВЫПОЛНЕНО
 
-API WPP платформы ожидает `waMessageId` (реальный ID сообщения WhatsApp), но для исходящих сообщений мы сохраняем `taskId` (внутренний ID платформы).
+### Реализованные изменения
 
-**Формат API реакций:**
-```json
-{
-  "to": "+79852615056",
-  "waMessageId": "ABCD1234...",
-  "emoji": "🔥"
-}
+#### 1. ✅ `WppMsgClient.reactToMessage` - обновлён формат запроса
+
+**Файл:** `supabase/functions/_shared/wpp.ts`
+
+```typescript
+async reactToMessage(waMessageId: string, emoji: string, to: string)
+// POST /api/messages/react { to, waMessageId, emoji }
 ```
 
-### Необходимые изменения
+#### 2. ✅ `WppMsgClient.deleteMessageByWaId` - новый метод удаления
 
-#### 1. Обновить `handleMessageStatus` в webhook для сохранения `waMessageId`
+```typescript
+async deleteMessageByWaId(waMessageId: string, to: string)
+// DELETE /api/messages/{waMessageId}?to={phoneNumber}
+```
 
-Когда WPP присылает статус "sent" или "delivered", обновить `external_message_id` реальным `waMessageId`:
+#### 3. ✅ `wpp-react` edge function - получение телефона
+
+**Файл:** `supabase/functions/wpp-react/index.ts`
+
+- Получает телефон из `clients` или `teachers` по `client_id`/`teacher_id`
+- Нормализует номер для WPP API (`+7XXXXXXXXXX`)
+- Отправляет реакцию с правильным форматом: `{ to, waMessageId, emoji }`
+
+#### 4. ✅ `wpp-delete` edge function - удаление с телефоном
+
+**Файл:** `supabase/functions/wpp-delete/index.ts`
+
+- Получает телефон аналогично `wpp-react`
+- Использует новый метод `deleteMessageByWaId(waMessageId, to)`
+- Graceful handling если сообщение не найдено на WPP
+
+#### 5. ✅ `wpp-webhook` - сохранение waMessageId из статуса
+
+**Файл:** `supabase/functions/wpp-webhook/index.ts`
 
 ```typescript
 async function handleMessageStatus(data: any) {
   const { id, status, taskId, waMessageId } = data;
   
+  // Если получили waMessageId - обновляем external_message_id
   if (taskId && waMessageId) {
-    // Обновляем external_message_id с taskId на реальный waMessageId
     await supabase
       .from('chat_messages')
       .update({ 
@@ -37,92 +58,23 @@ async function handleMessageStatus(data: any) {
 }
 ```
 
-#### 2. Исправить формат запроса в `WppMsgClient.reactToMessage`
+### Деплой на self-hosted
 
-**Файл:** `supabase/functions/_shared/wpp.ts`
+Для применения изменений на `api.academyos.ru`:
 
-```typescript
-async reactToMessage(
-  waMessageId: string, 
-  emoji: string,
-  to: string  // Добавить параметр to (номер телефона)
-): Promise<{ success: boolean; error?: string }> {
-  const url = `${this.baseUrl}/api/messages/react`;
-  
-  try {
-    const result = await this._fetch(url, {
-      method: 'POST',
-      body: JSON.stringify({ 
-        to,           // Номер телефона получателя
-        waMessageId,  // Реальный ID сообщения WhatsApp
-        emoji,
-      }),
-    });
-    return { success: result.status !== 'error', error: result.message };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-}
+```bash
+# Скопировать файлы
+cp supabase/functions/_shared/wpp.ts /home/automation/supabase-project/volumes/functions/_shared/
+cp supabase/functions/wpp-react/index.ts /home/automation/supabase-project/volumes/functions/wpp-react/
+cp supabase/functions/wpp-delete/index.ts /home/automation/supabase-project/volumes/functions/wpp-delete/
+cp supabase/functions/wpp-webhook/index.ts /home/automation/supabase-project/volumes/functions/wpp-webhook/
+
+# Перезапустить функции
+docker compose restart functions
 ```
 
-#### 3. Обновить `wpp-react` edge function
+### Важное примечание
 
-**Файл:** `supabase/functions/wpp-react/index.ts`
+**Реакции и удаление для исходящих сообщений** будут работать только после того, как webhook получит `waMessageId` в событии статуса (`message.status`). 
 
-Получать номер телефона из клиента/учителя и передавать в API:
-
-```typescript
-// Получить номер телефона
-let phoneNumber: string | null = null;
-if (messageData.client_id) {
-  const { data: client } = await supabase
-    .from('clients')
-    .select('phone')
-    .eq('id', messageData.client_id)
-    .single();
-  phoneNumber = client?.phone;
-} else if (messageData.teacher_id) {
-  const { data: teacher } = await supabase
-    .from('teachers')
-    .select('phone')
-    .eq('id', messageData.teacher_id)
-    .single();
-  phoneNumber = teacher?.phone;
-}
-
-if (!phoneNumber) {
-  return errorResponse('Phone number not found for message recipient', 400);
-}
-
-// Нормализовать номер
-const to = normalizePhoneForWpp(phoneNumber);
-
-// Отправить реакцию
-const reactResult = await wpp.reactToMessage(taskId, emoji, to);
-```
-
-#### 4. Уточнить формат удаления
-
-Проверить документацию WPP API:
-- Если удаление использует `waMessageId`, аналогично обновить `wpp-delete`
-- Если принимает `taskId` - оставить как есть
-
-### Что нужно от владельца WPP API
-
-1. **Формат удаления**: `DELETE /api/messages/{waMessageId}` или `DELETE /api/messages/{taskId}`?
-2. **Webhook статуса**: Присылает ли webhook `waMessageId` при доставке сообщения?
-
-### Временное решение
-
-Пока нет обновления `waMessageId` через webhook:
-- Реакции и удаление будут работать только для **входящих** сообщений
-- Для исходящих покажем сообщение "Недоступно для исходящих сообщений"
-
-### Последовательность задач
-
-| # | Задача | Файлы |
-|---|--------|-------|
-| 1 | Исправить формат `reactToMessage` | `_shared/wpp.ts` |
-| 2 | Обновить `wpp-react` с получением телефона | `wpp-react/index.ts` |
-| 3 | Добавить обработку `waMessageId` в webhook | `wpp-webhook/index.ts` |
-| 4 | Уточнить и исправить формат удаления | `wpp-delete/index.ts`, `_shared/wpp.ts` |
+Если ваш WPP API не присылает `waMessageId` в webhook статуса - реакции/удаление будут работать только для **входящих** сообщений (у которых `waMessageId` сохраняется сразу).

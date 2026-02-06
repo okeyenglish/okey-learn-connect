@@ -521,18 +521,38 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
 }
 
 async function handleMessageStatus(data: any) {
-  const { id, status, taskId } = data
+  const { id, status, taskId, waMessageId } = data
   
-  if (!id && !taskId) return
+  if (!id && !taskId && !waMessageId) return
 
-  console.log('[wpp-webhook] Message status update:', id || taskId, status)
+  console.log('[wpp-webhook] Message status update:', { id, taskId, waMessageId, status })
   
-  // Update message status if we have the external_message_id
-  if (status && (id || taskId)) {
+  // If we have both taskId and waMessageId, update external_message_id from taskId to waMessageId
+  // This is important for reactions and deletions which require waMessageId
+  if (taskId && waMessageId) {
+    console.log('[wpp-webhook] Updating external_message_id from taskId to waMessageId:', taskId, '->', waMessageId)
+    const { error: updateError } = await supabase
+      .from('chat_messages')
+      .update({ 
+        message_status: status,
+        external_message_id: waMessageId,
+      })
+      .eq('external_message_id', taskId)
+    
+    if (updateError) {
+      console.warn('[wpp-webhook] Failed to update waMessageId:', updateError.message)
+    } else {
+      console.log('[wpp-webhook] ✓ waMessageId updated successfully')
+    }
+    return
+  }
+  
+  // Fallback: just update status by any available ID
+  if (status && (id || taskId || waMessageId)) {
     await supabase
       .from('chat_messages')
       .update({ message_status: status })
-      .eq('external_message_id', id || taskId)
+      .eq('external_message_id', id || taskId || waMessageId)
   }
 }
 
