@@ -105,7 +105,6 @@ export const useAddReaction = () => {
         .upsert({
           message_id: messageId,
           user_id: user.id,
-          user_type: 'manager',
           emoji: emoji,
         }, {
           onConflict: 'message_id,user_id'
