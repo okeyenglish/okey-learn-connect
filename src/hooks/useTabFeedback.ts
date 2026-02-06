@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsMobile } from './use-mobile';
 
 interface UseTabFeedbackOptions {
   /** Минимальное время отсутствия (мс) чтобы показать вопрос */
@@ -21,11 +22,15 @@ export const useTabFeedback = ({
   enabled = true
 }: UseTabFeedbackOptions = {}) => {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const leftAtRef = useRef<number | null>(null);
   const hasAskedRef = useRef(false);
   const sessionAskedRef = useRef(false); // Спрашиваем только раз за сессию
 
   const handleVisibilityChange = useCallback(() => {
+    // Skip tab feedback on mobile devices
+    if (isMobile) return;
+    
     if (!enabled || !user || sessionAskedRef.current) return;
 
     if (document.hidden) {
@@ -51,7 +56,7 @@ export const useTabFeedback = ({
       }
       leftAtRef.current = null;
     }
-  }, [enabled, user, minAwayTime, onShowFeedbackRequest]);
+  }, [enabled, user, minAwayTime, onShowFeedbackRequest, isMobile]);
 
   useEffect(() => {
     if (!enabled) return;
