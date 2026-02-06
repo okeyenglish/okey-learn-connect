@@ -1,94 +1,103 @@
 
 
-## Исправление: WPP удаление и редактирование сообщений - "Client not found"
+## Обновление WPP Delete и Edit на новое API
 
 ### Проблема
 
-При попытке удалить или отредактировать сообщение через WPP появляется ошибка "Client not found".
+Функции `wpp-delete` и `wpp-edit` используют старое API WPP-Connect:
+- `POST /api/${sessionName}/delete-message`
+- `POST /api/${sessionName}/edit-message`
 
-### Анализ
+Нужно переключить на новое WPP Platform API:
+- **Delete**: `DELETE /api/messages/{taskId}`
+- **Edit**: `DELETE /api/messages/{oldTaskId}` → `POST /api/messages/text`
 
-Обе функции (`wpp-delete` и `wpp-edit`) делают следующее:
+### Текущее состояние
 
-1. Получают `clientId` из тела запроса
-2. Запрашивают данные сообщения: `select('external_message_id, client_id, organization_id')`
-3. **Проблема**: Затем ищут клиента по **переданному** `clientId`, а не по `messageData.client_id`
-
-```typescript
-// Уже есть client_id из сообщения
-const { data: messageData } = await supabase
-  .from('chat_messages')
-  .select('external_message_id, client_id, organization_id') // <-- client_id здесь
-  .eq('id', messageId)
-  .single();
-
-// Но используется переданный clientId
-const { data: clientData } = await supabase
-  .from('clients')
-  .select('phone')
-  .eq('id', clientId)  // <-- Потенциальное несоответствие
-  .single();
-```
-
-**Причина ошибки**: Переданный `clientId` может не совпадать с `client_id` из записи сообщения, или клиент может быть soft-deleted (is_active = false) на self-hosted инстансе.
-
-### Решение
-
-Использовать `messageData.client_id` вместо переданного `clientId` для запроса клиента. Это гарантирует:
-- Согласованность данных
-- Клиент точно существует (сообщение ссылается на него)
-- Нет зависимости от корректности переданного параметра
+`wpp-send` уже сохраняет `taskId` в поле `external_message_id` при отправке сообщений — это правильно и не требует изменений.
 
 ---
 
 ### Технический план
 
-#### 1. Файл: `supabase/functions/wpp-delete/index.ts`
+#### 1. Файл: `supabase/functions/_shared/wpp.ts`
 
-**Изменения (строка 59-63)**:
+Добавить два новых метода в `WppMsgClient`:
 
-До:
 ```typescript
-const { data: clientData, error: clientError } = await supabase
-  .from('clients')
-  .select('phone')
-  .eq('id', clientId)
-  .single();
-```
-
-После:
-```typescript
-// Use client_id from message record for consistency
-const { data: clientData, error: clientError } = await supabase
-  .from('clients')
-  .select('phone')
-  .eq('id', messageData.client_id)
-  .single();
+/**
+ * Delete message by taskId
+ * DELETE /api/messages/{taskId}
+ */
+async deleteMessage(taskId: string): Promise<{ success: boolean; error?: string }> {
+  const url = `${this.baseUrl}/api/messages/${encodeURIComponent(taskId)}`;
+  
+  try {
+    await this._fetch(url, { method: 'DELETE' });
+    return { success: true };
+  } catch (error: any) {
+    console.error(`[WppMsgClient] Delete message error:`, error);
+    return { success: false, error: error.message };
+  }
+}
 ```
 
 ---
 
-#### 2. Файл: `supabase/functions/wpp-edit/index.ts`
+#### 2. Файл: `supabase/functions/wpp-delete/index.ts`
 
-**Изменения (строка 59-64)**:
+Полная переработка для использования нового API:
 
-До:
-```typescript
-const { data: clientData, error: clientError } = await supabase
-  .from('clients')
-  .select('phone')
-  .eq('id', clientId)
-  .single();
-```
+1. Импортировать `WppMsgClient` из `../_shared/wpp.ts`
+2. Получить WPP интеграцию из `messenger_integrations` (как в wpp-send)
+3. Вызвать `DELETE /api/messages/{taskId}` через `wpp.deleteMessage(taskId)`
+4. Обновить запись в БД
 
-После:
-```typescript
-// Use client_id from message record for consistency
-const { data: clientData, error: clientError } = await supabase
-  .from('clients')
-  .select('phone')
-  .eq('id', messageData.client_id)
-  .single();
+**Ключевые изменения:**
+- Вместо `WPP_HOST` + `WPP_SECRET` → использовать `wppApiKey` из интеграции
+- Вместо `POST /delete-message` → `DELETE /api/messages/{taskId}`
+- `taskId` берётся из `external_message_id` сообщения
+
+---
+
+#### 3. Файл: `supabase/functions/wpp-edit/index.ts`
+
+Полная переработка для реализации DELETE + POST:
+
+1. Импортировать `WppMsgClient` из `../_shared/wpp.ts`
+2. Получить WPP интеграцию из `messenger_integrations`
+3. Удалить старое сообщение: `DELETE /api/messages/{oldTaskId}`
+4. Отправить новое: `POST /api/messages/text`
+5. Обновить запись в БД с новым `taskId`
+
+**Ключевые изменения:**
+- Вместо `POST /edit-message` → `DELETE + POST`
+- Сохранять новый `taskId` в `external_message_id`
+
+---
+
+### Диаграмма потока (Edit)
+
+```text
+┌─────────────────┐     ┌───────────────────┐     ┌─────────────────┐
+│   wpp-edit      │────▶│ DELETE            │────▶│ Старое сообщение│
+│   Edge Function │     │ /api/messages/123 │     │ удалено в WPP   │
+└────────┬────────┘     └───────────────────┘     └─────────────────┘
+         │
+         ▼
+┌─────────────────┐     ┌───────────────────┐     ┌─────────────────┐
+│   POST          │────▶│ WPP Platform      │────▶│ Новый taskId    │
+│   /api/messages │     │ создаёт новое msg │     │ = 456           │
+│   /text         │     └───────────────────┘     └─────────────────┘
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────┐
+│ UPDATE chat_messages                            │
+│ SET message_text = 'новый текст',              │
+│     external_message_id = '456'                 │
+│ WHERE id = messageId                            │
+└─────────────────────────────────────────────────┘
 ```
 
 ---
@@ -97,13 +106,14 @@ const { data: clientData, error: clientError } = await supabase
 
 | Файл | Изменения |
 |------|-----------|
-| `supabase/functions/wpp-delete/index.ts` | Использовать `messageData.client_id` вместо `clientId` |
-| `supabase/functions/wpp-edit/index.ts` | Использовать `messageData.client_id` вместо `clientId` |
+| `supabase/functions/_shared/wpp.ts` | Добавить метод `deleteMessage(taskId)` |
+| `supabase/functions/wpp-delete/index.ts` | Переписать на новое API с WppMsgClient |
+| `supabase/functions/wpp-edit/index.ts` | Переписать на DELETE + POST с WppMsgClient |
 
 ### Ожидаемый результат
 
-- Удаление сообщений через WPP работает корректно
-- Редактирование сообщений через WPP работает корректно
-- Нет зависимости от корректности переданного `clientId` параметра
-- Совместимость с self-hosted схемой
+- Удаление сообщений работает через `DELETE /api/messages/{taskId}`
+- Редактирование работает через DELETE старого + POST нового
+- Новый `taskId` сохраняется при редактировании для возможности повторного редактирования/удаления
+- Используется единый `WppMsgClient` для всех операций
 
