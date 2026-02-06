@@ -1,67 +1,94 @@
 
 
-## Отключение уведомлений активности на мобильных устройствах
+## Исправление: WPP удаление и редактирование сообщений - "Client not found"
 
 ### Проблема
 
-На мобильных устройствах срабатывают:
-1. **Алерты низкой активности** (`useActivityTracker`) — звук + сообщение AI
-2. **Feedback при смене вкладки** (`useTabFeedback`) — вопрос от AI помощника
+При попытке удалить или отредактировать сообщение через WPP появляется ошибка "Client not found".
 
-Это нежелательно, так как мобильные устройства используются эпизодически.
+### Анализ
+
+Обе функции (`wpp-delete` и `wpp-edit`) делают следующее:
+
+1. Получают `clientId` из тела запроса
+2. Запрашивают данные сообщения: `select('external_message_id, client_id, organization_id')`
+3. **Проблема**: Затем ищут клиента по **переданному** `clientId`, а не по `messageData.client_id`
+
+```typescript
+// Уже есть client_id из сообщения
+const { data: messageData } = await supabase
+  .from('chat_messages')
+  .select('external_message_id, client_id, organization_id') // <-- client_id здесь
+  .eq('id', messageId)
+  .single();
+
+// Но используется переданный clientId
+const { data: clientData } = await supabase
+  .from('clients')
+  .select('phone')
+  .eq('id', clientId)  // <-- Потенциальное несоответствие
+  .single();
+```
+
+**Причина ошибки**: Переданный `clientId` может не совпадать с `client_id` из записи сообщения, или клиент может быть soft-deleted (is_active = false) на self-hosted инстансе.
 
 ### Решение
 
-Добавить проверку на мобильное устройство в оба хука и пропускать логику уведомлений.
+Использовать `messageData.client_id` вместо переданного `clientId` для запроса клиента. Это гарантирует:
+- Согласованность данных
+- Клиент точно существует (сообщение ссылается на него)
+- Нет зависимости от корректности переданного параметра
 
 ---
 
 ### Технический план
 
-#### 1. Файл: `src/hooks/useActivityTracker.ts`
+#### 1. Файл: `supabase/functions/wpp-delete/index.ts`
 
-**Изменения:**
+**Изменения (строка 59-63)**:
 
+До:
 ```typescript
-// Добавить импорт
-import { useIsMobile } from './use-mobile';
+const { data: clientData, error: clientError } = await supabase
+  .from('clients')
+  .select('phone')
+  .eq('id', clientId)
+  .single();
+```
 
-// В начале хука добавить:
-const isMobile = useIsMobile();
-
-// В useEffect для алертов (строка 333) добавить проверку:
-useEffect(() => {
-  // Skip alerts on mobile devices
-  if (isMobile) return;
-  
-  // Grace period after mount - wait for server sync before checking
-  const timeSinceMount = Date.now() - mountTimeRef.current;
-  if (timeSinceMount < MOUNT_GRACE_PERIOD) return;
-  // ... остальная логика без изменений
-}, [activityPercentage, sessionDuration, state.lowActivityAlertShown, onLowActivity, isMobile]);
+После:
+```typescript
+// Use client_id from message record for consistency
+const { data: clientData, error: clientError } = await supabase
+  .from('clients')
+  .select('phone')
+  .eq('id', messageData.client_id)
+  .single();
 ```
 
 ---
 
-#### 2. Файл: `src/hooks/useTabFeedback.ts`
+#### 2. Файл: `supabase/functions/wpp-edit/index.ts`
 
-**Изменения:**
+**Изменения (строка 59-64)**:
 
+До:
 ```typescript
-// Добавить импорт
-import { useIsMobile } from './use-mobile';
+const { data: clientData, error: clientError } = await supabase
+  .from('clients')
+  .select('phone')
+  .eq('id', clientId)
+  .single();
+```
 
-// В начале хука добавить:
-const isMobile = useIsMobile();
-
-// В handleVisibilityChange добавить проверку:
-const handleVisibilityChange = useCallback(() => {
-  // Skip tab feedback on mobile devices
-  if (isMobile) return;
-  
-  if (!enabled || !user || sessionAskedRef.current) return;
-  // ... остальная логика без изменений
-}, [enabled, user, minAwayTime, onShowFeedbackRequest, isMobile]);
+После:
+```typescript
+// Use client_id from message record for consistency
+const { data: clientData, error: clientError } = await supabase
+  .from('clients')
+  .select('phone')
+  .eq('id', messageData.client_id)
+  .single();
 ```
 
 ---
@@ -70,14 +97,13 @@ const handleVisibilityChange = useCallback(() => {
 
 | Файл | Изменения |
 |------|-----------|
-| `src/hooks/useActivityTracker.ts` | Импорт `useIsMobile`, проверка `if (isMobile) return` в useEffect для алертов |
-| `src/hooks/useTabFeedback.ts` | Импорт `useIsMobile`, проверка `if (isMobile) return` в handleVisibilityChange |
+| `supabase/functions/wpp-delete/index.ts` | Использовать `messageData.client_id` вместо `clientId` |
+| `supabase/functions/wpp-edit/index.ts` | Использовать `messageData.client_id` вместо `clientId` |
 
 ### Ожидаемый результат
 
-- ✅ На мобильных устройствах (ширина < 768px):
-  - НЕ показываются предупреждения о низкой активности
-  - НЕ показывается feedback при смене вкладки
-- ✅ На десктопе функционал остаётся без изменений
-- ✅ Трекинг активности продолжает работать на всех устройствах (для статистики в админке)
+- Удаление сообщений через WPP работает корректно
+- Редактирование сообщений через WPP работает корректно
+- Нет зависимости от корректности переданного `clientId` параметра
+- Совместимость с self-hosted схемой
 
