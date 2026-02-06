@@ -497,8 +497,10 @@ export const ChatArea = ({
   // Get integration statuses for all messengers (for tab indicators)
   const { data: integrationsStatus } = useAllIntegrationsStatus();
   
-  // Get pending GPT responses for this client
-  const { data: pendingGPTResponses, isLoading: pendingGPTLoading, error: pendingGPTError } = usePendingGPTResponses(clientId);
+  // Get pending GPT responses for this client (skip for teacher messages - they use teacher:xxx format which is not a valid UUID)
+  const { data: pendingGPTResponses, isLoading: pendingGPTLoading, error: pendingGPTError } = usePendingGPTResponses(
+    isDirectTeacherMessage ? undefined : clientId
+  );
   
   // Log pending responses for debugging
   useEffect(() => {
