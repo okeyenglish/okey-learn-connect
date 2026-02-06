@@ -8,8 +8,20 @@ import {
 } from '../_shared/types.ts'
 
 // Version for debugging stale deployments
-const VERSION = "v2.6.0";
-const DEPLOYED_AT = "2026-02-05T23:00:00Z";
+const VERSION = "v2.7.0";
+const DEPLOYED_AT = "2026-02-06T12:00:00Z";
+
+/**
+ * Strip media placeholder prefixes like [Image], [Video], etc.
+ * WPP sends these when media is attached, but we want the real caption only.
+ */
+function stripMediaPlaceholder(text: string | undefined): string {
+  if (!text) return '';
+  // Remove [Image], [Video], [Audio], [Document], [File], [Sticker], [Voice], [Media] prefixes
+  return text
+    .replace(/^\[(Image|Video|Audio|Document|File|Sticker|Voice|Media|Ptt)\]\s*/i, '')
+    .trim();
+}
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -306,7 +318,12 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
           })
         
         if (uploadError) {
-          console.error('[wpp-webhook] Storage upload error:', uploadError.message)
+          console.error('[wpp-webhook] Storage upload error:', {
+            message: uploadError.message,
+            hint: uploadError.message?.includes('not found') || uploadError.message?.includes('Bucket')
+              ? 'Bucket "chat-media" may not exist. Create it in Supabase Storage with public access.'
+              : undefined
+          })
         } else {
           // Get public URL
           const { data: publicUrlData } = supabase.storage
@@ -325,8 +342,12 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
     }
   }
   
-  // Build message text - use [Media] placeholder if no text but has media
-  const messageText = data.text || data.body || (fileUrl ? `[${fileType || 'Media'}]` : '')
+  // Build message text - strip [Image], [Video] placeholders from WPP platform
+  // Only keep actual caption text, leave empty if just a placeholder
+  const rawText = data.text || data.body || '';
+  const cleanText = data.media ? stripMediaPlaceholder(rawText) : rawText;
+  // Don't add placeholder text when we have a file - let the UI handle display
+  const messageText = cleanText || '';
   
   console.log('[wpp-webhook] handleIncomingMessage called with:', { 
     from: fromField, 

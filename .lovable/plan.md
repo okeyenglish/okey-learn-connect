@@ -1,98 +1,38 @@
 
-## План: Исправление обработки медиа в wpp-webhook
+## План: ✅ DONE - Исправление обработки медиа в wpp-webhook
 
-### Проблема
+### Проблема (решена)
 
-WPP платформа отправляет входящие медиа-сообщения в формате:
-```json
-{
-  "text": "[Image]" или "[Image] какой-то caption",
-  "type": "image",
-  "media": {
-    "mimetype": "image/jpeg",
-    "filename": "photo.jpg",
-    "base64": "AAAA...."
-  }
-}
-```
+WPP платформа отправляла медиа с плейсхолдерами `[Image]`, `[Video]` в поле text.
 
-Текущий код использует `data.text` напрямую, сохраняя `[Image]` как текст сообщения вместо реального файла.
+### Что сделано (v2.7.0)
 
-### Решение
+1. ✅ Добавлена функция `stripMediaPlaceholder()` для очистки плейсхолдеров
+2. ✅ Изменено построение текста - теперь показывается только реальный caption
+3. ✅ Улучшено логирование ошибок загрузки в storage с подсказкой о бакете
 
-#### 1. Добавить функцию очистки плейсхолдеров
-
-```typescript
-function stripMediaPlaceholder(text: string | undefined): string {
-  if (!text) return '';
-  // Убираем [Image], [Video], [Audio], [Document], [File], [Sticker], [Voice]
-  return text
-    .replace(/^\[(Image|Video|Audio|Document|File|Sticker|Voice|Media)\]\s*/i, '')
-    .trim();
-}
-```
-
-#### 2. Изменить построение текста сообщения
-
-**Было (строка 329):**
-```typescript
-const messageText = data.text || data.body || (fileUrl ? `[${fileType || 'Media'}]` : '')
-```
-
-**Станет:**
-```typescript
-// Если есть медиа, очищаем плейсхолдеры из текста
-const rawText = data.text || data.body || '';
-const cleanText = data.media ? stripMediaPlaceholder(rawText) : rawText;
-// Плейсхолдер только если нет ни текста, ни медиа
-const messageText = cleanText || (fileUrl ? '' : '');
-```
-
-#### 3. Улучшить логирование ошибок загрузки
-
-Добавить проверку существования бакета и более детальные ошибки:
-
-```typescript
-if (uploadError) {
-  console.error('[wpp-webhook] Storage upload error:', {
-    message: uploadError.message,
-    hint: uploadError.message.includes('not found') 
-      ? 'Bucket "chat-media" may not exist. Create it in Supabase Storage.' 
-      : undefined
-  });
-}
-```
-
-### Файл для изменения
-
-`supabase/functions/wpp-webhook/index.ts`
-
-### После изменений
-
-На self-hosted сервере (`api.academyos.ru`):
-```bash
-# Копировать файл
-# Перезапустить
-docker compose restart functions
-```
-
-### Проверка бакета на self-hosted
-
-Если медиа не сохраняется, проверить что бакет `chat-media` создан:
-```sql
--- В supabase postgres
-SELECT * FROM storage.buckets WHERE id = 'chat-media';
-```
-
-Если нет — создать через dashboard или SQL:
-```sql
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('chat-media', 'chat-media', true);
-```
-
-### Ожидаемый результат
+### Результат
 
 | До | После |
 |----|-------|
-| `[Image]` в тексте, `file_url: null` | Пустой текст (или caption), `file_url: https://...` |
-| `[Image] фото с отпуска` | `фото с отпуска`, `file_url: https://...` |
+| `[Image]` в тексте | Пустой текст, медиа отображается UI |
+| `[Image] фото с отпуска` | `фото с отпуска` + медиа |
+
+### Self-hosted deployment
+
+```bash
+# На api.academyos.ru:
+# 1. Скопировать supabase/functions/wpp-webhook/index.ts
+# 2. Перезапустить
+docker compose restart functions
+```
+
+### Проверка бакета
+
+```sql
+-- Если медиа не загружается:
+SELECT * FROM storage.buckets WHERE id = 'chat-media';
+
+-- Создать если нет:
+INSERT INTO storage.buckets (id, name, public) VALUES ('chat-media', 'chat-media', true);
+```
