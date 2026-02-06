@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useThrottle } from './useThrottle';
+import { useIsMobile } from './use-mobile';
 import { playNotificationSound } from './useNotificationSound';
 import { getNotificationSettings } from './useNotificationSettings';
 import { sendActivityWarningMessage } from '@/utils/sendActivityWarningMessage';
@@ -89,6 +90,7 @@ interface UseActivityTrackerOptions {
  */
 export const useActivityTracker = (options: UseActivityTrackerOptions = {}) => {
   const { isOnCall = false, onLowActivity, serverBaseline } = options;
+  const isMobile = useIsMobile();
   
   const [state, setState] = useState<ActivityState>(() => {
     const loaded = loadState();
@@ -331,6 +333,9 @@ export const useActivityTracker = (options: UseActivityTrackerOptions = {}) => {
 
   // Check for low activity and trigger callback or default behavior
   useEffect(() => {
+    // Skip alerts on mobile devices
+    if (isMobile) return;
+    
     // Grace period after mount - wait for server sync before checking
     const timeSinceMount = Date.now() - mountTimeRef.current;
     if (timeSinceMount < MOUNT_GRACE_PERIOD) return;
@@ -385,7 +390,7 @@ export const useActivityTracker = (options: UseActivityTrackerOptions = {}) => {
         return newState;
       });
     }
-  }, [activityPercentage, sessionDuration, state.lowActivityAlertShown, onLowActivity]);
+  }, [activityPercentage, sessionDuration, state.lowActivityAlertShown, onLowActivity, isMobile]);
 
   return {
     status: state.status,
