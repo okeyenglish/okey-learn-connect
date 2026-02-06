@@ -494,6 +494,26 @@ export class WppMsgClient {
     };
   }
 
+  // ==========================================================================
+  // Message Management
+  // ==========================================================================
+
+  /**
+   * Delete message by taskId
+   * DELETE /api/messages/{taskId}
+   */
+  async deleteMessage(taskId: string): Promise<{ success: boolean; error?: string }> {
+    const url = `${this.baseUrl}/api/messages/${encodeURIComponent(taskId)}`;
+    
+    try {
+      await this._fetch(url, { method: 'DELETE' });
+      return { success: true };
+    } catch (error: any) {
+      console.error(`[WppMsgClient] Delete message error:`, error);
+      return { success: false, error: error.message };
+    }
+  }
+
   /**
    * Send location message
    * POST /api/messages/location { account, to, lat, lng, name, address }
