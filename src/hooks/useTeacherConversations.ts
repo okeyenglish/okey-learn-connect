@@ -57,17 +57,30 @@ export const useTeacherConversations = (branch?: string | null) => {
       const teacherIds = filteredTeachers.map(t => t.id);
 
       // Step 2: Get message stats for each teacher
-      // Get last message per teacher - use raw query for self-hosted compatibility
-      // @ts-ignore - teacher_id column exists in self-hosted schema
-      const { data: messageStats, error: statsError } = await (supabase
-        .from('chat_messages') as any)
-        .select('*')
-        .in('teacher_id', teacherIds)
-        .order('created_at', { ascending: false });
-
-      if (statsError) {
-        console.warn('[useTeacherConversations] Error fetching message stats:', statsError);
+      // OPTIMIZATION: Only fetch last message and unread count, not all messages!
+      // Fetch in batches: get last message per teacher (limited query)
+      const batchSize = 100;
+      const allStats: any[] = [];
+      
+      for (let i = 0; i < teacherIds.length; i += batchSize) {
+        const batchIds = teacherIds.slice(i, i + batchSize);
+        
+        // @ts-ignore - teacher_id column exists in self-hosted schema
+        const { data: batchStats, error: batchError } = await (supabase
+          .from('chat_messages') as any)
+          .select('teacher_id, created_at, message_text, content, messenger_type, messenger, is_read, is_outgoing, direction')
+          .in('teacher_id', batchIds)
+          .order('created_at', { ascending: false })
+          .limit(batchIds.length * 50); // ~50 messages per teacher max
+        
+        if (batchError) {
+          console.warn('[useTeacherConversations] Batch error:', batchError);
+        } else if (batchStats) {
+          allStats.push(...batchStats);
+        }
       }
+      
+      const messageStats = allStats;
 
       // Process message stats into per-teacher data
       const teacherStatsMap = new Map<string, {

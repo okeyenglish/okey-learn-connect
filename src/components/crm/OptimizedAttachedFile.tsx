@@ -97,6 +97,22 @@ function getEffectiveMimeType(type: string, name: string, url: string, messageTy
     return type;
   }
   
+  // Handle short type names without MIME prefix (e.g., "image", "video", "audio")
+  if (type) {
+    const shortTypeMap: Record<string, string> = {
+      'image': 'image/jpeg',
+      'video': 'video/mp4',
+      'audio': 'audio/ogg',
+      'voice': 'audio/ogg',
+      'ptt': 'audio/ogg',
+      'sticker': 'image/webp',
+      'document': 'application/octet-stream',
+      'file': 'application/octet-stream',
+    };
+    const mapped = shortTypeMap[type.toLowerCase()];
+    if (mapped) return mapped;
+  }
+  
   // Try to get from message type pattern (imageMessage, videoMessage, etc.)
   const fromMessageType = getMimeTypeFromMessageType(messageType);
   if (fromMessageType && !fromMessageType.includes('octet-stream')) return fromMessageType;
