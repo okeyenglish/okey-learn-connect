@@ -122,7 +122,10 @@ export const useBatchMessageReactions = (messageIds: string[]) => {
   });
 };
 
-// Хук для добавления реакции (обновляет batch cache)
+// Поддерживаемые WPP эмодзи
+const WPP_SUPPORTED_EMOJIS = ['🔥', '😂', '👍', '❤️', '😡'];
+
+// Хук для добавления реакции (обновляет batch cache + отправляет в WPP)
 export const useBatchAddReaction = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -132,6 +135,7 @@ export const useBatchAddReaction = () => {
     mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
       if (!user) throw new Error('User not authenticated');
       
+      // 1. Сохраняем реакцию локально в БД
       const { data, error } = await supabase
         .from('message_reactions')
         .upsert({
@@ -148,6 +152,22 @@ export const useBatchAddReaction = () => {
       if (error) {
         console.error('Error adding reaction:', error);
         throw error;
+      }
+
+      // 2. Если эмодзи поддерживается WPP - отправляем в WhatsApp
+      if (WPP_SUPPORTED_EMOJIS.includes(emoji)) {
+        try {
+          const { error: wppError } = await supabase.functions.invoke('wpp-react', {
+            body: { messageId, emoji },
+          });
+          
+          if (wppError) {
+            console.warn('WPP reaction failed (saved locally):', wppError);
+          }
+        } catch (wppErr) {
+          // Не блокируем - реакция уже сохранена локально
+          console.warn('WPP reaction error (saved locally):', wppErr);
+        }
       }
 
       return data;

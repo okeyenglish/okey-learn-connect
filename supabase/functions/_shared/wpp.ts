@@ -515,6 +515,26 @@ export class WppMsgClient {
   }
 
   /**
+   * React to a message
+   * POST /api/messages/react { taskId, emoji }
+   * Supported emojis: 🔥 😂 👍 ❤️ 😡
+   */
+  async reactToMessage(taskId: string, emoji: string): Promise<{ success: boolean; error?: string }> {
+    const url = `${this.baseUrl}/api/messages/react`;
+    
+    try {
+      const result = await this._fetch(url, {
+        method: 'POST',
+        body: JSON.stringify({ taskId, emoji }),
+      });
+      return { success: result.status !== 'error', error: result.message };
+    } catch (error: any) {
+      console.error(`[WppMsgClient] React to message error:`, error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Send location message
    * POST /api/messages/location { account, to, lat, lng, name, address }
    */
