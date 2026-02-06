@@ -548,22 +548,37 @@ async function handleMessageStatus(data: any) {
 
   console.log('[wpp-webhook] Message status update:', { id, taskId, waMessageId, status })
   
-  // If we have both taskId and waMessageId, update external_message_id from taskId to waMessageId
-  // This is important for reactions and deletions which require waMessageId
+  // If we have both taskId and waMessageId, save waMessageId in metadata (for reactions)
+  // Keep taskId as external_message_id (for deletions)
+  // API: DELETE /api/messages/:taskId (needs taskId)
+  // API: POST /api/messages/react (needs waMessageId)
   if (taskId && waMessageId) {
-    console.log('[wpp-webhook] Updating external_message_id from taskId to waMessageId:', taskId, '->', waMessageId)
+    console.log('[wpp-webhook] Saving waMessageId in metadata for reactions:', waMessageId)
+    
+    // First get existing metadata
+    const { data: msg } = await supabase
+      .from('chat_messages')
+      .select('metadata')
+      .eq('external_message_id', taskId)
+      .maybeSingle()
+    
+    const existingMetadata = (msg?.metadata || {}) as Record<string, any>
+    
     const { error: updateError } = await supabase
       .from('chat_messages')
       .update({ 
         message_status: status,
-        external_message_id: waMessageId,
+        metadata: {
+          ...existingMetadata,
+          waMessageId: waMessageId,  // Save for reactions
+        },
       })
       .eq('external_message_id', taskId)
     
     if (updateError) {
-      console.warn('[wpp-webhook] Failed to update waMessageId:', updateError.message)
+      console.warn('[wpp-webhook] Failed to save waMessageId:', updateError.message)
     } else {
-      console.log('[wpp-webhook] ✓ waMessageId updated successfully')
+      console.log('[wpp-webhook] ✓ waMessageId saved in metadata')
     }
     return
   }
