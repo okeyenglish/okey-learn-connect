@@ -473,3 +473,6 @@ verify_jwt = true
 
 [functions.wpp-provision]
 verify_jwt = true
+
+[functions.wpp-react]
+verify_jwt = true

@@ -13,8 +13,8 @@ interface MessageReactionsProps {
   className?: string;
 }
 
-// Популярные эмодзи для быстрого выбора
-const POPULAR_EMOJIS = ['👍', '👎', '❤️', '😂', '😮', '😢', '🔥', '👏'];
+// Эмодзи для реакций - WPP поддерживаемые в приоритете
+const POPULAR_EMOJIS = ['👍', '❤️', '🔥', '😂', '😡', '👎', '😮', '👏'];
 
 export const MessageReactions = ({ messageId, showAddButton = true, className }: MessageReactionsProps) => {
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
