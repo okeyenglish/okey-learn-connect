@@ -1,75 +1,39 @@
 
 ## План: Исправление отображения медиафайлов WPP
 
-### Проблема
+### Статус: ✅ Исправлено (v2.8.0)
 
-Медиафайлы (изображения, видео, аудио) не отображаются в чате для входящих сообщений WhatsApp через WPP.
+### Проблемы
 
-### Диагностика
-
-1. **wpp-webhook** сохранял `file_type` как просто 'image' вместо полного MIME-типа 'image/jpeg'
-2. **wpp-download** возвращал blob вместо `{downloadUrl: string}`, что несовместимо с фронтендом
-3. Компонент `OptimizedAttachedFile` не мог определить тип файла и показывал плейсхолдер
+1. **Медленная загрузка списка преподавателей** - `useTeacherConversations` загружал ВСЕ сообщения без лимита
+2. **Медиафайлы не отображались** - `file_type` содержал 'image' вместо 'image/jpeg'
 
 ### Исправления
 
-#### 1. `supabase/functions/wpp-webhook/index.ts`
+#### 1. `src/hooks/useTeacherConversations.ts`
 
-**Строка 290-293** - сохранять полный MIME-тип:
+- Добавлен лимит загрузки (~50 сообщений на преподавателя)
+- Добавлена пакетная обработка для предотвращения таймаутов
 
-```typescript
-// Было:
-fileType = media.mimetype ? getFileTypeFromMime(media.mimetype) : null
-fileName = media.filename || `${fileType || 'file'}_${Date.now()}`
+#### 2. `src/components/crm/OptimizedAttachedFile.tsx`
 
-// Стало:
-fileType = media.mimetype || null  // Сохраняем реальный MIME-тип
-const fileCategory = media.mimetype ? getFileTypeFromMime(media.mimetype) : 'file'
-fileName = media.filename || `${fileCategory}_${Date.now()}`
-```
+- Улучшена функция `getEffectiveMimeType()` для обработки коротких типов ('image', 'video', 'audio', 'ptt')
+- Автоматическое преобразование: 'image' → 'image/jpeg', 'video' → 'video/mp4', etc.
 
-#### 2. `supabase/functions/wpp-download/index.ts`
+#### 3. `supabase/functions/wpp-webhook/index.ts` (v2.8.0)
 
-Полностью переписана функция:
-- Сначала ищет `file_url` в базе данных (файлы уже сохранены wpp-webhook)
-- Если не найдено, скачивает с WPP API и сохраняет в Storage
-- Возвращает `{downloadUrl: string}` вместо blob
+- Добавлена обработка нового формата `delivery` статусов
+- Исправлено сохранение полного MIME типа для входящих медиа
 
-### Развёртывание на Self-Hosted
-
-**Скопировать обновлённые функции:**
+### Развёртывание
 
 ```bash
-# Скопировать файлы на сервер
+# Скопировать на self-hosted сервер
 scp supabase/functions/wpp-webhook/index.ts server:/path/to/functions/wpp-webhook/
-scp supabase/functions/wpp-download/index.ts server:/path/to/functions/wpp-download/
 
-# Перезапустить functions контейнер
+# Перезапустить
 docker compose restart functions
 ```
-
-**Создать Storage bucket (если не существует):**
-
-```sql
--- Выполнить в SQL редакторе Supabase
-INSERT INTO storage.buckets (id, name, public) 
-VALUES ('chat-media', 'chat-media', true)
-ON CONFLICT (id) DO NOTHING;
-
--- RLS политики для публичного доступа
-CREATE POLICY "Public read access" ON storage.objects
-  FOR SELECT USING (bucket_id = 'chat-media');
-
-CREATE POLICY "Service role write access" ON storage.objects
-  FOR INSERT WITH CHECK (bucket_id = 'chat-media');
-```
-
-### Ожидаемый результат
-
-После исправлений:
-- Новые входящие медиафайлы будут сохраняться с правильным MIME-типом
-- Компонент `OptimizedAttachedFile` корректно определит тип и покажет превью
-- При ошибке загрузки файл будет скачан с WPP API и сохранён в Storage
 
 ---
 
