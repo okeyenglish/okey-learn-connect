@@ -3,13 +3,19 @@ import { Activity, Power, PowerOff, RefreshCw, AlertTriangle } from 'lucide-reac
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useToast } from '@/hooks/use-toast';
 
 interface ProfileInfo {
   phone: string;
   status: 'online' | 'offline' | 'starting' | 'stopping' | 'error';
   connected?: boolean;
+}
+
+interface ProfilesResponse {
+  success: boolean;
+  data?: Array<{ phone?: string; status?: string }>;
+  error?: string;
 }
 
 interface TelegramCrmProfileStatusProps {
@@ -34,15 +40,12 @@ export const TelegramCrmProfileStatus: React.FC<TelegramCrmProfileStatusProps> =
   const checkStatus = async () => {
     setIsChecking(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const response = await supabase.functions.invoke('telegram-crm-profiles', {
-        body: { action: 'list' },
+      const response = await selfHostedPost<ProfilesResponse>('telegram-crm-profiles', {
+        action: 'list',
       });
 
-      if (response.error) {
-        console.error('Error checking profiles:', response.error);
+      if (!response.success || response.data?.error) {
+        console.error('Error checking profiles:', response.error || response.data?.error);
         setStatus('error');
         return;
       }
@@ -51,7 +54,7 @@ export const TelegramCrmProfileStatus: React.FC<TelegramCrmProfileStatusProps> =
       const cleanPhone = phone.replace(/\D/g, '');
       
       // Find profile by phone number
-      const profile = profiles.find((p: { phone?: string; status?: string }) => 
+      const profile = profiles.find((p) => 
         p.phone?.replace(/\D/g, '') === cleanPhone
       );
 
@@ -77,22 +80,13 @@ export const TelegramCrmProfileStatus: React.FC<TelegramCrmProfileStatusProps> =
     setIsLoading(true);
     setStatus('starting');
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast({
-          title: 'Ошибка',
-          description: 'Требуется авторизация',
-          variant: 'destructive',
-        });
-        return;
-      }
+      const response = await selfHostedPost<{ success: boolean; error?: string }>(
+        'telegram-crm-profiles',
+        { action: 'start', phone }
+      );
 
-      const response = await supabase.functions.invoke('telegram-crm-profiles', {
-        body: { action: 'start', phone },
-      });
-
-      if (response.error || !response.data?.success) {
-        throw new Error(response.data?.error || 'Ошибка запуска профиля');
+      if (!response.success || response.data?.error) {
+        throw new Error(response.error || response.data?.error || 'Ошибка запуска профиля');
       }
 
       setStatus('online');
@@ -118,22 +112,13 @@ export const TelegramCrmProfileStatus: React.FC<TelegramCrmProfileStatusProps> =
     setIsLoading(true);
     setStatus('stopping');
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast({
-          title: 'Ошибка',
-          description: 'Требуется авторизация',
-          variant: 'destructive',
-        });
-        return;
-      }
+      const response = await selfHostedPost<{ success: boolean; error?: string }>(
+        'telegram-crm-profiles',
+        { action: 'stop', phone }
+      );
 
-      const response = await supabase.functions.invoke('telegram-crm-profiles', {
-        body: { action: 'stop', phone },
-      });
-
-      if (response.error || !response.data?.success) {
-        throw new Error(response.data?.error || 'Ошибка остановки профиля');
+      if (!response.success || response.data?.error) {
+        throw new Error(response.error || response.data?.error || 'Ошибка остановки профиля');
       }
 
       setStatus('offline');
