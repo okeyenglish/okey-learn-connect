@@ -1,118 +1,182 @@
 
-Цель: чтобы в self-hosted (api.academyos.ru) быстро появились (1) превью/последнее сообщение в списке чатов преподавателей и (2) сами сообщения в окне диалога — без долгой “Загрузка чата…” и без 400-ошибок по отсутствующим колонкам.
+# План: Ускорение загрузки списка чатов преподавателей
 
-## Что сейчас ломает преподавательские чаты (диагностика по логам/сети)
-1) Запрос истории сообщений преподавательского чата (режим `messagesSource="teacher"` через client_id) падает 400:
-- Запрос: `GET .../chat_messages?select=...external_id...`
-- Ответ: `column chat_messages.external_id does not exist` (код 42703)
-Это прямо объясняет, почему сообщения “не появляются”: запрос не может выполниться вообще.
+## Диагностика
 
-2) В self-hosted нет колонки `direction`, но часть кода продолжает её использовать:
-- Есть запросы вида `...chat_messages?...&direction=eq.incoming...`
-- Ответ: `column chat_messages.direction does not exist` (код 42703)
-Из-за этого ломаются/обнуляются подсчёты непрочитанных и превью, а также создаётся лишняя нагрузка (ошибочные запросы на старте/фоне).
+Найдены **три критические проблемы**, которые блокируют быструю загрузку:
 
-3) Дополнительный ускоритель “prefetch при наведении” в `TeacherListItem` сейчас делает потенциально неправильные запросы:
-- может пытаться префетчить по `client_id="teacher:uuid"` (не UUID) → в БД это UUID-колонка, такой фильтр приводит к ошибкам/лишним запросам
-- в select используются cloud-колонки (`content`, `media_url`, `messenger`, `status`), которые на self-hosted часто отсутствуют → снова 42703
+### 1. Ошибка `whatsapp_id does not exist` в bulk-fetch-avatars
 
-## Что сделаем в коде (без “fallback ради fallback”, а по-нормальному для self-hosted)
-Ниже — конкретные правки и почему они ускорят загрузку.
+**Консоль:**
+```
+[BulkAvatar] Error: Failed to fetch clients: column clients.whatsapp_id does not exist
+```
 
-### A) Починить загрузку сообщений преподавательского чата по client_id (главный blocker)
-Файл: `src/hooks/useTeacherChats.ts` (хук `useTeacherChatMessages(clientId, enabled)`)
+**Причина:** Edge функция `bulk-fetch-avatars` пытается получить колонку `whatsapp_id` из таблицы `clients`, но в self-hosted схеме этой колонки НЕТ.
 
-План изменений:
-1) В прямом SELECT убрать несуществующую колонку `external_id` (и любые потенциально cloud-only поля, если они там есть).
-   - Сейчас именно `external_id` гарантированно ломает запрос (есть подтверждение в network logs).
-2) Сделать “self-hosted direct select” основным путём, а RPC — только как запасной вариант (на случай, если на конкретной роли/политике прямой select вернёт запрет/пусто).
-   - Это уберёт ожидание таймаута RPC и сразу даст быстрый запрос по индексу `client_id + created_at`.
-3) Нормализацию полей оставить, но строить её от реально существующих self-hosted колонок:
-   - текст: `message_text`
-   - входящее/исходящее: `is_outgoing`
-   - внешний id: `external_message_id` (если нужен)
-   - messenger: `messenger_type`
+**Файл:** `supabase/functions/bulk-fetch-avatars/index.ts`, строка 91
 
-Ожидаемый эффект: запрос перестаёт падать 400 и начинает отдавать историю сообщений.
+```typescript
+// Текущий код:
+.select('id, whatsapp_id, phone, telegram_user_id')
+```
 
-### B) Починить превью/последнее сообщение в списке преподавателей (и убрать 42703 по direction)
-Файл: `src/hooks/useTeacherConversations.ts`
+Эта ошибка **не блокирует** загрузку списка, но создаёт лишний шум в логах.
 
-План изменений:
-1) В `.select(...)` убрать `direction`:
-   - заменить на self-hosted набор: `teacher_id, created_at, message_text, messenger_type, is_read, is_outgoing` (+ `messenger` только если он реально есть и используется)
-2) В подсчёте непрочитанных убрать `m.direction === 'incoming'`, оставить self-hosted условие:
-   - “входящее = `is_outgoing === false`”
-3) В `lastMessageText` не пытаться читать `content` (cloud), оставить `message_text`.
+### 2. Последовательные запросы в useTeacherChats (главный bottleneck)
 
-Ожидаемый эффект: teacherConversations снова начнёт заполняться, а TeacherChatArea (который мёрджит teacherConversations в список) начнёт показывать последнее сообщение и время.
+**Файл:** `src/hooks/useTeacherChats.ts`, строки 379-445
 
-### C) Убрать лишние ошибочные префетчи и сделать их безопасными
-Файл: `src/components/crm/TeacherListItem.tsx`
+В fallback-логике для каждого преподавателя выполняются **2 последовательных запроса**:
+1. `chat_messages.select(...).eq('client_id', ...)` — получить последнее сообщение
+2. `chat_messages.select(..., { count: 'exact' })` — посчитать непрочитанные
 
-План изменений:
-1) Добавить строгую проверку clientId перед prefetch:
-   - если `teacher.clientId` не UUID (например `teacher:...`) — НЕ делать RPC и НЕ делать `.eq('client_id', ...)` (иначе будут ошибки/лишняя нагрузка).
-2) Для UUID clientId:
-   - prefetch делать прямым select с self-hosted колонками (без `content`, `media_url`, `messenger`, `status`, `external_id`).
-3) Опционально: для `teacher:uuid` вместо пропуска можно префетчить `teacher-chat-messages-v2` (infinite query), но это вторично — главное убрать ошибки и “шум”.
+Если преподавателей 50, это **100+ последовательных запросов**, что занимает минуты!
 
-Ожидаемый эффект: меньше 400/42703 в фоне, меньше “тормозов” при наведении/скролле списка.
+**Строка 433-437:**
+```typescript
+const { count: unreadCount } = await supabase
+  .from('chat_messages')
+  .select('id', { count: 'exact', head: true })
+  .eq('client_id', matchedClient.id)
+  .eq('is_outgoing', false)
+  // ОТСУТСТВУЕТ .eq('is_read', false) — считает ВСЕ входящие, не только непрочитанные!
+```
 
-### D) Убрать фоновые 400 из-за direction (уменьшит “тормозит” по всей CRM)
-Минимальный набор (который уже видно в сети):
-- Файл: `src/utils/sendActivityWarningMessage.ts`
-  - заменить `.eq('direction', 'incoming')` на self-hosted критерий входящих: `.eq('is_outgoing', false)` (и оставить `is_read=false`)
-- Файл: `src/hooks/useSystemChatMessages.ts` (там тоже есть `.eq('direction', 'incoming')`)
-  - аналогично заменить на `is_outgoing=false` или `message_type='client'` (в зависимости от того, как у вас помечаются входящие в self-hosted)
+**Дополнительный баг:** Пропущен фильтр `is_read = false`, поэтому `unreadCount` всегда равен общему числу входящих сообщений.
 
-Ожидаемый эффект: меньше постоянных ошибок и меньше параллельных “битых” запросов, которые забивают канал и создают ощущение, что всё висит.
+### 3. Неоптимальный batch-запрос в useTeacherConversations
 
-## Производительность: что нужно на self-hosted базе (иначе даже правильный код может быть медленным)
-Если сообщений много, без индекса по `teacher_id/created_at` получение истории и превью может быть реально медленным.
+**Файл:** `src/hooks/useTeacherConversations.ts`, строки 65-82
 
-Рекомендованные индексы для self-hosted (SQL дать вам в готовом виде, вы выполните на своём сервере):
-1) Для диалогов преподавателей по teacher_id:
+Запрос получает ~20 сообщений на преподавателя (`limit(batchIds.length * 20)`), но если преподавателей 100, это попытка загрузить **2000 строк за раз**. При отсутствии индекса это очень медленно.
+
+## Решение
+
+### Шаг 1: Исправить bulk-fetch-avatars (убрать несуществующую колонку)
+
+**Файл:** `supabase/functions/bulk-fetch-avatars/index.ts`
+
+```typescript
+// БЫЛО (строка 91):
+.select('id, whatsapp_id, phone, telegram_user_id')
+
+// СТАНЕТ (self-hosted не имеет whatsapp_id, whatsapp_chat_id в clients):
+.select('id, phone, telegram_user_id')
+```
+
+Также исправить интерфейс `ClientRecord`:
+```typescript
+interface ClientRecord {
+  id: string;
+  phone?: string | null;
+  telegram_user_id?: string | null;
+}
+```
+
+И функцию `fetchWhatsAppAvatar`:
+```typescript
+// Использовать phone вместо whatsapp_id
+let chatId: string | null = null;
+if (client.phone) {
+  const normalizedPhone = client.phone.replace(/\D/g, '');
+  chatId = normalizedPhone.includes('@') ? normalizedPhone : `${normalizedPhone}@c.us`;
+}
+```
+
+### Шаг 2: Оптимизировать useTeacherChats — batch-запрос вместо N запросов
+
+**Файл:** `src/hooks/useTeacherChats.ts`
+
+Заменить последовательные запросы на **один batch-запрос**:
+
+```typescript
+// Вместо цикла с await внутри:
+// БЫЛО (строки 379-447):
+for (const teacher of teachersList) {
+  // ...
+  const { data: lastMsg } = await supabase...  // запрос 1
+  const { count } = await supabase...           // запрос 2
+}
+
+// СТАНЕТ — один запрос на все сообщения:
+const clientIds = teacherClients.map(c => c.id);
+const { data: allMessages } = await supabase
+  .from('chat_messages')
+  .select('client_id, message_text, created_at, messenger_type, is_read, is_outgoing')
+  .in('client_id', clientIds)
+  .order('created_at', { ascending: false })
+  .limit(clientIds.length * 10);
+
+// Группируем в Map и вычисляем stats локально
+const messagesByClient = new Map<string, any[]>();
+(allMessages || []).forEach(msg => {
+  // ...group by client_id
+});
+
+// Затем обходим teachersList и берём данные из Map
+```
+
+### Шаг 3: Исправить баг с подсчётом непрочитанных
+
+**Файл:** `src/hooks/useTeacherChats.ts`, строка 437
+
+```typescript
+// БЫЛО (без фильтра is_read):
+.eq('is_outgoing', false)
+
+// СТАНЕТ:
+.eq('is_outgoing', false)
+.eq('is_read', false)  // Добавить!
+```
+
+### Шаг 4: Оптимизировать useTeacherConversations — уменьшить объём запроса
+
+**Файл:** `src/hooks/useTeacherConversations.ts`, строки 62-75
+
+```typescript
+// БЫЛО:
+const batchSize = 100;
+// ...
+.limit(batchIds.length * 20); // До 2000 строк!
+
+// СТАНЕТ:
+const batchSize = 30;  // Меньше преподавателей за раз
+// ...
+.limit(batchIds.length * 5); // Только 5 сообщений на превью
+```
+
+## Файлы для изменения
+
+| Файл | Изменение |
+|------|-----------|
+| `supabase/functions/bulk-fetch-avatars/index.ts` | Убрать `whatsapp_id` из select, использовать phone |
+| `src/hooks/useTeacherChats.ts` | Заменить N+1 запросы на batch-запрос, добавить `is_read = false` |
+| `src/hooks/useTeacherConversations.ts` | Уменьшить batchSize и limit |
+
+## Ожидаемый результат
+
+- Ошибка `whatsapp_id does not exist` исчезнет
+- Загрузка списка преподавателей сократится с минут до секунд (1-2 запроса вместо 100+)
+- Подсчёт непрочитанных будет корректным (только `is_read = false`)
+- Превью сообщений появятся быстро
+
+## Рекомендуемые индексы (выполнить на self-hosted)
+
 ```sql
+-- Для быстрого поиска сообщений по teacher_id
 CREATE INDEX IF NOT EXISTS idx_chat_messages_teacher_id_created
-ON public.chat_messages (teacher_id, created_at DESC);
-```
+ON chat_messages (teacher_id, created_at DESC)
+WHERE teacher_id IS NOT NULL;
 
-2) Для преподавательских чатов, которые идут через client_id (групповой “Чат педагогов” и/или “преподаватель как клиент”):
-```sql
+-- Для быстрого поиска сообщений по client_id
 CREATE INDEX IF NOT EXISTS idx_chat_messages_client_id_created
-ON public.chat_messages (client_id, created_at DESC);
-```
+ON chat_messages (client_id, created_at DESC);
 
-Опционально (если часто считаем непрочитанные):
-```sql
-CREATE INDEX IF NOT EXISTS idx_chat_messages_teacher_unread
-ON public.chat_messages (teacher_id, is_read, created_at DESC)
+-- Для быстрого подсчёта непрочитанных
+CREATE INDEX IF NOT EXISTS idx_chat_messages_client_unread
+ON chat_messages (client_id, is_read)
 WHERE is_read = false AND is_outgoing = false;
+
+ANALYZE chat_messages;
 ```
-
-Важно: на некоторых SQL-раннерах нельзя `CONCURRENTLY` — будем делать без него.
-
-## Порядок внедрения (чтобы быстро проверить результат)
-1) Быстрое исправление “сообщения не грузятся совсем”:
-   - `useTeacherChats.ts`: убрать `external_id` из select и перестроить primary path на direct self-hosted select.
-2) Быстрое исправление превью:
-   - `useTeacherConversations.ts`: убрать `direction` из select и логики unread.
-3) Снять лишнюю нагрузку:
-   - `TeacherListItem.tsx`: запретить prefetch для не-UUID и поправить select.
-4) Убрать фоновые 400:
-   - `sendActivityWarningMessage.ts` (+ при необходимости `useSystemChatMessages.ts`)
-5) Проверка в UI:
-   - открыть “Чат педагогов” и конкретного преподавателя
-   - убедиться, что список показывает последнее сообщение
-   - убедиться, что сообщение 15 минут назад (через WPP) видно в списке и в диалоге
-   - открыть DevTools → Network/Console: не должно быть 400 с `external_id` и `direction`
-6) Если всё стало “работает, но всё ещё медленно”:
-   - применить индексы на self-hosted БД и повторно измерить время загрузки.
-
-## Что будет считаться успехом
-- В списке преподавателей вместо “Нет сообщений” появляется текст последнего сообщения и время (без ожидания минутами).
-- При открытии преподавателя/группы сообщения появляются за секунды, без бесконечной “Загрузка чата…”.
-- В консоли/сети исчезают 400 ошибки:
-  - `external_id does not exist`
-  - `direction does not exist`
