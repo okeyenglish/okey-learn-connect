@@ -30,22 +30,27 @@ export const useTeacherChatMessages = (teacherId: string) => {
         return { items: [], nextCursor: 0, hasMore: false, total: 0 };
       }
 
-      // Use raw select for self-hosted compatibility
+      // OPTIMIZATION: Removed count: 'exact' - it's expensive on large tables
+      // Instead, fetch PAGE_SIZE + 1 to detect if there are more pages
       // @ts-ignore - teacher_id column exists in self-hosted schema
-      const { data, error, count } = await (supabase
+      const { data, error } = await (supabase
         .from('chat_messages') as any)
-        .select('*', { count: 'exact' })
+        .select('*')
         .eq('teacher_id', teacherId)
         .order('created_at', { ascending: false })
-        .range(pageParam, pageParam + PAGE_SIZE - 1);
+        .range(pageParam, pageParam + PAGE_SIZE); // +1 to check hasMore
 
       if (error) {
         console.error('[useTeacherChatMessages] Query failed:', error.message);
         throw new Error(error.message);
       }
 
+      const fetchedItems = data || [];
+      const hasMore = fetchedItems.length > PAGE_SIZE;
+      const itemsToReturn = hasMore ? fetchedItems.slice(0, PAGE_SIZE) : fetchedItems;
+
       // Normalize field names for compatibility (self-hosted vs Cloud schema)
-      const normalizedItems = (data || []).map((m: any) => ({
+      const normalizedItems = itemsToReturn.map((m: any) => ({
         ...m,
         message_text: m.message_text || m.content || '',
         content: m.content || m.message_text || '',
@@ -63,14 +68,11 @@ export const useTeacherChatMessages = (teacherId: string) => {
         direction: m.direction || (m.is_outgoing ? 'outgoing' : 'incoming'),
       })) as ChatMessage[];
 
-      const total = count ?? 0;
-      const hasMore = total > pageParam + PAGE_SIZE;
-
       return {
         items: normalizedItems.reverse(), // Chronological order
         nextCursor: pageParam + PAGE_SIZE,
         hasMore,
-        total,
+        total: 0, // Not using total anymore for performance
       };
     },
     getNextPageParam: (lastPage) => {
@@ -78,8 +80,8 @@ export const useTeacherChatMessages = (teacherId: string) => {
     },
     initialPageParam: 0,
     enabled: !!teacherId,
-    staleTime: 30000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: 60000, // Increased to 1 minute
+    gcTime: 10 * 60 * 1000, // 10 minutes cache
   });
 
   // Flatten all pages into a single array
@@ -88,9 +90,11 @@ export const useTeacherChatMessages = (teacherId: string) => {
     return query.data.pages.flatMap(page => page.items);
   }, [query.data]);
 
+  // Total count is no longer accurate (removed for performance)
+  // Use messages.length instead if needed
   const totalCount = useMemo(() => {
-    return query.data?.pages[0]?.total ?? 0;
-  }, [query.data]);
+    return messages.length;
+  }, [messages]);
 
   const prefetchNext = useCallback(() => {
     if (query.hasNextPage && !query.isFetchingNextPage) {
