@@ -183,7 +183,6 @@ Deno.serve(async (req) => {
 
     // Send message via Telegram CRM server
     const sendPayload: Record<string, unknown> = {
-      project_id: organizationId,
       phone: crmPhoneNumber,
       to: recipient,
       text: text || '',
