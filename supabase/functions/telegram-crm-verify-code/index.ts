@@ -185,6 +185,7 @@ serve(async (req) => {
         JSON.stringify({
           success: true,
           integration_id: existingIntegration.id,
+          webhook_key: webhookKey,
           message: "Интеграция обновлена",
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -232,6 +233,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         integration_id: newIntegration.id,
+        webhook_key: webhookKey,
         message: "Интеграция создана",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

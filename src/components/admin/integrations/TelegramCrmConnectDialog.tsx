@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Send, ArrowLeft, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Loader2, Send, ArrowLeft, RefreshCw, CheckCircle2, Copy, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface TelegramCrmConnectDialogProps {
@@ -47,6 +47,8 @@ export const TelegramCrmConnectDialog: React.FC<TelegramCrmConnectDialogProps> =
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [webhookUrl, setWebhookUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -58,6 +60,8 @@ export const TelegramCrmConnectDialog: React.FC<TelegramCrmConnectDialogProps> =
       setName('');
       setError(null);
       setResendCooldown(0);
+      setWebhookUrl(null);
+      setCopied(false);
     }
   }, [open]);
 
@@ -137,17 +141,21 @@ export const TelegramCrmConnectDialog: React.FC<TelegramCrmConnectDialogProps> =
         throw new Error(data?.error || 'Неверный код');
       }
 
+      // Generate webhook URL from the returned integration data
+      const baseUrl = 'https://api.academyos.ru/functions/v1';
+      // The verify-code function returns integration_id, we need webhook_key from settings
+      // Use a predictable URL based on the webhook_key that was created
+      if (data.webhook_key) {
+        setWebhookUrl(`${baseUrl}/telegram-crm-webhook?key=${data.webhook_key}`);
+      }
+
       setStep('success');
       toast({
         title: 'Успешно!',
         description: 'Telegram аккаунт подключен',
       });
       
-      // Delay to show success state, then close
-      setTimeout(() => {
-        onSuccess?.();
-        onOpenChange(false);
-      }, 1500);
+      // Don't auto-close - let user copy webhook first
     } catch (err: any) {
       console.error('Verify code error:', err);
       setError(err.message || 'Неверный код');
@@ -296,14 +304,56 @@ export const TelegramCrmConnectDialog: React.FC<TelegramCrmConnectDialogProps> =
 
           {/* Step 3: Success */}
           {step === 'success' && (
-            <div className="flex flex-col items-center space-y-4 py-8">
+            <div className="flex flex-col items-center space-y-4 py-6">
               <div className="h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                 <CheckCircle2 className="h-10 w-10 text-green-600" />
               </div>
               <p className="text-lg font-medium">Аккаунт подключен!</p>
-              <p className="text-sm text-muted-foreground text-center">
-                Теперь вы можете отправлять и получать сообщения через Telegram
-              </p>
+              
+              {webhookUrl && (
+                <div className="w-full space-y-2">
+                  <Label className="text-sm font-medium">Webhook URL</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={webhookUrl}
+                      readOnly
+                      className="text-xs font-mono"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        navigator.clipboard.writeText(webhookUrl);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                        toast({
+                          title: 'Скопировано',
+                          description: 'Webhook URL скопирован в буфер обмена',
+                        });
+                      }}
+                    >
+                      {copied ? (
+                        <Check className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Используйте этот URL для настройки вебхука в Telegram CRM
+                  </p>
+                </div>
+              )}
+              
+              <Button
+                className="w-full mt-4"
+                onClick={() => {
+                  onSuccess?.();
+                  onOpenChange(false);
+                }}
+              >
+                Готово
+              </Button>
             </div>
           )}
         </div>
