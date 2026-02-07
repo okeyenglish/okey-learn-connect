@@ -229,26 +229,25 @@ const CRMContent = () => {
   const tasks = useCRMTasks();
   const search = useCRMSearch();
 
-  // Tab feedback - спрашиваем фидбек когда менеджер возвращается после ухода с вкладки
-  useTabFeedback({
-    minAwayTime: 30000, // 30 секунд
-    onShowFeedbackRequest: () => {
-      // Открываем AI Hub popup вместо переключения на ChatOS
-      setVoiceAssistantOpen(true);
-      setInitialAssistantMessage(TAB_FEEDBACK_MESSAGE);
-      setQuickReplyCategory('tab_feedback');
-    }
-  });
+  // Tab feedback - ВРЕМЕННО ОТКЛЮЧЕНО
+  // useTabFeedback({
+  //   minAwayTime: 30000,
+  //   onShowFeedbackRequest: () => {
+  //     setVoiceAssistantOpen(true);
+  //     setInitialAssistantMessage(TAB_FEEDBACK_MESSAGE);
+  //     setQuickReplyCategory('tab_feedback');
+  //   }
+  // });
   
-  // Activity tracker - открываем AI Hub при низкой активности вместо toast
-  useActivityTracker({
-    onLowActivity: (activityPercentage) => {
-      console.log('[CRM] Low activity detected:', activityPercentage, '% - opening AI Hub popup');
-      setVoiceAssistantOpen(true);
-      setInitialAssistantMessage(LOW_ACTIVITY_MESSAGE);
-      setQuickReplyCategory('activity_warning');
-    }
-  });
+  // Activity tracker - ВРЕМЕННО ОТКЛЮЧЕНО (алерты низкой активности)
+  // useActivityTracker({
+  //   onLowActivity: (activityPercentage) => {
+  //     console.log('[CRM] Low activity detected:', activityPercentage, '% - opening AI Hub popup');
+  //     setVoiceAssistantOpen(true);
+  //     setInitialAssistantMessage(LOW_ACTIVITY_MESSAGE);
+  //     setQuickReplyCategory('activity_warning');
+  //   }
+  // });
   // Destructure all states for use in component
   const {
     openModal,
