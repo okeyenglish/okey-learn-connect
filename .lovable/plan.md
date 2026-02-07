@@ -1,202 +1,244 @@
 
-# План: Упрощение подключения Telegram CRM (OTP-авторизация)
 
-## Текущее состояние
+# План: Добавление всех эндпоинтов Telegram CRM API
 
-Сейчас для подключения Telegram CRM требуется ввести:
-- API URL сервера
-- API Key
-- Номер телефона
+## Анализ API tg.academyos.ru
 
-## Желаемое состояние
+На основе OpenAPI спецификации доступны следующие эндпоинты:
 
-Простой двухшаговый flow:
-1. Ввести номер телефона → нажать "Отправить код"
-2. Ввести 5-значный код из Telegram → интеграция активирована
+### Управление профилями (сессиями)
+| Endpoint | Метод | Описание | Статус |
+|----------|-------|----------|--------|
+| `GET /health` | GET | Проверка состояния сервера | Новый |
+| `GET /profiles` | GET | Список всех профилей | Новый |
+| `POST /profiles?phone=` | POST | Создание профиля | Новый |
+| `POST /profiles/{phone}/start` | POST | Запуск профиля | Новый |
+| `POST /profiles/{phone}/stop` | POST | Остановка профиля | Новый |
+| `DELETE /profiles/{phone}` | DELETE | Удаление профиля | Новый |
 
-Сервер фиксирован: `https://tg.academyos.ru`
+### Авторизация
+| Endpoint | Метод | Схема | Статус |
+|----------|-------|-------|--------|
+| `POST /telegram/send_code` | POST | `{ phone }` | Реализован (telegram-crm-send-code) |
+| `POST /telegram/confirm_code` | POST | `{ phone, code }` | Реализован (telegram-crm-verify-code) |
 
-## Архитектура
+### Отправка сообщений
+| Endpoint | Метод | Схема | Статус |
+|----------|-------|-------|--------|
+| `POST /telegram/send` | POST | `{ phone, to, text }` | Реализован (telegram-crm-send) |
+| `POST /telegram/send_photo` | POST | multipart: `phone, to, file` | Новый |
+| `POST /telegram/send_video` | POST | multipart: `phone, to, file` | Новый |
+| `POST /telegram/send_voice` | POST | multipart: `phone, to, file` | Новый |
+| `POST /telegram/send_file` | POST | multipart: `phone, to, file` | Новый |
 
-```text
-Пользователь
-    │
-    ├─ 1. Вводит номер телефона
-    │      │
-    │      ▼
-    │   telegram-crm-send-code
-    │      │
-    │      ▼
-    │   tg.academyos.ru/auth/send-code
-    │      │
-    │      ▼
-    │   Telegram отправляет код
-    │
-    ├─ 2. Вводит код
-    │      │
-    │      ▼
-    │   telegram-crm-verify-code
-    │      │
-    │      ▼
-    │   tg.academyos.ru/auth/verify-code
-    │      │
-    │      ▼
-    │   Создание интеграции + регистрация webhook
-    │
-    └─ ✓ Готово
-```
+### Webhook
+| Endpoint | Метод | Схема | Статус |
+|----------|-------|-------|--------|
+| `POST /webhook/connect` | POST | `{ name, webhook_url, secret? }` | Реализован (telegram-crm-verify-code) |
+| `GET /webhooks/queue` | GET | Очередь вебхуков | Новый |
+| `GET /webhooks/dlq` | GET | Dead Letter Queue | Новый |
 
-## Изменения
+## Новые Edge Functions
 
-### 1. Новый компонент TelegramCrmConnectDialog
-
-Создать `src/components/admin/integrations/TelegramCrmConnectDialog.tsx`:
-
-- **Step 1: Ввод номера**
-  - Input для номера телефона (+7...)
-  - Кнопка "Отправить код"
-  - Показ ошибок (неверный номер, сервер недоступен)
-
-- **Step 2: Ввод кода**
-  - InputOTP для 5-значного кода
-  - Таймер повторной отправки (60 сек)
-  - Кнопка "Отправить заново"
-  - Автоматическая проверка при вводе 5 цифр
-
-### 2. Edge Function: telegram-crm-send-code
-
-Создать `supabase/functions/telegram-crm-send-code/index.ts`:
+### 1. telegram-crm-health — Проверка статуса сервера
 
 ```typescript
-// Request
-POST /telegram-crm-send-code
-{ phone: "+79955073535" }
-
-// Логика:
-1. Валидация номера телефона
-2. POST https://tg.academyos.ru/auth/send-code
-   { phone: "79955073535" }
-3. Возврат { success: true, phone_hash: "..." }
+// GET /health → проверка доступности tg.academyos.ru
+Deno.serve(async (req) => {
+  const response = await fetch('https://tg.academyos.ru/health');
+  return { success: true, status: response.ok };
+});
 ```
 
-### 3. Edge Function: telegram-crm-verify-code
-
-Создать `supabase/functions/telegram-crm-verify-code/index.ts`:
+### 2. telegram-crm-profiles — Управление профилями
 
 ```typescript
-// Request
-POST /telegram-crm-verify-code
-{ 
-  phone: "+79955073535",
-  code: "12345",
-  phone_hash: "...",
-  name: "Основной аккаунт"
+// Операции: list, create, start, stop, delete
+Deno.serve(async (req) => {
+  const { action, phone } = await req.json();
+  
+  switch (action) {
+    case 'list':
+      return GET /profiles
+    case 'create':
+      return POST /profiles?phone=${phone}
+    case 'start':
+      return POST /profiles/${phone}/start
+    case 'stop':
+      return POST /profiles/${phone}/stop
+    case 'delete':
+      return DELETE /profiles/${phone}
+  }
+});
+```
+
+### 3. telegram-crm-send-media — Отправка медиа (multipart)
+
+```typescript
+// Поддержка: photo, video, voice, file
+interface SendMediaRequest {
+  clientId: string;
+  mediaType: 'photo' | 'video' | 'voice' | 'file';
+  fileUrl?: string;     // URL для скачивания
+  fileData?: string;    // Base64
+  fileName?: string;
 }
 
-// Логика:
-1. POST https://tg.academyos.ru/auth/verify-code
-   { phone, code, phone_hash }
-2. Если успешно — регистрация webhook:
-   POST https://tg.academyos.ru/webhook/connect
-   { name: "lovable", webhook_url: "...?key=UUID", secret: "..." }
-3. Создание записи в messenger_integrations
-4. Возврат { success: true, integrationId: "..." }
+Deno.serve(async (req) => {
+  // 1. Получить интеграцию
+  // 2. Получить клиента и recipient
+  // 3. Скачать файл или декодировать base64
+  // 4. POST multipart/form-data на нужный endpoint
+  // 5. Сохранить в chat_messages
+});
 ```
 
-### 4. Обновление TelegramIntegrations.tsx
+### 4. telegram-crm-webhooks — Мониторинг вебхуков
 
-- Для провайдера `telegram_crm` открывать `TelegramCrmConnectDialog` вместо стандартного `IntegrationEditDialog`
-- Убрать поля `crmApiUrl` и `crmApiKey` из конфигурации telegram_crm
-- Оставить только визуальное отображение в списке
+```typescript
+// Получение очереди и DLQ для отладки
+Deno.serve(async (req) => {
+  const { action } = await req.json();
+  
+  if (action === 'queue') {
+    return GET /webhooks/queue
+  } else if (action === 'dlq') {
+    return GET /webhooks/dlq
+  }
+});
+```
 
-### 5. Обновление TelegramIntegrations fields
+## Обновление существующих функций
+
+### telegram-crm-send — Исправить устаревший интерфейс
 
 ```typescript
 // БЫЛО:
-const telegramFields: SettingsFieldConfig[] = [
-  { key: 'crmApiUrl', ... showForProviders: ['telegram_crm'] },
-  { key: 'crmApiKey', ... showForProviders: ['telegram_crm'] },
-  { key: 'crmPhoneNumber', ... showForProviders: ['telegram_crm'] },
-];
+interface TelegramCrmSettings {
+  crmApiUrl: string;
+  crmApiKey: string;    // Больше не используется!
+  crmPhoneNumber: string;
+}
 
 // СТАНЕТ:
-// Для telegram_crm поля не нужны — используется отдельный диалог
-// Для wappi оставляем как есть
+interface TelegramCrmSettings {
+  crmApiUrl: string;     // https://tg.academyos.ru (фиксированный)
+  crmPhoneNumber: string;
+  secret?: string;       // webhook_key для X-Lovable-Secret
+}
+
+// Убрать проверку crmApiKey (строка 146)
 ```
 
-## UI/UX Flow
+### telegram-crm-verify-code — Исправить endpoint авторизации
 
-### Step 1: Ввод номера
-```
-┌─────────────────────────────────────┐
-│     Подключение Telegram            │
-│                                     │
-│  Введите номер телефона Telegram    │
-│  аккаунта для интеграции            │
-│                                     │
-│  ┌─────────────────────────────┐    │
-│  │ +7 955 073 53 35            │    │
-│  └─────────────────────────────┘    │
-│                                     │
-│         [Отправить код]             │
-└─────────────────────────────────────┘
+```typescript
+// БЫЛО (строка 74):
+fetch(`${TELEGRAM_CRM_API_URL}/auth/verify-code`, ...)
+
+// СТАНЕТ (по OpenAPI):
+fetch(`${TELEGRAM_CRM_API_URL}/telegram/confirm_code`, ...)
 ```
 
-### Step 2: Ввод кода
-```
-┌─────────────────────────────────────┐
-│     Подключение Telegram            │
-│                                     │
-│  Код отправлен в Telegram           │
-│  на номер +7 955 *** ** 35          │
-│                                     │
-│     ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐             │
-│     │1│ │2│ │3│ │4│ │5│             │
-│     └─┘ └─┘ └─┘ └─┘ └─┘             │
-│                                     │
-│     Отправить заново (45 сек)       │
-│                                     │
-│  ← Изменить номер     [Подтвердить] │
-└─────────────────────────────────────┘
+### telegram-crm-send-code — Исправить endpoint
+
+```typescript
+// БЫЛО:
+fetch(`${TELEGRAM_CRM_API_URL}/auth/send-code`, ...)
+
+// СТАНЕТ (по OpenAPI):
+fetch(`${TELEGRAM_CRM_API_URL}/telegram/send_code`, ...)
 ```
 
-## Предполагаемый API tg.academyos.ru
+### telegram-crm-connect — Удалить или deprecate
 
-| Endpoint | Метод | Body | Response |
-|----------|-------|------|----------|
-| `/auth/send-code` | POST | `{ phone }` | `{ success, phone_hash }` |
-| `/auth/verify-code` | POST | `{ phone, code, phone_hash }` | `{ success, session_id }` |
-| `/webhook/connect` | POST | `{ name, webhook_url, secret }` | `{ success }` |
-| `/telegram/send` | POST | `{ phone, to, text }` | `{ success }` |
+Этот файл использует старый flow с `crmApiUrl` и `crmApiKey`. Так как теперь используется OTP через `telegram-crm-verify-code`, этот файл можно:
+- Удалить
+- Или оставить для совместимости, но не использовать в UI
+
+## Обновление UI
+
+### TelegramIntegrations.tsx — Добавить управление сессиями
+
+```typescript
+// Добавить кнопку "Статус профиля" для telegram_crm
+// Показывать: запущен / остановлен
+// Действия: Start / Stop / Restart
+```
+
+### Новый компонент TelegramCrmProfileStatus.tsx
+
+```typescript
+// Показывает статус профиля (сессии Telethon)
+// Кнопки: Запустить / Остановить / Перезапустить
+// Индикатор: Online / Offline / Error
+```
 
 ## Файлы для создания/изменения
 
 | Файл | Действие | Описание |
 |------|----------|----------|
-| `src/components/admin/integrations/TelegramCrmConnectDialog.tsx` | Создать | Диалог с OTP flow |
-| `supabase/functions/telegram-crm-send-code/index.ts` | Создать | Отправка кода |
-| `supabase/functions/telegram-crm-verify-code/index.ts` | Создать | Проверка кода + создание интеграции |
-| `src/components/admin/integrations/TelegramIntegrations.tsx` | Обновить | Использовать новый диалог |
+| `supabase/functions/telegram-crm-health/index.ts` | Создать | Проверка состояния сервера |
+| `supabase/functions/telegram-crm-profiles/index.ts` | Создать | Управление профилями |
+| `supabase/functions/telegram-crm-send-media/index.ts` | Создать | Отправка фото/видео/голоса/файлов |
+| `supabase/functions/telegram-crm-webhooks/index.ts` | Создать | Мониторинг вебхуков |
+| `supabase/functions/telegram-crm-send/index.ts` | Обновить | Убрать crmApiKey |
+| `supabase/functions/telegram-crm-send-code/index.ts` | Обновить | Endpoint `/telegram/send_code` |
+| `supabase/functions/telegram-crm-verify-code/index.ts` | Обновить | Endpoint `/telegram/confirm_code` |
 | `supabase/config.toml` | Обновить | Добавить новые функции |
-| `src/components/admin/integrations/index.ts` | Обновить | Экспортировать новый диалог |
+| `src/components/admin/integrations/TelegramCrmProfileStatus.tsx` | Создать | UI статуса профиля |
+| `src/components/admin/integrations/TelegramIntegrations.tsx` | Обновить | Добавить управление |
 
-## Константы (hardcoded)
+## API tg.academyos.ru — Полная схема
+
+### Schemas (из OpenAPI)
 
 ```typescript
-const TELEGRAM_CRM_API_URL = 'https://tg.academyos.ru';
+// SendCode
+interface SendCode {
+  phone: string;  // required
+}
+
+// ConfirmCode  
+interface ConfirmCode {
+  phone: string;  // required
+  code: string;   // required
+}
+
+// TelegramSend
+interface TelegramSend {
+  phone: string;  // required - номер аккаунта-отправителя
+  to: string;     // required - telegram ID или username получателя
+  text: string;   // required - текст сообщения
+}
+
+// WebhookConnect
+interface WebhookConnect {
+  name: string;        // required
+  webhook_url: string; // required
+  secret?: string;     // optional
+}
+
+// Media send (multipart/form-data)
+interface MediaSend {
+  phone: string;       // required
+  to: string;          // required  
+  file: File;          // required - binary
+}
 ```
+
+## Порядок реализации
+
+1. **Исправить существующие функции** — endpoints авторизации
+2. **telegram-crm-health** — простая проверка доступности
+3. **telegram-crm-profiles** — управление сессиями
+4. **telegram-crm-send-media** — отправка медиа
+5. **telegram-crm-webhooks** — мониторинг (для отладки)
+6. **UI обновления** — статус профиля и управление
 
 ## Безопасность
 
-- Номер телефона маскируется в UI: `+7 955 *** ** 35`
-- Код подтверждения действует ограниченное время
-- webhook_key генерируется на стороне Lovable (UUID)
-- X-Lovable-Secret используется для подписи запросов
+- Все новые функции требуют авторизации пользователя
+- Проверка organization_id через профиль
+- Сервер tg.academyos.ru не требует API Key (stateless по номеру телефона)
 
-## Зависимости
-
-На стороне сервера tg.academyos.ru должны быть реализованы:
-- `/auth/send-code` — отправка кода в Telegram
-- `/auth/verify-code` — проверка кода
-- `/webhook/connect` — регистрация webhook (уже есть)
-- `/telegram/send` — отправка сообщений (уже есть)
