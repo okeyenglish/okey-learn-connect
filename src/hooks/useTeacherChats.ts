@@ -124,11 +124,11 @@ export const useTeacherChatMessages = (clientId: string, enabled = true) => {
         // Second attempt: Direct SELECT (faster for teacher chats, bypasses complex RPC)
         console.log('[useTeacherChatMessages] Trying direct chat_messages select for:', clientId);
         
-        // Self-hosted uses message_text only (no content column)
+        // Self-hosted uses message_text only (no content column, no media_url)
         const { data: directData, error: directError } = await supabase
           .from('chat_messages')
           .select(
-            'id, client_id, message_text, message_type, system_type, is_read, is_outgoing, created_at, file_url, media_url, file_name, file_type, media_type, external_message_id, external_id, messenger_type, messenger, call_duration, message_status, status, metadata'
+            'id, client_id, message_text, message_type, system_type, is_read, is_outgoing, created_at, file_url, file_name, file_type, external_message_id, external_id, messenger_type, messenger, call_duration, message_status, status, metadata, direction, content, sender_id, sender_name, read_at, reply_to_id'
           )
           .eq('client_id', clientId)
           .order('created_at', { ascending: false })
@@ -137,15 +137,18 @@ export const useTeacherChatMessages = (clientId: string, enabled = true) => {
         if (!directError && directData) {
           console.log('[useTeacherChatMessages] Direct query succeeded:', directData.length, 'messages');
           endMetric(metricId, 'completed', { msgCount: directData.length, method: 'direct' });
-          // Normalize field names for compatibility (self-hosted: message_text only)
+          // Normalize field names for compatibility (self-hosted: message_text only, no media_url)
           return directData.map((m: Record<string, unknown>) => ({
             ...m,
-            message_text: m.message_text || '',
-            file_url: m.file_url || m.media_url,
-            file_type: m.file_type || m.media_type,
+            message_text: m.message_text || m.content || '',
+            content: m.content || m.message_text || '',
+            file_url: m.file_url,
+            file_type: m.file_type,
             external_message_id: m.external_message_id || m.external_id,
             messenger_type: m.messenger_type || m.messenger,
             message_status: m.message_status || m.status,
+            is_outgoing: m.is_outgoing ?? (m.direction === 'outgoing'),
+            direction: m.direction || (m.is_outgoing ? 'outgoing' : 'incoming'),
           }));
         }
 
