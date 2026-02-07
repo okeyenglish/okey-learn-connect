@@ -6,7 +6,6 @@ const corsHeaders = {
 };
 
 interface TelegramCrmWebhookPayload {
-  project_id: string;       // organization_id
   account_phone: string;    // sender account phone
   from_id: number | string; // telegram user ID
   from_username?: string;   // telegram username
@@ -14,8 +13,8 @@ interface TelegramCrmWebhookPayload {
   file_url?: string;        // file URL if any
   file_type?: string;       // file MIME type
   file_name?: string;       // file name
-  message_id?: string;      // external message ID
-  chat_id?: string;         // telegram chat ID
+  message_id?: number;      // external message ID
+  chat_id?: number;         // telegram chat ID
   timestamp?: string;       // message timestamp
 }
 
@@ -52,16 +51,52 @@ Deno.serve(async (req) => {
 
     console.log('[telegram-crm-webhook] Payload:', JSON.stringify(payload, null, 2));
 
-    // Validate required fields
-    const { project_id, from_id, text, account_phone } = payload;
-    
-    if (!project_id) {
-      console.log('[telegram-crm-webhook] Missing project_id');
+    // Get webhook key from URL
+    const url = new URL(req.url);
+    const webhookKey = url.searchParams.get('key');
+
+    if (!webhookKey) {
+      console.log('[telegram-crm-webhook] Missing webhook key');
       return new Response(
-        JSON.stringify({ success: true, status: 'ignored', reason: 'missing_project_id' }),
+        JSON.stringify({ success: true, status: 'ignored', reason: 'missing_key' }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Find integration by webhook_key
+    const { data: integration, error: integrationError } = await supabase
+      .from('messenger_integrations')
+      .select('organization_id, settings')
+      .eq('webhook_key', webhookKey)
+      .eq('messenger_type', 'telegram')
+      .eq('provider', 'telegram_crm')
+      .single();
+
+    if (integrationError || !integration) {
+      console.error('[telegram-crm-webhook] Integration not found for key:', webhookKey);
+      return new Response(
+        JSON.stringify({ success: true, status: 'ignored', reason: 'invalid_key' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const organizationId = integration.organization_id;
+
+    // Verify X-Lovable-Secret if configured
+    const settings = integration.settings as { secret?: string };
+    const expectedSecret = settings?.secret;
+    const incomingSecret = req.headers.get('X-Lovable-Secret');
+
+    if (expectedSecret && expectedSecret !== incomingSecret) {
+      console.error('[telegram-crm-webhook] Invalid secret');
+      return new Response(
+        JSON.stringify({ success: true, status: 'ignored', reason: 'invalid_secret' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate required fields
+    const { from_id, text, account_phone } = payload;
 
     if (!from_id) {
       console.log('[telegram-crm-webhook] Missing from_id');
@@ -70,25 +105,8 @@ Deno.serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Verify organization exists
-    const { data: organization, error: orgError } = await supabase
-      .from('organizations')
-      .select('id')
-      .eq('id', project_id)
-      .single();
-
-    if (orgError || !organization) {
-      console.error('[telegram-crm-webhook] Organization not found:', project_id);
-      return new Response(
-        JSON.stringify({ success: true, status: 'ignored', reason: 'organization_not_found' }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const organizationId = project_id;
     const telegramUserId = String(from_id);
-    const chatId = payload.chat_id || telegramUserId;
+    const chatId = payload.chat_id ? String(payload.chat_id) : telegramUserId;
 
     // Find or create client by telegram_user_id
     let clientId: string | null = null;
@@ -150,7 +168,7 @@ Deno.serve(async (req) => {
         messenger_type: 'telegram',
         is_outgoing: false,
         is_read: false,
-        external_message_id: payload.message_id || null,
+        external_message_id: payload.message_id ? String(payload.message_id) : null,
         file_url: fileUrl,
         file_type: fileType,
         file_name: fileName,

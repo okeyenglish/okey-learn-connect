@@ -81,24 +81,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Generate webhook URL
+    // Generate webhook URL with key for organization identification
     const webhookKey = crypto.randomUUID();
-    const webhookUrl = `${selfHostedUrl}/functions/v1/telegram-crm-webhook`;
+    const webhookUrl = `${selfHostedUrl}/functions/v1/telegram-crm-webhook?key=${webhookKey}`;
 
     console.log('[telegram-crm-connect] Registering webhook:', webhookUrl);
 
     // Register webhook with Telegram CRM server
     try {
-      const connectResponse = await fetch(`${crmApiUrl}/integration/lovable/connect`, {
+      const connectResponse = await fetch(`${crmApiUrl}/webhook/connect`, {
         method: 'POST',
         headers: {
           'X-API-Key': crmApiKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          project_id: organizationId,
+          name: 'lovable',
           webhook_url: webhookUrl,
-          phone: crmPhoneNumber,
           secret: webhookKey,
         }),
       });
