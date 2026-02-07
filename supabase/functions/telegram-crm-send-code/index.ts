@@ -85,12 +85,16 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    console.log(`[telegram-crm-send-code] Code sent successfully`);
+    console.log(`[telegram-crm-send-code] Response from tg.academyos.ru:`, JSON.stringify(data));
+
+    // Extract phone_hash - try different field names
+    const phoneHash = data.phone_hash || data.phone_code_hash || data.phoneCodeHash || "";
+    console.log(`[telegram-crm-send-code] Extracted phone_hash: ${phoneHash ? phoneHash.slice(0, 10) + '...' : 'EMPTY'}`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        phone_hash: data.phone_hash || data.phone_code_hash || "",
+        phone_hash: phoneHash,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
