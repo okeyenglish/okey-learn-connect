@@ -275,9 +275,10 @@ export const useTeacherChats = (branch?: string | null) => {
         const teacherIds = teachersList.map(t => t.id);
         
         // @ts-ignore - teacher_id column exists in self-hosted schema
+        // Self-hosted uses message_text only (no content column)
         const { data: directMessages, error: directError } = await (supabase
           .from('chat_messages') as any)
-          .select('teacher_id, message_text, content, created_at, messenger_type, messenger, is_read, is_outgoing')
+          .select('teacher_id, message_text, created_at, messenger_type, messenger, is_read, is_outgoing')
           .in('teacher_id', teacherIds)
           .order('created_at', { ascending: false });
         
@@ -369,9 +370,10 @@ export const useTeacherChats = (branch?: string | null) => {
             
             if (matchedClient) {
               // Get last message and unread count for this client
+              // Self-hosted uses message_text only (no content column)
               const { data: lastMsg } = await supabase
                 .from('chat_messages')
-                .select('message_text, content, created_at, messenger_type, messenger, is_read, is_outgoing')
+                .select('message_text, created_at, messenger_type, messenger, is_read, is_outgoing')
                 .eq('client_id', matchedClient.id)
                 .order('created_at', { ascending: false })
                 .limit(1)
@@ -389,7 +391,7 @@ export const useTeacherChats = (branch?: string | null) => {
                 client_id: matchedClient.id,
                 unread_count: unreadCount || 0,
                 last_message_time: lastMsg?.created_at || null,
-                last_message_text: lastMsg?.message_text || lastMsg?.content || null,
+                last_message_text: lastMsg?.message_text || null,
                 last_messenger_type: lastMsg?.messenger_type || lastMsg?.messenger || null,
               });
             }
@@ -414,9 +416,10 @@ export const useTeacherChats = (branch?: string | null) => {
           
           if (matchedClient) {
             // Get last message info
+            // Self-hosted uses message_text only (no content column)
             const { data: lastMsg } = await supabase
               .from('chat_messages')
-              .select('message_text, content, created_at, messenger_type, messenger, is_read, is_outgoing')
+              .select('message_text, created_at, messenger_type, messenger, is_read, is_outgoing')
               .eq('client_id', matchedClient.id)
               .order('created_at', { ascending: false })
               .limit(1)
@@ -427,14 +430,13 @@ export const useTeacherChats = (branch?: string | null) => {
               .select('id', { count: 'exact', head: true })
               .eq('client_id', matchedClient.id)
               .eq('is_outgoing', false)
-              .eq('is_read', false);
             
             results.push({
               teacher_id: teacher.id,
               client_id: matchedClient.id,
               unread_count: unreadCount || 0,
               last_message_time: lastMsg?.created_at || null,
-              last_message_text: lastMsg?.message_text || lastMsg?.content || null,
+              last_message_text: lastMsg?.message_text || null,
               last_messenger_type: lastMsg?.messenger_type || lastMsg?.messenger || null,
             });
           }
