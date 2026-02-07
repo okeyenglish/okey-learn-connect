@@ -1,138 +1,84 @@
 
-# План: Исправление загрузки чатов преподавателей на self-hosted
+# План: Исправление отображения превью сообщений в списке чатов
 
 ## Диагностика
 
-Обнаружены **две ключевые проблемы**:
+Проблема: все чаты показывают "Нет сообщений" вместо превью последнего сообщения.
 
-### Проблема 1: Несуществующие колонки в SELECT-запросе
+**Корневая причина:** Хук `useChatThreadsInfinite` полагается на RPC функции, которые **НЕ СУЩЕСТВУЮТ** в self-hosted базе данных:
+- `get_chat_threads_paginated` — не определена
+- `get_unread_chat_threads` — не определена
+- `get_chat_threads_fast` — не определена
 
-**Файл:** `src/hooks/useTeacherChats.ts`, строка 131
+Только `get_chat_threads_by_client_ids` присутствует в типах, но основной код её не использует.
 
-**Текущий SELECT:**
-```sql
-id, client_id, message_text, message_type, ... direction, content, sender_id, sender_name, read_at, reply_to_id
-```
-
-**Проблема:** Колонки `direction`, `content`, `sender_id`, `sender_name`, `read_at`, `reply_to_id` **не существуют** в self-hosted схеме `chat_messages`.
-
-**Следствие:** Запрос возвращает ошибку, что приводит к показу "Нет сообщений" для всех клиентов.
-
-### Проблема 2: Невалидный UUID в chat_presence
-
-**Файл:** `src/hooks/useChatPresence.ts`
-
-**Ошибка в логах:**
-```
-invalid input syntax for type uuid: "teachers"
-```
-
-**Причина:** Когда пользователь переходит в раздел "Чат педагогов", `activeChatId` устанавливается в специальные значения (например, `"teachers"`), которые передаются в `useChatPresenceTracker`. Этот хук пытается сохранить `client_id = "teachers"` в таблицу `chat_presence`, но колонка `client_id` имеет тип `uuid`.
+Когда RPC возвращает ошибку `42883` (function does not exist) или `PGRST202`, код отключает RPC и возвращает **пустой массив** (строки 94-97, 107-110). В результате `threads` пуст, и все чаты показывают fallback-текст "Нет сообщений".
 
 ## Решение
 
-### 1. Убрать несуществующие колонки из SELECT
+Добавить **прямой SQL fallback** в `useChatThreadsInfinite`, который работает без RPC. Этот fallback будет автоматически активироваться, когда RPC недоступны.
 
-**Файл:** `src/hooks/useTeacherChats.ts`
+### Изменения в useChatThreadsInfinite.ts
+
+1. **Добавить функцию `fetchThreadsDirectly`** — аналог из `usePinnedChatThreads.ts`:
 
 ```typescript
-// БЫЛО (строка 131):
-.select(
-  'id, client_id, message_text, ... direction, content, sender_id, sender_name, read_at, reply_to_id'
-)
+async function fetchThreadsDirectly(limit: number, offset: number): Promise<ChatThread[]> {
+  // 1. Получить клиентов напрямую (без RPC)
+  const { data: clients } = await supabase
+    .from('clients')
+    .select('id, name, first_name, last_name, phone, branch, avatar_url, telegram_user_id')
+    .eq('is_active', true)
+    .order('updated_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  // 2. Получить последние сообщения для этих клиентов
+  const clientIds = clients?.map(c => c.id) || [];
+  const { data: messages } = await supabase
+    .from('chat_messages')
+    .select('client_id, message_text, created_at, is_read, messenger_type, message_type')
+    .in('client_id', clientIds)
+    .order('created_at', { ascending: false })
+    .limit(clientIds.length * 5);
+
+  // 3. Сформировать threads с превью
+  return buildThreadsFromData(clients, messages);
+}
+```
+
+2. **Изменить fallback-логику** — вместо возврата пустого массива вызывать `fetchThreadsDirectly`:
+
+```typescript
+// БЫЛО (строка 97):
+return { threads: [], hasMore: false, pageParam, executionTime: 0 };
 
 // СТАНЕТ:
-.select(
-  'id, client_id, message_text, message_type, system_type, is_read, is_outgoing, created_at, file_url, file_name, file_type, external_message_id, external_id, messenger_type, messenger, call_duration, message_status, status, metadata'
-)
+const directThreads = await fetchThreadsDirectly(PAGE_SIZE, pageParam * PAGE_SIZE);
+return { threads: directThreads, hasMore: directThreads.length === PAGE_SIZE, pageParam, executionTime };
 ```
 
-### 2. Валидация UUID перед записью в chat_presence
+3. **Аналогично для unreadQuery** — если `get_unread_chat_threads` не существует, использовать прямой запрос с фильтром `is_read = false`.
 
-**Файл:** `src/hooks/useChatPresence.ts`
-
-Добавить проверку на валидный UUID перед вызовом `upsert`:
-
-```typescript
-// Добавить функцию валидации UUID
-const isValidUUID = (str: string): boolean => {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(str);
-};
-
-// В useChatPresenceTracker:
-export const useChatPresenceTracker = (clientId: string | null) => {
-  // ...
-  
-  // Track presence for current chat - только для валидных UUID
-  useEffect(() => {
-    // Skip non-UUID clientIds (e.g., "teachers", "communities")
-    if (!clientId || !isValidUUID(clientId)) {
-      if (lastClientIdRef.current && isValidUUID(lastClientIdRef.current)) {
-        clearPresence(lastClientIdRef.current);
-      }
-      lastClientIdRef.current = null;
-      return;
-    }
-    // ... existing logic
-  }, [clientId, ...]);
-};
-```
-
-### 3. Аналогичная валидация в updatePresence
-
-```typescript
-const updatePresence = useCallback(async (targetClientId: string, type: PresenceType = 'viewing') => {
-  const userId = currentUserIdRef.current;
-  // Skip non-UUID clientIds
-  if (!userId || !targetClientId || !isValidUUID(targetClientId)) return;
-  // ... existing logic
-}, []);
-```
-
-## Файлы для изменения
+### Файлы для изменения
 
 | Файл | Изменение |
 |------|-----------|
-| `src/hooks/useTeacherChats.ts` | Убрать несуществующие колонки из SELECT (строка 131) |
-| `src/hooks/useChatPresence.ts` | Добавить валидацию UUID для `clientId` |
+| `src/hooks/useChatThreadsInfinite.ts` | Добавить fallback `fetchThreadsDirectly` |
 
-## Техническая причина ошибки
+## Почему это работает
 
-Последний diff добавил колонки, которых нет в self-hosted схеме:
+Функция `usePinnedChatThreads` уже имеет рабочий fallback (`fetchThreadsDirectly` на строках 84-184), который успешно получает данные напрямую. Этот же подход нужно применить к основному хуку.
 
-```diff
-- 'id, client_id, message_text, ... external_id, messenger_type, messenger, call_duration, message_status, status, metadata'
-+ 'id, client_id, message_text, ... metadata, direction, content, sender_id, sender_name, read_at, reply_to_id'
-```
+## Влияние
 
-Эти колонки (`direction`, `content`, `sender_id`, `sender_name`, `read_at`, `reply_to_id`) существуют только в Lovable Cloud схеме, но не в self-hosted.
+- Превью сообщений будут отображаться корректно
+- Последние отправленные сообщения (включая через WPP) будут видны
+- Производительность немного снизится (прямые запросы медленнее RPC), но система будет работать
+- Опционально: можно добавить миграцию для создания RPC на self-hosted
 
-## Self-hosted схема chat_messages
+## Порядок реализации
 
-Колонки, которые **точно существуют**:
-- `id`, `client_id`, `phone_number_id`
-- `message_text` (НЕ `content`)
-- `message_type`, `system_type`
-- `is_read`, `is_outgoing`
-- `call_duration`, `created_at`
-- `file_url`, `file_name`, `file_type`
-- `external_message_id`, `external_id`
-- `messenger_type`, `messenger`
-- `message_status`, `status`
-- `metadata`, `organization_id`
-- `teacher_id`, `integration_id`
-
-Колонок **НЕТ**:
-- `content` (используется `message_text`)
-- `direction` (используется `is_outgoing`)
-- `sender_id`, `sender_name`
-- `read_at`, `reply_to_id`
-- `media_url`, `media_type`
-
-## Ожидаемый результат
-
-После исправлений:
-1. Чаты преподавателей загрузятся без ошибок
-2. Ошибка `invalid input syntax for type uuid: "teachers"` исчезнет
-3. Presence-трекинг будет работать только для валидных UUID (клиентских чатов)
+1. Добавить `fetchThreadsDirectly` в `useChatThreadsInfinite.ts`
+2. Заменить `return { threads: [] }` на вызов `fetchThreadsDirectly`
+3. Добавить аналогичный fallback для `unreadQuery`
+4. Тестирование отображения списка чатов
