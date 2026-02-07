@@ -66,9 +66,10 @@ export const useTeacherConversations = (branch?: string | null) => {
         const batchIds = teacherIds.slice(i, i + batchSize);
         
         // @ts-ignore - teacher_id column exists in self-hosted schema
+        // Self-hosted uses message_text only (no content column)
         const { data: batchStats, error: batchError } = await (supabase
           .from('chat_messages') as any)
-          .select('teacher_id, created_at, message_text, content, messenger_type, messenger, is_read, is_outgoing, direction')
+          .select('teacher_id, created_at, message_text, messenger_type, messenger, is_read, is_outgoing, direction')
           .in('teacher_id', batchIds)
           .order('created_at', { ascending: false })
           .limit(batchIds.length * 50); // ~50 messages per teacher max
