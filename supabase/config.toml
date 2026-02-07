@@ -30,6 +30,12 @@ verify_jwt = true
 [functions.telegram-crm-webhook]
 verify_jwt = false
 
+[functions.telegram-crm-send-code]
+verify_jwt = true
+
+[functions.telegram-crm-verify-code]
+verify_jwt = true
+
 [functions.max-webhook]
 verify_jwt = false
 
