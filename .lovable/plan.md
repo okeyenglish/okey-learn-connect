@@ -1,202 +1,202 @@
 
+# План: Упрощение подключения Telegram CRM (OTP-авторизация)
 
-# План: Обновление Telegram CRM интеграции согласно инструкции
+## Текущее состояние
 
-## Проблема
+Сейчас для подключения Telegram CRM требуется ввести:
+- API URL сервера
+- API Key
+- Номер телефона
 
-Текущая реализация использует `project_id` в body для идентификации организации. Это:
-- Небезопасно — можно подделать
-- Требует от CRM сервера хранить маппинг
-- Не соответствует best practices
+## Желаемое состояние
 
-## Изменения согласно инструкции
+Простой двухшаговый flow:
+1. Ввести номер телефона → нажать "Отправить код"
+2. Ввести 5-значный код из Telegram → интеграция активирована
 
-### 1. telegram-crm-connect — исправить endpoint и URL
+Сервер фиксирован: `https://tg.academyos.ru`
 
-**Строки 86-103:**
+## Архитектура
+
+```text
+Пользователь
+    │
+    ├─ 1. Вводит номер телефона
+    │      │
+    │      ▼
+    │   telegram-crm-send-code
+    │      │
+    │      ▼
+    │   tg.academyos.ru/auth/send-code
+    │      │
+    │      ▼
+    │   Telegram отправляет код
+    │
+    ├─ 2. Вводит код
+    │      │
+    │      ▼
+    │   telegram-crm-verify-code
+    │      │
+    │      ▼
+    │   tg.academyos.ru/auth/verify-code
+    │      │
+    │      ▼
+    │   Создание интеграции + регистрация webhook
+    │
+    └─ ✓ Готово
+```
+
+## Изменения
+
+### 1. Новый компонент TelegramCrmConnectDialog
+
+Создать `src/components/admin/integrations/TelegramCrmConnectDialog.tsx`:
+
+- **Step 1: Ввод номера**
+  - Input для номера телефона (+7...)
+  - Кнопка "Отправить код"
+  - Показ ошибок (неверный номер, сервер недоступен)
+
+- **Step 2: Ввод кода**
+  - InputOTP для 5-значного кода
+  - Таймер повторной отправки (60 сек)
+  - Кнопка "Отправить заново"
+  - Автоматическая проверка при вводе 5 цифр
+
+### 2. Edge Function: telegram-crm-send-code
+
+Создать `supabase/functions/telegram-crm-send-code/index.ts`:
+
+```typescript
+// Request
+POST /telegram-crm-send-code
+{ phone: "+79955073535" }
+
+// Логика:
+1. Валидация номера телефона
+2. POST https://tg.academyos.ru/auth/send-code
+   { phone: "79955073535" }
+3. Возврат { success: true, phone_hash: "..." }
+```
+
+### 3. Edge Function: telegram-crm-verify-code
+
+Создать `supabase/functions/telegram-crm-verify-code/index.ts`:
+
+```typescript
+// Request
+POST /telegram-crm-verify-code
+{ 
+  phone: "+79955073535",
+  code: "12345",
+  phone_hash: "...",
+  name: "Основной аккаунт"
+}
+
+// Логика:
+1. POST https://tg.academyos.ru/auth/verify-code
+   { phone, code, phone_hash }
+2. Если успешно — регистрация webhook:
+   POST https://tg.academyos.ru/webhook/connect
+   { name: "lovable", webhook_url: "...?key=UUID", secret: "..." }
+3. Создание записи в messenger_integrations
+4. Возврат { success: true, integrationId: "..." }
+```
+
+### 4. Обновление TelegramIntegrations.tsx
+
+- Для провайдера `telegram_crm` открывать `TelegramCrmConnectDialog` вместо стандартного `IntegrationEditDialog`
+- Убрать поля `crmApiUrl` и `crmApiKey` из конфигурации telegram_crm
+- Оставить только визуальное отображение в списке
+
+### 5. Обновление TelegramIntegrations fields
 
 ```typescript
 // БЫЛО:
-const webhookUrl = `${selfHostedUrl}/functions/v1/telegram-crm-webhook`;
-
-const connectResponse = await fetch(`${crmApiUrl}/integration/lovable/connect`, {
-  // ...
-  body: JSON.stringify({
-    project_id: organizationId,
-    webhook_url: webhookUrl,
-    phone: crmPhoneNumber,
-    secret: webhookKey,
-  }),
-});
+const telegramFields: SettingsFieldConfig[] = [
+  { key: 'crmApiUrl', ... showForProviders: ['telegram_crm'] },
+  { key: 'crmApiKey', ... showForProviders: ['telegram_crm'] },
+  { key: 'crmPhoneNumber', ... showForProviders: ['telegram_crm'] },
+];
 
 // СТАНЕТ:
-const webhookUrl = `${selfHostedUrl}/functions/v1/telegram-crm-webhook?key=${webhookKey}`;
-
-const connectResponse = await fetch(`${crmApiUrl}/webhook/connect`, {
-  // ...
-  body: JSON.stringify({
-    name: 'lovable',
-    webhook_url: webhookUrl,
-    secret: webhookKey,  // опционально для подписи
-  }),
-});
+// Для telegram_crm поля не нужны — используется отдельный диалог
+// Для wappi оставляем как есть
 ```
 
-### 2. telegram-crm-webhook — идентификация по key из URL
+## UI/UX Flow
 
-**Полная переработка логики идентификации (строки 55-89):**
+### Step 1: Ввод номера
+```
+┌─────────────────────────────────────┐
+│     Подключение Telegram            │
+│                                     │
+│  Введите номер телефона Telegram    │
+│  аккаунта для интеграции            │
+│                                     │
+│  ┌─────────────────────────────┐    │
+│  │ +7 955 073 53 35            │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│         [Отправить код]             │
+└─────────────────────────────────────┘
+```
+
+### Step 2: Ввод кода
+```
+┌─────────────────────────────────────┐
+│     Подключение Telegram            │
+│                                     │
+│  Код отправлен в Telegram           │
+│  на номер +7 955 *** ** 35          │
+│                                     │
+│     ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐             │
+│     │1│ │2│ │3│ │4│ │5│             │
+│     └─┘ └─┘ └─┘ └─┘ └─┘             │
+│                                     │
+│     Отправить заново (45 сек)       │
+│                                     │
+│  ← Изменить номер     [Подтвердить] │
+└─────────────────────────────────────┘
+```
+
+## Предполагаемый API tg.academyos.ru
+
+| Endpoint | Метод | Body | Response |
+|----------|-------|------|----------|
+| `/auth/send-code` | POST | `{ phone }` | `{ success, phone_hash }` |
+| `/auth/verify-code` | POST | `{ phone, code, phone_hash }` | `{ success, session_id }` |
+| `/webhook/connect` | POST | `{ name, webhook_url, secret }` | `{ success }` |
+| `/telegram/send` | POST | `{ phone, to, text }` | `{ success }` |
+
+## Файлы для создания/изменения
+
+| Файл | Действие | Описание |
+|------|----------|----------|
+| `src/components/admin/integrations/TelegramCrmConnectDialog.tsx` | Создать | Диалог с OTP flow |
+| `supabase/functions/telegram-crm-send-code/index.ts` | Создать | Отправка кода |
+| `supabase/functions/telegram-crm-verify-code/index.ts` | Создать | Проверка кода + создание интеграции |
+| `src/components/admin/integrations/TelegramIntegrations.tsx` | Обновить | Использовать новый диалог |
+| `supabase/config.toml` | Обновить | Добавить новые функции |
+| `src/components/admin/integrations/index.ts` | Обновить | Экспортировать новый диалог |
+
+## Константы (hardcoded)
 
 ```typescript
-// БЫЛО: Ищем по project_id из body
-const { project_id } = payload;
-if (!project_id) {
-  return error;
-}
-const organizationId = project_id;
-
-// СТАНЕТ: Ищем по key из URL
-const url = new URL(req.url);
-const webhookKey = url.searchParams.get('key');
-
-if (!webhookKey) {
-  console.log('[telegram-crm-webhook] Missing webhook key');
-  return new Response(
-    JSON.stringify({ success: true, status: 'ignored', reason: 'missing_key' }),
-    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-// Найти интеграцию по webhook_key
-const { data: integration, error: integrationError } = await supabase
-  .from('messenger_integrations')
-  .select('organization_id, settings')
-  .eq('webhook_key', webhookKey)
-  .eq('messenger_type', 'telegram')
-  .eq('provider', 'telegram_crm')
-  .single();
-
-if (integrationError || !integration) {
-  console.error('[telegram-crm-webhook] Integration not found for key:', webhookKey);
-  return new Response(
-    JSON.stringify({ success: true, status: 'ignored', reason: 'invalid_key' }),
-    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-const organizationId = integration.organization_id;
-
-// Проверка X-Lovable-Secret (если настроен)
-const settings = integration.settings as { secret?: string };
-const expectedSecret = settings?.secret;
-const incomingSecret = req.headers.get('X-Lovable-Secret');
-
-if (expectedSecret && expectedSecret !== incomingSecret) {
-  console.error('[telegram-crm-webhook] Invalid secret');
-  return new Response(
-    JSON.stringify({ success: true, status: 'ignored', reason: 'invalid_secret' }),
-    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
+const TELEGRAM_CRM_API_URL = 'https://tg.academyos.ru';
 ```
 
-### 3. telegram-crm-send — убрать project_id
+## Безопасность
 
-**Строки 185-190:**
+- Номер телефона маскируется в UI: `+7 955 *** ** 35`
+- Код подтверждения действует ограниченное время
+- webhook_key генерируется на стороне Lovable (UUID)
+- X-Lovable-Secret используется для подписи запросов
 
-```typescript
-// БЫЛО:
-const sendPayload = {
-  project_id: organizationId,
-  phone: crmPhoneNumber,
-  to: recipient,
-  text: text || '',
-};
+## Зависимости
 
-// СТАНЕТ:
-const sendPayload = {
-  phone: crmPhoneNumber,
-  to: recipient,
-  text: text || '',
-};
-```
-
-### 4. Обновить интерфейс payload (webhook)
-
-```typescript
-// БЫЛО:
-interface TelegramCrmWebhookPayload {
-  project_id: string;       // organization_id - УБРАТЬ
-  account_phone: string;
-  from_id: number | string;
-  // ...
-}
-
-// СТАНЕТ:
-interface TelegramCrmWebhookPayload {
-  account_phone: string;    // sender account phone
-  from_id: number | string; // telegram user ID
-  from_username?: string;   // telegram username
-  text?: string;            // message text
-  file_url?: string;        // file URL if any
-  file_type?: string;       // file MIME type
-  file_name?: string;       // file name
-  message_id?: number;      // external message ID (number, не string)
-  chat_id?: number;         // telegram chat ID (number, не string)
-  timestamp?: string;       // message timestamp
-}
-```
-
-## Файлы для изменения
-
-| Файл | Изменение |
-|------|-----------|
-| `supabase/functions/telegram-crm-connect/index.ts` | Endpoint + key в URL |
-| `supabase/functions/telegram-crm-webhook/index.ts` | Идентификация по key |
-| `supabase/functions/telegram-crm-send/index.ts` | Убрать project_id |
-
-## Безопасность (итоговая модель)
-
-| Уровень | Реализация |
-|---------|------------|
-| Идентификация | `webhook_key` в URL (UUID) |
-| Отзыв доступа | Смена `webhook_key` в БД |
-| Подпись | `X-Lovable-Secret` (опционально) |
-| Изоляция | `organization_id` из БД, не из запроса |
-
-## Формат запросов после изменений
-
-### Connect (Lovable → CRM)
-```http
-POST https://tg.academyos.ru/webhook/connect
-{
-  "name": "lovable",
-  "webhook_url": "https://api.academyos.ru/functions/v1/telegram-crm-webhook?key=abc-uuid",
-  "secret": "shared-secret"
-}
-```
-
-### Webhook (CRM → Lovable)
-```http
-POST https://api.academyos.ru/functions/v1/telegram-crm-webhook?key=abc-uuid
-X-Lovable-Secret: shared-secret
-
-{
-  "account_phone": "79955073535",
-  "from_id": 374235301,
-  "from_username": "username",
-  "text": "Привет!",
-  "message_id": 12345,
-  "chat_id": 374235301
-}
-```
-
-### Send (Lovable → CRM)
-```http
-POST https://tg.academyos.ru/telegram/send
-{
-  "phone": "79955073535",
-  "to": "374235301",
-  "text": "Здравствуйте!"
-}
-```
-
+На стороне сервера tg.academyos.ru должны быть реализованы:
+- `/auth/send-code` — отправка кода в Telegram
+- `/auth/verify-code` — проверка кода
+- `/webhook/connect` — регистрация webhook (уже есть)
+- `/telegram/send` — отправка сообщений (уже есть)
