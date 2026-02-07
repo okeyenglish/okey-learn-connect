@@ -502,9 +502,9 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                   </div>
                 </div>
                  
-                {/* Эмодзи реакции в WhatsApp стиле */}
+                {/* Эмодзи реакции в WhatsApp стиле - позиционируем слева чтобы не перекрывать время и галочки */}
                 {messageId && (type === 'client' || type === 'manager') && (
-                  <div className="absolute -bottom-2 right-2 z-10">
+                  <div className={`absolute -bottom-2 z-10 ${type === 'manager' ? 'left-2' : 'right-14'}`}>
                     <MessageReactions 
                       messageId={messageId} 
                       showAddButton={true}
