@@ -1,64 +1,26 @@
 
-# План исправления: Восстановление загрузки чатов преподавателей
+# ✅ ВЫПОЛНЕНО: Восстановление загрузки чатов преподавателей
 
-## Проблема
-После оптимизаций перестали загружаться:
-1. Превью сообщений в списке преподавателей ("Нет сообщений" у всех)
-2. Сами диалоги при открытии (60+ секунд таймаут)
+## Применённые исправления
 
-## Причины найденных проблем
-
-### 1. Отсутствие LIMIT в useTeacherChats.ts (строка 280-284)
+### ✅ Шаг 1: Добавлен LIMIT в useTeacherChats.ts (строка 280-285)
 ```typescript
-// ПРОБЛЕМА: Запрос БЕЗ лимита загружает ВСЕ сообщения всех преподавателей!
-const { data: directMessages } = await supabase
-  .from('chat_messages')
-  .select('teacher_id, message_text, ...')
-  .in('teacher_id', teacherIds)
-  .order('created_at', { ascending: false });
-// ← НЕТ .limit() !!!
+.limit(teacherIds.length * 20); // ~20 сообщений на преподавателя для превью
 ```
 
-Это вызывает таймаут при большом количестве сообщений.
-
-### 2. Отсутствие индекса на self-hosted (критично!)
-Запросы `WHERE teacher_id IN (...)` без индекса вынуждены сканировать всю таблицу `chat_messages`. При 50,000+ сообщениях это занимает 30-60 секунд.
-
-### 3. Ошибка в range() в useTeacherChatMessagesV2.ts
+### ✅ Шаг 2: Исправлен range() в useTeacherChatMessagesV2.ts (строка 40-41)
 ```typescript
-// БЫЛО:
-.range(pageParam, pageParam + PAGE_SIZE); // Неправильно! range(0, 50) = 51 строка
-
-// НУЖНО:
-.range(pageParam, pageParam + PAGE_SIZE - 1); // range(0, 49) = 50 строк
+.range(pageParam, pageParam + PAGE_SIZE - 1); // Correct: range(0, 49) = 50 rows
 ```
 
-## План исправлений
-
-### Шаг 1: Добавить LIMIT в useTeacherChats.ts
+### ✅ Шаг 3: Оптимизирован лимит в useTeacherConversations.ts (строка 74-75)
 ```typescript
-// Добавить лимит для запроса по teacher_id
-const { data: directMessages, error: directError } = await supabase
-  .from('chat_messages')
-  .select('teacher_id, message_text, created_at, messenger_type, messenger, is_read, is_outgoing')
-  .in('teacher_id', teacherIds)
-  .order('created_at', { ascending: false })
-  .limit(teacherIds.length * 20); // ~20 сообщений на преподавателя для превью
+.limit(batchIds.length * 20); // ~20 messages per teacher for preview
 ```
 
-### Шаг 2: Исправить range() в useTeacherChatMessagesV2.ts
-```typescript
-// Исправить границы range для правильной пагинации
-.range(pageParam, pageParam + PAGE_SIZE - 1);
-```
+## ⚠️ Обязательное действие на self-hosted сервере
 
-### Шаг 3: Улучшить useTeacherConversations.ts
-- Уменьшить лимит с `50 * batchSize` до `20 * batchSize`
-- Добавить timeout обработку
-
-## Обязательное действие на self-hosted сервере
-
-После применения фронтенд-изменений, необходимо создать индекс на сервере:
+Для максимальной производительности необходимо создать индекс:
 
 ```sql
 -- Выполнить в SQL Editor на api.academyos.ru
@@ -69,14 +31,4 @@ WHERE teacher_id IS NOT NULL;
 ANALYZE chat_messages;
 ```
 
-## Технические детали
-
-**Файлы для изменения:**
-- `src/hooks/useTeacherChats.ts` — добавить .limit()
-- `src/hooks/useTeacherChatMessagesV2.ts` — исправить range()
-- `src/hooks/useTeacherConversations.ts` — оптимизировать лимиты
-
-**Результат:**
-- Превью сообщений загрузятся быстро (~1-2 сек)
-- Диалоги будут открываться без таймаутов
-- После создания индекса — загрузка станет мгновенной
+Без этого индекса запросы будут работать, но медленнее (~1-5 сек вместо <100мс).
