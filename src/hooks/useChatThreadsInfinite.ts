@@ -41,6 +41,144 @@ interface RpcThreadRow {
   last_unread_messenger?: string | null;
 }
 
+// Helper to check if message is a system/internal message that shouldn't be shown in preview
+function isSystemPreviewMessage(text: string): boolean {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return (
+    lower.includes('crm_system_state_changed') ||
+    lower.includes('задача "') ||
+    lower.includes('задача создана') ||
+    lower.includes('задача выполнена') ||
+    lower.includes('задача отменена') ||
+    lower.startsWith('задача "')
+  );
+}
+
+/**
+ * Direct SQL fallback for fetching chat threads when RPC is unavailable
+ * This bypasses the RPC and fetches data directly from tables
+ */
+async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: boolean = false): Promise<ChatThread[]> {
+  console.log(`[fetchThreadsDirectly] Fetching ${unreadOnly ? 'unread' : 'all'} threads, limit=${limit}, offset=${offset}`);
+  const startTime = performance.now();
+
+  // 1. Fetch clients ordered by last_message_at (most recent activity first)
+  const { data: clients, error: clientsError } = await supabase
+    .from('clients')
+    .select('id, name, first_name, last_name, phone, branch, avatar_url, telegram_user_id')
+    .order('last_message_at', { ascending: false, nullsFirst: false })
+    .range(offset, offset + limit - 1);
+
+  if (clientsError) {
+    console.error('[fetchThreadsDirectly] Failed to fetch clients:', clientsError);
+    return [];
+  }
+
+  if (!clients || clients.length === 0) {
+    console.log('[fetchThreadsDirectly] No clients found');
+    return [];
+  }
+
+  const clientIds = clients.map(c => c.id);
+  console.log(`[fetchThreadsDirectly] Fetched ${clientIds.length} clients`);
+
+  // 2. Fetch last messages for these clients
+  const { data: messages, error: messagesError } = await supabase
+    .from('chat_messages')
+    .select('client_id, content, message_text, created_at, is_read, messenger, messenger_type, message_type, direction')
+    .in('client_id', clientIds)
+    .order('created_at', { ascending: false })
+    .limit(clientIds.length * 10);
+
+  if (messagesError) {
+    console.error('[fetchThreadsDirectly] Failed to fetch messages:', messagesError);
+  }
+
+  // 3. Group messages by client
+  const messagesByClient = new Map<string, any[]>();
+  (messages || []).forEach((msg: any) => {
+    if (!messagesByClient.has(msg.client_id)) {
+      messagesByClient.set(msg.client_id, []);
+    }
+    messagesByClient.get(msg.client_id)!.push(msg);
+  });
+
+  // 4. Build threads
+  const threads: ChatThread[] = clients
+    .filter((client: any) => {
+      // Filter out group chats
+      if (isGroupChatName(client.name || '')) return false;
+      
+      // Filter out system chats
+      const lowerName = (client.name || '').toLowerCase();
+      if (lowerName.includes('корпоративный') || 
+          lowerName.includes('педагог') || 
+          lowerName.includes('преподаватель:')) {
+        return false;
+      }
+      
+      return true;
+    })
+    .map((client: any) => {
+      const clientMessages = messagesByClient.get(client.id) || [];
+      const lastMessage = clientMessages[0];
+      // Self-hosted uses message_type='client' for incoming messages
+      const unreadMessages = clientMessages.filter((m: any) => 
+        !m.is_read && (m.message_type === 'client' || m.direction === 'incoming')
+      );
+
+      // Get message text (handle both content and message_text columns)
+      const rawLastMessageText = lastMessage?.message_text || lastMessage?.content || '';
+      const lastMessageText = isSystemPreviewMessage(rawLastMessageText) ? '' : rawLastMessageText;
+
+      const unreadByMessenger: UnreadByMessenger = {
+        whatsapp: 0,
+        telegram: 0,
+        max: 0,
+        chatos: 0,
+        email: 0,
+        calls: 0,
+      };
+      
+      unreadMessages.forEach((m: any) => {
+        const type = (m.messenger_type || m.messenger) as keyof UnreadByMessenger;
+        if (type && type in unreadByMessenger) {
+          unreadByMessenger[type]++;
+        }
+      });
+
+      return {
+        client_id: client.id,
+        client_name: client.name || '',
+        first_name: client.first_name || null,
+        last_name: client.last_name || null,
+        client_phone: client.phone || '',
+        client_branch: client.branch || null,
+        avatar_url: client.avatar_url || null,
+        telegram_avatar_url: null,
+        whatsapp_avatar_url: null,
+        max_avatar_url: null,
+        telegram_chat_id: null,
+        whatsapp_chat_id: null,
+        max_chat_id: null,
+        last_message: lastMessageText,
+        last_message_time: lastMessage?.created_at || null,
+        last_message_messenger: lastMessage?.messenger_type || lastMessage?.messenger || null,
+        unread_count: unreadMessages.length,
+        unread_by_messenger: unreadByMessenger,
+        last_unread_messenger: unreadMessages[0]?.messenger_type || unreadMessages[0]?.messenger || null,
+        messages: [],
+      };
+    });
+
+  // 5. If unreadOnly, filter to only threads with unread messages
+  const result = unreadOnly ? threads.filter(t => t.unread_count > 0) : threads;
+
+  console.log(`[fetchThreadsDirectly] Built ${result.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
+  return result;
+}
+
 /**
  * Infinite scroll hook for chat threads
  * Loads 50 threads at a time for fast initial render
@@ -74,14 +212,21 @@ export const useChatThreadsInfinite = () => {
   const infiniteQuery = useInfiniteQuery({
     queryKey: ['chat-threads-infinite'],
     queryFn: async ({ pageParam = 0 }) => {
-      // If RPC is broken, return empty immediately (rely on unreadQuery for data)
-      if (!usePaginatedRpc) {
-        console.log('[useChatThreadsInfinite] Paginated RPC disabled, returning empty');
-        return { threads: [], hasMore: false, pageParam, executionTime: 0 };
-      }
-
       const startTime = performance.now();
       console.log(`[useChatThreadsInfinite] Loading page ${pageParam}, offset ${pageParam * PAGE_SIZE}...`);
+
+      // If RPC is broken, use direct fetch
+      if (!usePaginatedRpc) {
+        console.log('[useChatThreadsInfinite] Paginated RPC disabled, using direct fetch');
+        const directThreads = await fetchThreadsDirectly(PAGE_SIZE + 1, pageParam * PAGE_SIZE);
+        const hasMore = directThreads.length > PAGE_SIZE;
+        return { 
+          threads: directThreads.slice(0, PAGE_SIZE), 
+          hasMore, 
+          pageParam, 
+          executionTime: performance.now() - startTime 
+        };
+      }
 
       const { data, error } = await supabase
         .rpc('get_chat_threads_paginated', { 
@@ -90,11 +235,19 @@ export const useChatThreadsInfinite = () => {
         });
 
       if (error) {
-        // If function not found - disable RPC permanently for this session
+        // If function not found - disable RPC and use fallback
         if (error.code === '42883' || error.code === 'PGRST202' || error.code === '42703' || error.code === 'PGRST203') {
           console.warn('[useChatThreadsInfinite] Disabling broken paginated RPC:', error.code, error.message);
           usePaginatedRpc = false;
-          return { threads: [], hasMore: false, pageParam, executionTime: 0 };
+          // Use direct fetch instead of returning empty
+          const directThreads = await fetchThreadsDirectly(PAGE_SIZE + 1, pageParam * PAGE_SIZE);
+          const hasMore = directThreads.length > PAGE_SIZE;
+          return { 
+            threads: directThreads.slice(0, PAGE_SIZE), 
+            hasMore, 
+            pageParam, 
+            executionTime: performance.now() - startTime 
+          };
         }
 
         console.error('[useChatThreadsInfinite] RPC error:', error);
@@ -103,11 +256,18 @@ export const useChatThreadsInfinite = () => {
           .rpc('get_chat_threads_fast', { p_limit: PAGE_SIZE + 1 });
         
         if (fallbackError) {
-          // If fallback also fails with schema error, disable
+          // If fallback also fails with schema error, use direct fetch
           if (fallbackError.code === '42883' || fallbackError.code === 'PGRST202') {
-            console.warn('[useChatThreadsInfinite] Disabling broken fallback RPC');
+            console.warn('[useChatThreadsInfinite] Fallback RPC also failed, using direct fetch');
             usePaginatedRpc = false;
-            return { threads: [], hasMore: false, pageParam, executionTime: 0 };
+            const directThreads = await fetchThreadsDirectly(PAGE_SIZE + 1, pageParam * PAGE_SIZE);
+            const hasMore = directThreads.length > PAGE_SIZE;
+            return { 
+              threads: directThreads.slice(0, PAGE_SIZE), 
+              hasMore, 
+              pageParam, 
+              executionTime: performance.now() - startTime 
+            };
           }
           throw fallbackError;
         }
@@ -154,23 +314,24 @@ export const useChatThreadsInfinite = () => {
   const unreadQuery = useQuery({
     queryKey: ['chat-threads-unread-priority'],
     queryFn: async () => {
-      // If RPC is broken, return empty immediately
-      if (!useUnreadRpc) {
-        console.log('[useChatThreadsInfinite] Unread RPC disabled, skipping');
-        return [];
-      }
-
       const startTime = performance.now();
       console.log('[useChatThreadsInfinite] Loading priority unread threads...');
+
+      // If RPC is broken, use direct fetch
+      if (!useUnreadRpc) {
+        console.log('[useChatThreadsInfinite] Unread RPC disabled, using direct fetch');
+        return await fetchThreadsDirectly(50, 0, true);
+      }
 
       const { data, error } = await supabase
         .rpc('get_unread_chat_threads', { p_limit: 50 });
 
       if (error) {
-        // If schema error (column doesn't exist or function not found) - disable RPC
+        // If schema error (column doesn't exist or function not found) - use direct fetch
         if (error.code === '42703' || error.code === 'PGRST202' || error.code === '42883') {
           console.warn('[useChatThreadsInfinite] Disabling broken unread RPC:', error.code, error.message);
           useUnreadRpc = false;
+          return await fetchThreadsDirectly(50, 0, true);
         } else {
           console.warn('[useChatThreadsInfinite] Unread RPC failed:', error.message);
         }
@@ -282,20 +443,6 @@ export const useChatThreadsInfinite = () => {
     error: infiniteQuery.error || unreadQuery.error,
   };
 };
-
-// Helper to check if message is a system/internal message that shouldn't be shown in preview
-function isSystemPreviewMessage(text: string): boolean {
-  if (!text) return false;
-  const lower = text.toLowerCase();
-  return (
-    lower.includes('crm_system_state_changed') ||
-    lower.includes('задача "') ||
-    lower.includes('задача создана') ||
-    lower.includes('задача выполнена') ||
-    lower.includes('задача отменена') ||
-    lower.startsWith('задача "')
-  );
-}
 
 // Helper function to map RPC result to ChatThread format
 function mapRpcToThreads(data: RpcThreadRow[]): ChatThread[] {
