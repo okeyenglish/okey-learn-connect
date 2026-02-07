@@ -19,9 +19,9 @@ interface BulkFetchResponse {
 }
 
 // Simplified interface compatible with self-hosted schema
+// NOTE: Self-hosted does NOT have whatsapp_id column in clients table
 interface ClientRecord {
   id: string;
-  whatsapp_id?: string | null;
   phone?: string | null;
   telegram_user_id?: string | null;
 }
@@ -86,9 +86,10 @@ Deno.serve(async (req) => {
     // Get clients without avatars
     // NOTE: Self-hosted schema may not have all avatar columns, so we select 
     // only base columns and handle missing fields gracefully
+    // Self-hosted schema: clients does NOT have whatsapp_id column
     const { data: clients, error: clientsError } = await supabase
       .from('clients')
-      .select('id, whatsapp_id, phone, telegram_user_id')
+      .select('id, phone, telegram_user_id')
       .eq('organization_id', organizationId)
       .in('id', limitedIds);
 
@@ -237,14 +238,13 @@ async function fetchWhatsAppAvatar(
 
     if (!instanceId || !apiToken) return null;
 
-    // Determine chat ID (simplified for self-hosted schema)
+    // Determine chat ID from phone (self-hosted schema has no whatsapp_id)
     let chatId: string | null = null;
-    if (client.whatsapp_id) {
-      chatId = client.whatsapp_id.includes('@') ? client.whatsapp_id : `${client.whatsapp_id}@c.us`;
-    }
-    if (!chatId && client.phone) {
+    if (client.phone) {
       const cleanPhone = client.phone.replace(/[^\d]/g, '');
-      chatId = `${cleanPhone}@c.us`;
+      if (cleanPhone.length >= 10) {
+        chatId = `${cleanPhone}@c.us`;
+      }
     }
 
     if (!chatId) return null;

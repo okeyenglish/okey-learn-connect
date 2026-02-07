@@ -57,9 +57,8 @@ export const useTeacherConversations = (branch?: string | null) => {
       const teacherIds = filteredTeachers.map(t => t.id);
 
       // Step 2: Get message stats for each teacher
-      // OPTIMIZATION: Only fetch last message and unread count, not all messages!
-      // Fetch in batches: get last message per teacher (limited query)
-      const batchSize = 100;
+      // OPTIMIZATION: Smaller batches and fewer messages per batch for faster loading
+      const batchSize = 30; // Reduced from 100 for faster initial response
       const allStats: any[] = [];
       
       for (let i = 0; i < teacherIds.length; i += batchSize) {
@@ -72,7 +71,7 @@ export const useTeacherConversations = (branch?: string | null) => {
           .select('teacher_id, created_at, message_text, messenger_type, is_read, is_outgoing')
           .in('teacher_id', batchIds)
           .order('created_at', { ascending: false })
-          .limit(batchIds.length * 20); // ~20 messages per teacher for preview
+          .limit(batchIds.length * 5); // Reduced: only 5 messages per teacher for preview
         
         if (batchError) {
           console.warn('[useTeacherConversations] Batch error:', batchError);
