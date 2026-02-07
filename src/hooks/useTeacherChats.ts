@@ -340,6 +340,7 @@ export const useTeacherChats = (branch?: string | null) => {
         console.log('[useTeacherChats] No messages via teacher_id, falling back to client matching...');
         // =============================================================
         // STEP 2: Fallback to client matching by phone (legacy architecture)
+        // OPTIMIZED: Batch query instead of N+1 sequential queries
         // =============================================================
         
         // Get all clients that might be linked to teachers (by phone pattern or name prefix)
@@ -349,102 +350,81 @@ export const useTeacherChats = (branch?: string | null) => {
           .or('name.ilike.Преподаватель:%,name.ilike.%педагог%')
           .limit(500);
         
-        if (!teacherClients?.length) {
-          // Try matching by phone instead
-          const phones = teachersList.map(t => t.phone).filter(Boolean);
-          if (phones.length === 0) return [];
+        // Also get clients by phone match
+        const { data: phoneClients } = await supabase
+          .from('clients')
+          .select('id, phone')
+          .not('phone', 'is', null)
+          .limit(1000);
+        
+        // Merge and dedupe clients
+        const allClients = [...(teacherClients || []), ...(phoneClients || [])];
+        const clientMap = new Map<string, { id: string; phone: string | null; name?: string }>();
+        allClients.forEach(c => {
+          if (!clientMap.has(c.id)) {
+            clientMap.set(c.id, c);
+          }
+        });
+        
+        if (clientMap.size === 0) return [];
+        
+        // Match teachers to clients by normalized phone
+        const teacherClientMatches: { teacherId: string; clientId: string }[] = [];
+        for (const teacher of teachersList) {
+          if (!teacher.phone) continue;
+          const teacherNorm = normalizePhone(teacher.phone);
+          if (!teacherNorm) continue;
           
-          const { data: phoneClients } = await supabase
-            .from('clients')
-            .select('id, phone')
-            .not('phone', 'is', null)
-            .limit(1000);
-          
-          if (!phoneClients?.length) return [];
-          
-          // Match teachers to clients by normalized phone
-          const results: TeacherUnreadCount[] = [];
-          for (const teacher of teachersList) {
-            if (!teacher.phone) continue;
-            const teacherNorm = normalizePhone(teacher.phone);
-            if (!teacherNorm) continue;
-            
-            const matchedClient = phoneClients.find(c => 
-              c.phone && normalizePhone(c.phone) === teacherNorm
-            );
-            
-            if (matchedClient) {
-              // Get last message and unread count for this client
-              // Self-hosted uses message_text only (no content column)
-              const { data: lastMsg } = await supabase
-                .from('chat_messages')
-                .select('message_text, created_at, messenger_type, messenger, is_read, is_outgoing')
-                .eq('client_id', matchedClient.id)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-              
-              const { count: unreadCount } = await supabase
-                .from('chat_messages')
-                .select('id', { count: 'exact', head: true })
-                .eq('client_id', matchedClient.id)
-                .eq('is_outgoing', false)
-                .eq('is_read', false);
-              
-              results.push({
-                teacher_id: teacher.id,
-                client_id: matchedClient.id,
-                unread_count: unreadCount || 0,
-                last_message_time: lastMsg?.created_at || null,
-                last_message_text: lastMsg?.message_text || null,
-                last_messenger_type: lastMsg?.messenger_type || lastMsg?.messenger || null,
-              });
+          for (const client of clientMap.values()) {
+            if (client.phone && normalizePhone(client.phone) === teacherNorm) {
+              teacherClientMatches.push({ teacherId: teacher.id, clientId: client.id });
+              break;
             }
           }
-          
-          return results;
         }
         
-        // Match by name prefix "Преподаватель: ..."
+        if (teacherClientMatches.length === 0) return [];
+        
+        // =============================================================
+        // BATCH QUERY: Get ALL messages for matched clients in ONE request
+        // This replaces N+1 sequential queries with a single batch query
+        // =============================================================
+        const matchedClientIds = teacherClientMatches.map(m => m.clientId);
+        
+        const { data: allClientMessages } = await supabase
+          .from('chat_messages')
+          .select('client_id, message_text, created_at, messenger_type, messenger, is_read, is_outgoing')
+          .in('client_id', matchedClientIds)
+          .order('created_at', { ascending: false })
+          .limit(matchedClientIds.length * 10); // ~10 messages per client
+        
+        // Group messages by client_id for fast lookup
+        const messagesByClientId = new Map<string, any[]>();
+        (allClientMessages || []).forEach((msg: any) => {
+          if (!msg.client_id) return;
+          if (!messagesByClientId.has(msg.client_id)) {
+            messagesByClientId.set(msg.client_id, []);
+          }
+          messagesByClientId.get(msg.client_id)!.push(msg);
+        });
+        
+        // Build results from grouped messages (no more sequential queries!)
         const results: TeacherUnreadCount[] = [];
-        for (const teacher of teachersList) {
-          // Try to find by phone first
-          let matchedClient = null;
-          if (teacher.phone) {
-            const teacherNorm = normalizePhone(teacher.phone);
-            if (teacherNorm) {
-              matchedClient = teacherClients.find(c => 
-                c.phone && normalizePhone(c.phone) === teacherNorm
-              );
-            }
-          }
+        for (const match of teacherClientMatches) {
+          const messages = messagesByClientId.get(match.clientId) || [];
+          const lastMsg = messages[0]; // Already sorted desc
+          const unreadCount = messages.filter((m: any) => 
+            !m.is_read && m.is_outgoing === false
+          ).length;
           
-          if (matchedClient) {
-            // Get last message info
-            // Self-hosted uses message_text only (no content column)
-            const { data: lastMsg } = await supabase
-              .from('chat_messages')
-              .select('message_text, created_at, messenger_type, messenger, is_read, is_outgoing')
-              .eq('client_id', matchedClient.id)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            
-            const { count: unreadCount } = await supabase
-              .from('chat_messages')
-              .select('id', { count: 'exact', head: true })
-              .eq('client_id', matchedClient.id)
-              .eq('is_outgoing', false)
-            
-            results.push({
-              teacher_id: teacher.id,
-              client_id: matchedClient.id,
-              unread_count: unreadCount || 0,
-              last_message_time: lastMsg?.created_at || null,
-              last_message_text: lastMsg?.message_text || null,
-              last_messenger_type: lastMsg?.messenger_type || lastMsg?.messenger || null,
-            });
-          }
+          results.push({
+            teacher_id: match.teacherId,
+            client_id: match.clientId,
+            unread_count: unreadCount,
+            last_message_time: lastMsg?.created_at || null,
+            last_message_text: lastMsg?.message_text || null,
+            last_messenger_type: lastMsg?.messenger_type || lastMsg?.messenger || null,
+          });
         }
         
         console.log('[useTeacherChats] Fallback found', results.length, 'teacher-client links');
