@@ -26,6 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { IntegrationEditDialog } from './IntegrationEditDialog';
 import { TelegramCrmConnectDialog } from './TelegramCrmConnectDialog';
+import { TelegramCrmProfileStatus } from './TelegramCrmProfileStatus';
 import { SettingsFieldConfig } from './IntegrationsList';
 
 // Telegram provider options
@@ -204,6 +205,15 @@ export const TelegramIntegrations: React.FC = () => {
                         <span className="truncate max-w-[200px]">Webhook</span>
                       </button>
                     </div>
+                    
+                    {/* Profile status for telegram_crm */}
+                    {integration.provider === 'telegram_crm' && integration.settings?.crmPhoneNumber && (
+                      <div className="mt-2">
+                        <TelegramCrmProfileStatus 
+                          phone={integration.settings.crmPhoneNumber as string} 
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Toggle */}

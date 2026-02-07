@@ -5,12 +5,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface TelegramCrmSendRequest {
+const TELEGRAM_CRM_API_URL = 'https://tg.academyos.ru';
+
+type MediaType = 'photo' | 'video' | 'voice' | 'file';
+
+interface SendMediaRequest {
   clientId: string;
-  text?: string;
+  mediaType: MediaType;
   fileUrl?: string;
+  fileData?: string; // Base64
   fileName?: string;
-  fileType?: string;
   integrationId?: string;
 }
 
@@ -20,8 +24,15 @@ interface TelegramCrmSettings {
   secret?: string;
 }
 
+const MEDIA_ENDPOINTS: Record<MediaType, string> = {
+  photo: '/telegram/send_photo',
+  video: '/telegram/send_video',
+  voice: '/telegram/send_voice',
+  file: '/telegram/send_file',
+};
+
 Deno.serve(async (req) => {
-  console.log('[telegram-crm-send] Request received');
+  console.log('[telegram-crm-send-media] Request received');
 
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -77,8 +88,8 @@ Deno.serve(async (req) => {
     const organizationId = profile.organization_id;
 
     // Parse request
-    const body: TelegramCrmSendRequest = await req.json();
-    const { clientId, text, fileUrl, fileName, fileType, integrationId } = body;
+    const body: SendMediaRequest = await req.json();
+    const { clientId, mediaType, fileUrl, fileData, fileName, integrationId } = body;
 
     if (!clientId) {
       return new Response(
@@ -87,9 +98,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!text && !fileUrl) {
+    if (!mediaType || !MEDIA_ENDPOINTS[mediaType]) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Message text or file required' }),
+        JSON.stringify({ success: false, error: 'Valid media type required (photo, video, voice, file)' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!fileUrl && !fileData) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'File URL or file data required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -141,9 +159,9 @@ Deno.serve(async (req) => {
     }
 
     const settings = integration.settings as TelegramCrmSettings;
-    const { crmApiUrl, crmPhoneNumber, secret } = settings;
+    const { crmPhoneNumber, secret } = settings;
 
-    if (!crmApiUrl || !crmPhoneNumber) {
+    if (!crmPhoneNumber) {
       return new Response(
         JSON.stringify({ success: false, error: 'Telegram CRM settings incomplete' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -153,7 +171,7 @@ Deno.serve(async (req) => {
     // Get client info
     const { data: client, error: clientError } = await supabase
       .from('clients')
-      .select('telegram_user_id, telegram_chat_id, phone, name')
+      .select('telegram_user_id, phone, name')
       .eq('id', clientId)
       .eq('organization_id', organizationId)
       .single();
@@ -166,7 +184,7 @@ Deno.serve(async (req) => {
     }
 
     // Determine recipient
-    const recipient = client.telegram_chat_id || client.telegram_user_id || client.phone;
+    const recipient = client.telegram_user_id || client.phone;
     
     if (!recipient) {
       return new Response(
@@ -179,32 +197,64 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('[telegram-crm-send] Sending to:', recipient, 'via:', crmApiUrl);
+    console.log('[telegram-crm-send-media] Sending to:', recipient, 'type:', mediaType);
 
-    // Send message via Telegram CRM server
-    const sendPayload: Record<string, unknown> = {
-      phone: crmPhoneNumber,
-      to: recipient,
-      text: text || '',
-    };
+    // Download file if URL provided
+    let fileBlob: Blob;
+    let finalFileName = fileName || 'file';
 
     if (fileUrl) {
-      sendPayload.file_url = fileUrl;
-      sendPayload.file_name = fileName;
-      sendPayload.file_type = fileType;
+      console.log('[telegram-crm-send-media] Downloading file from:', fileUrl);
+      const fileResponse = await fetch(fileUrl);
+      if (!fileResponse.ok) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Failed to download file' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      fileBlob = await fileResponse.blob();
+      
+      // Extract filename from URL if not provided
+      if (!fileName) {
+        const urlPath = new URL(fileUrl).pathname;
+        finalFileName = urlPath.split('/').pop() || 'file';
+      }
+    } else if (fileData) {
+      // Decode base64
+      console.log('[telegram-crm-send-media] Decoding base64 data');
+      const binaryString = atob(fileData);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      fileBlob = new Blob([bytes]);
+    } else {
+      return new Response(
+        JSON.stringify({ success: false, error: 'No file data provided' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
+    // Build multipart form data
+    const formData = new FormData();
+    formData.append('phone', crmPhoneNumber);
+    formData.append('to', recipient);
+    formData.append('file', fileBlob, finalFileName);
+
+    // Prepare headers
+    const headers: Record<string, string> = {};
     if (secret) {
       headers['X-Lovable-Secret'] = secret;
     }
 
-    const apiResponse = await fetch(`${crmApiUrl}/telegram/send`, {
+    // Send to Telegram CRM
+    const endpoint = `${TELEGRAM_CRM_API_URL}${MEDIA_ENDPOINTS[mediaType]}`;
+    console.log('[telegram-crm-send-media] Sending to endpoint:', endpoint);
+
+    const apiResponse = await fetch(endpoint, {
       method: 'POST',
       headers,
-      body: JSON.stringify(sendPayload),
+      body: formData,
     });
 
     let responseData: { status?: string; message_id?: string; error?: string } = {};
@@ -215,7 +265,7 @@ Deno.serve(async (req) => {
       responseData = { error: responseText || `HTTP ${apiResponse.status}` };
     }
 
-    console.log('[telegram-crm-send] API response:', responseData);
+    console.log('[telegram-crm-send-media] API response:', responseData);
 
     if (!apiResponse.ok) {
       return new Response(
@@ -228,7 +278,7 @@ Deno.serve(async (req) => {
     }
 
     // Save message to database
-    const messageText = text || (fileUrl ? '[Файл]' : '');
+    const messageText = `[${mediaType === 'photo' ? 'Фото' : mediaType === 'video' ? 'Видео' : mediaType === 'voice' ? 'Голосовое' : 'Файл'}]`;
     
     const { data: savedMessage, error: saveError } = await supabase
       .from('chat_messages')
@@ -243,14 +293,14 @@ Deno.serve(async (req) => {
         is_read: true,
         external_message_id: responseData.message_id,
         file_url: fileUrl,
-        file_name: fileName,
-        file_type: fileType,
+        file_name: finalFileName,
+        file_type: mediaType,
       })
       .select('id')
       .single();
 
     if (saveError) {
-      console.error('[telegram-crm-send] Error saving message:', saveError);
+      console.error('[telegram-crm-send-media] Error saving message:', saveError);
     }
 
     // Update client's last_message_at
@@ -269,7 +319,7 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('[telegram-crm-send] Error:', error);
+    console.error('[telegram-crm-send-media] Error:', error);
     return new Response(
       JSON.stringify({ 
         success: false, 

@@ -36,6 +36,18 @@ verify_jwt = true
 [functions.telegram-crm-verify-code]
 verify_jwt = true
 
+[functions.telegram-crm-health]
+verify_jwt = false
+
+[functions.telegram-crm-profiles]
+verify_jwt = true
+
+[functions.telegram-crm-send-media]
+verify_jwt = true
+
+[functions.telegram-crm-webhooks]
+verify_jwt = true
+
 [functions.max-webhook]
 verify_jwt = false
 

@@ -9,6 +9,12 @@ const corsHeaders = {
 
 const TELEGRAM_CRM_API_URL = "https://tg.academyos.ru";
 
+type WebhookAction = "queue" | "dlq";
+
+interface WebhookRequest {
+  action: WebhookAction;
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -40,66 +46,74 @@ serve(async (req) => {
     }
 
     // Parse request
-    const { phone } = await req.json();
+    const { action }: WebhookRequest = await req.json();
 
-    if (!phone) {
+    if (!action) {
       return new Response(
-        JSON.stringify({ success: false, error: "Номер телефона обязателен" }),
+        JSON.stringify({ success: false, error: "Действие обязательно (queue или dlq)" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Clean phone number (remove all non-digits)
-    const cleanedPhone = phone.replace(/\D/g, "");
-    
-    if (cleanedPhone.length < 10 || cleanedPhone.length > 15) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Некорректный номер телефона" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    console.log(`[telegram-crm-webhooks] Action: ${action}`);
+
+    let endpoint: string;
+    switch (action) {
+      case "queue":
+        endpoint = `${TELEGRAM_CRM_API_URL}/webhooks/queue`;
+        break;
+      case "dlq":
+        endpoint = `${TELEGRAM_CRM_API_URL}/webhooks/dlq`;
+        break;
+      default:
+        return new Response(
+          JSON.stringify({ success: false, error: `Неизвестное действие: ${action}` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
     }
 
-    console.log(`[telegram-crm-send-code] Sending code to: ${cleanedPhone.slice(0, 4)}***`);
-
-    // Call Telegram CRM API
-    const response = await fetch(`${TELEGRAM_CRM_API_URL}/telegram/send_code`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ phone: cleanedPhone }),
+    const response = await fetch(endpoint, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
     });
 
+    let data = null;
+    const contentType = response.headers.get("content-type");
+    if (contentType?.includes("application/json")) {
+      try {
+        data = await response.json();
+      } catch {
+        // Ignore parse errors
+      }
+    }
+
+    console.log(`[telegram-crm-webhooks] Response status: ${response.status}`);
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[telegram-crm-send-code] API error: ${response.status} - ${errorText}`);
-      
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: `Ошибка сервера: ${response.status}`,
-          details: errorText 
+        JSON.stringify({
+          success: false,
+          error: data?.detail || data?.error || `HTTP ${response.status}`,
+          status: response.status,
         }),
         { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const data = await response.json();
-    console.log(`[telegram-crm-send-code] Code sent successfully`);
-
     return new Response(
       JSON.stringify({
         success: true,
-        phone_hash: data.phone_hash || data.phone_code_hash || "",
+        action,
+        data,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("[telegram-crm-send-code] Error:", error);
+    console.error("[telegram-crm-webhooks] Error:", error);
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message || "Внутренняя ошибка сервера" 
+      JSON.stringify({
+        success: false,
+        error: error.message || "Внутренняя ошибка сервера",
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
