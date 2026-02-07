@@ -54,26 +54,76 @@ Deno.serve(async (req) => {
 
     const organizationId = profile.organization_id;
 
-    // Get Telegram settings from messenger_settings (per-organization)
-    const { data: messengerSettings, error: settingsError } = await supabase
-      .from('messenger_settings')
-      .select('settings, is_enabled')
+    // First, check messenger_integrations for multi-account support
+    const { data: integration, error: integrationError } = await supabase
+      .from('messenger_integrations')
+      .select('id, provider, settings, is_enabled')
       .eq('organization_id', organizationId)
       .eq('messenger_type', 'telegram')
+      .eq('is_primary', true)
+      .eq('is_enabled', true)
       .maybeSingle();
 
-    if (settingsError) {
-      console.error('Error fetching Telegram settings:', settingsError);
-      return errorResponse('Failed to fetch Telegram settings', 500);
+    // If using telegram_crm provider, delegate to telegram-crm-send
+    if (integration && integration.provider === 'telegram_crm') {
+      console.log('[telegram-send] Routing to telegram-crm-send');
+      
+      const body = await req.json();
+      
+      // Forward to telegram-crm-send
+      const crmResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/telegram-crm-send`, {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...body,
+          integrationId: integration.id,
+        }),
+      });
+
+      const crmResult = await crmResponse.json();
+      return new Response(
+        JSON.stringify(crmResult),
+        { 
+          status: crmResponse.status, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
-    if (!messengerSettings || !messengerSettings.is_enabled) {
-      return errorResponse('Telegram integration not configured or disabled', 400);
-    }
+    // Fall back to legacy messenger_settings or wappi provider
+    let profileId: string | undefined;
+    let wappiApiToken: string | undefined;
 
-    const settings = messengerSettings.settings as TelegramSettings | null;
-    const profileId = settings?.profileId;
-    const wappiApiToken = settings?.apiToken;
+    if (integration && integration.provider === 'wappi') {
+      // Use wappi settings from messenger_integrations
+      const settings = integration.settings as TelegramSettings | null;
+      profileId = settings?.profileId;
+      wappiApiToken = settings?.apiToken;
+    } else {
+      // Legacy: Get from messenger_settings
+      const { data: messengerSettings, error: settingsError } = await supabase
+        .from('messenger_settings')
+        .select('settings, is_enabled')
+        .eq('organization_id', organizationId)
+        .eq('messenger_type', 'telegram')
+        .maybeSingle();
+
+      if (settingsError) {
+        console.error('Error fetching Telegram settings:', settingsError);
+        return errorResponse('Failed to fetch Telegram settings', 500);
+      }
+
+      if (!messengerSettings || !messengerSettings.is_enabled) {
+        return errorResponse('Telegram integration not configured or disabled', 400);
+      }
+
+      const settings = messengerSettings.settings as TelegramSettings | null;
+      profileId = settings?.profileId;
+      wappiApiToken = settings?.apiToken;
+    }
 
     if (!profileId || !wappiApiToken) {
       return errorResponse('Telegram Profile ID or API Token not configured', 400);
