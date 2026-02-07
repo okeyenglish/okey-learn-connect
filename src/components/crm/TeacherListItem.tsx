@@ -166,41 +166,65 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
   const isPinned = pinCount > 0;
   const isUnread = teacher.unreadMessages > 0;
   
+  // UUID validation for clientId (skip prefetch for teacher:uuid markers)
+  const isValidUUID = (id: string | null): boolean => {
+    if (!id) return false;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(id);
+  };
+  
   // Prefetch chat messages on hover with delay
   const handleMouseEnter = useCallback(() => {
-    // Don't prefetch if already selected or no clientId
+    // Don't prefetch if already selected or no valid UUID clientId
     if (isSelected || hasPrefetched.current) return;
     
-    // Delay prefetch to avoid unnecessary requests on quick mouse movements
-    prefetchTimeout.current = setTimeout(() => {
-      if (teacher.clientId) {
-        // Prefetch messages for this teacher
+    const clientId = teacher.clientId;
+    
+    // Skip prefetch for non-UUID clientIds (like "teacher:uuid" markers)
+    if (!isValidUUID(clientId)) {
+      // For teacher:uuid, we could prefetch teacher-chat-messages-v2 instead
+      if (clientId?.startsWith('teacher:')) {
+        const teacherId = clientId.replace('teacher:', '');
         queryClient.prefetchQuery({
-          queryKey: ['teacher-chat-messages', teacher.clientId],
+          queryKey: ['teacher-chat-messages-v2', teacherId],
           queryFn: async () => {
-            const { data, error } = await supabase.rpc('get_teacher_chat_messages', { 
-              p_client_id: teacher.clientId,
-              p_limit: 50 // Prefetch fewer messages for speed
-            });
-            if (error) {
-              // Try direct select as fallback
-              const { data: directData } = await supabase
-                .from('chat_messages')
-                .select('id, client_id, message_text, content, message_type, is_read, is_outgoing, created_at, file_url, media_url, messenger, status')
-                .eq('client_id', teacher.clientId!)
-                .order('created_at', { ascending: false })
-                .limit(50);
-              return directData || [];
-            }
-            return data || [];
+            // Self-hosted schema: message_text, is_outgoing, messenger_type (no content, direction, external_id)
+            const { data } = await (supabase.from('chat_messages') as any)
+              .select('id, teacher_id, message_text, message_type, is_read, is_outgoing, created_at, file_url, file_name, file_type, external_message_id, messenger_type, call_duration, message_status, metadata')
+              .eq('teacher_id', teacherId)
+              .order('created_at', { ascending: false })
+              .limit(50);
+            return { items: (data || []).reverse(), nextCursor: 50, hasMore: (data?.length || 0) >= 50, total: 0 };
           },
           staleTime: 30000,
         });
         hasPrefetched.current = true;
       }
+      onPrefetch?.(teacher.id, clientId);
+      return;
+    }
+    
+    // Delay prefetch to avoid unnecessary requests on quick mouse movements
+    prefetchTimeout.current = setTimeout(() => {
+      // Prefetch messages for this teacher (self-hosted columns only)
+      queryClient.prefetchQuery({
+        queryKey: ['teacher-chat-messages', clientId],
+        queryFn: async () => {
+          // Self-hosted schema: NO content, media_url, messenger, status, external_id
+          const { data } = await supabase
+            .from('chat_messages')
+            .select('id, client_id, message_text, message_type, is_read, is_outgoing, created_at, file_url, file_name, file_type, external_message_id, messenger_type, call_duration, message_status, metadata')
+            .eq('client_id', clientId!)
+            .order('created_at', { ascending: false })
+            .limit(50);
+          return data || [];
+        },
+        staleTime: 30000,
+      });
+      hasPrefetched.current = true;
       
       // Notify parent for additional prefetch if needed
-      onPrefetch?.(teacher.id, teacher.clientId);
+      onPrefetch?.(teacher.id, clientId);
     }, 150); // 150ms delay before prefetch
   }, [teacher.id, teacher.clientId, isSelected, queryClient, onPrefetch]);
 

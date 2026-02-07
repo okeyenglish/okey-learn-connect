@@ -66,10 +66,10 @@ export const useTeacherConversations = (branch?: string | null) => {
         const batchIds = teacherIds.slice(i, i + batchSize);
         
         // @ts-ignore - teacher_id column exists in self-hosted schema
-        // Self-hosted uses message_text only (no content column)
+        // Self-hosted uses message_text only (no content, direction columns)
         const { data: batchStats, error: batchError } = await (supabase
           .from('chat_messages') as any)
-          .select('teacher_id, created_at, message_text, messenger_type, messenger, is_read, is_outgoing, direction')
+          .select('teacher_id, created_at, message_text, messenger_type, is_read, is_outgoing')
           .in('teacher_id', batchIds)
           .order('created_at', { ascending: false })
           .limit(batchIds.length * 20); // ~20 messages per teacher for preview
@@ -108,15 +108,15 @@ export const useTeacherConversations = (branch?: string | null) => {
         );
         
         const lastMessage = sortedMessages[0];
-        // Handle both self-hosted (is_outgoing) and Cloud (direction) schemas
+        // Self-hosted uses is_outgoing=false for incoming messages
         const unreadCount = messages.filter(
-          (m: any) => !m.is_read && (m.is_outgoing === false || m.direction === 'incoming')
+          (m: any) => !m.is_read && m.is_outgoing === false
         ).length;
 
         teacherStatsMap.set(teacherId, {
           lastMessageTime: lastMessage?.created_at || null,
-          lastMessageText: lastMessage?.message_text || lastMessage?.content || null,
-          lastMessengerType: lastMessage?.messenger_type || lastMessage?.messenger || null,
+          lastMessageText: lastMessage?.message_text || null,
+          lastMessengerType: lastMessage?.messenger_type || null,
           unreadCount,
         });
       });

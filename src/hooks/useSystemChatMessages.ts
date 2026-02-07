@@ -45,13 +45,13 @@ export const useSystemChatMessages = () => {
         .order('created_at', { ascending: false })
         .limit(500);
 
-      // BATCH: Get unread counts for ALL clients in one query
+      // BATCH: Get unread counts for ALL clients in one query (self-hosted: is_outgoing=false)
       const { data: unreadMessages } = await supabase
         .from('chat_messages')
         .select('client_id')
         .in('client_id', clientIds)
         .eq('is_read', false)
-        .eq('direction', 'incoming');
+        .eq('is_outgoing', false);
 
       // Build lookup maps (use message_text for self-hosted compatibility)
       const lastMessageMap = new Map<string, { content: string; created_at: string }>();
