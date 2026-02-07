@@ -71,7 +71,7 @@ serve(async (req) => {
     console.log(`[telegram-crm-verify-code] Verifying code for: ${cleanedPhone.slice(0, 4)}***`);
 
     // Step 1: Verify code with Telegram CRM
-    const verifyResponse = await fetch(`${TELEGRAM_CRM_API_URL}/auth/verify-code`, {
+    const verifyResponse = await fetch(`${TELEGRAM_CRM_API_URL}/telegram/confirm_code`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
