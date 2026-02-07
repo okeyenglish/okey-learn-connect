@@ -1,42 +1,82 @@
 
-## План: Исправление отображения медиафайлов WPP
+# План исправления: Восстановление загрузки чатов преподавателей
 
-### Статус: ✅ Исправлено (v2.8.0)
+## Проблема
+После оптимизаций перестали загружаться:
+1. Превью сообщений в списке преподавателей ("Нет сообщений" у всех)
+2. Сами диалоги при открытии (60+ секунд таймаут)
 
-### Проблемы
+## Причины найденных проблем
 
-1. **Медленная загрузка списка преподавателей** - `useTeacherConversations` загружал ВСЕ сообщения без лимита
-2. **Медиафайлы не отображались** - `file_type` содержал 'image' вместо 'image/jpeg'
-
-### Исправления
-
-#### 1. `src/hooks/useTeacherConversations.ts`
-
-- Добавлен лимит загрузки (~50 сообщений на преподавателя)
-- Добавлена пакетная обработка для предотвращения таймаутов
-
-#### 2. `src/components/crm/OptimizedAttachedFile.tsx`
-
-- Улучшена функция `getEffectiveMimeType()` для обработки коротких типов ('image', 'video', 'audio', 'ptt')
-- Автоматическое преобразование: 'image' → 'image/jpeg', 'video' → 'video/mp4', etc.
-
-#### 3. `supabase/functions/wpp-webhook/index.ts` (v2.8.0)
-
-- Добавлена обработка нового формата `delivery` статусов
-- Исправлено сохранение полного MIME типа для входящих медиа
-
-### Развёртывание
-
-```bash
-# Скопировать на self-hosted сервер
-scp supabase/functions/wpp-webhook/index.ts server:/path/to/functions/wpp-webhook/
-
-# Перезапустить
-docker compose restart functions
+### 1. Отсутствие LIMIT в useTeacherChats.ts (строка 280-284)
+```typescript
+// ПРОБЛЕМА: Запрос БЕЗ лимита загружает ВСЕ сообщения всех преподавателей!
+const { data: directMessages } = await supabase
+  .from('chat_messages')
+  .select('teacher_id, message_text, ...')
+  .in('teacher_id', teacherIds)
+  .order('created_at', { ascending: false });
+// ← НЕТ .limit() !!!
 ```
 
----
+Это вызывает таймаут при большом количестве сообщений.
 
-## Предыдущее: Исправление реакций на сообщения
+### 2. Отсутствие индекса на self-hosted (критично!)
+Запросы `WHERE teacher_id IN (...)` без индекса вынуждены сканировать всю таблицу `chat_messages`. При 50,000+ сообщениях это занимает 30-60 секунд.
 
-✅ Выполнено. Убрана колонка `user_type` из upsert операций в `useBatchMessageReactions.ts` и `useMessageReactions.ts`.
+### 3. Ошибка в range() в useTeacherChatMessagesV2.ts
+```typescript
+// БЫЛО:
+.range(pageParam, pageParam + PAGE_SIZE); // Неправильно! range(0, 50) = 51 строка
+
+// НУЖНО:
+.range(pageParam, pageParam + PAGE_SIZE - 1); // range(0, 49) = 50 строк
+```
+
+## План исправлений
+
+### Шаг 1: Добавить LIMIT в useTeacherChats.ts
+```typescript
+// Добавить лимит для запроса по teacher_id
+const { data: directMessages, error: directError } = await supabase
+  .from('chat_messages')
+  .select('teacher_id, message_text, created_at, messenger_type, messenger, is_read, is_outgoing')
+  .in('teacher_id', teacherIds)
+  .order('created_at', { ascending: false })
+  .limit(teacherIds.length * 20); // ~20 сообщений на преподавателя для превью
+```
+
+### Шаг 2: Исправить range() в useTeacherChatMessagesV2.ts
+```typescript
+// Исправить границы range для правильной пагинации
+.range(pageParam, pageParam + PAGE_SIZE - 1);
+```
+
+### Шаг 3: Улучшить useTeacherConversations.ts
+- Уменьшить лимит с `50 * batchSize` до `20 * batchSize`
+- Добавить timeout обработку
+
+## Обязательное действие на self-hosted сервере
+
+После применения фронтенд-изменений, необходимо создать индекс на сервере:
+
+```sql
+-- Выполнить в SQL Editor на api.academyos.ru
+CREATE INDEX IF NOT EXISTS idx_chat_messages_teacher_id_created
+ON chat_messages (teacher_id, created_at DESC)
+WHERE teacher_id IS NOT NULL;
+
+ANALYZE chat_messages;
+```
+
+## Технические детали
+
+**Файлы для изменения:**
+- `src/hooks/useTeacherChats.ts` — добавить .limit()
+- `src/hooks/useTeacherChatMessagesV2.ts` — исправить range()
+- `src/hooks/useTeacherConversations.ts` — оптимизировать лимиты
+
+**Результат:**
+- Превью сообщений загрузятся быстро (~1-2 сек)
+- Диалоги будут открываться без таймаутов
+- После создания индекса — загрузка станет мгновенной
