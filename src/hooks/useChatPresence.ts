@@ -28,6 +28,12 @@ const HEARTBEAT_INTERVAL = 60_000;
 // Stale threshold - consider presence stale after 90 seconds
 const STALE_THRESHOLD_MS = 90_000;
 
+// UUID validation helper - to prevent passing non-UUID strings (e.g., "teachers", "communities")
+const isValidUUID = (str: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+};
+
 /**
  * Hook to track current user's presence in a specific chat
  * Updates presence on mount and via heartbeat
@@ -108,7 +114,8 @@ export const useChatPresenceTracker = (clientId: string | null) => {
   // Update presence in database - clears all other presence first to ensure only one active chat
   const updatePresence = useCallback(async (targetClientId: string, type: PresenceType = 'viewing') => {
     const userId = currentUserIdRef.current;
-    if (!userId || !targetClientId) return;
+    // Skip non-UUID clientIds (e.g., "teachers", "communities") - they cause DB errors
+    if (!userId || !targetClientId || !isValidUUID(targetClientId)) return;
 
     try {
       // First, delete ALL presence records for this user (ensures only one active chat)
@@ -138,7 +145,8 @@ export const useChatPresenceTracker = (clientId: string | null) => {
   // Clear presence when leaving a chat
   const clearPresence = useCallback(async (targetClientId: string) => {
     const userId = currentUserIdRef.current;
-    if (!userId || !targetClientId) return;
+    // Skip non-UUID clientIds (e.g., "teachers", "communities")
+    if (!userId || !targetClientId || !isValidUUID(targetClientId)) return;
 
     try {
       await supabase
@@ -153,12 +161,13 @@ export const useChatPresenceTracker = (clientId: string | null) => {
 
   // Track presence for current chat
   useEffect(() => {
-    if (!clientId) {
-      // Clear previous presence when switching away
-      if (lastClientIdRef.current) {
+    // Skip non-UUID clientIds (e.g., "teachers", "communities") - causes DB UUID parse error
+    if (!clientId || !isValidUUID(clientId)) {
+      // Clear previous presence when switching away (only if it was a valid UUID)
+      if (lastClientIdRef.current && isValidUUID(lastClientIdRef.current)) {
         clearPresence(lastClientIdRef.current);
-        lastClientIdRef.current = null;
       }
+      lastClientIdRef.current = null;
       return;
     }
 
