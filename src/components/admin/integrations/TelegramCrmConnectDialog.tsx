@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Send, ArrowLeft, RefreshCw, CheckCircle2, Copy, Check } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 
 interface TelegramCrmConnectDialogProps {
   open: boolean;
@@ -86,19 +86,21 @@ export const TelegramCrmConnectDialog: React.FC<TelegramCrmConnectDialogProps> =
 
     setIsLoading(true);
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('telegram-crm-send-code', {
-        body: { phone: cleanedPhone },
-      });
+      const response = await selfHostedPost<{
+        success: boolean;
+        phone_hash?: string;
+        error?: string;
+      }>('telegram-crm-send-code', { phone: cleanedPhone });
 
-      if (fnError) {
-        throw new Error(fnError.message || 'Ошибка отправки кода');
+      if (!response.success || response.error) {
+        throw new Error(response.error || response.data?.error || 'Ошибка отправки кода');
       }
 
-      if (!data?.success) {
-        throw new Error(data?.error || 'Не удалось отправить код');
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || 'Не удалось отправить код');
       }
 
-      setPhoneHash(data.phone_hash || '');
+      setPhoneHash(response.data.phone_hash || '');
       setStep('code');
       setResendCooldown(RESEND_COOLDOWN);
       
@@ -106,9 +108,10 @@ export const TelegramCrmConnectDialog: React.FC<TelegramCrmConnectDialogProps> =
         title: 'Код отправлен',
         description: 'Проверьте сообщения в Telegram',
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Send code error:', err);
-      setError(err.message || 'Ошибка отправки кода');
+      const message = err instanceof Error ? err.message : 'Ошибка отправки кода';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -124,29 +127,30 @@ export const TelegramCrmConnectDialog: React.FC<TelegramCrmConnectDialogProps> =
     const integrationName = name.trim() || `Telegram ${cleanedPhone.slice(-4)}`;
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('telegram-crm-verify-code', {
-        body: {
-          phone: cleanedPhone,
-          code: verifyCode,
-          phone_hash: phoneHash,
-          name: integrationName,
-        },
+      const response = await selfHostedPost<{
+        success: boolean;
+        webhook_key?: string;
+        integration_id?: string;
+        error?: string;
+      }>('telegram-crm-verify-code', {
+        phone: cleanedPhone,
+        code: verifyCode,
+        phone_hash: phoneHash,
+        name: integrationName,
       });
 
-      if (fnError) {
-        throw new Error(fnError.message || 'Ошибка проверки кода');
+      if (!response.success || response.error) {
+        throw new Error(response.error || response.data?.error || 'Ошибка проверки кода');
       }
 
-      if (!data?.success) {
-        throw new Error(data?.error || 'Неверный код');
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || 'Неверный код');
       }
 
-      // Generate webhook URL from the returned integration data
+      // Generate webhook URL from the returned webhook_key
       const baseUrl = 'https://api.academyos.ru/functions/v1';
-      // The verify-code function returns integration_id, we need webhook_key from settings
-      // Use a predictable URL based on the webhook_key that was created
-      if (data.webhook_key) {
-        setWebhookUrl(`${baseUrl}/telegram-crm-webhook?key=${data.webhook_key}`);
+      if (response.data.webhook_key) {
+        setWebhookUrl(`${baseUrl}/telegram-crm-webhook?key=${response.data.webhook_key}`);
       }
 
       setStep('success');
@@ -156,14 +160,15 @@ export const TelegramCrmConnectDialog: React.FC<TelegramCrmConnectDialogProps> =
       });
       
       // Don't auto-close - let user copy webhook first
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Verify code error:', err);
-      setError(err.message || 'Неверный код');
+      const message = err instanceof Error ? err.message : 'Неверный код';
+      setError(message);
       setCode(''); // Reset code on error
     } finally {
       setIsLoading(false);
     }
-  }, [phone, phoneHash, name, onSuccess, onOpenChange, toast]);
+  }, [phone, phoneHash, name, toast]);
 
   const handleResendCode = async () => {
     if (resendCooldown > 0) return;
