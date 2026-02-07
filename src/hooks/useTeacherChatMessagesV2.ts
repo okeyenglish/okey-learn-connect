@@ -38,7 +38,7 @@ export const useTeacherChatMessages = (teacherId: string) => {
         .select('*')
         .eq('teacher_id', teacherId)
         .order('created_at', { ascending: false })
-        .range(pageParam, pageParam + PAGE_SIZE); // +1 to check hasMore
+        .range(pageParam, pageParam + PAGE_SIZE - 1); // Correct: range(0, 49) = 50 rows
 
       if (error) {
         console.error('[useTeacherChatMessages] Query failed:', error.message);

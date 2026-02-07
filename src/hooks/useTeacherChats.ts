@@ -281,7 +281,8 @@ export const useTeacherChats = (branch?: string | null) => {
           .from('chat_messages') as any)
           .select('teacher_id, message_text, created_at, messenger_type, messenger, is_read, is_outgoing')
           .in('teacher_id', teacherIds)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(teacherIds.length * 20); // ~20 сообщений на преподавателя для превью
         
         // Handle potential missing column (42703) gracefully
         if (directError) {

@@ -72,7 +72,7 @@ export const useTeacherConversations = (branch?: string | null) => {
           .select('teacher_id, created_at, message_text, messenger_type, messenger, is_read, is_outgoing, direction')
           .in('teacher_id', batchIds)
           .order('created_at', { ascending: false })
-          .limit(batchIds.length * 50); // ~50 messages per teacher max
+          .limit(batchIds.length * 20); // ~20 messages per teacher for preview
         
         if (batchError) {
           console.warn('[useTeacherConversations] Batch error:', batchError);
