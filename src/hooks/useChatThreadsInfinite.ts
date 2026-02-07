@@ -83,10 +83,10 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
   const clientIds = clients.map(c => c.id);
   console.log(`[fetchThreadsDirectly] Fetched ${clientIds.length} clients`);
 
-  // 2. Fetch last messages for these clients
+  // 2. Fetch last messages for these clients (self-hosted schema: no content/direction columns)
   const { data: messages, error: messagesError } = await supabase
     .from('chat_messages')
-    .select('client_id, content, message_text, created_at, is_read, messenger, messenger_type, message_type, direction')
+    .select('client_id, message_text, created_at, is_read, messenger_type, message_type, is_outgoing')
     .in('client_id', clientIds)
     .order('created_at', { ascending: false })
     .limit(clientIds.length * 10);
@@ -123,13 +123,13 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
     .map((client: any) => {
       const clientMessages = messagesByClient.get(client.id) || [];
       const lastMessage = clientMessages[0];
-      // Self-hosted uses message_type='client' for incoming messages
+      // Self-hosted uses is_outgoing=false for incoming messages
       const unreadMessages = clientMessages.filter((m: any) => 
-        !m.is_read && (m.message_type === 'client' || m.direction === 'incoming')
+        !m.is_read && !m.is_outgoing
       );
 
-      // Get message text (handle both content and message_text columns)
-      const rawLastMessageText = lastMessage?.message_text || lastMessage?.content || '';
+      // Get message text (self-hosted uses message_text only)
+      const rawLastMessageText = lastMessage?.message_text || '';
       const lastMessageText = isSystemPreviewMessage(rawLastMessageText) ? '' : rawLastMessageText;
 
       const unreadByMessenger: UnreadByMessenger = {
@@ -142,7 +142,7 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
       };
       
       unreadMessages.forEach((m: any) => {
-        const type = (m.messenger_type || m.messenger) as keyof UnreadByMessenger;
+        const type = m.messenger_type as keyof UnreadByMessenger;
         if (type && type in unreadByMessenger) {
           unreadByMessenger[type]++;
         }
@@ -164,10 +164,10 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
         max_chat_id: null,
         last_message: lastMessageText,
         last_message_time: lastMessage?.created_at || null,
-        last_message_messenger: lastMessage?.messenger_type || lastMessage?.messenger || null,
+        last_message_messenger: lastMessage?.messenger_type || null,
         unread_count: unreadMessages.length,
         unread_by_messenger: unreadByMessenger,
-        last_unread_messenger: unreadMessages[0]?.messenger_type || unreadMessages[0]?.messenger || null,
+        last_unread_messenger: unreadMessages[0]?.messenger_type || null,
         messages: [],
       };
     });
