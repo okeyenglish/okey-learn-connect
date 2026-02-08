@@ -76,19 +76,16 @@ export const SalebotCallbackMessage = ({ message, time }: SalebotCallbackMessage
   const paymentAmount = getPaymentAmount(message);
   if (paymentAmount !== null) {
     const isTBank = isTBankPayment(message);
+    // Compact system notification for payment success
     return (
-      <div className="flex justify-center my-2">
-        <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg px-4 py-2 max-w-[320px]">
-          <div className="flex items-center gap-2 mb-1">
-            <Banknote className="h-4 w-4 text-green-600 dark:text-green-400" />
-            <span className="font-medium text-green-700 dark:text-green-300 text-sm">
-              {isTBank ? 'Оплата через Т-Банк' : 'Успешная оплата'}
-            </span>
-          </div>
-          <p className="text-green-800 dark:text-green-200 text-sm">
-            Оплата на сумму {paymentAmount.toLocaleString('ru-RU')}₽ прошла успешно! Большое спасибо.
-          </p>
-          <span className="text-green-600/60 dark:text-green-400/60 text-[10px] mt-1 block">{time}</span>
+      <div className="flex justify-center my-1">
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
+          <Banknote className="h-3 w-3 text-green-600" />
+          <span className="text-green-700 dark:text-green-400">
+            {isTBank ? 'Успешная оплата через Т-Банк' : 'Успешная оплата'} ({paymentAmount.toLocaleString('ru-RU')}₽)
+          </span>
+          <span className="text-muted-foreground/40">•</span>
+          <span className="text-muted-foreground/40">{time}</span>
         </div>
       </div>
     );
