@@ -162,15 +162,13 @@ export default function UnifiedCRM() {
               } 
             />
             
-            {/* Сотрудники */}
+            {/* Сотрудники - временно без проверки ролей */}
             <Route 
               path="/employees" 
               element={
-                <ProtectedRoute allowedRoles={['admin', 'branch_manager', 'manager']}>
-                  <Suspense fallback={<LoadingComponent />}>
-                    <EmployeesSection />
-                  </Suspense>
-                </ProtectedRoute>
+                <Suspense fallback={<LoadingComponent />}>
+                  <EmployeesSection />
+                </Suspense>
               } 
             />
             
