@@ -1331,10 +1331,19 @@ export const ChatArea = ({
       
       // Check which messenger tab is active and send via appropriate service
       if (activeMessengerTab === 'max') {
-        // Send via MAX
+        // Send via MAX - pass phoneNumber for teachers
+        const maxOptions = effectivePhone ? { phoneNumber: effectivePhone } : undefined;
+        
         if (filesToSend.length > 0) {
           for (const file of filesToSend) {
-            const result = await sendMaxMessage(clientId, messageText || '', file.url, file.name, file.type);
+            const result = await sendMaxMessage(
+              isDirectTeacherMessage ? '' : clientId, 
+              messageText || '', 
+              file.url, 
+              file.name, 
+              file.type,
+              maxOptions
+            );
             if (!result) {
               toast({
                 title: "Ошибка отправки файла в MAX",
@@ -1342,7 +1351,7 @@ export const ChatArea = ({
                 variant: "destructive",
               });
               // Save failed message so user can retry
-              await supabase.from('chat_messages').insert({
+              await supabase.from('chat_messages').insert(buildMessageRecord({
                 client_id: clientId,
                 message_text: messageText || `[Файл: ${file.name}]`,
                 message_type: 'manager',
@@ -1352,13 +1361,23 @@ export const ChatArea = ({
                 file_url: file.url,
                 file_name: file.name,
                 file_type: file.type
-              });
+              }));
               queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
+              if (isDirectTeacherMessage) {
+                queryClient.invalidateQueries({ queryKey: ['teacher-chat-messages-v2', actualTeacherId] });
+              }
               return;
             }
           }
         } else if (messageText) {
-          const result = await sendMaxMessage(clientId, messageText);
+          const result = await sendMaxMessage(
+            isDirectTeacherMessage ? '' : clientId, 
+            messageText,
+            undefined,
+            undefined,
+            undefined,
+            maxOptions
+          );
           if (!result) {
             toast({
               title: "Ошибка отправки в MAX",
@@ -1366,23 +1385,35 @@ export const ChatArea = ({
               variant: "destructive",
             });
             // Save failed message so user can retry
-            await supabase.from('chat_messages').insert({
+            await supabase.from('chat_messages').insert(buildMessageRecord({
               client_id: clientId,
               message_text: messageText,
               message_type: 'manager',
               is_outgoing: true,
               messenger_type: 'max',
               message_status: 'failed'
-            });
+            }));
             queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
+            if (isDirectTeacherMessage) {
+              queryClient.invalidateQueries({ queryKey: ['teacher-chat-messages-v2', actualTeacherId] });
+            }
             return;
           }
         }
       } else if (activeMessengerTab === 'telegram') {
-        // Send via Telegram
+        // Send via Telegram - pass phoneNumber for teachers
+        const telegramOptions = effectivePhone ? { phoneNumber: effectivePhone } : undefined;
+        
         if (filesToSend.length > 0) {
           for (const file of filesToSend) {
-            const result = await sendTelegramMessage(clientId, messageText || '', file.url, file.name, file.type);
+            const result = await sendTelegramMessage(
+              isDirectTeacherMessage ? '' : clientId, 
+              messageText || '', 
+              file.url, 
+              file.name, 
+              file.type,
+              telegramOptions
+            );
             if (!result.success) {
               toast({
                 title: "Ошибка отправки файла в Telegram",
@@ -1390,7 +1421,7 @@ export const ChatArea = ({
                 variant: "destructive",
               });
               // Save failed message so user can retry
-              await supabase.from('chat_messages').insert({
+              await supabase.from('chat_messages').insert(buildMessageRecord({
                 client_id: clientId,
                 message_text: messageText || `[Файл: ${file.name}]`,
                 message_type: 'manager',
@@ -1400,13 +1431,23 @@ export const ChatArea = ({
                 file_url: file.url,
                 file_name: file.name,
                 file_type: file.type
-              });
+              }));
               queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
+              if (isDirectTeacherMessage) {
+                queryClient.invalidateQueries({ queryKey: ['teacher-chat-messages-v2', actualTeacherId] });
+              }
               return;
             }
           }
         } else if (messageText) {
-          const result = await sendTelegramMessage(clientId, messageText);
+          const result = await sendTelegramMessage(
+            isDirectTeacherMessage ? '' : clientId, 
+            messageText,
+            undefined,
+            undefined,
+            undefined,
+            telegramOptions
+          );
           if (!result.success) {
             toast({
               title: "Ошибка отправки в Telegram",
@@ -1414,15 +1455,18 @@ export const ChatArea = ({
               variant: "destructive",
             });
             // Save failed message so user can retry
-            await supabase.from('chat_messages').insert({
+            await supabase.from('chat_messages').insert(buildMessageRecord({
               client_id: clientId,
               message_text: messageText,
               message_type: 'manager',
               is_outgoing: true,
               messenger_type: 'telegram',
               message_status: 'failed'
-            });
+            }));
             queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
+            if (isDirectTeacherMessage) {
+              queryClient.invalidateQueries({ queryKey: ['teacher-chat-messages-v2', actualTeacherId] });
+            }
             return;
           }
         }
@@ -2177,22 +2221,27 @@ export const ChatArea = ({
     try {
       let result;
       
+      // For direct teacher messages, use phone as fallback
+      const resendPhone = isDirectTeacherMessage ? clientPhone : undefined;
+      const resendClientId = isDirectTeacherMessage ? '' : clientId;
+      const resendOptions = resendPhone ? { phoneNumber: resendPhone } : undefined;
+      
       if (messengerType === 'max') {
-        result = await sendMaxMessage(clientId, msg.message, msg.fileUrl, msg.fileName, msg.fileType);
+        result = await sendMaxMessage(resendClientId, msg.message, msg.fileUrl, msg.fileName, msg.fileType, resendOptions);
         if (!result) {
           throw new Error('Не удалось отправить сообщение в MAX');
         }
       } else if (messengerType === 'telegram') {
-        result = await sendTelegramMessage(clientId, msg.message, msg.fileUrl, msg.fileName, msg.fileType);
+        result = await sendTelegramMessage(resendClientId, msg.message, msg.fileUrl, msg.fileName, msg.fileType, resendOptions);
         if (!result.success) {
           throw new Error(result.error || 'Не удалось отправить сообщение в Telegram');
         }
       } else {
-        // WhatsApp
+        // WhatsApp - already supports phone via additional params
         if (msg.fileUrl) {
-          result = await sendFileMessage(clientId, msg.fileUrl, msg.fileName || 'file', msg.message);
+          result = await sendFileMessage(resendClientId, msg.fileUrl, msg.fileName || 'file', msg.message, resendPhone, actualTeacherId || undefined);
         } else {
-          result = await sendTextMessage(clientId, msg.message);
+          result = await sendTextMessage(resendClientId, msg.message, resendPhone, actualTeacherId || undefined);
         }
         if (!result.success) {
           throw new Error(result.error || 'Не удалось отправить сообщение в WhatsApp');
