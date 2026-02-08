@@ -148,12 +148,24 @@ Deno.serve(async (req) => {
       return errorResponse('Client not found', 404);
     }
 
-    // Helper function to normalize phone for Wappi (digits only)
+    // Helper function to normalize phone for Wappi (digits only, with Russian +7 prefix)
     function normalizePhone(phone: string | null | undefined): string | null {
       if (!phone) return null;
+      
       // Remove all non-digit characters
-      const digits = phone.replace(/\D/g, '');
-      // Return null if empty or too short
+      let digits = phone.replace(/\D/g, '');
+      
+      // Если 11 цифр и начинается с 8 (российский формат) → заменяем на 7
+      if (digits.length === 11 && digits.startsWith('8')) {
+        digits = '7' + digits.substring(1);
+      }
+      
+      // Если 10 цифр и начинается с 9 → добавляем 7 (российский мобильный)
+      if (digits.length === 10 && digits.startsWith('9')) {
+        digits = '7' + digits;
+      }
+      
+      // Return null if too short after normalization
       return digits.length >= 10 ? digits : null;
     }
 
