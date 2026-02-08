@@ -182,10 +182,17 @@ Deno.serve(async (req) => {
     console.log('[wpp-create] Creating new client on WPP Platform with WPP_SECRET');
     
     const newClient = await WppMsgClient.createClient(WPP_BASE_URL, WPP_SECRET, orgId);
-    console.log('[wpp-create] New client created:', newClient.session, 'status:', newClient.status);
+    
+    // Enhanced logging: показываем полный ответ от createClient для диагностики
+    console.log('[wpp-create] New client created:', {
+      session: newClient.session,
+      apiKeyMasked: maskApiKey(newClient.apiKey),
+      apiKeyLength: newClient.apiKey?.length,
+      status: newClient.status,
+    });
 
-    // Сразу получаем JWT токен и сохраняем его
-    console.log('[wpp-create] Getting initial JWT token...');
+    // Сразу получаем JWT токен с retry-логикой (важно для race condition)
+    console.log('[wpp-create] Getting initial JWT token with retry...');
     const { token: jwtToken, expiresAt: jwtExpiresAt } = await WppMsgClient.getInitialToken(WPP_BASE_URL, newClient.apiKey);
     console.log('[wpp-create] JWT token obtained, expires:', new Date(jwtExpiresAt).toISOString());
 
