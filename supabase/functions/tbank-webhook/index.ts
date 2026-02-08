@@ -44,6 +44,19 @@ Deno.serve(async (req) => {
 
     console.log('Received T-Bank webhook:', notification);
 
+    // Шаг 1: Логируем входящий вебхук в webhook_logs для диагностики
+    const logEntry = {
+      messenger_type: 'tbank',
+      event_type: notification.Status || 'unknown',
+      webhook_data: notification,
+      processed: false,
+    };
+    
+    supabase.from('webhook_logs').insert(logEntry).then(({ error }) => {
+      if (error) console.error('Failed to log webhook:', error);
+      else console.log('Webhook logged to webhook_logs');
+    });
+
     // Находим онлайн-платеж по OrderId
     const { data: onlinePayment, error: findError } = await supabase
       .from('online_payments')
@@ -85,16 +98,18 @@ Deno.serve(async (req) => {
       console.error('Failed to update online payment:', updateError);
     }
 
-    // Если платеж подтвержден, создаем запись в payments
+    // Если платеж подтвержден, создаем запись в payments и сообщение в чат
     if (notification.Status === 'CONFIRMED' && notification.Success) {
       console.log('Payment confirmed, creating payment record for student:', onlinePayment.student_id);
+
+      const amountRub = onlinePayment.amount / 100; // конвертируем копейки в рубли
 
       // Создаем платеж в основной таблице payments
       const { data: payment, error: paymentError } = await supabase
         .from('payments')
         .insert({
           student_id: onlinePayment.student_id,
-          amount: onlinePayment.amount / 100, // конвертируем копейки в рубли
+          amount: amountRub,
           payment_method: 'online',
           payment_date: new Date().toISOString().split('T')[0],
           status: 'completed',
@@ -115,6 +130,49 @@ Deno.serve(async (req) => {
 
         console.log('Payment created successfully:', payment.id);
       }
+
+      // Шаг 2: Создаём сообщение в чате клиента при успешной оплате
+      if (onlinePayment.client_id && onlinePayment.organization_id) {
+        console.log('Creating chat message for client:', onlinePayment.client_id);
+
+        const { error: chatError } = await supabase.from('chat_messages').insert({
+          client_id: onlinePayment.client_id,
+          organization_id: onlinePayment.organization_id,
+          content: `tbank_success ${amountRub}`,
+          message_type: 'system',
+          direction: 'incoming',
+          messenger: 'system',
+          status: 'delivered',
+        });
+
+        if (chatError) {
+          console.error('Failed to create chat message:', chatError);
+        } else {
+          console.log('Chat message created for payment confirmation');
+
+          // Обновляем last_message_at у клиента чтобы он "поднялся" в списке
+          const { error: clientUpdateError } = await supabase
+            .from('clients')
+            .update({ last_message_at: new Date().toISOString() })
+            .eq('id', onlinePayment.client_id);
+
+          if (clientUpdateError) {
+            console.error('Failed to update client last_message_at:', clientUpdateError);
+          }
+        }
+      } else {
+        console.log('No client_id on online_payment, skipping chat message');
+      }
+
+      // Помечаем webhook_logs как обработанный
+      supabase
+        .from('webhook_logs')
+        .update({ processed: true })
+        .eq('messenger_type', 'tbank')
+        .eq('webhook_data->>OrderId', notification.OrderId)
+        .then(({ error }) => {
+          if (error) console.error('Failed to mark webhook as processed:', error);
+        });
     }
 
     // Т-Банк ожидает ответ "OK"
