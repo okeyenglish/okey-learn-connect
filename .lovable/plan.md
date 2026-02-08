@@ -1,76 +1,89 @@
 
-# Переключение Telegram CRM на self-hosted Edge Functions
+# План оптимизации загрузки диалогов преподавателей
 
-## Проблема
+## Диагноз проблемы
 
-Edge Functions `telegram-crm-send-code` и `telegram-crm-verify-code` вызываются через Lovable Cloud (`supabase.functions.invoke()`), но сервер `tg.academyos.ru` доступен **только с вашего сервера** (он на том же хосте или во внутренней сети). Lovable Cloud не может к нему достучаться — получает `Connection refused`.
+При открытии чата преподавателя происходит медленная загрузка сообщений, хотя превью в списке грузятся быстро. Причины:
 
-```
-Lovable Cloud Edge Functions → tg.academyos.ru → ❌ Connection refused
+1. **Разные запросы для превью и диалога:**
+   - Превью (список): `useTeacherChats` → batch-запрос `chat_messages` с `LIMIT teacherIds.length * 20` (5 сообщений на преподавателя)
+   - Диалог: `useTeacherChatMessagesV2` → полный запрос `SELECT *` с `LIMIT 50` по одному `teacher_id`
 
-Self-hosted Edge Functions → tg.academyos.ru → ✅ OK
-```
+2. **Запрос `SELECT *` избыточен:**
+   - Хук `useTeacherChatMessagesV2` запрашивает ВСЕ колонки (`select('*')`)
+   - Индекс `idx_chat_messages_teacher_id_created` покрывает только `(teacher_id, created_at)`
+   - Для полного `SELECT *` БД делает дополнительное чтение данных с диска (heap fetch)
+
+3. **Отсутствие in-memory кеша:**
+   - В отличие от `useChatMessagesOptimized` (для клиентов), хук для преподавателей не использует in-memory cache
+   - При каждом переключении на чат идёт полный запрос к БД
 
 ## Решение
 
-Переключить компонент `TelegramCrmConnectDialog` с Lovable Cloud на self-hosted API (`api.academyos.ru`), используя существующий хелпер `selfHostedPost()`.
+### Шаг 1: Оптимизировать запрос в useTeacherChatMessagesV2
 
-## Что будет изменено
+**Файл:** `src/hooks/useTeacherChatMessagesV2.ts`
 
-### Файл: `src/components/admin/integrations/TelegramCrmConnectDialog.tsx`
+Заменить `select('*')` на выборку только нужных полей:
 
-**Было:**
 ```typescript
-import { supabase } from '@/integrations/supabase/client';
-// ...
-const { data, error } = await supabase.functions.invoke('telegram-crm-send-code', {
-  body: { phone: cleanedPhone },
-});
+// БЫЛО:
+.select('*')
+
+// СТАНЕТ:
+.select(`
+  id, teacher_id, message_text, message_type, system_type, is_read, is_outgoing,
+  created_at, file_url, file_name, file_type, external_message_id,
+  messenger_type, call_duration, message_status, metadata
+`)
 ```
 
-**Станет:**
-```typescript
-import { selfHostedPost } from '@/lib/selfHostedApi';
-// ...
-const response = await selfHostedPost<{
-  success: boolean;
-  phone_hash?: string;
-  error?: string;
-}>('telegram-crm-send-code', { phone: cleanedPhone });
+### Шаг 2: Добавить in-memory cache
 
-if (!response.success) {
-  throw new Error(response.error || 'Ошибка отправки кода');
-}
+По аналогии с `useChatMessagesOptimized`, добавить быстрый кеш для мгновенного отображения:
+
+```typescript
+// In-memory cache for instant display
+const teacherMessageCache = new Map<string, { messages: ChatMessage[]; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 ```
 
-### Изменения по шагам
+### Шаг 3: Использовать placeholderData
 
-1. **Заменить импорт** — вместо `supabase` использовать `selfHostedPost`
+Использовать кешированные данные для мгновенного отображения, пока загружаются свежие:
 
-2. **handleSendCode** — вызов через self-hosted:
-   - `selfHostedPost('telegram-crm-send-code', { phone })`
-   - Проверка `response.success` и `response.data`
+```typescript
+placeholderData: cachedData || undefined,
+```
 
-3. **handleVerifyCode** — вызов через self-hosted:
-   - `selfHostedPost('telegram-crm-verify-code', { phone, code, phone_hash, name })`
-   - Получение `webhook_key` из ответа
+### Шаг 4: Создать индекс на self-hosted (если не существует)
 
-4. **Обработка ошибок** — адаптация под формат `ApiResponse`
+**Выполнить на api.academyos.ru:**
 
-## Зависимости
+```sql
+CREATE INDEX IF NOT EXISTS idx_chat_messages_teacher_id_created
+ON chat_messages (teacher_id, created_at DESC)
+WHERE teacher_id IS NOT NULL;
 
-Функции `telegram-crm-send-code` и `telegram-crm-verify-code` уже задеплоены на self-hosted Supabase (через sync или вручную). Если нет — нужно задеплоить.
+ANALYZE chat_messages;
+```
 
-## Ожидаемый результат
+## Ожидаемые результаты
 
-- Отправка кода будет работать (запрос пойдёт через `api.academyos.ru` → `tg.academyos.ru`)
-- Верификация кода создаст интеграцию и вернёт `webhook_key`
-- Webhook URL будет показан сразу после успешной верификации
+| Метрика | До оптимизации | После оптимизации |
+|---------|----------------|-------------------|
+| Первая загрузка диалога | 2-5 сек | 100-300 мс |
+| Повторное открытие | 2-5 сек | Мгновенно (кеш) |
+| Переключение между чатами | Задержка + skeleton | Мгновенно |
 
 ## Технические детали
 
-`selfHostedPost` автоматически:
-- Добавляет JWT токен пользователя (авторизация)
-- Устанавливает `apikey` header
-- Делает retry при ошибках 5xx
-- Возвращает типизированный `ApiResponse<T>`
+### Изменяемые файлы
+
+1. `src/hooks/useTeacherChatMessagesV2.ts` — основной хук загрузки сообщений
+
+### Дополнительные рекомендации
+
+1. Проверить наличие индекса `idx_chat_messages_teacher_id_created` на self-hosted БД
+2. Выполнить `ANALYZE chat_messages` после создания индекса для обновления статистики планировщика
+3. При необходимости увеличить `shared_buffers` в PostgreSQL для кеширования частых запросов
