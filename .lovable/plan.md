@@ -1,89 +1,65 @@
 
-## План исправления: Регистрация Edge Functions в config.toml
+
+## План: Исправить workflow для гарантированного деплоя при ручном запуске
 
 ### Проблема
 
-Edge Functions для групп сотрудников (`get-staff-group-chats`, `get-today-messages-count` и др.) **не зарегистрированы** в файле `supabase/config.toml`, хотя их папки и код существуют в репозитории.
+GitHub Actions workflow `deploy-edge-functions-selfhosted.yml` не деплоит функции при ручном запуске (workflow_dispatch), потому что:
 
-Без регистрации в config.toml:
-- Lovable Cloud не деплоит эти функции
-- При вызове возвращается ошибка или HTML-страница вместо JSON
-- Хук `useStaffGroupChats` получает пустой массив групп
+1. Условие `github.event.inputs.deploy_functions == 'true'` не срабатывает когда:
+   - Пользователь не заполняет форму (inputs = null)
+   - Значение передаётся как boolean, а сравнивается со строкой
+
+2. Проверка `git diff HEAD~1 HEAD` ищет изменения только в последнем коммите, но функции могли быть добавлены раньше
 
 ### Решение
 
-Добавить все недостающие Edge Functions в `supabase/config.toml`:
+Исправить условия в workflow файле:
 
-```toml
-[functions.get-staff-group-chats]
-verify_jwt = false
-
-[functions.get-staff-group-members]
-verify_jwt = false
-
-[functions.add-staff-group-member]
-verify_jwt = false
-
-[functions.remove-staff-group-member]
-verify_jwt = false
-
-[functions.create-staff-group-chat]
-verify_jwt = false
-
-[functions.init-branch-groups]
-verify_jwt = false
-
-[functions.add-employee-to-branch-groups]
-verify_jwt = false
-
-[functions.get-today-messages-count]
-verify_jwt = false
-
-[functions.holihope-settings]
-verify_jwt = true
-
-[functions.wpp-qr]
-verify_jwt = true
-
-[functions.wpp-create]
-verify_jwt = true
+```yaml
+# Строка 74-82: Изменить логику проверки
+- name: Check for function changes
+  id: check_functions
+  run: |
+    # При workflow_dispatch всегда деплоим если deploy_functions не выключен явно
+    if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+      if [ "${{ github.event.inputs.deploy_functions }}" != "false" ]; then
+        echo "has_functions=true" >> $GITHUB_OUTPUT
+        echo "📦 Manual deploy requested"
+        exit 0
+      fi
+    fi
+    
+    # При push проверяем git diff
+    if git diff --name-only HEAD~1 HEAD | grep -q "supabase/functions/"; then
+      echo "has_functions=true" >> $GITHUB_OUTPUT
+      echo "📦 Function changes detected"
+    else
+      echo "has_functions=false" >> $GITHUB_OUTPUT
+      echo "No function changes in last commit"
+    fi
 ```
-
----
-
-## Технические детали
-
-### Почему `verify_jwt = false`?
-
-Эти функции вызываются с self-hosted сервера (api.academyos.ru), где JWT токены от Lovable Cloud не валидны. Функции сами проверяют авторизацию через `user_id` в теле запроса и используют service role key для доступа к базе.
 
 ### Что изменится
 
-| Функция | Назначение |
-|---------|------------|
-| `get-staff-group-chats` | Получить список групп сотрудников |
-| `get-staff-group-members` | Получить участников группы |
-| `add-staff-group-member` | Добавить участника |
-| `remove-staff-group-member` | Удалить участника |
-| `create-staff-group-chat` | Создать новую группу |
-| `init-branch-groups` | Инициализировать группы филиалов |
-| `add-employee-to-branch-groups` | Добавить сотрудника во все группы |
-| `get-today-messages-count` | Счётчик отправленных сообщений за день |
+| Сценарий | До | После |
+|----------|-----|-------|
+| Push с изменениями в functions/ | Деплоит | Деплоит |
+| Push без изменений в functions/ | Пропускает | Пропускает |
+| workflow_dispatch (ручной) | Пропускает (баг) | Всегда деплоит |
+| workflow_dispatch с deploy_functions=false | Пропускает | Пропускает |
 
-### Порядок действий
+### Технические детали
 
-1. Добавить записи в `supabase/config.toml`
-2. После деплоя Lovable Cloud — функции станут доступны
-3. После синхронизации на self-hosted (GitHub Actions) — функции станут доступны там тоже
-4. UI начнёт показывать группы в ChatOS
+Аналогичное исправление нужно применить к миграциям (строки 39-48), чтобы `run_migrations` работал корректно.
 
----
+### Файлы для изменения
 
-## Дополнительно: Проверить другие функции
+- `.github/workflows/deploy-edge-functions-selfhosted.yml` — исправить условия check_functions и check_migrations
 
-При просмотре папок обнаружены ещё незарегистрированные функции:
-- `holihope-settings`
-- `wpp-qr`
-- `wpp-create`
+### После применения
 
-Их тоже нужно добавить для полноты.
+1. Запустить workflow вручную через GitHub Actions UI
+2. Функции задеплоятся на self-hosted сервер
+3. Группы сотрудников появятся в ChatOS
+
