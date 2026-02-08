@@ -78,6 +78,26 @@ Deno.serve(async (req) => {
     }
     const payload = await req.json().catch(() => ({} as WppSendRequest))
 
+    // Smart routing: if no integration_id provided and we have clientId, try to find from last message
+    let resolvedIntegrationId = payload.integration_id;
+    if (!resolvedIntegrationId && payload.clientId) {
+      const { data: lastMessage } = await supabase
+        .from('chat_messages')
+        .select('integration_id')
+        .eq('client_id', payload.clientId)
+        .eq('is_outgoing', false)
+        .eq('messenger_type', 'whatsapp')
+        .not('integration_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (lastMessage?.integration_id) {
+        resolvedIntegrationId = lastMessage.integration_id as string;
+        console.log('[wpp-send] Smart routing: using integration from last message:', resolvedIntegrationId);
+      }
+    }
+
     // Find WPP integration (use is_enabled instead of is_active)
     let integrationQuery = supabase
       .from('messenger_integrations')
@@ -87,8 +107,8 @@ Deno.serve(async (req) => {
       .eq('provider', 'wpp')
       .eq('is_enabled', true)
 
-    if (payload.integration_id) {
-      integrationQuery = integrationQuery.eq('id', payload.integration_id)
+    if (resolvedIntegrationId) {
+      integrationQuery = integrationQuery.eq('id', resolvedIntegrationId)
     } else {
       integrationQuery = integrationQuery.eq('is_primary', true)
     }

@@ -33,6 +33,31 @@ interface GreenApiSettings {
 }
 
 /**
+ * Smart routing: Find the integration ID from client's last incoming message
+ */
+async function getSmartRoutingIntegrationId(
+  supabase: ReturnType<typeof createClient>,
+  clientId: string
+): Promise<string | null> {
+  const { data: lastMessage } = await supabase
+    .from('chat_messages')
+    .select('integration_id')
+    .eq('client_id', clientId)
+    .eq('is_outgoing', false)
+    .eq('messenger_type', 'whatsapp')
+    .not('integration_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastMessage?.integration_id) {
+    console.log('[whatsapp-send] Smart routing: found integration from last message:', lastMessage.integration_id);
+    return lastMessage.integration_id as string;
+  }
+  return null;
+}
+
+/**
  * Get GreenAPI settings from messenger_integrations (priority) or messenger_settings (fallback)
  * Logic:
  * - If integrationId is provided, use that specific integration
@@ -239,8 +264,14 @@ Deno.serve(async (req) => {
       return errorResponse('organizationId is required for service role calls without clientId', 400);
     }
 
+    // Smart routing: if no integrationId provided and we have clientId, try to find from last message
+    let resolvedIntegrationId = integrationId;
+    if (!resolvedIntegrationId && clientId) {
+      resolvedIntegrationId = await getSmartRoutingIntegrationId(supabase, clientId) || undefined;
+    }
+
     // Get WhatsApp settings (new multi-account logic)
-    const greenApiSettings = await getGreenApiSettings(supabase, organizationId, integrationId);
+    const greenApiSettings = await getGreenApiSettings(supabase, organizationId, resolvedIntegrationId);
 
     if (!greenApiSettings) {
       throw new Error('WhatsApp integration not configured or disabled for this organization');

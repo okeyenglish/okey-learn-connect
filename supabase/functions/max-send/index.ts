@@ -53,29 +53,75 @@ Deno.serve(async (req) => {
 
     const organizationId = profile.organization_id;
 
-    // Get MAX settings from messenger_settings
-    const { data: messengerSettings, error: settingsError } = await supabase
-      .from('messenger_settings')
-      .select('settings')
-      .eq('organization_id', organizationId)
-      .eq('messenger_type', 'max')
-      .eq('is_enabled', true)
-      .single();
+    // Smart routing: if we have clientId, try to find integration from last message
+    let resolvedIntegrationId: string | null = null;
+    const body: MaxSendMessageRequest & { phoneNumber?: string; teacherId?: string; integrationId?: string } = await req.json();
+    const { clientId, text, fileUrl, fileName, fileType, phoneId, phoneNumber, teacherId, integrationId } = body;
 
-    if (settingsError || !messengerSettings) {
-      console.error('MAX settings not found:', settingsError);
-      return errorResponse('MAX integration not configured', 400);
+    if (integrationId) {
+      resolvedIntegrationId = integrationId;
+    } else if (clientId) {
+      const { data: lastMessage } = await supabase
+        .from('chat_messages')
+        .select('integration_id')
+        .eq('client_id', clientId)
+        .eq('is_outgoing', false)
+        .eq('messenger_type', 'max')
+        .not('integration_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (lastMessage?.integration_id) {
+        resolvedIntegrationId = lastMessage.integration_id as string;
+        console.log('[max-send] Smart routing: using integration from last message:', resolvedIntegrationId);
+      }
     }
 
-    const maxSettings = messengerSettings.settings as MaxSettings;
-    if (!maxSettings?.instanceId || !maxSettings?.apiToken) {
-      return errorResponse('MAX credentials not configured', 400);
+    // Get MAX settings - try messenger_integrations first (if integration_id known)
+    let instanceId: string | undefined;
+    let apiToken: string | undefined;
+
+    if (resolvedIntegrationId) {
+      const { data: integration } = await supabase
+        .from('messenger_integrations')
+        .select('settings')
+        .eq('id', resolvedIntegrationId)
+        .eq('organization_id', organizationId)
+        .eq('is_enabled', true)
+        .single();
+
+      if (integration?.settings) {
+        const settings = integration.settings as Record<string, unknown>;
+        instanceId = settings.instanceId as string | undefined;
+        apiToken = settings.apiToken as string | undefined;
+        console.log('[max-send] Using settings from messenger_integrations');
+      }
     }
 
-    const { instanceId, apiToken } = maxSettings;
+    // Fallback to messenger_settings (legacy)
+    if (!instanceId || !apiToken) {
+      const { data: messengerSettings, error: settingsError } = await supabase
+        .from('messenger_settings')
+        .select('settings')
+        .eq('organization_id', organizationId)
+        .eq('messenger_type', 'max')
+        .eq('is_enabled', true)
+        .single();
 
-    const body: MaxSendMessageRequest & { phoneNumber?: string; teacherId?: string } = await req.json();
-    const { clientId, text, fileUrl, fileName, fileType, phoneId, phoneNumber, teacherId } = body;
+      if (settingsError || !messengerSettings) {
+        console.error('MAX settings not found:', settingsError);
+        return errorResponse('MAX integration not configured', 400);
+      }
+
+      const maxSettings = messengerSettings.settings as MaxSettings;
+      if (!maxSettings?.instanceId || !maxSettings?.apiToken) {
+        return errorResponse('MAX credentials not configured', 400);
+      }
+
+      instanceId = maxSettings.instanceId;
+      apiToken = maxSettings.apiToken;
+    }
 
     // Validate: either clientId or phoneNumber must be provided
     if (!clientId && !phoneNumber) {

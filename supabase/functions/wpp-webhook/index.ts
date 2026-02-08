@@ -127,10 +127,10 @@ Deno.serve(async (req) => {
       return successResponse({ ok: true, message: 'No account to process', _version: VERSION })
     }
 
-    // Find organization by account number
+    // Find organization by account number - include id for smart routing
     const { data: integration } = await supabase
       .from('messenger_integrations')
-      .select('organization_id, settings')
+      .select('id, organization_id, settings')
       .eq('messenger_type', 'whatsapp')
       .eq('provider', 'wpp')
       .eq('is_active', true)
@@ -138,6 +138,7 @@ Deno.serve(async (req) => {
       .maybeSingle()
 
     let organizationId = integration?.organization_id
+    const integrationId = integration?.id || null
 
     // Fallback: find by session name
     if (!organizationId) {
@@ -216,9 +217,9 @@ Deno.serve(async (req) => {
       case 'chat':
         // Incoming message - handle both flat and nested formats
         if (isFlatMessage) {
-          await handleIncomingMessage(payload, organizationId)
+          await handleIncomingMessage(payload, organizationId, integrationId)
         } else {
-          await handleIncomingMessage(payload.data || payload, organizationId)
+          await handleIncomingMessage(payload.data || payload, organizationId, integrationId)
         }
         break
 
@@ -232,9 +233,9 @@ Deno.serve(async (req) => {
       case 'sticker':
         console.log(`[wpp-webhook] Processing media type: ${eventType}`)
         if (isFlatMessage) {
-          await handleIncomingMessage(payload, organizationId)
+          await handleIncomingMessage(payload, organizationId, integrationId)
         } else {
-          await handleIncomingMessage(payload.data || payload, organizationId)
+          await handleIncomingMessage(payload.data || payload, organizationId, integrationId)
         }
         break
 
@@ -282,7 +283,7 @@ Deno.serve(async (req) => {
   }
 })
 
-async function handleIncomingMessage(data: WppWebhookPayload, organizationId: string) {
+async function handleIncomingMessage(data: WppWebhookPayload, organizationId: string, integrationId: string | null = null) {
   // Support both flat format (from, raw_from) and nested format
   const fromField = data.from || (data as any).raw_from
   const rawFrom = data.raw_from || data.from
@@ -397,6 +398,7 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
       teacher_id: teacherData.id,
       client_id: null,
       organization_id: organizationId,
+      integration_id: integrationId,  // Smart routing
       message_text: messageText,
       message_type: isFromMe ? 'manager' : 'client',
       messenger_type: 'whatsapp',
@@ -508,6 +510,7 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
     .insert({
       client_id: client.id,
       organization_id: organizationId,
+      integration_id: integrationId,  // Smart routing
       message_text: messageText,
       message_type: isFromMe ? 'manager' : 'client',
       messenger_type: 'whatsapp',
