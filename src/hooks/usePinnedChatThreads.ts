@@ -147,7 +147,8 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
       };
       unreadMessages.forEach((m: any) => {
         const type = m.messenger_type as keyof UnreadByMessenger;
-        if (type in unreadByMessenger) {
+        // Skip 'calls' as it's not a valid messenger_type enum value in the database
+        if (type && type !== 'calls' && type in unreadByMessenger) {
           unreadByMessenger[type]++;
         }
       });

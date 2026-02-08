@@ -199,7 +199,8 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
       };
       unreadMessages.forEach((m) => {
         const type = (m.messenger_type || 'whatsapp') as keyof UnreadByMessenger;
-        if (type in unreadByMessenger) unreadByMessenger[type]++;
+        // Skip 'calls' as it's not a valid messenger_type enum value in the database
+        if (type && type !== 'calls' && type in unreadByMessenger) unreadByMessenger[type]++;
       });
 
       // Self-hosted schema doesn't have client_phone_numbers table

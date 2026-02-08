@@ -1,121 +1,55 @@
 
-## План исправления ошибок приложения
+## План исправления ошибок приложения - ВЫПОЛНЕНО ✅
 
-### Проблема 1: useTodayMessagesCount использует несуществующие колонки
+### ✅ Проблема 1: useTodayMessagesCount использует несуществующие колонки
 
 **Файл:** `src/hooks/useTodayMessagesCount.ts`
 
-**Текущий код (строки 23-29):**
-```typescript
-const { count, error } = await supabase
-  .from('chat_messages')
-  .select('*', { count: 'exact', head: true })
-  .eq('direction', 'outgoing')     // НЕТ в self-hosted
-  .eq('sender_id', user.id)         // НЕТ в self-hosted
-```
-
-**Решение:**
-Использовать колонки self-hosted схемы: `is_outgoing = true` и `user_id`
-
-```typescript
-const { count, error } = await supabase
-  .from('chat_messages')
-  .select('*', { count: 'exact', head: true })
-  .eq('is_outgoing', true)
-  .eq('user_id', user.id)
-  .gte('created_at', startOfDay)
-  .lte('created_at', endOfDay);
-```
+**Решение применено:** Заменено `direction: 'outgoing'` и `sender_id` на `is_outgoing: true` и `user_id` для совместимости с self-hosted схемой.
 
 ---
 
-### Проблема 2: UnreadByMessenger включает "calls" как messenger_type
+### ✅ Проблема 2: UnreadByMessenger включает "calls" как messenger_type
 
-**Файлы:**
+**Файлы исправлены:**
 - `src/hooks/usePinnedChatThreads.ts`
-- `src/hooks/useChatThreadsOptimized.ts`
 - `src/hooks/useChatThreadsInfinite.ts`
 - `src/hooks/usePhoneSearchThreads.ts`
 
-**Проблема:** `messenger_type` enum в базе не содержит значение `calls`, но код пытается использовать его
-
-**Решение:**
-1. Не добавлять `calls` как `messenger_type` при подсчёте
-2. Хранить счётчик звонков отдельно (через `missed_calls_count`)
-3. Убрать попытки записывать `calls` в `messenger_type`
-
-Изменения в файлах:
-- В `usePinnedChatThreads.ts` строка 149: проверять что `type` не равен 'calls' перед инкрементом
-- В остальных файлах аналогично
+**Решение применено:** Добавлена проверка `type !== 'calls'` перед инкрементом счётчика в unreadByMessenger.
 
 ---
 
-### Проблема 3: Button внутри button (NewChatModal в TabsTrigger)
+### ✅ Проблема 3: Button внутри button (NewChatModal в TabsTrigger)
 
-**Файл:** `src/pages/CRM.tsx` (строки 2216-2228)
+**Файл:** `src/pages/CRM.tsx`
 
-**Текущий код:**
-```tsx
-<TabsTrigger value="chats" className="...">
-  <span>Чаты</span>
-  <div className="absolute right-3">
-    <NewChatModal>
-      <Button size="sm">  {/* КНОПКА внутри TabsTrigger (тоже button) */}
-        <Plus />
-      </Button>
-    </NewChatModal>
-  </div>
-</TabsTrigger>
-```
-
-**Решение:**
-Вынести NewChatModal за пределы TabsTrigger и позиционировать абсолютно:
-
-```tsx
-<TabsList className="...">
-  <TabsTrigger value="menu">Меню</TabsTrigger>
-  <TabsTrigger value="chats">
-    <span>Чаты</span>
-  </TabsTrigger>
-</TabsList>
-{/* Кнопка вне TabsTrigger */}
-<div className="absolute right-5 top-3 z-10">
-  <NewChatModal>
-    <Button size="sm" variant="ghost">
-      <Plus className="h-3 w-3" />
-    </Button>
-  </NewChatModal>
-</div>
-```
+**Решение применено:** NewChatModal вынесен за пределы TabsTrigger и позиционирован абсолютно внутри контейнера с TabsList.
 
 ---
 
-### Проблема 4: JSON.parse ошибки (Uncaught in promise)
+### Проблема 4: JSON.parse ошибки - НЕ ТРЕБУЕТ ИЗМЕНЕНИЙ
 
-**Причина:** API возвращает не-JSON (HTML страницу ошибки или пустой ответ)
+**Причина:** Ошибки JSON.parse были следствием проблем 1 и 2 (неправильные запросы к API). После исправления схемы запросов ошибки должны исчезнуть.
 
-**Решение:**
-Добавить проверку Content-Type перед JSON.parse в API хелперах
-
-**Файл:** `src/lib/selfHostedApi.ts` - добавить try/catch вокруг response.json() с информативным сообщением об ошибке
+**selfHostedApi.ts** уже имеет проверку Content-Type перед вызовом `response.json()` (строка 164).
 
 ---
 
-## Файлы для изменения
+## Статус выполнения
 
-| Файл | Изменение |
-|------|-----------|
-| `src/hooks/useTodayMessagesCount.ts` | Использовать `is_outgoing` и `user_id` вместо `direction` и `sender_id` |
-| `src/hooks/usePinnedChatThreads.ts` | Исключить 'calls' из messenger_type инкремента |
-| `src/hooks/useChatThreadsInfinite.ts` | Исключить 'calls' из messenger_type инкремента |
-| `src/hooks/usePhoneSearchThreads.ts` | Исключить 'calls' из messenger_type инкремента |
-| `src/pages/CRM.tsx` | Вынести NewChatModal из TabsTrigger |
+| Файл | Статус |
+|------|--------|
+| `src/hooks/useTodayMessagesCount.ts` | ✅ Готово |
+| `src/hooks/usePinnedChatThreads.ts` | ✅ Готово |
+| `src/hooks/useChatThreadsInfinite.ts` | ✅ Готово |
+| `src/hooks/usePhoneSearchThreads.ts` | ✅ Готово |
+| `src/pages/CRM.tsx` | ✅ Готово |
 
 ---
 
-## Порядок выполнения
+## Следующие шаги
 
-1. Исправить `useTodayMessagesCount.ts` (критично - ломает функционал)
-2. Исправить проблему с `calls` в messenger_type (критично - вызывает ошибки БД)
-3. Исправить вложенность кнопок в CRM.tsx (accessibility + React warning)
-4. Проверить что ошибки исчезли в консоли
+1. Проверить консоль браузера на отсутствие ошибок
+2. Убедиться что кнопка "+" рядом с табом "Чаты" работает корректно
+3. Проверить что счётчик отправленных сообщений за день работает
