@@ -3,6 +3,7 @@ import { selfHostedPost } from "@/lib/selfHostedApi";
 import { useEffect, useCallback, useState, useRef } from "react";
 import { toast } from "sonner";
 import type { CallLog } from "./useCallHistory";
+import { isValidUUID } from "@/lib/uuidValidation";
 
 interface CallLogsResponse {
   success: boolean;
@@ -150,10 +151,11 @@ export const useInfiniteCallHistory = (clientId: string) => {
   
   // Initialize with cached data if available
   useEffect(() => {
-    if (!clientId) return;
+    if (!clientId || !isValidUUID(clientId)) return;
     
     const cached = getCachedData(clientId);
-    if (cached && cached.pages.length > 0) {
+    // Safety: ensure pages is an array before accessing length
+    if (cached && Array.isArray(cached.pages) && cached.pages.length > 0) {
       // Pre-populate query cache with offline data
       queryClient.setQueryData(['call-logs-infinite', clientId], {
         pages: cached.pages,
@@ -188,8 +190,8 @@ export const useInfiniteCallHistory = (clientId: string) => {
       };
     },
     initialPageParam: 0,
-    getNextPageParam: (lastPage) => lastPage.nextOffset,
-    enabled: !!clientId && isOnline, // Only fetch when online
+    getNextPageParam: (lastPage) => lastPage?.nextOffset ?? null,
+    enabled: !!clientId && isValidUUID(clientId) && isOnline, // Only fetch when online AND valid UUID
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes (formerly cacheTime)
     refetchOnWindowFocus: false,
@@ -201,7 +203,8 @@ export const useInfiniteCallHistory = (clientId: string) => {
 
   // Persist successful fetches to localStorage
   useEffect(() => {
-    if (query.data && query.data.pages.length > 0 && !query.isFetching) {
+    // Safety: ensure pages is an array before accessing length
+    if (query.data && Array.isArray(query.data.pages) && query.data.pages.length > 0 && !query.isFetching) {
       setCachedData(clientId, query.data.pages);
     }
   }, [clientId, query.data, query.isFetching]);

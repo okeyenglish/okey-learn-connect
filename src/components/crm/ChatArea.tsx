@@ -379,8 +379,9 @@ export const ChatArea = ({
   const queryClient = useQueryClient();
   
   // Auto-mark chat as read when opened with retry and fallback polling
+  // CRITICAL: Only use valid UUID, never teacher markers like "teacher:xxx"
   const { forceSync } = useAutoMarkChatAsRead({
-    clientId: isTeacherMessages ? null : clientId, // Only for client chats
+    clientId: clientUUID, // Only for client chats with valid UUID
     chatType: 'client',
     isActive: !!clientId,
     messengerType: activeMessengerTab === 'chatos' ? null : activeMessengerTab
@@ -3218,7 +3219,8 @@ export const ChatArea = ({
           </TabsContent>
           
           <TabsContent value="calls" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
-            <CallHistory clientId={clientId} />
+            {/* CRITICAL: Only pass valid UUID to CallHistory, never teacher markers */}
+            <CallHistory clientId={clientIdForUuidHooks} />
           </TabsContent>
         </Tabs>
       </div>
