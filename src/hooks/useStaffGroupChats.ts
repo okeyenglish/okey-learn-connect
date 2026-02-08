@@ -43,24 +43,27 @@ export interface StaffGroupMember {
  * Hook to fetch all staff group chats in the organization
  * Uses self-hosted API since tables are on self-hosted Supabase
  */
+// Default organization ID for the main organization (self-hosted)
+const DEFAULT_ORGANIZATION_ID = '00000000-0000-0000-0000-000000000001';
+
 export const useStaffGroupChats = () => {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   
   return useQuery({
     queryKey: ['staff-group-chats', user?.id],
     queryFn: async () => {
       console.log('[useStaffGroupChats] Fetching groups...', {
         userId: user?.id,
-        orgId: profile?.organization_id,
+        orgId: DEFAULT_ORGANIZATION_ID,
       });
       
-      if (!user?.id || !profile?.organization_id) {
-        console.log('[useStaffGroupChats] Missing user or org:', { userId: user?.id, orgId: profile?.organization_id });
+      if (!user?.id) {
+        console.log('[useStaffGroupChats] Missing user:', { userId: user?.id });
         return [];
       }
       
       const response = await selfHostedPost<{ groups: StaffGroupChat[] }>('get-staff-group-chats', {
-        organization_id: profile.organization_id,
+        organization_id: DEFAULT_ORGANIZATION_ID,
         user_id: user.id,
       });
       
@@ -77,7 +80,7 @@ export const useStaffGroupChats = () => {
       
       return response.data?.groups || [];
     },
-    enabled: !!user?.id && !!profile?.organization_id,
+    enabled: !!user?.id,
     staleTime: 30 * 1000, // 30 seconds
     refetchOnMount: true,
   });
