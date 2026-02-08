@@ -161,8 +161,10 @@ async function saveTelegramSettings(
   
   console.log('Telegram instance state:', instanceState);
 
-  // Generate webhook URL
-  const webhookUrl = `${supabaseUrl}/functions/v1/telegram-webhook`;
+  // Generate webhook URL with profile_id for routing
+  // Use SELF_HOSTED_URL for self-hosted deployments
+  const baseUrl = Deno.env.get('SELF_HOSTED_URL') || supabaseUrl;
+  const webhookUrl = `${baseUrl}/functions/v1/telegram-webhook?profile_id=${profileId}`;
 
   // Save settings with apiToken
   const settingsData = {
