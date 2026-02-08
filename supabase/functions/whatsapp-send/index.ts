@@ -24,6 +24,101 @@ interface InstanceStateResponse {
   raw?: string;
 }
 
+interface GreenApiSettings {
+  source: 'messenger_integrations' | 'messenger_settings';
+  integrationId?: string;
+  instanceId: string;
+  apiToken: string;
+  apiUrl: string;
+}
+
+/**
+ * Get GreenAPI settings from messenger_integrations (priority) or messenger_settings (fallback)
+ * Logic:
+ * - If integrationId is provided, use that specific integration
+ * - Otherwise, prefer is_primary=true integration
+ * - Fallback to first active integration by created_at
+ * - Last fallback to messenger_settings table
+ */
+async function getGreenApiSettings(
+  supabase: ReturnType<typeof createClient>,
+  organizationId: string,
+  integrationId?: string
+): Promise<GreenApiSettings | null> {
+  console.log('[whatsapp-send] Getting GreenAPI settings for org:', organizationId, 'integrationId:', integrationId);
+
+  // 1. Search in messenger_integrations (new multi-account table)
+  let integrationQuery = supabase
+    .from('messenger_integrations')
+    .select('id, settings, is_primary')
+    .eq('organization_id', organizationId)
+    .eq('messenger_type', 'whatsapp')
+    .eq('provider', 'green_api')
+    .eq('is_enabled', true);
+
+  if (integrationId) {
+    // Explicitly selected integration
+    integrationQuery = integrationQuery.eq('id', integrationId);
+  } else {
+    // Priority: is_primary first, then by created_at
+    integrationQuery = integrationQuery
+      .order('is_primary', { ascending: false })
+      .order('created_at', { ascending: true });
+  }
+
+  const { data: integration, error: intError } = await integrationQuery.limit(1).maybeSingle();
+
+  if (intError) {
+    console.error('[whatsapp-send] Error fetching messenger_integrations:', intError);
+  }
+
+  if (integration?.settings) {
+    const settings = integration.settings as Record<string, unknown>;
+    const instanceId = settings.instanceId as string | undefined;
+    const apiToken = settings.apiToken as string | undefined;
+    
+    if (instanceId && apiToken) {
+      console.log('[whatsapp-send] ✓ Found settings in messenger_integrations:', integration.id, 'is_primary:', integration.is_primary);
+      return {
+        source: 'messenger_integrations',
+        integrationId: integration.id as string,
+        instanceId,
+        apiToken,
+        apiUrl: (settings.apiUrl as string) || 'https://api.green-api.com',
+      };
+    }
+  }
+
+  // 2. Fallback to messenger_settings (legacy table)
+  console.log('[whatsapp-send] No integration found, trying messenger_settings fallback...');
+  const { data: messengerSettings, error: settingsError } = await supabase
+    .from('messenger_settings')
+    .select('settings, is_enabled')
+    .eq('organization_id', organizationId)
+    .eq('messenger_type', 'whatsapp')
+    .maybeSingle();
+
+  if (settingsError) {
+    console.error('[whatsapp-send] Error fetching messenger_settings:', settingsError);
+  }
+
+  if (messengerSettings?.is_enabled && messengerSettings?.settings) {
+    const settings = messengerSettings.settings as MessengerSettings;
+    if (settings.instanceId && settings.apiToken) {
+      console.log('[whatsapp-send] ✓ Found settings in messenger_settings (legacy)');
+      return {
+        source: 'messenger_settings',
+        instanceId: settings.instanceId,
+        apiToken: settings.apiToken,
+        apiUrl: settings.apiUrl || 'https://api.green-api.com',
+      };
+    }
+  }
+
+  console.log('[whatsapp-send] No GreenAPI settings found');
+  return null;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   const corsResponse = handleCors(req);
@@ -62,28 +157,14 @@ Deno.serve(async (req) => {
         return errorResponse('Organization not found', 401);
       }
 
-      const { data: messengerSettings, error: settingsError } = await supabase
-        .from('messenger_settings')
-        .select('settings, is_enabled')
-        .eq('organization_id', organizationId)
-        .eq('messenger_type', 'whatsapp')
-        .maybeSingle();
+      const greenApiSettings = await getGreenApiSettings(supabase, organizationId, payload?.integrationId as string | undefined);
 
-      if (settingsError || !messengerSettings?.settings) {
+      if (!greenApiSettings) {
         return errorResponse('WhatsApp not configured for your organization', 400);
       }
 
-      const settings = messengerSettings.settings as MessengerSettings;
-      const greenApiUrl = settings.apiUrl || 'https://api.green-api.com';
-      const greenApiIdInstance = settings.instanceId;
-      const greenApiToken = settings.apiToken;
-
-      if (!greenApiIdInstance || !greenApiToken) {
-        return errorResponse('Missing Green API credentials in organization settings', 400);
-      }
-
       try {
-        const state = await getInstanceState(greenApiUrl, greenApiIdInstance, greenApiToken);
+        const state = await getInstanceState(greenApiSettings.apiUrl, greenApiSettings.instanceId, greenApiSettings.apiToken);
         const stateValue = state?.stateInstance || state?.state || state?.status;
         const authorized = String(stateValue || '').toLowerCase() === 'authorized';
         
@@ -93,26 +174,34 @@ Deno.serve(async (req) => {
             : (state?.error === 'NON_JSON_RESPONSE'
                 ? 'Green-API returned non-JSON (check API URL)'
                 : `State: ${stateValue ?? 'unknown'}`);
-          return successResponse({ success: authorized, state, message } as unknown as Record<string, unknown>);
+          return successResponse({ 
+            success: authorized, 
+            state, 
+            message,
+            source: greenApiSettings.source,
+            integrationId: greenApiSettings.integrationId
+          } as unknown as Record<string, unknown>);
         }
 
         return successResponse({ 
           success: authorized, 
           state,
-          stateInstance: stateValue
+          stateInstance: stateValue,
+          source: greenApiSettings.source,
+          integrationId: greenApiSettings.integrationId
         } as unknown as Record<string, unknown>);
       } catch (e: unknown) {
         return errorResponse(getErrorMessage(e), 500);
       }
     }
 
-    const { clientId, message, phoneNumber, fileUrl, fileName, phoneId } = payload as WhatsAppSendRequest;
+    const { clientId, message, phoneNumber, fileUrl, fileName, phoneId, integrationId } = payload as WhatsAppSendRequest & { integrationId?: string };
     
     if (!clientId) {
       return errorResponse('clientId is required', 400);
     }
     
-    console.log('Sending message:', { clientId, message, phoneNumber, fileUrl, fileName, phoneId });
+    console.log('[whatsapp-send] Sending message:', { clientId, message, phoneNumber, fileUrl, fileName, phoneId, integrationId });
 
     // Получаем данные клиента
     const { data: client, error: clientError } = await supabase
@@ -128,31 +217,15 @@ Deno.serve(async (req) => {
     // Use client's organization_id
     organizationId = client.organization_id as string;
 
-    // Get WhatsApp settings from messenger_settings (per-organization)
-    const { data: messengerSettings, error: settingsError } = await supabase
-      .from('messenger_settings')
-      .select('settings, is_enabled')
-      .eq('organization_id', organizationId)
-      .eq('messenger_type', 'whatsapp')
-      .maybeSingle();
+    // Get WhatsApp settings (new multi-account logic)
+    const greenApiSettings = await getGreenApiSettings(supabase, organizationId, integrationId);
 
-    if (settingsError) {
-      console.error('Error fetching WhatsApp settings:', settingsError);
-      throw new Error('Failed to fetch WhatsApp settings');
-    }
-
-    if (!messengerSettings || !messengerSettings.is_enabled) {
+    if (!greenApiSettings) {
       throw new Error('WhatsApp integration not configured or disabled for this organization');
     }
 
-    const settings = messengerSettings.settings as MessengerSettings;
-    const greenApiUrl = settings.apiUrl || 'https://api.green-api.com';
-    const greenApiIdInstance = settings.instanceId;
-    const greenApiToken = settings.apiToken;
-
-    if (!greenApiIdInstance || !greenApiToken) {
-      throw new Error('WhatsApp credentials not configured (instanceId or apiToken missing)');
-    }
+    const { apiUrl: greenApiUrl, instanceId: greenApiIdInstance, apiToken: greenApiToken } = greenApiSettings;
+    console.log('[whatsapp-send] Using settings from:', greenApiSettings.source, 'integrationId:', greenApiSettings.integrationId);
 
     // Определяем chat ID для WhatsApp
     let chatId: string | null = null;
