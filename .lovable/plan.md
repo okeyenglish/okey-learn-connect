@@ -1,95 +1,104 @@
 
+Цель: убрать перезагрузку/белый экран при клике на чат преподавателя и сделать открытие teacher-чатов устойчивым даже при ошибках бэкенда/схемы.
 
-## Диагностика: Белый экран при клике на чат преподавателя
+Что удалось выяснить по коду (текущий статус проекта)
+1) Teacher-чаты действительно открываются через виртуальный идентификатор `clientId = "teacher:{uuid}"` (см. `TeacherChatArea.tsx`, строки ~109-113 и resolve-логика ~253-275).
+2) В `ChatArea.tsx` до сих пор есть блок “клиентских” хуков/запросов, которым передаётся `clientId` без фильтрации:
+   - `useClientUnreadByMessenger(clientId)` (строки ~487-493)
+   - `useViewedMissedCalls(clientId)` (строки ~495-497)
+   - `useCallLogsRealtime(clientId)` (строки ~498-499)
+   - и ряд других клиентских действий внутри `ChatArea.tsx`, которые местами делают `.eq('id', clientId)`/`.eq('client_id', clientId)` и т.п. (поиск показал несколько таких участков).
+3) Часть хуков мы уже “захарднили” (например `useTypingStatus`, `useNewMessageRealtime`, `useMessageStatusRealtime`, `useViewedMissedCalls`, `useCallLogsRealtime`) — но `ChatArea.tsx` всё равно инициирует клиентские сценарии и, главное, `useClientUnreadByMessenger` всё ещё делает запросы по `client_id` без проверки UUID.
+4) В `TeacherChatArea.tsx` есть async `resolve()` внутри `useEffect` без общего `try/catch`. Если там случается ошибка (например, запрос к таблице/колонке не совпадает со схемой), это легко превращается в “Unhandled async error”, что в реальных браузерах часто выглядит как “страница как будто перезагрузилась и белый экран” (особенно когда React-дерево падает, а ErrorBoundary глобально не установлен).
 
-### Корневая причина
+Гипотеза первопричины (наиболее вероятно)
+A) При клике на teacher-чат запускается `ChatArea` с `clientId="teacher:..."`.
+B) `ChatArea` запускает “клиентские” хуки (в частности `useClientUnreadByMessenger`) и/или клиентские побочные эффекты.
+C) Где-то в цепочке возникает ошибка (частый вариант — попытка отправить в БД строку `teacher:...` в фильтр по UUID, либо ошибка в async-эффекте без try/catch), из‑за чего React-дерево падает → белый экран.
 
-При выборе чата преподавателя система генерирует специальный идентификатор `clientId = 'teacher:${teacherId}'` вместо реального UUID клиента. Этот маркер правильно обрабатывается для загрузки сообщений, но **несколько хуков в ChatArea.tsx не проверяют формат clientId** и передают его напрямую в SQL-запросы.
+План исправления (делаем в 2 слоя: предотвращение причины + страховка)
 
-Когда PostgreSQL получает `filter: client_id=eq.teacher:4d8b2754-...`, он выбрасывает ошибку:
-```
-invalid input syntax for type uuid: "teacher:4d8b2754-7f71-4abd-992a-7d5f0072d0aa"
-```
+1) Ввести “безопасный UUID для клиентских хуков” прямо в `ChatArea.tsx`
+   - Импортировать из `src/lib/uuidValidation.ts` функции `isValidUUID`/`safeUUID`.
+   - Рассчитать:
+     - `const isDirectTeacherMessage = clientId.startsWith('teacher:')`
+     - `const clientUUID = safeUUID(clientId)` (вернёт `null`, если `teacher:...` или любой не‑UUID)
+     - `const clientIdForUuidHooks = clientUUID ?? ''` (если хуку нужен string)
+     - `const clientIdForUuidHooksNullable = clientUUID` (если хук принимает string | null)
+   - Важно: исходный `clientId` оставить как есть для “teacher‑источника сообщений” и для draft-key (черновики) — чтобы разные teacher-чаты не смешивались.
 
-Эта ошибка происходит в асинхронном callback (useEffect / realtime subscription) и **не перехватывается ErrorBoundary**, что приводит к краху React и белому экрану.
+2) Переподключить проблемные хуки в `ChatArea.tsx` на безопасный идентификатор
+   Конкретно:
+   - `useClientAvatars(...)` → передавать `clientUUID` (или `clientUUID ?? null`)
+   - `useTypingStatus(...)` → `useTypingStatus(clientIdForUuidHooks)` (и внутри он уже пропускает не-UUID)
+   - `useClientUnreadByMessenger(...)` → передавать `clientIdForUuidHooks` И дополнительно (см. пункт 3) — чтобы сам хук выключался.
+   - `useViewedMissedCalls(...)` → `useViewedMissedCalls(clientIdForUuidHooks)`
+   - `useCallLogsRealtime(...)` → `useCallLogsRealtime(clientUUID ?? undefined)` (чтобы для teacher:... не было фильтра по UUID)
+   - `useNewMessageRealtime(...)` и `useMessageStatusRealtime(...)` — вызывать с `clientIdForUuidHooks` (или оставить как есть, но безопаснее унифицировать).
 
-### Проблемные хуки (ChatArea.tsx)
+   Результат: никакой “клиентский” запрос/реалтайм‑фильтр не получит `teacher:...`.
 
-| Строка | Хук | Проблема |
-|--------|-----|----------|
-| 349 | `useClientAvatars(clientId)` | Запрос к `clients` таблице с невалидным UUID |
-| 358 | `useTypingStatus(clientId)` | Upsert в `typing_status` с невалидным UUID |
-| 485 | `useMessageStatusRealtime(clientId)` | Realtime filter с невалидным UUID |
-| 586 | `useNewMessageRealtime(clientId)` | Realtime filter с невалидным UUID |
-| 493 | `useClientUnreadByMessenger(clientId)` | Запрос с невалидным UUID |
-| 496 | `useViewedMissedCalls(clientId)` | Запрос с невалидным UUID |
-| 499 | `useCallLogsRealtime(clientId)` | Realtime filter с невалидным UUID |
+3) Захарднить `useClientUnreadByMessenger` (src/hooks/useChatMessages.ts)
+   Сейчас это главный “дыра‑кандидат”: он всегда делает `.eq('client_id', clientId)` если строка непустая.
+   - Добавить `import { isValidUUID } from '@/lib/uuidValidation'`
+   - В начале `queryFn`:
+     - если `!clientId || !isValidUUID(clientId)` → сразу вернуть нулевые счётчики и `lastUnreadMessenger: null`
+   - В опциях `useQuery`:
+     - `enabled: isValidUUID(clientId)` вместо `enabled: !!clientId`
+   Это гарантирует, что teacher:... вообще не вызовет SQL-запрос по UUID колонке.
 
-### Решение
+   Дополнительно: `getUnviewedMissedCallsCount(clientId)` (который дергает self-hosted API) тоже лучше вызывать только для UUID, чтобы не создавать лишние ошибки/ретраи.
 
-Добавить проверку `isValidUUID` перед передачей `clientId` в хуки, которые ожидают валидный UUID. Для преподавательских чатов (`isDirectTeacherMessage = true`) эти хуки должны получать `undefined` или быть отключены.
+4) Убрать/загардить клиентские DB-операции в `ChatArea.tsx`, которые потенциально выполняются в teacher-режиме
+   По найденным местам (примерно):
+   - любые `.from('clients').update(...).eq('id', clientId)`
+   - любые `.from('chat_messages').update(...).eq('client_id', clientId)` в автоматических эффектах/обработчиках
+   Правило: если `clientUUID == null`, то:
+   - либо `return` (teacher-чат не должен трогать таблицу clients),
+   - либо использовать `buildMessageRecord(...)` и писать в teacher_id, а client_id ставить null (если это действительно сценарий teacher-сообщений).
 
-### Изменения в ChatArea.tsx
+5) Обязательная страховка от “белого экрана”: глобальный ErrorBoundary
+   Сейчас `ErrorBoundary.tsx` существует, но не оборачивает CRM глобально.
+   - В `src/App.tsx` обернуть дерево приложения (минимум `BrowserRouter` + `AppContent`) в `<ErrorBoundary>...</ErrorBoundary>`.
+   - Это не “лечит” первопричину, но гарантирует, что вместо пустого экрана будет понятная страница с текстом ошибки, и CRM перестанет “умирать молча”.
 
-```typescript
-// Добавить валидатор UUID (можно импортировать из useChatPresence)
-const isValidUUID = (str: string): boolean => {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(str);
-};
+6) Стабилизировать async-вычисление `resolvedClientId` в `TeacherChatArea.tsx`
+   - В `useEffect` с `resolve()` добавить общий `try/catch` вокруг всей async-логики.
+   - В `catch`:
+     - логировать ошибку (`console.error`)
+     - показывать toast “Не удалось открыть чат преподавателя”
+     - безопасно делать `setResolvedClientId(null)` (чтобы не попасть в полусломанное состояние)
+   - Это убирает “Unhandled async error” из самого места, которое срабатывает именно при клике по teacher-чатам.
 
-// Безопасный clientId для хуков, требующих UUID
-const safeClientId = isDirectTeacherMessage ? null : clientId;
-const safeClientIdForQuery = isDirectTeacherMessage || !isValidUUID(clientId) ? undefined : clientId;
-```
+7) Диагностика (встроенная, чтобы добить остаточные причины если они есть)
+   Так как вы видите “просто белый экран” без красного оверлея и без лога сборки, добавим временные, очень точечные логи:
+   - В `ChatArea.tsx` при монтировании:
+     - `clientId`, `isDirectTeacherMessage`, `clientUUID`, `messagesSource`
+   - В `TeacherChatArea.tsx` в `resolve()`:
+     - `selectedTeacherId`, найден ли teacher, какой `teacher.clientId`, какой `resolvedClientId` выставили
+   Если после фикса всё ещё будет белый экран — по этим логам станет ясно, какая именно ветка срабатывает перед падением.
 
-Затем обновить вызовы хуков:
+Файлы, которые нужно менять
+- `src/components/crm/ChatArea.tsx` (основная маршрутизация “safe id” + гард клиентских сценариев)
+- `src/hooks/useChatMessages.ts` (захарднить `useClientUnreadByMessenger` на UUID)
+- `src/components/crm/TeacherChatArea.tsx` (try/catch для async resolve)
+- `src/App.tsx` (обернуть приложение в `ErrorBoundary`)
+(опционально) `src/hooks/useChatMessages.ts` / `src/hooks/useViewedMissedCalls.ts` — дополнительный UUID-гард для self-hosted вызовов, чтобы не было шумных ретраев.
 
-| Хук | Было | Станет |
-|-----|------|--------|
-| `useClientAvatars` | `useClientAvatars(clientId)` | `useClientAvatars(safeClientIdForQuery ?? null)` |
-| `useTypingStatus` | `useTypingStatus(clientId)` | `useTypingStatus(safeClientIdForQuery ?? '')` |
-| `useMessageStatusRealtime` | `useMessageStatusRealtime(clientId, ...)` | `useMessageStatusRealtime(safeClientIdForQuery ?? '', ...)` |
-| `useNewMessageRealtime` | `useNewMessageRealtime(clientId, ...)` | `useNewMessageRealtime(safeClientIdForQuery ?? '', ...)` |
-| `useClientUnreadByMessenger` | `useClientUnreadByMessenger(clientId)` | `useClientUnreadByMessenger(safeClientIdForQuery ?? '')` |
-| `useViewedMissedCalls` | `useViewedMissedCalls(clientId)` | `useViewedMissedCalls(safeClientIdForQuery ?? '')` |
-| `useCallLogsRealtime` | `useCallLogsRealtime(clientId)` | `useCallLogsRealtime(safeClientIdForQuery)` |
+Порядок внедрения
+1) `useClientUnreadByMessenger`: UUID-гард + enabled.
+2) `ChatArea.tsx`: safeClientUUID и переподключение хуков на safe id.
+3) `TeacherChatArea.tsx`: try/catch в resolve.
+4) `App.tsx`: глобальный ErrorBoundary.
+5) Быстрый регресс-тест.
 
-### Дополнительная защита в хуках
+Как проверим, что проблема ушла (чеклист)
+- Открыть 5-10 разных teacher-чатов подряд: нет перезагрузок, нет белого экрана.
+- Открыть обычные клиентские чаты: всё как раньше.
+- Проверить “Чат педагогов” (если используете) и контекстное меню teacher-чатов (Mark read/unread): не падает.
+- Проверить вкладки WhatsApp/Telegram/Max в teacher-чате: переключаются, не вызывают ошибок.
+- Если что-то всё ещё ломается — ErrorBoundary покажет текст ошибки, и мы точечно добьём оставшийся источник.
 
-Для надёжности добавить проверки UUID внутри самих хуков:
-
-**useClientAvatars.ts (строка 33):**
-```typescript
-const loadAvatars = useCallback(async () => {
-  // Skip for non-UUID clientIds (teacher markers)
-  if (!clientId || !isValidUUID(clientId)) return;
-  ...
-});
-```
-
-**useTypingStatus.ts (строка 46 и 188):**
-```typescript
-const fetchTypingUsers = useCallback(async () => {
-  if (!clientId || !isValidUUID(clientId)) return;
-  ...
-});
-```
-
-### Файлы для изменения
-
-| Файл | Изменения |
-|------|-----------|
-| `src/components/crm/ChatArea.tsx` | Добавить `isValidUUID`, создать `safeClientIdForQuery`, обновить 7+ вызовов хуков |
-| `src/hooks/useClientAvatars.ts` | Добавить проверку UUID в `loadAvatars` |
-| `src/hooks/useTypingStatus.ts` | Добавить проверку UUID в `fetchTypingUsers` и `doUpdateTypingStatus` |
-| `src/hooks/useChatMessagesOptimized.ts` | Добавить проверку UUID в `useNewMessageRealtime` и `useMessageStatusRealtime` |
-
-### Результат
-
-После исправления:
-1. Клики на чаты преподавателей не будут вызывать ошибки БД
-2. Хуки для клиентских функций (аватары, typing, presence) будут безопасно пропускаться
-3. Сообщения будут загружаться через правильный хук `useTeacherChatMessagesByTeacherId`
-4. Белый экран исчезнет
-
+Риски/нюансы
+- В teacher‑чатах некоторые “клиентские” элементы UI (бейджи непрочитанных по мессенджерам, звонки, аватары из clients) логично отключить или показывать в нейтральном виде, иначе система будет пытаться считать метрики по несуществующему client UUID.
+- Отправка сообщений в teacher:режиме сейчас частично использует `clientId` при сохранении “failed” сообщений (видно в `sendMessageNow`): это не причина белого экрана при клике, но я приведу все insert/update к единообразному `buildMessageRecord` чтобы не было будущих скрытых ошибок при отправке.
