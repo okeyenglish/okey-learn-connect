@@ -128,7 +128,8 @@ export const IntegrationEditDialog: React.FC<IntegrationEditDialogProps> = ({
             body: { profileId, apiToken },
           });
 
-          const success = !error && (data as any)?.success !== false;
+          const result = (data as any) || {};
+          const success = !error && result.success === true;
 
           if (success) {
             toast({
@@ -136,9 +137,16 @@ export const IntegrationEditDialog: React.FC<IntegrationEditDialogProps> = ({
               description: 'Webhook автоматически зарегистрирован в Wappi',
             });
           } else {
+            const detail =
+              result?.wappi?.detail ||
+              result?.wappi?.message ||
+              result?.error ||
+              (error as any)?.message ||
+              'Не удалось зарегистрировать webhook в Wappi';
+
             toast({
               title: 'Webhook не настроен',
-              description: (error as any)?.message || (data as any)?.error || 'Не удалось зарегистрировать webhook в Wappi',
+              description: String(detail),
               variant: 'destructive',
             });
           }

@@ -83,7 +83,9 @@ Deno.serve(async (req) => {
     `https://api.academyos.ru/functions/v1/telegram-webhook?profile_id=${encodeURIComponent(profileId)}`;
 
   try {
-    const wappiUrl = `https://wappi.pro/tapi/webhook/url/set?profile_id=${encodeURIComponent(profileId)}`;
+    // Wappi API иногда ожидает именно параметр `url` (а не только `webhook_url`).
+    // Поэтому отправляем url и в query, и в JSON (для совместимости).
+    const wappiUrl = `https://wappi.pro/tapi/webhook/url/set?profile_id=${encodeURIComponent(profileId)}&url=${encodeURIComponent(webhookUrl)}`;
 
     const res = await fetch(wappiUrl, {
       method: 'POST',
@@ -91,21 +93,21 @@ Deno.serve(async (req) => {
         Authorization: apiToken,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ webhook_url: webhookUrl }),
+      body: JSON.stringify({ url: webhookUrl, webhook_url: webhookUrl }),
     });
 
     const wappiData = await safeReadJsonFromResponse(res);
 
+    // IMPORTANT: always return 200 with success=false so the client can show a meaningful message
+    // instead of generic "Edge Function returned a non-2xx status code".
     if (!res.ok) {
-      return jsonResponse(
-        {
-          success: false,
-          error: 'wappi_request_failed',
-          status: res.status,
-          wappi: wappiData,
-        },
-        502
-      );
+      return jsonResponse({
+        success: false,
+        error: 'wappi_request_failed',
+        status: res.status,
+        webhookUrl,
+        wappi: wappiData,
+      });
     }
 
     return jsonResponse({
@@ -114,13 +116,11 @@ Deno.serve(async (req) => {
       wappi: wappiData,
     });
   } catch (e) {
-    return jsonResponse(
-      {
-        success: false,
-        error: 'network_error',
-        message: e instanceof Error ? e.message : 'Unknown error',
-      },
-      502
-    );
+    return jsonResponse({
+      success: false,
+      error: 'network_error',
+      webhookUrl,
+      message: e instanceof Error ? e.message : 'Unknown error',
+    });
   }
 });
