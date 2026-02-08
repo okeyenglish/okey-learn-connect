@@ -3822,6 +3822,7 @@ export const ChatArea = ({
         onOpenChange={setShowPaymentLinkModal}
         clientId={clientId}
         clientName={displayName || clientName}
+        messengerType={activeMessengerTab as 'whatsapp' | 'telegram' | 'max'}
         onPaymentLinkGenerated={(data) => {
           // Добавляем как вложение над полем ввода
           setPaymentLinkAttachment(data);
