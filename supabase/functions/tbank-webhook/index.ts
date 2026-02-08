@@ -154,14 +154,19 @@ Deno.serve(async (req) => {
         } else {
           console.log('Chat message created for payment confirmation');
 
-          // Обновляем last_message_at у клиента чтобы он "поднялся" в списке
+          // Обновляем last_message_at и has_pending_payment у клиента
           const { error: clientUpdateError } = await supabase
             .from('clients')
-            .update({ last_message_at: new Date().toISOString() })
+            .update({ 
+              last_message_at: new Date().toISOString(),
+              has_pending_payment: true 
+            })
             .eq('id', onlinePayment.client_id);
 
           if (clientUpdateError) {
-            console.error('Failed to update client last_message_at:', clientUpdateError);
+            console.error('Failed to update client:', clientUpdateError);
+          } else {
+            console.log('Client updated with has_pending_payment=true');
           }
         }
 

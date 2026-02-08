@@ -579,6 +579,8 @@ const CRMContent = () => {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'call_logs' }, debouncedRefetch)
       // Also listen for new clients (created via webhook)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'clients' }, debouncedRefetch)
+      // Listen for client updates (e.g. has_pending_payment changes)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'clients' }, debouncedRefetch)
       .subscribe((status) => {
         console.log('📡 [CRM] Real-time subscription status:', status);
       });

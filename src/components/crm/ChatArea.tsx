@@ -15,7 +15,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useTypingStatus } from "@/hooks/useTypingStatus";
 import { useClientUnreadByMessenger, type ChatMessage as ChatMessageRow } from "@/hooks/useChatMessages";
 import { useViewedMissedCalls } from "@/hooks/useViewedMissedCalls";
-import { useChatMessagesOptimized, useMessageStatusRealtime } from "@/hooks/useChatMessagesOptimized";
+import { useChatMessagesOptimized, useMessageStatusRealtime, useNewMessageRealtime } from "@/hooks/useChatMessagesOptimized";
 import { useTeacherChatMessages as useTeacherChatMessagesByClientId } from "@/hooks/useTeacherChats";
 import { useTeacherChatMessages as useTeacherChatMessagesByTeacherId } from "@/hooks/useTeacherChatMessagesV2";
 import { useAutoRetryMessages } from "@/hooks/useAutoRetryMessages";
@@ -575,6 +575,15 @@ export const ChatArea = ({
       });
     }
   }, [activeMessengerTab]);
+
+  // Subscribe to new messages for instant scroll when payment/new message arrives
+  const handleNewMessageRealtime = useCallback(() => {
+    // Scroll to bottom when new message arrives via realtime
+    requestAnimationFrame(() => {
+      scrollToBottom(true);
+    });
+  }, [scrollToBottom]);
+  useNewMessageRealtime(clientId, handleNewMessageRealtime);
 
   // displayName is now computed directly from clientName, no need for state
 
