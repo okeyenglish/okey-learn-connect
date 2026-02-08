@@ -1,6 +1,6 @@
-// Edge Function: init-branch-groups
-// One-time migration to create branch groups and add existing employees
-// Run this once after deploying to self-hosted server
+// Edge Function: init-branch-groups (v2)
+// Creates branch groups from organization_branches table
+// and adds ALL employees to ALL groups
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -30,128 +30,130 @@ serve(async (req) => {
       )
     }
 
-    console.log('[init-branch-groups] Starting for org:', organization_id, 'dry_run:', dry_run)
+    console.log('[init-branch-groups] Starting v2 for org:', organization_id, 'dry_run:', dry_run)
 
-    // 1. Get all unique branches from profiles
-    const { data: profiles, error: profilesError } = await supabase
-      .from('profiles')
-      .select('id, branch, first_name, last_name')
+    // 1. Get all branches from organization_branches table (NOT from profiles.branch!)
+    const { data: branches, error: branchesError } = await supabase
+      .from('organization_branches')
+      .select('id, name')
       .eq('organization_id', organization_id)
       .eq('is_active', true)
-      .not('branch', 'is', null)
 
-    if (profilesError) {
-      console.error('[init-branch-groups] Error fetching profiles:', profilesError)
+    if (branchesError) {
+      console.error('[init-branch-groups] Error fetching organization_branches:', branchesError)
       return new Response(
-        JSON.stringify({ error: profilesError.message }),
+        JSON.stringify({ error: branchesError.message }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Group employees by branch
-    const branchMap: Record<string, Array<{ id: string; first_name: string; last_name: string }>> = {}
-    
-    for (const profile of (profiles || [])) {
-      if (profile.branch) {
-        if (!branchMap[profile.branch]) {
-          branchMap[profile.branch] = []
-        }
-        branchMap[profile.branch].push({
-          id: profile.id,
-          first_name: profile.first_name || '',
-          last_name: profile.last_name || '',
-        })
-      }
+    if (!branches || branches.length === 0) {
+      console.log('[init-branch-groups] No active branches found in organization_branches')
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          dry_run,
+          results: { branches_found: 0, groups_created: 0, members_added: 0 },
+          message: 'No active branches found in organization_branches table'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    const branches = Object.keys(branchMap)
-    console.log('[init-branch-groups] Found', branches.length, 'unique branches:', branches)
+    console.log('[init-branch-groups] Found', branches.length, 'branches:', branches.map(b => b.name))
 
-    // 2. Get existing branch groups
+    // 2. Get ALL active employees from profiles
+    const { data: employees, error: employeesError } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name')
+      .eq('organization_id', organization_id)
+      .eq('is_active', true)
+
+    if (employeesError) {
+      console.error('[init-branch-groups] Error fetching profiles:', employeesError)
+      return new Response(
+        JSON.stringify({ error: employeesError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log('[init-branch-groups] Found', employees?.length || 0, 'active employees')
+
+    // 3. Get existing branch groups
     const { data: existingGroups } = await supabase
       .from('staff_group_chats')
       .select('id, branch_name')
       .eq('organization_id', organization_id)
       .eq('is_branch_group', true)
 
-    const existingBranches = new Set((existingGroups || []).map((g: { branch_name: string }) => g.branch_name))
-    console.log('[init-branch-groups] Existing branch groups:', Array.from(existingBranches))
+    const existingBranchNames = new Set((existingGroups || []).map((g: { branch_name: string }) => g.branch_name))
+    console.log('[init-branch-groups] Existing branch groups:', Array.from(existingBranchNames))
 
     const results = {
-      branches_processed: branches.length,
+      branches_found: branches.length,
+      employees_found: employees?.length || 0,
       groups_created: 0,
-      groups_skipped: 0,
+      groups_existing: 0,
       members_added: 0,
       members_skipped: 0,
-      details: [] as Array<{ branch: string; action: string; members: number }>,
+      details: [] as Array<{ branch: string; action: string; members_added: number }>,
     }
 
-    // 3. Create groups and add members
+    // 4. Process each branch - create group if needed and add ALL employees
     for (const branch of branches) {
-      const employees = branchMap[branch]
-      
-      if (existingBranches.has(branch)) {
-        // Group exists - just add missing members
-        const existingGroup = existingGroups?.find((g: { branch_name: string }) => g.branch_name === branch)
+      let groupId: string
+
+      if (existingBranchNames.has(branch.name)) {
+        // Group already exists
+        const existingGroup = existingGroups?.find((g: { branch_name: string }) => g.branch_name === branch.name)
+        if (!existingGroup) continue
         
-        if (existingGroup) {
-          // Get current members
-          const { data: currentMembers } = await supabase
-            .from('staff_group_chat_members')
-            .select('user_id')
-            .eq('group_chat_id', existingGroup.id)
-
-          const currentMemberIds = new Set((currentMembers || []).map((m: { user_id: string }) => m.user_id))
-          const newMembers = employees.filter(e => !currentMemberIds.has(e.id))
-
-          if (!dry_run && newMembers.length > 0) {
-            const memberInserts = newMembers.map(e => ({
-              group_chat_id: existingGroup.id,
-              user_id: e.id,
-              role: 'member',
-            }))
-
-            const { error: insertError } = await supabase
-              .from('staff_group_chat_members')
-              .insert(memberInserts)
-
-            if (!insertError) {
-              results.members_added += newMembers.length
-            }
-          } else {
-            results.members_skipped += employees.length - newMembers.length
-          }
-
-          results.groups_skipped++
-          results.details.push({
-            branch,
-            action: 'existing',
-            members: newMembers.length,
-          })
-        }
+        groupId = existingGroup.id
+        results.groups_existing++
+        console.log('[init-branch-groups] Group already exists for:', branch.name)
       } else {
         // Create new group
         if (!dry_run) {
           const { data: newGroup, error: groupError } = await supabase
             .from('staff_group_chats')
             .insert({
-              name: `Команда ${branch}`,
-              description: `Общий чат сотрудников филиала ${branch}`,
+              name: `Команда ${branch.name}`,
+              description: `Общий чат сотрудников филиала ${branch.name}`,
               organization_id: organization_id,
-              branch_name: branch,
+              branch_name: branch.name,
               is_branch_group: true,
             })
             .select('id')
             .single()
 
           if (groupError || !newGroup) {
-            console.error('[init-branch-groups] Error creating group for', branch, ':', groupError)
+            console.error('[init-branch-groups] Error creating group for', branch.name, ':', groupError)
             continue
           }
+          groupId = newGroup.id
+          console.log('[init-branch-groups] Created group for:', branch.name, 'id:', groupId)
+        } else {
+          groupId = 'dry-run-id'
+        }
+        results.groups_created++
+      }
 
-          // Add all employees as members
-          const memberInserts = employees.map(e => ({
-            group_chat_id: newGroup.id,
+      // 5. Add ALL employees to this group
+      if (!dry_run && employees && employees.length > 0) {
+        // Get current members of this group
+        const { data: currentMembers } = await supabase
+          .from('staff_group_chat_members')
+          .select('user_id')
+          .eq('group_chat_id', groupId)
+
+        const currentMemberIds = new Set((currentMembers || []).map((m: { user_id: string }) => m.user_id))
+        
+        // Filter employees who are not yet members
+        const newMembers = employees.filter(e => !currentMemberIds.has(e.id))
+
+        if (newMembers.length > 0) {
+          const memberInserts = newMembers.map(e => ({
+            group_chat_id: groupId,
             user_id: e.id,
             role: 'member',
           }))
@@ -161,15 +163,25 @@ serve(async (req) => {
             .insert(memberInserts)
 
           if (!membersError) {
-            results.members_added += employees.length
+            results.members_added += newMembers.length
+            console.log('[init-branch-groups] Added', newMembers.length, 'members to group:', branch.name)
+          } else {
+            console.error('[init-branch-groups] Error adding members to', branch.name, ':', membersError)
           }
         }
 
-        results.groups_created++
+        results.members_skipped += currentMemberIds.size
+
         results.details.push({
-          branch,
-          action: 'created',
-          members: employees.length,
+          branch: branch.name,
+          action: existingBranchNames.has(branch.name) ? 'existing' : 'created',
+          members_added: newMembers.length,
+        })
+      } else if (dry_run) {
+        results.details.push({
+          branch: branch.name,
+          action: existingBranchNames.has(branch.name) ? 'would_skip' : 'would_create',
+          members_added: employees?.length || 0,
         })
       }
     }
@@ -183,7 +195,7 @@ serve(async (req) => {
         results,
         message: dry_run 
           ? 'Dry run complete. Set dry_run=false to execute changes.' 
-          : 'Migration complete.',
+          : 'Migration complete. All employees added to all branch groups.',
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
