@@ -182,10 +182,11 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
     
     // Skip prefetch for non-UUID clientIds (like "teacher:uuid" markers)
     if (!isValidUUID(clientId)) {
-      // For teacher:uuid, we could prefetch teacher-chat-messages-v2 instead
+      // For teacher:uuid, prefetch using prefetchInfiniteQuery to match the infinite query structure
       if (clientId?.startsWith('teacher:')) {
         const teacherId = clientId.replace('teacher:', '');
-        queryClient.prefetchQuery({
+        // CRITICAL: Use prefetchInfiniteQuery, NOT prefetchQuery, to match useInfiniteQuery cache shape
+        queryClient.prefetchInfiniteQuery({
           queryKey: ['teacher-chat-messages-v2', teacherId],
           queryFn: async () => {
             // Self-hosted schema: message_text, is_outgoing, messenger_type (no content, direction, external_id)
@@ -194,8 +195,10 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
               .eq('teacher_id', teacherId)
               .order('created_at', { ascending: false })
               .limit(50);
+            // Return the same structure as useInfiniteQuery expects
             return { items: (data || []).reverse(), nextCursor: 50, hasMore: (data?.length || 0) >= 50, total: 0 };
           },
+          initialPageParam: 0,
           staleTime: 30000,
         });
         hasPrefetched.current = true;
