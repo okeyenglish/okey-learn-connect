@@ -1,65 +1,59 @@
 import { useAuth } from "@/hooks/useAuth";
 import { isAdmin as checkIsAdmin } from "@/lib/permissions";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 
 export interface ManagerBranch {
   id: string;
   branch: string;
 }
 
+interface BranchResponse {
+  branches: { id: string; branch: string }[];
+  source: string;
+}
+
 /**
  * Hook для получения филиалов, к которым привязан сотрудник.
- * Использует таблицу user_branches для определения доступа.
- * Если у сотрудника нет записей в user_branches - видит все чаты.
+ * Использует self-hosted API для получения данных из manager_branches/user_branches/profile.
+ * Если у сотрудника нет записей - видит все чаты.
  * Админы видят все чаты по умолчанию.
  */
 export function useManagerBranches() {
-  const { user, profile, roles } = useAuth();
+  const { user, roles } = useAuth();
   
   // Админы всегда видят все
   const isAdmin = checkIsAdmin(roles);
   
-  // Загружаем филиалы пользователя из user_branches
-  const { data: userBranches = [], isLoading } = useQuery({
-    queryKey: ['manager-branches', user?.id],
+  // Загружаем филиалы пользователя через self-hosted API
+  const { data: branchData, isLoading } = useQuery({
+    queryKey: ['manager-branches-selfhosted', user?.id],
     queryFn: async () => {
-      if (!user?.id) return [];
+      if (!user?.id) return { branches: [], source: 'no-user' };
       
       // Админы видят все — не нужно загружать ограничения
-      if (isAdmin) return [];
+      if (isAdmin) return { branches: [], source: 'admin' };
       
-      // Получаем филиалы из user_branches
-      const { data, error } = await (supabase as any)
-        .from('user_branches')
-        .select('id, branch')
-        .eq('user_id', user.id);
-        
-      if (error) {
-        console.warn('Error fetching user branches:', error);
-        return [];
+      const response = await selfHostedPost<BranchResponse>('get-user-branches', { 
+        user_id: user.id 
+      });
+      
+      if (!response.success || !response.data) {
+        console.warn('[useManagerBranches] Failed to fetch user branches:', response.error);
+        return { branches: [], source: 'error' };
       }
       
-      return (data || []) as { id: string; branch: string }[];
+      console.log('[useManagerBranches] Got branches:', response.data);
+      return response.data;
     },
     enabled: !!user?.id,
     staleTime: 5 * 60 * 1000, // 5 минут
   });
   
-  // Список названий филиалов для фильтрации
-  const branchesFromTable: string[] = userBranches
+  const userBranches = branchData?.branches || [];
+  const allowedBranchNames: string[] = userBranches
     .map((b) => b.branch)
     .filter(Boolean);
-
-  // Fallback: если таблица пустая, используем филиал из профиля (single-branch режим)
-  const branchFromProfile = profile?.branch || null;
-
-  const allowedBranchNames: string[] =
-    branchesFromTable.length > 0
-      ? branchesFromTable
-      : branchFromProfile
-        ? [branchFromProfile]
-        : [];
 
   // Если сотрудник привязан к филиалу/филиалам и это не админ — включаем ограничения
   const hasRestrictions = !isAdmin && allowedBranchNames.length > 0;
@@ -82,12 +76,10 @@ export function useManagerBranches() {
     );
   };
 
-  const managerBranches: ManagerBranch[] =
-    branchesFromTable.length > 0
-      ? userBranches.map((b) => ({ id: b.id, branch: b.branch }))
-      : branchFromProfile
-        ? [{ id: 'profile-branch', branch: branchFromProfile }]
-        : [];
+  const managerBranches: ManagerBranch[] = userBranches.map((b) => ({ 
+    id: b.id, 
+    branch: b.branch 
+  }));
 
   return {
     managerBranches,
