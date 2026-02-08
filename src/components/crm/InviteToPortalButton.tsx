@@ -16,12 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { UserPlus, Send, Loader2, CheckCircle, KeyRound, Clock, UserCheck, MessageCircle } from "lucide-react";
+import { UserPlus, Send, Loader2, CheckCircle, KeyRound, Clock, UserCheck, MessageCircle, Rocket } from "lucide-react";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { toast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
 import { selfHostedPost } from "@/lib/selfHostedApi";
+import { useAuth } from "@/hooks/useAuth";
 
 interface InviteToPortalButtonProps {
   clientId: string;
@@ -64,6 +65,9 @@ export const InviteToPortalButton = ({
   firstName,
   telegramUserId
 }: InviteToPortalButtonProps) => {
+  const { roles } = useAuth();
+  const isAdmin = roles.includes('admin');
+  
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [invitationStatus, setInvitationStatus] = useState<InvitationStatus>({ status: 'not_invited' });
@@ -428,18 +432,28 @@ export const InviteToPortalButton = ({
                     <p>Ссылка будет отправлена напрямую клиенту. Вы увидите только сокращённую ссылку.</p>
                   </div>
 
-                  <Button
-                    onClick={handleSendLoginLink}
-                    disabled={isLoading || (!phone && selectedMessenger !== 'telegram') || selectedMessenger === 'sms'}
-                    className={`w-full ${messengerColors[selectedMessenger]}`}
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Send className="h-4 w-4 mr-2" />
-                    )}
-                    Отправить в {messengerLabels[selectedMessenger]}
-                  </Button>
+                  {isAdmin ? (
+                    <Button
+                      onClick={handleSendLoginLink}
+                      disabled={isLoading || (!phone && selectedMessenger !== 'telegram') || selectedMessenger === 'sms'}
+                      className={`w-full ${messengerColors[selectedMessenger]}`}
+                    >
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Send className="h-4 w-4 mr-2" />
+                      )}
+                      Отправить в {messengerLabels[selectedMessenger]}
+                    </Button>
+                  ) : (
+                    <Button
+                      disabled
+                      className="w-full bg-muted text-muted-foreground cursor-not-allowed"
+                    >
+                      <Rocket className="h-4 w-4 mr-2" />
+                      Скоро будет активно
+                    </Button>
+                  )}
                 </>
               ) : (
                 <div className="space-y-4">
@@ -531,18 +545,28 @@ export const InviteToPortalButton = ({
                     <p className="text-muted-foreground">{phone || 'Не указан'}</p>
                   </div>
 
-                  <Button
-                    onClick={handleInvite}
-                    disabled={isLoading || (!phone && selectedMessenger !== 'telegram') || selectedMessenger === 'sms'}
-                    className={`w-full ${messengerColors[selectedMessenger]}`}
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Send className="h-4 w-4 mr-2" />
-                    )}
-                    Отправить в {messengerLabels[selectedMessenger]}
-                  </Button>
+                  {isAdmin ? (
+                    <Button
+                      onClick={handleInvite}
+                      disabled={isLoading || (!phone && selectedMessenger !== 'telegram') || selectedMessenger === 'sms'}
+                      className={`w-full ${messengerColors[selectedMessenger]}`}
+                    >
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Send className="h-4 w-4 mr-2" />
+                      )}
+                      Отправить в {messengerLabels[selectedMessenger]}
+                    </Button>
+                  ) : (
+                    <Button
+                      disabled
+                      className="w-full bg-muted text-muted-foreground cursor-not-allowed"
+                    >
+                      <Rocket className="h-4 w-4 mr-2" />
+                      Скоро будет активно
+                    </Button>
+                  )}
                 </>
               ) : (
                 <div className="space-y-4">
@@ -616,18 +640,28 @@ export const InviteToPortalButton = ({
                 <p className="text-muted-foreground">{phone || 'Не указан'}</p>
               </div>
 
-              <Button
-                onClick={handleInvite}
-                disabled={isLoading || (!phone && selectedMessenger !== 'telegram') || selectedMessenger === 'sms'}
-                className={`w-full ${messengerColors[selectedMessenger]}`}
-              >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <Send className="h-4 w-4 mr-2" />
-                )}
-                Отправить в {messengerLabels[selectedMessenger]}
-              </Button>
+              {isAdmin ? (
+                <Button
+                  onClick={handleInvite}
+                  disabled={isLoading || (!phone && selectedMessenger !== 'telegram') || selectedMessenger === 'sms'}
+                  className={`w-full ${messengerColors[selectedMessenger]}`}
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-2" />
+                  )}
+                  Отправить в {messengerLabels[selectedMessenger]}
+                </Button>
+              ) : (
+                <Button
+                  disabled
+                  className="w-full bg-muted text-muted-foreground cursor-not-allowed"
+                >
+                  <Rocket className="h-4 w-4 mr-2" />
+                  Скоро будет активно
+                </Button>
+              )}
 
               <p className="text-xs text-muted-foreground text-center">
                 Клиент получит ссылку для создания учётной записи в личном кабинете
