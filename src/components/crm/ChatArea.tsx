@@ -1331,8 +1331,8 @@ export const ChatArea = ({
       
       // Check which messenger tab is active and send via appropriate service
       if (activeMessengerTab === 'max') {
-        // Send via MAX - pass phoneNumber for teachers
-        const maxOptions = effectivePhone ? { phoneNumber: effectivePhone } : undefined;
+        // Send via MAX - pass phoneNumber and teacherId for teachers
+        const maxOptions = effectivePhone ? { phoneNumber: effectivePhone, teacherId: actualTeacherId } : undefined;
         
         if (filesToSend.length > 0) {
           for (const file of filesToSend) {
@@ -1401,8 +1401,8 @@ export const ChatArea = ({
           }
         }
       } else if (activeMessengerTab === 'telegram') {
-        // Send via Telegram - pass phoneNumber for teachers
-        const telegramOptions = effectivePhone ? { phoneNumber: effectivePhone } : undefined;
+        // Send via Telegram - pass phoneNumber and teacherId for teachers
+        const telegramOptions = effectivePhone ? { phoneNumber: effectivePhone, teacherId: actualTeacherId } : undefined;
         
         if (filesToSend.length > 0) {
           for (const file of filesToSend) {

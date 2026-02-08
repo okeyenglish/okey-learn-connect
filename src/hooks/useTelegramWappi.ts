@@ -146,7 +146,7 @@ export const useTelegramWappi = () => {
     fileUrl?: string,
     fileName?: string,
     fileType?: string,
-    options?: { phoneNumber?: string; chatId?: string }
+    options?: { phoneNumber?: string; chatId?: string; teacherId?: string }
   ): Promise<{ success: boolean; messageId?: string }> => {
     // Deterministic key (no Date.now) so double-triggers within a short window are deduped
     const messageKey = `${clientId}::${options?.phoneNumber || options?.chatId || ''}::${text}::${fileUrl || ''}::${fileName || ''}`;
@@ -201,6 +201,7 @@ export const useTelegramWappi = () => {
         : normalizedPhone.length >= 10
           ? {
               phoneNumber: normalizedPhone,
+              teacherId: options?.teacherId,
               message: text,
               // legacy keys for compatibility
               text,
