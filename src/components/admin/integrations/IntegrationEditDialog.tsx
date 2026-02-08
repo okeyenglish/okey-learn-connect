@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Loader2, Save, Copy, ExternalLink } from 'lucide-react';
 import { useMessengerIntegrations, MessengerIntegration, MessengerType, CreateIntegrationPayload, UpdateIntegrationPayload } from '@/hooks/useMessengerIntegrations';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SettingsFieldConfig } from './IntegrationsList';
 import { cn } from '@/lib/utils';
@@ -84,7 +85,7 @@ export const IntegrationEditDialog: React.FC<IntegrationEditDialogProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim()) {
       toast({
         title: 'Ошибка',
@@ -116,6 +117,40 @@ export const IntegrationEditDialog: React.FC<IntegrationEditDialogProps> = ({
         };
         await createIntegration(payload);
       }
+
+      // Auto-register webhook in Wappi for Telegram (Wappi) integrations
+      if (messengerType === 'telegram' && formData.provider === 'wappi') {
+        const profileId = (formData.settings?.profileId || '').trim();
+        const apiToken = (formData.settings?.apiToken || '').trim();
+
+        if (profileId && apiToken && !apiToken.startsWith('••')) {
+          const { data, error } = await supabase.functions.invoke('wappi-telegram-webhook-register', {
+            body: { profileId, apiToken },
+          });
+
+          const success = !error && (data as any)?.success !== false;
+
+          if (success) {
+            toast({
+              title: 'Webhook настроен',
+              description: 'Webhook автоматически зарегистрирован в Wappi',
+            });
+          } else {
+            toast({
+              title: 'Webhook не настроен',
+              description: (error as any)?.message || (data as any)?.error || 'Не удалось зарегистрировать webhook в Wappi',
+              variant: 'destructive',
+            });
+          }
+        } else {
+          // Editing often returns masked tokens — in that case we cannot auto-register.
+          toast({
+            title: 'Webhook: пропущено',
+            description: 'Для автонастройки в Wappi укажите Profile ID и заново введите API Token',
+          });
+        }
+      }
+
       onOpenChange(false);
     } catch (error) {
       // Error is handled in the hook
