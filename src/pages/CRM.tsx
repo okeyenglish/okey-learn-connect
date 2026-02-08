@@ -2216,14 +2216,27 @@ const CRMContent = () => {
             </TabsList>
             
             <TabsContent value="menu" className="mt-0 flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col">
+              {/* Плашка "Скоро" для не-админов */}
+              {!isAdmin && (
+                <div className="mx-2 mt-2 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                  <div className="flex items-center gap-2 text-primary">
+                    <span className="text-lg">🚀</span>
+                    <div>
+                      <p className="font-medium text-sm">Скоро</p>
+                      <p className="text-xs text-muted-foreground">Меню будет доступно всем пользователям</p>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="p-2 space-y-1 overflow-y-auto flex-1">
                 {menuItems.map((item, index) => (
                   'isAction' in item && item.isAction ? (
                     // Simple action button (opens modal directly without Dialog wrapper)
                     <button
                       key={index}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/30 transition-colors text-left"
-                      onClick={() => handleMenuClick(item.label)}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left ${isAdmin ? 'hover:bg-muted/30 cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+                      onClick={() => isAdmin && handleMenuClick(item.label)}
+                      disabled={!isAdmin}
                     >
                       <item.icon className="h-4 w-4 shrink-0 text-muted-foreground stroke-1" />
                       <span className="text-sm flex-1 text-foreground">
@@ -2235,8 +2248,15 @@ const CRMContent = () => {
                   <Dialog key={index} open={openModal === item.label} onOpenChange={(open) => !open && handleMenuModalClose()}>
                     <DialogTrigger asChild>
                       <button
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/30 transition-colors text-left"
-                        onClick={() => handleMenuClick(item.label)}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left ${isAdmin ? 'hover:bg-muted/30 cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+                        onClick={(e) => {
+                          if (!isAdmin) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            return;
+                          }
+                          handleMenuClick(item.label);
+                        }}
                       >
                         <item.icon className="h-4 w-4 shrink-0 text-muted-foreground stroke-1" />
                 <span className="text-sm flex-1 text-foreground">
@@ -3747,11 +3767,24 @@ const CRMContent = () => {
           {/* Показываем меню на мобильной версии когда активна вкладка menu */}
           {isMobile && activeTab === 'menu' ? (
             <div className="p-4 space-y-2 overflow-y-auto">
+              {/* Плашка "Скоро" для не-админов */}
+              {!isAdmin && (
+                <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg mb-4">
+                  <div className="flex items-center gap-2 text-primary">
+                    <span className="text-lg">🚀</span>
+                    <div>
+                      <p className="font-medium text-sm">Скоро</p>
+                      <p className="text-xs text-muted-foreground">Меню будет доступно всем пользователям</p>
+                    </div>
+                  </div>
+                </div>
+              )}
               {menuItems.map((item, index) => (
                 <button
                   key={index}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left border bg-card"
-                  onClick={() => handleMenuClick(item.label)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left border bg-card ${isAdmin ? 'hover:bg-muted cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+                  onClick={() => isAdmin && handleMenuClick(item.label)}
+                  disabled={!isAdmin}
                 >
                   <item.icon className="h-5 w-5 shrink-0 text-primary" />
                   <span className="text-sm flex-1 font-medium">
