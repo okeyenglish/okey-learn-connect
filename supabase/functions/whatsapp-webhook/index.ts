@@ -104,25 +104,85 @@ async function resolveOrganizationIdFromWebhook(webhook: GreenAPIWebhook): Promi
   return (data.organization_id as string | null) ?? null;
 }
 
+/**
+ * Resolve organization by webhook_key from URL path or query param
+ * Supports: /whatsapp-webhook/{key} or /whatsapp-webhook?key={key}
+ */
+async function resolveOrganizationByWebhookKey(req: Request): Promise<{ organizationId: string; integrationId: string } | null> {
+  const url = new URL(req.url);
+  
+  // Try path-based key first: /whatsapp-webhook/{key}
+  const pathParts = url.pathname.split('/');
+  let webhookKey = pathParts[pathParts.length - 1];
+  
+  // If path key looks like function name, try query param
+  if (webhookKey === 'whatsapp-webhook' || !webhookKey || webhookKey.length < 10) {
+    webhookKey = url.searchParams.get('key') || '';
+  }
+  
+  if (!webhookKey || webhookKey.length < 10) {
+    return null;
+  }
+  
+  console.log('[whatsapp-webhook] Looking up by webhook_key:', webhookKey);
+  
+  const { data: integration, error } = await supabase
+    .from('messenger_integrations')
+    .select('organization_id, id')
+    .eq('webhook_key', webhookKey)
+    .eq('messenger_type', 'whatsapp')
+    .eq('provider', 'green_api')
+    .eq('is_enabled', true)
+    .maybeSingle();
+  
+  if (error) {
+    console.error('[whatsapp-webhook] Error looking up by webhook_key:', error);
+    return null;
+  }
+  
+  if (integration) {
+    console.log('[whatsapp-webhook] ✓ Found organization by webhook_key:', integration.organization_id);
+    return { 
+      organizationId: integration.organization_id as string,
+      integrationId: integration.id as string
+    };
+  }
+  
+  return null;
+}
+
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
   try {
     const webhook: GreenAPIWebhook = await req.json()
-    console.log('Received webhook:', JSON.stringify(webhook, null, 2))
+    console.log('[whatsapp-webhook] Received webhook:', JSON.stringify(webhook, null, 2))
 
     // Validate required webhook fields early
     if (!webhook.instanceData?.idInstance) {
       console.log('[whatsapp-webhook] Invalid payload - missing instanceData.idInstance');
-      return new Response(JSON.stringify({ status: 'ignored', reason: 'invalid payload' }), {
+      return new Response(JSON.stringify({ success: true, status: 'ignored', reason: 'invalid payload' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Resolve organization_id from instanceId in webhook
-    const organizationId = await resolveOrganizationIdFromWebhook(webhook)
-    console.log('Resolved organization_id:', organizationId)
+    // PRIORITY 1: Try to resolve organization by webhook_key from URL
+    let organizationId: string | null = null;
+    let integrationId: string | null = null;
+    
+    const keyResult = await resolveOrganizationByWebhookKey(req);
+    if (keyResult) {
+      organizationId = keyResult.organizationId;
+      integrationId = keyResult.integrationId;
+      console.log('[whatsapp-webhook] Resolved via webhook_key:', { organizationId, integrationId });
+    }
+    
+    // PRIORITY 2: Fallback to resolving by instanceId in webhook body
+    if (!organizationId) {
+      organizationId = await resolveOrganizationIdFromWebhook(webhook);
+      console.log('[whatsapp-webhook] Resolved via instanceId:', organizationId);
+    }
 
     // Сохраняем webhook в лог для отладки
     await supabase.from('webhook_logs').insert({
