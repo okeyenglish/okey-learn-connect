@@ -1,50 +1,78 @@
 
-## План: Добавить "Настройки бонусов" в Админ-панель
 
-### Что нужно сделать
+## План исправления: Диалоги преподавателей не загружаются
 
-Добавить новый пункт меню "Настройки бонусов" в боковое меню Админ-панели, чтобы администраторы могли редактировать условия бонусов прямо из панели управления.
+### Диагностика
 
-### Изменения
+Выявлена корневая причина проблемы:
 
-#### 1. AdminSidebar.tsx — добавить пункт в меню
+1. **Сообщения преподавателей хранятся с `teacher_id`** в таблице `chat_messages` (новая архитектура self-hosted)
+2. **Запросы сообщений ищут по `client_id`** (legacy архитектура), когда у преподавателя есть привязанный клиент
+3. **Результат**: Запрос возвращает 0 сообщений → UI показывает "Проверка наличия WhatsApp..." вместо диалога
 
-Добавить новый элемент в массив `adminItems`:
+### Техническая причина
 
-```typescript
-{ title: "Настройки бонусов", id: "bonus-settings", icon: Gift }
-```
-
-Разместить рядом с другими настройками (например, после "KPI менеджеров" или в конце списка перед "Settings").
-
-Также добавить импорт иконки `Gift` из lucide-react.
-
-#### 2. AdminDashboard.tsx — добавить обработчик секции
-
-В switch-case функции `renderContent()` добавить новый case:
+В файле `src/components/crm/TeacherChatArea.tsx` строка 109:
 
 ```typescript
-case "bonus-settings":
-  return <BonusSettingsPage />;
+clientId: teacher.clientId || (conv.lastMessageTime ? `teacher:${teacher.id}` : null),
 ```
 
-Добавить импорт компонента `BonusSettingsPage` из `@/components/employees/BonusSettingsPage`.
+**Проблема**: Приоритет отдаётся `teacher.clientId` (обычный UUID от legacy системы). Маркер `teacher:xxx` используется только когда `clientId` отсутствует.
 
-#### 3. permissions.ts — добавить в типы (опционально)
+Когда `ChatArea` получает обычный UUID:
+- `isDirectTeacherMessage = false` (не начинается с `teacher:`)
+- Используется хук `useTeacherChatMessagesByClientId` который ищет по `client_id`
+- Сообщения хранятся с `teacher_id`, не `client_id`
+- Запрос возвращает пустой массив
 
-Добавить `'bonus-settings'` в тип `AdminSectionId` для типобезопасности.
+### Решение
 
-### Результат
+Изменить логику в `TeacherChatArea.tsx` чтобы **приоритизировать маркер `teacher:xxx`** когда есть сообщения по `teacher_id`:
 
-После применения изменений:
-- В боковом меню Админ-панели появится пункт "Настройки бонусов"
-- При клике откроется страница редактирования условий бонусов
-- Доступ будет только у администраторов (как и остальные пункты меню)
+```typescript
+// Строка 109 - БЫЛО:
+clientId: teacher.clientId || (conv.lastMessageTime ? `teacher:${teacher.id}` : null),
+
+// СТАНЕТ:
+clientId: conv?.lastMessageTime 
+  ? `teacher:${teacher.id}`  // Приоритет: если есть сообщения по teacher_id, используем маркер
+  : teacher.clientId || null,  // Fallback: legacy clientId
+```
 
 ### Файлы для изменения
 
 | Файл | Изменение |
 |------|-----------|
-| `src/components/admin/AdminSidebar.tsx` | Добавить пункт меню + импорт Gift |
-| `src/components/admin/AdminDashboard.tsx` | Добавить case + импорт BonusSettingsPage |
-| `src/lib/permissions.ts` | Добавить 'bonus-settings' в AdminSectionId |
+| `src/components/crm/TeacherChatArea.tsx` | Изменить логику приоритета clientId на строке 109 |
+
+### Дополнительные проверки
+
+Также нужно убедиться, что:
+1. Маркер `teacher:xxx` **не начинается с undefined** когда `teacher.id` отсутствует
+2. Логика `resolve()` в useEffect (строки 214-283) корректно обрабатывает оба случая
+
+### Изменения в resolve() функции
+
+Текущая логика:
+```typescript
+if (teacher.clientId) {
+  if (teacher.clientId.startsWith('teacher:')) {
+    // Маркер - работает правильно
+  }
+  // Обычный UUID - использует legacy путь
+  setResolvedClientId(teacher.clientId);
+  return;
+}
+```
+
+Эта логика уже правильно обрабатывает маркер `teacher:xxx`, если он передан. Проблема только в том, что маркер не передаётся из-за неправильного приоритета в `teachersWithMessages`.
+
+### Результат после исправления
+
+1. Преподаватели с сообщениями по `teacher_id` получат `clientId = 'teacher:xxx'`
+2. `ChatArea` определит `isDirectTeacherMessage = true`
+3. Будет использован хук `useTeacherChatMessagesByTeacherId` 
+4. Запрос пойдёт по `teacher_id` и вернёт сообщения
+5. Диалог загрузится корректно
+
