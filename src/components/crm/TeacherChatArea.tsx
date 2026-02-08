@@ -106,7 +106,10 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
             ? new Date(conv.lastMessageTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
             : teacher.lastSeen,
           // Set a special marker for direct teacher_id messages
-          clientId: teacher.clientId || (conv.lastMessageTime ? `teacher:${teacher.id}` : null),
+          // PRIORITY: If teacher has messages via teacher_id, always use the marker
+          clientId: conv.lastMessageTime 
+            ? `teacher:${teacher.id}` 
+            : (teacher.clientId || null),
         };
       }
       return teacher;
