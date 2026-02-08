@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface StaffGroupChat {
   id: string;
@@ -46,12 +47,29 @@ export interface StaffGroupMember {
 // Default organization ID for the main organization (self-hosted)
 const DEFAULT_ORGANIZATION_ID = '00000000-0000-0000-0000-000000000001';
 
+async function fetchGroupsDirectly(organizationId: string): Promise<StaffGroupChat[]> {
+  const { data, error } = await (supabase as any)
+    .from('staff_group_chats')
+    .select('id, name, description, organization_id, branch_id, branch_name, is_branch_group, created_by, created_at, updated_at')
+    .eq('organization_id', organizationId)
+    .order('is_branch_group', { ascending: false })
+    .order('branch_name', { ascending: true })
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('[useStaffGroupChats] Direct fetch error:', error);
+    return [];
+  }
+
+  return (data || []) as StaffGroupChat[];
+}
+
 export const useStaffGroupChats = () => {
   const { user, profile } = useAuth();
-  
+
   // Use profile's organization_id with fallback to default
   const organizationId = profile?.organization_id ?? DEFAULT_ORGANIZATION_ID;
-  
+
   return useQuery({
     queryKey: ['staff-group-chats', organizationId, user?.id],
     queryFn: async () => {
@@ -60,30 +78,38 @@ export const useStaffGroupChats = () => {
         profileOrgId: profile?.organization_id,
         effectiveOrgId: organizationId,
       });
-      
+
       if (!user?.id) {
         console.log('[useStaffGroupChats] Missing user:', { userId: user?.id });
         return [];
       }
-      
+
+      // 1) Основной путь: self-hosted function (если развернута)
       const response = await selfHostedPost<{ groups: StaffGroupChat[] }>('get-staff-group-chats', {
         organization_id: organizationId,
         user_id: user.id,
       });
-      
+
       console.log('[useStaffGroupChats] Response:', {
         success: response.success,
         groupCount: response.data?.groups?.length || 0,
         error: response.error,
         status: (response as any).status,
       });
-      
-      if (!response.success) {
-        console.error('[useStaffGroupChats] Error:', response.error);
-        toast.error(`Не удалось загрузить группы: ${response.error || 'Ошибка сервера'}`);
-        return [];
+
+      // 2) Fallback: если функция недоступна/возвращает пусто — читаем таблицу напрямую
+      if (!response.success || (response.data?.groups?.length || 0) === 0) {
+        const directGroups = await fetchGroupsDirectly(organizationId);
+        if (directGroups.length > 0) return directGroups;
+
+        if (!response.success) {
+          console.error('[useStaffGroupChats] Error:', response.error);
+          toast.error(`Не удалось загрузить группы: ${response.error || 'Ошибка сервера'}`);
+        }
+
+        return directGroups;
       }
-      
+
       return response.data?.groups || [];
     },
     enabled: !!user?.id,
