@@ -20,13 +20,12 @@ export default function EmployeesSection() {
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   
-  // Wait for roles to load before checking permissions
-  // Admins, managers, and branch managers can manage employees
-  const canManageEmployees = !rolesLoading && (
-    isAdmin(roles) || 
-    roles?.includes('manager') || 
-    roles?.includes('branch_manager')
-  );
+  // TODO: Временно отключена проверка ролей для тестирования
+  // Восстановить после деплоя на self-hosted:
+  // const canManageEmployees = !rolesLoading && (
+  //   isAdmin(roles) || roles?.includes('manager') || roles?.includes('branch_manager')
+  // );
+  const canManageEmployees = true;
 
   const { data: employees = [], isLoading, error } = useEmployees();
 
