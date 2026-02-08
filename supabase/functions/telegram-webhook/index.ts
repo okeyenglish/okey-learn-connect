@@ -82,6 +82,28 @@ Deno.serve(async (req) => {
       ? ((payload as any).messages as TelegramWappiMessage[])
       : ((payload as any)?.wh_type ? [payload as TelegramWappiMessage] : []);
 
+    // === DIAGNOSTIC LOGGING ===
+    // Log every webhook call for debugging (fire-and-forget)
+    const payloadProfileId = messages[0]?.profile_id || (payload as any)?.profile_id;
+    supabase.from('webhook_logs').insert({
+      messenger_type: 'telegram',
+      event_type: 'webhook-received',
+      webhook_data: {
+        url: url.toString(),
+        queryProfileId,
+        pathProfileId,
+        urlProfileId,
+        isValidUrlProfileId,
+        payloadProfileId,
+        messagesCount: messages.length,
+        whTypes: messages.map((m: any) => m.wh_type),
+        timestamp: new Date().toISOString(),
+      },
+      processed: false,
+    }).then(({ error }) => {
+      if (error) console.error('[telegram-webhook] Failed to log webhook:', error.message);
+    });
+
     if (!messages.length) {
       console.log('[telegram-webhook] No messages in webhook payload');
       return new Response(

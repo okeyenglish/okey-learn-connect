@@ -15,7 +15,8 @@ import {
   Send,
   MoreVertical,
   Check,
-  AlertCircle
+  AlertCircle,
+  Wifi
 } from 'lucide-react';
 import { useMessengerIntegrations, MessengerIntegration, MessengerType } from '@/hooks/useMessengerIntegrations';
 import { useToast } from '@/hooks/use-toast';
@@ -93,6 +94,50 @@ export const IntegrationsList: React.FC<IntegrationsListProps> = ({
   const [editingIntegration, setEditingIntegration] = useState<MessengerIntegration | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [testingWebhookId, setTestingWebhookId] = useState<string | null>(null);
+
+  // Test webhook endpoint for Telegram Wappi integrations
+  const handleTestWebhook = async (integration: MessengerIntegration) => {
+    const profileId = integration.settings?.profileId as string | undefined;
+    
+    if (!profileId) {
+      toast({
+        title: 'Ошибка',
+        description: 'Profile ID не задан в настройках интеграции',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setTestingWebhookId(integration.id);
+
+    try {
+      const webhookUrl = `https://api.academyos.ru/functions/v1/telegram-webhook?profile_id=${encodeURIComponent(profileId)}`;
+      const res = await fetch(webhookUrl, { method: 'GET' });
+      const data = await res.json();
+
+      if (data.ok) {
+        toast({
+          title: '✅ Webhook доступен',
+          description: `Endpoint отвечает. Profile ID: ${data.profileId || profileId}`,
+        });
+      } else {
+        toast({
+          title: 'Проблема с webhook',
+          description: JSON.stringify(data),
+          variant: 'destructive',
+        });
+      }
+    } catch (e: any) {
+      toast({
+        title: '❌ Webhook недоступен',
+        description: e.message || 'Не удалось подключиться к endpoint',
+        variant: 'destructive',
+      });
+    } finally {
+      setTestingWebhookId(null);
+    }
+  };
 
   const handleCopyWebhook = (integration: MessengerIntegration) => {
     const url = getWebhookUrl(integration);
@@ -220,6 +265,20 @@ export const IntegrationsList: React.FC<IntegrationsListProps> = ({
                         <Copy className="h-4 w-4 mr-2" />
                         Копировать Webhook
                       </DropdownMenuItem>
+                      {/* Show "Test Webhook" for Telegram Wappi integrations */}
+                      {integration.messenger_type === 'telegram' && integration.provider === 'wappi' && (
+                        <DropdownMenuItem 
+                          onClick={() => handleTestWebhook(integration)}
+                          disabled={testingWebhookId === integration.id}
+                        >
+                          {testingWebhookId === integration.id ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Wifi className="h-4 w-4 mr-2" />
+                          )}
+                          Проверить Webhook
+                        </DropdownMenuItem>
+                      )}
                       {!integration.is_primary && (
                         <DropdownMenuItem onClick={() => handleSetPrimary(integration.id)}>
                           <Star className="h-4 w-4 mr-2" />
