@@ -15,6 +15,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { PushSubscriptionPrompt } from "@/components/notifications/PushSubscriptionPrompt";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { PWAUpdateBanner } from "@/components/pwa/PWAUpdateBanner";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Disable pinch-to-zoom and double-tap zoom on iOS Safari
 const useDisableMobileZoom = () => {
@@ -634,24 +635,26 @@ const App = () => {
   useDisableMobileZoom();
   
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <RealtimeAvatarsProvider>
-          <LanguageProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
-                <ScrollToTop />
-                <AppContent />
-                <PushSubscriptionPrompt />
-                <PWAUpdateBanner />
-              </BrowserRouter>
-            </TooltipProvider>
-          </LanguageProvider>
-        </RealtimeAvatarsProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <RealtimeAvatarsProvider>
+            <LanguageProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
+                  <ScrollToTop />
+                  <AppContent />
+                  <PushSubscriptionPrompt />
+                  <PWAUpdateBanner />
+                </BrowserRouter>
+              </TooltipProvider>
+            </LanguageProvider>
+          </RealtimeAvatarsProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 
