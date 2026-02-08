@@ -243,8 +243,17 @@ export const useTelegramWappi = () => {
   }, [toast, retryStatus]);
 
   const getWebhookUrl = useCallback((): string => {
+    // Return webhookUrl from settings if available (includes profile_id)
+    if (settings?.webhookUrl) {
+      return settings.webhookUrl;
+    }
+    // Fallback: generate with profile_id if available
+    if (settings?.profileId) {
+      return `${SELF_HOSTED_API}/telegram-webhook?profile_id=${settings.profileId}`;
+    }
+    // Base fallback without profile_id
     return `${SELF_HOSTED_API}/telegram-webhook`;
-  }, []);
+  }, [settings]);
 
   useEffect(() => {
     fetchSettings();
