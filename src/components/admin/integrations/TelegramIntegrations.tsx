@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, Plus, Star, MoreVertical, Settings2, Copy, Trash2, AlertCircle, Loader2 } from 'lucide-react';
+import { Send, Plus, Star, MoreVertical, Settings2, Copy, Trash2, AlertCircle, Loader2, Wifi } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -84,6 +84,50 @@ export const TelegramIntegrations: React.FC = () => {
   const [isCrmConnectOpen, setIsCrmConnectOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
+  const [testingWebhookId, setTestingWebhookId] = useState<string | null>(null);
+
+  // Test webhook endpoint for Wappi integrations
+  const handleTestWebhook = async (integration: MessengerIntegration) => {
+    const profileId = integration.settings?.profileId as string | undefined;
+    
+    if (!profileId) {
+      toast({
+        title: 'Ошибка',
+        description: 'Profile ID не задан в настройках интеграции',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setTestingWebhookId(integration.id);
+
+    try {
+      const webhookUrl = `https://api.academyos.ru/functions/v1/telegram-webhook?profile_id=${encodeURIComponent(profileId)}`;
+      const res = await fetch(webhookUrl, { method: 'GET' });
+      const data = await res.json();
+
+      if (data.ok) {
+        toast({
+          title: '✅ Webhook доступен',
+          description: `Endpoint отвечает. Profile ID: ${data.profileId || profileId}`,
+        });
+      } else {
+        toast({
+          title: 'Проблема с webhook',
+          description: JSON.stringify(data),
+          variant: 'destructive',
+        });
+      }
+    } catch (e: any) {
+      toast({
+        title: '❌ Webhook недоступен',
+        description: e.message || 'Не удалось подключиться к endpoint',
+        variant: 'destructive',
+      });
+    } finally {
+      setTestingWebhookId(null);
+    }
+  };
 
   const handleCopyWebhook = (integration: MessengerIntegration) => {
     const url = getWebhookUrl(integration);
@@ -240,6 +284,20 @@ export const TelegramIntegrations: React.FC = () => {
                         <Copy className="h-4 w-4 mr-2" />
                         Копировать Webhook
                       </DropdownMenuItem>
+                      {/* Test Webhook button for Wappi integrations */}
+                      {integration.provider === 'wappi' && (
+                        <DropdownMenuItem 
+                          onClick={() => handleTestWebhook(integration)}
+                          disabled={testingWebhookId === integration.id}
+                        >
+                          {testingWebhookId === integration.id ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Wifi className="h-4 w-4 mr-2" />
+                          )}
+                          Проверить Webhook
+                        </DropdownMenuItem>
+                      )}
                       {!integration.is_primary && (
                         <DropdownMenuItem onClick={() => setPrimary(integration.id)}>
                           <Star className="h-4 w-4 mr-2" />
