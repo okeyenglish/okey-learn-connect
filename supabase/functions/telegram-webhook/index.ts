@@ -62,9 +62,10 @@ Deno.serve(async (req) => {
     );
   } catch (error: unknown) {
     console.error('Telegram webhook error:', error);
+    // Return 200 to prevent retry storms from Wappi
     return new Response(
-      JSON.stringify({ error: getErrorMessage(error) }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: true, status: 'error', error: getErrorMessage(error) }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
@@ -73,50 +74,70 @@ async function resolveOrganizationByTelegramProfileId(
   supabase: any,
   profileId: string
 ): Promise<{ organizationId: string } | null> {
-  // Prefer new multi-account integrations (messenger_integrations) if available
+  console.log('[telegram-webhook] Resolving organization for profile_id:', profileId);
+  
+  // PRIORITY 1: Try messenger_integrations table first (new multi-account system)
   try {
-    const { data: integration, error } = await supabase
+    // Don't use .eq('provider', 'wappi') - column may not exist on self-hosted
+    const { data: integrations, error } = await supabase
       .from('messenger_integrations')
-      .select('organization_id, is_enabled')
-      .eq('messenger_type', 'telegram')
-      .eq('provider', 'wappi')
-      .eq('settings->>profileId', profileId)
-      .maybeSingle();
+      .select('organization_id, is_enabled, settings')
+      .eq('messenger_type', 'telegram');
 
-    if (!error && integration) {
-      if (!integration.is_enabled) {
-        console.log('[telegram-webhook] Telegram Wappi integration disabled for org:', integration.organization_id);
-        return null;
+    if (!error && integrations && integrations.length > 0) {
+      for (const integration of integrations) {
+        const storedProfileId = integration.settings?.profileId || integration.settings?.wappiProfileId;
+        if (String(storedProfileId) === String(profileId)) {
+          if (!integration.is_enabled) {
+            console.log('[telegram-webhook] Integration disabled for org:', integration.organization_id);
+            return null;
+          }
+          console.log('[telegram-webhook] Found org via messenger_integrations:', integration.organization_id);
+          return { organizationId: integration.organization_id };
+        }
       }
-      return { organizationId: integration.organization_id };
     }
 
     if (error) {
-      console.warn('[telegram-webhook] messenger_integrations lookup failed, falling back to messenger_settings:', error);
+      console.warn('[telegram-webhook] messenger_integrations lookup failed:', error.message);
     }
   } catch (e) {
-    console.warn('[telegram-webhook] messenger_integrations lookup threw, falling back to messenger_settings:', e);
+    console.warn('[telegram-webhook] messenger_integrations lookup threw:', e);
   }
 
-  // Legacy fallback: messenger_settings
-  const { data: settings, error: settingsError } = await supabase
-    .from('messenger_settings')
-    .select('organization_id, is_enabled')
-    .eq('messenger_type', 'telegram')
-    .eq('settings->>profileId', profileId)
-    .maybeSingle();
+  // PRIORITY 2: Legacy fallback - scan messenger_settings (self-hosted compatible)
+  try {
+    const { data: allSettings, error: settingsError } = await supabase
+      .from('messenger_settings')
+      .select('organization_id, is_enabled, settings')
+      .eq('messenger_type', 'telegram');
 
-  if (settingsError || !settings) {
-    console.error('[telegram-webhook] Organization not found for profile_id:', profileId, settingsError);
-    return null;
+    if (settingsError) {
+      console.error('[telegram-webhook] messenger_settings query error:', settingsError.message);
+      return null;
+    }
+
+    if (allSettings && allSettings.length > 0) {
+      for (const setting of allSettings) {
+        const settingsObj = setting.settings || {};
+        // Check multiple possible field names
+        const storedProfileId = settingsObj.profileId || settingsObj.wappiProfileId || settingsObj.profile_id;
+        if (String(storedProfileId) === String(profileId)) {
+          if (!setting.is_enabled) {
+            console.log('[telegram-webhook] Integration disabled for org:', setting.organization_id);
+            return null;
+          }
+          console.log('[telegram-webhook] Found org via messenger_settings:', setting.organization_id);
+          return { organizationId: setting.organization_id };
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[telegram-webhook] messenger_settings scan threw:', e);
   }
 
-  if (!settings.is_enabled) {
-    console.log('[telegram-webhook] Telegram integration is disabled for organization:', settings.organization_id);
-    return null;
-  }
-
-  return { organizationId: settings.organization_id };
+  console.error('[telegram-webhook] Organization not found for profile_id:', profileId);
+  return null;
 }
 
 async function processMessage(supabase: any, message: TelegramWappiMessage, fallbackProfileId: string | null): Promise<void> {
