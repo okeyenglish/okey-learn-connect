@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { selfHostedGet, selfHostedPost, selfHostedPut, selfHostedDelete } from '@/lib/selfHostedApi';
 import { useToast } from '@/hooks/use-toast';

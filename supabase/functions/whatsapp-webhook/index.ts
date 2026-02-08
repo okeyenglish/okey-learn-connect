@@ -152,153 +152,213 @@ async function resolveOrganizationByWebhookKey(req: Request): Promise<{ organiza
 }
 
 Deno.serve(async (req) => {
-  console.log(`[whatsapp-webhook] ${req.method} request from ${req.headers.get('user-agent')?.substring(0, 50) || 'unknown'}`);
-  
-  const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
+  console.log(
+    `[whatsapp-webhook] ${req.method} ${req.url} ua=${(req.headers.get('user-agent') || 'unknown').substring(0, 80)}`,
+  )
+
+  const corsResponse = handleCors(req)
+  if (corsResponse) return corsResponse
 
   // Handle non-POST requests gracefully (GreenAPI may send GET for health checks)
   if (req.method !== 'POST') {
-    console.log('[whatsapp-webhook] Non-POST request, returning OK');
+    console.log('[whatsapp-webhook] Non-POST request, returning OK')
     return new Response(JSON.stringify({ success: true, status: 'ok', method: req.method }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    })
   }
 
   try {
     // Try to parse JSON body
-    let webhook: GreenAPIWebhook;
+    let webhook: GreenAPIWebhook
     try {
-      const rawBody = await req.text();
-      console.log('[whatsapp-webhook] Raw body length:', rawBody.length);
-      
+      const rawBody = await req.text()
+      console.log('[whatsapp-webhook] Raw body length:', rawBody.length)
+
       if (!rawBody || rawBody.trim() === '') {
-        console.log('[whatsapp-webhook] Empty body received');
+        console.log('[whatsapp-webhook] Empty body received')
         return new Response(JSON.stringify({ success: true, status: 'ignored', reason: 'empty body' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        })
       }
-      
-      webhook = JSON.parse(rawBody);
+
+      webhook = JSON.parse(rawBody)
     } catch (parseError) {
-      console.error('[whatsapp-webhook] JSON parse error:', parseError);
+      console.error('[whatsapp-webhook] JSON parse error:', parseError)
       return new Response(JSON.stringify({ success: true, status: 'ignored', reason: 'invalid json' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      })
     }
-    
-    console.log('[whatsapp-webhook] Received webhook:', JSON.stringify(webhook, null, 2))
+
+    console.log('[whatsapp-webhook] Received webhook type:', webhook.typeWebhook)
 
     // Validate required webhook fields early
-    if (!webhook.instanceData?.idInstance) {
-      console.log('[whatsapp-webhook] Invalid payload - missing instanceData.idInstance');
+    const instanceIdRaw = webhook.instanceData?.idInstance as any
+    const instanceId = instanceIdRaw !== undefined && instanceIdRaw !== null ? String(instanceIdRaw) : null
+
+    if (!instanceId) {
+      console.log('[whatsapp-webhook] Invalid payload - missing instanceData.idInstance')
       return new Response(JSON.stringify({ success: true, status: 'ignored', reason: 'invalid payload' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      })
     }
 
     // PRIORITY 1: Try to resolve organization by webhook_key from URL
-    let organizationId: string | null = null;
-    let integrationId: string | null = null;
-    
-    const keyResult = await resolveOrganizationByWebhookKey(req);
+    let organizationId: string | null = null
+    let integrationId: string | null = null
+
+    const keyResult = await resolveOrganizationByWebhookKey(req)
     if (keyResult) {
-      organizationId = keyResult.organizationId;
-      integrationId = keyResult.integrationId;
-      console.log('[whatsapp-webhook] Resolved via webhook_key:', { organizationId, integrationId });
+      organizationId = keyResult.organizationId
+      integrationId = keyResult.integrationId
+      console.log('[whatsapp-webhook] Resolved via webhook_key:', { organizationId, integrationId })
     }
-    
+
     // PRIORITY 2: Fallback to resolving by instanceId in webhook body
     if (!organizationId) {
-      organizationId = await resolveOrganizationIdFromWebhook(webhook);
-      console.log('[whatsapp-webhook] Resolved via instanceId:', organizationId);
+      organizationId = await resolveOrganizationIdFromWebhook(webhook)
+      console.log('[whatsapp-webhook] Resolved via instanceId:', organizationId)
     }
 
-    // Сохраняем webhook в лог для отладки
-    await supabase.from('webhook_logs').insert({
-      messenger_type: 'whatsapp',
-      event_type: webhook.typeWebhook,
-      webhook_data: webhook,
-      processed: false
-    })
+    // Save raw webhook for debugging (should not break processing)
+    try {
+      await supabase.from('webhook_logs').insert({
+        messenger_type: 'whatsapp',
+        event_type: webhook.typeWebhook,
+        webhook_data: webhook,
+        processed: false,
+      })
+    } catch (logError) {
+      console.error('[whatsapp-webhook] Failed to save webhook_logs:', logError)
+    }
 
-    // Обрабатываем разные типы webhook событий
-    switch (webhook.typeWebhook) {
-      case 'incomingMessageReceived':
-        await handleIncomingMessage(webhook, organizationId)
-        break
-      
-      case 'outgoingMessageStatus':
-        await handleMessageStatus(webhook)
-        break
-        
-      case 'outgoingMessageReceived':
-      case 'outgoingAPIMessageReceived':
-        await handleOutgoingMessage(webhook, organizationId)
-        break
-        
-      case 'stateInstanceChanged':
-        await handleStateChange(webhook)
-        break
-        
+    const orgRequiredEvents = new Set([
+      'incomingMessageReceived',
+      'outgoingMessageReceived',
+      'outgoingAPIMessageReceived',
+      'incomingCall',
+      'incomingReaction',
+    ])
+
+    if (!organizationId && orgRequiredEvents.has(webhook.typeWebhook)) {
+      console.error('[whatsapp-webhook] Organization not resolved; ignoring event', {
+        typeWebhook: webhook.typeWebhook,
+        instanceId,
+        integrationId,
+      })
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          status: 'ignored',
+          reason: 'organization_not_resolved',
+          typeWebhook: webhook.typeWebhook,
+          instanceId,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    // Process webhook events
+    try {
+      switch (webhook.typeWebhook) {
+        case 'incomingMessageReceived':
+          await handleIncomingMessage(webhook, organizationId)
+          break
+
+        case 'outgoingMessageStatus':
+          await handleMessageStatus(webhook)
+          break
+
+        case 'outgoingMessageReceived':
+        case 'outgoingAPIMessageReceived':
+          await handleOutgoingMessage(webhook, organizationId)
+          break
+
+        case 'stateInstanceChanged':
+          await handleStateChange(webhook)
+          break
+
         case 'incomingCall':
-        await handleIncomingCall(webhook, organizationId)
-        break
-        
-      case 'incomingReaction':
-        await handleIncomingReaction(webhook, organizationId)
-        break
-        
-      default:
-        console.log(`Unhandled webhook type: ${webhook.typeWebhook}`)
+          await handleIncomingCall(webhook, organizationId)
+          break
+
+        case 'incomingReaction':
+          await handleIncomingReaction(webhook, organizationId)
+          break
+
+        default:
+          console.log(`[whatsapp-webhook] Unhandled webhook type: ${webhook.typeWebhook}`)
+      }
+    } catch (processingError) {
+      console.error('[whatsapp-webhook] Error processing webhook event:', processingError)
+      // IMPORTANT: always return 200 to avoid provider retry storms
+      return new Response(
+        JSON.stringify({
+          success: true,
+          status: 'ignored',
+          reason: 'processing_error',
+          error: getErrorMessage(processingError),
+          typeWebhook: webhook.typeWebhook,
+          instanceId,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
     }
 
-    // Отмечаем webhook как обработанный
-    await supabase
-      .from('webhook_logs')
-      .update({ processed: true })
-      .eq('webhook_data->instanceData->>idInstance', webhook.instanceData?.idInstance)
-      .eq('webhook_data->>typeWebhook', webhook.typeWebhook)
-      .eq('webhook_data->>timestamp', webhook.timestamp)
+    // Mark webhook as processed (best-effort)
+    try {
+      await supabase
+        .from('webhook_logs')
+        .update({ processed: true })
+        .eq('webhook_data->instanceData->>idInstance', webhook.instanceData?.idInstance)
+        .eq('webhook_data->>typeWebhook', webhook.typeWebhook)
+        .eq('webhook_data->>timestamp', webhook.timestamp)
+    } catch (markError) {
+      console.error('[whatsapp-webhook] Failed to mark webhook processed:', markError)
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
-
   } catch (error: unknown) {
-    console.error('Error processing webhook:', error)
-    
-    // Сохраняем ошибку в лог
+    console.error('[whatsapp-webhook] Fatal error in webhook handler:', error)
+
+    // Save error (best-effort), but NEVER fail the webhook request
     try {
       await supabase.from('webhook_logs').insert({
         messenger_type: 'whatsapp',
         event_type: 'error',
         webhook_data: { error: getErrorMessage(error) },
         processed: false,
-        error_message: getErrorMessage(error)
+        error_message: getErrorMessage(error),
       })
     } catch (logError) {
-      console.error('Error saving error log:', logError)
-  }
+      console.error('[whatsapp-webhook] Error saving error log:', logError)
+    }
 
-  return new Response(JSON.stringify({ error: getErrorMessage(error) }), {
-    status: 500,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  })
+    return new Response(
+      JSON.stringify({
+        success: true,
+        status: 'ignored',
+        reason: 'exception',
+        error: getErrorMessage(error),
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    )
   }
 })
 
 async function handleIncomingMessage(webhook: GreenAPIWebhook, organizationId: string | null) {
   const { senderData, messageData, idMessage } = webhook
-  
+
   if (!senderData || !messageData) {
     console.log('Missing sender or message data')
     return
   }
 
   if (!organizationId) {
-    console.error('Cannot process incoming message: organization_id not resolved from instanceId')
-    throw new Error('Organization not found for this WhatsApp instance')
+    console.error('Cannot process incoming message: organization_id not resolved')
+    return
   }
 
   const chatId = senderData.chatId
