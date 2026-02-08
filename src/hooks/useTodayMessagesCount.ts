@@ -20,11 +20,13 @@ export function useTodayMessagesCount() {
       if (!user?.id) return { total: 0, lastMessageTime: null };
 
       // Count outgoing messages sent by this user today
+      // Self-hosted schema uses is_outgoing (boolean) instead of direction (string)
+      // and user_id instead of sender_id
       const { count, error } = await supabase
         .from('chat_messages')
         .select('*', { count: 'exact', head: true })
-        .eq('direction', 'outgoing')
-        .eq('sender_id', user.id)
+        .eq('is_outgoing', true)
+        .eq('user_id', user.id)
         .gte('created_at', startOfDay)
         .lte('created_at', endOfDay);
 
@@ -37,8 +39,8 @@ export function useTodayMessagesCount() {
       const { data: lastMessage } = await supabase
         .from('chat_messages')
         .select('created_at')
-        .eq('direction', 'outgoing')
-        .eq('sender_id', user.id)
+        .eq('is_outgoing', true)
+        .eq('user_id', user.id)
         .gte('created_at', startOfDay)
         .lte('created_at', endOfDay)
         .order('created_at', { ascending: false })

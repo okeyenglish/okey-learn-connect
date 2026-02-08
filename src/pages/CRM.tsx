@@ -2211,22 +2211,25 @@ const CRMContent = () => {
           isMobile ? 'hidden' : 'flex'
         } w-80 lg:w-96 shrink-0 bg-background border-r flex-col h-full min-h-0 transition-all duration-300`}>
           <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full min-h-0">
-            <TabsList className="grid w-full grid-cols-2 m-2 shrink-0">
-              <TabsTrigger value="menu" className="rounded-xl ml-2">Меню</TabsTrigger>
-              <TabsTrigger value="chats" className="relative flex items-center justify-center pr-12 mr-2 rounded-xl">
-                <span>Чаты</span>
-                <div className="absolute right-3">
-                  <NewChatModal 
-                    onCreateChat={handleCreateNewChat}
-                    onExistingClientFound={handleExistingClientFound}
-                  >
-                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-muted/50 bg-muted/30 rounded-md">
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  </NewChatModal>
-                </div>
-              </TabsTrigger>
-            </TabsList>
+            <div className="relative m-2 shrink-0">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="menu" className="rounded-xl ml-2">Меню</TabsTrigger>
+                <TabsTrigger value="chats" className="mr-2 rounded-xl">
+                  <span>Чаты</span>
+                </TabsTrigger>
+              </TabsList>
+              {/* NewChatModal moved outside TabsTrigger to avoid button nesting */}
+              <div className="absolute right-5 top-1/2 -translate-y-1/2 z-10">
+                <NewChatModal 
+                  onCreateChat={handleCreateNewChat}
+                  onExistingClientFound={handleExistingClientFound}
+                >
+                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-muted/50 bg-muted/30 rounded-md">
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </NewChatModal>
+              </div>
+            </div>
             
             <TabsContent value="menu" className="mt-0 flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col">
               {/* Плашка "Скоро" для не-админов */}
