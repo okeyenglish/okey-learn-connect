@@ -28,37 +28,68 @@ async function resolveOrganizationIdFromWebhook(profileId: string): Promise<stri
     return null
   }
 
-  const { data, error } = await supabase
-    .from('messenger_settings')
-    .select('organization_id, settings')
-    .eq('messenger_type', 'whatsapp')
-    .eq('provider', 'wappi')
-    .not('organization_id', 'is', null)
-    .order('updated_at', { ascending: false })
+  // First try messenger_integrations table (new multi-account system)
+  try {
+    const { data: integration, error: intError } = await supabase
+      .from('messenger_integrations')
+      .select('organization_id, is_enabled, settings')
+      .eq('messenger_type', 'whatsapp')
+      .eq('provider', 'wappi')
+      .eq('is_enabled', true)
+      .order('updated_at', { ascending: false })
 
-  if (error) {
-    console.error('Error fetching messenger_settings:', error)
-    return null
-  }
-
-  if (!data || data.length === 0) {
-    console.warn('No Wappi settings found')
-    return null
-  }
-
-  // Search through settings to find matching profileId
-  for (const setting of data) {
-    const settingsObj = setting.settings as Record<string, unknown> | null
-    const storedProfileId = settingsObj?.wappiProfileId
-
-    if (String(storedProfileId) === String(profileId)) {
-      console.log('Found organization by profileId:', setting.organization_id)
-      return setting.organization_id as string
+    if (!intError && integration && integration.length > 0) {
+      for (const int of integration) {
+        const settingsObj = int.settings as Record<string, unknown> | null
+        const storedProfileId = settingsObj?.wappiProfileId || settingsObj?.profileId
+        if (String(storedProfileId) === String(profileId)) {
+          console.log('Found organization in messenger_integrations:', int.organization_id)
+          return int.organization_id as string
+        }
+      }
     }
+  } catch (e) {
+    console.warn('messenger_integrations lookup failed, trying messenger_settings:', e)
   }
 
-  console.warn('No organization found for profileId:', profileId)
-  return null
+  // Fallback to messenger_settings table
+  // IMPORTANT: Self-hosted schema may not have 'provider' column, so we search by settings->>'wappiProfileId'
+  try {
+    const { data, error } = await supabase
+      .from('messenger_settings')
+      .select('organization_id, settings, is_enabled')
+      .eq('messenger_type', 'whatsapp')
+      .eq('is_enabled', true)
+      .not('organization_id', 'is', null)
+      .order('updated_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching messenger_settings:', error)
+      return null
+    }
+
+    if (!data || data.length === 0) {
+      console.warn('No WhatsApp settings found in messenger_settings')
+      return null
+    }
+
+    // Search through settings to find matching profileId (wappiProfileId or profileId)
+    for (const setting of data) {
+      const settingsObj = setting.settings as Record<string, unknown> | null
+      const storedProfileId = settingsObj?.wappiProfileId || settingsObj?.profileId
+
+      if (String(storedProfileId) === String(profileId)) {
+        console.log('Found organization by profileId in messenger_settings:', setting.organization_id)
+        return setting.organization_id as string
+      }
+    }
+
+    console.warn('No organization found for profileId:', profileId)
+    return null
+  } catch (e) {
+    console.error('Error in resolveOrganizationIdFromWebhook:', e)
+    return null
+  }
 }
 
 async function findOrCreateClient(phoneNumber: string, senderName: string | undefined, organizationId: string) {
@@ -211,13 +242,18 @@ Deno.serve(async (req) => {
     const organizationId = await resolveOrganizationIdFromWebhook(profileId)
     console.log('Resolved organization_id:', organizationId)
 
-    // Save webhook to log
-    await supabase.from('webhook_logs').insert({
-      messenger_type: 'whatsapp',
-      event_type: message.wh_type,
-      webhook_data: webhook,
-      processed: false
-    })
+    // Save webhook to log (optional - may not exist on self-hosted)
+    try {
+      await supabase.from('webhook_logs').insert({
+        messenger_type: 'whatsapp',
+        event_type: message.wh_type,
+        webhook_data: webhook,
+        processed: false
+      })
+    } catch (logError) {
+      // Ignore logging errors - table may not exist on self-hosted
+      console.warn('Could not save webhook log (table may not exist):', logError)
+    }
 
     // Process different webhook types
     switch (message.wh_type) {
@@ -238,12 +274,17 @@ Deno.serve(async (req) => {
         console.log(`Unhandled Wappi webhook type: ${message.wh_type}`)
     }
 
-    // Mark webhook as processed
-    await supabase
-      .from('webhook_logs')
-      .update({ processed: true })
-      .eq('webhook_data->messages->0->>id', message.id)
-      .eq('webhook_data->messages->0->>wh_type', message.wh_type)
+    // Mark webhook as processed (optional - may not exist on self-hosted)
+    try {
+      await supabase
+        .from('webhook_logs')
+        .update({ processed: true })
+        .eq('webhook_data->messages->0->>id', message.id)
+        .eq('webhook_data->messages->0->>wh_type', message.wh_type)
+    } catch (updateError) {
+      // Ignore - table may not exist
+      console.warn('Could not update webhook log:', updateError)
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -264,8 +305,10 @@ Deno.serve(async (req) => {
       console.error('Error saving error log:', logError)
     }
 
-    return new Response(JSON.stringify({ error: getErrorMessage(error) }), {
-      status: 500,
+    // IMPORTANT: Return 200 OK even on errors to prevent retry storms from Wappi
+    // The error is logged above for debugging
+    return new Response(JSON.stringify({ success: true, status: 'error_logged', error: getErrorMessage(error) }), {
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
