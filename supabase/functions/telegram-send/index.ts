@@ -159,21 +159,39 @@ Deno.serve(async (req) => {
 
     // Try to get chat ID from specified phone number first, with phone fallback
     let recipient: string | null = null;
+    let recipientSource = 'none';
 
     if (phoneId) {
       // Get chat ID from specific phone number
       const { data: phoneRecord } = await supabase
         .from('client_phone_numbers')
-        .select('telegram_chat_id, telegram_user_id, phone_number')
+        .select('telegram_chat_id, telegram_user_id, telegram_username, phone_number')
         .eq('id', phoneId)
         .eq('client_id', clientId)
         .single();
 
       if (phoneRecord) {
-        recipient = phoneRecord.telegram_chat_id 
-          || phoneRecord.telegram_user_id?.toString() 
-          || normalizePhone(phoneRecord.phone_number);  // <-- fallback to phone
-        console.log('Using specified phone:', phoneId, 'recipient:', recipient);
+        console.log('[telegram-send] Phone record found:', {
+          telegram_chat_id: phoneRecord.telegram_chat_id,
+          telegram_user_id: phoneRecord.telegram_user_id,
+          telegram_username: phoneRecord.telegram_username,
+          phone_number: phoneRecord.phone_number
+        });
+        
+        // Priority: chat_id > user_id > username > phone
+        if (phoneRecord.telegram_chat_id) {
+          recipient = phoneRecord.telegram_chat_id;
+          recipientSource = 'telegram_chat_id (phoneRecord)';
+        } else if (phoneRecord.telegram_user_id) {
+          recipient = phoneRecord.telegram_user_id.toString();
+          recipientSource = 'telegram_user_id (phoneRecord)';
+        } else if (phoneRecord.telegram_username) {
+          recipient = phoneRecord.telegram_username;
+          recipientSource = 'telegram_username (phoneRecord)';
+        } else {
+          recipient = normalizePhone(phoneRecord.phone_number);
+          recipientSource = 'phone_number (phoneRecord fallback)';
+        }
       }
     }
 
@@ -181,24 +199,53 @@ Deno.serve(async (req) => {
     if (!recipient) {
       const { data: primaryPhone } = await supabase
         .from('client_phone_numbers')
-        .select('telegram_chat_id, telegram_user_id, phone_number')
+        .select('telegram_chat_id, telegram_user_id, telegram_username, phone_number')
         .eq('client_id', clientId)
         .eq('is_primary', true)
         .maybeSingle();
 
       if (primaryPhone) {
-        recipient = primaryPhone.telegram_chat_id 
-          || primaryPhone.telegram_user_id?.toString() 
-          || normalizePhone(primaryPhone.phone_number);  // <-- fallback to phone
-        console.log('Using primary phone recipient:', recipient);
+        console.log('[telegram-send] Primary phone found:', {
+          telegram_chat_id: primaryPhone.telegram_chat_id,
+          telegram_user_id: primaryPhone.telegram_user_id,
+          telegram_username: primaryPhone.telegram_username,
+          phone_number: primaryPhone.phone_number
+        });
+        
+        if (primaryPhone.telegram_chat_id) {
+          recipient = primaryPhone.telegram_chat_id;
+          recipientSource = 'telegram_chat_id (primary)';
+        } else if (primaryPhone.telegram_user_id) {
+          recipient = primaryPhone.telegram_user_id.toString();
+          recipientSource = 'telegram_user_id (primary)';
+        } else if (primaryPhone.telegram_username) {
+          recipient = primaryPhone.telegram_username;
+          recipientSource = 'telegram_username (primary)';
+        } else {
+          recipient = normalizePhone(primaryPhone.phone_number);
+          recipientSource = 'phone_number (primary fallback)';
+        }
       }
     }
 
     // Fallback to client's telegram fields or phone (backward compatibility)
     if (!recipient) {
-      recipient = client.telegram_chat_id 
-        || client.telegram_user_id?.toString() 
-        || normalizePhone(client.phone);  // <-- fallback to phone
+      console.log('[telegram-send] Client fields:', {
+        telegram_chat_id: client.telegram_chat_id,
+        telegram_user_id: client.telegram_user_id,
+        phone: client.phone
+      });
+      
+      if (client.telegram_chat_id) {
+        recipient = client.telegram_chat_id;
+        recipientSource = 'telegram_chat_id (client)';
+      } else if (client.telegram_user_id) {
+        recipient = client.telegram_user_id.toString();
+        recipientSource = 'telegram_user_id (client)';
+      } else {
+        recipient = normalizePhone(client.phone);
+        recipientSource = 'phone (client fallback)';
+      }
     }
     
     if (!recipient) {
@@ -213,7 +260,8 @@ Deno.serve(async (req) => {
       );
     }
     
-    console.log('Sending Telegram message to:', recipient);
+    console.log(`[telegram-send] Final recipient: ${recipient} (source: ${recipientSource})`);
+    console.log(`[telegram-send] ⚠️ IMPORTANT: If using phone number, Wappi may fail with "peer not found" unless contact is in phone book`);
 
     // Send message via Wappi.pro using per-organization apiToken
     let sendResult: { success: boolean; messageId?: string; error?: string };
@@ -226,7 +274,26 @@ Deno.serve(async (req) => {
     }
 
     if (!sendResult.success) {
-      return errorResponse(sendResult.error || 'Failed to send message', 500);
+      // Check for "peer not found" error and provide user-friendly message
+      const errorMsg = sendResult.error || 'Failed to send message';
+      const isPeerNotFound = errorMsg.toLowerCase().includes('peer not found') || 
+                              errorMsg.toLowerCase().includes('peer_not_found') ||
+                              errorMsg.toLowerCase().includes('no peer');
+      
+      if (isPeerNotFound) {
+        const response: TelegramSendResponse = { 
+          success: false,
+          error: 'Клиент не найден в Telegram. Попросите клиента написать вам первым, чтобы установить связь.',
+          code: 'PEER_NOT_FOUND'
+        };
+        console.error('[telegram-send] Peer not found error. Client needs to message first.');
+        return new Response(
+          JSON.stringify(response),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      return errorResponse(errorMsg, 500);
     }
 
     // Save message to database - message_type is 'manager' for outgoing messages

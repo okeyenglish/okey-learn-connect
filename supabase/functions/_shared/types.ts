@@ -1051,7 +1051,7 @@ export interface WPPWebhookEvent {
 export interface TelegramWappiMessage {
   id: string;
   profile_id: string;
-  wh_type: 'incoming_message' | 'outgoing_message' | 'outgoing_message_phone' | 'delivery_status' | 'authorization_status';
+  wh_type: 'incoming_message' | 'outgoing_message' | 'outgoing_message_phone' | 'outgoing_message_api' | 'delivery_status' | 'authorization_status';
   timestamp: string;
   time: number;
   body?: string;
@@ -1073,6 +1073,12 @@ export interface TelegramWappiMessage {
   picture?: string;
   from_where?: string;
   is_me?: boolean;
+  // Additional fields from Wappi documentation
+  status?: string;          // Delivery status
+  stanza_id?: string;       // Message ID for status updates
+  chat_type?: string;       // Chat type: user, group, channel
+  task_id?: string;         // Task ID for API-sent messages
+  telegram_username?: string; // Telegram username without @
 }
 
 /**
