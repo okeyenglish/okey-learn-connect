@@ -160,6 +160,7 @@ const AppContent = () => {
   const isMainLandingPage = location.pathname === '/main';
   const isAuthPage = location.pathname.startsWith('/auth') || location.pathname.startsWith('/register/');
   const isOnboardingPage = location.pathname.startsWith('/client-onboarding') || location.pathname.startsWith('/student-onboarding') || location.pathname.startsWith('/portal-login');
+  const isStandalonePage = location.pathname === '/install' || location.pathname === '/payment-success' || location.pathname === '/payment-fail' || location.pathname.startsWith('/employee/onboarding') || location.pathname.startsWith('/teacher/onboarding');
   const isOrgPage = location.pathname.match(/^\/[a-zA-Z0-9_-]+/) && !['main', 'branches', 'test', 'about', 'teachers', 'reviews', 'pricing', 'faq', 'contacts', 'contact-method', 'admin', 'newcrm', 'crm', 'leads', 'student', 'student-portal', 'teacher-portal', 'parent-portal', 'course', 'online-lesson', 'auth', 'diag', 'test-user', 'holihope-import', 'seo', 'callsforteachers', 'payment', 'balance-test', 'teacher-test', 'sessions', 'install', 'monitor', 'webhook-test', 'employee', 'debug-access', '5000', 'programs', 'register', 'course-details', 'client-onboarding', 'student-onboarding', 'portal-login'].some(path => location.pathname.startsWith('/' + path));
 
   if (isCRMPage) {
@@ -200,6 +201,21 @@ const AppContent = () => {
           <Route path="/client-onboarding" element={<ClientOnboarding />} />
           <Route path="/student-onboarding" element={<StudentOnboarding />} />
           <Route path="/portal-login" element={<PortalLogin />} />
+        </Routes>
+      </Suspense>
+    );
+  }
+
+  // Standalone pages with their own layout (no global header/footer)
+  if (isStandalonePage) {
+    return (
+      <Suspense fallback={<LoadingComponent />}>
+        <Routes>
+          <Route path="/install" element={<Install />} />
+          <Route path="/payment-success" element={<PaymentSuccess />} />
+          <Route path="/payment-fail" element={<PaymentFail />} />
+          <Route path="/employee/onboarding/:token" element={<EmployeeOnboarding />} />
+          <Route path="/teacher/onboarding/:token" element={<TeacherOnboarding />} />
         </Routes>
       </Suspense>
     );
@@ -564,21 +580,6 @@ const AppContent = () => {
               </Suspense>
             </ProtectedRoute>
           } />
-          <Route path="/payment-success" element={
-            <Suspense fallback={<LoadingComponent />}>
-              <PaymentSuccess />
-            </Suspense>
-          } />
-          <Route path="/payment-fail" element={
-            <Suspense fallback={<LoadingComponent />}>
-              <PaymentFail />
-            </Suspense>
-          } />
-          <Route path="/install" element={
-            <Suspense fallback={<LoadingComponent />}>
-              <Install />
-            </Suspense>
-          } />
           <Route path="/system-monitor" element={
             <ProtectedRoute allowedRoles={['admin']}>
               <Suspense fallback={<LoadingComponent />}>
@@ -592,16 +593,6 @@ const AppContent = () => {
                 <WebhookTest />
               </Suspense>
             </ProtectedRoute>
-          } />
-          <Route path="/employee/onboarding/:token" element={
-            <Suspense fallback={<LoadingComponent />}>
-              <EmployeeOnboarding />
-            </Suspense>
-          } />
-          <Route path="/teacher/onboarding/:token" element={
-            <Suspense fallback={<LoadingComponent />}>
-              <TeacherOnboarding />
-            </Suspense>
           } />
           <Route path="/debug-access" element={
             <Suspense fallback={<LoadingComponent />}>
