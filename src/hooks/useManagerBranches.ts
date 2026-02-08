@@ -71,9 +71,21 @@ export function useManagerBranches() {
 
     const normalizedClientBranch = normalizeBranchName(clientBranch);
 
-    return allowedBranchNames.some(
+    const hasAccess = allowedBranchNames.some(
       (userBranch) => normalizeBranchName(userBranch) === normalizedClientBranch
     );
+    
+    // Debug logging for branch matching
+    if (!hasAccess) {
+      console.log('[canAccessBranch] No match:', {
+        clientBranch,
+        normalizedClient: normalizedClientBranch,
+        allowedBranches: allowedBranchNames,
+        normalizedAllowed: allowedBranchNames.map(normalizeBranchName),
+      });
+    }
+    
+    return hasAccess;
   };
 
   const managerBranches: ManagerBranch[] = userBranches.map((b) => ({ 
@@ -101,8 +113,13 @@ export function useManagerBranches() {
 function normalizeBranchName(name: string): string {
   return name
     .toLowerCase()
+    // Remove all known prefixes
+    .replace(/o['']?key\s*english\s*/gi, '')
     .replace(/okey\s*english\s*/gi, '')
-    .replace(/o'key\s*english\s*/gi, '')
     .replace(/филиал\s*/gi, '')
+    .replace(/branch\s*/gi, '')
+    // Remove quotes and extra whitespace
+    .replace(/['"«»]/g, '')
+    .replace(/\s+/g, ' ')
     .trim();
 }
