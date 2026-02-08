@@ -48,12 +48,13 @@ export const CallHistory: React.FC<CallHistoryProps> = ({ clientId }) => {
     syncNow,
   } = useInfiniteCallHistory(clientId);
   
-  // Flatten all pages into a single array
+  // Flatten all pages into a single array - with safety check
   const calls = useMemo(() => {
-    return data?.pages.flatMap(page => page.calls) ?? [];
+    if (!data?.pages || !Array.isArray(data.pages)) return [];
+    return data.pages.flatMap(page => page?.calls ?? []);
   }, [data]);
   
-  const totalCalls = data?.pages[0]?.total ?? 0;
+  const totalCalls = (data?.pages && Array.isArray(data.pages) && data.pages[0]?.total) ?? 0;
   
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);

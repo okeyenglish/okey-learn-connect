@@ -23,12 +23,13 @@ interface InfinitePageData<T> {
   total: number;
 }
 
-// Optimized field selection - only fetch what we need
+// Optimized field selection - self-hosted safe columns only
+// IMPORTANT: Avoid columns that don't exist in self-hosted schema:
+// content, direction, messenger, status, external_id, media_url, media_type
 const MESSAGE_FIELDS = `
   id, teacher_id, message_text, message_type, system_type, is_read, is_outgoing,
   created_at, file_url, file_name, file_type, external_message_id,
-  messenger_type, call_duration, message_status, metadata, content, direction,
-  media_url, media_type, external_id, messenger, status
+  messenger_type, call_duration, message_status, metadata
 `;
 
 /**
@@ -106,23 +107,29 @@ const useTeacherChatMessagesInternal = (teacherId: string) => {
       const fetchedItems = data || [];
       const hasMore = fetchedItems.length >= PAGE_SIZE;
 
-      // Normalize field names for compatibility (self-hosted vs Cloud schema)
+      // Normalize field names for compatibility (self-hosted schema)
+      // Self-hosted uses: message_text, is_outgoing, messenger_type, message_status
+      // Cloud uses: content, direction, messenger, status - but we don't select these
       const normalizedItems = fetchedItems.map((m: any) => ({
         ...m,
-        message_text: m.message_text || m.content || '',
-        content: m.content || m.message_text || '',
-        file_url: m.file_url || m.media_url,
-        media_url: m.media_url || m.file_url,
-        file_type: m.file_type || m.media_type,
-        media_type: m.media_type || m.file_type,
-        external_message_id: m.external_message_id || m.external_id,
-        external_id: m.external_id || m.external_message_id,
-        messenger_type: m.messenger_type || m.messenger,
-        messenger: m.messenger || m.messenger_type,
-        message_status: m.message_status || m.status,
-        status: m.status || m.message_status,
-        is_outgoing: m.is_outgoing ?? (m.direction === 'outgoing'),
-        direction: m.direction || (m.is_outgoing ? 'outgoing' : 'incoming'),
+        // Core fields - use self-hosted naming, derive cloud aliases
+        message_text: m.message_text || '',
+        content: m.message_text || '', // Alias for cloud compatibility
+        // Direction derived from is_outgoing
+        is_outgoing: m.is_outgoing ?? false,
+        direction: m.is_outgoing ? 'outgoing' : 'incoming',
+        // File fields - self-hosted uses file_url/file_type
+        file_url: m.file_url,
+        media_url: m.file_url, // Alias
+        file_type: m.file_type,
+        media_type: m.file_type, // Alias
+        // Messenger fields
+        external_message_id: m.external_message_id,
+        external_id: m.external_message_id, // Alias
+        messenger_type: m.messenger_type,
+        messenger: m.messenger_type, // Alias
+        message_status: m.message_status,
+        status: m.message_status, // Alias
       })) as ChatMessage[];
 
       const chronologicalItems = normalizedItems.reverse();
