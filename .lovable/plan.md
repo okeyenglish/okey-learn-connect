@@ -1,89 +1,100 @@
 
-# План оптимизации загрузки диалогов преподавателей
+
+# План исправления ошибки добавления второго WhatsApp номера
 
 ## Диагноз проблемы
 
-При открытии чата преподавателя происходит медленная загрузка сообщений, хотя превью в списке грузятся быстро. Причины:
+При попытке добавить второй WhatsApp номер возникает ошибка:
+```
+Failed to get initial token: 403 {"error":"Invalid API key"}
+```
 
-1. **Разные запросы для превью и диалога:**
-   - Превью (список): `useTeacherChats` → batch-запрос `chat_messages` с `LIMIT teacherIds.length * 20` (5 сообщений на преподавателя)
-   - Диалог: `useTeacherChatMessagesV2` → полный запрос `SELECT *` с `LIMIT 50` по одному `teacher_id`
+**Причина:** WPP Platform (`msg.academyos.ru`) создаёт нового клиента через `/api/integrations/wpp/create`, возвращает `apiKey`, но этот ключ сразу не проходит валидацию при попытке получить JWT токен.
 
-2. **Запрос `SELECT *` избыточен:**
-   - Хук `useTeacherChatMessagesV2` запрашивает ВСЕ колонки (`select('*')`)
-   - Индекс `idx_chat_messages_teacher_id_created` покрывает только `(teacher_id, created_at)`
-   - Для полного `SELECT *` БД делает дополнительное чтение данных с диска (heap fetch)
-
-3. **Отсутствие in-memory кеша:**
-   - В отличие от `useChatMessagesOptimized` (для клиентов), хук для преподавателей не использует in-memory cache
-   - При каждом переключении на чат идёт полный запрос к БД
+Возможные причины на стороне WPP Platform:
+1. API ключ активируется с задержкой (race condition)
+2. Платформа возвращает ключ старого клиента вместо нового
+3. Ограничение: один клиент на организацию
 
 ## Решение
 
-### Шаг 1: Оптимизировать запрос в useTeacherChatMessagesV2
+Добавить **retry с задержкой** при получении начального токена, а также улучшить логирование для диагностики.
 
-**Файл:** `src/hooks/useTeacherChatMessagesV2.ts`
+### Шаг 1: Добавить retry для getInitialToken
 
-Заменить `select('*')` на выборку только нужных полей:
-
-```typescript
-// БЫЛО:
-.select('*')
-
-// СТАНЕТ:
-.select(`
-  id, teacher_id, message_text, message_type, system_type, is_read, is_outgoing,
-  created_at, file_url, file_name, file_type, external_message_id,
-  messenger_type, call_duration, message_status, metadata
-`)
-```
-
-### Шаг 2: Добавить in-memory cache
-
-По аналогии с `useChatMessagesOptimized`, добавить быстрый кеш для мгновенного отображения:
+**Файл:** `supabase/functions/_shared/wpp.ts`
 
 ```typescript
-// In-memory cache for instant display
-const teacherMessageCache = new Map<string, { messages: ChatMessage[]; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+static async getInitialToken(
+  baseUrl: string, 
+  apiKey: string, 
+  maxRetries = 3
+): Promise<{ token: string; expiresAt: number }> {
+  const url = `${baseUrl.replace(/\/+$/, '')}/auth/token`;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    console.log(`[WppMsgClient] Getting initial token, attempt ${attempt}/${maxRetries}`);
+    
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.token) {
+        const expiresAt = Date.now() + (data.expiresIn || 3600) * 1000;
+        return { token: data.token, expiresAt };
+      }
+    }
+
+    // Если это последняя попытка - выбросить ошибку
+    if (attempt === maxRetries) {
+      const text = await res.text();
+      throw new Error(`Failed to get initial token: ${res.status} ${text}`);
+    }
+
+    // Ждём перед следующей попыткой (1, 2, 3 секунды)
+    await new Promise(r => setTimeout(r, attempt * 1000));
+  }
+}
 ```
 
-### Шаг 3: Использовать placeholderData
+### Шаг 2: Улучшить логирование в wpp-create
 
-Использовать кешированные данные для мгновенного отображения, пока загружаются свежие:
+**Файл:** `supabase/functions/wpp-create/index.ts`
+
+Добавить логирование полного ответа от `createClient`:
 
 ```typescript
-placeholderData: cachedData || undefined,
+console.log('[wpp-create] New client created:', {
+  session: newClient.session,
+  apiKeyMasked: maskApiKey(newClient.apiKey),
+  status: newClient.status,
+});
 ```
 
-### Шаг 4: Создать индекс на self-hosted (если не существует)
+### Шаг 3: Проверить WPP Platform
 
-**Выполнить на api.academyos.ru:**
+Если retry не поможет, нужно проверить на стороне WPP Platform (`msg.academyos.ru`):
+1. Логи endpoint `/api/integrations/wpp/create` — возвращает ли уникальный apiKey?
+2. Логи endpoint `/auth/token` — почему отклоняет новый ключ?
+3. Проверить, поддерживает ли платформа несколько клиентов на одну организацию
 
-```sql
-CREATE INDEX IF NOT EXISTS idx_chat_messages_teacher_id_created
-ON chat_messages (teacher_id, created_at DESC)
-WHERE teacher_id IS NOT NULL;
+## Файлы для изменения
 
-ANALYZE chat_messages;
-```
+1. `supabase/functions/_shared/wpp.ts` — добавить retry в `getInitialToken`
+2. `supabase/functions/wpp-create/index.ts` — улучшить логирование
 
-## Ожидаемые результаты
+## Ожидаемый результат
 
-| Метрика | До оптимизации | После оптимизации |
-|---------|----------------|-------------------|
-| Первая загрузка диалога | 2-5 сек | 100-300 мс |
-| Повторное открытие | 2-5 сек | Мгновенно (кеш) |
-| Переключение между чатами | Задержка + skeleton | Мгновенно |
+- При временной задержке активации ключа — retry решит проблему
+- При системной проблеме — логи покажут что именно возвращает платформа
 
-## Технические детали
+## Альтернативный подход
 
-### Изменяемые файлы
+Если WPP Platform не поддерживает несколько клиентов на одну организацию, нужно изменить архитектуру:
+- Использовать один `apiKey` с несколькими сессиями/аккаунтами
+- Или создавать виртуальные "суб-организации" для каждого номера
 
-1. `src/hooks/useTeacherChatMessagesV2.ts` — основной хук загрузки сообщений
-
-### Дополнительные рекомендации
-
-1. Проверить наличие индекса `idx_chat_messages_teacher_id_created` на self-hosted БД
-2. Выполнить `ANALYZE chat_messages` после создания индекса для обновления статистики планировщика
-3. При необходимости увеличить `shared_buffers` в PostgreSQL для кеширования частых запросов
