@@ -18,6 +18,7 @@ interface MobileChatNavigationProps {
   teachersUnreadCount?: number;
   clientsUnreadCount?: number;
   activeChatType?: 'client' | 'corporate' | 'teachers' | 'communities' | 'chatos' | 'menu';
+  isAdmin?: boolean;
 }
 
 export const MobileChatNavigation = ({
@@ -32,7 +33,8 @@ export const MobileChatNavigation = ({
   chatOSUnreadCount = 0,
   teachersUnreadCount = 0,
   clientsUnreadCount = 0,
-  activeChatType
+  activeChatType,
+  isAdmin = false
 }: MobileChatNavigationProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
@@ -103,7 +105,7 @@ export const MobileChatNavigation = ({
     { icon: QrCode, label: 'Веб-вход', onClick: () => setShowQRScanner(true) },
     { icon: CreditCard, label: 'Оплата', onClick: onPaymentClick },
     { icon: ListTodo, label: 'Задача', onClick: onTaskClick },
-    { icon: Briefcase, label: 'Сотрудник', onClick: onEmployeeClick },
+    ...(isAdmin ? [{ icon: Briefcase, label: 'Сотрудник', onClick: onEmployeeClick }] : []),
     { icon: UserPlus, label: 'Клиент', onClick: onNewChatClick },
   ];
 

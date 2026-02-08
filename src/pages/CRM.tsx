@@ -4554,6 +4554,7 @@ const CRMContent = () => {
           teachersUnreadCount={teacherChats?.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0) || 0}
           clientsUnreadCount={threads?.filter((t: any) => t.unread_count > 0).length || 0}
           activeChatType={activeTab === 'menu' ? 'menu' : activeChatType}
+          isAdmin={isAdmin}
         />
       )}
 
