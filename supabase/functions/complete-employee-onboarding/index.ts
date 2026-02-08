@@ -103,6 +103,8 @@ Deno.serve(async (req) => {
       status: invitation.status,
       organization_id: invitation.organization_id,
       position: invitation.position,
+      salary_type: invitation.salary_type,
+      base_salary: invitation.base_salary,
     });
 
     // 2. Проверить статус и срок действия
@@ -180,6 +182,12 @@ Deno.serve(async (req) => {
       phone: effectivePhone,
       branch: invitation.branch || null,
       organization_id: invitation.organization_id,
+      // Salary configuration from invitation
+      salary_type: invitation.salary_type || 'monthly',
+      base_salary: invitation.base_salary || null,
+      salary_start_date: invitation.salary_start_date || null,
+      daily_rate: invitation.daily_rate || null,
+      work_days: invitation.work_days || [],
     };
 
     // Даём триггеру handle_new_user немного времени
