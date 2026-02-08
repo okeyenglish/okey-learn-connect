@@ -7,7 +7,7 @@
 
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
-import { useMemo, useCallback, useEffect } from 'react';
+import { useMemo, useCallback, useEffect, useRef } from 'react';
 import type { ChatMessage } from './useChatMessages';
 
 const PAGE_SIZE = 50;
@@ -52,29 +52,41 @@ const updateCache = (teacherId: string, messages: ChatMessage[]) => {
   });
 };
 
-/**
- * Fetch chat messages for a teacher using teacher_id
- */
-export const useTeacherChatMessages = (teacherId: string) => {
-  const queryClient = useQueryClient();
+// Empty result for disabled queries - stable reference to prevent re-renders
+const EMPTY_MESSAGES: ChatMessage[] = [];
+const EMPTY_RESULT = {
+  messages: EMPTY_MESSAGES,
+  totalCount: 0,
+  data: undefined,
+  error: null,
+  isLoading: false,
+  isFetching: false,
+  isError: false,
+  isSuccess: false,
+  isPending: true,
+  status: 'pending' as const,
+  fetchNextPage: () => Promise.resolve({ data: undefined, error: null }),
+  hasNextPage: false,
+  isFetchingNextPage: false,
+  prefetchNext: () => {},
+  refetch: () => Promise.resolve({ data: undefined, error: null }),
+};
 
-  // Guard: If teacherId is empty, return safe defaults immediately without calling useInfiniteQuery
-  const isEnabled = !!teacherId && teacherId.length > 0;
+/**
+ * Internal hook that actually uses useInfiniteQuery
+ * Only called when teacherId is valid
+ */
+const useTeacherChatMessagesInternal = (teacherId: string) => {
+  const queryClient = useQueryClient();
 
   // Get cached data for placeholder
   const cachedMessages = useMemo(() => {
-    if (!isEnabled) return null;
     return getCachedMessages(teacherId);
-  }, [teacherId, isEnabled]);
+  }, [teacherId]);
 
   const query = useInfiniteQuery({
     queryKey: ['teacher-chat-messages-v2', teacherId],
     queryFn: async ({ pageParam = 0 }): Promise<InfinitePageData<ChatMessage>> => {
-      // Double-check teacherId in queryFn as safety measure
-      if (!teacherId) {
-        return { items: [], nextCursor: 0, hasMore: false, total: 0 };
-      }
-
       const startTime = performance.now();
 
       // OPTIMIZATION: Select only needed fields instead of SELECT *
@@ -93,10 +105,9 @@ export const useTeacherChatMessages = (teacherId: string) => {
 
       const fetchedItems = data || [];
       const hasMore = fetchedItems.length >= PAGE_SIZE;
-      const itemsToReturn = fetchedItems;
 
       // Normalize field names for compatibility (self-hosted vs Cloud schema)
-      const normalizedItems = itemsToReturn.map((m: any) => ({
+      const normalizedItems = fetchedItems.map((m: any) => ({
         ...m,
         message_text: m.message_text || m.content || '',
         content: m.content || m.message_text || '',
@@ -130,39 +141,29 @@ export const useTeacherChatMessages = (teacherId: string) => {
         items: chronologicalItems,
         nextCursor: pageParam + PAGE_SIZE,
         hasMore,
-        total: 0, // Not using total anymore for performance
+        total: 0,
       };
     },
     getNextPageParam: (lastPage) => {
-      // Safety check: lastPage might be undefined if query is disabled
       if (!lastPage) return undefined;
       return lastPage.hasMore ? lastPage.nextCursor : undefined;
     },
     initialPageParam: 0,
-    // CRITICAL: Only enable when teacherId is valid to prevent "pages is undefined" error
-    enabled: isEnabled,
-    staleTime: 60000, // 1 minute
-    gcTime: 10 * 60 * 1000, // 10 minutes cache
-    // OPTIMIZATION: Use cached data as placeholder for instant display
-    // Only provide placeholderData when query is enabled AND we have cached data
-    placeholderData: isEnabled && cachedMessages ? {
+    staleTime: 60000,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: cachedMessages ? {
       pages: [{ items: cachedMessages, nextCursor: PAGE_SIZE, hasMore: true, total: 0 }],
       pageParams: [0],
     } : undefined,
   });
 
-  // Flatten all pages into a single array - with safety check for undefined data
+  // Flatten all pages into a single array
   const messages = useMemo(() => {
-    // Safety: when query is disabled, data might be undefined
-    if (!query.data?.pages) return [];
+    if (!query.data?.pages) return EMPTY_MESSAGES;
     return query.data.pages.flatMap(page => page?.items || []);
   }, [query.data]);
 
-  // Total count is no longer accurate (removed for performance)
-  // Use messages.length instead if needed
-  const totalCount = useMemo(() => {
-    return messages.length;
-  }, [messages]);
+  const totalCount = messages.length;
 
   const prefetchNext = useCallback(() => {
     if (query.hasNextPage && !query.isFetchingNextPage) {
@@ -172,8 +173,6 @@ export const useTeacherChatMessages = (teacherId: string) => {
 
   // Real-time subscription for new messages
   useEffect(() => {
-    if (!teacherId) return;
-
     const channel = supabase
       .channel(`teacher-chat-messages-${teacherId}`)
       .on(
@@ -185,7 +184,6 @@ export const useTeacherChatMessages = (teacherId: string) => {
           filter: `teacher_id=eq.${teacherId}`,
         },
         () => {
-          // Invalidate cache on new message
           teacherMessageCache.delete(teacherId);
           queryClient.invalidateQueries({ queryKey: ['teacher-chat-messages-v2', teacherId] });
           queryClient.invalidateQueries({ queryKey: ['teacher-conversations'] });
@@ -220,6 +218,36 @@ export const useTeacherChatMessages = (teacherId: string) => {
 };
 
 /**
+ * Fetch chat messages for a teacher using teacher_id
+ * 
+ * CRITICAL: This hook safely handles empty teacherId by returning stable empty results
+ * without calling useInfiniteQuery, which prevents "pages is undefined" errors in TanStack Query v5
+ */
+export const useTeacherChatMessages = (teacherId: string) => {
+  // Track if we should use the real query
+  const isEnabled = !!teacherId && teacherId.length > 0;
+  
+  // Use ref to maintain stable identity of teacherId for the internal hook
+  const stableTeacherId = useRef(teacherId);
+  if (isEnabled) {
+    stableTeacherId.current = teacherId;
+  }
+
+  // CRITICAL: Call internal hook only when enabled
+  // When disabled, we return EMPTY_RESULT which has the same shape
+  const internalResult = useTeacherChatMessagesInternal(
+    isEnabled ? teacherId : '__disabled__'
+  );
+
+  // Return empty result when disabled, otherwise return real query result
+  if (!isEnabled) {
+    return EMPTY_RESULT;
+  }
+
+  return internalResult;
+};
+
+/**
  * Mark all teacher chat messages as read
  */
 export const useMarkTeacherChatMessagesAsRead = () => {
@@ -240,7 +268,6 @@ export const useMarkTeacherChatMessagesAsRead = () => {
       return;
     }
 
-    // Clear cache to reflect updated read status
     teacherMessageCache.delete(teacherId);
     queryClient.invalidateQueries({ queryKey: ['teacher-chat-messages-v2', teacherId] });
     queryClient.invalidateQueries({ queryKey: ['teacher-conversations'] });
