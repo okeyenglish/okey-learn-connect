@@ -362,6 +362,8 @@ const CRMContent = () => {
     setShowFilters,
     selectedBranch,
     setSelectedBranch,
+    resetBranch,
+    validateAgainstAvailable,
     selectedClientType,
     setSelectedClientType,
     bulkSelectMode,
