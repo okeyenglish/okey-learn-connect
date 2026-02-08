@@ -47,9 +47,21 @@ export function useManagerBranches() {
   });
   
   // Список названий филиалов для фильтрации
-  const allowedBranchNames: string[] = userBranches.map(b => b.branch);
-  
-  // Если сотрудник не привязан к филиалам (user_branches пусто) или это админ - видит все
+  const branchesFromTable: string[] = userBranches
+    .map((b) => b.branch)
+    .filter(Boolean);
+
+  // Fallback: если таблица пустая, используем филиал из профиля (single-branch режим)
+  const branchFromProfile = profile?.branch || null;
+
+  const allowedBranchNames: string[] =
+    branchesFromTable.length > 0
+      ? branchesFromTable
+      : branchFromProfile
+        ? [branchFromProfile]
+        : [];
+
+  // Если сотрудник привязан к филиалу/филиалам и это не админ — включаем ограничения
   const hasRestrictions = !isAdmin && allowedBranchNames.length > 0;
 
   /**
@@ -59,21 +71,26 @@ export function useManagerBranches() {
   const canAccessBranch = (clientBranch: string | null | undefined): boolean => {
     // Если нет ограничений - доступ разрешён
     if (!hasRestrictions) return true;
-    
-    // Если у клиента нет филиала - показываем (чтобы не потерять клиентов)
-    if (!clientBranch) return true;
-    
-    // Нормализуем название филиала клиента
+
+    // При активных ограничениях: если у клиента филиал не указан — НЕ показываем (чтобы не было утечек)
+    if (!clientBranch) return false;
+
     const normalizedClientBranch = normalizeBranchName(clientBranch);
-    
-    // Проверяем, есть ли совпадение с любым из разрешённых филиалов
+
     return allowedBranchNames.some(
-      userBranch => normalizeBranchName(userBranch) === normalizedClientBranch
+      (userBranch) => normalizeBranchName(userBranch) === normalizedClientBranch
     );
   };
 
+  const managerBranches: ManagerBranch[] =
+    branchesFromTable.length > 0
+      ? userBranches.map((b) => ({ id: b.id, branch: b.branch }))
+      : branchFromProfile
+        ? [{ id: 'profile-branch', branch: branchFromProfile }]
+        : [];
+
   return {
-    managerBranches: userBranches.map((b) => ({ id: b.id, branch: b.branch })),
+    managerBranches,
     allowedBranchNames,
     hasRestrictions,
     canAccessBranch,
