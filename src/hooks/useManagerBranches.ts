@@ -1,5 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { isAdmin as checkIsAdmin } from "@/lib/permissions";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface ManagerBranch {
   id: string;
@@ -8,8 +10,8 @@ export interface ManagerBranch {
 
 /**
  * Hook для получения филиалов, к которым привязан сотрудник.
- * Использует филиал из профиля пользователя (profile.branch).
- * Если у сотрудника нет филиала - видит все чаты.
+ * Использует таблицу user_branches для определения доступа.
+ * Если у сотрудника нет записей в user_branches - видит все чаты.
  * Админы видят все чаты по умолчанию.
  */
 export function useManagerBranches() {
@@ -18,15 +20,37 @@ export function useManagerBranches() {
   // Админы всегда видят все
   const isAdmin = checkIsAdmin(roles);
   
-  // Филиал сотрудника из профиля
-  const userBranch = profile?.branch;
+  // Загружаем филиалы пользователя из user_branches
+  const { data: userBranches = [], isLoading } = useQuery({
+    queryKey: ['manager-branches', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      // Админы видят все — не нужно загружать ограничения
+      if (isAdmin) return [];
+      
+      // Получаем филиалы из user_branches
+      const { data, error } = await (supabase as any)
+        .from('user_branches')
+        .select('id, branch')
+        .eq('user_id', user.id);
+        
+      if (error) {
+        console.warn('Error fetching user branches:', error);
+        return [];
+      }
+      
+      return (data || []) as { id: string; branch: string }[];
+    },
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000, // 5 минут
+  });
   
-  // Список филиалов для фильтрации (один филиал из профиля)
-  const allowedBranchNames: string[] = userBranch ? [userBranch] : [];
+  // Список названий филиалов для фильтрации
+  const allowedBranchNames: string[] = userBranches.map(b => b.branch);
   
-  // Если сотрудник не привязан к филиалу (branch = null) или это админ - видит все
-  // Если филиал указан - видит только своих клиентов
-  const hasRestrictions = !isAdmin && !!userBranch;
+  // Если сотрудник не привязан к филиалам (user_branches пусто) или это админ - видит все
+  const hasRestrictions = !isAdmin && allowedBranchNames.length > 0;
 
   /**
    * Проверяет, можно ли сотруднику видеть чат с этим филиалом
@@ -39,22 +63,23 @@ export function useManagerBranches() {
     // Если у клиента нет филиала - показываем (чтобы не потерять клиентов)
     if (!clientBranch) return true;
     
-    // Нормализуем названия филиалов для сравнения
-    // "OKEY ENGLISH Котельники" -> "котельники"
+    // Нормализуем название филиала клиента
     const normalizedClientBranch = normalizeBranchName(clientBranch);
-    const normalizedUserBranch = normalizeBranchName(userBranch!);
     
-    return normalizedClientBranch === normalizedUserBranch;
+    // Проверяем, есть ли совпадение с любым из разрешённых филиалов
+    return allowedBranchNames.some(
+      userBranch => normalizeBranchName(userBranch) === normalizedClientBranch
+    );
   };
 
   return {
-    managerBranches: allowedBranchNames.map((branch, idx) => ({ id: String(idx), branch })),
+    managerBranches: userBranches.map((b) => ({ id: b.id, branch: b.branch })),
     allowedBranchNames,
     hasRestrictions,
     canAccessBranch,
-    isLoading: false, // Нет async запроса - данные уже в профиле
+    isLoading,
     isAdmin,
-    userBranch,
+    userBranch: allowedBranchNames[0] || null, // Для обратной совместимости
   };
 }
 
