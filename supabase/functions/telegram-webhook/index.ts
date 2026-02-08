@@ -25,6 +25,19 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Extract profile_id from URL path: /telegram-webhook/{profile_id}
+    // This is needed because Wappi sends the profile_id in the URL, not always in payload
+    const url = new URL(req.url);
+    const pathParts = url.pathname.split('/');
+    const urlProfileId = pathParts[pathParts.length - 1];
+    // Validate that it looks like a Wappi profile_id (not the function name itself)
+    const isValidUrlProfileId = urlProfileId && 
+      urlProfileId !== 'telegram-webhook' && 
+      urlProfileId.length >= 8 &&
+      /^[a-f0-9]+$/i.test(urlProfileId);
+    
+    console.log('[telegram-webhook] URL profile_id:', urlProfileId, 'valid:', isValidUrlProfileId);
+
     const webhookData: TelegramWappiWebhook = await req.json();
     console.log('Received Telegram webhook:', JSON.stringify(webhookData, null, 2));
 
@@ -36,8 +49,11 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Pass urlProfileId as fallback for routing
+    const fallbackProfileId = isValidUrlProfileId ? urlProfileId : null;
+
     for (const message of webhookData.messages) {
-      await processMessage(supabase, message);
+      await processMessage(supabase, message, fallbackProfileId);
     }
 
     return new Response(
@@ -103,13 +119,21 @@ async function resolveOrganizationByTelegramProfileId(
   return { organizationId: settings.organization_id };
 }
 
-async function processMessage(supabase: any, message: TelegramWappiMessage): Promise<void> {
+async function processMessage(supabase: any, message: TelegramWappiMessage, fallbackProfileId: string | null): Promise<void> {
   const { wh_type, profile_id } = message;
 
-  console.log(`Processing message type: ${wh_type} from profile: ${profile_id}`);
+  // Use profile_id from payload, or from URL path as fallback
+  const effectiveProfileId = profile_id || fallbackProfileId;
+  
+  if (!effectiveProfileId) {
+    console.error('[telegram-webhook] No profile_id in payload or URL, cannot route message');
+    return;
+  }
+
+  console.log(`Processing message type: ${wh_type} from profile: ${effectiveProfileId} (payload: ${profile_id}, fallback: ${fallbackProfileId})`);
 
   // Find organization by profile_id (supports both messenger_integrations and legacy messenger_settings)
-  const resolvedOrg = await resolveOrganizationByTelegramProfileId(supabase, profile_id);
+  const resolvedOrg = await resolveOrganizationByTelegramProfileId(supabase, effectiveProfileId);
   if (!resolvedOrg) return;
 
   const organizationId = resolvedOrg.organizationId;

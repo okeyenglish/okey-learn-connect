@@ -20,9 +20,10 @@ self.addEventListener('install', () => {
 // Type for Workbox manifest entries
 type ManifestEntry = PrecacheEntry | string;
 
-// CRITICAL: vite-plugin-pwa injectManifest requires `self.__WB_MANIFEST` as a literal.
-// Fallback to empty array on stale/missing manifest.
-precacheAndRoute(self.__WB_MANIFEST ?? []);
+// CRITICAL: vite-plugin-pwa injectManifest requires the literal `self.__WB_MANIFEST`.
+// Store in variable first, then apply fallback for safety.
+const manifest = self.__WB_MANIFEST;
+precacheAndRoute(manifest ?? []);
 
 // Clean up old caches
 cleanupOutdatedCaches();
