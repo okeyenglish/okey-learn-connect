@@ -49,11 +49,25 @@ export const useStaffGroupChats = () => {
   return useQuery({
     queryKey: ['staff-group-chats', user?.id],
     queryFn: async () => {
-      if (!user?.id || !profile?.organization_id) return [];
+      console.log('[useStaffGroupChats] Fetching groups...', {
+        userId: user?.id,
+        orgId: profile?.organization_id,
+      });
+      
+      if (!user?.id || !profile?.organization_id) {
+        console.log('[useStaffGroupChats] Missing user or org:', { userId: user?.id, orgId: profile?.organization_id });
+        return [];
+      }
       
       const response = await selfHostedPost<{ groups: StaffGroupChat[] }>('get-staff-group-chats', {
         organization_id: profile.organization_id,
         user_id: user.id,
+      });
+      
+      console.log('[useStaffGroupChats] Response:', {
+        success: response.success,
+        groupCount: response.data?.groups?.length || 0,
+        error: response.error,
       });
       
       if (!response.success) {
@@ -65,6 +79,7 @@ export const useStaffGroupChats = () => {
     },
     enabled: !!user?.id && !!profile?.organization_id,
     staleTime: 30 * 1000, // 30 seconds
+    refetchOnMount: true,
   });
 };
 
