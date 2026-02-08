@@ -1,6 +1,8 @@
 /**
  * Hook to fetch chat messages for a specific teacher (by teacher_id)
  * This is for the NEW architecture where teacher conversations are stored directly with teacher_id
+ * 
+ * OPTIMIZED: Uses in-memory cache for instant display and selective field queries
  */
 
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
@@ -10,6 +12,10 @@ import type { ChatMessage } from './useChatMessages';
 
 const PAGE_SIZE = 50;
 
+// In-memory cache for instant display (same pattern as useChatMessagesOptimized)
+const teacherMessageCache = new Map<string, { messages: ChatMessage[]; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 interface InfinitePageData<T> {
   items: T[];
   nextCursor: number;
@@ -17,11 +23,46 @@ interface InfinitePageData<T> {
   total: number;
 }
 
+// Optimized field selection - only fetch what we need
+const MESSAGE_FIELDS = `
+  id, teacher_id, message_text, message_type, system_type, is_read, is_outgoing,
+  created_at, file_url, file_name, file_type, external_message_id,
+  messenger_type, call_duration, message_status, metadata, content, direction,
+  media_url, media_type, external_id, messenger, status
+`;
+
+/**
+ * Get cached messages if valid
+ */
+const getCachedMessages = (teacherId: string): ChatMessage[] | null => {
+  const cached = teacherMessageCache.get(teacherId);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.messages;
+  }
+  return null;
+};
+
+/**
+ * Update cache with new messages
+ */
+const updateCache = (teacherId: string, messages: ChatMessage[]) => {
+  teacherMessageCache.set(teacherId, {
+    messages,
+    timestamp: Date.now(),
+  });
+};
+
 /**
  * Fetch chat messages for a teacher using teacher_id
  */
 export const useTeacherChatMessages = (teacherId: string) => {
   const queryClient = useQueryClient();
+
+  // Get cached data for placeholder
+  const cachedMessages = useMemo(() => {
+    if (!teacherId) return null;
+    return getCachedMessages(teacherId);
+  }, [teacherId]);
 
   const query = useInfiniteQuery({
     queryKey: ['teacher-chat-messages-v2', teacherId],
@@ -30,15 +71,16 @@ export const useTeacherChatMessages = (teacherId: string) => {
         return { items: [], nextCursor: 0, hasMore: false, total: 0 };
       }
 
-      // OPTIMIZATION: Removed count: 'exact' - it's expensive on large tables
-      // Instead, fetch PAGE_SIZE + 1 to detect if there are more pages
+      const startTime = performance.now();
+
+      // OPTIMIZATION: Select only needed fields instead of SELECT *
       // @ts-ignore - teacher_id column exists in self-hosted schema
       const { data, error } = await (supabase
         .from('chat_messages') as any)
-        .select('*')
+        .select(MESSAGE_FIELDS)
         .eq('teacher_id', teacherId)
         .order('created_at', { ascending: false })
-        .range(pageParam, pageParam + PAGE_SIZE - 1); // Correct: range(0, 49) = 50 rows
+        .range(pageParam, pageParam + PAGE_SIZE - 1);
 
       if (error) {
         console.error('[useTeacherChatMessages] Query failed:', error.message);
@@ -46,8 +88,8 @@ export const useTeacherChatMessages = (teacherId: string) => {
       }
 
       const fetchedItems = data || [];
-      const hasMore = fetchedItems.length > PAGE_SIZE;
-      const itemsToReturn = hasMore ? fetchedItems.slice(0, PAGE_SIZE) : fetchedItems;
+      const hasMore = fetchedItems.length >= PAGE_SIZE;
+      const itemsToReturn = fetchedItems;
 
       // Normalize field names for compatibility (self-hosted vs Cloud schema)
       const normalizedItems = itemsToReturn.map((m: any) => ({
@@ -68,8 +110,20 @@ export const useTeacherChatMessages = (teacherId: string) => {
         direction: m.direction || (m.is_outgoing ? 'outgoing' : 'incoming'),
       })) as ChatMessage[];
 
+      const chronologicalItems = normalizedItems.reverse();
+
+      // Update cache with first page
+      if (pageParam === 0) {
+        updateCache(teacherId, chronologicalItems);
+      }
+
+      const duration = performance.now() - startTime;
+      if (duration > 100) {
+        console.log(`[useTeacherChatMessages] Query took ${duration.toFixed(0)}ms for ${chronologicalItems.length} messages`);
+      }
+
       return {
-        items: normalizedItems.reverse(), // Chronological order
+        items: chronologicalItems,
         nextCursor: pageParam + PAGE_SIZE,
         hasMore,
         total: 0, // Not using total anymore for performance
@@ -80,8 +134,13 @@ export const useTeacherChatMessages = (teacherId: string) => {
     },
     initialPageParam: 0,
     enabled: !!teacherId,
-    staleTime: 60000, // Increased to 1 minute
+    staleTime: 60000, // 1 minute
     gcTime: 10 * 60 * 1000, // 10 minutes cache
+    // OPTIMIZATION: Use cached data as placeholder for instant display
+    placeholderData: cachedMessages ? {
+      pages: [{ items: cachedMessages, nextCursor: PAGE_SIZE, hasMore: true, total: 0 }],
+      pageParams: [0],
+    } : undefined,
   });
 
   // Flatten all pages into a single array
@@ -117,6 +176,8 @@ export const useTeacherChatMessages = (teacherId: string) => {
           filter: `teacher_id=eq.${teacherId}`,
         },
         () => {
+          // Invalidate cache on new message
+          teacherMessageCache.delete(teacherId);
           queryClient.invalidateQueries({ queryKey: ['teacher-chat-messages-v2', teacherId] });
           queryClient.invalidateQueries({ queryKey: ['teacher-conversations'] });
         }
@@ -130,6 +191,7 @@ export const useTeacherChatMessages = (teacherId: string) => {
           filter: `teacher_id=eq.${teacherId}`,
         },
         () => {
+          teacherMessageCache.delete(teacherId);
           queryClient.invalidateQueries({ queryKey: ['teacher-chat-messages-v2', teacherId] });
         }
       )
@@ -169,11 +231,24 @@ export const useMarkTeacherChatMessagesAsRead = () => {
       return;
     }
 
+    // Clear cache to reflect updated read status
+    teacherMessageCache.delete(teacherId);
     queryClient.invalidateQueries({ queryKey: ['teacher-chat-messages-v2', teacherId] });
     queryClient.invalidateQueries({ queryKey: ['teacher-conversations'] });
   }, [queryClient]);
 
   return { markAsRead };
+};
+
+/**
+ * Clear cache for a specific teacher or all teachers
+ */
+export const clearTeacherMessageCache = (teacherId?: string) => {
+  if (teacherId) {
+    teacherMessageCache.delete(teacherId);
+  } else {
+    teacherMessageCache.clear();
+  }
 };
 
 export default useTeacherChatMessages;
