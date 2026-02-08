@@ -2,7 +2,7 @@ import React from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { LazyAvatar, getAvatarInitials } from "@/components/ui/LazyAvatar";
 import { Badge } from "@/components/ui/badge";
-import { Pin, MessageSquare, MessageCircle, Info, Phone } from "lucide-react";
+import { Pin, MessageSquare, MessageCircle, Info, Phone, Banknote } from "lucide-react";
 import { ChatContextMenu } from "./ChatContextMenu";
 import { ChatPresenceIndicator } from "./ChatPresenceIndicator";
 import {
@@ -83,6 +83,7 @@ interface ChatListItemProps {
     avatar_url: string | null;
     last_message_messenger?: string | null; // Messenger of the last message
     last_unread_messenger?: string | null; // Last messenger with unread message
+    has_pending_payment?: boolean; // True when client has an unacknowledged payment
   };
   isActive: boolean;
   isPinned: boolean;
@@ -331,7 +332,22 @@ export const ChatListItem = React.memo(({
               )}
               <span className="text-[10px] text-muted-foreground font-medium">{chat.time}</span>
             </div>
-            {displayUnread && (
+            {/* Payment pending badge - takes priority over unread count */}
+            {chat.has_pending_payment && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="bg-gradient-to-r from-green-600 to-green-500 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1">
+                    <Banknote className="h-3.5 w-3.5" />
+                    <span className="font-semibold">₽</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  Ожидает подтверждения оплаты
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {/* Unread badge - show only if no pending payment */}
+            {displayUnread && !chat.has_pending_payment && (
               <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1">
                 {showEye ? (
                   <>
@@ -368,6 +384,7 @@ export const ChatListItem = React.memo(({
     prevProps.chat.unread === nextProps.chat.unread &&
     prevProps.chat.lastMessage === nextProps.chat.lastMessage &&
     prevProps.chat.time === nextProps.chat.time &&
+    prevProps.chat.has_pending_payment === nextProps.chat.has_pending_payment &&
     prevProps.isActive === nextProps.isActive &&
     prevProps.isPinned === nextProps.isPinned &&
     prevProps.displayUnread === nextProps.displayUnread &&
