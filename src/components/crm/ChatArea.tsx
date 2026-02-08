@@ -184,9 +184,10 @@ export const ChatArea = ({
   );
   
   // Teacher source via teacher_id directly (new architecture for self-hosted)
-  const teacherMessagesQueryByTeacherId = useTeacherChatMessagesByTeacherId(
-    actualTeacherId || ''
-  );
+  // CRITICAL: Only pass non-empty teacherId to prevent "pages is undefined" error
+  // The hook internally guards against empty string, but we use actualTeacherId directly
+  const teacherIdForQuery = isDirectTeacherMessage && actualTeacherId ? actualTeacherId : '';
+  const teacherMessagesQueryByTeacherId = useTeacherChatMessagesByTeacherId(teacherIdForQuery);
   
   // Select the appropriate teacher messages query based on pattern
   const teacherMessagesQuery = isDirectTeacherMessage 
