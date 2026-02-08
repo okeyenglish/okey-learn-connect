@@ -131,14 +131,14 @@ Deno.serve(async (req) => {
         console.log('Payment created successfully:', payment.id);
       }
 
-      // Шаг 2: Создаём сообщение в чате клиента при успешной оплате
-      // Используем source_messenger_type чтобы сообщение появилось в правильной вкладке
+      // Шаг 2: Создаём системное сообщение в чате и отправляем реальное сообщение клиенту
       if (onlinePayment.client_id && onlinePayment.organization_id) {
-        console.log('Creating chat message for client:', onlinePayment.client_id);
+        console.log('Creating chat message and sending notification for client:', onlinePayment.client_id);
 
         const messengerType = onlinePayment.source_messenger_type || 'whatsapp';
         console.log('Using messenger_type:', messengerType);
 
+        // Создаём системное сообщение для отображения в CRM
         const { error: chatError } = await supabase.from('chat_messages').insert({
           client_id: onlinePayment.client_id,
           organization_id: onlinePayment.organization_id,
@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
           message_type: 'system',
           is_outgoing: false,
           is_read: false,
-          messenger_type: messengerType, // Теперь берётся из source_messenger_type
+          messenger_type: messengerType,
         });
 
         if (chatError) {
@@ -163,6 +163,69 @@ Deno.serve(async (req) => {
           if (clientUpdateError) {
             console.error('Failed to update client last_message_at:', clientUpdateError);
           }
+        }
+
+        // Шаг 3: Отправляем реальное сообщение клиенту через мессенджер
+        const thankYouMessage = `Оплата на сумму ${amountRub.toLocaleString('ru-RU')}₽ прошла успешно! Большое спасибо.`;
+        
+        try {
+          if (messengerType === 'whatsapp') {
+            // Получаем телефон клиента для отправки
+            const { data: clientData } = await supabase
+              .from('clients')
+              .select('phone')
+              .eq('id', onlinePayment.client_id)
+              .single();
+            
+            if (clientData?.phone) {
+              console.log('Sending WhatsApp message to client:', clientData.phone);
+              
+              // Вызываем Edge Function для отправки WhatsApp сообщения
+              const { error: sendError } = await supabase.functions.invoke('wpp-send', {
+                body: {
+                  phone: clientData.phone,
+                  message: thankYouMessage,
+                  client_id: onlinePayment.client_id,
+                  organization_id: onlinePayment.organization_id,
+                }
+              });
+              
+              if (sendError) {
+                console.error('Failed to send WhatsApp message:', sendError);
+              } else {
+                console.log('WhatsApp thank you message sent successfully');
+              }
+            }
+          } else if (messengerType === 'telegram') {
+            // Получаем telegram_user_id клиента
+            const { data: clientData } = await supabase
+              .from('clients')
+              .select('telegram_user_id')
+              .eq('id', onlinePayment.client_id)
+              .single();
+            
+            if (clientData?.telegram_user_id) {
+              console.log('Sending Telegram message to client:', clientData.telegram_user_id);
+              
+              const { error: sendError } = await supabase.functions.invoke('telegram-send', {
+                body: {
+                  chat_id: clientData.telegram_user_id,
+                  message: thankYouMessage,
+                  client_id: onlinePayment.client_id,
+                  organization_id: onlinePayment.organization_id,
+                }
+              });
+              
+              if (sendError) {
+                console.error('Failed to send Telegram message:', sendError);
+              } else {
+                console.log('Telegram thank you message sent successfully');
+              }
+            }
+          }
+          // MAX messenger can be added similarly if needed
+        } catch (sendErr) {
+          console.error('Error sending thank you message:', sendErr);
         }
       } else {
         console.log('No client_id on online_payment, skipping chat message');
