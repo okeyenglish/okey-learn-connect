@@ -62,6 +62,7 @@ import { useMessageDrafts } from '@/hooks/useMessageDrafts';
 import { useChatTakeover } from '@/hooks/useChatTakeover';
 import { TakeoverRequestDialog } from './TakeoverRequestDialog';
 import { useChatOSMessages, useSendChatOSMessage } from '@/hooks/useChatOSMessages';
+import { isValidUUID, safeUUID } from '@/lib/uuidValidation';
 
 interface ChatAreaProps {
   clientId: string;
@@ -136,6 +137,21 @@ export const ChatArea = ({
   // Detect if this is a direct teacher message (teacher:xxx marker pattern)
   const isDirectTeacherMessage = clientId?.startsWith('teacher:') ?? false;
   const actualTeacherId = isDirectTeacherMessage ? clientId.replace('teacher:', '') : null;
+  
+  // Safe UUID for hooks that require a real client UUID (not teacher:xxx markers)
+  // Returns null if clientId is not a valid UUID - hooks will be disabled
+  const clientUUID = safeUUID(clientId);
+  // String version for hooks that expect string (empty string disables them)
+  const clientIdForUuidHooks = clientUUID ?? '';
+  
+  // Debug logging for teacher chat resolution
+  console.log('[ChatArea] Mount/Update:', { 
+    clientId, 
+    isDirectTeacherMessage, 
+    clientUUID, 
+    messagesSource,
+    isTeacherMessages 
+  });
   
   // Helper to build message record with correct client_id/teacher_id
   const buildMessageRecord = (baseRecord: Record<string, any>) => {
@@ -485,18 +501,19 @@ export const ChatArea = ({
   useMessageStatusRealtime(clientId, handleDeliveryFailed);
 
   // Get unread counts by messenger for badge display
+  // Use safe UUID to prevent DB errors with teacher:xxx markers
   const {
     unreadCounts: unreadByMessenger,
     lastUnreadMessenger,
     isLoading: unreadLoading,
     isFetching: unreadFetching,
-  } = useClientUnreadByMessenger(clientId);
+  } = useClientUnreadByMessenger(clientIdForUuidHooks);
   
-  // Hook for marking calls as viewed
-  const { markCallsAsViewed } = useViewedMissedCalls(clientId);
+  // Hook for marking calls as viewed - use safe UUID
+  const { markCallsAsViewed } = useViewedMissedCalls(clientIdForUuidHooks);
   
-  // Realtime subscription for call logs updates
-  useCallLogsRealtime(clientId);
+  // Realtime subscription for call logs updates - use safe UUID (undefined for global, UUID for specific client)
+  useCallLogsRealtime(clientUUID ?? undefined);
   
   // Get integration statuses for all messengers (for tab indicators)
   const { data: integrationsStatus } = useAllIntegrationsStatus();

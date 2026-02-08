@@ -214,71 +214,90 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   };
 
   // Resolve clientId for selected teacher - optimized with caching
+  // Wrapped in try/catch to prevent unhandled async errors from crashing the UI
   useEffect(() => {
     const resolve = async () => {
-      if (!selectedTeacherId) { 
-        setResolvedClientId(null); 
-        return; 
-      }
-      
-      // Check cache first for instant resolution
-      const cached = clientIdCache.current.get(selectedTeacherId);
-      if (cached) {
-        setResolvedClientId(cached);
-        return;
-      }
-      
-      if (selectedTeacherId === 'teachers-group') {
-        // Group chat for the user's branch
-        if (!userBranch) { 
-          // Don't wait for branch - will resolve when branch loads
+      try {
+        if (!selectedTeacherId) { 
+          setResolvedClientId(null); 
           return; 
         }
-        const nameToFind = `Чат педагогов - ${userBranch}`;
-        const id = await ensureClient(nameToFind, userBranch);
-        if (id) {
-          clientIdCache.current.set(selectedTeacherId, id);
-          setResolvedClientId(id);
+        
+        console.log('[TeacherChatArea] Resolving clientId for teacher:', selectedTeacherId);
+        
+        // Check cache first for instant resolution
+        const cached = clientIdCache.current.get(selectedTeacherId);
+        if (cached) {
+          console.log('[TeacherChatArea] Using cached clientId:', cached);
+          setResolvedClientId(cached);
+          return;
         }
-        return;
-      }
+        
+        if (selectedTeacherId === 'teachers-group') {
+          // Group chat for the user's branch
+          if (!userBranch) { 
+            // Don't wait for branch - will resolve when branch loads
+            return; 
+          }
+          const nameToFind = `Чат педагогов - ${userBranch}`;
+          const id = await ensureClient(nameToFind, userBranch);
+          if (id) {
+            clientIdCache.current.set(selectedTeacherId, id);
+            setResolvedClientId(id);
+          }
+          return;
+        }
 
-      // Find teacher by id and get their clientId
-      const teacher = teachersWithMessages.find(t => t.id === selectedTeacherId);
-      if (!teacher) { 
-        // Teacher not loaded yet - will resolve when teachers load
-        return; 
-      }
+        // Find teacher by id and get their clientId
+        const teacher = teachersWithMessages.find(t => t.id === selectedTeacherId);
+        if (!teacher) { 
+          console.log('[TeacherChatArea] Teacher not found yet, waiting for load');
+          // Teacher not loaded yet - will resolve when teachers load
+          return; 
+        }
 
-      // If teacher already has a linked client, use it immediately
-      if (teacher.clientId) {
-        // Check if this is a direct teacher message marker (teacher:xxx)
-        if (teacher.clientId.startsWith('teacher:')) {
-          // Direct teacher messages - use the special marker
+        console.log('[TeacherChatArea] Found teacher:', { 
+          id: teacher.id, 
+          clientId: teacher.clientId, 
+          lastMessageTime: teacher.lastMessageTime 
+        });
+
+        // If teacher already has a linked client, use it immediately
+        if (teacher.clientId) {
+          // Check if this is a direct teacher message marker (teacher:xxx)
+          if (teacher.clientId.startsWith('teacher:')) {
+            // Direct teacher messages - use the special marker
+            clientIdCache.current.set(selectedTeacherId, teacher.clientId);
+            setResolvedClientId(teacher.clientId);
+            return;
+          }
+          
           clientIdCache.current.set(selectedTeacherId, teacher.clientId);
           setResolvedClientId(teacher.clientId);
           return;
         }
         
-        clientIdCache.current.set(selectedTeacherId, teacher.clientId);
-        setResolvedClientId(teacher.clientId);
-        return;
-      }
-      
-      // Check if teacher has messages via teacher_id (lastMessageTime set but no clientId)
-      if (teacher.lastMessageTime) {
-        // Teacher has messages directly via teacher_id - use special marker
-        const directMarker = `teacher:${selectedTeacherId}`;
-        clientIdCache.current.set(selectedTeacherId, directMarker);
-        setResolvedClientId(directMarker);
-        return;
-      }
+        // Check if teacher has messages via teacher_id (lastMessageTime set but no clientId)
+        if (teacher.lastMessageTime) {
+          // Teacher has messages directly via teacher_id - use special marker
+          const directMarker = `teacher:${selectedTeacherId}`;
+          console.log('[TeacherChatArea] Using direct teacher marker:', directMarker);
+          clientIdCache.current.set(selectedTeacherId, directMarker);
+          setResolvedClientId(directMarker);
+          return;
+        }
 
-      // Otherwise, find or create a client for this teacher (slower path)
-      const clientId = await findOrCreateClient(teacher);
-      if (clientId) {
-        clientIdCache.current.set(selectedTeacherId, clientId);
-        setResolvedClientId(clientId);
+        // Otherwise, find or create a client for this teacher (slower path)
+        const clientId = await findOrCreateClient(teacher);
+        if (clientId) {
+          clientIdCache.current.set(selectedTeacherId, clientId);
+          setResolvedClientId(clientId);
+        }
+      } catch (error) {
+        // Log and gracefully handle errors to prevent white screen
+        console.error('[TeacherChatArea] Error resolving clientId:', error);
+        setResolvedClientId(null);
+        // Don't crash the UI - just leave the chat unresolved
       }
     };
     

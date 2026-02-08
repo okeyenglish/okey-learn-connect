@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getUnviewedMissedCallsCount } from './useViewedMissedCalls';
+import { isValidUUID } from '@/lib/uuidValidation';
 
 export interface ChatMessage {
   id: string;
@@ -417,11 +418,13 @@ export const useChatThreads = () => {
 };
 
 // Hook to get unread counts by messenger for a specific client
+// IMPORTANT: clientId must be a valid UUID. Teacher markers (teacher:xxx) are filtered out.
 export const useClientUnreadByMessenger = (clientId: string) => {
   const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ['client-unread-by-messenger', clientId],
     queryFn: async (): Promise<{ counts: UnreadByMessenger; lastUnreadMessenger: string | null }> => {
-      if (!clientId) {
+      // Early exit for empty or non-UUID clientIds (like "teacher:xxx")
+      if (!clientId || !isValidUUID(clientId)) {
         return { counts: { whatsapp: 0, telegram: 0, max: 0, chatos: 0, email: 0, calls: 0 }, lastUnreadMessenger: null };
       }
 
@@ -528,7 +531,8 @@ export const useClientUnreadByMessenger = (clientId: string) => {
 
       return { counts, lastUnreadMessenger };
     },
-    enabled: !!clientId,
+    // Only enable for valid UUIDs - prevents DB errors with teacher:xxx markers
+    enabled: !!clientId && isValidUUID(clientId),
     staleTime: 0,
     refetchOnMount: 'always',
   });
