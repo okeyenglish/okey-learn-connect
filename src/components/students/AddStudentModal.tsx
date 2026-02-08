@@ -58,6 +58,9 @@ export function AddStudentModal({ open, onOpenChange, children }: AddStudentModa
     phone: '',
     email: '',
     
+    // HolyHope ссылка (обязательная)
+    holyhopeLink: '',
+    
     // Образование
     subject: 'english',
     level: '',
@@ -77,6 +80,17 @@ export function AddStudentModal({ open, onOpenChange, children }: AddStudentModa
       push: false
     }
   });
+
+  // Извлечение HolyHope ID из ссылки
+  const extractHolyhopeId = (link: string): string | null => {
+    if (!link) return null;
+    // Поддерживаемые форматы:
+    // https://okeyenglish.t8s.ru/Profile/12345
+    // https://okeyenglish.t8s.ru/Lead/12345
+    // или просто ID: 12345
+    const match = link.match(/(?:Profile|Lead)\/(\d+)|^(\d+)$/);
+    return match ? (match[1] || match[2]) : null;
+  };
 
   const addParent = () => {
     const newParent: ParentContact = {
@@ -111,6 +125,17 @@ export function AddStudentModal({ open, onOpenChange, children }: AddStudentModa
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Валидация HolyHope ссылки (обязательное поле)
+    const holyhopeId = extractHolyhopeId(formData.holyhopeLink);
+    if (!holyhopeId) {
+      toast({
+        title: "Ошибка",
+        description: "Укажите корректную ссылку на HolyHope (например: https://okeyenglish.t8s.ru/Profile/12345)",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Валидация основных полей
     if (!formData.firstName || !formData.lastName || !formData.branch) {
       toast({
@@ -143,7 +168,7 @@ export function AddStudentModal({ open, onOpenChange, children }: AddStudentModa
         .single();
       if (familyErr) throw familyErr;
 
-      // Создаем ученика
+      // Создаем ученика с holihope_id
       const fullName = `${formData.lastName} ${formData.firstName}`.trim();
       const { error: studentErr } = await supabase
         .from('students')
@@ -158,6 +183,8 @@ export function AddStudentModal({ open, onOpenChange, children }: AddStudentModa
           notes: formData.notes || null,
           age: age,
           date_of_birth: birthDate ? format(birthDate, 'yyyy-MM-dd') : null,
+          holihope_id: holyhopeId,
+          external_id: holyhopeId,
         }]);
       if (studentErr) throw studentErr;
 
@@ -173,6 +200,7 @@ export function AddStudentModal({ open, onOpenChange, children }: AddStudentModa
         gender: '',
         phone: '',
         email: '',
+        holyhopeLink: '',
         subject: 'english',
         level: '',
         branch: '',
@@ -247,6 +275,31 @@ export function AddStudentModal({ open, onOpenChange, children }: AddStudentModa
                     required
                   />
                 </div>
+              </div>
+
+              <div>
+                <Label htmlFor="holyhopeLink" className="flex items-center gap-1">
+                  <span className="text-destructive">*</span>
+                  Ссылка на HolyHope
+                </Label>
+                <Input
+                  id="holyhopeLink"
+                  value={formData.holyhopeLink}
+                  onChange={(e) => setFormData(prev => ({ ...prev, holyhopeLink: e.target.value }))}
+                  placeholder="https://okeyenglish.t8s.ru/Profile/12345 или ID"
+                  required
+                  className={!formData.holyhopeLink ? 'border-destructive/50' : extractHolyhopeId(formData.holyhopeLink) ? 'border-green-500' : 'border-destructive'}
+                />
+                {formData.holyhopeLink && !extractHolyhopeId(formData.holyhopeLink) && (
+                  <p className="text-xs text-destructive mt-1">
+                    Некорректный формат. Укажите ссылку на Profile или Lead, либо ID числом.
+                  </p>
+                )}
+                {formData.holyhopeLink && extractHolyhopeId(formData.holyhopeLink) && (
+                  <p className="text-xs text-green-600 mt-1">
+                    ✓ ID: {extractHolyhopeId(formData.holyhopeLink)}
+                  </p>
+                )}
               </div>
 
               <div>
