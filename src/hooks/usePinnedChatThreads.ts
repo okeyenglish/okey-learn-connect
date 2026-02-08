@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { ChatThread, UnreadByMessenger } from './useChatMessages';
 import { isGroupChatName, isTelegramGroup } from './useCommunityChats';
+import { hydrateClientBranches } from '@/lib/hydrateClientBranches';
 
 // Helper to check if message is a system/internal message that shouldn't be shown in preview
 function isSystemPreviewMessage(text: string): boolean {
@@ -74,8 +75,9 @@ export const usePinnedChatThreads = (
       );
 
       const allThreads = results.flat();
-      console.log(`[usePinnedChatThreads] Loaded ${allThreads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
-      return allThreads;
+      const hydrated = await hydrateClientBranches(allThreads);
+      console.log(`[usePinnedChatThreads] Loaded ${hydrated.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
+      return hydrated;
     },
   });
 };

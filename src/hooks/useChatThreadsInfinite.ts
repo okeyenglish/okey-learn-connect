@@ -5,6 +5,7 @@ import { chatListQueryConfig } from '@/lib/queryConfig';
 import { isGroupChatName, isTelegramGroup } from './useCommunityChats';
 import { useMemo, useCallback, useEffect, useRef } from 'react';
 import { useBulkAvatarFetch } from './useBulkAvatarFetch';
+import { hydrateClientBranches } from '@/lib/hydrateClientBranches';
 
 const PAGE_SIZE = 50;
 
@@ -274,8 +275,10 @@ export const useChatThreadsInfinite = () => {
           throw fallbackError;
         }
         const fallbackArray = (fallbackData || []) as RpcThreadRow[];
+        const mapped = mapRpcToThreads(fallbackArray.slice(0, PAGE_SIZE));
+        const hydrated = await hydrateClientBranches(mapped);
         return {
-          threads: mapRpcToThreads(fallbackArray.slice(0, PAGE_SIZE)),
+          threads: hydrated,
           hasMore: fallbackArray.length > PAGE_SIZE,
           pageParam,
           executionTime: performance.now() - startTime
@@ -284,7 +287,8 @@ export const useChatThreadsInfinite = () => {
 
       const dataArray = (data || []) as RpcThreadRow[];
       const hasMore = dataArray.length > PAGE_SIZE;
-      const threads = mapRpcToThreads(dataArray.slice(0, PAGE_SIZE));
+      const mapped = mapRpcToThreads(dataArray.slice(0, PAGE_SIZE));
+      const threads = await hydrateClientBranches(mapped);
       
       console.log(`[useChatThreadsInfinite] ✅ Page ${pageParam}: ${threads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
       
@@ -341,7 +345,8 @@ export const useChatThreadsInfinite = () => {
       }
 
       hasLoadedOnce.current = true;
-      const threads = mapRpcToThreads((data || []) as RpcThreadRow[]);
+      const mapped = mapRpcToThreads((data || []) as RpcThreadRow[]);
+      const threads = await hydrateClientBranches(mapped);
       console.log(`[useChatThreadsInfinite] ✅ Unread: ${threads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
       return threads;
     },
