@@ -168,6 +168,9 @@ Deno.serve(async (req) => {
         // Шаг 3: Отправляем реальное сообщение клиенту через мессенджер
         const thankYouMessage = `Оплата на сумму ${amountRub.toLocaleString('ru-RU')}₽ прошла успешно! Большое спасибо.`;
         
+        // Используем SELF_HOSTED_URL или SUPABASE_URL для вызова Edge Functions
+        const selfHostedUrl = Deno.env.get('SELF_HOSTED_URL') || supabaseUrl;
+        
         try {
           if (messengerType === 'whatsapp') {
             // Получаем телефон клиента для отправки
@@ -180,18 +183,24 @@ Deno.serve(async (req) => {
             if (clientData?.phone) {
               console.log('Sending WhatsApp message to client:', clientData.phone);
               
-              // Вызываем Edge Function для отправки WhatsApp сообщения
-              const { error: sendError } = await supabase.functions.invoke('wpp-send', {
-                body: {
+              // Вызываем Edge Function напрямую через HTTP (для self-hosted совместимости)
+              const sendResponse = await fetch(`${selfHostedUrl}/functions/v1/wpp-send`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${supabaseKey}`,
+                },
+                body: JSON.stringify({
                   phone: clientData.phone,
                   message: thankYouMessage,
                   client_id: onlinePayment.client_id,
                   organization_id: onlinePayment.organization_id,
-                }
+                }),
               });
               
-              if (sendError) {
-                console.error('Failed to send WhatsApp message:', sendError);
+              if (!sendResponse.ok) {
+                const errorText = await sendResponse.text();
+                console.error('Failed to send WhatsApp message:', sendResponse.status, errorText);
               } else {
                 console.log('WhatsApp thank you message sent successfully');
               }
@@ -207,17 +216,23 @@ Deno.serve(async (req) => {
             if (clientData?.telegram_user_id) {
               console.log('Sending Telegram message to client:', clientData.telegram_user_id);
               
-              const { error: sendError } = await supabase.functions.invoke('telegram-send', {
-                body: {
+              const sendResponse = await fetch(`${selfHostedUrl}/functions/v1/telegram-send`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${supabaseKey}`,
+                },
+                body: JSON.stringify({
                   chat_id: clientData.telegram_user_id,
                   message: thankYouMessage,
                   client_id: onlinePayment.client_id,
                   organization_id: onlinePayment.organization_id,
-                }
+                }),
               });
               
-              if (sendError) {
-                console.error('Failed to send Telegram message:', sendError);
+              if (!sendResponse.ok) {
+                const errorText = await sendResponse.text();
+                console.error('Failed to send Telegram message:', sendResponse.status, errorText);
               } else {
                 console.log('Telegram thank you message sent successfully');
               }
