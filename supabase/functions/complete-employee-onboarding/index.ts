@@ -41,6 +41,105 @@ const normalizeInternationalPhone = (value: string | null | undefined): string |
   return `+${digits}`;
 };
 
+// Функция для добавления сотрудника в группы по филиалам
+async function addEmployeeToBranchGroups(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  userId: string,
+  invitation: { 
+    organization_id: string; 
+    branch?: string | null;
+    allowed_branches?: string[] | null;
+    position: string;
+    first_name: string;
+  }
+) {
+  try {
+    // Определяем филиалы для сотрудника
+    const branches: string[] = [];
+    
+    // Основной филиал
+    if (invitation.branch) {
+      branches.push(invitation.branch);
+    }
+    
+    // Дополнительные филиалы (если есть)
+    if (invitation.allowed_branches && Array.isArray(invitation.allowed_branches)) {
+      for (const b of invitation.allowed_branches) {
+        if (b && !branches.includes(b)) {
+          branches.push(b);
+        }
+      }
+    }
+    
+    if (branches.length === 0) {
+      console.log("[addEmployeeToBranchGroups] No branches to add employee to");
+      return;
+    }
+    
+    console.log("[addEmployeeToBranchGroups] Branches to process:", branches);
+    
+    for (const branchName of branches) {
+      // 1. Проверяем/создаём группу для филиала
+      let { data: existingGroup } = await supabaseAdmin
+        .from("staff_group_chats")
+        .select("id")
+        .eq("organization_id", invitation.organization_id)
+        .eq("branch_name", branchName)
+        .eq("is_branch_group", true)
+        .maybeSingle();
+      
+      let groupId: string;
+      
+      if (existingGroup) {
+        groupId = existingGroup.id;
+        console.log(`[addEmployeeToBranchGroups] Found existing group for branch ${branchName}:`, groupId);
+      } else {
+        // Создаём новую группу для филиала
+        const { data: newGroup, error: createError } = await supabaseAdmin
+          .from("staff_group_chats")
+          .insert({
+            name: `Команда ${branchName}`,
+            description: `Общий чат сотрудников филиала ${branchName}`,
+            organization_id: invitation.organization_id,
+            branch_name: branchName,
+            is_branch_group: true,
+          })
+          .select("id")
+          .single();
+        
+        if (createError || !newGroup) {
+          console.error(`[addEmployeeToBranchGroups] Failed to create group for ${branchName}:`, createError);
+          continue;
+        }
+        
+        groupId = newGroup.id;
+        console.log(`[addEmployeeToBranchGroups] Created new group for branch ${branchName}:`, groupId);
+      }
+      
+      // 2. Добавляем сотрудника в группу
+      const { error: memberError } = await supabaseAdmin
+        .from("staff_group_chat_members")
+        .upsert({
+          group_chat_id: groupId,
+          user_id: userId,
+          role: invitation.position === 'branch_manager' ? 'admin' : 'member',
+        }, {
+          onConflict: 'group_chat_id,user_id',
+          ignoreDuplicates: true,
+        });
+      
+      if (memberError) {
+        console.error(`[addEmployeeToBranchGroups] Failed to add member to group ${groupId}:`, memberError);
+      } else {
+        console.log(`[addEmployeeToBranchGroups] Added user ${userId} to group ${groupId}`);
+      }
+    }
+  } catch (error) {
+    console.error("[addEmployeeToBranchGroups] Error:", error);
+    // Не прерываем онбординг из-за ошибки в группах
+  }
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -271,7 +370,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 7. Обновить приглашение
+    // 7. Добавить сотрудника в группы по филиалам
+    console.log("[complete-employee-onboarding] Adding employee to branch groups...");
+    await addEmployeeToBranchGroups(supabaseAdmin, userId, invitation);
+
+    // 8. Обновить приглашение
     console.log("[complete-employee-onboarding] Updating invitation status...");
     const { error: updateError } = await supabaseAdmin
       .from("employee_invitations")
