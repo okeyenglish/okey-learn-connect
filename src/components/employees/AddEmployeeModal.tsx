@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   UserPlus, 
   Loader2, 
@@ -24,6 +25,8 @@ import { useOrganization } from "@/hooks/useOrganization";
 import { getErrorMessage } from '@/lib/errorUtils';
 import { Badge } from "@/components/ui/badge";
 import { QRCodeSVG } from 'qrcode.react';
+import { format } from 'date-fns';
+import { SalaryConfigSection, SalaryConfig, getDefaultSalaryConfig } from './SalaryConfigSection';
 
 interface AddEmployeeModalProps {
   open: boolean;
@@ -119,6 +122,7 @@ export const AddEmployeeModal = ({
     branches: [] as string[],
     position: 'manager'
   });
+  const [salaryConfig, setSalaryConfig] = useState<SalaryConfig>(getDefaultSalaryConfig());
 
   const baseUrl = window.location.origin;
   const inviteLink = invitation 
@@ -182,18 +186,26 @@ export const AddEmployeeModal = ({
       // Нормализуем телефон перед сохранением (может быть null)
       const normalizedPhone = normalizePhone(formData.phone);
       
-      const { data, error } = await supabase
-        .from('employee_invitations')
+      const { data, error } = await (supabase
+        .from('employee_invitations' as any)
         .insert({
           organization_id: organizationId,
           first_name: formData.firstName.trim(),
           phone: normalizedPhone,
           branch: formData.branches.join(', '),
           position: formData.position,
-          created_by: profile?.id
+          created_by: profile?.id,
+          // Salary config
+          salary_type: salaryConfig.salaryType,
+          base_salary: salaryConfig.baseSalary ? Number(salaryConfig.baseSalary) : null,
+          salary_start_date: salaryConfig.salaryStartDate 
+            ? format(salaryConfig.salaryStartDate, 'yyyy-MM-dd') 
+            : null,
+          daily_rate: salaryConfig.dailyRate ? Number(salaryConfig.dailyRate) : null,
+          work_days: salaryConfig.workDays,
         })
         .select('id, invite_token, first_name, phone')
-        .single();
+        .single() as any);
 
       if (error) throw error;
 
@@ -239,6 +251,7 @@ export const AddEmployeeModal = ({
   const handleClose = () => {
     setStep('form');
     setFormData({ firstName: '', phone: '', branches: [], position: 'manager' });
+    setSalaryConfig(getDefaultSalaryConfig());
     setInvitation(null);
     setCopied(false);
     setPhoneError(undefined);
@@ -270,7 +283,7 @@ export const AddEmployeeModal = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5 text-primary" />
@@ -279,13 +292,14 @@ export const AddEmployeeModal = ({
         </DialogHeader>
 
         {step === 'form' ? (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="firstName">Имя *</Label>
-              <Input
-                id="firstName"
-                value={formData.firstName}
-                onChange={(e) => handleInputChange('firstName', e.target.value)}
+          <ScrollArea className="flex-1 -mx-6 px-6">
+            <form onSubmit={handleSubmit} className="space-y-4 pb-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">Имя *</Label>
+                <Input
+                  id="firstName"
+                  value={formData.firstName}
+                  onChange={(e) => handleInputChange('firstName', e.target.value)}
                 placeholder="Введите имя"
                 required
               />
@@ -381,6 +395,12 @@ export const AddEmployeeModal = ({
               </Select>
             </div>
 
+            {/* Salary Configuration */}
+            <SalaryConfigSection 
+              config={salaryConfig} 
+              onChange={setSalaryConfig} 
+            />
+
             <div className="flex justify-end gap-2 pt-4">
               <Button 
                 type="button" 
@@ -408,6 +428,7 @@ export const AddEmployeeModal = ({
               </Button>
             </div>
           </form>
+          </ScrollArea>
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
