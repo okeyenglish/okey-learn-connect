@@ -53,30 +53,66 @@ Deno.serve(async (req) => {
   }
 });
 
+async function resolveOrganizationByTelegramProfileId(
+  supabase: any,
+  profileId: string
+): Promise<{ organizationId: string } | null> {
+  // Prefer new multi-account integrations (messenger_integrations) if available
+  try {
+    const { data: integration, error } = await supabase
+      .from('messenger_integrations')
+      .select('organization_id, is_enabled')
+      .eq('messenger_type', 'telegram')
+      .eq('provider', 'wappi')
+      .eq('settings->>profileId', profileId)
+      .maybeSingle();
+
+    if (!error && integration) {
+      if (!integration.is_enabled) {
+        console.log('[telegram-webhook] Telegram Wappi integration disabled for org:', integration.organization_id);
+        return null;
+      }
+      return { organizationId: integration.organization_id };
+    }
+
+    if (error) {
+      console.warn('[telegram-webhook] messenger_integrations lookup failed, falling back to messenger_settings:', error);
+    }
+  } catch (e) {
+    console.warn('[telegram-webhook] messenger_integrations lookup threw, falling back to messenger_settings:', e);
+  }
+
+  // Legacy fallback: messenger_settings
+  const { data: settings, error: settingsError } = await supabase
+    .from('messenger_settings')
+    .select('organization_id, is_enabled')
+    .eq('messenger_type', 'telegram')
+    .eq('settings->>profileId', profileId)
+    .maybeSingle();
+
+  if (settingsError || !settings) {
+    console.error('[telegram-webhook] Organization not found for profile_id:', profileId, settingsError);
+    return null;
+  }
+
+  if (!settings.is_enabled) {
+    console.log('[telegram-webhook] Telegram integration is disabled for organization:', settings.organization_id);
+    return null;
+  }
+
+  return { organizationId: settings.organization_id };
+}
+
 async function processMessage(supabase: any, message: TelegramWappiMessage): Promise<void> {
   const { wh_type, profile_id } = message;
 
   console.log(`Processing message type: ${wh_type} from profile: ${profile_id}`);
 
-  // Find organization by profile_id
-  const { data: settings, error: settingsError } = await supabase
-    .from('messenger_settings')
-    .select('organization_id, is_enabled')
-    .eq('messenger_type', 'telegram')
-    .eq('settings->>profileId', profile_id)
-    .maybeSingle();
+  // Find organization by profile_id (supports both messenger_integrations and legacy messenger_settings)
+  const resolvedOrg = await resolveOrganizationByTelegramProfileId(supabase, profile_id);
+  if (!resolvedOrg) return;
 
-  if (settingsError || !settings) {
-    console.error('Organization not found for profile_id:', profile_id, settingsError);
-    return;
-  }
-
-  if (!settings.is_enabled) {
-    console.log('Telegram integration is disabled for organization:', settings.organization_id);
-    return;
-  }
-
-  const organizationId = settings.organization_id;
+  const organizationId = resolvedOrg.organizationId;
 
   switch (wh_type) {
     case 'incoming_message':

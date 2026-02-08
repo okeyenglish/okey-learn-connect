@@ -2,8 +2,9 @@
 import { precacheAndRoute, cleanupOutdatedCaches, PrecacheEntry } from 'workbox-precaching';
 
 // Extend ServiceWorkerGlobalScope with __WB_MANIFEST for vite-plugin-pwa injectManifest
+// NOTE: this must be optional so the SW doesn't crash if a stale build is served.
 declare const self: ServiceWorkerGlobalScope & {
-  __WB_MANIFEST: Array<PrecacheEntry | string>;
+  __WB_MANIFEST?: Array<PrecacheEntry | string>;
 };
 
 // ===== MARKER: push-support-v7 =====
@@ -21,9 +22,9 @@ type ManifestEntry = PrecacheEntry | string;
 
 // CRITICAL: This exact literal `self.__WB_MANIFEST` is required for vite-plugin-pwa injectManifest
 // The plugin scans for this exact string and replaces it with the manifest array.
-// Do NOT rename or alias this variable - the string must appear literally.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const wbManifest = (self as any).__WB_MANIFEST as ManifestEntry[] | undefined;
+// On some Safari/iOS setups (or if a stale SW is served), __WB_MANIFEST may be missing.
+// Fallback to an empty manifest so the SW can still register.
+const wbManifest = self.__WB_MANIFEST;
 precacheAndRoute(Array.isArray(wbManifest) ? wbManifest : []);
 
 // Clean up old caches
