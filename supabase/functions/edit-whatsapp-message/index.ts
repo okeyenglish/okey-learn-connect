@@ -18,6 +18,58 @@ interface GreenAPIResponse {
   error?: string
 }
 
+interface GreenApiSettings {
+  instanceId: string
+  apiToken: string
+  apiUrl: string
+}
+
+async function getGreenApiSettings(supabase: ReturnType<typeof createClient>, organizationId: string): Promise<GreenApiSettings | null> {
+  // 1. First try messenger_integrations (priority)
+  const { data: integration } = await supabase
+    .from('messenger_integrations')
+    .select('id, settings, is_primary')
+    .eq('organization_id', organizationId)
+    .eq('messenger_type', 'whatsapp')
+    .eq('provider', 'green_api')
+    .eq('is_enabled', true)
+    .order('is_primary', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (integration?.settings) {
+    const settings = integration.settings as Record<string, unknown>
+    if (settings.instanceId && settings.apiToken) {
+      return {
+        instanceId: String(settings.instanceId),
+        apiToken: String(settings.apiToken),
+        apiUrl: String(settings.apiUrl || 'https://api.green-api.com'),
+      }
+    }
+  }
+
+  // 2. Fallback to messenger_settings
+  const { data: legacySettings } = await supabase
+    .from('messenger_settings')
+    .select('settings, is_enabled')
+    .eq('organization_id', organizationId)
+    .eq('messenger_type', 'whatsapp')
+    .maybeSingle()
+
+  if (legacySettings?.is_enabled && legacySettings?.settings) {
+    const settings = legacySettings.settings as Record<string, unknown>
+    if (settings.instanceId && settings.apiToken) {
+      return {
+        instanceId: String(settings.instanceId),
+        apiToken: String(settings.apiToken),
+        apiUrl: String(settings.apiUrl || 'https://api.green-api.com'),
+      }
+    }
+  }
+
+  return null
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -34,10 +86,10 @@ serve(async (req) => {
 
     console.log('Editing message:', { messageId, newMessage, clientId })
 
-    // Получаем информацию о сообщении из базы данных
+    // Get message info including organization_id
     const { data: messageData, error: fetchError } = await supabase
       .from('chat_messages')
-      .select('external_message_id, client_id')
+      .select('external_id, client_id, organization_id')
       .eq('id', messageId)
       .single()
 
@@ -52,10 +104,21 @@ serve(async (req) => {
       )
     }
 
-    // Получаем данные клиента для WhatsApp chatId
+    const organizationId = messageData.organization_id
+    if (!organizationId) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Organization not found for message' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400 
+        }
+      )
+    }
+
+    // Get client data for WhatsApp chatId
     const { data: clientData, error: clientError } = await supabase
       .from('clients')
-      .select('whatsapp_chat_id, phone')
+      .select('whatsapp_id, phone')
       .eq('id', clientId)
       .single()
 
@@ -70,10 +133,9 @@ serve(async (req) => {
       )
     }
 
-    // Определяем chatId
-    let chatId = clientData.whatsapp_chat_id
+    // Determine chatId
+    let chatId = clientData.whatsapp_id
     if (!chatId && clientData.phone) {
-      // Создаем chatId из номера телефона если нет сохраненного
       const cleanPhone = clientData.phone.replace(/[^\d]/g, '')
       chatId = `${cleanPhone}@c.us`
     }
@@ -88,12 +150,12 @@ serve(async (req) => {
       )
     }
 
-    if (!messageData.external_message_id) {
-      // Старые сообщения без external_message_id - редактируем только локально
-      console.log('No external_message_id, updating only in database')
+    if (!messageData.external_id) {
+      // Old messages without external_id - edit only locally
+      console.log('No external_id, updating only in database')
       const { error: updateError } = await supabase
         .from('chat_messages')
-        .update({ message_text: newMessage })
+        .update({ content: newMessage })
         .eq('id', messageId)
 
       if (updateError) {
@@ -119,14 +181,13 @@ serve(async (req) => {
       )
     }
 
-    const greenApiUrl = Deno.env.get('GREEN_API_URL')
-    const greenApiToken = Deno.env.get('GREEN_API_TOKEN_INSTANCE')
-    const greenApiInstance = Deno.env.get('GREEN_API_ID_INSTANCE')
+    // Get GreenAPI settings from database
+    const greenApiSettings = await getGreenApiSettings(supabase, organizationId)
 
-    if (!greenApiUrl || !greenApiToken || !greenApiInstance) {
-      console.error('Green API credentials not configured')
+    if (!greenApiSettings) {
+      console.error('Green API settings not found for organization:', organizationId)
       return new Response(
-        JSON.stringify({ success: false, error: 'Green API not configured' }),
+        JSON.stringify({ success: false, error: 'Green API not configured for this organization' }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 500 
@@ -134,10 +195,12 @@ serve(async (req) => {
       )
     }
 
-    // Используем метод editMessage
+    console.log('Using GreenAPI instance:', greenApiSettings.instanceId)
+
+    // Edit message via Green API
     try {
       const editResponse = await fetch(
-        `${greenApiUrl}/waInstance${greenApiInstance}/editMessage/${greenApiToken}`,
+        `${greenApiSettings.apiUrl}/waInstance${greenApiSettings.instanceId}/editMessage/${greenApiSettings.apiToken}`,
         {
           method: 'POST',
           headers: {
@@ -145,7 +208,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             chatId: chatId,
-            idMessage: messageData.external_message_id,
+            idMessage: messageData.external_id,
             message: newMessage
           })
         }
@@ -155,12 +218,12 @@ serve(async (req) => {
       console.log('Edit message response:', editResult)
 
       if (editResponse.ok && editResult.idMessage) {
-        // Обновляем сообщение в базе данных
+        // Update message in database
         const { error: updateError } = await supabase
           .from('chat_messages')
           .update({ 
-            message_text: newMessage,
-            external_message_id: editResult.idMessage
+            content: newMessage,
+            external_id: editResult.idMessage
           })
           .eq('id', messageId)
 
@@ -182,7 +245,7 @@ serve(async (req) => {
       }
     } catch (error) {
       console.error('Error editing message:', error)
-      const message = (error as any)?.message ?? 'Failed to edit message'
+      const message = (error as Error)?.message ?? 'Failed to edit message'
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -197,7 +260,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Unexpected error:', error)
-    const message = (error as any)?.message ?? 'Unexpected error'
+    const message = (error as Error)?.message ?? 'Unexpected error'
     return new Response(
       JSON.stringify({ success: false, error: message }),
       { 
