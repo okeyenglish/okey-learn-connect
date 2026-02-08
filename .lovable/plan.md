@@ -1,166 +1,159 @@
 
-
-# План исправления отправки сообщений преподавателям через Telegram/MAX
+# План исправления формата Webhook URL для Telegram Wappi
 
 ## Проблема
 
-При отправке сообщения преподавателю через Telegram (Wappi) или MAX (GreenAPI) возникает ошибка "Не удалось отправить сообщение".
+При создании новой интеграции Telegram (Wappi) показывается неправильный webhook URL:
+- **Сейчас**: `https://api.academyos.ru/functions/v1/telegram-webhook/0e4e9f4f5e255af5549c1a3c01dc8c96`
+- **Нужно**: `https://api.academyos.ru/functions/v1/telegram-webhook?profile_id=ВАШ_PROFILE_ID`
 
-**Причина**: Edge Functions `telegram-send` и `max-send` не поддерживают режим отправки по номеру телефона (`phoneNumber`). Они требуют обязательный `clientId` для поиска получателя в базе данных, но для преподавателей мы передаём пустой `clientId` и номер телефона.
+## Причина
 
-## Анализ текущей логики
-
-```text
-Фронтенд (ChatArea.tsx):
-┌─────────────────────────────────────────────┐
-│ isDirectTeacherMessage = true               │
-│ effectivePhone = clientPhone (телефон)      │
-│                                             │
-│ Вызов: sendMaxMessage('', text, options)    │
-│ где options = { phoneNumber: effectivePhone }│
-└─────────────────────────────────────────────┘
-              │
-              ▼
-Хук (useMaxGreenApi.ts / useTelegramWappi.ts):
-┌─────────────────────────────────────────────┐
-│ body = { phoneNumber, message, text }       │
-│ (если phoneNumber >= 10 цифр)               │
-└─────────────────────────────────────────────┘
-              │
-              ▼
-Edge Function (max-send / telegram-send):
-┌─────────────────────────────────────────────┐
-│ if (!clientId) return error                 │  ← ОШИБКА!
-│ // phoneNumber НЕ обрабатывается            │
-└─────────────────────────────────────────────┘
-```
+В хуке `useMessengerIntegrations.ts` функция `getWebhookUrl` для Telegram с провайдером `wappi` не обрабатывается отдельно и попадает в fallback ветку с форматом пути (`/${messenger_type}-webhook/${webhook_key}`).
 
 ## Решение
 
-Обновить Edge Functions для поддержки альтернативного режима отправки по `phoneNumber`, когда `clientId` не передан. В этом режиме:
+Исправить генерацию webhook URL в двух местах:
 
-1. Проверка: `clientId` **ИЛИ** `phoneNumber` должен быть указан
-2. Нормализация телефона (замена 8→7, добавление префикса 7 для 10-значных номеров)
-3. Отправка сообщения напрямую по телефону без записи в `chat_messages` (или запись с `teacher_id`)
-4. Опционально: искать `teacherId` по телефону в таблице `teachers` и записывать сообщение
+1. **Frontend**: `useMessengerIntegrations.ts` — добавить обработку провайдера `wappi` для Telegram
+2. **Backend**: `messenger-integrations/index.ts` — при создании/обновлении интеграции Wappi автоматически регистрировать webhook в Wappi API
 
-## Изменения
+## Изменения в файлах
 
-### 1. supabase/functions/max-send/index.ts
+### 1. `src/hooks/useMessengerIntegrations.ts`
 
-Добавить поддержку `phoneNumber`:
+Обновить функцию `getWebhookUrl`:
 
 ```typescript
-const { clientId, text, fileUrl, fileName, fileType, phoneId, phoneNumber, teacherId } = body;
-
-// Validate: either clientId or phoneNumber must be provided
-if (!clientId && !phoneNumber) {
-  return errorResponse('clientId or phoneNumber is required', 400);
-}
-
-if (!text && !fileUrl) {
-  return errorResponse('text or fileUrl is required', 400);
-}
-
-let chatId: string | null = null;
-let resolvedTeacherId: string | null = teacherId || null;
-
-// Mode 1: Direct phone number (for teacher messages)
-if (phoneNumber && !clientId) {
-  const cleanPhone = normalizePhoneForMax(phoneNumber);
-  chatId = `${cleanPhone}@c.us`;
+const getWebhookUrl = useCallback((integration: MessengerIntegration) => {
+  const baseUrl = 'https://api.academyos.ru/functions/v1';
   
-  // Optionally find teacher by phone
-  if (!resolvedTeacherId) {
-    const { data: teacher } = await supabase
-      .from('teachers')
-      .select('id')
-      .ilike('phone', `%${cleanPhone.slice(-10)}`)
-      .eq('organization_id', organizationId)
-      .maybeSingle();
-    if (teacher) resolvedTeacherId = teacher.id;
+  // For GreenAPI WhatsApp, use query param format
+  if (integration.messenger_type === 'whatsapp' && integration.provider === 'green_api') {
+    return `${baseUrl}/whatsapp-webhook?key=${integration.webhook_key}`;
+  }
+  
+  // For telegram_crm provider
+  if (integration.provider === 'telegram_crm') {
+    return `${baseUrl}/telegram-crm-webhook?key=${integration.webhook_key}`;
+  }
+  
+  // NEW: For Telegram Wappi provider, use profile_id from settings
+  if (integration.messenger_type === 'telegram' && integration.provider === 'wappi') {
+    const profileId = integration.settings?.profileId;
+    if (profileId) {
+      return `${baseUrl}/telegram-webhook?profile_id=${profileId}`;
+    }
+    // Fallback if no profile_id yet
+    return `${baseUrl}/telegram-webhook`;
+  }
+  
+  // Default: path format for WPP and other providers
+  return `${baseUrl}/${integration.messenger_type}-webhook/${integration.webhook_key}`;
+}, []);
+```
+
+### 2. `supabase/functions/messenger-integrations/index.ts`
+
+При POST (создание) и PUT (обновление) интеграции Wappi Telegram автоматически регистрировать webhook:
+
+```typescript
+// После успешного создания/обновления интеграции Wappi
+if (integration.messenger_type === 'telegram' && integration.provider === 'wappi') {
+  const profileId = integration.settings?.profileId;
+  const apiToken = integration.settings?.apiToken;
+  
+  if (profileId && apiToken) {
+    const baseUrl = Deno.env.get('SELF_HOSTED_URL') || supabaseUrl;
+    const webhookUrl = `${baseUrl}/functions/v1/telegram-webhook?profile_id=${profileId}`;
+    
+    const webhookResult = await registerWappiWebhook(profileId, webhookUrl, apiToken);
+    console.log('[messenger-integrations] Wappi webhook registration:', webhookResult);
   }
 }
-// Mode 2: Client lookup (existing logic)
-else if (clientId) {
-  // ... existing client lookup logic
-}
 ```
 
-Сохранение с `teacher_id`:
+Добавить функцию регистрации webhook:
 
 ```typescript
-.insert({
-  client_id: clientId || null,
-  teacher_id: resolvedTeacherId || null,
-  organization_id: organizationId,
-  // ... остальные поля
-})
-```
-
-### 2. supabase/functions/telegram-send/index.ts
-
-Аналогичные изменения для Telegram:
-
-```typescript
-const { clientId, text, fileUrl, fileName, fileType, phoneId, phoneNumber, teacherId } = body;
-
-// Validate: either clientId or phoneNumber
-if (!clientId && !phoneNumber) {
-  return errorResponse('clientId or phoneNumber is required', 400);
-}
-
-let recipient: string | null = null;
-let resolvedTeacherId: string | null = teacherId || null;
-
-// Mode 1: Direct phone number
-if (phoneNumber && !clientId) {
-  recipient = normalizePhone(phoneNumber);
-  
-  // Find teacher by phone
-  if (!resolvedTeacherId) {
-    const { data: teacher } = await supabase
-      .from('teachers')
-      .select('id')
-      .ilike('phone', `%${recipient.slice(-10)}`)
-      .eq('organization_id', organizationId)
-      .maybeSingle();
-    if (teacher) resolvedTeacherId = teacher.id;
+async function registerWappiWebhook(
+  profileId: string,
+  webhookUrl: string,
+  apiToken: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Handle masked token (cannot call API with masked value)
+    if (apiToken.startsWith('••')) {
+      console.log('[messenger-integrations] Skipping webhook registration - token is masked');
+      return { success: true };
+    }
+    
+    const response = await fetch(
+      `https://wappi.pro/tapi/webhook/url/set?profile_id=${profileId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': apiToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ webhook_url: webhookUrl })
+      }
+    );
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      return { success: false, error: `HTTP ${response.status}: ${JSON.stringify(data)}` };
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('[messenger-integrations] Wappi webhook registration failed:', error);
+    return { success: false, error: error.message };
   }
 }
-// Mode 2: Client lookup
-else if (clientId) {
-  // ... existing lookup logic
-}
 ```
 
-### 3. Обновление хуков (уже сделано ранее)
+## Технические детали
 
-Хуки `useMaxGreenApi.ts` и `useTelegramWappi.ts` уже передают `phoneNumber` в body — это правильно.
+```text
+Текущий flow:
+┌───────────────────────────────────────────────────────────────────┐
+│ Пользователь создаёт интеграцию Telegram Wappi                     │
+│ ↓                                                                 │
+│ messenger-integrations POST                                        │
+│ ↓                                                                 │
+│ Сохранение в БД с webhook_key (UUID)                              │
+│ ↓                                                                 │
+│ getWebhookUrl() возвращает /telegram-webhook/<webhook_key>        │
+│ ← НЕПРАВИЛЬНО! Wappi не понимает этот формат                      │
+└───────────────────────────────────────────────────────────────────┘
 
-### 4. Передача teacherId с фронтенда
-
-В `ChatArea.tsx` добавить `teacherId` в options для более надёжной записи:
-
-```typescript
-const maxOptions = effectivePhone 
-  ? { phoneNumber: effectivePhone, teacherId: actualTeacherId } 
-  : undefined;
+Новый flow:
+┌───────────────────────────────────────────────────────────────────┐
+│ Пользователь создаёт интеграцию Telegram Wappi                     │
+│ ↓                                                                 │
+│ messenger-integrations POST                                        │
+│ ↓                                                                 │
+│ Сохранение в БД                                                   │
+│ ↓                                                                 │
+│ Автоматическая регистрация webhook в Wappi API                    │
+│ (URL: /telegram-webhook?profile_id=XXX)                           │
+│ ↓                                                                 │
+│ getWebhookUrl() возвращает /telegram-webhook?profile_id=XXX       │
+│ ← ПРАВИЛЬНО! Wappi отправляет вебхуки на этот адрес              │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
 ## Файлы для изменения
 
 | Файл | Изменение |
 |------|-----------|
-| `supabase/functions/max-send/index.ts` | Добавить режим отправки по `phoneNumber`, поиск `teacherId`, сохранение с `teacher_id` |
-| `supabase/functions/telegram-send/index.ts` | Добавить режим отправки по `phoneNumber`, поиск `teacherId`, сохранение с `teacher_id` |
-| `src/hooks/useMaxGreenApi.ts` | Добавить передачу `teacherId` в body |
-| `src/hooks/useTelegramWappi.ts` | Добавить передачу `teacherId` в body |
-| `src/components/crm/ChatArea.tsx` | Передавать `teacherId` в options для MAX и Telegram |
+| `src/hooks/useMessengerIntegrations.ts` | Добавить обработку `wappi` провайдера в `getWebhookUrl()` — формат `?profile_id=XXX` |
+| `supabase/functions/messenger-integrations/index.ts` | Добавить авто-регистрацию webhook в Wappi API при создании/обновлении интеграции |
 
 ## Важно
 
-После внесения изменений необходимо:
-1. Задеплоить обновлённые Edge Functions на self-hosted сервер (`api.academyos.ru`)
-2. Проверить отправку сообщения преподавателю через Telegram и MAX
-
+1. После внесения изменений нужно задеплоить Edge Function на self-hosted сервер
+2. **Пересоздать или пересохранить** существующую интеграцию Telegram Wappi — это запустит авторегистрацию webhook
+3. Проверить в логах Wappi, что webhook зарегистрирован корректно
