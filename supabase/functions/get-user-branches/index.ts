@@ -6,15 +6,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Self-hosted configuration (manager_branches & profiles are stored there)
+const SELF_HOSTED_URL = 'https://api.academyos.ru';
+const SELF_HOSTED_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY5MDg4ODgzLCJleHAiOjE5MjY3Njg4ODN9.WEsCyaCdQvxzVObedC-A9hWTJUSwI_p9nCG1wlbaNEg';
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    // Connect to SELF-HOSTED database (not Lovable Cloud)
+    const supabase = createClient(SELF_HOSTED_URL, SELF_HOSTED_ANON_KEY)
 
     const { user_id } = await req.json()
 
@@ -25,7 +28,7 @@ serve(async (req) => {
       )
     }
 
-    console.log('[get-user-branches] Fetching branches for user:', user_id)
+    console.log('[get-user-branches] Fetching branches for user from SELF-HOSTED:', user_id)
 
     // 1. Try manager_branches table first (self-hosted primary table)
     const { data: managerBranches, error: mbError } = await supabase
