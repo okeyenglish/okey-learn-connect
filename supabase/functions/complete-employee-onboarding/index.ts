@@ -42,8 +42,8 @@ const normalizeInternationalPhone = (value: string | null | undefined): string |
 };
 
 // Функция для добавления сотрудника в группы по филиалам
+// Вызывает self-hosted API вместо прямого обращения к БД (таблицы на self-hosted сервере)
 async function addEmployeeToBranchGroups(
-  supabaseAdmin: ReturnType<typeof createClient>,
   userId: string,
   invitation: { 
     organization_id: string; 
@@ -54,86 +54,39 @@ async function addEmployeeToBranchGroups(
   }
 ) {
   try {
-    // Определяем филиалы для сотрудника
-    const branches: string[] = [];
+    const selfHostedUrl = Deno.env.get("SELF_HOSTED_URL");
+    const selfHostedAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
     
-    // Основной филиал
-    if (invitation.branch) {
-      branches.push(invitation.branch);
-    }
-    
-    // Дополнительные филиалы (если есть)
-    if (invitation.allowed_branches && Array.isArray(invitation.allowed_branches)) {
-      for (const b of invitation.allowed_branches) {
-        if (b && !branches.includes(b)) {
-          branches.push(b);
-        }
-      }
-    }
-    
-    if (branches.length === 0) {
-      console.log("[addEmployeeToBranchGroups] No branches to add employee to");
+    if (!selfHostedUrl) {
+      console.log("[addEmployeeToBranchGroups] SELF_HOSTED_URL not set, skipping");
       return;
     }
+
+    console.log("[addEmployeeToBranchGroups] Calling self-hosted API for user:", userId);
     
-    console.log("[addEmployeeToBranchGroups] Branches to process:", branches);
-    
-    for (const branchName of branches) {
-      // 1. Проверяем/создаём группу для филиала
-      let { data: existingGroup } = await supabaseAdmin
-        .from("staff_group_chats")
-        .select("id")
-        .eq("organization_id", invitation.organization_id)
-        .eq("branch_name", branchName)
-        .eq("is_branch_group", true)
-        .maybeSingle();
-      
-      let groupId: string;
-      
-      if (existingGroup) {
-        groupId = existingGroup.id;
-        console.log(`[addEmployeeToBranchGroups] Found existing group for branch ${branchName}:`, groupId);
-      } else {
-        // Создаём новую группу для филиала
-        const { data: newGroup, error: createError } = await supabaseAdmin
-          .from("staff_group_chats")
-          .insert({
-            name: `Команда ${branchName}`,
-            description: `Общий чат сотрудников филиала ${branchName}`,
-            organization_id: invitation.organization_id,
-            branch_name: branchName,
-            is_branch_group: true,
-          })
-          .select("id")
-          .single();
-        
-        if (createError || !newGroup) {
-          console.error(`[addEmployeeToBranchGroups] Failed to create group for ${branchName}:`, createError);
-          continue;
-        }
-        
-        groupId = newGroup.id;
-        console.log(`[addEmployeeToBranchGroups] Created new group for branch ${branchName}:`, groupId);
-      }
-      
-      // 2. Добавляем сотрудника в группу
-      const { error: memberError } = await supabaseAdmin
-        .from("staff_group_chat_members")
-        .upsert({
-          group_chat_id: groupId,
-          user_id: userId,
-          role: invitation.position === 'branch_manager' ? 'admin' : 'member',
-        }, {
-          onConflict: 'group_chat_id,user_id',
-          ignoreDuplicates: true,
-        });
-      
-      if (memberError) {
-        console.error(`[addEmployeeToBranchGroups] Failed to add member to group ${groupId}:`, memberError);
-      } else {
-        console.log(`[addEmployeeToBranchGroups] Added user ${userId} to group ${groupId}`);
-      }
+    const response = await fetch(`${selfHostedUrl}/functions/v1/add-employee-to-branch-groups`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${selfHostedAnonKey}`,
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        organization_id: invitation.organization_id,
+        branch: invitation.branch,
+        allowed_branches: invitation.allowed_branches,
+        position: invitation.position,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[addEmployeeToBranchGroups] API error:", response.status, errorText);
+      return;
     }
+
+    const result = await response.json();
+    console.log("[addEmployeeToBranchGroups] Result:", result);
   } catch (error) {
     console.error("[addEmployeeToBranchGroups] Error:", error);
     // Не прерываем онбординг из-за ошибки в группах
@@ -370,9 +323,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 7. Добавить сотрудника в группы по филиалам
+    // 7. Добавить сотрудника в группы по филиалам (через self-hosted API)
     console.log("[complete-employee-onboarding] Adding employee to branch groups...");
-    await addEmployeeToBranchGroups(supabaseAdmin, userId, invitation);
+    await addEmployeeToBranchGroups(userId, invitation);
 
     // 8. Обновить приглашение
     console.log("[complete-employee-onboarding] Updating invitation status...");
