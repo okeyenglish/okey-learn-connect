@@ -1,6 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/typedClient";
 import { useAuth } from "@/hooks/useAuth";
+import { isAdmin as checkIsAdmin } from "@/lib/permissions";
 
 export interface ManagerBranch {
   id: string;
@@ -8,47 +7,30 @@ export interface ManagerBranch {
 }
 
 /**
- * Hook для получения филиалов, к которым привязан менеджер.
- * Если менеджер не привязан ни к одному филиалу - возвращает пустой массив (видит все чаты).
+ * Hook для получения филиалов, к которым привязан сотрудник.
+ * Использует филиал из профиля пользователя (profile.branch).
+ * Если у сотрудника нет филиала - видит все чаты.
  * Админы видят все чаты по умолчанию.
  */
 export function useManagerBranches() {
-  const { user, role } = useAuth();
+  const { user, profile, roles } = useAuth();
   
-  const { data: managerBranches = [], isLoading } = useQuery({
-    queryKey: ['manager-branches', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      
-      const { data, error } = await supabase
-        .from('manager_branches')
-        .select('id, branch')
-        .eq('manager_id', user.id);
-        
-      if (error) {
-        console.error('Error fetching manager branches:', error);
-        return [];
-      }
-      
-      return (data || []) as ManagerBranch[];
-    },
-    enabled: !!user?.id,
-    staleTime: 30 * 60 * 1000, // 30 минут - данные о филиалах редко меняются
-    gcTime: 60 * 60 * 1000, // 1 час в кеше
-  });
-
-  // Админы всегда видят все (проверяем role, который может быть из допустимых значений)
-  const isAdmin = role === 'branch_manager' || role === 'head_teacher';
+  // Админы всегда видят все
+  const isAdmin = checkIsAdmin(roles);
   
-  // Список имён филиалов для фильтрации
-  const allowedBranchNames = managerBranches.map(b => b.branch);
+  // Филиал сотрудника из профиля
+  const userBranch = profile?.branch;
   
-  // Если менеджер не привязан к филиалам или это админ - видит все
-  const hasRestrictions = !isAdmin && allowedBranchNames.length > 0;
+  // Список филиалов для фильтрации (один филиал из профиля)
+  const allowedBranchNames: string[] = userBranch ? [userBranch] : [];
+  
+  // Если сотрудник не привязан к филиалу (branch = null) или это админ - видит все
+  // Если филиал указан - видит только своих клиентов
+  const hasRestrictions = !isAdmin && !!userBranch;
 
   /**
-   * Проверяет, можно ли менеджеру видеть чат с этим филиалом
-   * @param clientBranch - филиал клиента (clients.branch или client_branches.branch)
+   * Проверяет, можно ли сотруднику видеть чат с этим филиалом
+   * @param clientBranch - филиал клиента (clients.branch)
    */
   const canAccessBranch = (clientBranch: string | null | undefined): boolean => {
     // Если нет ограничений - доступ разрешён
@@ -60,19 +42,19 @@ export function useManagerBranches() {
     // Нормализуем названия филиалов для сравнения
     // "OKEY ENGLISH Котельники" -> "котельники"
     const normalizedClientBranch = normalizeBranchName(clientBranch);
+    const normalizedUserBranch = normalizeBranchName(userBranch!);
     
-    return allowedBranchNames.some(branch => 
-      normalizeBranchName(branch) === normalizedClientBranch
-    );
+    return normalizedClientBranch === normalizedUserBranch;
   };
 
   return {
-    managerBranches,
+    managerBranches: allowedBranchNames.map((branch, idx) => ({ id: String(idx), branch })),
     allowedBranchNames,
     hasRestrictions,
     canAccessBranch,
-    isLoading,
+    isLoading: false, // Нет async запроса - данные уже в профиле
     isAdmin,
+    userBranch,
   };
 }
 
@@ -80,11 +62,13 @@ export function useManagerBranches() {
  * Нормализует название филиала для сравнения
  * "OKEY ENGLISH Котельники" -> "котельники"
  * "Котельники" -> "котельники"
+ * "Филиал Окская" -> "окская"
  */
 function normalizeBranchName(name: string): string {
   return name
     .toLowerCase()
     .replace(/okey\s*english\s*/gi, '')
     .replace(/o'key\s*english\s*/gi, '')
+    .replace(/филиал\s*/gi, '')
     .trim();
 }
