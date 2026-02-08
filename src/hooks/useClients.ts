@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { getCurrentOrganizationId } from '@/lib/organizationHelpers';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { SELF_HOSTED_URL, SELF_HOSTED_ANON_KEY, getAuthToken } from '@/lib/selfHostedApi';
 
 export interface Client {
   id: string;
@@ -194,20 +195,36 @@ export const useUpdateClient = () => {
   
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Client> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('clients')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
+      // Use self-hosted Supabase since clients are stored there
+      const token = await getAuthToken();
       
-      if (error) throw error;
-      return data;
+      const response = await fetch(`${SELF_HOSTED_URL}/rest/v1/clients?id=eq.${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SELF_HOSTED_ANON_KEY,
+          'Authorization': `Bearer ${token || SELF_HOSTED_ANON_KEY}`,
+          'Prefer': 'return=representation',
+        },
+        body: JSON.stringify(updates),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[useUpdateClient] Failed to update client:', errorText);
+        throw new Error(`Failed to update client: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('[useUpdateClient] Client updated:', data);
+      return data[0] || data;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
       if (data?.id) {
         queryClient.invalidateQueries({ queryKey: ['client', data.id] });
+        queryClient.invalidateQueries({ queryKey: ['family-group', data.id] });
       }
     },
   });
