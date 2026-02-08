@@ -14,13 +14,14 @@ import { AddEmployeeModal } from './AddEmployeeModal';
 import { isAdmin } from '@/lib/permissions';
 
 export default function EmployeesSection() {
-  const { profile, roles } = useAuth();
+  const { profile, roles, rolesLoading } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [branchFilter, setBranchFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   
-  const userIsAdmin = isAdmin(roles);
+  // Wait for roles to load before checking admin status
+  const userIsAdmin = !rolesLoading && isAdmin(roles);
 
   const { data: employees = [], isLoading, error } = useEmployees();
 
