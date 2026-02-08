@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { ChatThread, UnreadByMessenger } from './useChatMessages';
 import { isGroupChatName, isTelegramGroup } from './useCommunityChats';
+import { hydrateClientBranches } from '@/lib/hydrateClientBranches';
 
 /** Row returned by RPC get_chat_threads_by_client_ids */
 interface RpcThreadRow {
@@ -108,8 +109,9 @@ export const usePhoneSearchThreads = (
       );
 
       const allThreads = results.flat();
-      console.log(`[usePhoneSearchThreads] Loaded ${allThreads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
-      return allThreads;
+      const hydrated = await hydrateClientBranches(allThreads);
+      console.log(`[usePhoneSearchThreads] Loaded ${hydrated.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
+      return hydrated;
     },
   });
 };
