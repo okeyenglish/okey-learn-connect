@@ -9,6 +9,7 @@ import {
   AVATAR_CACHE_TTL,
   type AvatarCacheEntry 
 } from '@/lib/avatarCache';
+import { isValidUUID } from '@/lib/uuidValidation';
 
 // Pending fetches to prevent duplicate requests
 const pendingFetches = new Map<string, Promise<void>>();
@@ -31,7 +32,8 @@ export const useClientAvatars = (clientId: string | null) => {
 
   // Load avatars from cache or fetch from DB/API
   const loadAvatars = useCallback(async () => {
-    if (!clientId) return;
+    // Skip for non-UUID clientIds (teacher markers like "teacher:xxx")
+    if (!clientId || !isValidUUID(clientId)) return;
 
     const avatarCache = getAvatarCache();
 

@@ -5,6 +5,7 @@ import type { TypingStatus } from '@/integrations/supabase/database.types';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { useThrottle } from './useThrottle';
 import { performanceAnalytics } from '@/utils/performanceAnalytics';
+import { isValidUUID } from '@/lib/uuidValidation';
 
 export interface TypingInfo {
   managerId: string;
@@ -43,7 +44,8 @@ export const useTypingStatus = (clientId: string) => {
 
   // Fetch typing users - used for both initial load and fallback polling
   const fetchTypingUsers = useCallback(async () => {
-    if (!clientId) return;
+    // Skip for non-UUID clientIds (teacher markers like "teacher:xxx")
+    if (!clientId || !isValidUUID(clientId)) return;
     
     const { data, error } = await supabase
       .from('typing_status')
@@ -58,7 +60,8 @@ export const useTypingStatus = (clientId: string) => {
 
   // Fetch initial typing users for this client
   useEffect(() => {
-    if (!clientId) return;
+    // Skip for non-UUID clientIds (teacher markers like "teacher:xxx")
+    if (!clientId || !isValidUUID(clientId)) return;
     let isMounted = true;
     (async () => {
       const start = performance.now();
@@ -125,7 +128,8 @@ export const useTypingStatus = (clientId: string) => {
   // Subscribe to realtime typing updates for this client
   // With fallback polling that disables after first realtime event
   useEffect(() => {
-    if (!clientId) return;
+    // Skip for non-UUID clientIds (teacher markers like "teacher:xxx")
+    if (!clientId || !isValidUUID(clientId)) return;
     
     // Reset realtime working flag for this client
     realtimeWorkingRef.current = false;
@@ -186,7 +190,8 @@ export const useTypingStatus = (clientId: string) => {
   // Core update function (will be throttled)
   const doUpdateTypingStatus = useCallback(async (isTyping: boolean, draftText?: string) => {
     const userId = currentUserIdRef.current;
-    if (!userId || !clientId) return;
+    // Skip for non-UUID clientIds (teacher markers like "teacher:xxx")
+    if (!userId || !clientId || !isValidUUID(clientId)) return;
 
     const payload = {
       user_id: userId,

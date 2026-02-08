@@ -6,6 +6,7 @@ import { chatQueryConfig } from '@/lib/queryConfig';
 import { startMetric, endMetric } from '@/lib/performanceMetrics';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { performanceAnalytics } from '@/utils/performanceAnalytics';
+import { isValidUUID } from '@/lib/uuidValidation';
 
 const MESSAGES_PER_PAGE = 100;
 
@@ -106,7 +107,8 @@ export const useNewMessageRealtime = (clientId: string, onNewMessage?: () => voi
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (!clientId) return;
+    // Skip for non-UUID clientIds (teacher markers like "teacher:xxx")
+    if (!clientId || !isValidUUID(clientId)) return;
 
     const channelName = `new-messages-${clientId}`;
     const channel = supabase
@@ -150,7 +152,8 @@ export const useMessageStatusRealtime = (clientId: string, onDeliveryFailed?: (m
   const notifiedFailedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!clientId) return;
+    // Skip for non-UUID clientIds (teacher markers like "teacher:xxx")
+    if (!clientId || !isValidUUID(clientId)) return;
     
     // Reset notified set when client changes
     notifiedFailedRef.current = new Set();
