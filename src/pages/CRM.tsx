@@ -806,6 +806,12 @@ const CRMContent = () => {
       return;
     }
     
+    // Special handling for employees - opens modal directly
+    if (action === "Сотрудники") {
+      setShowAddEmployeeModal(true);
+      return;
+    }
+    
     // Проверяем, что мы на правильной вкладке
     if (activeTab !== "menu") {
       setActiveTab("menu");
@@ -2111,6 +2117,7 @@ const CRMContent = () => {
     { icon: BarChart3, label: "KPI" },
     { icon: MessageCircle, label: "Уведомления" },
     { icon: MessageSquare, label: "WhatsApp" },
+    { icon: UserPlus, label: "Сотрудники", isAction: true },
     { icon: Settings, label: "Настройки" },
     ...(canAccessAdmin ? [{ icon: Shield, label: "Админ-панель" }] : []),
   ];
@@ -2206,6 +2213,20 @@ const CRMContent = () => {
             <TabsContent value="menu" className="mt-0 flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col">
               <div className="p-2 space-y-1 overflow-y-auto flex-1">
                 {menuItems.map((item, index) => (
+                  'isAction' in item && item.isAction ? (
+                    // Simple action button (opens modal directly without Dialog wrapper)
+                    <button
+                      key={index}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/30 transition-colors text-left"
+                      onClick={() => handleMenuClick(item.label)}
+                    >
+                      <item.icon className="h-4 w-4 shrink-0 text-muted-foreground stroke-1" />
+                      <span className="text-sm flex-1 text-foreground">
+                        {item.label}
+                      </span>
+                      <ExternalLink className="h-3 w-3 ml-auto text-muted-foreground/30" />
+                    </button>
+                  ) : (
                   <Dialog key={index} open={openModal === item.label} onOpenChange={(open) => !open && handleMenuModalClose()}>
                     <DialogTrigger asChild>
                       <button
@@ -3145,6 +3166,7 @@ const CRMContent = () => {
                       </Suspense>
                     </PinnableDialogContent>
                   </Dialog>
+                  )
                 ))}
               </div>
             </TabsContent>
