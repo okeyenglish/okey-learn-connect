@@ -283,8 +283,8 @@ export const AddEmployeeModal = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5 text-primary" />
             {step === 'form' ? 'Добавить сотрудника' : 'Отправить приглашение'}
@@ -292,7 +292,7 @@ export const AddEmployeeModal = ({
         </DialogHeader>
 
         {step === 'form' ? (
-          <ScrollArea className="flex-1 -mx-6 px-6">
+          <div className="flex-1 overflow-y-auto -mx-6 px-6 min-h-0">
             <form onSubmit={handleSubmit} className="space-y-4 pb-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName">Имя *</Label>
@@ -340,22 +340,28 @@ export const AddEmployeeModal = ({
                     <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                  <div className="max-h-[250px] overflow-y-auto p-2 space-y-1">
-                    {branches.map((branch) => (
-                      <div
-                        key={branch.id}
-                        className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
-                        onClick={() => handleBranchToggle(branch.name)}
-                      >
-                        <Checkbox
-                          checked={formData.branches.includes(branch.name)}
-                          onCheckedChange={() => handleBranchToggle(branch.name)}
-                        />
-                        <span className="text-sm">{branch.name}</span>
-                      </div>
-                    ))}
-                  </div>
+                <PopoverContent 
+                  className="w-[var(--radix-popover-trigger-width)] p-0 z-[100]" 
+                  align="start"
+                  sideOffset={4}
+                >
+                  <ScrollArea className="h-[200px]">
+                    <div className="p-2 space-y-1">
+                      {branches.map((branch) => (
+                        <div
+                          key={branch.id}
+                          className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
+                          onClick={() => handleBranchToggle(branch.name)}
+                        >
+                          <Checkbox
+                            checked={formData.branches.includes(branch.name)}
+                            onCheckedChange={() => handleBranchToggle(branch.name)}
+                          />
+                          <span className="text-sm">{branch.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
                 </PopoverContent>
               </Popover>
               {branchesError && (
@@ -428,7 +434,7 @@ export const AddEmployeeModal = ({
               </Button>
             </div>
           </form>
-          </ScrollArea>
+          </div>
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
