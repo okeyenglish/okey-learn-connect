@@ -1,160 +1,213 @@
 
-# План: Роутинг ответов через профиль, на который клиент написал
+# План исправления фильтрации клиентов по филиалам
 
-## Текущая проблема
+## Обнаруженная проблема
 
-Сейчас при ответе клиенту система всегда использует **primary** (основной) профиль Telegram CRM, независимо от того, на какой профиль клиент изначально написал. Это приводит к ситуации, когда клиенты пишут на разные профили, но ответы уходят только с одного.
+Менеджер из Новокосино видит клиентов Окской, потому что система фильтрации не работает корректно.
+
+### Корневые причины:
+
+1. **Таблица `user_branches` не существует** в базе данных Lovable Cloud
+2. На self-hosted сервере используется **другая таблица** — `manager_branches`, а не `user_branches`
+3. Хук `useManagerBranches` пытается читать из несуществующей таблицы, получает ошибку, и возвращает пустой массив
+4. Fallback на `profile.branch` также не работает, так как профили хранятся на self-hosted, а не в Lovable Cloud
+5. В результате: `allowedBranchNames = []`, `hasRestrictions = false` → **все менеджеры видят всех клиентов**
 
 ## Решение
 
-Внедрить "умный роутинг" ответов: сохранять ID интеграции при получении сообщения и использовать эту же интеграцию для ответа.
+Изменить хук `useManagerBranches` так, чтобы он получал филиалы пользователя через self-hosted API, аналогично другим хукам проекта (например, `useStaffGroupChats`).
+
+### Шаги реализации:
+
+1. **Создать Edge Function** `get-user-branches` на self-hosted
+   - Будет получать филиалы из таблицы `manager_branches` (или `user_branches`, если она там есть)
+   - Также будет возвращать филиал из профиля как fallback
+
+2. **Обновить хук `useManagerBranches`**
+   - Заменить прямой запрос к несуществующей таблице `user_branches` на вызов `selfHostedPost('get-user-branches')`
+   - Сохранить текущую логику фильтрации `canAccessBranch`
+
+3. **Проверить и протестировать**
+   - Менеджер Новокосино должен видеть только клиентов Новокосино
+   - Менеджер с несколькими филиалами должен видеть клиентов из всех назначенных филиалов
+   - Админы продолжают видеть всех клиентов
 
 ---
 
-## Технические изменения
+## Техническая реализация
 
-### 1. Webhook: Сохранение integration_id в сообщение и клиента
-
-**Файл:** `supabase/functions/telegram-crm-webhook/index.ts`
-
-При получении входящего сообщения:
-- Запрашиваем **id** интеграции вместе с organization_id
-- Сохраняем `integration_id` в запись `chat_messages`
-- Обновляем клиента: сохраняем `telegram_integration_id` (последняя интеграция, через которую клиент писал)
-
-```
-Текущий SELECT: 'organization_id, settings'
-Новый SELECT: 'id, organization_id, settings'
-```
-
-### 2. Функция отправки: Приоритет интеграции клиента
-
-**Файл:** `supabase/functions/telegram-crm-send/index.ts`
-
-Изменить логику выбора интеграции:
-
-```text
-ТЕКУЩАЯ ЛОГИКА:
-1. Если передан integrationId — используем его
-2. Иначе — берём primary интеграцию
-
-НОВАЯ ЛОГИКА:
-1. Если передан integrationId — используем его
-2. Иначе — проверяем последнее входящее сообщение от клиента
-   → Если есть integration_id — используем его (ответ через тот же профиль)
-3. Если нет истории — берём primary интеграцию
-4. Fallback: если выбранная интеграция отключена — пробуем другие активные
-```
-
-### 3. База данных: Новые поля для отслеживания
-
-#### Колонка `integration_id` в `chat_messages`
-На self-hosted уже есть. Нужно убедиться, что webhook использует его.
-
-#### Колонка `telegram_integration_id` в `clients` 
-Опционально: для кеширования "последней использованной интеграции" клиента.
-Если колонка отсутствует — искать по последнему сообщению от клиента.
-
----
-
-## Алгоритм определения интеграции для ответа
-
-```text
-function getIntegrationForReply(clientId):
-    
-    // 1. Найти последнее ВХОДЯЩЕЕ сообщение от клиента через telegram_crm
-    lastIncoming = SELECT integration_id FROM chat_messages 
-                   WHERE client_id = clientId 
-                   AND is_outgoing = false 
-                   AND messenger_type = 'telegram'
-                   ORDER BY created_at DESC LIMIT 1
-    
-    // 2. Проверить, активна ли эта интеграция
-    if (lastIncoming.integration_id):
-        integration = SELECT * FROM messenger_integrations 
-                      WHERE id = lastIncoming.integration_id
-                      AND is_enabled = true
-        if (integration): return integration
-    
-    // 3. Fallback: primary интеграция
-    return SELECT * FROM messenger_integrations
-           WHERE organization_id = orgId
-           AND messenger_type = 'telegram'
-           AND provider = 'telegram_crm'
-           AND is_primary = true
-           AND is_enabled = true
-```
-
----
-
-## Изменения в коде
-
-### telegram-crm-webhook/index.ts
+### Файл 1: `supabase/functions/get-user-branches/index.ts`
 
 ```typescript
-// Изменение 1: Запрашиваем id интеграции
-const { data: integration } = await supabase
-  .from('messenger_integrations')
-  .select('id, organization_id, settings')  // Добавлен 'id'
-  .eq('webhook_key', webhookKey)
-  ...
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const integrationId = integration.id;  // Сохраняем
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
-// Изменение 2: Добавляем integration_id в сообщение
-const { data: savedMessage } = await supabase
-  .from('chat_messages')
-  .insert({
-    ...
-    integration_id: integrationId,  // Новое поле
-  })
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    const { user_id } = await req.json()
+
+    if (!user_id) {
+      return new Response(
+        JSON.stringify({ error: 'user_id is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // 1. Попробуем получить филиалы из manager_branches
+    const { data: managerBranches, error: mbError } = await supabase
+      .from('manager_branches')
+      .select('id, branch')
+      .eq('manager_id', user_id)
+
+    if (!mbError && managerBranches?.length > 0) {
+      return new Response(
+        JSON.stringify({ branches: managerBranches, source: 'manager_branches' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // 2. Fallback: user_branches
+    const { data: userBranches, error: ubError } = await supabase
+      .from('user_branches')
+      .select('id, branch')
+      .eq('user_id', user_id)
+
+    if (!ubError && userBranches?.length > 0) {
+      return new Response(
+        JSON.stringify({ branches: userBranches, source: 'user_branches' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // 3. Fallback: profile.branch
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('branch')
+      .eq('id', user_id)
+      .single()
+
+    if (profile?.branch) {
+      return new Response(
+        JSON.stringify({ 
+          branches: [{ id: 'profile-branch', branch: profile.branch }], 
+          source: 'profile' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Нет филиалов — пользователь видит все
+    return new Response(
+      JSON.stringify({ branches: [], source: 'none' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+})
 ```
 
-### telegram-crm-send/index.ts
+### Файл 2: `src/hooks/useManagerBranches.ts` (обновлённый)
+
+Ключевые изменения:
+- Замена `supabase.from('user_branches')` на `selfHostedPost('get-user-branches')`
+- Использование API ответа для построения списка филиалов
+- Сохранение всей логики нормализации и фильтрации
 
 ```typescript
-// Изменение: Новая логика выбора интеграции
-let integration;
+import { useAuth } from "@/hooks/useAuth";
+import { isAdmin as checkIsAdmin } from "@/lib/permissions";
+import { useQuery } from "@tanstack/react-query";
+import { selfHostedPost } from "@/lib/selfHostedApi";
 
-if (integrationId) {
-  // Явно указана интеграция
-  integration = await getIntegrationById(integrationId);
-} else {
-  // Ищем по последнему входящему сообщению от клиента
-  const { data: lastMessage } = await supabase
-    .from('chat_messages')
-    .select('integration_id')
-    .eq('client_id', clientId)
-    .eq('is_outgoing', false)
-    .eq('messenger_type', 'telegram')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+export interface ManagerBranch {
+  id: string;
+  branch: string;
+}
 
-  if (lastMessage?.integration_id) {
-    integration = await getActiveIntegration(lastMessage.integration_id);
-  }
-  
-  // Fallback: primary
-  if (!integration) {
-    integration = await getPrimaryIntegration(organizationId);
-  }
+export function useManagerBranches() {
+  const { user, roles } = useAuth();
+  const isAdmin = checkIsAdmin(roles);
+
+  const { data: branchData, isLoading } = useQuery({
+    queryKey: ['manager-branches-selfhosted', user?.id],
+    queryFn: async () => {
+      if (!user?.id || isAdmin) return { branches: [], source: 'admin' };
+
+      const response = await selfHostedPost<{
+        branches: { id: string; branch: string }[];
+        source: string;
+      }>('get-user-branches', { user_id: user.id });
+
+      if (!response.success || !response.data) {
+        console.warn('Failed to fetch user branches:', response.error);
+        return { branches: [], source: 'error' };
+      }
+
+      return response.data;
+    },
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const userBranches = branchData?.branches || [];
+  const allowedBranchNames = userBranches.map(b => b.branch).filter(Boolean);
+  const hasRestrictions = !isAdmin && allowedBranchNames.length > 0;
+
+  const canAccessBranch = (clientBranch: string | null | undefined): boolean => {
+    if (!hasRestrictions) return true;
+    if (!clientBranch) return false;
+
+    const normalizedClientBranch = normalizeBranchName(clientBranch);
+    return allowedBranchNames.some(
+      (userBranch) => normalizeBranchName(userBranch) === normalizedClientBranch
+    );
+  };
+
+  return {
+    managerBranches: userBranches as ManagerBranch[],
+    allowedBranchNames,
+    hasRestrictions,
+    canAccessBranch,
+    isLoading,
+    isAdmin,
+    userBranch: allowedBranchNames[0] || null,
+  };
+}
+
+function normalizeBranchName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/okey\s*english\s*/gi, '')
+    .replace(/o'key\s*english\s*/gi, '')
+    .replace(/филиал\s*/gi, '')
+    .trim();
 }
 ```
 
 ---
 
-## Результат
+## Ожидаемый результат
 
-После изменений:
-- Клиент пишет на профиль "A" → сообщение сохраняется с `integration_id = A`
-- Менеджер отвечает → система находит `integration_id = A` и отправляет через тот же профиль
-- Клиент пишет на профиль "B" → следующие ответы пойдут через профиль "B"
-
----
-
-## Совместимость
-
-- **Обратная совместимость**: Если `integration_id` не найден — используется primary профиль (текущее поведение)
-- **Self-hosted**: Колонка `integration_id` уже есть в схеме
-- **Cloud**: Колонка отсутствует (другая схема), но эти функции используются только на self-hosted
+После внедрения:
+- Менеджер Новокосино **не будет видеть** клиентов Окской
+- Менеджер увидит только клиентов из филиала, к которому он привязан
+- Админы продолжат видеть всех клиентов без ограничений
+- Клиенты без филиала (`branch = null`) будут скрыты от менеджеров с ограничениями
