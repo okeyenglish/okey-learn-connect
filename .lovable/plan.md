@@ -1,66 +1,33 @@
 
 # План: Добавление поддержки GreenAPI в messenger_integrations
 
-## Проблема
+## ✅ ВЫПОЛНЕНО
 
-При подключении GreenAPI WhatsApp через `IntegrationsList`:
-1. **Сообщения НЕ уходят** — `whatsapp-send` ищет настройки только в `messenger_settings`
-2. **Сообщения НЕ приходят** — `whatsapp-webhook` ищет organization_id только в `messenger_settings`
+### Изменения внесены:
 
-Новые интеграции сохраняются в `messenger_integrations`, но Edge Functions их не видят.
+1. **`supabase/functions/whatsapp-send/index.ts`** ✅
+   - Добавлена функция `getGreenApiSettings()` с двухуровневым поиском:
+     1. Сначала ищет в `messenger_integrations` (provider = 'green_api', is_enabled = true)
+     2. Приоритет: `is_primary=true` → первый по `created_at`
+     3. Fallback на `messenger_settings` если ничего не найдено
+   - Поддержка `integrationId` в запросе для явного выбора аккаунта
+   - Возвращает `source` и `integrationId` в ответе для отладки
 
-## Решение
+2. **`supabase/functions/whatsapp-webhook/index.ts`** ✅
+   - Изменена функция `resolveOrganizationIdFromWebhook()`:
+     1. PRIORITY 1: Ищет в `messenger_integrations` по instanceId в settings
+     2. PRIORITY 2: Fallback на `messenger_settings` (legacy)
+   - Улучшено логирование с префиксами `[whatsapp-webhook]`
 
-### Файл 1: `supabase/functions/whatsapp-send/index.ts`
+## Синхронизация на self-hosted
 
-Добавить функцию `getGreenApiSettings()` которая:
-1. Сначала ищет в `messenger_integrations` (provider = 'green_api', is_enabled = true)
-2. Приоритет: `is_primary=true` → первый по `created_at`
-3. Fallback на `messenger_settings` если ничего не найдено
+После деплоя через GitHub Actions скопируйте файлы:
+- `supabase/functions/whatsapp-send/index.ts`
+- `supabase/functions/whatsapp-webhook/index.ts`
 
-```typescript
-async function getGreenApiSettings(supabase, organizationId, integrationId?) {
-  // 1. messenger_integrations (приоритет)
-  let query = supabase
-    .from('messenger_integrations')
-    .select('id, settings, is_primary')
-    .eq('organization_id', organizationId)
-    .eq('messenger_type', 'whatsapp')
-    .eq('provider', 'green_api')
-    .eq('is_enabled', true)
-    .order('is_primary', { ascending: false })
-    .order('created_at', { ascending: true });
-
-  // Если найдено - возвращаем instanceId, apiToken, apiUrl из settings
-  
-  // 2. Fallback на messenger_settings
-  // ...
-}
-```
-
-### Файл 2: `supabase/functions/whatsapp-webhook/index.ts`
-
-Изменить `resolveOrganizationIdFromWebhook()`:
-1. Сначала искать в `messenger_integrations` по instanceId в settings
-2. Fallback на `messenger_settings`
-
-```typescript
-// PRIORITY 1: messenger_integrations
-const { data: integrations } = await supabase
-  .from('messenger_integrations')
-  .select('organization_id, settings')
-  .eq('messenger_type', 'whatsapp')
-  .eq('provider', 'green_api')
-  .eq('is_enabled', true);
-
-for (const int of integrations) {
-  if (String(int.settings?.instanceId) === instanceId) {
-    return int.organization_id;
-  }
-}
-
-// PRIORITY 2: messenger_settings (fallback)
-// существующая логика
+На сервере `api.academyos.ru`:
+```bash
+docker compose restart functions
 ```
 
 ## Ожидаемый результат
@@ -71,22 +38,3 @@ for (const int of integrations) {
 | Приём webhooks | ❌ Не находит organization | ✅ Работает |
 | Обратная совместимость | - | ✅ Fallback на messenger_settings |
 | Несколько аккаунтов | ❌ | ✅ is_primary выбирается первым |
-
-## Технические детали
-
-### Порядок выбора интеграции для отправки
-
-| Условие | Какая интеграция |
-|---------|------------------|
-| Передан `integrationId` | Указанная интеграция |
-| 1 активная интеграция | Она |
-| Несколько активных | `is_primary = true` |
-| Нет primary | Первая по `created_at` |
-| Нет в `messenger_integrations` | Fallback на `messenger_settings` |
-
-### Файлы для изменения
-
-1. `supabase/functions/whatsapp-send/index.ts`
-2. `supabase/functions/whatsapp-webhook/index.ts`
-
-После деплоя через GitHub Actions на self-hosted сервер — GreenAPI интеграция заработает.

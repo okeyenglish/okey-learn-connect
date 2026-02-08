@@ -16,19 +16,46 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey)
 async function resolveOrganizationIdFromWebhook(webhook: GreenAPIWebhook): Promise<string | null> {
   const instanceIdRaw = webhook.instanceData?.idInstance as any;
   const instanceId = instanceIdRaw !== undefined && instanceIdRaw !== null ? String(instanceIdRaw) : null;
-  console.log('Resolving organization for instanceId:', { raw: instanceIdRaw, normalized: instanceId });
+  console.log('[whatsapp-webhook] Resolving organization for instanceId:', { raw: instanceIdRaw, normalized: instanceId });
   
   if (!instanceId) {
-    console.error('No instanceId in webhook.instanceData:', JSON.stringify(webhook.instanceData));
+    console.error('[whatsapp-webhook] No instanceId in webhook.instanceData:', JSON.stringify(webhook.instanceData));
     return null;
   }
 
+  // ========== PRIORITY 1: Search in messenger_integrations (new multi-account table) ==========
+  console.log('[whatsapp-webhook] Searching in messenger_integrations...');
+  const { data: integrations, error: intError } = await supabase
+    .from('messenger_integrations')
+    .select('organization_id, settings')
+    .eq('messenger_type', 'whatsapp')
+    .eq('provider', 'green_api')
+    .eq('is_enabled', true);
+
+  if (intError) {
+    console.error('[whatsapp-webhook] Error fetching messenger_integrations:', intError);
+  } else if (integrations && integrations.length > 0) {
+    // Manual search through settings (JSON field)
+    for (const integration of integrations) {
+      const settingsObj = integration.settings as Record<string, unknown> | null;
+      const storedInstanceId = settingsObj?.instanceId;
+      
+      if (String(storedInstanceId) === instanceId) {
+        console.log('[whatsapp-webhook] ✓ Found organization via messenger_integrations:', integration.organization_id);
+        return (integration.organization_id as string | null) ?? null;
+      }
+    }
+    console.log('[whatsapp-webhook] No match in messenger_integrations for instanceId:', instanceId);
+  }
+
+  // ========== PRIORITY 2: Fallback to messenger_settings (legacy table) ==========
+  console.log('[whatsapp-webhook] Fallback: searching in messenger_settings...');
+  
   // Try to find by settings->>instanceId (string match)
   let { data, error } = await supabase
     .from('messenger_settings')
     .select('organization_id, settings')
     .eq('messenger_type', 'whatsapp')
-    .eq('provider', 'greenapi')
     .not('organization_id', 'is', null)
     .eq('settings->>instanceId', instanceId)
     .order('updated_at', { ascending: false })
@@ -37,29 +64,26 @@ async function resolveOrganizationIdFromWebhook(webhook: GreenAPIWebhook): Promi
 
   if (!data && !error) {
     // Fallback: try with numeric instanceId (in case stored as number in JSON)
-    const numericId = String(instanceId);
-    console.log('No match with string, trying numeric instanceId:', numericId);
+    console.log('[whatsapp-webhook] No match with string, trying manual search...');
     
     const { data: data2, error: error2 } = await supabase
       .from('messenger_settings')
       .select('organization_id, settings')
       .eq('messenger_type', 'whatsapp')
-      .eq('provider', 'greenapi')
       .not('organization_id', 'is', null)
       .order('updated_at', { ascending: false });
     
     if (error2) {
-      console.error('Error fetching all messenger_settings:', error2);
+      console.error('[whatsapp-webhook] Error fetching all messenger_settings:', error2);
     } else if (data2 && data2.length > 0) {
       // Manual search through settings
       for (const setting of data2) {
         const settingsObj = setting.settings as Record<string, unknown> | null;
         const storedInstanceId = settingsObj?.instanceId;
-        console.log('Checking setting:', { org: setting.organization_id, storedInstanceId, targetInstanceId: instanceId });
         
-        if (String(storedInstanceId) === String(instanceId)) {
+        if (String(storedInstanceId) === instanceId) {
           data = setting;
-          console.log('Found match via manual search:', setting.organization_id);
+          console.log('[whatsapp-webhook] ✓ Found match via messenger_settings manual search:', setting.organization_id);
           break;
         }
       }
@@ -67,16 +91,16 @@ async function resolveOrganizationIdFromWebhook(webhook: GreenAPIWebhook): Promi
   }
 
   if (error) {
-    console.error('Failed to resolve organization by instanceId:', { instanceId, error });
+    console.error('[whatsapp-webhook] Failed to resolve organization by instanceId:', { instanceId, error });
     return null;
   }
 
   if (!data) {
-    console.warn('No organization found for instanceId:', instanceId);
+    console.warn('[whatsapp-webhook] No organization found for instanceId:', instanceId);
     return null;
   }
 
-  console.log('Resolved organization_id:', data.organization_id);
+  console.log('[whatsapp-webhook] ✓ Resolved organization_id via messenger_settings:', data.organization_id);
   return (data.organization_id as string | null) ?? null;
 }
 
