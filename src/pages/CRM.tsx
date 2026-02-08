@@ -92,6 +92,7 @@ import { useRealtimeHub } from "@/hooks/useRealtimeHub";
 import { RealtimeStatusIndicator } from "@/components/crm/RealtimeStatusIndicator";
 import { useManagerBranches } from "@/hooks/useManagerBranches";
 import { useUserAllowedBranches } from "@/hooks/useUserAllowedBranches";
+import { toBranchKey } from "@/lib/branchUtils";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useAssistantMessages } from "@/hooks/useAssistantMessages";
 import { useStaffUnreadCount } from "@/hooks/useInternalStaffMessages";
@@ -504,6 +505,18 @@ const CRMContent = () => {
   const { filterAllowedBranches, hasRestrictions: hasUserBranchRestrictions } = useUserAllowedBranches();
   const { unreadCount: assistantUnreadCount, markAllAsRead: markAssistantAsRead } = useAssistantMessages();
   const { data: staffUnreadCount = 0 } = useStaffUnreadCount();
+
+  // Validate persisted branch selection against current list of branches
+  const availableBranchKeys = useMemo(
+    () => (filterAllowedBranches(branches) || [])
+      .map((b: any) => toBranchKey(b?.name))
+      .filter(Boolean),
+    [branches, filterAllowedBranches]
+  );
+
+  useEffect(() => {
+    validateAgainstAvailable?.(availableBranchKeys);
+  }, [validateAgainstAvailable, availableBranchKeys]);
   const { isUserOnline } = useStaffOnlinePresence();
   const isMobile = useIsMobile();
   
@@ -1258,7 +1271,7 @@ const CRMContent = () => {
       
       return true;
     })
-    // Фильтр по филиалу клиента (из UI dropdown) - теперь используем branch из chat
+    // Фильтр по филиалу клиента (из UI dropdown) - сравнение через единый ключ
     .filter(chat => {
       if (selectedBranch === "all") return true;
       if (chat.type === "corporate" || chat.type === "teachers") return true;
@@ -1266,15 +1279,9 @@ const CRMContent = () => {
       // Используем branch напрямую из chat (теперь приходит из threads RPC)
       const clientBranch = isClientChat(chat) ? chat.branch : null;
       if (!clientBranch) return true; // Если у клиента нет филиала - показываем
-      
-      // Нормализуем для сравнения: "OKEY ENGLISH Котельники" -> "котельники"
-      const normalizedClientBranch = clientBranch
-        .toLowerCase()
-        .replace(/okey\s*english\s*/gi, '')
-        .replace(/o'key\s*english\s*/gi, '')
-        .trim();
-      
-      return normalizedClientBranch === selectedBranch.toLowerCase();
+
+      // Сравниваем через единый нормализованный ключ
+      return toBranchKey(clientBranch) === selectedBranch;
     })
     // Авто-фильтр для менеджеров с ограничениями по филиалу
     .filter(chat => {
@@ -3250,10 +3257,9 @@ const CRMContent = () => {
                         </div>
                       </DropdownMenuItem>
                       {filterAllowedBranches(branches).map((branch) => {
-                        const branchKey = branch.name.toLowerCase()
-                          .replace(/okey\s*english\s*/gi, '')
-                          .replace(/o'key\s*english\s*/gi, '')
-                          .trim();
+                        const branchKey = toBranchKey(branch.name);
+                        if (!branchKey) return null;
+
                         return (
                           <DropdownMenuItem key={branch.id} onClick={() => setSelectedBranch(branchKey)}>
                             <div className="flex items-center gap-2">
@@ -3292,7 +3298,7 @@ const CRMContent = () => {
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
                             onClick={() => {
-                              setSelectedBranch("all");
+                              resetBranch();
                               setSelectedClientType("all");
                             }}
                             className="text-red-600"
@@ -3850,10 +3856,9 @@ const CRMContent = () => {
                         </div>
                       </DropdownMenuItem>
                       {filterAllowedBranches(branches).map((branch) => {
-                        const branchKey = branch.name.toLowerCase()
-                          .replace(/okey\s*english\s*/gi, '')
-                          .replace(/o'key\s*english\s*/gi, '')
-                          .trim();
+                        const branchKey = toBranchKey(branch.name);
+                        if (!branchKey) return null;
+
                         return (
                           <DropdownMenuItem key={branch.id} onClick={() => setSelectedBranch(branchKey)}>
                             <div className="flex items-center gap-2">
@@ -3892,7 +3897,7 @@ const CRMContent = () => {
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
                             onClick={() => {
-                              setSelectedBranch("all");
+                              resetBranch();
                               setSelectedClientType("all");
                             }}
                             className="text-red-600"
