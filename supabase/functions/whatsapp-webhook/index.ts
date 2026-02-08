@@ -13,6 +13,121 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
+/**
+ * Schema-agnostic message insert helper
+ * Supports both Lovable Cloud schema (content, messenger, direction, external_id, media_url, media_type)
+ * and self-hosted schema (message_text, messenger_type, is_outgoing, external_message_id, file_url, file_type)
+ */
+interface MessageInsertParams {
+  client_id: string | null
+  teacher_id?: string | null
+  organization_id: string
+  content: string
+  message_type: string // 'client' | 'manager' | 'system'
+  is_incoming: boolean
+  messenger: string // 'whatsapp'
+  status: string // 'delivered' | 'sent'
+  external_id: string
+  media_url?: string | null
+  media_type?: string | null
+  file_name?: string | null
+  created_at?: string
+  metadata?: Record<string, unknown>
+}
+
+async function insertChatMessage(params: MessageInsertParams): Promise<{ success: boolean; error?: string }> {
+  // Lovable Cloud schema (primary)
+  const cloudPayload: Record<string, unknown> = {
+    client_id: params.client_id,
+    organization_id: params.organization_id,
+    content: params.content,
+    message_type: params.message_type,
+    messenger: params.messenger,
+    direction: params.is_incoming ? 'incoming' : 'outgoing',
+    status: params.status,
+    external_id: params.external_id,
+    is_read: !params.is_incoming,
+    media_url: params.media_url || null,
+    media_type: params.media_type || null,
+    file_name: params.file_name || null,
+    created_at: params.created_at || new Date().toISOString(),
+  }
+  
+  // Add optional fields if present
+  if (params.metadata) {
+    cloudPayload.metadata = params.metadata
+  }
+  
+  // Try Cloud schema first
+  const { error: cloudError } = await supabase.from('chat_messages').insert(cloudPayload)
+  
+  if (!cloudError) {
+    return { success: true }
+  }
+  
+  console.log('[whatsapp-webhook] Cloud schema insert failed, trying self-hosted schema:', cloudError.message)
+  
+  // Self-hosted schema fallback
+  const selfHostedPayload: Record<string, unknown> = {
+    client_id: params.client_id,
+    organization_id: params.organization_id,
+    message_text: params.content,
+    message_type: params.message_type,
+    messenger_type: params.messenger,
+    is_outgoing: !params.is_incoming,
+    message_status: params.status,
+    external_message_id: params.external_id,
+    is_read: !params.is_incoming,
+    file_url: params.media_url || null,
+    file_type: params.media_type || null,
+    file_name: params.file_name || null,
+    created_at: params.created_at || new Date().toISOString(),
+  }
+  
+  // Add teacher_id if present (self-hosted may have this column)
+  if (params.teacher_id) {
+    selfHostedPayload.teacher_id = params.teacher_id
+    selfHostedPayload.client_id = null
+  }
+  
+  const { error: selfHostedError } = await supabase.from('chat_messages').insert(selfHostedPayload)
+  
+  if (!selfHostedError) {
+    return { success: true }
+  }
+  
+  console.error('[whatsapp-webhook] Both schema inserts failed:', {
+    cloudError: cloudError.message,
+    selfHostedError: selfHostedError.message
+  })
+  
+  // Final fallback: minimal payload
+  const minimalPayload: Record<string, unknown> = {
+    client_id: params.client_id,
+    organization_id: params.organization_id,
+    message_type: params.message_type,
+    is_read: !params.is_incoming,
+    created_at: params.created_at || new Date().toISOString(),
+  }
+  
+  // Try adding content fields one by one
+  const contentFields = [
+    { key: 'content', value: params.content },
+    { key: 'message_text', value: params.content },
+  ]
+  
+  for (const field of contentFields) {
+    minimalPayload[field.key] = field.value
+    const { error } = await supabase.from('chat_messages').insert(minimalPayload)
+    if (!error) {
+      return { success: true }
+    }
+    delete minimalPayload[field.key]
+  }
+  
+  return { success: false, error: selfHostedError.message }
+}
+
 async function resolveOrganizationIdFromWebhook(webhook: GreenAPIWebhook): Promise<string | null> {
   const instanceIdRaw = webhook.instanceData?.idInstance as any;
   const instanceId = instanceIdRaw !== undefined && instanceIdRaw !== null ? String(instanceIdRaw) : null;
@@ -464,27 +579,25 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook, organizationId: s
       return
     }
     
-    // Save message with teacher_id (NOT client_id)
-    const { error: msgError } = await supabase.from('chat_messages').insert({
-      teacher_id: teacherData.id,
+    // Save message with teacher_id (NOT client_id) - use adaptive insert
+    const insertResult = await insertChatMessage({
       client_id: null,
+      teacher_id: teacherData.id,
       organization_id: organizationId,
-      message_text: messageText,
+      content: messageText,
       message_type: 'client',
-      messenger_type: 'whatsapp',
-      message_status: 'delivered',
-      external_message_id: idMessage,
-      is_outgoing: false,
-      is_read: false,
-      file_url: fileUrl,
+      is_incoming: true,
+      messenger: 'whatsapp',
+      status: 'delivered',
+      external_id: idMessage,
+      media_url: fileUrl,
+      media_type: fileType,
       file_name: fileName,
-      file_type: fileType,
-      created_at: new Date(webhook.timestamp * 1000).toISOString()
+      created_at: new Date(webhook.timestamp * 1000).toISOString(),
     })
 
-    if (msgError) {
-      console.error('Error saving teacher message:', msgError)
-      throw msgError
+    if (!insertResult.success) {
+      console.error('Error saving teacher message:', insertResult.error)
     }
 
     console.log(`Saved incoming teacher message from ${phoneNumber}: ${messageText}`)
@@ -501,26 +614,24 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook, organizationId: s
     return
   }
 
-  // Сохраняем сообщение в базу данных
-  const { error } = await supabase.from('chat_messages').insert({
+  // Сохраняем сообщение в базу данных - use adaptive insert
+  const insertResult = await insertChatMessage({
     client_id: client.id,
     organization_id: organizationId,
-    message_text: messageText,
+    content: messageText,
     message_type: 'client',
-    messenger_type: 'whatsapp',
-    message_status: 'delivered',
-    external_message_id: idMessage,
-    is_outgoing: false,
-    is_read: false,
-    file_url: fileUrl,
+    is_incoming: true,
+    messenger: 'whatsapp',
+    status: 'delivered',
+    external_id: idMessage,
+    media_url: fileUrl,
+    media_type: fileType,
     file_name: fileName,
-    file_type: fileType,
-    created_at: new Date(webhook.timestamp * 1000).toISOString()
+    created_at: new Date(webhook.timestamp * 1000).toISOString(),
   })
 
-  if (error) {
-    console.error('Error saving incoming message:', error)
-    throw error
+  if (!insertResult.success) {
+    console.error('Error saving incoming message:', insertResult.error)
   }
 
   // Обновляем время последнего сообщения у клиента
@@ -700,27 +811,25 @@ async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: s
   if (teacherData) {
     console.log(`Found teacher by whatsapp_id: ${teacherData.first_name} ${teacherData.last_name || ''} (ID: ${teacherData.id})`)
     
-    // Save outgoing message with teacher_id (NOT client_id)
-    const { error: msgError } = await supabase.from('chat_messages').insert({
-      teacher_id: teacherData.id,
+    // Save outgoing message with teacher_id (NOT client_id) - use adaptive insert
+    const insertResult = await insertChatMessage({
       client_id: null,
+      teacher_id: teacherData.id,
       organization_id: organizationId,
-      message_text: messageText,
+      content: messageText,
       message_type: 'manager',
-      messenger_type: 'whatsapp',
-      message_status: 'sent',
-      external_message_id: idMessage,
-      is_outgoing: true,
-      is_read: true,
-      file_url: fileUrl,
+      is_incoming: false,
+      messenger: 'whatsapp',
+      status: 'sent',
+      external_id: idMessage,
+      media_url: fileUrl,
+      media_type: fileType,
       file_name: fileName,
-      file_type: fileType,
-      created_at: new Date(webhook.timestamp * 1000).toISOString()
+      created_at: new Date(webhook.timestamp * 1000).toISOString(),
     })
 
-    if (msgError) {
-      console.error('Error saving outgoing teacher message:', msgError)
-      throw msgError
+    if (!insertResult.success) {
+      console.error('Error saving outgoing teacher message:', insertResult.error)
     }
 
     console.log(`Saved outgoing teacher message to ${phoneNumber}: ${messageText}`)
@@ -731,26 +840,24 @@ async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: s
   // Находим или создаем клиента
   let client = await findOrCreateClient(phoneNumber, senderData.chatName, organizationId)
 
-  // Сохраняем сообщение как исходящее от менеджера
-  const { error } = await supabase.from('chat_messages').insert({
+  // Сохраняем сообщение как исходящее от менеджера - use adaptive insert
+  const insertResult = await insertChatMessage({
     client_id: client.id,
     organization_id: organizationId,
-    message_text: messageText,
+    content: messageText,
     message_type: 'manager',
-    messenger_type: 'whatsapp',
-    message_status: 'sent',
-    external_message_id: idMessage,
-    is_outgoing: true,
-    is_read: true,
-    file_url: fileUrl,
+    is_incoming: false,
+    messenger: 'whatsapp',
+    status: 'sent',
+    external_id: idMessage,
+    media_url: fileUrl,
+    media_type: fileType,
     file_name: fileName,
-    file_type: fileType,
-    created_at: new Date(webhook.timestamp * 1000).toISOString()
+    created_at: new Date(webhook.timestamp * 1000).toISOString(),
   })
 
-  if (error) {
-    console.error('Error saving outgoing message:', error)
-    throw error
+  if (!insertResult.success) {
+    console.error('Error saving outgoing message:', insertResult.error)
   }
 
   // Обновляем время последнего сообщения у клиента
@@ -797,18 +904,17 @@ async function handleIncomingCall(webhook: GreenAPIWebhook, organizationId: stri
     .single()
 
   if (client) {
-    // Сохраняем уведомление о звонке
-    await supabase.from('chat_messages').insert({
+    // Сохраняем уведомление о звонке - use adaptive insert
+    await insertChatMessage({
       client_id: client.id,
       organization_id: client.organization_id || organizationId,
-      message_text: `📞 Входящий звонок (${callData.status || 'unknown'})`,
+      content: `📞 Входящий звонок (${callData.status || 'unknown'})`,
       message_type: 'system',
-      messenger_type: 'whatsapp',
-      message_status: 'delivered',
-      is_outgoing: false,
-      is_read: false,
-      call_duration: callData.status === 'pickUp' ? '0' : null,
-      created_at: new Date(webhook.timestamp * 1000).toISOString()
+      is_incoming: true,
+      messenger: 'whatsapp',
+      status: 'delivered',
+      external_id: `call_${webhook.timestamp}`,
+      created_at: new Date(webhook.timestamp * 1000).toISOString(),
     })
     
     console.log(`Recorded call from ${phoneNumber} with status ${callData.status}`)
