@@ -1,125 +1,122 @@
 
-## Диагностика и исправление проблем
+## Диагностика и исправление проблем Telegram Wappi
 
-### Проблема 1: Ошибка сборки PWA
+### Понимание проблемы
 
-**Суть**: `vite-plugin-pwa` с `injectManifest` требует буквальную строку `self.__WB_MANIFEST` для замены, но текущий код `self.__WB_MANIFEST ?? []` не распознаётся плагином.
+На основе ответов пользователя и анализа кода:
 
-**Решение**: Использовать отдельную переменную с последующим fallback:
-```typescript
-const manifest = self.__WB_MANIFEST;
-precacheAndRoute(manifest ?? []);
-```
+**Webhook (входящие сообщения)**:
+- HTTP 405 на GET — это нормально, webhook ожидает POST
+- Wappi показывает "peer not found" в логах — это означает проблему на стороне Wappi/Telegram, а не webhook
 
----
+**Отправка сообщений**:
+- Ошибка "peer not found" означает, что Telegram API не может найти получателя
+- Код использует fallback на телефон, но это НЕ РАБОТАЕТ для большинства случаев
 
-### Проблема 2: Wappi Telegram webhook не находит организацию
+### Почему "peer not found"?
 
-**Причина**: Функция `telegram-webhook` ищет организацию по `profile_id` из payload через:
-```typescript
-.eq('settings->>profileId', profileId)
-```
+Telegram User API (который использует Wappi) может отправить сообщение только если:
+1. Есть **telegram_chat_id** (из предыдущего диалога)
+2. Есть **username** пользователя (например, `minayq`)
+3. Номер телефона добавлен **в контакты** Telegram-аккаунта, привязанного к Wappi
 
-Но это работает только если:
-1. Таблица `messenger_integrations` существует на self-hosted
-2. Запись имеет `settings.profileId` = profile_id от Wappi
+Отправка просто по номеру телефона **не поддерживается** Telegram User API, если:
+- Номер не в ваших контактах
+- У получателя скрыт номер в настройках приватности
+- Нет истории переписки
 
-**Проверка**: URL `telegram-webhook/58bf91a64dafc3f423d85950` содержит Wappi profile_id как path-параметр, но функция его **не парсит из URL** — она полагается только на payload.
+### План исправлений
 
-**Решение**: Добавить парсинг `profile_id` из URL path как запасной вариант (по аналогии с `whatsapp-webhook`):
-```typescript
-// Извлечь profile_id из URL path: /telegram-webhook/{profile_id}
-const url = new URL(req.url);
-const pathParts = url.pathname.split('/');
-const urlProfileId = pathParts[pathParts.length - 1];
+**1. Улучшить логирование для диагностики**
 
-// Использовать profile_id из payload, или из URL как fallback
-const effectiveProfileId = message.profile_id || urlProfileId;
-```
+В `telegram-send` добавить детальные логи, чтобы видеть какой именно recipient используется и почему Wappi возвращает ошибку.
 
----
+**2. Добавить поддержку username**
 
-### Проблема 3: Telegram-send не отправляет сообщения
+Wappi поддерживает отправку по username (например, `minayq`). Нужно:
+- Добавить колонку `telegram_username` в clients/client_phone_numbers (если нет)
+- Использовать username как приоритетный fallback перед телефоном
 
-**Причина**: Ошибка на скриншоте показывает что Wappi API возвращает ошибку. Это может быть связано с:
-1. Неверным `recipient` (нет telegram_chat_id, telegram_user_id или телефона)
-2. Неверными credentials (profileId / apiToken)
-3. Отключенной интеграцией
+**3. Улучшить обработку ошибки "peer not found"**
 
-Исправление с fallback на телефон уже сделано — нужно протестировать.
+Вернуть понятное сообщение пользователю CRM о том, почему не удалось отправить:
+- "Клиент не найден в Telegram. Попросите его написать вам первым."
+
+**4. Webhook: добавить поддержку wh_type "outgoing_message_api"**
+
+Согласно документации Wappi, есть отдельный тип `outgoing_message_api` для сообщений, отправленных через API. Текущий код не обрабатывает его.
 
 ---
 
-## План изменений
+## Технические изменения
 
-### Файл: `src/sw.ts`
-**Строки 23-25** — исправить injection point для PWA:
-```typescript
-// CRITICAL: vite-plugin-pwa injectManifest requires `self.__WB_MANIFEST` as a literal.
-// Store in variable first, then apply fallback.
-const manifest = self.__WB_MANIFEST;
-precacheAndRoute(manifest ?? []);
+### Файл: `supabase/functions/telegram-send/index.ts`
+
+**Изменения в логике определения recipient (строки 160-215)**:
+
+```text
+1. Добавить приоритет username перед телефоном:
+   - telegram_chat_id (самый надёжный)
+   - telegram_user_id
+   - telegram_username (если есть)
+   - normalizePhone (последний fallback)
+
+2. Добавить детальное логирование:
+   - Логировать какие поля есть у клиента
+   - Логировать финальный recipient
+   - Логировать полный ответ от Wappi
+
+3. Улучшить обработку ошибки "peer not found":
+   - Распознавать эту ошибку
+   - Возвращать понятное сообщение
 ```
 
 ### Файл: `supabase/functions/telegram-webhook/index.ts`
-**Строки 12-53** — добавить парсинг profile_id из URL path:
 
-1. После CORS handling, извлечь profile_id из URL:
-```typescript
-// Extract profile_id from URL path if present: /telegram-webhook/{profile_id}
-const url = new URL(req.url);
-const pathParts = url.pathname.split('/');
-const urlProfileId = pathParts[pathParts.length - 1];
-const isValidUrlProfileId = urlProfileId && urlProfileId !== 'telegram-webhook' && urlProfileId.length >= 8;
-```
+**Добавить обработку `outgoing_message_api` (строки 141-158)**:
 
-2. В функции `processMessage` использовать URL profile_id как fallback:
-```typescript
-// Use profile_id from message payload, or from URL path as fallback
-const effectiveProfileId = message.profile_id || (isValidUrlProfileId ? urlProfileId : null);
-if (!effectiveProfileId) {
-  console.error('[telegram-webhook] No profile_id in payload or URL');
-  return;
-}
-```
+Согласно документации Wappi, помимо `outgoing_message` и `outgoing_message_phone` есть `outgoing_message_api` для сообщений, отправленных через API. Нужно добавить его в switch-case.
 
-3. Передать `urlProfileId` в функцию обработки через closure или параметр.
+### Файл: `supabase/functions/_shared/types.ts`
+
+**Обновить интерфейс TelegramWappiMessage (строки 1050-1076)**:
+
+Добавить недостающие поля из документации Wappi:
+- `status?: string` — для delivery_status
+- `stanza_id?: string` — ID сообщения для обновления статуса
+- `chat_type?: string` — тип чата (user, group, channel)
+- `task_id?: string` — ID задачи для API-сообщений
 
 ---
 
-## Технические детали
+## Рекомендации для пользователя
 
-### Структура Wappi webhook payload
-Wappi отправляет массив `messages`, где каждое сообщение содержит `profile_id`:
-```json
-{
-  "messages": [{
-    "wh_type": "incoming_message",
-    "profile_id": "58bf91a64dafc3f423d85950",
-    "from": "123456789",
-    "chatId": "123456789",
-    ...
-  }]
-}
-```
+После применения изменений:
 
-### Почему URL profile_id нужен как fallback
-Если payload некорректный или profile_id отсутствует, можно использовать ID из URL для routing.
+1. **Для новых клиентов**: Клиент должен **написать первым** в Telegram — только тогда появится `telegram_chat_id`
 
----
+2. **Для существующих клиентов без chat_id**: 
+   - Если есть username — можно отправить
+   - Если только телефон — скорее всего не сработает (ограничение Telegram)
 
-## Тестирование после изменений
-
-1. **Build**: Убедиться что PWA собирается без ошибок
-2. **Webhook**: Отправить тестовое сообщение в Telegram → проверить логи на self-hosted
-3. **Отправка**: Отправить сообщение клиенту из CRM → проверить что уходит
-
----
-
-## Self-hosted обновление
-
-После деплоя изменений — скопировать функции на self-hosted:
+3. **Self-hosted обновление**: После деплоя скопировать функции:
 ```bash
-# Скопировать telegram-webhook и telegram-send
+cp -r telegram-send telegram-webhook _shared /volumes/functions/
 docker compose restart functions
 ```
+
+---
+
+## Проверка после изменений
+
+1. Открыть логи edge functions на self-hosted:
+```bash
+docker compose logs -f functions | grep telegram
+```
+
+2. Попробовать отправить сообщение клиенту, у которого есть `telegram_chat_id`
+
+3. Попробовать отправить клиенту без `telegram_chat_id` — убедиться что ошибка понятная
+
+4. Попросить клиента написать в Telegram — проверить что webhook сохраняет `telegram_chat_id`
+
