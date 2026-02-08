@@ -17,6 +17,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -40,18 +41,24 @@ import {
   AlertCircle,
   Send,
   MessageCircle,
-  UserPlus
+  UserPlus,
+  Wallet
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { EditSalaryModal } from './EditSalaryModal';
 
 interface EmployeeInvitationsListProps {
   onAddNew?: () => void;
 }
 
 export const EmployeeInvitationsList = ({ onAddNew }: EmployeeInvitationsListProps) => {
-  const { invitations, isLoading, cancelInvitation, resendInvitation } = useEmployeeInvitations();
+  const { invitations, isLoading, cancelInvitation, resendInvitation, refetch } = useEmployeeInvitations();
   const [cancelDialog, setCancelDialog] = useState<{ open: boolean; invitation: EmployeeInvitation | null }>({
+    open: false,
+    invitation: null,
+  });
+  const [editSalaryModal, setEditSalaryModal] = useState<{ open: boolean; invitation: EmployeeInvitation | null }>({
     open: false,
     invitation: null,
   });
@@ -216,6 +223,11 @@ export const EmployeeInvitationsList = ({ onAddNew }: EmployeeInvitationsListPro
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setEditSalaryModal({ open: true, invitation })}>
+                            <Wallet className="h-4 w-4 mr-2" />
+                            Условия оплаты
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => handleCopyLink(invitation)}>
                             <Copy className="h-4 w-4 mr-2" />
                             Копировать ссылку
@@ -228,6 +240,7 @@ export const EmployeeInvitationsList = ({ onAddNew }: EmployeeInvitationsListPro
                             <Send className="h-4 w-4 mr-2" />
                             Отправить в Telegram
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem 
                             onClick={() => setCancelDialog({ open: true, invitation })}
                             className="text-destructive"
@@ -237,6 +250,19 @@ export const EmployeeInvitationsList = ({ onAddNew }: EmployeeInvitationsListPro
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                    )}
+
+                    {/* Для принятых приглашений - кнопка редактирования оплаты */}
+                    {effectiveStatus === 'accepted' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditSalaryModal({ open: true, invitation })}
+                        className="shrink-0 gap-1"
+                      >
+                        <Wallet className="h-3.5 w-3.5" />
+                        Оплата
+                      </Button>
                     )}
 
                     {(effectiveStatus === 'expired' || effectiveStatus === 'cancelled') && (
@@ -287,6 +313,14 @@ export const EmployeeInvitationsList = ({ onAddNew }: EmployeeInvitationsListPro
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Модальное окно редактирования оплаты */}
+      <EditSalaryModal
+        open={editSalaryModal.open}
+        onOpenChange={(open) => setEditSalaryModal({ open, invitation: null })}
+        invitation={editSalaryModal.invitation}
+        onSaved={() => refetch()}
+      />
     </Card>
   );
 };
