@@ -19,6 +19,7 @@ import type { PhoneNumber as PhoneNumberType } from "@/types/phone";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { selfHostedPost } from "@/lib/selfHostedApi";
 import { toast } from "sonner";
+import { useUpdateClient } from "@/hooks/useClients";
 import { usePinnedModalsDB } from "@/hooks/usePinnedModalsDB";
 import { useOrganization } from "@/hooks/useOrganization";
 import { InviteToPortalButton } from "./InviteToPortalButton";
@@ -81,6 +82,7 @@ export const FamilyCard = ({
   const { familyData, loading, error, refetch } = useFamilyData(familyGroupId);
   const { branches: organizationBranches } = useOrganization();
   const { user } = useAuth();
+  const updateClient = useUpdateClient();
 
   // ВАЖНО: не грузим все learning_groups при открытии карточки.
   // Данные группы подтягиваем только когда пользователь нажал на курс.
@@ -735,10 +737,26 @@ export const FamilyCard = ({
               {isChangingBranch ? (
                 <select 
                   className="text-sm bg-white border border-slate-200 rounded px-2 py-1 text-slate-700 min-w-0 flex-1" 
-                  value={selectedBranch}
-                  onChange={(e) => {
-                    setSelectedBranch(e.target.value);
+                  value={selectedBranch || ''}
+                  onChange={async (e) => {
+                    const newBranch = e.target.value;
+                    setSelectedBranch(newBranch);
                     setIsChangingBranch(false);
+                    
+                    // Save to database
+                    if (activeMember?.id) {
+                      try {
+                        await updateClient.mutateAsync({
+                          id: activeMember.id,
+                          branch: newBranch
+                        });
+                        toast.success('Филиал сохранён');
+                        refetch();
+                      } catch (err) {
+                        console.error('Failed to save branch:', err);
+                        toast.error('Не удалось сохранить филиал');
+                      }
+                    }
                   }}
                   onBlur={() => setIsChangingBranch(false)}
                   autoFocus
