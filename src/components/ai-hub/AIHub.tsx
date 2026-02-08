@@ -136,7 +136,7 @@ export const AIHub = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [teacherClientId, setTeacherClientId] = useState<string | null>(null);
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('all');
+  const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('online'); // По умолчанию показываем онлайн
   
   // Persisted sections state
   const { 

@@ -59,6 +59,7 @@ import VoiceAssistant from '@/components/VoiceAssistant';
 import { usePersistedSections } from '@/hooks/usePersistedSections';
 import { useStaffOnlinePresence, type OnlineUser } from '@/hooks/useStaffOnlinePresence';
 import { useUserAllowedBranches } from '@/hooks/useUserAllowedBranches';
+import { useStaffBranchGroups } from '@/hooks/useStaffBranchGroups';
 import {
   Select,
   SelectContent,
@@ -240,7 +241,7 @@ export const AIHubInline = ({
   const [isChatSearchOpen, setIsChatSearchOpen] = useState(false);
   const [teacherClientId, setTeacherClientId] = useState<string | null>(null);
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('all');
+  const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('online'); // По умолчанию показываем онлайн
   const [pendingFile, setPendingFile] = useState<{ url: string; name: string; type: string } | null>(null);
   
   const { 
@@ -263,6 +264,7 @@ export const AIHubInline = ({
   const { teachers, isLoading: teachersLoading } = useTeacherChats(null);
   const { communityChats, totalUnread: communityUnread, isLoading: communityLoading } = useCommunityChats();
   const { data: staffMembers, isLoading: staffMembersLoading } = useStaffMembers();
+  const { data: branchGroups, isLoading: branchGroupsLoading } = useStaffBranchGroups();
   
   // Get all profile IDs for staff conversation previews (teachers with profiles + all staff members)
   const teacherProfileIds = teachers
@@ -319,8 +321,22 @@ export const AIHubInline = ({
     ...consultants.map(c => ({ id: c.id, type: c.id as ChatType, name: c.name, description: c.description, icon: c.icon, iconBg: 'bg-primary/10', iconColor: 'text-primary', badge: 'AI', lastMessage: messages[c.id]?.slice(-1)[0]?.content })),
   ];
 
+  // Internal group chats (legacy)
   const groupChatItems: ChatItem[] = (internalChats || []).map(group => ({
     id: group.id, type: 'group' as ChatType, name: group.name, description: group.description || group.branch || 'Групповой чат', icon: Users, iconBg: 'bg-blue-500/10', iconColor: 'text-blue-600', data: group,
+  }));
+
+  // Branch-based staff groups (auto-created on employee onboarding)
+  const branchGroupItems: ChatItem[] = (branchGroups || []).map(group => ({
+    id: `branch-${group.id}`, 
+    type: 'group' as ChatType, 
+    name: group.name, 
+    description: group.description || `Команда филиала ${group.branch_name}`, 
+    icon: Users, 
+    iconBg: 'bg-indigo-500/10', 
+    iconColor: 'text-indigo-600',
+    badge: group.branch_name || undefined,
+    data: { ...group, id: group.id }, // Keep the real ID for messages
   }));
 
   // Teachers with profile links
@@ -365,7 +381,7 @@ export const AIHubInline = ({
       };
     });
 
-  const allChats = [...aiChats, ...groupChatItems, ...teacherChatItems, ...staffChatItems];
+  const allChats = [...aiChats, ...groupChatItems, ...branchGroupItems, ...teacherChatItems, ...staffChatItems];
 
   // Auto-open chat when initialStaffUserId is provided
   // Wait for staff data to load before trying to find the target chat
@@ -701,9 +717,13 @@ export const AIHubInline = ({
       return bTime - aTime; // Descending (most recent first)
     });
   
-  // Apply online filter
+  // Apply online filter - but always show groups
   const corporateChatsList = staffFilter === 'online' 
     ? corporateChatsListBase.filter(item => {
+        // Always show groups (they're always "available")
+        if (item.type === 'group') {
+          return true;
+        }
         if (item.type === 'teacher') {
           const profileId = (item.data as TeacherChatItem)?.profileId;
           return profileId ? isUserOnline(profileId) : false;
@@ -712,7 +732,7 @@ export const AIHubInline = ({
           const staffId = (item.data as StaffMember)?.id;
           return staffId ? isUserOnline(staffId) : false;
         }
-        return false; // Groups excluded when filtering online
+        return false;
       })
     : corporateChatsListBase;
 
