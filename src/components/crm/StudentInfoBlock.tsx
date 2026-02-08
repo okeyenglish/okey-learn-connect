@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { User, ExternalLink, BookOpen } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Course {
   id: string;
@@ -58,6 +59,9 @@ export const StudentInfoBlock = ({
   onClick,
   onCourseClick,
 }: StudentInfoBlockProps) => {
+  const { roles } = useAuth();
+  const isAdmin = roles.includes('admin');
+
   // Определяем тип ссылки: лиды (trial, not_started) идут в /Lead/, остальные в /Profile/
   const isLead = status === 'trial' || status === 'not_started';
   const holyHopeUrl = hollihopeId
@@ -74,10 +78,13 @@ export const StudentInfoBlock = ({
   // Filter active courses only
   const activeCourses = courses.filter(c => c.isActive);
 
+  // Only admins can open student card
+  const handleCardClick = isAdmin ? onClick : undefined;
+
   return (
     <div
-      className="p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-      onClick={onClick}
+      className={`p-3 bg-muted/30 rounded-lg transition-colors ${isAdmin ? 'hover:bg-muted/50 cursor-pointer' : ''}`}
+      onClick={handleCardClick}
     >
       <div className="flex items-center gap-3">
         <User className="h-5 w-5 text-muted-foreground flex-shrink-0" />
