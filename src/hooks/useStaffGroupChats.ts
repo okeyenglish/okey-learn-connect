@@ -67,16 +67,24 @@ async function fetchGroupsDirectly(organizationId: string): Promise<StaffGroupCh
 export const useStaffGroupChats = () => {
   const { user, profile } = useAuth();
 
-  // Use profile's organization_id with fallback to default
-  const organizationId = profile?.organization_id ?? DEFAULT_ORGANIZATION_ID;
+  // NOTE:
+  // Staff group chats are currently stored/served via the external self-hosted backend.
+  // That backend uses its own single-tenant organization id (DEFAULT_ORGANIZATION_ID).
+  // Using the Lovable Cloud profile.organization_id here causes "0 groups" even when groups exist.
+  const selfHostedOrganizationId = DEFAULT_ORGANIZATION_ID;
+
+  // Fallback path (direct DB query) is only useful if the tables exist in this backend.
+  // In that case, we expect organization_id to match the user's profile organization_id.
+  const directOrganizationId = profile?.organization_id ?? DEFAULT_ORGANIZATION_ID;
 
   return useQuery({
-    queryKey: ['staff-group-chats', organizationId, user?.id],
+    queryKey: ['staff-group-chats', selfHostedOrganizationId, user?.id],
     queryFn: async () => {
       console.log('[useStaffGroupChats] Fetching groups...', {
         userId: user?.id,
         profileOrgId: profile?.organization_id,
-        effectiveOrgId: organizationId,
+        selfHostedOrgId: selfHostedOrganizationId,
+        directOrgId: directOrganizationId,
       });
 
       if (!user?.id) {
@@ -84,9 +92,9 @@ export const useStaffGroupChats = () => {
         return [];
       }
 
-      // 1) Основной путь: self-hosted function (если развернута)
+      // 1) Primary: self-hosted function
       const response = await selfHostedPost<{ groups: StaffGroupChat[] }>('get-staff-group-chats', {
-        organization_id: organizationId,
+        organization_id: selfHostedOrganizationId,
         user_id: user.id,
       });
 
@@ -97,9 +105,9 @@ export const useStaffGroupChats = () => {
         status: (response as any).status,
       });
 
-      // 2) Fallback: если функция недоступна/возвращает пусто — читаем таблицу напрямую
+      // 2) Fallback: if function unavailable/returns empty — try reading tables directly (if they exist)
       if (!response.success || (response.data?.groups?.length || 0) === 0) {
-        const directGroups = await fetchGroupsDirectly(organizationId);
+        const directGroups = await fetchGroupsDirectly(directOrganizationId);
         if (directGroups.length > 0) return directGroups;
 
         if (!response.success) {
@@ -147,11 +155,11 @@ export const useStaffGroupMembers = (groupId: string) => {
  */
 export const useCreateStaffGroupChat = () => {
   const queryClient = useQueryClient();
-  const { user, profile } = useAuth();
-  
-  // Use same logic as useStaffGroupChats for consistency
-  const organizationId = profile?.organization_id ?? DEFAULT_ORGANIZATION_ID;
-  
+  const { user } = useAuth();
+
+  // Self-hosted backend uses a single-tenant org id
+  const selfHostedOrganizationId = DEFAULT_ORGANIZATION_ID;
+
   return useMutation({
     mutationFn: async (data: {
       name: string;
@@ -163,21 +171,21 @@ export const useCreateStaffGroupChat = () => {
       if (!user?.id) {
         throw new Error('Требуется авторизация');
       }
-      
+
       const response = await selfHostedPost<{ group: StaffGroupChat }>('create-staff-group-chat', {
         name: data.name,
         description: data.description || null,
-        organization_id: organizationId,
+        organization_id: selfHostedOrganizationId,
         branch_name: data.branch_name || null,
         is_branch_group: data.is_branch_group || false,
         created_by: user.id,
         member_ids: data.member_ids,
       });
-      
+
       if (!response.success) {
         throw new Error(response.error || 'Failed to create group');
       }
-      
+
       return response.data?.group as StaffGroupChat;
     },
     onSuccess: () => {
