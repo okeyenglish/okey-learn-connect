@@ -81,6 +81,7 @@ interface MessageInsertParams {
   client_id: string | null
   teacher_id?: string | null
   organization_id: string
+  integration_id?: string | null  // For smart routing
   content: string
   message_type: string // 'client' | 'manager' | 'system'
   is_incoming: boolean
@@ -111,6 +112,7 @@ async function insertChatMessage(params: MessageInsertParams): Promise<{ success
     file_type: params.media_type || null,
     file_name: params.file_name || null,
     created_at: now,
+    integration_id: params.integration_id || null,  // Smart routing
   };
   
   // Set either client_id or teacher_id
@@ -650,7 +652,7 @@ Deno.serve(async (req) => {
     try {
       switch (webhook.typeWebhook) {
         case 'incomingMessageReceived':
-          await handleIncomingMessage(webhook, organizationId);
+          await handleIncomingMessage(webhook, organizationId, integrationId);
           break;
 
         case 'outgoingMessageStatus':
@@ -659,7 +661,7 @@ Deno.serve(async (req) => {
 
         case 'outgoingMessageReceived':
         case 'outgoingAPIMessageReceived':
-          await handleOutgoingMessage(webhook, organizationId);
+          await handleOutgoingMessage(webhook, organizationId, integrationId);
           break;
 
         case 'stateInstanceChanged':
@@ -720,7 +722,7 @@ Deno.serve(async (req) => {
 
 // ========== EVENT HANDLERS ==========
 
-async function handleIncomingMessage(webhook: GreenAPIWebhook, organizationId: string | null) {
+async function handleIncomingMessage(webhook: GreenAPIWebhook, organizationId: string | null, integrationId: string | null = null) {
   const { senderData, messageData, idMessage } = webhook;
 
   if (!senderData || !messageData) {
@@ -839,6 +841,7 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook, organizationId: s
       client_id: null,
       teacher_id: teacherData.id,
       organization_id: organizationId,
+      integration_id: integrationId,  // Smart routing
       content: messageText,
       message_type: 'client',
       is_incoming: true,
@@ -872,6 +875,7 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook, organizationId: s
   const insertResult = await insertChatMessage({
     client_id: client.id,
     organization_id: organizationId,
+    integration_id: integrationId,  // Smart routing
     content: messageText,
     message_type: 'client',
     is_incoming: true,
@@ -959,7 +963,7 @@ async function handleMessageStatus(webhook: GreenAPIWebhook) {
   console.log(`Updated message ${messageId} status to ${status}`);
 }
 
-async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: string | null) {
+async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: string | null, integrationId: string | null = null) {
   const { senderData, messageData, idMessage } = webhook;
   
   if (!senderData || !messageData) {
@@ -1055,6 +1059,7 @@ async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: s
       client_id: null,
       teacher_id: teacherData.id,
       organization_id: organizationId,
+      integration_id: integrationId,  // Smart routing
       content: messageText,
       message_type: 'manager',
       is_incoming: false,
@@ -1081,6 +1086,7 @@ async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: s
   const insertResult = await insertChatMessage({
     client_id: client.id,
     organization_id: organizationId,
+    integration_id: integrationId,  // Smart routing
     content: messageText,
     message_type: 'manager',
     is_incoming: false,

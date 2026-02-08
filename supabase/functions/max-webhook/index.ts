@@ -45,43 +45,67 @@ Deno.serve(async (req) => {
     // Find organization by instanceId
     const instanceId = String(instanceData.idInstance);
     
-    const { data: messengerSettings, error: settingsError } = await supabase
-      .from('messenger_settings')
-      .select('organization_id, settings')
+    // First try messenger_integrations (new multi-account table)
+    let organizationId: string | null = null;
+    let integrationId: string | null = null;
+    
+    const { data: integration } = await supabase
+      .from('messenger_integrations')
+      .select('id, organization_id, settings')
       .eq('messenger_type', 'max')
-      .eq('is_enabled', true);
+      .eq('is_enabled', true)
+      .filter('settings->>instanceId', 'eq', instanceId)
+      .maybeSingle();
 
-    if (settingsError) {
-      console.error('Error fetching messenger settings:', settingsError);
-      return errorResponse('Settings error', 500);
+    if (integration) {
+      organizationId = integration.organization_id;
+      integrationId = integration.id;
+      console.log(`[max-webhook] Found integration in messenger_integrations: ${integrationId}`);
     }
 
-    // Find matching organization by instanceId
-    const matchingSettings = messengerSettings?.find(s => {
-      const settings = s.settings as Record<string, unknown>;
-      return settings?.instanceId === instanceId;
-    });
+    // Fallback to messenger_settings (legacy)
+    if (!organizationId) {
+      const { data: messengerSettings, error: settingsError } = await supabase
+        .from('messenger_settings')
+        .select('organization_id, settings')
+        .eq('messenger_type', 'max')
+        .eq('is_enabled', true);
 
-    if (!matchingSettings) {
+      if (settingsError) {
+        console.error('Error fetching messenger settings:', settingsError);
+        return errorResponse('Settings error', 500);
+      }
+
+      // Find matching organization by instanceId
+      const matchingSettings = messengerSettings?.find(s => {
+        const settings = s.settings as Record<string, unknown>;
+        return settings?.instanceId === instanceId;
+      });
+
+      if (matchingSettings) {
+        organizationId = matchingSettings.organization_id;
+      }
+    }
+
+    if (!organizationId) {
       console.error(`No organization found for MAX instanceId: ${instanceId}`);
       // Return 200 to prevent Green API from retrying
       return successResponse({ status: 'ignored', reason: 'unknown instance' });
     }
 
-    const organizationId = matchingSettings.organization_id;
-    console.log(`Processing MAX webhook for organization: ${organizationId}`);
+    console.log(`Processing MAX webhook for organization: ${organizationId}, integrationId: ${integrationId}`);
 
     // Handle different webhook types
     switch (typeWebhook) {
       case 'incomingMessageReceived':
-        await handleIncomingMessage(supabase, organizationId, body);
+        await handleIncomingMessage(supabase, organizationId, body, integrationId);
         break;
       
       case 'outgoingMessageReceived':
       case 'outgoingAPIMessageReceived':
         // Messages sent from phone or API - sync to CRM
         console.log('Outgoing message received, syncing to CRM');
-        await handleOutgoingMessage(supabase, organizationId, body);
+        await handleOutgoingMessage(supabase, organizationId, body, integrationId);
         break;
       
       case 'outgoingMessageStatus':
@@ -104,7 +128,7 @@ Deno.serve(async (req) => {
   }
 });
 
-async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, organizationId: string, webhook: MaxWebhookPayload) {
+async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, organizationId: string, webhook: MaxWebhookPayload, integrationId: string | null = null) {
   const { senderData, messageData, idMessage, timestamp } = webhook;
   
   if (!senderData || !messageData) {
@@ -151,6 +175,7 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
         teacher_id: teacherData.id,
         client_id: null,
         organization_id: organizationId,
+        integration_id: integrationId,  // Smart routing
         message_text: messageText,
         message_type: 'client',
         messenger_type: 'max',
@@ -194,6 +219,7 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
       client_id: client.id,
       teacher_id: null,
       organization_id: organizationId,
+      integration_id: integrationId,  // Smart routing
       message_text: messageText,
       message_type: 'client',
       messenger_type: 'max',
@@ -615,7 +641,8 @@ async function enrichClientFromMax(
 async function handleOutgoingMessage(
   supabase: ReturnType<typeof createClient>, 
   organizationId: string, 
-  webhook: MaxWebhookPayload
+  webhook: MaxWebhookPayload,
+  integrationId: string | null = null
 ): Promise<void> {
   const { senderData, messageData, idMessage, timestamp } = webhook;
   
@@ -681,6 +708,7 @@ async function handleOutgoingMessage(
     .insert({
       client_id: client.id,
       organization_id: organizationId,
+      integration_id: integrationId,  // Smart routing
       message_text: messageText,
       message_type: 'manager', // Sent by manager (from phone)
       messenger_type: 'max',
