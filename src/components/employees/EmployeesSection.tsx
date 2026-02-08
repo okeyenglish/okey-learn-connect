@@ -20,8 +20,13 @@ export default function EmployeesSection() {
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   
-  // Wait for roles to load before checking admin status
-  const userIsAdmin = !rolesLoading && isAdmin(roles);
+  // Wait for roles to load before checking permissions
+  // Admins, managers, and branch managers can manage employees
+  const canManageEmployees = !rolesLoading && (
+    isAdmin(roles) || 
+    roles?.includes('manager') || 
+    roles?.includes('branch_manager')
+  );
 
   const { data: employees = [], isLoading, error } = useEmployees();
 
@@ -106,7 +111,7 @@ export default function EmployeesSection() {
               Управление информацией о сотрудниках
             </p>
           </div>
-          {userIsAdmin && (
+          {canManageEmployees && (
             <Button onClick={() => setShowAddModal(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Добавить сотрудника

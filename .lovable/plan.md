@@ -168,7 +168,7 @@ ON CONFLICT (user_id, role) DO NOTHING;
 
 ## Порядок действий
 
-1. **Применить изменения в коде** (EmployeesSection.tsx, database.types.ts)
+1. ✅ **Применить изменения в коде** (EmployeesSection.tsx, database.types.ts) — **ВЫПОЛНЕНО**
 2. **Выполнить SQL миграцию** на self-hosted для создания таблицы `employee_invitations`
 3. **Убедиться что роль admin назначена** для пользователя `0a5d61cf-f502-464c-887a-86ad763cf7e7`
 4. **Задеплоить код на self-hosted** или проверить в production CRM
@@ -177,8 +177,8 @@ ON CONFLICT (user_id, role) DO NOTHING;
 
 ## Результат
 
-- Кнопка "Добавить сотрудника" будет видна для admin, manager, branch_manager
+- ✅ Кнопка "Добавить сотрудника" видна для admin, manager, branch_manager
+- ✅ Типы TypeScript содержат EmployeeInvitation для self-hosted схемы
 - Модальное окно создаёт приглашение с токеном
 - Сотрудник получает ссылку для заполнения анкеты
-- Типы TypeScript соответствуют self-hosted схеме
 
