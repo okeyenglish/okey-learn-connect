@@ -3,19 +3,24 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useEmployees, getEmployeeFullName, Employee } from '@/hooks/useEmployees';
 import { useAuth } from '@/hooks/useAuth';
-import { Search, Users, Building, MoreHorizontal, Edit, Eye, Phone, Mail, UserPlus, Filter } from 'lucide-react';
+import { Search, Users, Building, MoreHorizontal, Edit, Eye, Mail, Filter, Plus } from 'lucide-react';
+import { AddEmployeeModal } from './AddEmployeeModal';
+import { isAdmin } from '@/lib/permissions';
 
 export default function EmployeesSection() {
-  const { profile } = useAuth();
+  const { profile, roles } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [branchFilter, setBranchFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [showAddModal, setShowAddModal] = useState(false);
+  
+  const userIsAdmin = isAdmin(roles);
 
   const { data: employees = [], isLoading, error } = useEmployees();
 
@@ -81,7 +86,7 @@ export default function EmployeesSection() {
           <CardContent className="flex items-center justify-center py-8">
             <div className="text-center">
               <p className="text-muted-foreground">Ошибка при загрузке сотрудников</p>
-              <p className="text-sm text-red-500 mt-2">{error.message}</p>
+              <p className="text-sm text-destructive mt-2">{error.message}</p>
             </div>
           </CardContent>
         </Card>
@@ -100,11 +105,15 @@ export default function EmployeesSection() {
               Управление информацией о сотрудниках
             </p>
           </div>
-          <Button>
-            <UserPlus className="h-4 w-4 mr-2" />
-            Добавить сотрудника
-          </Button>
+          {userIsAdmin && (
+            <Button onClick={() => setShowAddModal(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Добавить сотрудника
+            </Button>
+          )}
         </div>
+
+        <AddEmployeeModal open={showAddModal} onOpenChange={setShowAddModal} />
 
         {/* Статистические карточки */}
         <div className="grid gap-4 md:grid-cols-3">
