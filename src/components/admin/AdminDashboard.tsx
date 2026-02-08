@@ -36,6 +36,7 @@ import { KpiManagementPage } from "./KpiManagementPage";
 import { StaffAnalyticsPage } from "./StaffAnalyticsPage";
 import { TeachersManagementSection } from "./TeachersManagementSection";
 import { ConversationIndexingPanel } from "./ConversationIndexingPanel";
+import BonusSettingsPage from "@/components/employees/BonusSettingsPage";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -65,6 +66,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <KpiManagementPage />;
       case "staff-analytics":
         return <StaffAnalyticsPage />;
+      case "bonus-settings":
+        return <BonusSettingsPage />;
       case "ai-training":
         return <ConversationIndexingPanel />;
       case "faq":

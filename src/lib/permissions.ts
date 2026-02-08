@@ -27,7 +27,8 @@ export type AdminSectionId =
   | 'sync'
   | 'users'
   | 'permissions'
-  | 'settings';
+  | 'settings'
+  | 'bonus-settings';
 
 // Администратор имеет доступ ко всему, остальные - ограниченный доступ
 const adminSectionsByRole: Record<AppRole, AdminSectionId[]> = {
