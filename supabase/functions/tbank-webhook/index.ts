@@ -138,11 +138,11 @@ Deno.serve(async (req) => {
         const { error: chatError } = await supabase.from('chat_messages').insert({
           client_id: onlinePayment.client_id,
           organization_id: onlinePayment.organization_id,
-          content: `tbank_success ${amountRub}`,
+          message_text: `tbank_success ${amountRub}`,
           message_type: 'system',
-          direction: 'incoming',
-          messenger: 'system',
-          status: 'delivered',
+          is_outgoing: false,
+          is_read: false,
+          messenger_type: 'system',
         });
 
         if (chatError) {
