@@ -96,6 +96,7 @@ import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useAssistantMessages } from "@/hooks/useAssistantMessages";
 import { useStaffUnreadCount } from "@/hooks/useInternalStaffMessages";
 import { useChatNotificationSound } from "@/hooks/useChatNotificationSound";
+import { useStaffMessageNotifications } from "@/hooks/useStaffMessageNotifications";
 import {
   Search, 
   CheckSquare, 
@@ -507,6 +508,18 @@ const CRMContent = () => {
   // Play notification sound when new incoming messages arrive
   useChatNotificationSound(activeChatId);
   
+  // Staff message notifications with toast and click-to-open chat
+  const handleStaffMessageClick = useCallback((staffUserId: string, _isGroupChat?: boolean, _groupChatId?: string) => {
+    // Switch to ChatOS and open the staff chat
+    setInitialStaffUserId(staffUserId);
+    setActiveChatType('chatos');
+    setActiveTab('chats');
+  }, []);
+  
+  useStaffMessageNotifications({
+    onOpenChat: handleStaffMessageClick,
+  });
+
   // Auto-manage right panel state based on screen size
   useEffect(() => {
     const handleResize = () => {
