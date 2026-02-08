@@ -1,92 +1,116 @@
 
 
-## План: Исправление системы групповых чатов сотрудников
+## План: Отображение всех групп для всех сотрудников
 
-### Корневая проблема
-Таблицы `staff_group_chats`, `staff_group_chat_members`, `staff_group_messages` созданы **только на self-hosted сервере** (api.academyos.ru), но функция `complete-employee-onboarding` работает на **Lovable Cloud** и пытается записать в несуществующие таблицы.
+### Текущая проблема
 
-Только 2 группы в базе - они были созданы либо вручную, либо в ходе тестирования.
+В базе данных есть проблема с данными филиалов:
+
+| branch | count |
+|--------|-------|
+| Окская | 11 |
+| Окская, Новокосино, Котельники, Мытищи, Грайвороновская, ONLINE SCHOOL | 1 |
+
+Второе значение - это ошибка. Один сотрудник имеет все филиалы записанные как одна строка через запятую вместо отдельных связей.
+
+### Причина проблемы
+
+Поле `profiles.branch` в схеме - это текстовое поле для ОДНОГО филиала. Когда вы добавили сотруднику все филиалы, они записались как одна строка "Окская, Новокосино, Котельники...".
 
 ### Решение
 
-#### 1. Создать недостающие Edge Functions для self-hosted сервера
+#### Шаг 1: Исправить данные в базе
 
-**Файлы для создания в `supabase/functions/`:**
+Нужно выполнить SQL на self-hosted сервере, чтобы исправить некорректную запись:
 
-| Функция | Назначение |
-|---------|------------|
-| `create-staff-group-chat` | Создание пользовательских групп (не филиальных) |
-| `get-staff-group-members` | Получение списка участников группы |
-| `add-staff-group-member` | Добавление участника в группу |
-| `remove-staff-group-member` | Удаление участника из группы |
+```sql
+-- Найти сотрудника с неправильным branch
+SELECT id, first_name, last_name, branch 
+FROM profiles 
+WHERE branch LIKE '%,%';
 
-#### 2. Обновить complete-employee-onboarding
-
-Функция `addEmployeeToBranchGroups` должна вызывать self-hosted API вместо прямого обращения к таблицам Lovable Cloud.
-
-```text
-Текущий код (не работает):
-┌──────────────────────────────────────┐
-│ complete-employee-onboarding         │
-│ (Lovable Cloud)                      │
-│                                      │
-│   supabaseAdmin                      │
-│     .from("staff_group_chats")  ────┐│
-│                                      ││
-└──────────────────────────────────────┘│
-                                        │
-                                        ▼
-                            Таблица НЕ существует
-                            на Lovable Cloud!
-
-Правильный код:
-┌──────────────────────────────────────┐
-│ complete-employee-onboarding         │
-│ (Lovable Cloud)                      │
-│                                      │
-│   fetch(SELF_HOSTED_URL +            │
-│     "/functions/v1/                  │
-│      add-employee-to-branch-groups") │────┐
-│                                      │    │
-└──────────────────────────────────────┘    │
-                                            ▼
-                               ┌──────────────────────────┐
-                               │ Self-hosted server       │
-                               │ (api.academyos.ru)       │
-                               │                          │
-                               │ staff_group_chats    ✓   │
-                               │ staff_group_chat_members │
-                               └──────────────────────────┘
+-- Исправить на один филиал (например Окская)
+UPDATE profiles 
+SET branch = 'Окская'
+WHERE branch LIKE '%,%';
 ```
 
-#### 3. Создать функцию для инициализации групп филиалов
+#### Шаг 2: Удалить некорректную группу
 
-Новая функция `init-branch-groups` для создания групп по всем существующим филиалам и добавления сотрудников.
+```sql
+-- Удалить группу с неправильным названием
+DELETE FROM staff_group_chat_members 
+WHERE group_chat_id IN (
+  SELECT id FROM staff_group_chats 
+  WHERE branch_name LIKE '%,%'
+);
 
-### Технические детали
+DELETE FROM staff_group_chats 
+WHERE branch_name LIKE '%,%';
+```
 
-**Файлы для создания:**
+#### Шаг 3: Создать группы для всех филиалов из organization_branches
 
-1. `supabase/functions/create-staff-group-chat/index.ts`
-2. `supabase/functions/get-staff-group-members/index.ts`
-3. `supabase/functions/add-staff-group-member/index.ts`
-4. `supabase/functions/remove-staff-group-member/index.ts`
-5. `supabase/functions/init-branch-groups/index.ts` (для первоначальной миграции)
+Обновить функцию `init-branch-groups` чтобы она создавала группы на основе таблицы `organization_branches`, а не `profiles.branch`:
+
+```text
+Текущая логика:
+profiles.branch → staff_group_chats (неправильно!)
+
+Новая логика:
+organization_branches → staff_group_chats (правильно!)
+```
+
+#### Шаг 4: Добавить всех сотрудников во все группы
+
+По вашему запросу, все сотрудники должны видеть все группы. Для этого нужно:
+
+1. Получить все группы из `staff_group_chats`
+2. Получить всех активных сотрудников из `profiles`
+3. Добавить каждого сотрудника в каждую группу через `staff_group_chat_members`
+
+### Технические изменения
 
 **Файлы для изменения:**
 
-1. `supabase/functions/complete-employee-onboarding/index.ts` - заменить прямые запросы на вызов self-hosted API
+1. `supabase/functions/init-branch-groups/index.ts` - обновить логику создания групп на основе `organization_branches`
+2. `docs/selfhosted-functions/init-branch-groups.ts` - аналогичное обновление для self-hosted
 
-### Порядок действий
+**Новая логика функции:**
 
-1. Создать все Edge Functions на Lovable Cloud
-2. Скопировать функции на self-hosted сервер и задеплоить
-3. Запустить `init-branch-groups` для создания групп по филиалам и добавления существующих сотрудников
-4. Проверить отображение групп в AI Hub
+```text
+init-branch-groups (v2):
+┌─────────────────────────────────────────────────────────┐
+│ 1. Получить филиалы из organization_branches            │
+│    (вместо profiles.branch)                             │
+├─────────────────────────────────────────────────────────┤
+│ 2. Создать группу для каждого филиала                   │
+│    "Команда {branch_name}"                              │
+├─────────────────────────────────────────────────────────┤
+│ 3. Получить ВСЕХ активных сотрудников из profiles       │
+├─────────────────────────────────────────────────────────┤
+│ 4. Добавить КАЖДОГО сотрудника в КАЖДУЮ группу          │
+│    (без привязки к их филиалу)                          │
+└─────────────────────────────────────────────────────────┘
+```
 
-### Ручной деплой (требуется)
+### Порядок выполнения
 
-После создания функций нужно:
-1. Скопировать содержимое в `/home/automation/supabase-project/volumes/functions/`
-2. Выполнить `docker compose restart functions`
+1. Исправить данные в базе (SQL запросы выше)
+2. Обновить функцию `init-branch-groups`
+3. Задеплоить на self-hosted
+4. Запустить `init-branch-groups` заново
+5. Проверить отображение групп в AI Hub
+
+### Результат
+
+После выполнения все сотрудники будут видеть группы для каждого филиала:
+- Команда Окская
+- Команда Новокосино  
+- Команда Котельники
+- Команда Мытищи
+- Команда Грайвороновская
+- Команда ONLINE SCHOOL
+
+И каждый сотрудник будет участником всех групп.
 
