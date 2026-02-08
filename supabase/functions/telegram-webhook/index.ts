@@ -5,7 +5,6 @@ import {
   getErrorMessage,
   sendPushNotification,
   getOrgAdminManagerUserIds,
-  type TelegramWappiWebhook,
   type TelegramWappiMessage,
 } from '../_shared/types.ts';
 
@@ -13,10 +12,32 @@ Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
+  const url = new URL(req.url);
+
+  // Lightweight health check (useful on self-hosted to confirm routing/auth)
+  if (req.method === 'GET') {
+    const pathParts = url.pathname.split('/').filter(Boolean);
+    const lastPart = pathParts[pathParts.length - 1] || null;
+    const queryProfileId = url.searchParams.get('profile_id') || url.searchParams.get('profileId');
+    const pathProfileId = lastPart && lastPart !== 'telegram-webhook' ? lastPart : null;
+
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        health: 'telegram-webhook',
+        time: new Date().toISOString(),
+        path: url.pathname,
+        profileId: queryProfileId || pathProfileId,
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Wappi/webhooks should not break on method mismatches
   if (req.method !== 'POST') {
     return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: true, status: 'ignored', reason: 'method_not_allowed' }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 
@@ -25,34 +46,47 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Extract profile_id from URL path: /telegram-webhook/{profile_id}
-    // This is needed because Wappi sends the profile_id in the URL, not always in payload
-    const url = new URL(req.url);
-    const pathParts = url.pathname.split('/');
-    const urlProfileId = pathParts[pathParts.length - 1];
-    // Validate that it looks like a Wappi profile_id (not the function name itself)
-    const isValidUrlProfileId = urlProfileId && 
-      urlProfileId !== 'telegram-webhook' && 
-      urlProfileId.length >= 8 &&
-      /^[a-f0-9]+$/i.test(urlProfileId);
-    
+    // Extract profile_id from URL path or query
+    const pathParts = url.pathname.split('/').filter(Boolean);
+    const lastPart = pathParts[pathParts.length - 1] || '';
+    const queryProfileId = url.searchParams.get('profile_id') || url.searchParams.get('profileId');
+    const pathProfileId = lastPart && lastPart !== 'telegram-webhook' ? lastPart : null;
+
+    const urlProfileId = queryProfileId || pathProfileId;
+    const isValidUrlProfileId = !!urlProfileId && urlProfileId.length >= 8 && /^[a-f0-9]+$/i.test(urlProfileId);
+
     console.log('[telegram-webhook] URL profile_id:', urlProfileId, 'valid:', isValidUrlProfileId);
 
-    const webhookData: TelegramWappiWebhook = await req.json();
-    console.log('Received Telegram webhook:', JSON.stringify(webhookData, null, 2));
-
-    if (!webhookData.messages || !Array.isArray(webhookData.messages)) {
-      console.log('No messages in webhook data');
+    let payload: unknown;
+    try {
+      payload = await req.json();
+    } catch {
+      console.log('[telegram-webhook] Invalid JSON payload');
       return new Response(
-        JSON.stringify({ success: true, message: 'No messages to process' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: true, status: 'ignored', reason: 'invalid_json' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Received Telegram webhook:', JSON.stringify(payload, null, 2));
+
+    // Extract messages from payload (Wappi may send either { messages: [...] } or a single message object)
+    const messages: TelegramWappiMessage[] = Array.isArray((payload as any)?.messages)
+      ? ((payload as any).messages as TelegramWappiMessage[])
+      : ((payload as any)?.wh_type ? [payload as TelegramWappiMessage] : []);
+
+    if (!messages.length) {
+      console.log('[telegram-webhook] No messages in webhook payload');
+      return new Response(
+        JSON.stringify({ success: true, status: 'ignored', reason: 'no_messages' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // Pass urlProfileId as fallback for routing
-    const fallbackProfileId = isValidUrlProfileId ? urlProfileId : null;
+    const fallbackProfileId = isValidUrlProfileId ? (urlProfileId as string) : null;
 
-    for (const message of webhookData.messages) {
+    for (const message of messages) {
       await processMessage(supabase, message, fallbackProfileId);
     }
 
@@ -75,61 +109,103 @@ async function resolveOrganizationByTelegramProfileId(
   profileId: string
 ): Promise<{ organizationId: string } | null> {
   console.log('[telegram-webhook] Resolving organization for profile_id:', profileId);
-  
-  // PRIORITY 1: Try messenger_integrations table first (new multi-account system)
+
+  if (!profileId) {
+    console.error('[telegram-webhook] Empty profileId');
+    return null;
+  }
+
+  // PRIORITY 1: messenger_integrations (multi-account)
   try {
-    // Don't use .eq('provider', 'wappi') - column may not exist on self-hosted
     const { data: integrations, error } = await supabase
       .from('messenger_integrations')
       .select('organization_id, is_enabled, settings')
-      .eq('messenger_type', 'telegram');
-
-    if (!error && integrations && integrations.length > 0) {
-      for (const integration of integrations) {
-        const storedProfileId = integration.settings?.profileId || integration.settings?.wappiProfileId;
-        if (String(storedProfileId) === String(profileId)) {
-          if (!integration.is_enabled) {
-            console.log('[telegram-webhook] Integration disabled for org:', integration.organization_id);
-            return null;
-          }
-          console.log('[telegram-webhook] Found org via messenger_integrations:', integration.organization_id);
-          return { organizationId: integration.organization_id };
-        }
-      }
-    }
+      .eq('messenger_type', 'telegram')
+      .eq('is_enabled', true)
+      .order('updated_at', { ascending: false });
 
     if (error) {
       console.warn('[telegram-webhook] messenger_integrations lookup failed:', error.message);
+    } else if (integrations && integrations.length > 0) {
+      for (const integration of integrations) {
+        const settingsObj = (integration.settings || {}) as any;
+
+        const storedProfileId =
+          settingsObj?.profileId ||
+          settingsObj?.wappiProfileId ||
+          settingsObj?.profile_id ||
+          settingsObj?.telegramProfileId ||
+          settingsObj?.telegram_profile_id ||
+          settingsObj?.telegram?.profileId ||
+          settingsObj?.telegram?.profile_id;
+
+        if (storedProfileId && String(storedProfileId) === String(profileId)) {
+          console.log('[telegram-webhook] Found org via messenger_integrations:', integration.organization_id);
+          return { organizationId: integration.organization_id };
+        }
+
+        // Extra resilience: if settings schema differs, fallback to substring search
+        try {
+          const settingsStr = JSON.stringify(settingsObj);
+          if (settingsStr && settingsStr.includes(String(profileId))) {
+            console.log('[telegram-webhook] Found org via messenger_integrations (substring match):', integration.organization_id);
+            return { organizationId: integration.organization_id };
+          }
+        } catch {
+          // ignore stringify issues
+        }
+      }
     }
   } catch (e) {
     console.warn('[telegram-webhook] messenger_integrations lookup threw:', e);
   }
 
-  // PRIORITY 2: Legacy fallback - scan messenger_settings (self-hosted compatible)
+  // PRIORITY 2: messenger_settings (legacy)
   try {
     const { data: allSettings, error: settingsError } = await supabase
       .from('messenger_settings')
-      .select('organization_id, is_enabled, settings')
-      .eq('messenger_type', 'telegram');
+      .select('organization_id, settings, is_enabled')
+      .eq('messenger_type', 'telegram')
+      .eq('is_enabled', true)
+      .not('organization_id', 'is', null)
+      .order('updated_at', { ascending: false });
 
     if (settingsError) {
       console.error('[telegram-webhook] messenger_settings query error:', settingsError.message);
       return null;
     }
 
-    if (allSettings && allSettings.length > 0) {
-      for (const setting of allSettings) {
-        const settingsObj = setting.settings || {};
-        // Check multiple possible field names
-        const storedProfileId = settingsObj.profileId || settingsObj.wappiProfileId || settingsObj.profile_id;
-        if (String(storedProfileId) === String(profileId)) {
-          if (!setting.is_enabled) {
-            console.log('[telegram-webhook] Integration disabled for org:', setting.organization_id);
-            return null;
-          }
-          console.log('[telegram-webhook] Found org via messenger_settings:', setting.organization_id);
+    if (!allSettings || allSettings.length === 0) {
+      console.warn('[telegram-webhook] No Telegram settings found in messenger_settings');
+      return null;
+    }
+
+    for (const setting of allSettings) {
+      const settingsObj = (setting.settings || {}) as any;
+
+      const storedProfileId =
+        settingsObj?.profileId ||
+        settingsObj?.wappiProfileId ||
+        settingsObj?.profile_id ||
+        settingsObj?.telegramProfileId ||
+        settingsObj?.telegram_profile_id ||
+        settingsObj?.telegram?.profileId ||
+        settingsObj?.telegram?.profile_id;
+
+      if (storedProfileId && String(storedProfileId) === String(profileId)) {
+        console.log('[telegram-webhook] Found org via messenger_settings:', setting.organization_id);
+        return { organizationId: setting.organization_id };
+      }
+
+      // Extra resilience
+      try {
+        const settingsStr = JSON.stringify(settingsObj);
+        if (settingsStr && settingsStr.includes(String(profileId))) {
+          console.log('[telegram-webhook] Found org via messenger_settings (substring match):', setting.organization_id);
           return { organizationId: setting.organization_id };
         }
+      } catch {
+        // ignore
       }
     }
   } catch (e) {
