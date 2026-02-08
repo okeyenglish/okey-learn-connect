@@ -39,12 +39,22 @@ jobs:
       - name: Check for new migrations
         id: check_migrations
         run: |
+          # При workflow_dispatch всегда запускаем если run_migrations не выключен явно
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.run_migrations }}" != "false" ]; then
+              echo "has_migrations=true" >> $GITHUB_OUTPUT
+              echo "📦 Manual migration run requested"
+              exit 0
+            fi
+          fi
+          
+          # При push проверяем git diff
           if git diff --name-only HEAD~1 HEAD | grep -q "supabase/migrations/"; then
             echo "has_migrations=true" >> $GITHUB_OUTPUT
             echo "📦 New migrations detected"
           else
             echo "has_migrations=false" >> $GITHUB_OUTPUT
-            echo "No new migrations"
+            echo "No new migrations in last commit"
           fi
 
       - name: Apply SQL migrations
@@ -74,11 +84,22 @@ jobs:
       - name: Check for function changes
         id: check_functions
         run: |
+          # При workflow_dispatch всегда деплоим если deploy_functions не выключен явно
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.deploy_functions }}" != "false" ]; then
+              echo "has_functions=true" >> $GITHUB_OUTPUT
+              echo "📦 Manual deploy requested"
+              exit 0
+            fi
+          fi
+          
+          # При push проверяем git diff
           if git diff --name-only HEAD~1 HEAD | grep -q "supabase/functions/"; then
             echo "has_functions=true" >> $GITHUB_OUTPUT
             echo "📦 Function changes detected"
           else
             echo "has_functions=false" >> $GITHUB_OUTPUT
+            echo "No function changes in last commit"
           fi
 
       - name: Backup existing functions
