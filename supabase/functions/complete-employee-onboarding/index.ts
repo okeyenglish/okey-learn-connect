@@ -10,6 +10,7 @@ interface OnboardingRequest {
   last_name: string;
   middle_name?: string;
   email: string;
+  phone?: string;
   password: string;
   birth_date?: string;
   terms_accepted: boolean;
@@ -31,6 +32,13 @@ const POSITION_TO_ROLE: Record<string, string> = {
   receptionist: 'manager', // Администратор получает роль manager
   sales_manager: 'manager',
   head_teacher: 'teacher',
+};
+
+const normalizeInternationalPhone = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+  const digits = value.replace(/\D/g, '');
+  if (digits.length < 10 || digits.length > 15) return null;
+  return `+${digits}`;
 };
 
 Deno.serve(async (req) => {
@@ -115,6 +123,18 @@ Deno.serve(async (req) => {
       );
     }
 
+    // 2.1 Телефон: если в приглашении пусто — обязателен в запросе
+    const invitationPhone = normalizeInternationalPhone(invitation.phone);
+    const requestedPhone = normalizeInternationalPhone(body.phone);
+    const effectivePhone = invitationPhone ?? requestedPhone;
+
+    if (!effectivePhone) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Укажите телефон" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // 3. Создать пользователя в auth.users
     console.log("[complete-employee-onboarding] Creating auth user...");
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -157,7 +177,7 @@ Deno.serve(async (req) => {
       first_name: invitation.first_name,
       last_name: body.last_name,
       email: body.email,
-      phone: invitation.phone,
+      phone: effectivePhone,
       branch: invitation.branch || null,
       organization_id: invitation.organization_id,
     };
@@ -182,7 +202,7 @@ Deno.serve(async (req) => {
           first_name: invitation.first_name,
           last_name: body.last_name,
           email: body.email,
-          phone: invitation.phone,
+          phone: effectivePhone,
           branch: invitation.branch || null,
           organization_id: invitation.organization_id,
         })
@@ -231,7 +251,7 @@ Deno.serve(async (req) => {
           first_name: invitation.first_name,
           last_name: body.last_name,
           email: body.email,
-          phone: invitation.phone,
+          phone: effectivePhone,
           branch: invitation.branch || null,
           organization_id: invitation.organization_id,
           profile_id: userId,
@@ -250,6 +270,8 @@ Deno.serve(async (req) => {
       .update({
         status: "accepted",
         profile_id: userId,
+        first_name: invitation.first_name,
+        phone: effectivePhone,
         last_name: body.last_name,
         middle_name: body.middle_name || null,
         email: body.email,

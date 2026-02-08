@@ -23,7 +23,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
 import { getErrorMessage } from '@/lib/errorUtils';
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { QRCodeSVG } from 'qrcode.react';
 
 interface AddEmployeeModalProps {
