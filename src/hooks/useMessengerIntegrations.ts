@@ -192,6 +192,16 @@ export const useMessengerIntegrations = (messengerType?: MessengerType) => {
       return `${baseUrl}/telegram-crm-webhook?key=${integration.webhook_key}`;
     }
     
+    // For Telegram Wappi provider, use profile_id from settings
+    if (integration.messenger_type === 'telegram' && integration.provider === 'wappi') {
+      const profileId = integration.settings?.profileId as string | undefined;
+      if (profileId) {
+        return `${baseUrl}/telegram-webhook?profile_id=${profileId}`;
+      }
+      // Fallback if no profile_id yet
+      return `${baseUrl}/telegram-webhook`;
+    }
+    
     // For WPP and other providers, use path format: messenger-webhook/xxx
     return `${baseUrl}/${integration.messenger_type}-webhook/${integration.webhook_key}`;
   }, []);

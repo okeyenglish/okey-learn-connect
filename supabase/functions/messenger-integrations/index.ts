@@ -153,6 +153,21 @@ Deno.serve(async (req) => {
 
         console.log('[messenger-integrations] Created integration:', newIntegration.id);
 
+        // Auto-register webhook for Telegram Wappi integrations
+        if (newIntegration.messenger_type === 'telegram' && newIntegration.provider === 'wappi') {
+          const settings = newIntegration.settings as Record<string, unknown>;
+          const profileId = settings?.profileId as string;
+          const apiToken = settings?.apiToken as string;
+          
+          if (profileId && apiToken) {
+            const baseUrl = Deno.env.get('SELF_HOSTED_URL') || supabaseUrl;
+            const webhookUrl = `${baseUrl}/functions/v1/telegram-webhook?profile_id=${profileId}`;
+            
+            const webhookResult = await registerWappiTelegramWebhook(profileId, webhookUrl, apiToken);
+            console.log('[messenger-integrations] Wappi webhook registration:', webhookResult);
+          }
+        }
+
         return new Response(
           JSON.stringify({ 
             success: true, 
@@ -228,6 +243,21 @@ Deno.serve(async (req) => {
         }
 
         console.log('[messenger-integrations] Updated integration:', updated.id);
+
+        // Auto-register webhook for Telegram Wappi integrations on update
+        if (updated.messenger_type === 'telegram' && updated.provider === 'wappi') {
+          const settings = updated.settings as Record<string, unknown>;
+          const profileId = settings?.profileId as string;
+          const apiToken = settings?.apiToken as string;
+          
+          if (profileId && apiToken && !apiToken.startsWith('••')) {
+            const baseUrl = Deno.env.get('SELF_HOSTED_URL') || supabaseUrl;
+            const webhookUrl = `${baseUrl}/functions/v1/telegram-webhook?profile_id=${profileId}`;
+            
+            const webhookResult = await registerWappiTelegramWebhook(profileId, webhookUrl, apiToken);
+            console.log('[messenger-integrations] Wappi webhook registration on update:', webhookResult);
+          }
+        }
 
         return new Response(
           JSON.stringify({ 
@@ -360,4 +390,45 @@ function mergeSettings(existing: Record<string, unknown>, updated: Record<string
   }
 
   return merged;
+}
+
+// Register webhook URL in Wappi for Telegram integration
+async function registerWappiTelegramWebhook(
+  profileId: string,
+  webhookUrl: string,
+  apiToken: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Handle masked token (cannot call API with masked value)
+    if (apiToken.startsWith('••')) {
+      console.log('[messenger-integrations] Skipping webhook registration - token is masked');
+      return { success: true };
+    }
+
+    console.log('[messenger-integrations] Registering Wappi webhook:', { profileId, webhookUrl });
+
+    const response = await fetch(
+      `https://wappi.pro/tapi/webhook/url/set?profile_id=${profileId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': apiToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ webhook_url: webhookUrl })
+      }
+    );
+
+    const data = await response.json();
+    console.log('[messenger-integrations] Wappi API response:', data);
+
+    if (!response.ok) {
+      return { success: false, error: `HTTP ${response.status}: ${JSON.stringify(data)}` };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('[messenger-integrations] Wappi webhook registration failed:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
 }
