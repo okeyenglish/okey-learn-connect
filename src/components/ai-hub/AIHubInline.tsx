@@ -35,6 +35,7 @@ import {
   CheckCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/typedClient';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
@@ -389,10 +390,42 @@ export const AIHubInline = ({
       setActiveChat(targetChat);
       onClearInitialStaffUserId?.();
     } else {
-      // If target not found among teachers/staff, try to create a temporary chat entry
-      // This can happen if the user isn't a teacher but is a profile
-      console.log('[AIHubInline] Target staff not found:', initialStaffUserId);
-      onClearInitialStaffUserId?.();
+      // If target not found among teachers/staff, create a temporary chat entry
+      // Fetch profile info and create a temp ChatItem
+      (async () => {
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, branch')
+            .eq('id', initialStaffUserId)
+            .single();
+          
+          if (profile) {
+            const tempChatItem: ChatItem = {
+              id: `staff-${profile.id}`,
+              type: 'staff',
+              name: [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Сотрудник',
+              description: profile.branch || '',
+              icon: Users,
+              iconBg: 'bg-blue-100 dark:bg-blue-900/30',
+              iconColor: 'text-blue-600 dark:text-blue-400',
+              badge: profile.branch,
+              data: {
+                id: profile.id,
+                first_name: profile.first_name || undefined,
+                last_name: profile.last_name || undefined,
+                branch: profile.branch || undefined,
+              } as StaffMember,
+            };
+            setActiveChat(tempChatItem);
+          } else {
+            console.log('[AIHubInline] Profile not found for:', initialStaffUserId);
+          }
+        } catch (error) {
+          console.error('[AIHubInline] Error fetching profile:', error);
+        }
+        onClearInitialStaffUserId?.();
+      })();
     }
   }, [initialStaffUserId, staffChatItems, teacherChatItems, staffMembersLoading, teachersLoading, onClearInitialStaffUserId]);
 
