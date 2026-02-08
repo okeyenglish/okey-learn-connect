@@ -47,14 +47,18 @@ export interface StaffGroupMember {
 const DEFAULT_ORGANIZATION_ID = '00000000-0000-0000-0000-000000000001';
 
 export const useStaffGroupChats = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  
+  // Use profile's organization_id with fallback to default
+  const organizationId = profile?.organization_id ?? DEFAULT_ORGANIZATION_ID;
   
   return useQuery({
-    queryKey: ['staff-group-chats', user?.id],
+    queryKey: ['staff-group-chats', organizationId, user?.id],
     queryFn: async () => {
       console.log('[useStaffGroupChats] Fetching groups...', {
         userId: user?.id,
-        orgId: DEFAULT_ORGANIZATION_ID,
+        profileOrgId: profile?.organization_id,
+        effectiveOrgId: organizationId,
       });
       
       if (!user?.id) {
@@ -63,7 +67,7 @@ export const useStaffGroupChats = () => {
       }
       
       const response = await selfHostedPost<{ groups: StaffGroupChat[] }>('get-staff-group-chats', {
-        organization_id: DEFAULT_ORGANIZATION_ID,
+        organization_id: organizationId,
         user_id: user.id,
       });
       
@@ -71,10 +75,12 @@ export const useStaffGroupChats = () => {
         success: response.success,
         groupCount: response.data?.groups?.length || 0,
         error: response.error,
+        status: (response as any).status,
       });
       
       if (!response.success) {
         console.error('[useStaffGroupChats] Error:', response.error);
+        toast.error(`Не удалось загрузить группы: ${response.error || 'Ошибка сервера'}`);
         return [];
       }
       
@@ -117,6 +123,9 @@ export const useCreateStaffGroupChat = () => {
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
   
+  // Use same logic as useStaffGroupChats for consistency
+  const organizationId = profile?.organization_id ?? DEFAULT_ORGANIZATION_ID;
+  
   return useMutation({
     mutationFn: async (data: {
       name: string;
@@ -125,14 +134,14 @@ export const useCreateStaffGroupChat = () => {
       is_branch_group?: boolean;
       member_ids: string[];
     }) => {
-      if (!user?.id || !profile?.organization_id) {
+      if (!user?.id) {
         throw new Error('Требуется авторизация');
       }
       
       const response = await selfHostedPost<{ group: StaffGroupChat }>('create-staff-group-chat', {
         name: data.name,
         description: data.description || null,
-        organization_id: profile.organization_id,
+        organization_id: organizationId,
         branch_name: data.branch_name || null,
         is_branch_group: data.is_branch_group || false,
         created_by: user.id,
