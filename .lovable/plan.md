@@ -1,85 +1,128 @@
 
+## Диагностика: почему менеджеры не видят клиентов
 
-# План исправления: Edge Function должна подключаться к self-hosted базе
+По текущему коду (и по симптомам “менеджер Новокосино не видит вообще никого”) наиболее вероятно, что происходит одно из двух:
 
-## Обнаруженная проблема
+1) **Фильтрация по филиалу реально включилась (hasRestrictions=true), но сравнение филиалов всегда “не совпало”**, поэтому `canAccessBranch()` возвращает `false` для всех клиентских чатов.  
+Причина обычно в **разных написаниях/символах** (типографский апостроф `’` вместо `'`, неразрывные пробелы, “м. Новокосино”, “Новокосино ”, “O’KEY” и т.п.), которые текущая нормализация не отлавливает.
 
-Менеджеры не видят клиентов, потому что Edge Function `get-user-branches`:
+2) **Локальный фильтр UI по выбранному филиалу (selectedBranch)** мог “застрять” в localStorage в старом формате и теперь не матчится с текущей нормализацией. Тогда список может стать пустым даже без branch-restrictions.
 
-1. **Работает в Lovable Cloud** — но подключается к базе Lovable Cloud (`SUPABASE_URL`)
-2. **Таблицы `manager_branches` и `profiles` находятся на self-hosted** (`api.academyos.ru`)
-3. В Lovable Cloud этих таблиц нет → функция всегда возвращает `{ branches: [], source: "none" }`
-4. Результат: `hasRestrictions = false` → менеджеры должны видеть всех, НО из-за строгой фильтрации (`if (!clientBranch) return false`) они не видят никого
-
-## Решение
-
-Изменить Edge Function `get-user-branches` чтобы она подключалась к **self-hosted базе данных** (как делает `task-reminders`).
+Чтобы не гадать, сделаем диагностику так, чтобы она сама показала, на каком шаге “обнуливается” список.
 
 ---
 
-## Техническая реализация
+## Что нужно сделать в коде (чтобы проблема точно ушла)
 
-### Изменения в `supabase/functions/get-user-branches/index.ts`
+### 1) Убрать зависимость `useManagerBranches` от `selfHostedPost('get-user-branches')`
+Сейчас `useManagerBranches` зовёт **self-hosted backend function** `get-user-branches`, но эта функция легко может отсутствовать/быть недоступной/иметь RLS-ограничения, и главное — это лишняя точка отказа.
 
-```typescript
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+План: переделать `useManagerBranches` так, чтобы он **читал филиалы напрямую через существующий backend-клиент** (который уже настроен на self-hosted `api.academyos.ru`), с тем же порядком fallback:
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+- `manager_branches` по `manager_id = user.id`
+- если пусто/таблица отсутствует → `user_branches` по `user_id = user.id`
+- если пусто → `profiles.branch` по `id = user.id`
+- если совсем ничего → “нет ограничений” (или “fail-closed” — см. пункт 4 ниже)
 
-// Self-hosted configuration (manager_branches & profiles are stored there)
-const SELF_HOSTED_URL = 'https://api.academyos.ru';
-const SELF_HOSTED_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY5MDg4ODgzLCJleHAiOjE5MjY3Njg4ODN9.WEsCyaCdQvxzVObedC-A9hWTJUSwI_p9nCG1wlbaNEg';
+Это сразу даст:
+- понятные ошибки (если таблицы/права недоступны),
+- единый auth-контекст (текущий пользователь),
+- меньше сетевого шума.
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+### 2) Сделать ЕДИНУЮ нормализацию филиала и использовать её везде
+Сейчас нормализация разная в:
+- `useManagerBranches.ts`
+- `CRM.tsx` (selectedBranch фильтр)
+- `useUserAllowedBranches.ts`
+- местами есть ещё `src/lib/branchNameMap.ts`, но он решает другую задачу (в основном для фото/витрины)
 
-  try {
-    // Connect to SELF-HOSTED database (not Lovable Cloud)
-    const supabase = createClient(SELF_HOSTED_URL, SELF_HOSTED_ANON_KEY)
+План: вынести одну функцию, условно `toBranchKey(name)`, и использовать её:
+- в `useManagerBranches` для вычисления `allowedBranchKeys`
+- в `CRM.tsx` для:
+  - генерации `branchKey` в dropdown
+  - фильтра по `selectedBranch`
+  - авто-фильтра `canAccessBranch`
+- в `useUserAllowedBranches` для `canAccessBranch`
 
-    const { user_id } = await req.json()
+**Какая нормализация нужна, чтобы закрыть реальные кейсы:**
+- `name.normalize('NFKC')` (чинит часть “невидимых” отличий)
+- `toLowerCase()`
+- `ё → е`
+- заменить все варианты апострофов/кавычек на обычные или удалить: `' ’ ʻ ʼ " « »`
+- убрать токены бренда и служебные слова независимо от апострофа/пробелов:
+  - `okey`, `o’key`, `o'key`, `english`
+  - `филиал`, `branch`
+- убрать пунктуацию → пробел
+- схлопнуть пробелы
+- применить **alias-map** (важно):  
+  например (из вашего `branchNameMap.ts` и реальных кейсов):
+  - `стахановская` ↔ `грайвороновская`
+  - `красная горка` → `люберцы`
+  - `онлайн`, `онлайн школа` → `online school`
+  - и при необходимости: `м. новокосино` → `новокосино`
 
-    if (!user_id) {
-      return new Response(
-        JSON.stringify({ error: 'user_id is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+Идея простая: в сравнении участвует не “красивое название”, а **устойчивый ключ**.
 
-    console.log('[get-user-branches] Fetching branches for user from SELF-HOSTED:', user_id)
+### 3) Миграция старого `selectedBranch` из localStorage (чтобы UI-фильтр не “убивал” список)
+У вас выбранный филиал хранится в `localStorage` (`crm-selected-branch`). Если там лежит старое значение (например полное “O’KEY ENGLISH Новокосино”), а сейчас UI ожидает “ключ” (например “новокосино”), то фильтр в `CRM.tsx` может не совпасть и скрыть всё.
 
-    // ... остальная логика без изменений
-  }
-})
-```
+План:
+- при инициализации `usePersistedBranch` (или в `CRM.tsx` рядом) делать:
+  - если `selectedBranch !== 'all'` → преобразовать через `toBranchKey(selectedBranch)` и сохранить обратно
+  - если преобразование дало пусто/мусор → сбросить на `'all'`
+- дополнительно: если `selectedBranch` не входит в список доступных ключей dropdown — тоже сброс на `'all'` (защита от устаревших значений)
 
-### Что изменится
+### 4) Добавить “диагностический режим” прямо в CRM (чтобы сразу видеть причину пустого списка)
+Чтобы больше не упираться в “не вижу и не понимаю почему”, добавим лёгкую диагностику:
 
-| До | После |
-|---|---|
-| Подключение к Lovable Cloud (`SUPABASE_URL`) | Подключение к self-hosted (`api.academyos.ru`) |
-| Таблицы `manager_branches` не существуют | Таблицы доступны |
-| Всегда возвращает `[]` | Возвращает реальные филиалы менеджера |
+- Посчитать:
+  - `threadsCount` (до фильтров)
+  - `afterSelectedBranchCount`
+  - `afterManagerRestrictionCount`
+- Если `threadsCount > 0`, но после авто-фильтра стало `0`, показать баннер:
+  - “Нет клиентов по вашим филиалам”
+  - “Ваши филиалы: …”
+  - “Примеры филиалов клиентов в списке: … (первые 10 уникальных)”
+  - “Сбросить фильтр филиала” (кнопка → setSelectedBranch('all'))
+
+Важно: без персональных данных, только агрегаты/уникальные названия филиалов.
+
+### 5) (Опционально, но желательно) Убрать/обезопасить Lovable Cloud function `get-user-branches`
+Сейчас в репозитории есть backend-функция `supabase/functions/get-user-branches`, которая подключается к self-hosted по anon key и при этом ключ захардкожен в коде. Даже если она не используется фронтом, это:
+- создаёт путаницу “какая функция где живёт”
+- несёт риск утечки
+
+План:
+- либо полностью убрать её из цепочки (после пункта 1 она станет не нужна),
+- либо перевести на secrets (`SELF_HOSTED_URL`, `SELF_HOSTED_ANON_KEY`) и явно пометить как “не используется фронтом”.
 
 ---
 
-## Шаги реализации
-
-1. **Обновить Edge Function** — заменить подключение к Lovable Cloud на self-hosted
-2. **Задеплоить функцию** — она обновится автоматически
-3. **Протестировать** — войти под менеджером Новокосино и проверить что он видит только клиентов своего филиала
+## Как мы проверим, что всё исправилось (чеклист)
+1) Зайти под менеджером Новокосино:
+   - `selectedBranch = Все филиалы`
+   - менеджер видит клиентов с ветками:
+     - `Новокосино`
+     - `O'KEY ENGLISH Новокосино`
+     - `O’KEY ENGLISH Новокосино` (типографский апостроф)
+2) Менеджер не видит клиентов Окской.
+3) Менеджер с двумя филиалами видит оба.
+4) Админ видит всех.
+5) Если клиент без филиала (`branch = null`) — он скрыт только для менеджеров с активными ограничениями (как и задумано), но админ его видит.
 
 ---
 
-## Ожидаемый результат
+## Риски/краевые случаи, которые учтём
+- “Филиал” записан с нестандартными пробелами/кавычками → лечит `normalize('NFKC')` + чистка
+- alias-ветки (“Стахановская” vs “Грайвороновская”) → лечит alias-map
+- устаревший `selectedBranch` в localStorage → лечит миграция/сброс
+- если таблицы ограничений недоступны по правам → диагностика покажет ошибку получения филиалов (и можно выбрать поведение: fail-open или fail-closed)
 
-- Менеджер Новокосино увидит только клиентов с филиалом "Новокосино" / "O'KEY ENGLISH Новокосино"
-- Админы продолжат видеть всех клиентов
-- Менеджеры с несколькими филиалами увидят клиентов из всех назначенных филиалов
+---
 
+## Что мне нужно от вас для максимально точной подгонки alias-map (если после унификации ещё останутся “пустые” списки)
+Если после внедрения единого `toBranchKey` всё равно будет 0, тогда в баннере/логах будут видны:
+- `allowedBranchesRaw` (как хранится у менеджера)
+- `uniqueClientBranchesRaw` (как приходит у клиентов)
+
+По этим двум спискам мы добавим 1–3 alias-правила и закроем остаточные расхождения.
