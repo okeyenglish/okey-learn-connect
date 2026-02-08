@@ -14,7 +14,8 @@ import {
   Send,
   MessageCircle,
   ChevronDown,
-  X
+  X,
+  QrCode
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/typedClient";
@@ -23,6 +24,7 @@ import { useOrganization } from "@/hooks/useOrganization";
 import { getErrorMessage } from '@/lib/errorUtils';
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { QRCodeSVG } from 'qrcode.react';
 
 interface AddEmployeeModalProps {
   open: boolean;
@@ -46,7 +48,7 @@ interface InvitationResult {
   id: string;
   invite_token: string;
   first_name: string;
-  phone: string;
+  phone: string | null;
 }
 
 // Форматирование телефона: +7 (999) 123-45-67
@@ -69,12 +71,13 @@ const formatPhoneNumber = (value: string): string => {
   return `+${normalized.slice(0, 1)} (${normalized.slice(1, 4)}) ${normalized.slice(4, 7)}-${normalized.slice(7, 9)}-${normalized.slice(9, 11)}`;
 };
 
-// Валидация телефона
+// Валидация телефона (теперь разрешает пустое значение)
 const validatePhone = (phone: string): { valid: boolean; error?: string } => {
   const digits = phone.replace(/\D/g, '');
   
+  // Пустой телефон - допустимо
   if (digits.length === 0) {
-    return { valid: false, error: 'Введите номер телефона' };
+    return { valid: true };
   }
   
   if (digits.length < 11) {
@@ -89,8 +92,9 @@ const validatePhone = (phone: string): { valid: boolean; error?: string } => {
 };
 
 // Нормализация для хранения: +79991234567
-const normalizePhone = (phone: string): string => {
+const normalizePhone = (phone: string): string | null => {
   const digits = phone.replace(/\D/g, '');
+  if (digits.length === 0) return null;
   return digits.startsWith('7') ? `+${digits}` : `+7${digits}`;
 };
 
@@ -108,6 +112,7 @@ export const AddEmployeeModal = ({
   const [invitation, setInvitation] = useState<InvitationResult | null>(null);
   const [phoneError, setPhoneError] = useState<string | undefined>();
   const [branchesOpen, setBranchesOpen] = useState(false);
+  const [branchesError, setBranchesError] = useState<string | undefined>();
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -120,6 +125,8 @@ export const AddEmployeeModal = ({
   const inviteLink = invitation 
     ? `${baseUrl}/employee/onboarding/${invitation.invite_token}`
     : '';
+
+  const hasPhone = invitation?.phone && invitation.phone.length > 0;
 
   // Обработчик ввода телефона с автоформатированием
   const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -138,17 +145,31 @@ export const AddEmployeeModal = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Валидация обязательных полей
     if (!formData.firstName.trim()) {
       toast.error("Введите имя сотрудника");
       return;
     }
 
-    // Валидация телефона
-    const phoneValidation = validatePhone(formData.phone);
-    if (!phoneValidation.valid) {
-      setPhoneError(phoneValidation.error);
-      toast.error(phoneValidation.error || "Некорректный номер телефона");
+    if (formData.branches.length === 0) {
+      setBranchesError("Выберите хотя бы один филиал");
+      toast.error("Выберите хотя бы один филиал");
       return;
+    }
+
+    if (!formData.position) {
+      toast.error("Выберите должность");
+      return;
+    }
+
+    // Валидация телефона (если введён)
+    if (formData.phone) {
+      const phoneValidation = validatePhone(formData.phone);
+      if (!phoneValidation.valid) {
+        setPhoneError(phoneValidation.error);
+        toast.error(phoneValidation.error || "Некорректный номер телефона");
+        return;
+      }
     }
 
     if (!organizationId) {
@@ -159,7 +180,7 @@ export const AddEmployeeModal = ({
     setIsLoading(true);
     
     try {
-      // Нормализуем телефон перед сохранением
+      // Нормализуем телефон перед сохранением (может быть null)
       const normalizedPhone = normalizePhone(formData.phone);
       
       const { data, error } = await supabase
@@ -168,7 +189,7 @@ export const AddEmployeeModal = ({
           organization_id: organizationId,
           first_name: formData.firstName.trim(),
           phone: normalizedPhone,
-          branch: formData.branches.length > 0 ? formData.branches.join(', ') : null,
+          branch: formData.branches.join(', '),
           position: formData.position,
           created_by: profile?.id
         })
@@ -201,6 +222,7 @@ export const AddEmployeeModal = ({
   };
 
   const handleSendWhatsApp = () => {
+    if (!invitation?.phone) return;
     const message = encodeURIComponent(
       `Здравствуйте, ${invitation?.first_name}! Вы приглашены в команду. Пройдите по ссылке для заполнения анкеты: ${inviteLink}`
     );
@@ -221,6 +243,7 @@ export const AddEmployeeModal = ({
     setInvitation(null);
     setCopied(false);
     setPhoneError(undefined);
+    setBranchesError(undefined);
     setBranchesOpen(false);
     onOpenChange(false);
   };
@@ -232,6 +255,7 @@ export const AddEmployeeModal = ({
         ? prev.branches.filter(b => b !== branchName)
         : [...prev.branches, branchName]
     }));
+    setBranchesError(undefined);
   };
 
   const handleRemoveBranch = (branchName: string) => {
@@ -269,7 +293,7 @@ export const AddEmployeeModal = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Телефон *</Label>
+              <Label htmlFor="phone">Телефон</Label>
               <Input
                 id="phone"
                 type="tel"
@@ -277,22 +301,24 @@ export const AddEmployeeModal = ({
                 onChange={handlePhoneChange}
                 placeholder="+7 (___) ___-__-__"
                 className={phoneError ? "border-destructive" : ""}
-                required
               />
               {phoneError && (
                 <p className="text-xs text-destructive">{phoneError}</p>
               )}
+              <p className="text-xs text-muted-foreground">
+                Если не указан, сотрудник заполнит его при регистрации
+              </p>
             </div>
 
             <div className="space-y-2">
-              <Label>Филиалы</Label>
+              <Label>Филиалы *</Label>
               <Popover open={branchesOpen} onOpenChange={setBranchesOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     role="combobox"
                     aria-expanded={branchesOpen}
-                    className="w-full justify-between font-normal"
+                    className={`w-full justify-between font-normal ${branchesError ? "border-destructive" : ""}`}
                   >
                     {formData.branches.length === 0 
                       ? "Выберите филиалы"
@@ -321,6 +347,9 @@ export const AddEmployeeModal = ({
                   </ScrollArea>
                 </PopoverContent>
               </Popover>
+              {branchesError && (
+                <p className="text-xs text-destructive">{branchesError}</p>
+              )}
               {formData.branches.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {formData.branches.map((branchName) => (
@@ -386,8 +415,26 @@ export const AddEmployeeModal = ({
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
               Приглашение для <strong>{invitation?.first_name}</strong> создано. 
-              Отправьте ссылку сотруднику для заполнения анкеты.
+              {hasPhone 
+                ? " Отправьте ссылку сотруднику для заполнения анкеты."
+                : " Покажите QR-код или передайте ссылку сотруднику для регистрации."
+              }
             </p>
+
+            {/* QR-код - показываем всегда, но акцентируем если нет телефона */}
+            <div className={`flex flex-col items-center p-4 rounded-lg ${!hasPhone ? 'bg-primary/5 border-2 border-primary/20' : 'bg-muted/50'}`}>
+              <QRCodeSVG 
+                value={inviteLink} 
+                size={180}
+                level="M"
+                includeMargin
+                className="rounded-lg"
+              />
+              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                <QrCode className="h-3 w-3" />
+                Отсканируйте для регистрации
+              </p>
+            </div>
 
             <div className="flex items-center gap-2">
               <Input 
@@ -404,24 +451,33 @@ export const AddEmployeeModal = ({
               </Button>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                onClick={handleSendWhatsApp}
-                className="gap-2"
-              >
-                <MessageCircle className="h-4 w-4" />
-                WhatsApp
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleSendTelegram}
-                className="gap-2"
-              >
-                <Send className="h-4 w-4" />
-                Telegram
-              </Button>
-            </div>
+            {/* Кнопки мессенджеров - только если есть телефон */}
+            {hasPhone && (
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleSendWhatsApp}
+                  className="gap-2"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  WhatsApp
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleSendTelegram}
+                  className="gap-2"
+                >
+                  <Send className="h-4 w-4" />
+                  Telegram
+                </Button>
+              </div>
+            )}
+
+            {!hasPhone && (
+              <p className="text-xs text-center text-muted-foreground bg-muted/50 p-2 rounded">
+                💡 Телефон не указан — сотрудник заполнит его при регистрации
+              </p>
+            )}
 
             <Button 
               className="w-full" 
