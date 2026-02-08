@@ -94,13 +94,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get integration settings
+    // Smart routing: determine which integration to use for reply
     let integration;
     
     if (integrationId) {
+      // 1. Explicit integration ID provided - use it
+      console.log('[telegram-crm-send] Using explicit integrationId:', integrationId);
       const { data, error } = await supabase
         .from('messenger_integrations')
-        .select('settings, is_enabled')
+        .select('id, settings, is_enabled')
         .eq('id', integrationId)
         .eq('organization_id', organizationId)
         .eq('provider', 'telegram_crm')
@@ -114,23 +116,58 @@ Deno.serve(async (req) => {
       }
       integration = data;
     } else {
-      // Get primary telegram_crm integration
-      const { data, error } = await supabase
-        .from('messenger_integrations')
-        .select('settings, is_enabled')
-        .eq('organization_id', organizationId)
+      // 2. Smart routing: find the integration from client's last incoming message
+      console.log('[telegram-crm-send] Looking for last incoming message integration for client:', clientId);
+      
+      const { data: lastMessage } = await supabase
+        .from('chat_messages')
+        .select('integration_id')
+        .eq('client_id', clientId)
+        .eq('is_outgoing', false)
         .eq('messenger_type', 'telegram')
-        .eq('provider', 'telegram_crm')
-        .eq('is_primary', true)
-        .single();
+        .not('integration_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (error || !data) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'No Telegram CRM integration configured' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      if (lastMessage?.integration_id) {
+        console.log('[telegram-crm-send] Found last message integration:', lastMessage.integration_id);
+        
+        // Check if this integration is still active
+        const { data: lastIntegration } = await supabase
+          .from('messenger_integrations')
+          .select('id, settings, is_enabled')
+          .eq('id', lastMessage.integration_id)
+          .eq('organization_id', organizationId)
+          .eq('is_enabled', true)
+          .single();
+
+        if (lastIntegration) {
+          console.log('[telegram-crm-send] Using client\'s last integration (smart routing)');
+          integration = lastIntegration;
+        }
       }
-      integration = data;
+
+      // 3. Fallback: use primary integration
+      if (!integration) {
+        console.log('[telegram-crm-send] Fallback to primary integration');
+        const { data, error } = await supabase
+          .from('messenger_integrations')
+          .select('id, settings, is_enabled')
+          .eq('organization_id', organizationId)
+          .eq('messenger_type', 'telegram')
+          .eq('provider', 'telegram_crm')
+          .eq('is_primary', true)
+          .single();
+
+        if (error || !data) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'No Telegram CRM integration configured' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        integration = data;
+      }
     }
 
     if (!integration.is_enabled) {

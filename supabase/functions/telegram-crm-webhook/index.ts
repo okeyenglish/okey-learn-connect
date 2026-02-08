@@ -63,10 +63,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Find integration by webhook_key
+    // Find integration by webhook_key - include id for smart routing
     const { data: integration, error: integrationError } = await supabase
       .from('messenger_integrations')
-      .select('organization_id, settings')
+      .select('id, organization_id, settings')
       .eq('webhook_key', webhookKey)
       .eq('messenger_type', 'telegram')
       .eq('provider', 'telegram_crm')
@@ -81,6 +81,7 @@ Deno.serve(async (req) => {
     }
 
     const organizationId = integration.organization_id;
+    const integrationId = integration.id; // Store for smart routing
 
     // Verify X-Lovable-Secret if configured
     const settings = integration.settings as { secret?: string };
@@ -157,7 +158,7 @@ Deno.serve(async (req) => {
     const fileUrl = payload.file_url || null;
     const fileName = payload.file_name || null;
 
-    // Save message to chat_messages
+    // Save message to chat_messages with integration_id for smart routing
     const { data: savedMessage, error: messageError } = await supabase
       .from('chat_messages')
       .insert({
@@ -172,6 +173,7 @@ Deno.serve(async (req) => {
         file_url: fileUrl,
         file_type: fileType,
         file_name: fileName,
+        integration_id: integrationId, // Store integration for reply routing
       })
       .select('id')
       .single();
