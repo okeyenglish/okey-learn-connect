@@ -1,131 +1,125 @@
 
-## Цель
-Вернуть возможность отправки сообщений в Telegram через Wappi по номеру телефона (как fallback), и исправить ошибку сборки PWA.
+## Диагностика и исправление проблем
 
----
+### Проблема 1: Ошибка сборки PWA
 
-## Что было сделано неправильно
+**Суть**: `vite-plugin-pwa` с `injectManifest` требует буквальную строку `self.__WB_MANIFEST` для замены, но текущий код `self.__WB_MANIFEST ?? []` не распознаётся плагином.
 
-В предыдущем изменении я ошибочно **убрал fallback на телефон** при отправке в `telegram-send`, предположив, что Wappi не поддерживает отправку по номеру. 
-
-Но документация Wappi явно указывает:
-> **recipient**: Получатель — айди, username, **телефон (если открыт)**
-
-Пример: `"recipient": "79202223344"`
-
-То есть Wappi **поддерживает** три формата `recipient`:
-- `60227586` — Telegram user/chat ID
-- `minayq` — username (без @)
-- `79202223344` — телефон (если пользователь разрешил поиск по номеру)
-
----
-
-## План исправления
-
-### 1. Исправить `telegram-send` — вернуть fallback на телефон
-
-**Файл:** `supabase/functions/telegram-send/index.ts`
-
-Текущая логика:
-- Ищем `telegram_chat_id` или `telegram_user_id`
-- Если нет — возвращаем ошибку "У клиента нет Telegram"
-
-Нужно:
-- Ищем `telegram_chat_id` или `telegram_user_id`
-- **Если нет — используем номер телефона** (очищенный от `+` и пробелов)
-- Только если и телефона нет — возвращаем ошибку
-
-Приоритет recipient:
-1. `telegram_chat_id` (самый надёжный — уже был контакт)
-2. `telegram_user_id` 
-3. Телефон из `client_phone_numbers` (primary) или `clients.phone`
-
-### 2. Исправить сборку PWA
-
-**Файл:** `src/sw.ts`
-
-Судя по ошибке сборки, `vite-plugin-pwa` всё ещё не находит injection point. Нужно убедиться, что строка `self.__WB_MANIFEST` присутствует буквально.
-
----
-
-## Изменения в коде
-
-### telegram-send/index.ts
-
+**Решение**: Использовать отдельную переменную с последующим fallback:
 ```typescript
-// Логика определения recipient с fallback на телефон
+const manifest = self.__WB_MANIFEST;
+precacheAndRoute(manifest ?? []);
+```
 
-let recipient: string | null = null;
+---
 
-// 1. Try phoneId if specified
-if (phoneId) {
-  const { data: phoneRecord } = await supabase
-    .from('client_phone_numbers')
-    .select('telegram_chat_id, telegram_user_id, phone_number')
-    .eq('id', phoneId)
-    .eq('client_id', clientId)
-    .single();
+### Проблема 2: Wappi Telegram webhook не находит организацию
 
-  if (phoneRecord) {
-    recipient = phoneRecord.telegram_chat_id 
-      || phoneRecord.telegram_user_id?.toString() 
-      || normalizePhone(phoneRecord.phone_number);  // <-- fallback
-  }
-}
+**Причина**: Функция `telegram-webhook` ищет организацию по `profile_id` из payload через:
+```typescript
+.eq('settings->>profileId', profileId)
+```
 
-// 2. Try primary phone
-if (!recipient) {
-  const { data: primaryPhone } = await supabase
-    .from('client_phone_numbers')
-    .select('telegram_chat_id, telegram_user_id, phone_number')
-    .eq('client_id', clientId)
-    .eq('is_primary', true)
-    .maybeSingle();
+Но это работает только если:
+1. Таблица `messenger_integrations` существует на self-hosted
+2. Запись имеет `settings.profileId` = profile_id от Wappi
 
-  if (primaryPhone) {
-    recipient = primaryPhone.telegram_chat_id 
-      || primaryPhone.telegram_user_id?.toString() 
-      || normalizePhone(primaryPhone.phone_number);  // <-- fallback
-  }
-}
+**Проверка**: URL `telegram-webhook/58bf91a64dafc3f423d85950` содержит Wappi profile_id как path-параметр, но функция его **не парсит из URL** — она полагается только на payload.
 
-// 3. Fallback to client's telegram fields or phone
-if (!recipient) {
-  recipient = client.telegram_chat_id 
-    || client.telegram_user_id?.toString() 
-    || normalizePhone(client.phone);  // <-- fallback
-}
+**Решение**: Добавить парсинг `profile_id` из URL path как запасной вариант (по аналогии с `whatsapp-webhook`):
+```typescript
+// Извлечь profile_id из URL path: /telegram-webhook/{profile_id}
+const url = new URL(req.url);
+const pathParts = url.pathname.split('/');
+const urlProfileId = pathParts[pathParts.length - 1];
 
-// Helper function
-function normalizePhone(phone: string | null | undefined): string | null {
-  if (!phone) return null;
-  // Remove + and non-digit characters, Wappi expects digits only
-  return phone.replace(/\D/g, '') || null;
+// Использовать profile_id из payload, или из URL как fallback
+const effectiveProfileId = message.profile_id || urlProfileId;
+```
+
+---
+
+### Проблема 3: Telegram-send не отправляет сообщения
+
+**Причина**: Ошибка на скриншоте показывает что Wappi API возвращает ошибку. Это может быть связано с:
+1. Неверным `recipient` (нет telegram_chat_id, telegram_user_id или телефона)
+2. Неверными credentials (profileId / apiToken)
+3. Отключенной интеграцией
+
+Исправление с fallback на телефон уже сделано — нужно протестировать.
+
+---
+
+## План изменений
+
+### Файл: `src/sw.ts`
+**Строки 23-25** — исправить injection point для PWA:
+```typescript
+// CRITICAL: vite-plugin-pwa injectManifest requires `self.__WB_MANIFEST` as a literal.
+// Store in variable first, then apply fallback.
+const manifest = self.__WB_MANIFEST;
+precacheAndRoute(manifest ?? []);
+```
+
+### Файл: `supabase/functions/telegram-webhook/index.ts`
+**Строки 12-53** — добавить парсинг profile_id из URL path:
+
+1. После CORS handling, извлечь profile_id из URL:
+```typescript
+// Extract profile_id from URL path if present: /telegram-webhook/{profile_id}
+const url = new URL(req.url);
+const pathParts = url.pathname.split('/');
+const urlProfileId = pathParts[pathParts.length - 1];
+const isValidUrlProfileId = urlProfileId && urlProfileId !== 'telegram-webhook' && urlProfileId.length >= 8;
+```
+
+2. В функции `processMessage` использовать URL profile_id как fallback:
+```typescript
+// Use profile_id from message payload, or from URL path as fallback
+const effectiveProfileId = message.profile_id || (isValidUrlProfileId ? urlProfileId : null);
+if (!effectiveProfileId) {
+  console.error('[telegram-webhook] No profile_id in payload or URL');
+  return;
 }
 ```
 
-### src/sw.ts
-
-Убедиться, что injection point корректен — должна быть точная строка `self.__WB_MANIFEST`.
+3. Передать `urlProfileId` в функцию обработки через closure или параметр.
 
 ---
 
-## Ожидаемый результат
+## Технические детали
 
-1. **Отправка сообщений в Telegram работает**, даже если клиент ещё не писал (нет `telegram_chat_id`) — используется телефон
-2. **Сборка проходит** без ошибок PWA
-3. Если у получателя закрыт поиск по номеру — Wappi вернёт ошибку, но это уже ограничение на стороне Telegram, а не нашего кода
+### Структура Wappi webhook payload
+Wappi отправляет массив `messages`, где каждое сообщение содержит `profile_id`:
+```json
+{
+  "messages": [{
+    "wh_type": "incoming_message",
+    "profile_id": "58bf91a64dafc3f423d85950",
+    "from": "123456789",
+    "chatId": "123456789",
+    ...
+  }]
+}
+```
+
+### Почему URL profile_id нужен как fallback
+Если payload некорректный или profile_id отсутствует, можно использовать ID из URL для routing.
 
 ---
 
-## Какие файлы будут изменены
+## Тестирование после изменений
 
-- `supabase/functions/telegram-send/index.ts` — вернуть fallback на телефон
-- `src/sw.ts` — fix injection point для сборки
+1. **Build**: Убедиться что PWA собирается без ошибок
+2. **Webhook**: Отправить тестовое сообщение в Telegram → проверить логи на self-hosted
+3. **Отправка**: Отправить сообщение клиенту из CRM → проверить что уходит
 
 ---
 
-## Риски
+## Self-hosted обновление
 
-- Если у получателя закрыта настройка "Кто может найти меня по номеру", Wappi вернёт ошибку `recipient not found`
-- Это ожидаемое поведение — пользователю покажется понятная ошибка
+После деплоя изменений — скопировать функции на self-hosted:
+```bash
+# Скопировать telegram-webhook и telegram-send
+docker compose restart functions
+```
