@@ -635,6 +635,27 @@ export interface StudentInvitation {
   organizations?: Organization;
 }
 
+export type EmployeeInvitationStatus = 'pending' | 'accepted' | 'expired' | 'cancelled';
+
+export interface EmployeeInvitation {
+  id: string;
+  organization_id: string;
+  first_name: string;
+  last_name: string | null;
+  phone: string;
+  email: string | null;
+  branch: string | null;
+  position: string;
+  invite_token: string;
+  token_expires_at: string;
+  status: EmployeeInvitationStatus;
+  terms_accepted_at: string | null;
+  profile_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export type HomeworkStatus = 'assigned' | 'in_progress' | 'submitted' | 'reviewed' | 'completed';
 
 export interface HomeworkRecord {
@@ -2304,6 +2325,14 @@ export interface CustomDatabase {
         Relationships: [
           { foreignKeyName: "teacher_notification_settings_teacher_id_fkey"; columns: ["teacher_id"]; isOneToOne: true; referencedRelation: "teachers"; referencedColumns: ["id"] },
           { foreignKeyName: "teacher_notification_settings_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
+        ];
+      };
+      employee_invitations: {
+        Row: EmployeeInvitation;
+        Insert: Partial<EmployeeInvitation>;
+        Update: Partial<EmployeeInvitation>;
+        Relationships: [
+          { foreignKeyName: "employee_invitations_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
         ];
       };
     };
