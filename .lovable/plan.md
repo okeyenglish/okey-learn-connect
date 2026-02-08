@@ -1,133 +1,131 @@
 
 ## Цель
-1) Починить сборку фронтенда (сейчас `vite build --mode development` падает).  
-2) Добиться, чтобы входящие вебхуки GreenAPI реально превращались в записи в `chat_messages` self-hosted, и поэтому появлялись в списке диалогов.
+Вернуть возможность отправки сообщений в Telegram через Wappi по номеру телефона (как fallback), и исправить ошибку сборки PWA.
 
 ---
 
-## Что, скорее всего, происходит сейчас
+## Что было сделано неправильно
 
-### A) Почему упали билды
-В проекте включён PWA-режим `injectManifest` и в `vite.config.ts` задан `injectionPoint: 'self.__WB_MANIFEST'`.  
-Но в `src/sw.ts` сейчас **нет точной строки** `self.__WB_MANIFEST` (есть `__WB_MANIFEST` через каст), из‑за этого `vite-plugin-pwa` обычно валит сборку ошибкой вида “Unable to find injection point”.
+В предыдущем изменении я ошибочно **убрал fallback на телефон** при отправке в `telegram-send`, предположив, что Wappi не поддерживает отправку по номеру. 
 
-### B) Почему вебхуки “ушли из очереди”, но сообщений нет в диалогах
-GreenAPI получил `200 OK`, поэтому очередь очистилась. Но внутри обработчика вебхука возможны 2 типовых сценария:
-1) **Событие было проигнорировано** (например, не удалось определить `organization_id` по `webhook_key`/`instanceId`).
-2) **Вставка в `chat_messages` не произошла** (ошибка схемы/обязательных полей/несуществующих колонок). Сейчас вебхук возвращает 200 даже при ошибке (это правильно для провайдера), но из-за этого внешне выглядит “как будто всё ок”, пока не смотреть логи/БД.
+Но документация Wappi явно указывает:
+> **recipient**: Получатель — айди, username, **телефон (если открыт)**
+
+Пример: `"recipient": "79202223344"`
+
+То есть Wappi **поддерживает** три формата `recipient`:
+- `60227586` — Telegram user/chat ID
+- `minayq` — username (без @)
+- `79202223344` — телефон (если пользователь разрешил поиск по номеру)
 
 ---
 
-## План правок (код)
+## План исправления
 
-### 1) Исправить сборку PWA (1 файл)
+### 1. Исправить `telegram-send` — вернуть fallback на телефон
+
+**Файл:** `supabase/functions/telegram-send/index.ts`
+
+Текущая логика:
+- Ищем `telegram_chat_id` или `telegram_user_id`
+- Если нет — возвращаем ошибку "У клиента нет Telegram"
+
+Нужно:
+- Ищем `telegram_chat_id` или `telegram_user_id`
+- **Если нет — используем номер телефона** (очищенный от `+` и пробелов)
+- Только если и телефона нет — возвращаем ошибку
+
+Приоритет recipient:
+1. `telegram_chat_id` (самый надёжный — уже был контакт)
+2. `telegram_user_id` 
+3. Телефон из `client_phone_numbers` (primary) или `clients.phone`
+
+### 2. Исправить сборку PWA
+
 **Файл:** `src/sw.ts`
 
-Сделаем так, чтобы в исходнике присутствовала буквальная строка `self.__WB_MANIFEST` (как требует `injectManifest`), но при этом сохраним безопасный фолбэк на пустой массив, чтобы Service Worker не падал, если манифеста нет.
-
-Что именно:
-- Ввести тип `ManifestEntry` как сейчас.
-- Объявить `self` расширенным типом (или через интерфейс), чтобы TS не ругался на `__WB_MANIFEST`.
-- Добавить прямую ссылку `const injected = self.__WB_MANIFEST;` (это и есть точка инъекции).
-- Затем использовать `Array.isArray(injected) ? injected : []` в `precacheAndRoute(...)`.
-
-Ожидаемый результат: `npm run build:dev` снова проходит.
+Судя по ошибке сборки, `vite-plugin-pwa` всё ещё не находит injection point. Нужно убедиться, что строка `self.__WB_MANIFEST` присутствует буквально.
 
 ---
 
-### 2) Сделать обработчик GreenAPI “само-диагностируемым” и устойчивым к расхождениям схемы (1 файл)
-**Файл:** `supabase/functions/whatsapp-webhook/index.ts`
+## Изменения в коде
 
-#### 2.1. Логи и диагностика через `webhook_logs` (без изменения схемы БД)
-- В начале обработки POST:
-  - Создавать запись в `webhook_logs` через `insert(...).select('id').single()`, чтобы получить `logId`.
-  - В процессе обработки накапливать `debugInfo` (organizationId, integrationId, phone, найден/создан clientId, результат insert-а).
-- В конце:
-  - `update webhook_logs set processed=true/false, error_message=... where id=logId`.
-- Если таблицы/колонки нет — не падать, просто логировать в stdout.
+### telegram-send/index.ts
 
-Так вы сможете проверить “почему не вставилось” прямо в БД self-hosted, а не только через `docker logs`.
+```typescript
+// Логика определения recipient с fallback на телефон
 
-#### 2.2. Надёжное определение организации по ключу
-Сейчас `resolveOrganizationByWebhookKey` слишком “жёстко” фильтрует (например, по `provider`/`is_enabled`) — на разных self-hosted сборках это может отличаться.
+let recipient: string | null = null;
 
-Сделаем резолв так:
-- Базовый поиск: `messenger_integrations` по `webhook_key` + `messenger_type='whatsapp'`.
-- Активность:
-  - Сначала пробуем учитывать `is_enabled=true` (если колонка существует).
-  - Если получаем ошибку вида “column does not exist” — повторяем запрос без этого фильтра.
-- `provider`:
-  - Не делать его обязательным для нахождения организации по ключу (ключ и так уникален и является маршрутизацией).
-  - Либо разрешить оба варианта (`green_api` / `greenapi`) на случай разнобоя.
+// 1. Try phoneId if specified
+if (phoneId) {
+  const { data: phoneRecord } = await supabase
+    .from('client_phone_numbers')
+    .select('telegram_chat_id, telegram_user_id, phone_number')
+    .eq('id', phoneId)
+    .eq('client_id', clientId)
+    .single();
 
-Ожидаемый результат: входящие события перестают “тихо игнорироваться” из-за несовпадения provider/флагов.
+  if (phoneRecord) {
+    recipient = phoneRecord.telegram_chat_id 
+      || phoneRecord.telegram_user_id?.toString() 
+      || normalizePhone(phoneRecord.phone_number);  // <-- fallback
+  }
+}
 
-#### 2.3. Устойчивый insert в `chat_messages` (самое важное)
-Переделаем `insertChatMessage` в **двухшаговый**:
-- **Попытка №1 (полная):** вставляем всё, что полезно для UI (`message_text`, `message_type`, `messenger_type`, `is_outgoing`, `is_read`, `external_message_id`, `message_status`, файлы, `created_at`, `metadata` если есть).
-- **Если ошибка** (особенно “колонка не существует”, “null value in column … violates not-null constraint”):
-  - **Попытка №2 (минимальная совместимая):** вставляем только гарантированно нужные поля:
-    - `organization_id`
-    - `client_id` (или `teacher_id`, если это teacher flow)
-    - `message_text`
-    - `message_type` (обязательно: `'client'|'manager'|'system'`)
-    - `messenger_type`
-    - `is_outgoing`
-    - `is_read`
-    - `external_message_id`
-    - `created_at`
-- Обязательно: если это self-hosted схема, минимальный payload должен удовлетворять NOT NULL ограничениям (у вас в проекте уже есть правило, что `message_type` часто обязателен).
+// 2. Try primary phone
+if (!recipient) {
+  const { data: primaryPhone } = await supabase
+    .from('client_phone_numbers')
+    .select('telegram_chat_id, telegram_user_id, phone_number')
+    .eq('client_id', clientId)
+    .eq('is_primary', true)
+    .maybeSingle();
 
-Ожидаемый результат: даже если self-hosted БД “чуть отличается” (нет `message_status`/`metadata`/и т.п.), сообщение всё равно будет вставлено и появится в UI.
+  if (primaryPhone) {
+    recipient = primaryPhone.telegram_chat_id 
+      || primaryPhone.telegram_user_id?.toString() 
+      || normalizePhone(primaryPhone.phone_number);  // <-- fallback
+  }
+}
 
-#### 2.4. Обновление `clients.last_message_at` и “видимость” диалога
-- Обновлять `clients.last_message_at` **всегда** (даже если сообщение оказалось минимальным), чтобы диалог гарантированно попал в первые страницы списка.
-- При создании нового клиента можно дополнительно сразу проставлять `last_message_at` (на случай, если insert сообщения упал совсем).
+// 3. Fallback to client's telegram fields or phone
+if (!recipient) {
+  recipient = client.telegram_chat_id 
+    || client.telegram_user_id?.toString() 
+    || normalizePhone(client.phone);  // <-- fallback
+}
 
-Ожидаемый результат: новый/активный диалог не “теряется” из-за `last_message_at = NULL`.
+// Helper function
+function normalizePhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  // Remove + and non-digit characters, Wappi expects digits only
+  return phone.replace(/\D/g, '') || null;
+}
+```
 
-#### 2.5. Поиск клиента по телефону более терпимый к форматам
-Сейчас поиск идёт через `.in('phone', variants)`; на реальных базах телефоны часто хранятся с пробелами/скобками/`+`.
+### src/sw.ts
 
-Сделаем так:
-- Брать `last10 = digitsOnly(phone).slice(-10)`
-- Пробовать найти клиента через `.ilike('phone', `%${last10}`)` (в рамках `organization_id`)
-- Только если не нашли — создавать клиента
-
-Ожидаемый результат: мы перестаём плодить дубликаты клиентов и сообщения попадают в “правильный” диалог.
+Убедиться, что injection point корректен — должна быть точная строка `self.__WB_MANIFEST`.
 
 ---
 
-## План проверки (self-hosted, пошагово)
+## Ожидаемый результат
 
-1) **Сборка фронта**
-- После правки `src/sw.ts` убедиться, что `build:dev` проходит.
-
-2) **Деплой обработчика на self-hosted**
-- Скопировать обновлённый `supabase/functions/whatsapp-webhook/index.ts` на сервер в ваш volume functions.
-- Перезапустить контейнер functions.
-
-3) **Тест входящего сообщения**
-- Отправить WhatsApp-сообщение на номер GreenAPI.
-- Проверить:
-  - В таблице `webhook_logs` появилась запись, `processed=true`, без `error_message`.
-  - В `chat_messages` появилась новая строка с `messenger_type='whatsapp'`, `message_type='client'`, `is_outgoing=false`.
-  - В UI диалог поднялся вверх (за счёт `clients.last_message_at`).
-
-4) Если всё ещё не видно в UI:
-- По `webhook_logs.error_message`/debugInfo станет понятно: проблема в резолве организации, в поиске клиента или в insert-е.
+1. **Отправка сообщений в Telegram работает**, даже если клиент ещё не писал (нет `telegram_chat_id`) — используется телефон
+2. **Сборка проходит** без ошибок PWA
+3. Если у получателя закрыт поиск по номеру — Wappi вернёт ошибку, но это уже ограничение на стороне Telegram, а не нашего кода
 
 ---
 
 ## Какие файлы будут изменены
-- `src/sw.ts` (фикс точки инъекции PWA-манифеста)
-- `supabase/functions/whatsapp-webhook/index.ts` (устойчивое сохранение входящих сообщений + диагностика)
+
+- `supabase/functions/telegram-send/index.ts` — вернуть fallback на телефон
+- `src/sw.ts` — fix injection point для сборки
 
 ---
 
-## Риски и как их минимизируем
-- Риск: на self-hosted схеме могут отличаться имена колонок.  
-  Решение: двухшаговый insert (full → minimal) + аккуратные ретраи при “column does not exist”.
-- Риск: неправильное сопоставление клиента по телефону.  
-  Решение: поиск по последним 10 цифрам (ilike), как самый совместимый вариант.
+## Риски
 
+- Если у получателя закрыта настройка "Кто может найти меня по номеру", Wappi вернёт ошибку `recipient not found`
+- Это ожидаемое поведение — пользователю покажется понятная ошибка
