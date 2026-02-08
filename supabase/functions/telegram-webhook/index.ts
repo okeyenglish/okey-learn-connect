@@ -52,8 +52,15 @@ Deno.serve(async (req) => {
     const queryProfileId = url.searchParams.get('profile_id') || url.searchParams.get('profileId');
     const pathProfileId = lastPart && lastPart !== 'telegram-webhook' ? lastPart : null;
 
-    const urlProfileId = queryProfileId || pathProfileId;
-    const isValidUrlProfileId = !!urlProfileId && urlProfileId.length >= 8 && /^[a-f0-9]+$/i.test(urlProfileId);
+    // IMPORTANT: Wappi profile_id can be UUID-like (with hyphens) or other non-hex identifiers.
+    // We accept a safe subset of characters and reasonable length.
+    const urlProfileIdRaw = (queryProfileId || pathProfileId || '').toString().trim();
+    const urlProfileId = urlProfileIdRaw.length > 0 ? urlProfileIdRaw : null;
+    const isValidUrlProfileId =
+      !!urlProfileId &&
+      urlProfileId.length >= 4 &&
+      urlProfileId.length <= 128 &&
+      /^[a-z0-9-]+$/i.test(urlProfileId);
 
     console.log('[telegram-webhook] URL profile_id:', urlProfileId, 'valid:', isValidUrlProfileId);
 
