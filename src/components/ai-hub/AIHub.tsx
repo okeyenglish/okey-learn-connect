@@ -826,20 +826,27 @@ export const AIHub = ({
             {/* Knowledge Base Section - collapsible */}
             <div className="space-y-1">
               <button 
-                onClick={toggleKnowledgeSection} 
-                className="w-full px-3 py-2 flex items-center justify-between hover:bg-muted/30 transition-colors rounded-lg"
+                onClick={userIsAdmin ? toggleKnowledgeSection : undefined} 
+                className={`w-full px-3 py-2 flex items-center justify-between transition-colors rounded-lg ${userIsAdmin ? 'hover:bg-muted/30 cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
               >
                 <div className="flex items-center gap-2">
-                  {knowledgeSectionExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                  {knowledgeSectionExpanded && userIsAdmin ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                   <BookOpen className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium text-muted-foreground">База Знаний</span>
                 </div>
-                <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full">
-                  2
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  {!userIsAdmin && (
+                    <Badge variant="secondary" className="text-[10px] h-4 px-1.5 shrink-0">
+                      скоро
+                    </Badge>
+                  )}
+                  <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full">
+                    2
+                  </Badge>
+                </div>
               </button>
               
-              {knowledgeSectionExpanded && (
+              {knowledgeSectionExpanded && userIsAdmin && (
                 <div className="space-y-1 pl-2">
                   {/* Scripts */}
                   <button 
@@ -977,19 +984,26 @@ export const AIHub = ({
             {aiChatsListFiltered.length > 0 && (
               <div className="space-y-1">
                 <button 
-                  onClick={toggleAiSection} 
-                  className="w-full px-3 py-2 flex items-center justify-between hover:bg-muted/30 transition-colors rounded-lg"
+                  onClick={userIsAdmin ? toggleAiSection : undefined} 
+                  className={`w-full px-3 py-2 flex items-center justify-between transition-colors rounded-lg ${userIsAdmin ? 'hover:bg-muted/30 cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
                 >
                   <div className="flex items-center gap-2">
-                    {aiSectionExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                    {aiSectionExpanded && userIsAdmin ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                     <span className="text-sm font-medium text-muted-foreground">AI Помощники</span>
                   </div>
-                  <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full">
-                    {aiChatsListFiltered.length}
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    {!userIsAdmin && (
+                      <Badge variant="secondary" className="text-[10px] h-4 px-1.5 shrink-0">
+                        скоро
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full">
+                      {aiChatsListFiltered.length}
+                    </Badge>
+                  </div>
                 </button>
                 
-                {aiSectionExpanded && aiChatsListFiltered.map((item) => (
+                {aiSectionExpanded && userIsAdmin && aiChatsListFiltered.map((item) => (
                   <button 
                     key={item.id} 
                     onClick={() => handleSelectChat(item)} 
