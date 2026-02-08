@@ -144,7 +144,9 @@ async function processMessage(supabase: any, message: TelegramWappiMessage, fall
       break;
     case 'outgoing_message':
     case 'outgoing_message_phone':
+    case 'outgoing_message_api':
       // outgoing_message_phone - сообщения отправленные с телефона
+      // outgoing_message_api - сообщения отправленные через API
       await handleOutgoingMessage(supabase, message, organizationId);
       break;
     case 'delivery_status':
