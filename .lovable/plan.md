@@ -1,159 +1,109 @@
 
-# План исправления формата Webhook URL для Telegram Wappi
+# План диагностики Telegram Wappi Webhook
 
-## Проблема
+## Суть проблемы
 
-При создании новой интеграции Telegram (Wappi) показывается неправильный webhook URL:
-- **Сейчас**: `https://api.academyos.ru/functions/v1/telegram-webhook/0e4e9f4f5e255af5549c1a3c01dc8c96`
-- **Нужно**: `https://api.academyos.ru/functions/v1/telegram-webhook?profile_id=ВАШ_PROFILE_ID`
+Webhook зарегистрирован в Wappi, но входящие сообщения не появляются. Нужно понять:
+1. Доступен ли webhook endpoint извне?
+2. Какой URL реально зарегистрирован в Wappi?
+3. Приходят ли вообще запросы на Edge Function?
 
-## Причина
+## Решение: Добавить диагностику в UI
 
-В хуке `useMessengerIntegrations.ts` функция `getWebhookUrl` для Telegram с провайдером `wappi` не обрабатывается отдельно и попадает в fallback ветку с форматом пути (`/${messenger_type}-webhook/${webhook_key}`).
+### 1. Кнопка "Проверить webhook" в списке интеграций
 
-## Решение
+Добавить кнопку которая:
+- Делает GET-запрос к `https://api.academyos.ru/functions/v1/telegram-webhook?profile_id=XXX`
+- Показывает результат: `ok: true` значит endpoint доступен
+- Если ошибка — показывает текст ошибки
 
-Исправить генерацию webhook URL в двух местах:
+### 2. Показать актуальный Webhook URL
 
-1. **Frontend**: `useMessengerIntegrations.ts` — добавить обработку провайдера `wappi` для Telegram
-2. **Backend**: `messenger-integrations/index.ts` — при создании/обновлении интеграции Wappi автоматически регистрировать webhook в Wappi API
+Убедиться что в UI отображается **правильный** URL:
+- Для Wappi Telegram: `?profile_id=XXX` (не хэш в path)
+- Проверить что `settings.profileId` реально заполнен
 
-## Изменения в файлах
+### 3. Добавить логирование в telegram-webhook
 
-### 1. `src/hooks/useMessengerIntegrations.ts`
+Добавить запись в таблицу `webhook_logs` при каждом вызове для отладки:
+- Зафиксировать что запрос пришёл
+- Записать profile_id из URL и payload
+- Записать результат поиска организации
 
-Обновить функцию `getWebhookUrl`:
-
-```typescript
-const getWebhookUrl = useCallback((integration: MessengerIntegration) => {
-  const baseUrl = 'https://api.academyos.ru/functions/v1';
-  
-  // For GreenAPI WhatsApp, use query param format
-  if (integration.messenger_type === 'whatsapp' && integration.provider === 'green_api') {
-    return `${baseUrl}/whatsapp-webhook?key=${integration.webhook_key}`;
-  }
-  
-  // For telegram_crm provider
-  if (integration.provider === 'telegram_crm') {
-    return `${baseUrl}/telegram-crm-webhook?key=${integration.webhook_key}`;
-  }
-  
-  // NEW: For Telegram Wappi provider, use profile_id from settings
-  if (integration.messenger_type === 'telegram' && integration.provider === 'wappi') {
-    const profileId = integration.settings?.profileId;
-    if (profileId) {
-      return `${baseUrl}/telegram-webhook?profile_id=${profileId}`;
-    }
-    // Fallback if no profile_id yet
-    return `${baseUrl}/telegram-webhook`;
-  }
-  
-  // Default: path format for WPP and other providers
-  return `${baseUrl}/${integration.messenger_type}-webhook/${integration.webhook_key}`;
-}, []);
-```
-
-### 2. `supabase/functions/messenger-integrations/index.ts`
-
-При POST (создание) и PUT (обновление) интеграции Wappi Telegram автоматически регистрировать webhook:
-
-```typescript
-// После успешного создания/обновления интеграции Wappi
-if (integration.messenger_type === 'telegram' && integration.provider === 'wappi') {
-  const profileId = integration.settings?.profileId;
-  const apiToken = integration.settings?.apiToken;
-  
-  if (profileId && apiToken) {
-    const baseUrl = Deno.env.get('SELF_HOSTED_URL') || supabaseUrl;
-    const webhookUrl = `${baseUrl}/functions/v1/telegram-webhook?profile_id=${profileId}`;
-    
-    const webhookResult = await registerWappiWebhook(profileId, webhookUrl, apiToken);
-    console.log('[messenger-integrations] Wappi webhook registration:', webhookResult);
-  }
-}
-```
-
-Добавить функцию регистрации webhook:
-
-```typescript
-async function registerWappiWebhook(
-  profileId: string,
-  webhookUrl: string,
-  apiToken: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    // Handle masked token (cannot call API with masked value)
-    if (apiToken.startsWith('••')) {
-      console.log('[messenger-integrations] Skipping webhook registration - token is masked');
-      return { success: true };
-    }
-    
-    const response = await fetch(
-      `https://wappi.pro/tapi/webhook/url/set?profile_id=${profileId}`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': apiToken,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ webhook_url: webhookUrl })
-      }
-    );
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      return { success: false, error: `HTTP ${response.status}: ${JSON.stringify(data)}` };
-    }
-    
-    return { success: true };
-  } catch (error) {
-    console.error('[messenger-integrations] Wappi webhook registration failed:', error);
-    return { success: false, error: error.message };
-  }
-}
-```
-
-## Технические детали
-
-```text
-Текущий flow:
-┌───────────────────────────────────────────────────────────────────┐
-│ Пользователь создаёт интеграцию Telegram Wappi                     │
-│ ↓                                                                 │
-│ messenger-integrations POST                                        │
-│ ↓                                                                 │
-│ Сохранение в БД с webhook_key (UUID)                              │
-│ ↓                                                                 │
-│ getWebhookUrl() возвращает /telegram-webhook/<webhook_key>        │
-│ ← НЕПРАВИЛЬНО! Wappi не понимает этот формат                      │
-└───────────────────────────────────────────────────────────────────┘
-
-Новый flow:
-┌───────────────────────────────────────────────────────────────────┐
-│ Пользователь создаёт интеграцию Telegram Wappi                     │
-│ ↓                                                                 │
-│ messenger-integrations POST                                        │
-│ ↓                                                                 │
-│ Сохранение в БД                                                   │
-│ ↓                                                                 │
-│ Автоматическая регистрация webhook в Wappi API                    │
-│ (URL: /telegram-webhook?profile_id=XXX)                           │
-│ ↓                                                                 │
-│ getWebhookUrl() возвращает /telegram-webhook?profile_id=XXX       │
-│ ← ПРАВИЛЬНО! Wappi отправляет вебхуки на этот адрес              │
-└───────────────────────────────────────────────────────────────────┘
-```
-
-## Файлы для изменения
+## Изменения
 
 | Файл | Изменение |
 |------|-----------|
-| `src/hooks/useMessengerIntegrations.ts` | Добавить обработку `wappi` провайдера в `getWebhookUrl()` — формат `?profile_id=XXX` |
-| `supabase/functions/messenger-integrations/index.ts` | Добавить авто-регистрацию webhook в Wappi API при создании/обновлении интеграции |
+| `src/components/admin/integrations/IntegrationsList.tsx` | Добавить кнопку "Проверить" рядом с каждой Telegram Wappi интеграцией |
+| `supabase/functions/telegram-webhook/index.ts` | Добавить запись в webhook_logs для диагностики |
+
+## Техническая реализация
+
+### Кнопка проверки webhook
+
+```typescript
+const handleTestWebhook = async (integration: MessengerIntegration) => {
+  const profileId = integration.settings?.profileId;
+  if (!profileId) {
+    toast({ title: 'Ошибка', description: 'Profile ID не задан' });
+    return;
+  }
+  
+  try {
+    const url = `https://api.academyos.ru/functions/v1/telegram-webhook?profile_id=${profileId}`;
+    const res = await fetch(url, { method: 'GET' });
+    const data = await res.json();
+    
+    if (data.ok) {
+      toast({ 
+        title: 'Webhook доступен', 
+        description: `Endpoint отвечает. Profile ID: ${data.profileId}` 
+      });
+    } else {
+      toast({ 
+        title: 'Проблема с webhook', 
+        description: JSON.stringify(data),
+        variant: 'destructive'
+      });
+    }
+  } catch (e) {
+    toast({ 
+      title: 'Webhook недоступен', 
+      description: e.message,
+      variant: 'destructive'
+    });
+  }
+};
+```
+
+### Логирование в telegram-webhook
+
+```typescript
+// В начале POST обработчика добавить:
+try {
+  await supabase.from('webhook_logs').insert({
+    messenger_type: 'telegram',
+    event_type: 'webhook-received',
+    webhook_data: {
+      url: url.toString(),
+      queryProfileId,
+      pathProfileId,
+      payloadProfileId: messages[0]?.profile_id,
+      messagesCount: messages.length,
+      timestamp: new Date().toISOString()
+    },
+    processed: false
+  });
+} catch (logErr) {
+  console.error('Failed to log webhook:', logErr);
+}
+```
 
 ## Важно
 
-1. После внесения изменений нужно задеплоить Edge Function на self-hosted сервер
-2. **Пересоздать или пересохранить** существующую интеграцию Telegram Wappi — это запустит авторегистрацию webhook
-3. Проверить в логах Wappi, что webhook зарегистрирован корректно
+После реализации:
+1. Задеплоить Edge Function на self-hosted
+2. Нажать "Проверить" в UI для Telegram Wappi интеграции
+3. Если `ok: true` — значит endpoint работает, проблема в Wappi (не шлёт webhook)
+4. Если ошибка — проверить nginx/routing на self-hosted
+5. Отправить тестовое сообщение в Telegram и проверить webhook_logs
