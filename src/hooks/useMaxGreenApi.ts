@@ -129,14 +129,15 @@ export const useMaxGreenApi = () => {
   }, [toast]);
 
   const sendMessage = useCallback(async (
-    clientId: string, 
-    text: string, 
-    fileUrl?: string, 
+    clientId: string,
+    text: string,
+    fileUrl?: string,
     fileName?: string,
-    fileType?: string
+    fileType?: string,
+    options?: { phoneNumber?: string }
   ) => {
     retryStatus.reset();
-    
+
     try {
       // Create retry config with UI callbacks
       const retryConfig: RetryConfig = {
@@ -156,9 +157,32 @@ export const useMaxGreenApi = () => {
         },
       };
 
+      const normalizedPhone = options?.phoneNumber
+        ? options.phoneNumber.replace(/\D/g, '')
+        : '';
+
+      // Some flows (teacher direct messages) don't have a client UUID — send by phone instead
+      const body = normalizedPhone.length >= 10
+        ? {
+            phoneNumber: normalizedPhone,
+            message: text,
+            // keep legacy keys for backward compatibility with existing function implementations
+            text,
+            fileUrl,
+            fileName,
+            fileType,
+          }
+        : {
+            clientId,
+            text,
+            fileUrl,
+            fileName,
+            fileType,
+          };
+
       const response = await selfHostedPost<{ error?: string }>(
         'max-send',
-        { clientId, text, fileUrl, fileName, fileType },
+        body,
         { retry: retryConfig }
       );
 

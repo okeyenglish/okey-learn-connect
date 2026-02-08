@@ -145,10 +145,11 @@ export const useTelegramWappi = () => {
     text: string,
     fileUrl?: string,
     fileName?: string,
-    fileType?: string
+    fileType?: string,
+    options?: { phoneNumber?: string; chatId?: string }
   ): Promise<{ success: boolean; messageId?: string }> => {
     // Deterministic key (no Date.now) so double-triggers within a short window are deduped
-    const messageKey = `${clientId}::${text}::${fileUrl || ''}::${fileName || ''}`;
+    const messageKey = `${clientId}::${options?.phoneNumber || options?.chatId || ''}::${text}::${fileUrl || ''}::${fileName || ''}`;
 
     // Check if we're already sending this exact message
     if (sendingRef.current.has(messageKey)) {
@@ -179,9 +180,39 @@ export const useTelegramWappi = () => {
         },
       };
 
+      const normalizedPhone = options?.phoneNumber
+        ? options.phoneNumber.replace(/\D/g, '')
+        : '';
+
+      // Support multiple send modes:
+      // - clientId (default)
+      // - phoneNumber (teacher direct messages)
+      // - chatId (legacy notifications)
+      const body: Record<string, unknown> = options?.chatId
+        ? {
+            chatId: options.chatId,
+            message: text,
+            // legacy keys for compatibility
+            text,
+            fileUrl,
+            fileName,
+            fileType,
+          }
+        : normalizedPhone.length >= 10
+          ? {
+              phoneNumber: normalizedPhone,
+              message: text,
+              // legacy keys for compatibility
+              text,
+              fileUrl,
+              fileName,
+              fileType,
+            }
+          : { clientId, text, fileUrl, fileName, fileType };
+
       const response = await selfHostedPost<{ messageId?: string; error?: string }>(
         'telegram-send',
-        { clientId, text, fileUrl, fileName, fileType },
+        body,
         { retry: retryConfig }
       );
 
