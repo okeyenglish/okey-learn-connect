@@ -1,10 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from '@/hooks/useAuth';
+import { selfHostedPost } from '@/lib/selfHostedApi';
+
+interface TodayMessagesResponse {
+  total: number;
+  lastMessageTime: string | null;
+}
 
 /**
  * Hook to fetch today's sent messages count
  * Counts outgoing messages sent by the current user today
+ * Uses self-hosted API endpoint to query the correct schema
  * Refreshes every 5 minutes
  */
 export function useTodayMessagesCount() {
@@ -16,42 +22,29 @@ export function useTodayMessagesCount() {
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['todayMessagesCount', user?.id, startOfDay],
-    queryFn: async () => {
+    queryFn: async (): Promise<TodayMessagesResponse> => {
       if (!user?.id) return { total: 0, lastMessageTime: null };
 
-      // Count outgoing messages sent by this user today
-      // Self-hosted schema uses is_outgoing (boolean) instead of direction (string)
-      // and user_id instead of sender_id
-      const { count, error } = await supabase
-        .from('chat_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_outgoing', true)
-        .eq('user_id', user.id)
-        .gte('created_at', startOfDay)
-        .lte('created_at', endOfDay);
+      try {
+        // Use self-hosted API endpoint to query the correct schema
+        // Self-hosted uses message_type = 'manager' for outgoing messages
+        const response = await selfHostedPost<TodayMessagesResponse>('get-today-messages-count', {
+          user_id: user.id,
+          start_of_day: startOfDay,
+          end_of_day: endOfDay,
+        });
 
-      if (error) {
-        console.error('[useTodayMessagesCount] Error:', error);
+        if (response.success && response.data) {
+          return response.data;
+        }
+
+        // If API call fails, return defaults
+        console.warn('[useTodayMessagesCount] API call failed:', response.error);
+        return { total: 0, lastMessageTime: null };
+      } catch (err) {
+        console.error('[useTodayMessagesCount] Error:', err);
         return { total: 0, lastMessageTime: null };
       }
-
-      // Get last message time
-      const { data: lastMessage } = await supabase
-        .from('chat_messages')
-        .select('created_at')
-        .eq('is_outgoing', true)
-        .eq('user_id', user.id)
-        .gte('created_at', startOfDay)
-        .lte('created_at', endOfDay)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      const lastMessageTime = lastMessage
-        ? new Date(lastMessage.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-        : null;
-
-      return { total: count ?? 0, lastMessageTime };
     },
     enabled: !!user?.id,
     staleTime: 5 * 60 * 1000, // 5 minutes
