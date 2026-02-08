@@ -57,6 +57,8 @@ export interface ChatThread {
   unread_by_messenger: UnreadByMessenger;
   last_unread_messenger: string | null;
   messages: ChatMessage[];
+  /** True when client has an unacknowledged payment */
+  has_pending_payment?: boolean;
 }
 
 interface MessageWithClient {

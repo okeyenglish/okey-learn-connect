@@ -66,7 +66,7 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
   // 1. Fetch clients ordered by last_message_at (most recent activity first)
   const { data: clients, error: clientsError } = await supabase
     .from('clients')
-    .select('id, name, first_name, last_name, phone, branch, avatar_url, telegram_user_id')
+    .select('id, name, first_name, last_name, phone, branch, avatar_url, telegram_user_id, has_pending_payment')
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .range(offset, offset + limit - 1);
 
@@ -169,6 +169,7 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
         unread_by_messenger: unreadByMessenger,
         last_unread_messenger: unreadMessages[0]?.messenger_type || null,
         messages: [],
+        has_pending_payment: (client as any).has_pending_payment || false,
       };
     });
 

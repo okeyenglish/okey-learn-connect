@@ -1860,7 +1860,8 @@ const CRMContent = () => {
         phone: targetClient.phone || '',
         comment: targetClient.notes || 'Клиент',
         telegram_user_id: (targetClient as any).telegram_user_id || null,
-        max_chat_id: (targetClient as any).max_chat_id || null
+        max_chat_id: (targetClient as any).max_chat_id || null,
+        has_pending_payment: (targetClient as any).has_pending_payment || false
       };
     }
     if (targetThread) {
@@ -1869,7 +1870,8 @@ const CRMContent = () => {
         phone: targetThread.client_phone || '',
         comment: 'Клиент',
         telegram_user_id: null,
-        max_chat_id: null
+        max_chat_id: null,
+        has_pending_payment: (targetThread as any).has_pending_payment || false
       };
     }
     return {
@@ -1877,7 +1879,8 @@ const CRMContent = () => {
       phone: '',
       comment: '',
       telegram_user_id: null,
-      max_chat_id: null
+      max_chat_id: null,
+      has_pending_payment: false
     };
   };
 
@@ -1885,7 +1888,7 @@ const CRMContent = () => {
   // Вызываем getActiveClientInfo ОДИН раз, чтобы избежать race conditions
   const currentChatClientInfo = useMemo(() => {
     if (!activeChatId || activeChatType !== 'client') {
-      return { name: 'Выберите чат', phone: '', comment: '', telegram_user_id: null, max_chat_id: null };
+      return { name: 'Выберите чат', phone: '', comment: '', telegram_user_id: null, max_chat_id: null, has_pending_payment: false };
     }
     return getActiveClientInfo(activeChatId);
   }, [activeChatId, activeChatType, activeClientInfo, clients, threads]);
@@ -4196,6 +4199,7 @@ const CRMContent = () => {
                 messengerTabTimestamp={selectedMessengerTab?.ts}
                 initialSearchQuery={chatInitialSearchQuery}
                 highlightedMessageId={highlightedMessageId}
+                hasPendingPayment={(currentChatClientInfo as any).has_pending_payment || false}
               />
             </div>
           ) : activeChatType === 'corporate' ? (

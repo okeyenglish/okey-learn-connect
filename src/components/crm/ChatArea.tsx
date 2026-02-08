@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, PanelLeft, PanelRight, CheckCheck, ListTodo, CreditCard, User, ArrowRightLeft } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, PanelLeft, PanelRight, CheckCheck, ListTodo, CreditCard, User, ArrowRightLeft, Banknote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -86,6 +86,8 @@ interface ChatAreaProps {
   highlightedMessageId?: string; // Message ID to highlight and scroll to
   messagesSource?: 'default' | 'teacher'; // Teacher chats load history via SECURITY DEFINER RPC
   simplifiedToolbar?: boolean; // Show simplified toolbar with only basic icons and dropdown (for teacher chats)
+  hasPendingPayment?: boolean; // True when client has an unacknowledged payment
+  onPaymentProcessed?: () => void; // Callback when payment is marked as processed
 }
 
 interface ScheduledMessage {
@@ -118,7 +120,9 @@ export const ChatArea = ({
   initialSearchQuery,
   highlightedMessageId,
   messagesSource = 'default',
-  simplifiedToolbar = false
+  simplifiedToolbar = false,
+  hasPendingPayment = false,
+  onPaymentProcessed
 }: ChatAreaProps) => {
   // Use persistent draft hook to preserve message across tab switches
   const { draft: message, setDraft: setMessage, clearDraft } = useMessageDrafts(clientId);
@@ -1064,7 +1068,51 @@ export const ChatArea = ({
     }
   };
 
-  // Функция для открытия модалки задач и пометки сообщений как прочитанных
+  // Функция для подтверждения получения оплаты
+  const handlePaymentProcessed = async () => {
+    if (!clientId) return;
+    
+    try {
+      // Сначала помечаем сообщения как прочитанные
+      await supabase
+        .from('chat_messages')
+        .update({ is_read: true })
+        .eq('client_id', clientId)
+        .eq('is_read', false)
+        .eq('message_type', 'client');
+      
+      // Сбрасываем флаг ожидающей оплаты
+      await supabase
+        .from('clients')
+        .update({ has_pending_payment: false } as any)
+        .eq('id', clientId);
+      
+      // Инвалидируем кэши
+      queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
+      queryClient.invalidateQueries({ queryKey: ['client', clientId] });
+      
+      // Вызываем callback если есть
+      if (onPaymentProcessed) {
+        onPaymentProcessed();
+      }
+      
+      toast({
+        title: "Готово",
+        description: "Оплата отмечена как проведённая",
+      });
+    } catch (error) {
+      console.error('Error in handlePaymentProcessed:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось отметить оплату",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleOpenTaskModalAndMarkRead = async () => {
     // Сначала помечаем сообщения как прочитанные
     try {
@@ -3624,8 +3672,27 @@ export const ChatArea = ({
                       </Dialog>
                     )}
                     
+                    {/* Кнопка "Оплата проведена" - только если есть ожидающий платёж */}
+                    {hasPendingPayment && (
+                      <>
+                        <div className="h-6 w-px bg-border mx-1 hidden xl:block" />
+                        
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="hidden xl:flex h-8 px-3 text-sm gap-2 border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 animate-pulse"
+                          onClick={handlePaymentProcessed}
+                          disabled={!!pendingMessage}
+                          title="Подтвердить получение оплаты"
+                        >
+                          <Banknote className="h-4 w-4 shrink-0" />
+                          <span>Оплата проведена</span>
+                        </Button>
+                      </>
+                    )}
+                    
                     {/* Разделитель и кнопка "Не требует ответа" - только на больших экранах (xl+) */}
-                    {isLastMessageIncoming && (
+                    {isLastMessageIncoming && !hasPendingPayment && (
                       <>
                         <div className="h-6 w-px bg-border mx-1 hidden xl:block" />
                         
@@ -3733,8 +3800,19 @@ export const ChatArea = ({
                             <span>Запланированные ({scheduledMessages.length})</span>
                           </DropdownMenuItem>
                         )}
-                        {/* Не требует ответа - всегда видим в dropdown на экранах < xl */}
-                        {isLastMessageIncoming && (
+                        {/* Оплата проведена - показывается если есть ожидающий платёж */}
+                        {hasPendingPayment && (
+                          <DropdownMenuItem 
+                            onClick={handlePaymentProcessed}
+                            disabled={!!pendingMessage}
+                            className="flex items-center gap-2 text-emerald-700 font-medium"
+                          >
+                            <Banknote className="h-4 w-4" />
+                            <span>Оплата проведена</span>
+                          </DropdownMenuItem>
+                        )}
+                        {/* Не требует ответа - показывается если нет ожидающего платежа */}
+                        {isLastMessageIncoming && !hasPendingPayment && (
                           <DropdownMenuItem 
                             onClick={handleMarkAsNoResponseNeeded}
                             disabled={!!pendingMessage}
