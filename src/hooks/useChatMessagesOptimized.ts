@@ -98,6 +98,48 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
 };
 
 /**
+ * Hook for realtime new message subscription
+ * Subscribes to INSERT events on chat_messages to instantly update the chat
+ * Also triggers scroll to bottom when new messages arrive
+ */
+export const useNewMessageRealtime = (clientId: string, onNewMessage?: () => void) => {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!clientId) return;
+
+    const channelName = `new-messages-${clientId}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `client_id=eq.${clientId}`,
+        },
+        (payload: RealtimePostgresChangesPayload<ChatMessage>) => {
+          console.log('[Realtime] New message received for client:', clientId);
+          
+          // Immediately invalidate and refetch messages
+          queryClient.invalidateQueries({
+            queryKey: ['chat-messages-optimized', clientId],
+          });
+          
+          // Call the callback to trigger scroll
+          onNewMessage?.();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [clientId, queryClient, onNewMessage]);
+};
+
+/**
  * Hook for realtime message status updates
  * Subscribes to UPDATE events on chat_messages to track delivery status changes
  * Shows toast notification when a message delivery fails
