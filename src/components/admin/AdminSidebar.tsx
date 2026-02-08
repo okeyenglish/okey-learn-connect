@@ -26,7 +26,8 @@ import {
   MonitorCheck,
   CalendarPlus,
   Target,
-  TestTube
+  TestTube,
+  Gift
 } from "lucide-react";
 import {
   Sidebar,
@@ -49,6 +50,7 @@ const adminItems = [
   { title: "Заявки на уроки", id: "trial-requests", icon: CalendarPlus },
   { title: "Преподаватели", id: "teachers", icon: Users },
   { title: "KPI менеджеров", id: "kpi-management", icon: Target },
+  { title: "Настройки бонусов", id: "bonus-settings", icon: Gift },
   { title: "Активность команды", id: "staff-analytics", icon: Activity },
   { title: "Обучение AI", id: "ai-training", icon: Bot },
   { title: "FAQ", id: "faq", icon: HelpCircle },
