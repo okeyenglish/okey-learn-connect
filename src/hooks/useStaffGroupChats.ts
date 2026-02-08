@@ -43,45 +43,44 @@ export interface StaffGroupMember {
  * This replaces the old useInternalChats hook
  */
 export const useStaffGroupChats = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   
   return useQuery({
     queryKey: ['staff-group-chats', user?.id],
     queryFn: async () => {
-      if (!user?.id) return [];
+      if (!user?.id || !profile?.organization_id) return [];
       
-      // Get groups the user is a member of
-      const { data: memberships, error: memberError } = await supabase
-        .from('staff_group_chat_members')
-        .select('group_chat_id')
-        .eq('user_id', user.id);
-      
-      if (memberError) {
-        console.error('[useStaffGroupChats] Error fetching memberships:', memberError);
-        return [];
-      }
-      
-      if (!memberships || memberships.length === 0) {
-        return [];
-      }
-      
-      const groupIds = memberships.map(m => m.group_chat_id);
-      
-      // Fetch group details
-      const { data: groups, error: groupsError } = await supabase
+      // Fetch ALL groups in the organization (for display in list)
+      // Branch groups should be visible to everyone in the org
+      const { data: allGroups, error: groupsError } = await supabase
         .from('staff_group_chats')
         .select('*')
-        .in('id', groupIds)
-        .order('updated_at', { ascending: false });
+        .eq('organization_id', profile.organization_id)
+        .order('is_branch_group', { ascending: false }) // Branch groups first
+        .order('name', { ascending: true });
       
       if (groupsError) {
         console.error('[useStaffGroupChats] Error fetching groups:', groupsError);
         return [];
       }
       
-      return (groups || []) as StaffGroupChat[];
+      // Also get user's memberships to know which groups they're in
+      const { data: memberships } = await supabase
+        .from('staff_group_chat_members')
+        .select('group_chat_id')
+        .eq('user_id', user.id);
+      
+      const memberGroupIds = new Set((memberships || []).map(m => m.group_chat_id));
+      
+      // Mark groups user is a member of
+      const groupsWithMembership = (allGroups || []).map(group => ({
+        ...group,
+        is_member: memberGroupIds.has(group.id),
+      }));
+      
+      return groupsWithMembership as (StaffGroupChat & { is_member?: boolean })[];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !!profile?.organization_id,
     staleTime: 30 * 1000, // 30 seconds
   });
 };
