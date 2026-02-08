@@ -1,100 +1,108 @@
 
 
-# План исправления ошибки добавления второго WhatsApp номера
+# План: Исправление добавления второго WhatsApp номера
 
-## Диагноз проблемы
+## Проблема
 
-При попытке добавить второй WhatsApp номер возникает ошибка:
+При добавлении второго номера WhatsApp функция `createClient` вызывается с тем же `organizationId`, и WPP Platform возвращает **существующий apiKey** вместо создания нового. Этот ключ уже активирован для первого номера, поэтому ошибка 403 "Invalid API key" — это не race condition, а ожидаемое поведение.
+
+## Корень проблемы
+
+```typescript
+// wpp-create/index.ts, строка 184
+const newClient = await WppMsgClient.createClient(WPP_BASE_URL, WPP_SECRET, orgId);
+// ↑ orgId один и тот же для всех номеров организации!
 ```
-Failed to get initial token: 403 {"error":"Invalid API key"}
-```
 
-**Причина:** WPP Platform (`msg.academyos.ru`) создаёт нового клиента через `/api/integrations/wpp/create`, возвращает `apiKey`, но этот ключ сразу не проходит валидацию при попытке получить JWT токен.
-
-Возможные причины на стороне WPP Platform:
-1. API ключ активируется с задержкой (race condition)
-2. Платформа возвращает ключ старого клиента вместо нового
-3. Ограничение: один клиент на организацию
+WPP Platform работает по схеме: **1 organizationId = 1 apiKey = 1 сессия**
 
 ## Решение
 
-Добавить **retry с задержкой** при получении начального токена, а также улучшить логирование для диагностики.
+Для поддержки нескольких номеров нужно передавать **уникальный идентификатор** для каждого подключения:
 
-### Шаг 1: Добавить retry для getInitialToken
+### Вариант 1: Виртуальные суб-организации (рекомендуется)
 
-**Файл:** `supabase/functions/_shared/wpp.ts`
+Генерировать уникальный ID для каждого нового подключения:
 
 ```typescript
-static async getInitialToken(
-  baseUrl: string, 
-  apiKey: string, 
-  maxRetries = 3
-): Promise<{ token: string; expiresAt: number }> {
-  const url = `${baseUrl.replace(/\/+$/, '')}/auth/token`;
-  
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    console.log(`[WppMsgClient] Getting initial token, attempt ${attempt}/${maxRetries}`);
-    
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey }),
-    });
+// Было:
+const newClient = await WppMsgClient.createClient(WPP_BASE_URL, WPP_SECRET, orgId);
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data.token) {
-        const expiresAt = Date.now() + (data.expiresIn || 3600) * 1000;
-        return { token: data.token, expiresAt };
-      }
-    }
+// Станет:
+const subOrgId = `${orgId}__wpp__${crypto.randomUUID().substring(0, 8)}`;
+const newClient = await WppMsgClient.createClient(WPP_BASE_URL, WPP_SECRET, subOrgId);
+```
 
-    // Если это последняя попытка - выбросить ошибку
-    if (attempt === maxRetries) {
-      const text = await res.text();
-      throw new Error(`Failed to get initial token: ${res.status} ${text}`);
-    }
+Это создаст уникальный apiKey для каждого WhatsApp номера.
 
-    // Ждём перед следующей попыткой (1, 2, 3 секунды)
-    await new Promise(r => setTimeout(r, attempt * 1000));
-  }
+## Изменения в коде
+
+### Файл: `supabase/functions/wpp-create/index.ts`
+
+1. **Убрать проверку на существующую интеграцию** при `force_recreate` или явном запросе на новый номер
+2. **Генерировать уникальный subOrgId** для каждого нового подключения
+3. **Создавать новую запись в messenger_integrations** вместо обновления существующей
+
+```typescript
+// При создании нового номера
+const integrationUuid = crypto.randomUUID();
+const subOrgId = `${orgId}__wpp__${integrationUuid.substring(0, 8)}`;
+
+const newClient = await WppMsgClient.createClient(WPP_BASE_URL, WPP_SECRET, subOrgId);
+
+// Сохраняем subOrgId в settings для будущей идентификации
+const newSettings = {
+  wppApiKey: newClient.apiKey,
+  wppAccountNumber: newClient.session,
+  wppSubOrgId: subOrgId,  // ← Новое поле
+  wppJwtToken: jwtToken,
+  wppJwtExpiresAt: jwtExpiresAt,
+};
+
+// ВСЕГДА создаём новую запись для нового номера
+const { data: insertedIntegration, error: insertError } = await supabaseClient
+  .from('messenger_integrations')
+  .insert({
+    organization_id: orgId,
+    messenger_type: 'whatsapp',
+    provider: 'wpp',
+    name: 'WhatsApp (WPP)',
+    is_active: true,
+    is_primary: false,  // Первый номер остаётся primary
+    webhook_key: crypto.randomUUID(),
+    settings: newSettings,
+  })
+  .select()
+  .single();
+```
+
+### Файл: Логика определения "нового номера"
+
+Добавить параметр `add_new: true` в запрос для явного создания нового подключения:
+
+```typescript
+interface WppCreateRequest {
+  force_recreate?: boolean;
+  add_new?: boolean;  // ← Новый флаг для добавления второго номера
 }
 ```
 
-### Шаг 2: Улучшить логирование в wpp-create
+## Технические детали
 
-**Файл:** `supabase/functions/wpp-create/index.ts`
-
-Добавить логирование полного ответа от `createClient`:
-
-```typescript
-console.log('[wpp-create] New client created:', {
-  session: newClient.session,
-  apiKeyMasked: maskApiKey(newClient.apiKey),
-  status: newClient.status,
-});
-```
-
-### Шаг 3: Проверить WPP Platform
-
-Если retry не поможет, нужно проверить на стороне WPP Platform (`msg.academyos.ru`):
-1. Логи endpoint `/api/integrations/wpp/create` — возвращает ли уникальный apiKey?
-2. Логи endpoint `/auth/token` — почему отклоняет новый ключ?
-3. Проверить, поддерживает ли платформа несколько клиентов на одну организацию
-
-## Файлы для изменения
-
-1. `supabase/functions/_shared/wpp.ts` — добавить retry в `getInitialToken`
-2. `supabase/functions/wpp-create/index.ts` — улучшить логирование
+| Параметр | Поведение |
+|----------|-----------|
+| `{}` (пустой) | Переподключить существующий номер |
+| `{ add_new: true }` | Создать новый номер (новый apiKey) |
+| `{ force_recreate: true }` | Пересоздать текущий номер |
 
 ## Ожидаемый результат
 
-- При временной задержке активации ключа — retry решит проблему
-- При системной проблеме — логи покажут что именно возвращает платформа
+- Первый номер: `orgId` → apiKey1
+- Второй номер: `orgId__wpp__abc123` → apiKey2
+- Каждый номер получает уникальный apiKey
+- Ошибка 403 исчезает
 
-## Альтернативный подход
+## Файлы для изменения
 
-Если WPP Platform не поддерживает несколько клиентов на одну организацию, нужно изменить архитектуру:
-- Использовать один `apiKey` с несколькими сессиями/аккаунтами
-- Или создавать виртуальные "суб-организации" для каждого номера
+1. `supabase/functions/wpp-create/index.ts` — логика создания нового номера
 
