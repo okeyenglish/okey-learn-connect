@@ -63,6 +63,11 @@ export const EmployeeInvitationsList = ({ onAddNew }: EmployeeInvitationsListPro
   };
 
   const handleSendWhatsApp = (invitation: EmployeeInvitation) => {
+    if (!invitation.phone) {
+      toast.error('У приглашения не указан телефон — скопируйте ссылку и отправьте вручную');
+      return;
+    }
+
     const inviteLink = `${window.location.origin}/employee/onboarding/${invitation.invite_token}`;
     const message = encodeURIComponent(
       `Здравствуйте, ${invitation.first_name}! Вы приглашены в команду. Пройдите по ссылке для заполнения анкеты: ${inviteLink}`

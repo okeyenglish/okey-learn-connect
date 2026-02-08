@@ -642,7 +642,7 @@ export interface EmployeeInvitation {
   organization_id: string;
   first_name: string;
   last_name: string | null;
-  phone: string;
+  phone: string | null;
   email: string | null;
   branch: string | null;
   position: string;

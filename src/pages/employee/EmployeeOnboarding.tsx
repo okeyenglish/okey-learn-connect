@@ -23,11 +23,12 @@ import { supabase } from "@/integrations/supabase/typedClient";
 import { getErrorMessage } from '@/lib/errorUtils';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { PWAInstallInstructions } from '@/components/pwa/PWAInstallInstructions';
+import { MaskedPhoneInput, extractPhoneDigits, isValidPhone } from "@/components/ui/masked-phone-input";
 
 interface Invitation {
   id: string;
   first_name: string;
-  phone: string;
+  phone: string | null;
   branch: string | null;
   position: string;
   status: string;
@@ -75,6 +76,7 @@ export const EmployeeOnboarding = () => {
     lastName: '',
     middleName: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
     termsAccepted: false
@@ -121,7 +123,8 @@ export const EmployeeOnboarding = () => {
           ...prev,
           lastName: inv.last_name || '',
           middleName: inv.middle_name || '',
-          email: inv.email || ''
+          email: inv.email || '',
+          phone: inv.phone || '',
         }));
 
         // Получаем организацию
@@ -162,6 +165,24 @@ export const EmployeeOnboarding = () => {
       return;
     }
 
+    const invitationPhone = (invitation.phone || '').trim();
+    const requiresPhone = invitationPhone.length === 0;
+    let normalizedPhone: string | undefined;
+
+    if (requiresPhone) {
+      if (!formData.phone.trim()) {
+        toast.error('Укажите телефон');
+        return;
+      }
+
+      if (!isValidPhone(formData.phone)) {
+        toast.error('Введите корректный номер телефона');
+        return;
+      }
+
+      normalizedPhone = `+${extractPhoneDigits(formData.phone)}`;
+    }
+
     if (!formData.password || formData.password.length < 6) {
       toast.error('Пароль должен быть не менее 6 символов');
       return;
@@ -186,9 +207,10 @@ export const EmployeeOnboarding = () => {
         last_name: formData.lastName.trim(),
         middle_name: formData.middleName.trim() || undefined,
         email: formData.email.trim(),
+        phone: normalizedPhone,
         password: formData.password,
         terms_accepted: true,
-      });
+      }, { requireAuth: false });
 
       if (!response.success || !response.data?.success) {
         throw new Error(response.error || response.data?.error || 'Ошибка регистрации');
@@ -321,7 +343,7 @@ export const EmployeeOnboarding = () => {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Телефон</p>
-                <p className="font-medium">{invitation?.phone}</p>
+                <p className="font-medium">{invitation?.phone || '—'}</p>
               </div>
               {invitation?.branch && (
                 <div className="col-span-2">
@@ -330,6 +352,21 @@ export const EmployeeOnboarding = () => {
                 </div>
               )}
             </div>
+
+            {/* Телефон обязателен, если не был указан при приглашении */}
+            {((invitation?.phone || '').trim().length === 0) && (
+              <div className="space-y-2">
+                <Label htmlFor="phone">Телефон *</Label>
+                <MaskedPhoneInput
+                  id="phone"
+                  value={formData.phone}
+                  onChange={(value) => handleInputChange('phone', value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Укажите номер в международном формате (можно выбрать страну слева)
+                </p>
+              </div>
+            )}
 
             {/* Фамилия */}
             <div className="space-y-2">

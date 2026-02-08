@@ -8,7 +8,7 @@ export interface EmployeeInvitation {
   id: string;
   first_name: string;
   last_name: string | null;
-  phone: string;
+  phone: string | null;
   email: string | null;
   branch: string | null;
   position: string;
