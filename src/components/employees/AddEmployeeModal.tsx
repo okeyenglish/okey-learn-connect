@@ -4,19 +4,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { 
   UserPlus, 
   Loader2, 
   Copy, 
   Check,
   Send,
-  MessageCircle
+  MessageCircle,
+  ChevronDown,
+  X
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
 import { getErrorMessage } from '@/lib/errorUtils';
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AddEmployeeModalProps {
   open: boolean;
@@ -101,11 +107,12 @@ export const AddEmployeeModal = ({
   const [copied, setCopied] = useState(false);
   const [invitation, setInvitation] = useState<InvitationResult | null>(null);
   const [phoneError, setPhoneError] = useState<string | undefined>();
+  const [branchesOpen, setBranchesOpen] = useState(false);
   
   const [formData, setFormData] = useState({
     firstName: '',
     phone: '',
-    branch: '',
+    branches: [] as string[],
     position: 'manager'
   });
 
@@ -161,7 +168,7 @@ export const AddEmployeeModal = ({
           organization_id: organizationId,
           first_name: formData.firstName.trim(),
           phone: normalizedPhone,
-          branch: formData.branch || null,
+          branch: formData.branches.length > 0 ? formData.branches.join(', ') : null,
           position: formData.position,
           created_by: profile?.id
         })
@@ -210,11 +217,28 @@ export const AddEmployeeModal = ({
 
   const handleClose = () => {
     setStep('form');
-    setFormData({ firstName: '', phone: '', branch: '', position: 'manager' });
+    setFormData({ firstName: '', phone: '', branches: [], position: 'manager' });
     setInvitation(null);
     setCopied(false);
     setPhoneError(undefined);
+    setBranchesOpen(false);
     onOpenChange(false);
+  };
+
+  const handleBranchToggle = (branchName: string) => {
+    setFormData(prev => ({
+      ...prev,
+      branches: prev.branches.includes(branchName)
+        ? prev.branches.filter(b => b !== branchName)
+        : [...prev.branches, branchName]
+    }));
+  };
+
+  const handleRemoveBranch = (branchName: string) => {
+    setFormData(prev => ({
+      ...prev,
+      branches: prev.branches.filter(b => b !== branchName)
+    }));
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -261,22 +285,55 @@ export const AddEmployeeModal = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="branch">Филиал</Label>
-              <Select 
-                value={formData.branch} 
-                onValueChange={(v) => handleInputChange('branch', v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите филиал" />
-                </SelectTrigger>
-                <SelectContent>
-                  {branches.map((branch) => (
-                    <SelectItem key={branch.id} value={branch.name}>
-                      {branch.name}
-                    </SelectItem>
+              <Label>Филиалы</Label>
+              <Popover open={branchesOpen} onOpenChange={setBranchesOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={branchesOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    {formData.branches.length === 0 
+                      ? "Выберите филиалы"
+                      : `Выбрано: ${formData.branches.length}`
+                    }
+                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start">
+                  <ScrollArea className="h-[200px]">
+                    <div className="p-2 space-y-1">
+                      {branches.map((branch) => (
+                        <div
+                          key={branch.id}
+                          className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
+                          onClick={() => handleBranchToggle(branch.name)}
+                        >
+                          <Checkbox
+                            checked={formData.branches.includes(branch.name)}
+                            onCheckedChange={() => handleBranchToggle(branch.name)}
+                          />
+                          <span className="text-sm">{branch.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
+              {formData.branches.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {formData.branches.map((branchName) => (
+                    <Badge key={branchName} variant="secondary" className="gap-1">
+                      {branchName}
+                      <X
+                        className="h-3 w-3 cursor-pointer hover:text-destructive"
+                        onClick={() => handleRemoveBranch(branchName)}
+                      />
+                    </Badge>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
