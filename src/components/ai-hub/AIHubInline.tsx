@@ -59,15 +59,6 @@ import { FileUpload, FileUploadRef } from '@/components/crm/FileUpload';
 import VoiceAssistant from '@/components/VoiceAssistant';
 import { usePersistedSections } from '@/hooks/usePersistedSections';
 import { useStaffOnlinePresence, type OnlineUser } from '@/hooks/useStaffOnlinePresence';
-import { useUserAllowedBranches } from '@/hooks/useUserAllowedBranches';
-
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 interface AIHubInlineProps {
   context?: {
@@ -241,7 +232,7 @@ export const AIHubInline = ({
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [isChatSearchOpen, setIsChatSearchOpen] = useState(false);
   const [teacherClientId, setTeacherClientId] = useState<string | null>(null);
-  const [selectedBranch, setSelectedBranch] = useState<string>('all');
+  
   const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('online'); // По умолчанию показываем онлайн
   const [pendingFile, setPendingFile] = useState<{ url: string; name: string; type: string } | null>(null);
   
@@ -253,7 +244,7 @@ export const AIHubInline = ({
     communitiesSectionExpanded,
     toggleCommunitiesSection
   } = usePersistedSections();
-  const { branchesForDropdown } = useUserAllowedBranches();
+  
   const { onlineUsers, isUserOnline, getLastSeenFormatted, onlineCount } = useStaffOnlinePresence();
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -656,28 +647,8 @@ export const AIHubInline = ({
     item.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Filter by branch (for staff and teachers only)
-  const filteredChats = searchFiltered.filter(item => {
-    // AI chats and groups are always shown
-    if (item.type === 'assistant' || ['lawyer', 'accountant', 'marketer', 'hr', 'methodist', 'it'].includes(item.type) || item.type === 'group') {
-      return true;
-    }
-    
-    // Apply branch filter for teachers and staff
-    if (selectedBranch === 'all') return true;
-    
-    if (item.type === 'teacher') {
-      const teacher = item.data as TeacherChatItem;
-      return teacher?.branch === selectedBranch;
-    }
-    
-    if (item.type === 'staff') {
-      const staff = item.data as StaffMember;
-      return staff?.branch === selectedBranch;
-    }
-    
-    return true;
-  });
+  // Filter function removed branch filter - only search filtering remains
+  const filteredChats = searchFiltered;
 
   const aiChatsList = filteredChats.filter(item => item.type === 'assistant' || ['lawyer', 'accountant', 'marketer', 'hr', 'methodist', 'it'].includes(item.type));
   
@@ -1000,20 +971,6 @@ export const AIHubInline = ({
           />
         </div>
         
-        {/* Branch filter */}
-        <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-          <SelectTrigger className="h-8 text-sm">
-            <SelectValue placeholder="Все филиалы" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Все филиалы</SelectItem>
-            {branchesForDropdown.map((branch) => (
-              <SelectItem key={branch} value={branch}>
-                {branch}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       <ScrollArea className="flex-1 overflow-x-hidden">

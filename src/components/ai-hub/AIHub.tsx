@@ -136,7 +136,7 @@ export const AIHub = ({
   const [isRecording, setIsRecording] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [teacherClientId, setTeacherClientId] = useState<string | null>(null);
-  const [selectedBranch, setSelectedBranch] = useState<string>('all');
+  
   const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('online'); // По умолчанию показываем онлайн
   
   // Persisted sections state
@@ -758,35 +758,11 @@ export const AIHub = ({
     );
   }
 
-  // Get unique branches for filter
-  const allBranches = Array.from(new Set([
-    ...teacherChatItems.map(t => (t.data as TeacherChatItem)?.branch).filter(Boolean),
-    ...groupChatItems.map(g => (g.data as InternalChat)?.branch).filter(Boolean),
-  ])) as string[];
-
-  // selectedBranch and staffFilter moved to top with other useState hooks
-
-  // Filter by branch
-  const branchFilteredChats = selectedBranch === 'all' 
-    ? filteredChats 
-    : filteredChats.filter(item => {
-        if (item.type === 'teacher') {
-          return (item.data as TeacherChatItem)?.branch === selectedBranch;
-        }
-        if (item.type === 'group') {
-          return (item.data as InternalChat)?.branch === selectedBranch;
-        }
-        if (item.type === 'staff') {
-          return (item.data as StaffMember)?.branch === selectedBranch;
-        }
-        return true; // AI chats always show
-      });
-
-  // Re-filter lists with branch
-  const aiChatsListFiltered = branchFilteredChats.filter(c => 
+  // Re-filter lists without branch filter
+  const aiChatsListFiltered = filteredChats.filter(c => 
     ['assistant', 'lawyer', 'accountant', 'marketer', 'hr', 'methodist', 'it'].includes(c.type)
   );
-  const corporateChatsListBase = branchFilteredChats.filter(c => 
+  const corporateChatsListBase = filteredChats.filter(c => 
     c.type === 'group' || c.type === 'teacher' || c.type === 'staff'
   );
   
@@ -837,17 +813,6 @@ export const AIHub = ({
             />
           </div>
           
-          {/* Branch filter - same as mobile */}
-          <select
-            value={selectedBranch}
-            onChange={(e) => setSelectedBranch(e.target.value)}
-            className="w-full h-8 px-3 border border-border bg-background text-sm rounded-md"
-          >
-            <option value="all">Все филиалы</option>
-            {allBranches.map(branch => (
-              <option key={branch} value={branch}>{branch}</option>
-            ))}
-          </select>
         </div>
 
         <ScrollArea className="flex-1 overflow-x-hidden">
@@ -1182,7 +1147,7 @@ export const AIHub = ({
             )}
 
             {/* Empty state */}
-            {branchFilteredChats.length === 0 && !chatsLoading && !teachersLoading && (
+            {filteredChats.length === 0 && !chatsLoading && !teachersLoading && (
               <div className="text-center py-8 text-muted-foreground">
                 {searchQuery ? 'Ничего не найдено' : 'Нет доступных чатов'}
               </div>
