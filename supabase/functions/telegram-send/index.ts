@@ -148,48 +148,63 @@ Deno.serve(async (req) => {
       return errorResponse('Client not found', 404);
     }
 
-    // Try to get chat ID from specified phone number first
+    // Helper function to normalize phone for Wappi (digits only)
+    function normalizePhone(phone: string | null | undefined): string | null {
+      if (!phone) return null;
+      // Remove all non-digit characters
+      const digits = phone.replace(/\D/g, '');
+      // Return null if empty or too short
+      return digits.length >= 10 ? digits : null;
+    }
+
+    // Try to get chat ID from specified phone number first, with phone fallback
     let recipient: string | null = null;
 
     if (phoneId) {
-      // Get chat ID from specific phone number (Telegram IDs only; phone fallback is not reliable)
+      // Get chat ID from specific phone number
       const { data: phoneRecord } = await supabase
         .from('client_phone_numbers')
-        .select('telegram_chat_id, telegram_user_id')
+        .select('telegram_chat_id, telegram_user_id, phone_number')
         .eq('id', phoneId)
         .eq('client_id', clientId)
         .single();
 
       if (phoneRecord) {
-        recipient = phoneRecord.telegram_chat_id || phoneRecord.telegram_user_id?.toString() || null;
+        recipient = phoneRecord.telegram_chat_id 
+          || phoneRecord.telegram_user_id?.toString() 
+          || normalizePhone(phoneRecord.phone_number);  // <-- fallback to phone
         console.log('Using specified phone:', phoneId, 'recipient:', recipient);
       }
     }
 
-    // If no recipient from phoneId, try primary phone number (Telegram IDs only)
+    // If no recipient from phoneId, try primary phone number
     if (!recipient) {
       const { data: primaryPhone } = await supabase
         .from('client_phone_numbers')
-        .select('telegram_chat_id, telegram_user_id')
+        .select('telegram_chat_id, telegram_user_id, phone_number')
         .eq('client_id', clientId)
         .eq('is_primary', true)
         .maybeSingle();
 
       if (primaryPhone) {
-        recipient = primaryPhone.telegram_chat_id || primaryPhone.telegram_user_id?.toString() || null;
+        recipient = primaryPhone.telegram_chat_id 
+          || primaryPhone.telegram_user_id?.toString() 
+          || normalizePhone(primaryPhone.phone_number);  // <-- fallback to phone
         console.log('Using primary phone recipient:', recipient);
       }
     }
 
-    // Fallback to client's telegram fields (backward compatibility)
+    // Fallback to client's telegram fields or phone (backward compatibility)
     if (!recipient) {
-      recipient = client.telegram_chat_id || client.telegram_user_id?.toString() || null;
+      recipient = client.telegram_chat_id 
+        || client.telegram_user_id?.toString() 
+        || normalizePhone(client.phone);  // <-- fallback to phone
     }
     
     if (!recipient) {
       const response: TelegramSendResponse = { 
         success: false,
-        error: 'У клиента нет Telegram и номера телефона',
+        error: 'У клиента нет Telegram ID и номера телефона для отправки',
         code: 'NO_TELEGRAM_CONTACT'
       };
       return new Response(

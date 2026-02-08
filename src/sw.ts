@@ -20,12 +20,9 @@ self.addEventListener('install', () => {
 // Type for Workbox manifest entries
 type ManifestEntry = PrecacheEntry | string;
 
-// CRITICAL: This exact literal `self.__WB_MANIFEST` is required for vite-plugin-pwa injectManifest
-// The plugin scans for this exact string and replaces it with the manifest array.
-// On some Safari/iOS setups (or if a stale SW is served), __WB_MANIFEST may be missing.
-// Fallback to an empty manifest so the SW can still register.
-const wbManifest = self.__WB_MANIFEST;
-precacheAndRoute(Array.isArray(wbManifest) ? wbManifest : []);
+// CRITICAL: vite-plugin-pwa injectManifest requires `self.__WB_MANIFEST` as a literal.
+// Fallback to empty array on stale/missing manifest.
+precacheAndRoute(self.__WB_MANIFEST ?? []);
 
 // Clean up old caches
 cleanupOutdatedCaches();
