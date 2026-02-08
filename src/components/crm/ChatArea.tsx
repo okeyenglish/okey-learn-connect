@@ -421,10 +421,24 @@ export const ChatArea = ({
       let success = false;
       
       if (messengerType === 'max') {
-        const result = await sendMaxMessage(clientId, msg.message_text || '', msg.file_url, msg.file_name, msg.file_type);
+        const result = await sendMaxMessage(
+          clientId,
+          msg.message_text || '',
+          msg.file_url,
+          msg.file_name,
+          msg.file_type,
+          isDirectTeacherMessage ? { phoneNumber: clientPhone } : undefined
+        );
         success = !!result;
       } else if (messengerType === 'telegram') {
-        const result = await sendTelegramMessage(clientId, msg.message_text || '', msg.file_url, msg.file_name, msg.file_type);
+        const result = await sendTelegramMessage(
+          clientId,
+          msg.message_text || '',
+          msg.file_url,
+          msg.file_name,
+          msg.file_type,
+          isDirectTeacherMessage ? { phoneNumber: clientPhone } : undefined
+        );
         success = result.success;
       } else {
         // WhatsApp
@@ -465,7 +479,7 @@ export const ChatArea = ({
       queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
       return false;
     }
-  }, [clientId, messagesData?.messages, queryClient, sendMaxMessage, sendTelegramMessage, sendFileMessage, sendTextMessage, toast]);
+  }, [clientId, clientPhone, isDirectTeacherMessage, messagesData?.messages, queryClient, sendMaxMessage, sendTelegramMessage, sendFileMessage, sendTextMessage, toast]);
 
   const handleMaxRetriesReached = useCallback((messageId: string) => {
     toast({
@@ -2212,7 +2226,7 @@ export const ChatArea = ({
         variant: "destructive",
       });
     }
-  }, [messages, clientId, resetRetryState, queryClient, toast, sendMaxMessage, sendTelegramMessage, sendFileMessage, sendTextMessage]);
+  }, [messages, clientId, clientPhone, isDirectTeacherMessage, resetRetryState, queryClient, toast, sendMaxMessage, sendTelegramMessage, sendFileMessage, sendTextMessage]);
 
   // Mock tasks data - in real app this would come from props or API
   const clientTasks = [
