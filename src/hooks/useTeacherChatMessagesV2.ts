@@ -58,15 +58,19 @@ const updateCache = (teacherId: string, messages: ChatMessage[]) => {
 export const useTeacherChatMessages = (teacherId: string) => {
   const queryClient = useQueryClient();
 
+  // Guard: If teacherId is empty, return safe defaults immediately without calling useInfiniteQuery
+  const isEnabled = !!teacherId && teacherId.length > 0;
+
   // Get cached data for placeholder
   const cachedMessages = useMemo(() => {
-    if (!teacherId) return null;
+    if (!isEnabled) return null;
     return getCachedMessages(teacherId);
-  }, [teacherId]);
+  }, [teacherId, isEnabled]);
 
   const query = useInfiniteQuery({
     queryKey: ['teacher-chat-messages-v2', teacherId],
     queryFn: async ({ pageParam = 0 }): Promise<InfinitePageData<ChatMessage>> => {
+      // Double-check teacherId in queryFn as safety measure
       if (!teacherId) {
         return { items: [], nextCursor: 0, hasMore: false, total: 0 };
       }
@@ -130,23 +134,28 @@ export const useTeacherChatMessages = (teacherId: string) => {
       };
     },
     getNextPageParam: (lastPage) => {
+      // Safety check: lastPage might be undefined if query is disabled
+      if (!lastPage) return undefined;
       return lastPage.hasMore ? lastPage.nextCursor : undefined;
     },
     initialPageParam: 0,
-    enabled: !!teacherId,
+    // CRITICAL: Only enable when teacherId is valid to prevent "pages is undefined" error
+    enabled: isEnabled,
     staleTime: 60000, // 1 minute
     gcTime: 10 * 60 * 1000, // 10 minutes cache
     // OPTIMIZATION: Use cached data as placeholder for instant display
-    placeholderData: cachedMessages ? {
+    // Only provide placeholderData when query is enabled AND we have cached data
+    placeholderData: isEnabled && cachedMessages ? {
       pages: [{ items: cachedMessages, nextCursor: PAGE_SIZE, hasMore: true, total: 0 }],
       pageParams: [0],
     } : undefined,
   });
 
-  // Flatten all pages into a single array
+  // Flatten all pages into a single array - with safety check for undefined data
   const messages = useMemo(() => {
+    // Safety: when query is disabled, data might be undefined
     if (!query.data?.pages) return [];
-    return query.data.pages.flatMap(page => page.items);
+    return query.data.pages.flatMap(page => page?.items || []);
   }, [query.data]);
 
   // Total count is no longer accurate (removed for performance)
