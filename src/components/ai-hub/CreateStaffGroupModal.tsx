@@ -14,9 +14,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Plus, Users, Loader2, Search } from 'lucide-react';
 import { useStaffMembers } from '@/hooks/useInternalStaffMessages';
-import { supabase } from '@/integrations/supabase/typedClient';
+import { useCreateStaffGroupChat } from '@/hooks/useStaffGroupChats';
 import { useAuth } from '@/hooks/useAuth';
-import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface CreateStaffGroupModalProps {
   onGroupCreated?: (groupId: string) => void;
@@ -28,26 +28,31 @@ export const CreateStaffGroupModal: React.FC<CreateStaffGroupModalProps> = ({
   children,
 }) => {
   const [open, setOpen] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
   const { data: staffMembers, isLoading: membersLoading } = useStaffMembers();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
+  const createGroup = useCreateStaffGroupChat();
+  const queryClient = useQueryClient();
 
   const filteredMembers = useMemo(() => {
     if (!staffMembers) return [];
-    if (!searchQuery.trim()) return staffMembers;
+    // Exclude current user from the list
+    const members = staffMembers.filter(m => m.id !== user?.id);
+    
+    if (!searchQuery.trim()) return members;
     
     const query = searchQuery.toLowerCase();
-    return staffMembers.filter(member => 
+    return members.filter(member => 
       member.first_name?.toLowerCase().includes(query) ||
       member.last_name?.toLowerCase().includes(query) ||
-      member.email?.toLowerCase().includes(query)
+      member.email?.toLowerCase().includes(query) ||
+      member.branch?.toLowerCase().includes(query)
     );
-  }, [staffMembers, searchQuery]);
+  }, [staffMembers, searchQuery, user?.id]);
 
   const toggleMember = (memberId: string) => {
     setSelectedMembers(prev =>
@@ -69,66 +74,22 @@ export const CreateStaffGroupModal: React.FC<CreateStaffGroupModalProps> = ({
   };
 
   const handleCreate = async () => {
-    if (!groupName.trim()) {
-      toast.error('Введите название группы');
-      return;
-    }
+    if (!groupName.trim()) return;
     
-    if (selectedMembers.length === 0) {
-      toast.error('Выберите хотя бы одного участника');
-      return;
-    }
-
-    if (!user?.id || !profile?.organization_id) {
-      toast.error('Ошибка аутентификации');
-      return;
-    }
-
-    setIsCreating(true);
-
     try {
-      // Create group in internal_chats table
-      const { data: groupData, error: groupError } = await supabase
-        .from('internal_chats')
-        .insert({
-          organization_id: profile.organization_id,
-          name: groupName.trim(),
-          description: description.trim() || null,
-          chat_type: 'group',
-          created_by: user.id,
-          is_active: true,
-        })
-        .select()
-        .single();
-
-      if (groupError) throw groupError;
-
-      // Add participants including creator
-      const participantsToAdd = [
-        { chat_id: groupData.id, user_id: user.id, role: 'admin', is_admin: true },
-        ...selectedMembers.map(memberId => ({
-          chat_id: groupData.id,
-          user_id: memberId,
-          role: 'member',
-          is_admin: false,
-        })),
-      ];
-
-      const { error: participantsError } = await supabase
-        .from('internal_chat_participants')
-        .insert(participantsToAdd);
-
-      if (participantsError) throw participantsError;
-
-      toast.success(`Групповой чат "${groupName}" создан`);
+      const result = await createGroup.mutateAsync({
+        name: groupName.trim(),
+        description: description.trim() || undefined,
+        member_ids: selectedMembers,
+        is_branch_group: false,
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ['staff-group-chats'] });
       resetForm();
       setOpen(false);
-      onGroupCreated?.(groupData.id);
-    } catch (error: any) {
-      console.error('Error creating group:', error);
-      toast.error(error.message || 'Ошибка создания группы');
-    } finally {
-      setIsCreating(false);
+      onGroupCreated?.(result.id);
+    } catch (error) {
+      // Error is handled in the mutation
     }
   };
 
@@ -219,11 +180,9 @@ export const CreateStaffGroupModal: React.FC<CreateStaffGroupModalProps> = ({
                         <p className="text-sm font-medium truncate">
                           {member.first_name} {member.last_name}
                         </p>
-                        {member.email && (
-                          <p className="text-xs text-muted-foreground truncate">
-                            {member.email}
-                          </p>
-                        )}
+                        <p className="text-xs text-muted-foreground truncate">
+                          {member.branch || member.email || ''}
+                        </p>
                       </div>
                     </label>
                   ))}
@@ -240,15 +199,15 @@ export const CreateStaffGroupModal: React.FC<CreateStaffGroupModalProps> = ({
                 resetForm();
                 setOpen(false);
               }}
-              disabled={isCreating}
+              disabled={createGroup.isPending}
             >
               Отмена
             </Button>
             <Button
               onClick={handleCreate}
-              disabled={isCreating || !groupName.trim() || selectedMembers.length === 0}
+              disabled={createGroup.isPending || !groupName.trim()}
             >
-              {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {createGroup.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Создать
             </Button>
           </div>
