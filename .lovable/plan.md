@@ -1,116 +1,121 @@
 
+## План исправления ошибок приложения
 
-## План: Отображение всех групп для всех сотрудников
+### Проблема 1: useTodayMessagesCount использует несуществующие колонки
 
-### Текущая проблема
+**Файл:** `src/hooks/useTodayMessagesCount.ts`
 
-В базе данных есть проблема с данными филиалов:
-
-| branch | count |
-|--------|-------|
-| Окская | 11 |
-| Окская, Новокосино, Котельники, Мытищи, Грайвороновская, ONLINE SCHOOL | 1 |
-
-Второе значение - это ошибка. Один сотрудник имеет все филиалы записанные как одна строка через запятую вместо отдельных связей.
-
-### Причина проблемы
-
-Поле `profiles.branch` в схеме - это текстовое поле для ОДНОГО филиала. Когда вы добавили сотруднику все филиалы, они записались как одна строка "Окская, Новокосино, Котельники...".
-
-### Решение
-
-#### Шаг 1: Исправить данные в базе
-
-Нужно выполнить SQL на self-hosted сервере, чтобы исправить некорректную запись:
-
-```sql
--- Найти сотрудника с неправильным branch
-SELECT id, first_name, last_name, branch 
-FROM profiles 
-WHERE branch LIKE '%,%';
-
--- Исправить на один филиал (например Окская)
-UPDATE profiles 
-SET branch = 'Окская'
-WHERE branch LIKE '%,%';
+**Текущий код (строки 23-29):**
+```typescript
+const { count, error } = await supabase
+  .from('chat_messages')
+  .select('*', { count: 'exact', head: true })
+  .eq('direction', 'outgoing')     // НЕТ в self-hosted
+  .eq('sender_id', user.id)         // НЕТ в self-hosted
 ```
 
-#### Шаг 2: Удалить некорректную группу
+**Решение:**
+Использовать колонки self-hosted схемы: `is_outgoing = true` и `user_id`
 
-```sql
--- Удалить группу с неправильным названием
-DELETE FROM staff_group_chat_members 
-WHERE group_chat_id IN (
-  SELECT id FROM staff_group_chats 
-  WHERE branch_name LIKE '%,%'
-);
-
-DELETE FROM staff_group_chats 
-WHERE branch_name LIKE '%,%';
+```typescript
+const { count, error } = await supabase
+  .from('chat_messages')
+  .select('*', { count: 'exact', head: true })
+  .eq('is_outgoing', true)
+  .eq('user_id', user.id)
+  .gte('created_at', startOfDay)
+  .lte('created_at', endOfDay);
 ```
 
-#### Шаг 3: Создать группы для всех филиалов из organization_branches
+---
 
-Обновить функцию `init-branch-groups` чтобы она создавала группы на основе таблицы `organization_branches`, а не `profiles.branch`:
+### Проблема 2: UnreadByMessenger включает "calls" как messenger_type
 
-```text
-Текущая логика:
-profiles.branch → staff_group_chats (неправильно!)
+**Файлы:**
+- `src/hooks/usePinnedChatThreads.ts`
+- `src/hooks/useChatThreadsOptimized.ts`
+- `src/hooks/useChatThreadsInfinite.ts`
+- `src/hooks/usePhoneSearchThreads.ts`
 
-Новая логика:
-organization_branches → staff_group_chats (правильно!)
+**Проблема:** `messenger_type` enum в базе не содержит значение `calls`, но код пытается использовать его
+
+**Решение:**
+1. Не добавлять `calls` как `messenger_type` при подсчёте
+2. Хранить счётчик звонков отдельно (через `missed_calls_count`)
+3. Убрать попытки записывать `calls` в `messenger_type`
+
+Изменения в файлах:
+- В `usePinnedChatThreads.ts` строка 149: проверять что `type` не равен 'calls' перед инкрементом
+- В остальных файлах аналогично
+
+---
+
+### Проблема 3: Button внутри button (NewChatModal в TabsTrigger)
+
+**Файл:** `src/pages/CRM.tsx` (строки 2216-2228)
+
+**Текущий код:**
+```tsx
+<TabsTrigger value="chats" className="...">
+  <span>Чаты</span>
+  <div className="absolute right-3">
+    <NewChatModal>
+      <Button size="sm">  {/* КНОПКА внутри TabsTrigger (тоже button) */}
+        <Plus />
+      </Button>
+    </NewChatModal>
+  </div>
+</TabsTrigger>
 ```
 
-#### Шаг 4: Добавить всех сотрудников во все группы
+**Решение:**
+Вынести NewChatModal за пределы TabsTrigger и позиционировать абсолютно:
 
-По вашему запросу, все сотрудники должны видеть все группы. Для этого нужно:
-
-1. Получить все группы из `staff_group_chats`
-2. Получить всех активных сотрудников из `profiles`
-3. Добавить каждого сотрудника в каждую группу через `staff_group_chat_members`
-
-### Технические изменения
-
-**Файлы для изменения:**
-
-1. `supabase/functions/init-branch-groups/index.ts` - обновить логику создания групп на основе `organization_branches`
-2. `docs/selfhosted-functions/init-branch-groups.ts` - аналогичное обновление для self-hosted
-
-**Новая логика функции:**
-
-```text
-init-branch-groups (v2):
-┌─────────────────────────────────────────────────────────┐
-│ 1. Получить филиалы из organization_branches            │
-│    (вместо profiles.branch)                             │
-├─────────────────────────────────────────────────────────┤
-│ 2. Создать группу для каждого филиала                   │
-│    "Команда {branch_name}"                              │
-├─────────────────────────────────────────────────────────┤
-│ 3. Получить ВСЕХ активных сотрудников из profiles       │
-├─────────────────────────────────────────────────────────┤
-│ 4. Добавить КАЖДОГО сотрудника в КАЖДУЮ группу          │
-│    (без привязки к их филиалу)                          │
-└─────────────────────────────────────────────────────────┘
+```tsx
+<TabsList className="...">
+  <TabsTrigger value="menu">Меню</TabsTrigger>
+  <TabsTrigger value="chats">
+    <span>Чаты</span>
+  </TabsTrigger>
+</TabsList>
+{/* Кнопка вне TabsTrigger */}
+<div className="absolute right-5 top-3 z-10">
+  <NewChatModal>
+    <Button size="sm" variant="ghost">
+      <Plus className="h-3 w-3" />
+    </Button>
+  </NewChatModal>
+</div>
 ```
 
-### Порядок выполнения
+---
 
-1. Исправить данные в базе (SQL запросы выше)
-2. Обновить функцию `init-branch-groups`
-3. Задеплоить на self-hosted
-4. Запустить `init-branch-groups` заново
-5. Проверить отображение групп в AI Hub
+### Проблема 4: JSON.parse ошибки (Uncaught in promise)
 
-### Результат
+**Причина:** API возвращает не-JSON (HTML страницу ошибки или пустой ответ)
 
-После выполнения все сотрудники будут видеть группы для каждого филиала:
-- Команда Окская
-- Команда Новокосино  
-- Команда Котельники
-- Команда Мытищи
-- Команда Грайвороновская
-- Команда ONLINE SCHOOL
+**Решение:**
+Добавить проверку Content-Type перед JSON.parse в API хелперах
 
-И каждый сотрудник будет участником всех групп.
+**Файл:** `src/lib/selfHostedApi.ts` - добавить try/catch вокруг response.json() с информативным сообщением об ошибке
 
+---
+
+## Файлы для изменения
+
+| Файл | Изменение |
+|------|-----------|
+| `src/hooks/useTodayMessagesCount.ts` | Использовать `is_outgoing` и `user_id` вместо `direction` и `sender_id` |
+| `src/hooks/usePinnedChatThreads.ts` | Исключить 'calls' из messenger_type инкремента |
+| `src/hooks/useChatThreadsInfinite.ts` | Исключить 'calls' из messenger_type инкремента |
+| `src/hooks/usePhoneSearchThreads.ts` | Исключить 'calls' из messenger_type инкремента |
+| `src/pages/CRM.tsx` | Вынести NewChatModal из TabsTrigger |
+
+---
+
+## Порядок выполнения
+
+1. Исправить `useTodayMessagesCount.ts` (критично - ломает функционал)
+2. Исправить проблему с `calls` в messenger_type (критично - вызывает ошибки БД)
+3. Исправить вложенность кнопок в CRM.tsx (accessibility + React warning)
+4. Проверить что ошибки исчезли в консоли
