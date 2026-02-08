@@ -129,23 +129,31 @@ Deno.serve(async (req) => {
       return errorResponse('Telegram Profile ID or API Token not configured', 400);
     }
 
-    const body = await req.json() as TelegramSendRequest;
-    const { clientId, text, fileUrl, fileName, fileType, phoneId } = body;
+    const body = await req.json() as TelegramSendRequest & { phoneNumber?: string; teacherId?: string };
+    const { clientId, text, fileUrl, fileName, fileType, phoneId, phoneNumber, teacherId } = body;
 
-    if (!clientId) {
-      return errorResponse('Client ID is required', 400);
+    // Validate: either clientId or phoneNumber must be provided
+    if (!clientId && !phoneNumber) {
+      return errorResponse('clientId or phoneNumber is required', 400);
     }
 
-    // Get client with phone number
-    const { data: client, error: clientError } = await supabase
-      .from('clients')
-      .select('telegram_chat_id, telegram_user_id, phone, name')
-      .eq('id', clientId)
-      .eq('organization_id', organizationId)
-      .single();
+    let resolvedTeacherId: string | null = teacherId || null;
+    let resolvedClientId: string | null = clientId || null;
+    let client: { telegram_chat_id?: string | null; telegram_user_id?: string | null; phone?: string | null; name?: string | null } | null = null;
 
-    if (clientError || !client) {
-      return errorResponse('Client not found', 404);
+    // Mode 1: Client lookup (when clientId provided)
+    if (clientId) {
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('telegram_chat_id, telegram_user_id, phone, name')
+        .eq('id', clientId)
+        .eq('organization_id', organizationId)
+        .single();
+
+      if (clientError || !clientData) {
+        return errorResponse('Client not found', 404);
+      }
+      client = clientData;
     }
 
     // Helper function to normalize phone for Wappi (digits only, with Russian +7 prefix)
@@ -173,90 +181,113 @@ Deno.serve(async (req) => {
     let recipient: string | null = null;
     let recipientSource = 'none';
 
-    if (phoneId) {
-      // Get chat ID from specific phone number
-      const { data: phoneRecord } = await supabase
-        .from('client_phone_numbers')
-        .select('telegram_chat_id, telegram_user_id, telegram_username, phone_number')
-        .eq('id', phoneId)
-        .eq('client_id', clientId)
-        .single();
-
-      if (phoneRecord) {
-        console.log('[telegram-send] Phone record found:', {
-          telegram_chat_id: phoneRecord.telegram_chat_id,
-          telegram_user_id: phoneRecord.telegram_user_id,
-          telegram_username: phoneRecord.telegram_username,
-          phone_number: phoneRecord.phone_number
-        });
-        
-        // Priority: chat_id > user_id > username > phone
-        if (phoneRecord.telegram_chat_id) {
-          recipient = phoneRecord.telegram_chat_id;
-          recipientSource = 'telegram_chat_id (phoneRecord)';
-        } else if (phoneRecord.telegram_user_id) {
-          recipient = phoneRecord.telegram_user_id.toString();
-          recipientSource = 'telegram_user_id (phoneRecord)';
-        } else if (phoneRecord.telegram_username) {
-          recipient = phoneRecord.telegram_username;
-          recipientSource = 'telegram_username (phoneRecord)';
-        } else {
-          recipient = normalizePhone(phoneRecord.phone_number);
-          recipientSource = 'phone_number (phoneRecord fallback)';
-        }
-      }
-    }
-
-    // If no recipient from phoneId, try primary phone number
-    if (!recipient) {
-      const { data: primaryPhone } = await supabase
-        .from('client_phone_numbers')
-        .select('telegram_chat_id, telegram_user_id, telegram_username, phone_number')
-        .eq('client_id', clientId)
-        .eq('is_primary', true)
-        .maybeSingle();
-
-      if (primaryPhone) {
-        console.log('[telegram-send] Primary phone found:', {
-          telegram_chat_id: primaryPhone.telegram_chat_id,
-          telegram_user_id: primaryPhone.telegram_user_id,
-          telegram_username: primaryPhone.telegram_username,
-          phone_number: primaryPhone.phone_number
-        });
-        
-        if (primaryPhone.telegram_chat_id) {
-          recipient = primaryPhone.telegram_chat_id;
-          recipientSource = 'telegram_chat_id (primary)';
-        } else if (primaryPhone.telegram_user_id) {
-          recipient = primaryPhone.telegram_user_id.toString();
-          recipientSource = 'telegram_user_id (primary)';
-        } else if (primaryPhone.telegram_username) {
-          recipient = primaryPhone.telegram_username;
-          recipientSource = 'telegram_username (primary)';
-        } else {
-          recipient = normalizePhone(primaryPhone.phone_number);
-          recipientSource = 'phone_number (primary fallback)';
-        }
-      }
-    }
-
-    // Fallback to client's telegram fields or phone (backward compatibility)
-    if (!recipient) {
-      console.log('[telegram-send] Client fields:', {
-        telegram_chat_id: client.telegram_chat_id,
-        telegram_user_id: client.telegram_user_id,
-        phone: client.phone
-      });
+    // Mode 2: Direct phone number (for teacher messages)
+    if (phoneNumber && !clientId) {
+      recipient = normalizePhone(phoneNumber);
+      recipientSource = 'direct phoneNumber';
+      console.log(`[telegram-send] Direct phone mode: ${phoneNumber} → ${recipient}`);
       
-      if (client.telegram_chat_id) {
-        recipient = client.telegram_chat_id;
-        recipientSource = 'telegram_chat_id (client)';
-      } else if (client.telegram_user_id) {
-        recipient = client.telegram_user_id.toString();
-        recipientSource = 'telegram_user_id (client)';
-      } else {
-        recipient = normalizePhone(client.phone);
-        recipientSource = 'phone (client fallback)';
+      // Find teacher by phone if teacherId not provided
+      if (!resolvedTeacherId && recipient) {
+        const { data: teacher } = await supabase
+          .from('teachers')
+          .select('id')
+          .ilike('phone', `%${recipient.slice(-10)}`)
+          .eq('organization_id', organizationId)
+          .maybeSingle();
+        if (teacher) {
+          resolvedTeacherId = teacher.id;
+          console.log(`[telegram-send] Found teacher by phone: ${resolvedTeacherId}`);
+        }
+      }
+    }
+    // Client mode: lookup by phoneId, primary phone, or client fields
+    else if (clientId && client) {
+      if (phoneId) {
+        // Get chat ID from specific phone number
+        const { data: phoneRecord } = await supabase
+          .from('client_phone_numbers')
+          .select('telegram_chat_id, telegram_user_id, telegram_username, phone_number')
+          .eq('id', phoneId)
+          .eq('client_id', clientId)
+          .single();
+
+        if (phoneRecord) {
+          console.log('[telegram-send] Phone record found:', {
+            telegram_chat_id: phoneRecord.telegram_chat_id,
+            telegram_user_id: phoneRecord.telegram_user_id,
+            telegram_username: phoneRecord.telegram_username,
+            phone_number: phoneRecord.phone_number
+          });
+          
+          // Priority: chat_id > user_id > username > phone
+          if (phoneRecord.telegram_chat_id) {
+            recipient = phoneRecord.telegram_chat_id;
+            recipientSource = 'telegram_chat_id (phoneRecord)';
+          } else if (phoneRecord.telegram_user_id) {
+            recipient = phoneRecord.telegram_user_id.toString();
+            recipientSource = 'telegram_user_id (phoneRecord)';
+          } else if (phoneRecord.telegram_username) {
+            recipient = phoneRecord.telegram_username;
+            recipientSource = 'telegram_username (phoneRecord)';
+          } else {
+            recipient = normalizePhone(phoneRecord.phone_number);
+            recipientSource = 'phone_number (phoneRecord fallback)';
+          }
+        }
+      }
+
+      // If no recipient from phoneId, try primary phone number
+      if (!recipient) {
+        const { data: primaryPhone } = await supabase
+          .from('client_phone_numbers')
+          .select('telegram_chat_id, telegram_user_id, telegram_username, phone_number')
+          .eq('client_id', clientId)
+          .eq('is_primary', true)
+          .maybeSingle();
+
+        if (primaryPhone) {
+          console.log('[telegram-send] Primary phone found:', {
+            telegram_chat_id: primaryPhone.telegram_chat_id,
+            telegram_user_id: primaryPhone.telegram_user_id,
+            telegram_username: primaryPhone.telegram_username,
+            phone_number: primaryPhone.phone_number
+          });
+          
+          if (primaryPhone.telegram_chat_id) {
+            recipient = primaryPhone.telegram_chat_id;
+            recipientSource = 'telegram_chat_id (primary)';
+          } else if (primaryPhone.telegram_user_id) {
+            recipient = primaryPhone.telegram_user_id.toString();
+            recipientSource = 'telegram_user_id (primary)';
+          } else if (primaryPhone.telegram_username) {
+            recipient = primaryPhone.telegram_username;
+            recipientSource = 'telegram_username (primary)';
+          } else {
+            recipient = normalizePhone(primaryPhone.phone_number);
+            recipientSource = 'phone_number (primary fallback)';
+          }
+        }
+      }
+
+      // Fallback to client's telegram fields or phone (backward compatibility)
+      if (!recipient) {
+        console.log('[telegram-send] Client fields:', {
+          telegram_chat_id: client.telegram_chat_id,
+          telegram_user_id: client.telegram_user_id,
+          phone: client.phone
+        });
+        
+        if (client.telegram_chat_id) {
+          recipient = client.telegram_chat_id;
+          recipientSource = 'telegram_chat_id (client)';
+        } else if (client.telegram_user_id) {
+          recipient = client.telegram_user_id.toString();
+          recipientSource = 'telegram_user_id (client)';
+        } else {
+          recipient = normalizePhone(client.phone);
+          recipientSource = 'phone (client fallback)';
+        }
       }
     }
     
@@ -311,22 +342,31 @@ Deno.serve(async (req) => {
     // Save message to database - message_type is 'manager' for outgoing messages
     const contentType = fileUrl ? getMessageTypeFromFile(fileType) : 'text';
     
+    const messageRecord: Record<string, unknown> = {
+      organization_id: organizationId,
+      message_text: text || (fileUrl ? '[Файл]' : ''),
+      message_type: 'manager', // outgoing message from manager
+      messenger_type: 'telegram',
+      message_status: 'sent', // Use 'message_status' field for delivery tracking
+      is_outgoing: true,
+      is_read: true,
+      external_message_id: sendResult.messageId,
+      file_url: fileUrl,
+      file_name: fileName,
+      file_type: fileType || contentType // store content type
+    };
+
+    // Add client_id or teacher_id based on mode
+    if (resolvedClientId) {
+      messageRecord.client_id = resolvedClientId;
+    }
+    if (resolvedTeacherId) {
+      messageRecord.teacher_id = resolvedTeacherId;
+    }
+    
     const { data: savedMessage, error: saveError } = await supabase
       .from('chat_messages')
-      .insert({
-        client_id: clientId,
-        organization_id: organizationId,
-        message_text: text || (fileUrl ? '[Файл]' : ''),
-        message_type: 'manager', // outgoing message from manager
-        messenger_type: 'telegram',
-        message_status: 'sent', // Use 'message_status' field for delivery tracking
-        is_outgoing: true,
-        is_read: true,
-        external_message_id: sendResult.messageId,
-        file_url: fileUrl,
-        file_name: fileName,
-        file_type: fileType || contentType // store content type
-      })
+      .insert(messageRecord)
       .select('id')
       .single();
 
@@ -334,11 +374,13 @@ Deno.serve(async (req) => {
       console.error('Error saving sent message:', saveError);
     }
 
-    // Update client's last_message_at
-    await supabase
-      .from('clients')
-      .update({ last_message_at: new Date().toISOString() })
-      .eq('id', clientId);
+    // Update client's last_message_at (only if we have a clientId)
+    if (resolvedClientId) {
+      await supabase
+        .from('clients')
+        .update({ last_message_at: new Date().toISOString() })
+        .eq('id', resolvedClientId);
+    }
 
     const response: TelegramSendResponse = { 
       success: true, 

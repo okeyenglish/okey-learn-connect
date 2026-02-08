@@ -134,7 +134,7 @@ export const useMaxGreenApi = () => {
     fileUrl?: string,
     fileName?: string,
     fileType?: string,
-    options?: { phoneNumber?: string }
+    options?: { phoneNumber?: string; teacherId?: string }
   ) => {
     retryStatus.reset();
 
@@ -165,6 +165,7 @@ export const useMaxGreenApi = () => {
       const body = normalizedPhone.length >= 10
         ? {
             phoneNumber: normalizedPhone,
+            teacherId: options?.teacherId,
             message: text,
             // keep legacy keys for backward compatibility with existing function implementations
             text,

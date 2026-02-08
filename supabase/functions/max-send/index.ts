@@ -74,88 +74,118 @@ Deno.serve(async (req) => {
 
     const { instanceId, apiToken } = maxSettings;
 
-    const body: MaxSendMessageRequest = await req.json();
-    const { clientId, text, fileUrl, fileName, fileType, phoneId } = body;
+    const body: MaxSendMessageRequest & { phoneNumber?: string; teacherId?: string } = await req.json();
+    const { clientId, text, fileUrl, fileName, fileType, phoneId, phoneNumber, teacherId } = body;
 
-    if (!clientId || (!text && !fileUrl)) {
-      return errorResponse('clientId and text or fileUrl are required', 400);
+    // Validate: either clientId or phoneNumber must be provided
+    if (!clientId && !phoneNumber) {
+      return errorResponse('clientId or phoneNumber is required', 400);
     }
 
-    // Get client info
-    const { data: client, error: clientError } = await supabase
-      .from('clients')
-      .select('id, name, max_chat_id, max_user_id, phone')
-      .eq('id', clientId)
-      .single();
-
-    if (clientError || !client) {
-      console.error('Client not found:', clientError);
-      return errorResponse('Client not found', 404);
+    if (!text && !fileUrl) {
+      return errorResponse('text or fileUrl is required', 400);
     }
 
-    // Determine chatId for MAX
     let chatId: string | null = null;
-    
-    // Priority 1: Use specified phone number's chat ID
-    if (phoneId) {
-      const { data: phoneRecord } = await supabase
-        .from('client_phone_numbers')
-        .select('max_chat_id, max_user_id, phone')
-        .eq('id', phoneId)
-        .eq('client_id', clientId)
-        .single();
-      
-      if (phoneRecord) {
-        chatId = phoneRecord.max_chat_id;
-        if (!chatId && phoneRecord.max_user_id) {
-          chatId = String(phoneRecord.max_user_id);
-        }
-        if (!chatId && phoneRecord.phone) {
-          const cleanPhone = normalizePhoneForMax(phoneRecord.phone);
-          chatId = `${cleanPhone}@c.us`;
-        }
-        console.log('Using specified phone:', phoneId, 'chatId:', chatId);
-      }
-    }
-    
-    // Priority 2: Use primary phone number's chat ID
-    if (!chatId) {
-      const { data: primaryPhone } = await supabase
-        .from('client_phone_numbers')
-        .select('max_chat_id, max_user_id, phone')
-        .eq('client_id', clientId)
-        .eq('is_primary', true)
-        .single();
-      
-      if (primaryPhone) {
-        chatId = primaryPhone.max_chat_id;
-        if (!chatId && primaryPhone.max_user_id) {
-          chatId = String(primaryPhone.max_user_id);
-        }
-        if (!chatId && primaryPhone.phone) {
-          const cleanPhone = normalizePhoneForMax(primaryPhone.phone);
-          chatId = `${cleanPhone}@c.us`;
-        }
-        console.log('Using primary phone chatId:', chatId);
-      }
-    }
-    
-    // Priority 3: Fall back to client's max fields (backward compatibility)
-    if (!chatId) {
-      chatId = client.max_chat_id;
-      if (!chatId && client.max_user_id) {
-        chatId = String(client.max_user_id);
-      }
-    }
-    
-    // Priority 4: Use client's phone
-    if (!chatId && client.phone) {
-      const cleanPhone = normalizePhoneForMax(client.phone);
+    let resolvedTeacherId: string | null = teacherId || null;
+    let resolvedClientId: string | null = clientId || null;
+
+    // Mode 1: Direct phone number (for teacher messages)
+    if (phoneNumber && !clientId) {
+      const cleanPhone = normalizePhoneForMax(phoneNumber);
       chatId = `${cleanPhone}@c.us`;
+      console.log(`[max-send] Direct phone mode: ${phoneNumber} → ${chatId}`);
+      
+      // Find teacher by phone if teacherId not provided
+      if (!resolvedTeacherId) {
+        const { data: teacher } = await supabase
+          .from('teachers')
+          .select('id')
+          .ilike('phone', `%${cleanPhone.slice(-10)}`)
+          .eq('organization_id', organizationId)
+          .maybeSingle();
+        if (teacher) {
+          resolvedTeacherId = teacher.id;
+          console.log(`[max-send] Found teacher by phone: ${resolvedTeacherId}`);
+        }
+      }
+    }
+    // Mode 2: Client lookup (existing logic)
+    else if (clientId) {
+      // Get client info
+      const { data: client, error: clientError } = await supabase
+        .from('clients')
+        .select('id, name, max_chat_id, max_user_id, phone')
+        .eq('id', clientId)
+        .single();
+
+      if (clientError || !client) {
+        console.error('Client not found:', clientError);
+        return errorResponse('Client not found', 404);
+      }
+
+      // Determine chatId for MAX
+      // Priority 1: Use specified phone number's chat ID
+      if (phoneId) {
+        const { data: phoneRecord } = await supabase
+          .from('client_phone_numbers')
+          .select('max_chat_id, max_user_id, phone')
+          .eq('id', phoneId)
+          .eq('client_id', clientId)
+          .single();
+        
+        if (phoneRecord) {
+          chatId = phoneRecord.max_chat_id;
+          if (!chatId && phoneRecord.max_user_id) {
+            chatId = String(phoneRecord.max_user_id);
+          }
+          if (!chatId && phoneRecord.phone) {
+            const cleanPhone = normalizePhoneForMax(phoneRecord.phone);
+            chatId = `${cleanPhone}@c.us`;
+          }
+          console.log('Using specified phone:', phoneId, 'chatId:', chatId);
+        }
+      }
+      
+      // Priority 2: Use primary phone number's chat ID
+      if (!chatId) {
+        const { data: primaryPhone } = await supabase
+          .from('client_phone_numbers')
+          .select('max_chat_id, max_user_id, phone')
+          .eq('client_id', clientId)
+          .eq('is_primary', true)
+          .single();
+        
+        if (primaryPhone) {
+          chatId = primaryPhone.max_chat_id;
+          if (!chatId && primaryPhone.max_user_id) {
+            chatId = String(primaryPhone.max_user_id);
+          }
+          if (!chatId && primaryPhone.phone) {
+            const cleanPhone = normalizePhoneForMax(primaryPhone.phone);
+            chatId = `${cleanPhone}@c.us`;
+          }
+          console.log('Using primary phone chatId:', chatId);
+        }
+      }
+      
+      // Priority 3: Fall back to client's max fields (backward compatibility)
+      if (!chatId) {
+        chatId = client.max_chat_id;
+        if (!chatId && client.max_user_id) {
+          chatId = String(client.max_user_id);
+        }
+      }
+      
+      // Priority 4: Use client's phone
+      if (!chatId && client.phone) {
+        const cleanPhone = normalizePhoneForMax(client.phone);
+        chatId = `${cleanPhone}@c.us`;
+      }
     }
 
     if (!chatId) {
-      return errorResponse('Client has no MAX chat ID or phone number', 400);
+      return errorResponse('No MAX chat ID or phone number available', 400);
     }
 
     console.log(`Sending MAX message to chatId: ${chatId}, text length: ${text?.length || 0}`);
@@ -230,22 +260,31 @@ Deno.serve(async (req) => {
     }
 
     // Save message to database
+    const messageRecord: Record<string, unknown> = {
+      organization_id: organizationId,
+      message_text: text || `[Файл: ${fileName || 'file'}]`,
+      message_type: 'manager',
+      messenger_type: 'max',
+      is_outgoing: true,
+      is_read: true,
+      external_message_id: messageId,
+      file_url: fileUrl || null,
+      file_name: fileName || null,
+      file_type: fileType || null,
+      message_status: 'sent'
+    };
+
+    // Add client_id or teacher_id based on mode
+    if (resolvedClientId) {
+      messageRecord.client_id = resolvedClientId;
+    }
+    if (resolvedTeacherId) {
+      messageRecord.teacher_id = resolvedTeacherId;
+    }
+
     const { data: savedMessage, error: saveError } = await supabase
       .from('chat_messages')
-      .insert({
-        client_id: clientId,
-        organization_id: organizationId,
-        message_text: text || `[Файл: ${fileName || 'file'}]`,
-        message_type: 'manager',
-        messenger_type: 'max',
-        is_outgoing: true,
-        is_read: true,
-        external_message_id: messageId,
-        file_url: fileUrl || null,
-        file_name: fileName || null,
-        file_type: fileType || null,
-        message_status: 'sent'
-      })
+      .insert(messageRecord)
       .select()
       .single();
 
@@ -253,11 +292,13 @@ Deno.serve(async (req) => {
       console.error('Error saving message:', saveError);
     }
 
-    // Update client's last_message_at
-    await supabase
-      .from('clients')
-      .update({ last_message_at: new Date().toISOString() })
-      .eq('id', clientId);
+    // Update client's last_message_at (only if we have a clientId)
+    if (resolvedClientId) {
+      await supabase
+        .from('clients')
+        .update({ last_message_at: new Date().toISOString() })
+        .eq('id', resolvedClientId);
+    }
 
     const response: MaxSendMessageResponse = {
       success: true,
