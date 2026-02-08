@@ -503,3 +503,36 @@ verify_jwt = true
 
 [functions.wpp-react]
 verify_jwt = true
+
+[functions.get-staff-group-chats]
+verify_jwt = false
+
+[functions.get-staff-group-members]
+verify_jwt = false
+
+[functions.add-staff-group-member]
+verify_jwt = false
+
+[functions.remove-staff-group-member]
+verify_jwt = false
+
+[functions.create-staff-group-chat]
+verify_jwt = false
+
+[functions.init-branch-groups]
+verify_jwt = false
+
+[functions.add-employee-to-branch-groups]
+verify_jwt = false
+
+[functions.get-today-messages-count]
+verify_jwt = false
+
+[functions.holihope-settings]
+verify_jwt = true
+
+[functions.wpp-qr]
+verify_jwt = true
+
+[functions.wpp-create]
+verify_jwt = true
