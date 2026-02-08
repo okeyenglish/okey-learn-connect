@@ -36,40 +36,9 @@ interface MessageInsertParams {
 }
 
 async function insertChatMessage(params: MessageInsertParams): Promise<{ success: boolean; error?: string }> {
-  // Lovable Cloud schema (primary)
-  const cloudPayload: Record<string, unknown> = {
-    client_id: params.client_id,
-    organization_id: params.organization_id,
-    content: params.content,
-    message_type: params.message_type,
-    messenger: params.messenger,
-    direction: params.is_incoming ? 'incoming' : 'outgoing',
-    status: params.status,
-    external_id: params.external_id,
-    is_read: !params.is_incoming,
-    media_url: params.media_url || null,
-    media_type: params.media_type || null,
-    file_name: params.file_name || null,
-    created_at: params.created_at || new Date().toISOString(),
-  }
-  
-  // Add optional fields if present
-  if (params.metadata) {
-    cloudPayload.metadata = params.metadata
-  }
-  
-  // Try Cloud schema first
-  const { error: cloudError } = await supabase.from('chat_messages').insert(cloudPayload)
-  
-  if (!cloudError) {
-    return { success: true }
-  }
-  
-  console.log('[whatsapp-webhook] Cloud schema insert failed, trying self-hosted schema:', cloudError.message)
-  
-  // Self-hosted schema fallback
-  const selfHostedPayload: Record<string, unknown> = {
-    client_id: params.client_id,
+  // Self-hosted schema ONLY (for api.academyos.ru)
+  // Uses: message_text, messenger_type, is_outgoing, external_message_id, file_url, file_type
+  const payload: Record<string, unknown> = {
     organization_id: params.organization_id,
     message_text: params.content,
     message_type: params.message_type,
@@ -84,48 +53,22 @@ async function insertChatMessage(params: MessageInsertParams): Promise<{ success
     created_at: params.created_at || new Date().toISOString(),
   }
   
-  // Add teacher_id if present (self-hosted may have this column)
+  // Set either client_id or teacher_id (mutually exclusive)
   if (params.teacher_id) {
-    selfHostedPayload.teacher_id = params.teacher_id
-    selfHostedPayload.client_id = null
+    payload.teacher_id = params.teacher_id
+    payload.client_id = null
+  } else {
+    payload.client_id = params.client_id
   }
   
-  const { error: selfHostedError } = await supabase.from('chat_messages').insert(selfHostedPayload)
+  const { error } = await supabase.from('chat_messages').insert(payload)
   
-  if (!selfHostedError) {
-    return { success: true }
+  if (error) {
+    console.error('[whatsapp-webhook] Insert failed:', error.message, 'Payload keys:', Object.keys(payload))
+    return { success: false, error: error.message }
   }
   
-  console.error('[whatsapp-webhook] Both schema inserts failed:', {
-    cloudError: cloudError.message,
-    selfHostedError: selfHostedError.message
-  })
-  
-  // Final fallback: minimal payload
-  const minimalPayload: Record<string, unknown> = {
-    client_id: params.client_id,
-    organization_id: params.organization_id,
-    message_type: params.message_type,
-    is_read: !params.is_incoming,
-    created_at: params.created_at || new Date().toISOString(),
-  }
-  
-  // Try adding content fields one by one
-  const contentFields = [
-    { key: 'content', value: params.content },
-    { key: 'message_text', value: params.content },
-  ]
-  
-  for (const field of contentFields) {
-    minimalPayload[field.key] = field.value
-    const { error } = await supabase.from('chat_messages').insert(minimalPayload)
-    if (!error) {
-      return { success: true }
-    }
-    delete minimalPayload[field.key]
-  }
-  
-  return { success: false, error: selfHostedError.message }
+  return { success: true }
 }
 
 async function resolveOrganizationIdFromWebhook(webhook: GreenAPIWebhook): Promise<string | null> {
@@ -634,12 +577,11 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook, organizationId: s
     console.error('Error saving incoming message:', insertResult.error)
   }
 
-  // Обновляем время последнего сообщения у клиента
+  // Обновляем время последнего сообщения у клиента (без whatsapp_chat_id - нет в self-hosted)
   await supabase
     .from('clients')
     .update({ 
-      last_message_at: new Date(webhook.timestamp * 1000).toISOString(),
-      whatsapp_chat_id: chatId
+      last_message_at: new Date(webhook.timestamp * 1000).toISOString()
     })
     .eq('id', client.id)
 
@@ -860,12 +802,11 @@ async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: s
     console.error('Error saving outgoing message:', insertResult.error)
   }
 
-  // Обновляем время последнего сообщения у клиента
+  // Обновляем время последнего сообщения у клиента (без whatsapp_chat_id - нет в self-hosted)
   await supabase
     .from('clients')
     .update({ 
-      last_message_at: new Date(webhook.timestamp * 1000).toISOString(),
-      whatsapp_chat_id: chatId
+      last_message_at: new Date(webhook.timestamp * 1000).toISOString()
     })
     .eq('id', client.id)
 
@@ -1017,8 +958,8 @@ async function findOrCreateClient(phoneNumber: string, displayName: string | und
       name: displayName || phoneNumber,
       phone: phoneNumber,
       organization_id: organizationId,
-      notes: 'Автоматически создан из WhatsApp',
-      whatsapp_chat_id: `${normalizedPhone}@c.us`
+      notes: 'Автоматически создан из WhatsApp'
+      // Removed whatsapp_chat_id - not in self-hosted schema
     })
     .select()
     .single()
