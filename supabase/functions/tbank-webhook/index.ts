@@ -168,12 +168,18 @@ Deno.serve(async (req) => {
         // Шаг 3: Отправляем реальное сообщение клиенту через мессенджер
         const thankYouMessage = `Оплата на сумму ${amountRub.toLocaleString('ru-RU')}₽ прошла успешно! Большое спасибо.`;
         
-        // Используем SELF_HOSTED_URL или SUPABASE_URL для вызова Edge Functions
-        const selfHostedUrl = Deno.env.get('SELF_HOSTED_URL') || supabaseUrl;
+        // Используем SELF_HOSTED_URL (если есть) или SUPABASE_URL для вызова Edge Functions
+        // SELF_HOSTED_URL должен быть в формате https://api.example.ru
+        const selfHostedUrl = Deno.env.get('SELF_HOSTED_URL');
+        const baseUrl = selfHostedUrl 
+          ? `${selfHostedUrl}/functions/v1`
+          : `${supabaseUrl}/functions/v1`;
+        
+        console.log('Using base URL for sending:', baseUrl);
         
         try {
           if (messengerType === 'whatsapp') {
-            // Получаем телефон клиента для отправки
+            // Получаем телефон клиента и настройки интеграции WhatsApp
             const { data: clientData } = await supabase
               .from('clients')
               .select('phone')
@@ -183,8 +189,31 @@ Deno.serve(async (req) => {
             if (clientData?.phone) {
               console.log('Sending WhatsApp message to client:', clientData.phone);
               
-              // Вызываем Edge Function напрямую через HTTP (для self-hosted совместимости)
-              const sendResponse = await fetch(`${selfHostedUrl}/functions/v1/wpp-send`, {
+              // Определяем провайдера WhatsApp для организации
+              const { data: integration } = await supabase
+                .from('messenger_integrations')
+                .select('provider')
+                .eq('organization_id', onlinePayment.organization_id)
+                .eq('messenger_type', 'whatsapp')
+                .eq('is_enabled', true)
+                .order('is_primary', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              
+              const provider = integration?.provider || 'wpp';
+              console.log('WhatsApp provider:', provider);
+              
+              // Выбираем правильную edge function в зависимости от провайдера
+              let sendEndpoint = 'wpp-send';
+              if (provider === 'green_api') {
+                sendEndpoint = 'whatsapp-send';
+              } else if (provider === 'wappi') {
+                sendEndpoint = 'wappi-whatsapp-send';
+              }
+              
+              console.log('Using send endpoint:', sendEndpoint);
+              
+              const sendResponse = await fetch(`${baseUrl}/${sendEndpoint}`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -198,44 +227,52 @@ Deno.serve(async (req) => {
                 }),
               });
               
+              const responseText = await sendResponse.text();
               if (!sendResponse.ok) {
-                const errorText = await sendResponse.text();
-                console.error('Failed to send WhatsApp message:', sendResponse.status, errorText);
+                console.error('Failed to send WhatsApp message:', sendResponse.status, responseText);
               } else {
-                console.log('WhatsApp thank you message sent successfully');
+                console.log('WhatsApp thank you message sent successfully:', responseText);
               }
+            } else {
+              console.log('No phone found for client:', onlinePayment.client_id);
             }
           } else if (messengerType === 'telegram') {
             // Получаем telegram_user_id клиента
             const { data: clientData } = await supabase
               .from('clients')
-              .select('telegram_user_id')
+              .select('telegram_user_id, phone')
               .eq('id', onlinePayment.client_id)
               .single();
             
-            if (clientData?.telegram_user_id) {
-              console.log('Sending Telegram message to client:', clientData.telegram_user_id);
+            const telegramId = clientData?.telegram_user_id;
+            const phone = clientData?.phone;
+            
+            if (telegramId || phone) {
+              console.log('Sending Telegram message to client:', telegramId || phone);
               
-              const sendResponse = await fetch(`${selfHostedUrl}/functions/v1/telegram-send`, {
+              const sendResponse = await fetch(`${baseUrl}/telegram-send`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${supabaseKey}`,
                 },
                 body: JSON.stringify({
-                  chat_id: clientData.telegram_user_id,
+                  chat_id: telegramId,
+                  phone: phone,
                   message: thankYouMessage,
                   client_id: onlinePayment.client_id,
                   organization_id: onlinePayment.organization_id,
                 }),
               });
               
+              const responseText = await sendResponse.text();
               if (!sendResponse.ok) {
-                const errorText = await sendResponse.text();
-                console.error('Failed to send Telegram message:', sendResponse.status, errorText);
+                console.error('Failed to send Telegram message:', sendResponse.status, responseText);
               } else {
-                console.log('Telegram thank you message sent successfully');
+                console.log('Telegram thank you message sent successfully:', responseText);
               }
+            } else {
+              console.log('No telegram_user_id or phone found for client:', onlinePayment.client_id);
             }
           }
           // MAX messenger can be added similarly if needed
