@@ -183,32 +183,47 @@ export class WppMsgClient {
   /**
    * Static method to get initial JWT token after creating a client
    * Used immediately after createClient() to save the token in DB
+   * Includes retry logic to handle API key activation delays
    */
-  static async getInitialToken(baseUrl: string, apiKey: string): Promise<{ token: string; expiresAt: number }> {
+  static async getInitialToken(
+    baseUrl: string, 
+    apiKey: string, 
+    maxRetries = 3
+  ): Promise<{ token: string; expiresAt: number }> {
     const url = `${baseUrl.replace(/\/+$/, '')}/auth/token`;
-    console.log(`[WppMsgClient] Getting initial token from ${url}`);
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      console.log(`[WppMsgClient] Getting initial token, attempt ${attempt}/${maxRetries} from ${url}`);
+      
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey }),
+      });
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey }),
-    });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.token) {
+          const expiresAt = Date.now() + (data.expiresIn || 3600) * 1000;
+          console.log(`[WppMsgClient] ✓ Initial token obtained on attempt ${attempt}, expires: ${new Date(expiresAt).toISOString()}`);
+          return { token: data.token, expiresAt };
+        }
+      }
 
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Failed to get initial token: ${res.status} ${text}`);
+      // Если это последняя попытка - выбросить ошибку
+      if (attempt === maxRetries) {
+        const text = await res.text();
+        console.error(`[WppMsgClient] Failed to get initial token after ${maxRetries} attempts: ${res.status} ${text}`);
+        throw new Error(`Failed to get initial token: ${res.status} ${text}`);
+      }
+
+      // Ждём перед следующей попыткой (1, 2, 3 секунды)
+      console.log(`[WppMsgClient] Token request failed (${res.status}), retrying in ${attempt}s...`);
+      await new Promise(r => setTimeout(r, attempt * 1000));
     }
 
-    const data = await res.json();
-    
-    if (!data.token) {
-      throw new Error('Token response missing token field');
-    }
-
-    const expiresAt = Date.now() + (data.expiresIn || 3600) * 1000;
-    console.log(`[WppMsgClient] ✓ Initial token obtained, expires: ${new Date(expiresAt).toISOString()}`);
-    
-    return { token: data.token, expiresAt };
+    // TypeScript safety - should never reach here
+    throw new Error('Unexpected end of getInitialToken');
   }
 
   /**
