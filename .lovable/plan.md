@@ -1,50 +1,58 @@
 
-## Диагностика и исправление проблем Telegram Wappi
+## Исправление нормализации телефона в telegram-send
 
-### Понимание проблемы
+### Проблема
 
-На основе ответов пользователя и анализа кода:
+Функция `normalizePhone` в `telegram-send` **не добавляет код страны "7"** для российских номеров:
 
-**Webhook (входящие сообщения)**:
-- HTTP 405 на GET — это нормально, webhook ожидает POST
-- Wappi показывает "peer not found" в логах — это означает проблему на стороне Wappi/Telegram, а не webhook
+```typescript
+// ТЕКУЩИЙ КОД (неправильный):
+function normalizePhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, '');
+  return digits.length >= 10 ? digits : null;  // ❌ 9161234567 → 9161234567
+}
+```
 
-**Отправка сообщений**:
-- Ошибка "peer not found" означает, что Telegram API не может найти получателя
-- Код использует fallback на телефон, но это НЕ РАБОТАЕТ для большинства случаев
+В базе данных номера часто хранятся **без кода страны**:
+- `9161234567` (10 цифр, начинается с 9)
+- `89161234567` (11 цифр, начинается с 8)
 
-### Почему "peer not found"?
+Wappi API ожидает формат с кодом страны: `79202223344`
 
-Telegram User API (который использует Wappi) может отправить сообщение только если:
-1. Есть **telegram_chat_id** (из предыдущего диалога)
-2. Есть **username** пользователя (например, `minayq`)
-3. Номер телефона добавлен **в контакты** Telegram-аккаунта, привязанного к Wappi
+### Решение
 
-Отправка просто по номеру телефона **не поддерживается** Telegram User API, если:
-- Номер не в ваших контактах
-- У получателя скрыт номер в настройках приватности
-- Нет истории переписки
+Заменить `normalizePhone` на `normalizePhoneForWpp` по аналогии с `wpp-send`:
 
-### План исправлений
+```typescript
+// ИСПРАВЛЕННЫЙ КОД:
+function normalizePhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  
+  let digits = phone.replace(/\D/g, '');
+  
+  // Если 11 цифр и начинается с 8 (российский формат) → заменяем на 7
+  if (digits.length === 11 && digits.startsWith('8')) {
+    digits = '7' + digits.substring(1);
+  }
+  
+  // Если 10 цифр и начинается с 9 → добавляем 7 (российский мобильный)
+  if (digits.length === 10 && digits.startsWith('9')) {
+    digits = '7' + digits;
+  }
+  
+  return digits.length >= 10 ? digits : null;
+}
+```
 
-**1. Улучшить логирование для диагностики**
+### Результат трансформаций
 
-В `telegram-send` добавить детальные логи, чтобы видеть какой именно recipient используется и почему Wappi возвращает ошибку.
-
-**2. Добавить поддержку username**
-
-Wappi поддерживает отправку по username (например, `minayq`). Нужно:
-- Добавить колонку `telegram_username` в clients/client_phone_numbers (если нет)
-- Использовать username как приоритетный fallback перед телефоном
-
-**3. Улучшить обработку ошибки "peer not found"**
-
-Вернуть понятное сообщение пользователю CRM о том, почему не удалось отправить:
-- "Клиент не найден в Telegram. Попросите его написать вам первым."
-
-**4. Webhook: добавить поддержку wh_type "outgoing_message_api"**
-
-Согласно документации Wappi, есть отдельный тип `outgoing_message_api` для сообщений, отправленных через API. Текущий код не обрабатывает его.
+| Исходный номер | Было | Станет |
+|---------------|------|--------|
+| `9161234567` | `9161234567` ❌ | `79161234567` ✓ |
+| `89161234567` | `89161234567` ❌ | `79161234567` ✓ |
+| `79161234567` | `79161234567` ✓ | `79161234567` ✓ |
+| `+7 916 123-45-67` | `79161234567` ✓ | `79161234567` ✓ |
 
 ---
 
@@ -52,71 +60,40 @@ Wappi поддерживает отправку по username (например,
 
 ### Файл: `supabase/functions/telegram-send/index.ts`
 
-**Изменения в логике определения recipient (строки 160-215)**:
+**Строки 151-158** — заменить функцию `normalizePhone`:
 
-```text
-1. Добавить приоритет username перед телефоном:
-   - telegram_chat_id (самый надёжный)
-   - telegram_user_id
-   - telegram_username (если есть)
-   - normalizePhone (последний fallback)
-
-2. Добавить детальное логирование:
-   - Логировать какие поля есть у клиента
-   - Логировать финальный recipient
-   - Логировать полный ответ от Wappi
-
-3. Улучшить обработку ошибки "peer not found":
-   - Распознавать эту ошибку
-   - Возвращать понятное сообщение
-```
-
-### Файл: `supabase/functions/telegram-webhook/index.ts`
-
-**Добавить обработку `outgoing_message_api` (строки 141-158)**:
-
-Согласно документации Wappi, помимо `outgoing_message` и `outgoing_message_phone` есть `outgoing_message_api` для сообщений, отправленных через API. Нужно добавить его в switch-case.
-
-### Файл: `supabase/functions/_shared/types.ts`
-
-**Обновить интерфейс TelegramWappiMessage (строки 1050-1076)**:
-
-Добавить недостающие поля из документации Wappi:
-- `status?: string` — для delivery_status
-- `stanza_id?: string` — ID сообщения для обновления статуса
-- `chat_type?: string` — тип чата (user, group, channel)
-- `task_id?: string` — ID задачи для API-сообщений
-
----
-
-## Рекомендации для пользователя
-
-После применения изменений:
-
-1. **Для новых клиентов**: Клиент должен **написать первым** в Telegram — только тогда появится `telegram_chat_id`
-
-2. **Для существующих клиентов без chat_id**: 
-   - Если есть username — можно отправить
-   - Если только телефон — скорее всего не сработает (ограничение Telegram)
-
-3. **Self-hosted обновление**: После деплоя скопировать функции:
-```bash
-cp -r telegram-send telegram-webhook _shared /volumes/functions/
-docker compose restart functions
+```typescript
+// Helper function to normalize phone for Wappi (digits only, with Russian +7 prefix)
+function normalizePhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  
+  // Remove all non-digit characters
+  let digits = phone.replace(/\D/g, '');
+  
+  // Если 11 цифр и начинается с 8 (российский формат) → заменяем на 7
+  if (digits.length === 11 && digits.startsWith('8')) {
+    digits = '7' + digits.substring(1);
+  }
+  
+  // Если 10 цифр и начинается с 9 → добавляем 7 (российский мобильный)
+  if (digits.length === 10 && digits.startsWith('9')) {
+    digits = '7' + digits;
+  }
+  
+  // Return null if too short after normalization
+  return digits.length >= 10 ? digits : null;
+}
 ```
 
 ---
 
-## Проверка после изменений
+## После применения
 
-1. Открыть логи edge functions на self-hosted:
-```bash
-docker compose logs -f functions | grep telegram
-```
-
-2. Попробовать отправить сообщение клиенту, у которого есть `telegram_chat_id`
-
-3. Попробовать отправить клиенту без `telegram_chat_id` — убедиться что ошибка понятная
-
-4. Попросить клиента написать в Telegram — проверить что webhook сохраняет `telegram_chat_id`
-
+1. **Деплой функции** — автоматический на Lovable Cloud
+2. **Self-hosted обновление**:
+   ```bash
+   # Скопировать обновлённую функцию
+   cp -r telegram-send /volumes/functions/
+   docker compose restart functions
+   ```
+3. **Тестирование**: отправить сообщение клиенту с номером `9161234567` → должен преобразоваться в `79161234567`
