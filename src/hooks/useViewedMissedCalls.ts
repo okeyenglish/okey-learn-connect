@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { selfHostedPost } from '@/lib/selfHostedApi';
+import { isValidUUID } from '@/lib/uuidValidation';
 
 interface MarkViewedResponse {
   success: boolean;
@@ -21,7 +22,8 @@ export const useViewedMissedCalls = (clientId: string) => {
 
   // Mark all current missed calls as viewed for this client (server-side)
   const markCallsAsViewed = useCallback(async (callIds: string[]) => {
-    if (!callIds.length) return;
+    // Skip for non-UUID clientIds (teacher markers like "teacher:xxx")
+    if (!callIds.length || !isValidUUID(clientId)) return;
 
     try {
       const response = await selfHostedPost<MarkViewedResponse>('mark-calls-viewed', {
@@ -54,7 +56,8 @@ export const useUnviewedMissedCallsCount = (clientId: string) => {
   return useQuery({
     queryKey: ['unviewed-missed-calls', clientId],
     queryFn: async (): Promise<{ count: number; ids: string[] }> => {
-      if (!clientId) {
+      // Skip for non-UUID clientIds (teacher markers like "teacher:xxx")
+      if (!clientId || !isValidUUID(clientId)) {
         return { count: 0, ids: [] };
       }
 
@@ -72,7 +75,8 @@ export const useUnviewedMissedCallsCount = (clientId: string) => {
         ids: response.data.unviewedIds,
       };
     },
-    enabled: !!clientId,
+    // Only enable for valid UUIDs
+    enabled: !!clientId && isValidUUID(clientId),
     staleTime: 30000, // 30 seconds
   });
 };

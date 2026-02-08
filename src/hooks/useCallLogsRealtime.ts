@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { dispatchIncomingCallEvent as dispatchRingtoneStart, dispatchCallEndedEvent as dispatchRingtoneStop, dispatchCallAnsweredEvent as dispatchRingtoneAnswer } from './useIncomingCallRingtone';
 import { dispatchIncomingCallEvent as dispatchNotificationStart, dispatchCallEndedEvent as dispatchNotificationEnd, dispatchCallAnsweredEvent as dispatchNotificationAnswer } from '@/components/crm/IncomingCallNotification';
+import { isValidUUID } from '@/lib/uuidValidation';
 
 interface CallLogPayload {
   id: string;
@@ -24,6 +25,10 @@ export const useCallLogsRealtime = (clientId?: string) => {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
+    // Skip for non-UUID clientIds (teacher markers like "teacher:xxx")
+    // Allow undefined/empty clientId for global subscription
+    if (clientId && !isValidUUID(clientId)) return;
+    
     // Create unique channel name
     const channelName = clientId 
       ? `call-logs-realtime-${clientId}` 
