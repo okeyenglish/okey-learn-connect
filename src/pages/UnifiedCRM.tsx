@@ -21,6 +21,7 @@ const FinancesSection = lazy(() => import('@/components/finances/NewFinancesSect
 const StudentsSection = lazy(() => import('@/components/students/StudentsSection'));
 const SubscriptionsSection = lazy(() => import('@/components/subscriptions/SubscriptionsSection'));
 const EmployeesSection = lazy(() => import('@/components/employees/EmployeesSection'));
+const BonusSettingsPage = lazy(() => import('@/components/employees/BonusSettingsPage'));
 const Sheets = lazy(() => import('./Sheets'));
 const EventBusMonitor = lazy(() => import('./EventBusMonitor'));
 const MultitenancyTest = lazy(() => import('./MultitenancyTest'));
@@ -169,6 +170,18 @@ export default function UnifiedCRM() {
                 <Suspense fallback={<LoadingComponent />}>
                   <EmployeesSection />
                 </Suspense>
+              } 
+            />
+            
+            {/* Настройки бонусов */}
+            <Route 
+              path="/employees/bonus-settings" 
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <Suspense fallback={<LoadingComponent />}>
+                    <BonusSettingsPage />
+                  </Suspense>
+                </ProtectedRoute>
               } 
             />
             

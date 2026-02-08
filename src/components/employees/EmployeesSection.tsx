@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,11 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useEmployees, getEmployeeFullName, Employee } from '@/hooks/useEmployees';
 import { useAuth } from '@/hooks/useAuth';
-import { Search, Users, Building, MoreHorizontal, Edit, Eye, Mail, Filter, Plus } from 'lucide-react';
+import { Search, Users, Building, MoreHorizontal, Edit, Eye, Mail, Filter, Plus, Settings } from 'lucide-react';
 import { AddEmployeeModal } from './AddEmployeeModal';
 import { isAdmin } from '@/lib/permissions';
 
 export default function EmployeesSection() {
+  const navigate = useNavigate();
   const { profile, roles, rolesLoading } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [branchFilter, setBranchFilter] = useState('all');
@@ -111,10 +113,16 @@ export default function EmployeesSection() {
             </p>
           </div>
           {canManageEmployees && (
-            <Button onClick={() => setShowAddModal(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Добавить сотрудника
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => navigate('/crm/employees/bonus-settings')}>
+                <Settings className="h-4 w-4 mr-2" />
+                Настройки бонусов
+              </Button>
+              <Button onClick={() => setShowAddModal(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Добавить сотрудника
+              </Button>
+            </div>
           )}
         </div>
 

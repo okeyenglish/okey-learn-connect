@@ -536,3 +536,9 @@ verify_jwt = true
 
 [functions.wpp-create]
 verify_jwt = true
+
+[functions.get-bonus-settings]
+verify_jwt = false
+
+[functions.save-bonus-settings]
+verify_jwt = false
