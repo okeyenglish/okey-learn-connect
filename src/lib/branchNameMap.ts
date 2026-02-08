@@ -1,4 +1,19 @@
+/**
+ * @deprecated Use toBranchKey from @/lib/branchUtils instead.
+ * This file is kept for backward compatibility only.
+ * 
+ * The new branchUtils.ts provides a unified normalization function
+ * that handles all edge cases including alias resolution.
+ */
+
+import { toBranchKey } from '@/lib/branchUtils';
+
+/**
+ * @deprecated Use toBranchKey from @/lib/branchUtils instead.
+ */
 export function normalizeBranchName(name: string): string {
+  // For backward compatibility, this still returns display names for specific aliases
+  // The new toBranchKey function returns normalized keys for comparison
   const n = name.trim().toLowerCase();
   const map: Record<string, string> = {
     'стахановская': 'Грайвороновская',
@@ -9,3 +24,6 @@ export function normalizeBranchName(name: string): string {
   };
   return map[n] || name;
 }
+
+// Re-export for convenience
+export { toBranchKey };

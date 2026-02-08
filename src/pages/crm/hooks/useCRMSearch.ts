@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePersistedBranch } from "@/hooks/usePersistedBranch";
 
 export const useCRMSearch = () => {
   const [hasUnsavedChat, setHasUnsavedChat] = useState(false);
@@ -7,7 +8,15 @@ export const useCRMSearch = () => {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [globalSearchResults, setGlobalSearchResults] = useState<any[]>([]);
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedBranch, setSelectedBranch] = useState<string>("all");
+  
+  // Use persisted branch with automatic normalization and migration
+  const { 
+    selectedBranch, 
+    setSelectedBranch, 
+    resetBranch,
+    validateAgainstAvailable 
+  } = usePersistedBranch('all');
+  
   const [selectedClientType, setSelectedClientType] = useState<string>("all");
   const [bulkSelectMode, setBulkSelectMode] = useState(false);
   const [selectedChatIds, setSelectedChatIds] = useState<Set<string>>(new Set());
@@ -27,6 +36,8 @@ export const useCRMSearch = () => {
     setShowFilters,
     selectedBranch,
     setSelectedBranch,
+    resetBranch,
+    validateAgainstAvailable,
     selectedClientType,
     setSelectedClientType,
     bulkSelectMode,

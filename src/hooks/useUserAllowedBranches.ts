@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { AVAILABLE_BRANCHES } from '@/hooks/useUserBranches';
+import { toBranchKey, isBranchAllowed } from '@/lib/branchUtils';
 
 /**
  * Hook для получения филиалов, доступных текущему пользователю.
@@ -62,7 +63,8 @@ export function useUserAllowedBranches() {
   });
 
   /**
-   * Проверяет, есть ли у пользователя доступ к филиалу
+   * Проверяет, есть ли у пользователя доступ к филиалу.
+   * Использует единую нормализацию из branchUtils.
    */
   const canAccessBranch = (branchName: string | null | undefined): boolean => {
     // Админы видят все
@@ -74,11 +76,8 @@ export function useUserAllowedBranches() {
     // Если филиал не указан - показываем
     if (!branchName) return true;
     
-    // Проверяем доступ
-    const normalizedBranch = normalizeBranchName(branchName);
-    return userBranches.some(
-      (b: string) => normalizeBranchName(b) === normalizedBranch
-    );
+    // Проверяем доступ через единую нормализацию
+    return isBranchAllowed(branchName, userBranches);
   };
 
   /**
@@ -108,8 +107,16 @@ export function useUserAllowedBranches() {
     return userBranches;
   };
 
+  /**
+   * Возвращает нормализованные ключи филиалов для сравнения
+   */
+  const getAllowedBranchKeys = (): string[] => {
+    return userBranches.map((b: string) => toBranchKey(b)).filter(Boolean);
+  };
+
   return {
     allowedBranches: userBranches,
+    allowedBranchKeys: getAllowedBranchKeys(),
     allBranches,
     branchesForDropdown: getBranchesForDropdown(),
     hasRestrictions: !isAdmin && userBranches.length > 0,
@@ -118,15 +125,4 @@ export function useUserAllowedBranches() {
     canAccessBranch,
     filterAllowedBranches,
   };
-}
-
-/**
- * Нормализует название филиала для сравнения
- */
-function normalizeBranchName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/okey\s*english\s*/gi, '')
-    .replace(/o'key\s*english\s*/gi, '')
-    .trim();
 }
