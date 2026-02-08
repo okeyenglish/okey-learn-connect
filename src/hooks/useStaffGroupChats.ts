@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/typedClient';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
@@ -22,6 +22,7 @@ export interface StaffGroupChat {
     sender_name?: string;
   } | null;
   unread_count?: number;
+  is_member?: boolean;
 }
 
 export interface StaffGroupMember {
@@ -39,8 +40,8 @@ export interface StaffGroupMember {
 }
 
 /**
- * Hook to fetch all staff group chats the user is a member of
- * This replaces the old useInternalChats hook
+ * Hook to fetch all staff group chats in the organization
+ * Uses self-hosted API since tables are on self-hosted Supabase
  */
 export const useStaffGroupChats = () => {
   const { user, profile } = useAuth();
@@ -50,35 +51,17 @@ export const useStaffGroupChats = () => {
     queryFn: async () => {
       if (!user?.id || !profile?.organization_id) return [];
       
-      // Fetch ALL groups in the organization (for display in list)
-      // Branch groups should be visible to everyone in the org
-      const { data: allGroups, error: groupsError } = await supabase
-        .from('staff_group_chats')
-        .select('*')
-        .eq('organization_id', profile.organization_id)
-        .order('is_branch_group', { ascending: false }) // Branch groups first
-        .order('name', { ascending: true });
+      const response = await selfHostedPost<{ groups: StaffGroupChat[] }>('get-staff-group-chats', {
+        organization_id: profile.organization_id,
+        user_id: user.id,
+      });
       
-      if (groupsError) {
-        console.error('[useStaffGroupChats] Error fetching groups:', groupsError);
+      if (!response.success) {
+        console.error('[useStaffGroupChats] Error:', response.error);
         return [];
       }
       
-      // Also get user's memberships to know which groups they're in
-      const { data: memberships } = await supabase
-        .from('staff_group_chat_members')
-        .select('group_chat_id')
-        .eq('user_id', user.id);
-      
-      const memberGroupIds = new Set((memberships || []).map(m => m.group_chat_id));
-      
-      // Mark groups user is a member of
-      const groupsWithMembership = (allGroups || []).map(group => ({
-        ...group,
-        is_member: memberGroupIds.has(group.id),
-      }));
-      
-      return groupsWithMembership as (StaffGroupChat & { is_member?: boolean })[];
+      return response.data?.groups || [];
     },
     enabled: !!user?.id && !!profile?.organization_id,
     staleTime: 30 * 1000, // 30 seconds
@@ -94,21 +77,16 @@ export const useStaffGroupMembers = (groupId: string) => {
     queryFn: async () => {
       if (!groupId) return [];
       
-      const { data, error } = await supabase
-        .from('staff_group_chat_members')
-        .select(`
-          *,
-          profile:profiles(first_name, last_name, email, branch)
-        `)
-        .eq('group_chat_id', groupId)
-        .order('joined_at', { ascending: true });
+      const response = await selfHostedPost<{ members: StaffGroupMember[] }>('get-staff-group-members', {
+        group_id: groupId,
+      });
       
-      if (error) {
-        console.error('[useStaffGroupMembers] Error:', error);
+      if (!response.success) {
+        console.error('[useStaffGroupMembers] Error:', response.error);
         return [];
       }
       
-      return (data || []) as StaffGroupMember[];
+      return response.data?.members || [];
     },
     enabled: !!groupId,
   });
@@ -133,45 +111,27 @@ export const useCreateStaffGroupChat = () => {
         throw new Error('Требуется авторизация');
       }
       
-      // Create the group
-      const { data: group, error: groupError } = await supabase
-        .from('staff_group_chats')
-        .insert({
-          name: data.name,
-          description: data.description || null,
-          organization_id: profile.organization_id,
-          branch_name: data.branch_name || null,
-          is_branch_group: data.is_branch_group || false,
-          created_by: user.id,
-        })
-        .select()
-        .single();
+      const response = await selfHostedPost<{ group: StaffGroupChat }>('create-staff-group-chat', {
+        name: data.name,
+        description: data.description || null,
+        organization_id: profile.organization_id,
+        branch_name: data.branch_name || null,
+        is_branch_group: data.is_branch_group || false,
+        created_by: user.id,
+        member_ids: data.member_ids,
+      });
       
-      if (groupError) throw groupError;
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to create group');
+      }
       
-      // Add creator as admin
-      const membersToAdd = [
-        { group_chat_id: group.id, user_id: user.id, role: 'admin' },
-        ...data.member_ids.map(id => ({
-          group_chat_id: group.id,
-          user_id: id,
-          role: 'member',
-        })),
-      ];
-      
-      const { error: membersError } = await supabase
-        .from('staff_group_chat_members')
-        .insert(membersToAdd);
-      
-      if (membersError) throw membersError;
-      
-      return group as StaffGroupChat;
+      return response.data?.group as StaffGroupChat;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff-group-chats'] });
       toast.success('Группа создана');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error('[useCreateStaffGroupChat] Error:', error);
       toast.error(error.message || 'Ошибка создания группы');
     },
@@ -186,25 +146,22 @@ export const useAddGroupMember = () => {
   
   return useMutation({
     mutationFn: async (data: { groupId: string; userId: string; role?: string }) => {
-      const { error } = await supabase
-        .from('staff_group_chat_members')
-        .upsert({
-          group_chat_id: data.groupId,
-          user_id: data.userId,
-          role: data.role || 'member',
-        }, {
-          onConflict: 'group_chat_id,user_id',
-          ignoreDuplicates: true,
-        });
+      const response = await selfHostedPost('add-staff-group-member', {
+        group_id: data.groupId,
+        user_id: data.userId,
+        role: data.role || 'member',
+      });
       
-      if (error) throw error;
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to add member');
+      }
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['staff-group-members', variables.groupId] });
       queryClient.invalidateQueries({ queryKey: ['staff-group-chats'] });
       toast.success('Участник добавлен');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error.message || 'Ошибка добавления участника');
     },
   });
@@ -218,20 +175,21 @@ export const useRemoveGroupMember = () => {
   
   return useMutation({
     mutationFn: async (data: { groupId: string; userId: string }) => {
-      const { error } = await supabase
-        .from('staff_group_chat_members')
-        .delete()
-        .eq('group_chat_id', data.groupId)
-        .eq('user_id', data.userId);
+      const response = await selfHostedPost('remove-staff-group-member', {
+        group_id: data.groupId,
+        user_id: data.userId,
+      });
       
-      if (error) throw error;
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to remove member');
+      }
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['staff-group-members', variables.groupId] });
       queryClient.invalidateQueries({ queryKey: ['staff-group-chats'] });
       toast.success('Участник удалён');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error.message || 'Ошибка удаления участника');
     },
   });
@@ -248,19 +206,20 @@ export const useLeaveGroup = () => {
     mutationFn: async (groupId: string) => {
       if (!user?.id) throw new Error('Требуется авторизация');
       
-      const { error } = await supabase
-        .from('staff_group_chat_members')
-        .delete()
-        .eq('group_chat_id', groupId)
-        .eq('user_id', user.id);
+      const response = await selfHostedPost('remove-staff-group-member', {
+        group_id: groupId,
+        user_id: user.id,
+      });
       
-      if (error) throw error;
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to leave group');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff-group-chats'] });
       toast.success('Вы покинули группу');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error.message || 'Ошибка выхода из группы');
     },
   });
