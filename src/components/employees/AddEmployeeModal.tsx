@@ -327,24 +327,22 @@ export const AddEmployeeModal = ({
                     <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-full p-0" align="start">
-                  <ScrollArea className="h-[200px]">
-                    <div className="p-2 space-y-1">
-                      {branches.map((branch) => (
-                        <div
-                          key={branch.id}
-                          className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
-                          onClick={() => handleBranchToggle(branch.name)}
-                        >
-                          <Checkbox
-                            checked={formData.branches.includes(branch.name)}
-                            onCheckedChange={() => handleBranchToggle(branch.name)}
-                          />
-                          <span className="text-sm">{branch.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                  <div className="max-h-[250px] overflow-y-auto p-2 space-y-1">
+                    {branches.map((branch) => (
+                      <div
+                        key={branch.id}
+                        className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
+                        onClick={() => handleBranchToggle(branch.name)}
+                      >
+                        <Checkbox
+                          checked={formData.branches.includes(branch.name)}
+                          onCheckedChange={() => handleBranchToggle(branch.name)}
+                        />
+                        <span className="text-sm">{branch.name}</span>
+                      </div>
+                    ))}
+                  </div>
                 </PopoverContent>
               </Popover>
               {branchesError && (
