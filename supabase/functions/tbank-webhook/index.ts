@@ -220,10 +220,10 @@ Deno.serve(async (req) => {
                   'Authorization': `Bearer ${supabaseKey}`,
                 },
                 body: JSON.stringify({
-                  phone: clientData.phone,
+                  clientId: onlinePayment.client_id,
+                  phoneNumber: clientData.phone,
                   message: thankYouMessage,
-                  client_id: onlinePayment.client_id,
-                  organization_id: onlinePayment.organization_id,
+                  organizationId: onlinePayment.organization_id,
                 }),
               });
               

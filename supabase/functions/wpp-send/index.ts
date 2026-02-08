@@ -49,33 +49,43 @@ Deno.serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '')
+    let orgId: string | null = null
+
+    // Try to authenticate via user JWT first
     const { data: { user }, error: userError } = await supabase.auth.getUser(token)
     
-    if (userError || !user) {
-      return errorResponse('Unauthorized', 401)
+    if (user && !userError) {
+      // User JWT authentication succeeded
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single()
+      
+      orgId = profile?.organization_id || null
+      console.log('[wpp-send] User auth succeeded, orgId:', orgId)
+    } else {
+      // Fallback: service role call from other Edge Functions (e.g., tbank-webhook)
+      // Get organization_id from request body
+      const bodyClone = req.clone()
+      const bodyPayload = await bodyClone.json().catch(() => ({}))
+      orgId = bodyPayload.organizationId || bodyPayload.organization_id || null
+      console.log('[wpp-send] Service role fallback, orgId from body:', orgId)
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('organization_id')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile?.organization_id) {
-      return errorResponse('Organization not found', 404)
+    if (!orgId) {
+      return errorResponse('Organization not found - provide organizationId in body for service calls', 404)
     }
-
-    const orgId = profile.organization_id
     const payload = await req.json().catch(() => ({} as WppSendRequest))
 
-    // Find WPP integration
+    // Find WPP integration (use is_enabled instead of is_active)
     let integrationQuery = supabase
       .from('messenger_integrations')
       .select('id, settings')
       .eq('organization_id', orgId)
       .eq('messenger_type', 'whatsapp')
       .eq('provider', 'wpp')
-      .eq('is_active', true)
+      .eq('is_enabled', true)
 
     if (payload.integration_id) {
       integrationQuery = integrationQuery.eq('id', payload.integration_id)
@@ -93,7 +103,7 @@ Deno.serve(async (req) => {
         .eq('organization_id', orgId)
         .eq('messenger_type', 'whatsapp')
         .eq('provider', 'wpp')
-        .eq('is_active', true)
+        .eq('is_enabled', true)
         .limit(1)
         .maybeSingle()
 

@@ -148,6 +148,11 @@ Deno.serve(async (req) => {
           .single();
         
         organizationId = profile?.organization_id as string | null;
+        console.log('[whatsapp-send] User auth succeeded, orgId:', organizationId);
+      } else {
+        // Fallback: service role call from other Edge Functions (e.g., tbank-webhook)
+        // Will get organization_id from payload.organizationId or client lookup below
+        console.log('[whatsapp-send] User auth failed, will use service role fallback');
       }
     }
 
@@ -195,27 +200,44 @@ Deno.serve(async (req) => {
       }
     }
 
-    const { clientId, message, phoneNumber, fileUrl, fileName, phoneId, integrationId } = payload as WhatsAppSendRequest & { integrationId?: string };
+    const { clientId, message, phoneNumber, fileUrl, fileName, phoneId, integrationId, organizationId: bodyOrgId } = payload as WhatsAppSendRequest & { integrationId?: string; organizationId?: string };
     
-    if (!clientId) {
-      return errorResponse('clientId is required', 400);
+    // For service role calls (e.g., from tbank-webhook), clientId may be optional if we have phone + organizationId
+    if (!clientId && !phoneNumber) {
+      return errorResponse('clientId or phoneNumber is required', 400);
     }
     
-    console.log('[whatsapp-send] Sending message:', { clientId, message, phoneNumber, fileUrl, fileName, phoneId, integrationId });
+    // Use organizationId from body for service role calls if not authenticated
+    if (!organizationId && bodyOrgId) {
+      organizationId = bodyOrgId;
+      console.log('[whatsapp-send] Using organizationId from body:', organizationId);
+    }
+    
+    console.log('[whatsapp-send] Sending message:', { clientId, message, phoneNumber, fileUrl, fileName, phoneId, integrationId, organizationId });
 
-    // Получаем данные клиента
-    const { data: client, error: clientError } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('id', clientId)
-      .single();
+    // Получаем данные клиента (если clientId указан)
+    let client: Record<string, unknown> | null = null;
+    if (clientId) {
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('id', clientId)
+        .single();
 
-    if (clientError || !client) {
-      throw new Error(`Client not found: ${clientError?.message}`);
+      if (clientError || !clientData) {
+        throw new Error(`Client not found: ${clientError?.message}`);
+      }
+      client = clientData;
+      // Use client's organization_id if not provided
+      if (!organizationId) {
+        organizationId = client.organization_id as string;
+      }
     }
 
-    // Use client's organization_id
-    organizationId = client.organization_id as string;
+    // Validate we have organization_id at this point
+    if (!organizationId) {
+      return errorResponse('organizationId is required for service role calls without clientId', 400);
+    }
 
     // Get WhatsApp settings (new multi-account logic)
     const greenApiSettings = await getGreenApiSettings(supabase, organizationId, integrationId);
@@ -230,8 +252,8 @@ Deno.serve(async (req) => {
     // Определяем chat ID для WhatsApp
     let chatId: string | null = null;
     
-    // Priority 1: Use specified phone number's chat ID
-    if (phoneId) {
+    // Priority 1: Use specified phone number's chat ID (only if clientId provided)
+    if (phoneId && clientId) {
       const { data: phoneRecord } = await supabase
         .from('client_phone_numbers')
         .select('whatsapp_chat_id, phone')
@@ -249,8 +271,8 @@ Deno.serve(async (req) => {
       }
     }
     
-    // Priority 2: Use primary phone number's chat ID
-    if (!chatId) {
+    // Priority 2: Use primary phone number's chat ID (only if clientId provided)
+    if (!chatId && clientId) {
       const { data: primaryPhone } = await supabase
         .from('client_phone_numbers')
         .select('whatsapp_chat_id, phone')
@@ -269,16 +291,16 @@ Deno.serve(async (req) => {
     }
     
     // Priority 3: Fall back to client's whatsapp_chat_id (backward compatibility)
-    if (!chatId) {
+    if (!chatId && client) {
       chatId = client.whatsapp_chat_id as string | null;
     }
     
     // Priority 4: Use provided phone number or client phone
     if (!chatId) {
-      let phone = phoneNumber || (client.phone as string | undefined);
+      let phone = phoneNumber || (client?.phone as string | undefined);
       
-      // Если номера нет, ищем в client_phone_numbers
-      if (!phone) {
+      // Если номера нет и есть clientId, ищем в client_phone_numbers
+      if (!phone && clientId) {
         const { data: phoneNumbers } = await supabase
           .from('client_phone_numbers')
           .select('phone')
@@ -303,7 +325,7 @@ Deno.serve(async (req) => {
       }
       
       if (!phone) {
-        throw new Error('No phone number available for client');
+        throw new Error('No phone number available - provide phoneNumber or clientId');
       }
       
       // Форматируем номер для WhatsApp с нормализацией российских номеров
@@ -311,11 +333,13 @@ Deno.serve(async (req) => {
       console.log('[whatsapp-send] Normalized phone:', cleanPhone, '(original:', phone, ')');
       chatId = `${cleanPhone}@c.us`;
       
-      // Сохраняем chat ID в базе данных
-      await supabase
-        .from('clients')
-        .update({ whatsapp_chat_id: chatId })
-        .eq('id', clientId);
+      // Сохраняем chat ID в базе данных только если есть clientId
+      if (clientId) {
+        await supabase
+          .from('clients')
+          .update({ whatsapp_chat_id: chatId })
+          .eq('id', clientId);
+      }
     }
 
     let greenApiResponse: GreenAPIResponse;
@@ -332,37 +356,45 @@ Deno.serve(async (req) => {
     // Сохраняем сообщение в базу данных - используем 'sent' сразу при успехе для мгновенной обратной связи
     const messageStatus = greenApiResponse.error ? 'failed' : 'sent';
     
-    const { data: savedMessage, error: saveError } = await supabase
-      .from('chat_messages')
-      .insert({
-        client_id: clientId,
-        organization_id: client.organization_id,
-        message_text: message,
-        message_type: 'manager',
-        messenger_type: 'whatsapp',
-        message_status: messageStatus,
-        external_message_id: greenApiResponse.idMessage,
-        is_outgoing: true,
-        is_read: true,
-        file_url: fileUrl,
-        file_name: fileName,
-        file_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null
-      })
-      .select()
-      .single();
+    // Сохраняем сообщение в базу данных только если есть clientId
+    let savedMessage: Record<string, unknown> | null = null;
+    if (clientId) {
+      const { data: savedMsgData, error: saveError } = await supabase
+        .from('chat_messages')
+        .insert({
+          client_id: clientId,
+          organization_id: organizationId,
+          message_text: message,
+          message_type: 'manager',
+          messenger_type: 'whatsapp',
+          message_status: messageStatus,
+          external_message_id: greenApiResponse.idMessage,
+          is_outgoing: true,
+          is_read: true,
+          file_url: fileUrl,
+          file_name: fileName,
+          file_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null
+        })
+        .select()
+        .single();
 
-    if (saveError) {
-      console.error('Error saving message to database:', saveError);
-      throw saveError;
+      if (saveError) {
+        console.error('Error saving message to database:', saveError);
+        // Don't throw - message was sent successfully, just logging failed
+      } else {
+        savedMessage = savedMsgData;
+      }
+
+      // Обновляем время последнего сообщения у клиента
+      await supabase
+        .from('clients')
+        .update({ 
+          last_message_at: new Date().toISOString()
+        })
+        .eq('id', clientId);
+    } else {
+      console.log('[whatsapp-send] No clientId, skipping message save to DB');
     }
-
-    // Обновляем время последнего сообщения у клиента
-    await supabase
-      .from('clients')
-      .update({ 
-        last_message_at: new Date().toISOString()
-      })
-      .eq('id', clientId);
 
     const response: WhatsAppSendResponse = {
       success: !greenApiResponse.error,
