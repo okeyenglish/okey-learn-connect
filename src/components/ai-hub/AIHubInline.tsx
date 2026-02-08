@@ -38,6 +38,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useAuth } from '@/hooks/useAuth';
+import { isAdmin } from '@/lib/permissions';
 import { useQueryClient } from '@tanstack/react-query';
 import { useStaffGroupChats, StaffGroupChat } from '@/hooks/useStaffGroupChats';
 import { useTeacherChats, TeacherChatItem, useEnsureTeacherClient } from '@/hooks/useTeacherChats';
@@ -257,8 +258,9 @@ export const AIHubInline = ({
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const fileUploadRef = useRef<FileUploadRef>(null);
-  const { user } = useAuth();
+  const { user, roles } = useAuth();
   const queryClient = useQueryClient();
+  const userIsAdmin = isAdmin(roles);
 
   const { data: staffGroupChats, isLoading: groupChatsLoading } = useStaffGroupChats();
   const { teachers, isLoading: teachersLoading } = useTeacherChats(null);
@@ -1033,16 +1035,21 @@ export const AIHubInline = ({
           {communityChats.length > 0 && (
             <div className="space-y-1">
               <button 
-                onClick={toggleCommunitiesSection} 
-                className="w-full px-3 py-2 flex items-center justify-between hover:bg-muted/30 transition-colors rounded-lg"
+                onClick={userIsAdmin ? toggleCommunitiesSection : undefined} 
+                className={`w-full px-3 py-2 flex items-center justify-between transition-colors rounded-lg ${userIsAdmin ? 'hover:bg-muted/30 cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
               >
                 <div className="flex items-center gap-2">
-                  {communitiesSectionExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                  {communitiesSectionExpanded && userIsAdmin ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                   <Users className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium text-muted-foreground">Сообщества</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  {communityUnread > 0 && (
+                  {!userIsAdmin && (
+                    <Badge variant="secondary" className="text-[10px] h-4 px-1.5 shrink-0">
+                      скоро
+                    </Badge>
+                  )}
+                  {userIsAdmin && communityUnread > 0 && (
                     <Badge className="bg-destructive text-destructive-foreground text-xs h-5 min-w-[24px] flex items-center justify-center rounded-full">
                       {communityUnread}
                     </Badge>
@@ -1053,7 +1060,7 @@ export const AIHubInline = ({
                 </div>
               </button>
               
-              {communitiesSectionExpanded && (
+              {communitiesSectionExpanded && userIsAdmin && (
                 <div className="space-y-1 pl-2">
                   {communityChats.map((community) => (
                     <button 
@@ -1067,7 +1074,7 @@ export const AIHubInline = ({
                       <div className="flex items-start justify-between gap-2 max-w-full overflow-hidden">
                         <div className="flex items-start gap-2 flex-1 min-w-0">
                           <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-border/30">
-                            <AvatarFallback className="bg-blue-500/10 text-blue-600">
+                            <AvatarFallback className="bg-primary/10 text-primary">
                               <Users className="h-4 w-4" />
                             </AvatarFallback>
                           </Avatar>
