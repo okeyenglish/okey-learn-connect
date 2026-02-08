@@ -57,10 +57,10 @@ Deno.serve(async (req) => {
       else console.log('Webhook logged to webhook_logs');
     });
 
-    // Находим онлайн-платеж по OrderId
+    // Находим онлайн-платеж по OrderId (включая source_messenger_type)
     const { data: onlinePayment, error: findError } = await supabase
       .from('online_payments')
-      .select('*, terminal:payment_terminals(*)')
+      .select('*, terminal:payment_terminals(*), source_messenger_type')
       .eq('order_id', notification.OrderId)
       .single();
 
@@ -132,8 +132,12 @@ Deno.serve(async (req) => {
       }
 
       // Шаг 2: Создаём сообщение в чате клиента при успешной оплате
+      // Используем source_messenger_type чтобы сообщение появилось в правильной вкладке
       if (onlinePayment.client_id && onlinePayment.organization_id) {
         console.log('Creating chat message for client:', onlinePayment.client_id);
+
+        const messengerType = onlinePayment.source_messenger_type || 'whatsapp';
+        console.log('Using messenger_type:', messengerType);
 
         const { error: chatError } = await supabase.from('chat_messages').insert({
           client_id: onlinePayment.client_id,
@@ -142,7 +146,7 @@ Deno.serve(async (req) => {
           message_type: 'system',
           is_outgoing: false,
           is_read: false,
-          messenger_type: 'system',
+          messenger_type: messengerType, // Теперь берётся из source_messenger_type
         });
 
         if (chatError) {

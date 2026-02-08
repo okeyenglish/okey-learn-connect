@@ -14,6 +14,7 @@ interface SendPaymentLinkModalProps {
   onOpenChange: (open: boolean) => void;
   clientId: string;
   clientName: string;
+  messengerType?: 'whatsapp' | 'telegram' | 'max';
   onPaymentLinkGenerated: (data: { url: string; amount: number; description?: string }) => void;
 }
 
@@ -22,6 +23,7 @@ export const SendPaymentLinkModal = ({
   onOpenChange,
   clientId,
   clientName,
+  messengerType = 'whatsapp',
   onPaymentLinkGenerated,
 }: SendPaymentLinkModalProps) => {
   const [amount, setAmount] = useState('');
@@ -45,6 +47,7 @@ export const SendPaymentLinkModal = ({
         client_id: clientId,
         amount: parseFloat(amount),
         description: description || `Оплата от ${clientName}`,
+        source_messenger_type: messengerType,
       });
 
       if (!response.success) throw new Error(response.error);

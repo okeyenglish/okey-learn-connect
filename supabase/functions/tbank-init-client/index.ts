@@ -11,6 +11,7 @@ interface InitPaymentRequest {
   description?: string;
   success_url?: string;
   fail_url?: string;
+  source_messenger_type?: string; // whatsapp/telegram/max
 }
 
 interface TBankInitResponse {
@@ -49,7 +50,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { client_id, amount, description, success_url, fail_url }: InitPaymentRequest = await req.json();
+    const { client_id, amount, description, success_url, fail_url, source_messenger_type }: InitPaymentRequest = await req.json();
 
     if (!client_id || !amount) {
       return new Response(
@@ -191,6 +192,7 @@ Deno.serve(async (req) => {
         error_code: tbankResponse.ErrorCode !== '0' ? tbankResponse.ErrorCode : null,
         error_message: tbankResponse.Message || tbankResponse.Details,
         description: description,
+        source_messenger_type: source_messenger_type || 'whatsapp',
         raw_request: requestData,
         raw_response: tbankResponse,
       })
