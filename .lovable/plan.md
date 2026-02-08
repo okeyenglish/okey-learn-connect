@@ -1,184 +1,138 @@
 
+# План: Обработка вебхуков T-Bank и отображение платежей в диалоге клиента
 
-## План: Добавление сотрудников для Self-Hosted Supabase
+## Проблема
 
-### Суть проблемы
+Вебхук T-Bank (`https://api.academyos.ru/functions/v1/tbank-webhook`) настроен в функции, но:
 
-Кнопка "Добавить сотрудника" не отображается, потому что:
+1. **События от T-Bank возможно не доходят или не обрабатываются** — нет логов в функции
+2. **При успешной оплате не создаётся сообщение в чат клиента** — логика создаёт только запись в таблице `payments`, но не уведомляет CRM-интерфейс
+3. **В диалоге клиента не видно факта оплаты** — нужно создавать сообщение типа "payment_confirmed" или использовать формат `xxx_success СУММА`, который уже поддерживает `SalebotCallbackMessage`
 
-1. **Роли загружаются из self-hosted базы** через RPC функции `get_user_roles` и `get_user_role`
-2. **Preview Lovable** использует Lovable Cloud Supabase (не self-hosted), где данные о ролях отсутствуют
-3. **`AddEmployeeModal`** использует таблицу `employee_invitations`, которой нет в `database.types.ts`
+## Решение
 
----
+### Шаг 1: Добавить логирование в webhook_logs
+
+Добавить запись в `webhook_logs` при получении любого события от T-Bank для диагностики:
+
+```text
+webhook_logs.insert({
+  messenger_type: 'tbank',
+  event_type: 'webhook_received',
+  webhook_data: notification,
+  processed: false
+})
+```
+
+### Шаг 2: Создавать сообщение в чате клиента при успешной оплате
+
+При статусе `CONFIRMED` и `Success=true`:
+
+1. Найти `client_id` из `online_payments`
+2. Создать сообщение в `chat_messages` с форматом, понятным `SalebotCallbackMessage`:
+   - Формат: `tbank_success СУММА` (например, `tbank_success 11990`)
+   - Или использовать простой текстовый формат с иконкой
+
+```text
+chat_messages.insert({
+  client_id: onlinePayment.client_id,
+  organization_id: onlinePayment.organization_id,
+  content: `tbank_success ${amount}`,
+  message_type: 'system',
+  direction: 'incoming',
+  messenger: 'system',
+  status: 'delivered'
+})
+```
+
+### Шаг 3: Обновить SalebotCallbackMessage
+
+Расширить регулярное выражение `SUCCESS_PAYMENT_REGEX` для поддержки формата `tbank_success СУММА`:
+
+```typescript
+// Было:
+const SUCCESS_PAYMENT_REGEX = /^[a-z0-9]+_success\s+(\d+)$/i;
+
+// Останется таким же, так как tbank_success 11990 уже соответствует паттерну
+```
+
+Паттерн уже поддерживает любой префикс `[a-z0-9]+_success`, включая `tbank_success`.
+
+### Шаг 4: Добавить поддержку client_id в логику вебхука
+
+Проверить связь `online_payments.client_id` (добавлено миграцией `20260119111814`) и использовать его для создания сообщения.
 
 ## Технические изменения
 
-### 1. Расширить проверку прав доступа
+### Файл: `supabase/functions/tbank-webhook/index.ts`
 
-**Файл: `src/components/employees/EmployeesSection.tsx`**
+1. Добавить логирование в `webhook_logs` в начале обработки
+2. После успешного платежа (`CONFIRMED` + `Success`) — создать сообщение в `chat_messages` для клиента
+3. Пометить `webhook_logs` как обработанный
 
-Вместо строгой проверки только на admin, разрешить доступ для:
-- `admin`
-- `manager`
-- `branch_manager`
+```text
+// Добавить в начало после парсинга notification:
+await supabase.from('webhook_logs').insert({
+  messenger_type: 'tbank',
+  event_type: notification.Status || 'unknown',
+  webhook_data: notification,
+  processed: false
+});
 
-```typescript
-// Строка 24 — заменить:
-const userIsAdmin = !rolesLoading && isAdmin(roles);
-
-// На:
-const canManageEmployees = !rolesLoading && (
-  isAdmin(roles) || 
-  roles?.includes('manager') || 
-  roles?.includes('branch_manager')
-);
-```
-
-```typescript
-// Строка 109 — заменить userIsAdmin на canManageEmployees:
-{canManageEmployees && (
-  <Button onClick={() => setShowAddModal(true)}>
-    <Plus className="h-4 w-4 mr-2" />
-    Добавить сотрудника
-  </Button>
-)}
-```
-
----
-
-### 2. Добавить интерфейс EmployeeInvitation в типы
-
-**Файл: `src/integrations/supabase/database.types.ts`**
-
-Добавить интерфейс для таблицы приглашений (после строки ~616):
-
-```typescript
-export type EmployeeInvitationStatus = 'pending' | 'accepted' | 'expired' | 'cancelled';
-
-export interface EmployeeInvitation {
-  id: string;
-  organization_id: string;
-  first_name: string;
-  phone: string;
-  branch: string | null;
-  position: string;
-  invite_token: string;
-  status: EmployeeInvitationStatus;
-  created_by: string | null;
-  accepted_by: string | null;
-  expires_at: string;
-  created_at: string;
-  updated_at: string;
+// Добавить после создания payment (при CONFIRMED):
+if (onlinePayment.client_id) {
+  const amountRub = onlinePayment.amount / 100;
+  await supabase.from('chat_messages').insert({
+    client_id: onlinePayment.client_id,
+    organization_id: onlinePayment.organization_id,
+    content: `tbank_success ${amountRub}`,
+    message_type: 'system',
+    direction: 'incoming',
+    messenger: 'system',
+    status: 'delivered'
+  });
+  
+  // Обновить last_message_at у клиента
+  await supabase.from('clients')
+    .update({ last_message_at: new Date().toISOString() })
+    .eq('id', onlinePayment.client_id);
 }
+
+// Пометить лог как обработанный
+await supabase.from('webhook_logs')
+  .update({ processed: true })
+  .eq('webhook_data->>OrderId', notification.OrderId);
 ```
 
-Добавить в CustomDatabase.Tables:
+### Файл: `src/components/crm/SalebotCallbackMessage.tsx`
+
+Добавить специфичную обработку для T-Bank платежей с более красивым отображением:
 
 ```typescript
-employee_invitations: {
-  Row: EmployeeInvitation;
-  Insert: Partial<EmployeeInvitation>;
-  Update: Partial<EmployeeInvitation>;
-  Relationships: [
-    { foreignKeyName: "employee_invitations_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] }
-  ];
+// Добавить в CALLBACK_CONFIG:
+const CALLBACK_CONFIG = {
+  // ... существующие
+  tbank_payment: { label: 'Онлайн-оплата Т-Банк', icon: CreditCard, color: 'text-green-600' },
 };
+
+// Обновить логику для распознавания tbank_success
+const TBANK_SUCCESS_REGEX = /^tbank_success\s+(\d+(?:\.\d+)?)$/i;
+
+// В компоненте проверять этот паттерн и показывать красивое сообщение
 ```
 
----
+## Что нужно проверить на self-hosted
 
-### 3. SQL миграция для Self-Hosted
+После деплоя на self-hosted (`api.academyos.ru`):
 
-Для создания таблицы `employee_invitations` на self-hosted сервере:
-
-```sql
--- Создаём enum для статуса
-DO $$ BEGIN
-  CREATE TYPE employee_invitation_status AS ENUM ('pending', 'accepted', 'expired', 'cancelled');
-EXCEPTION
-  WHEN duplicate_object THEN null;
-END $$;
-
--- Создаём таблицу приглашений сотрудников
-CREATE TABLE IF NOT EXISTS public.employee_invitations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
-  first_name TEXT NOT NULL,
-  phone TEXT NOT NULL,
-  branch TEXT,
-  position TEXT NOT NULL DEFAULT 'manager',
-  invite_token TEXT UNIQUE DEFAULT encode(gen_random_bytes(32), 'hex'),
-  status TEXT NOT NULL DEFAULT 'pending',
-  created_by UUID REFERENCES auth.users(id),
-  accepted_by UUID REFERENCES auth.users(id),
-  expires_at TIMESTAMPTZ DEFAULT now() + interval '7 days',
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- RLS политики
-ALTER TABLE public.employee_invitations ENABLE ROW LEVEL SECURITY;
-
--- Пользователи организации могут просматривать свои приглашения
-CREATE POLICY "Users can view their organization invitations" ON public.employee_invitations
-  FOR SELECT USING (organization_id = get_user_organization_id());
-
--- Менеджеры могут создавать приглашения
-CREATE POLICY "Managers can create invitations" ON public.employee_invitations
-  FOR INSERT WITH CHECK (
-    organization_id = get_user_organization_id() AND
-    (is_admin() OR has_role(auth.uid(), 'manager') OR has_role(auth.uid(), 'branch_manager'))
-  );
-
--- Менеджеры могут обновлять приглашения
-CREATE POLICY "Managers can update invitations" ON public.employee_invitations
-  FOR UPDATE USING (
-    organization_id = get_user_organization_id() AND
-    (is_admin() OR has_role(auth.uid(), 'manager') OR has_role(auth.uid(), 'branch_manager'))
-  );
-
--- Service role для edge functions
-CREATE POLICY "Service role full access" ON public.employee_invitations
-  FOR ALL USING (true);
-
--- Триггер обновления updated_at
-CREATE TRIGGER update_employee_invitations_updated_at
-  BEFORE UPDATE ON public.employee_invitations
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Индексы
-CREATE INDEX IF NOT EXISTS idx_employee_invitations_org ON public.employee_invitations(organization_id);
-CREATE INDEX IF NOT EXISTS idx_employee_invitations_token ON public.employee_invitations(invite_token);
-CREATE INDEX IF NOT EXISTS idx_employee_invitations_status ON public.employee_invitations(status);
-```
-
----
-
-### 4. Назначение роли admin (SQL для self-hosted)
-
-```sql
--- Уже предоставлено ранее, но для полноты:
-INSERT INTO user_roles (user_id, role) 
-VALUES ('0a5d61cf-f502-464c-887a-86ad763cf7e7', 'admin')
-ON CONFLICT (user_id, role) DO NOTHING;
-```
-
----
-
-## Порядок действий
-
-1. ✅ **Применить изменения в коде** (EmployeesSection.tsx, database.types.ts) — **ВЫПОЛНЕНО**
-2. **Выполнить SQL миграцию** на self-hosted для создания таблицы `employee_invitations`
-3. **Убедиться что роль admin назначена** для пользователя `0a5d61cf-f502-464c-887a-86ad763cf7e7`
-4. **Задеплоить код на self-hosted** или проверить в production CRM
-
----
+1. **Убедиться что T-Bank отправляет вебхуки** — проверить настройки в личном кабинете T-Bank, URL должен быть `https://api.academyos.ru/functions/v1/tbank-webhook`
+2. **Проверить логи в базе** — `SELECT * FROM webhook_logs WHERE messenger_type = 'tbank' ORDER BY created_at DESC LIMIT 10`
+3. **Проверить что client_id заполняется** при создании online_payment через `tbank-init-client`
 
 ## Результат
 
-- ✅ Кнопка "Добавить сотрудника" видна для admin, manager, branch_manager
-- ✅ Типы TypeScript содержат EmployeeInvitation для self-hosted схемы
-- Модальное окно создаёт приглашение с токеном
-- Сотрудник получает ссылку для заполнения анкеты
-
+После реализации:
+- Все входящие вебхуки от T-Bank логируются в `webhook_logs` для диагностики
+- При успешной оплате в диалоге клиента появляется сообщение "Успешная оплата на X₽"
+- Сообщение отображается в красивом формате (зелёная иконка + сумма)
+- Клиент "поднимается" в списке диалогов (обновляется `last_message_at`)
