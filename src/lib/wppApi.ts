@@ -58,11 +58,17 @@ export interface WppStartResponse {
 /**
  * Create WPP integration automatically
  * POST /wpp-create
+ * @param options.forceRecreate - Force recreate existing integration
+ * @param options.addNew - Create a new number (unique subOrgId), for adding second+ numbers
  * Returns session, apiKey (masked), status, and optionally QR code
  */
-export const wppCreate = async (forceRecreate = false): Promise<WppCreateResponse> => {
+export const wppCreate = async (options: {
+  forceRecreate?: boolean;
+  addNew?: boolean;
+} = {}): Promise<WppCreateResponse> => {
   const response = await selfHostedPost<WppCreateResponse>('wpp-create', {
-    force_recreate: forceRecreate,
+    force_recreate: options.forceRecreate,
+    add_new: options.addNew,
   });
   
   if (!response.success) {

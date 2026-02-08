@@ -14,6 +14,7 @@ console.log('[wpp-create] Configuration:', { WPP_BASE_URL, hasSecret: !!WPP_SECR
 
 interface WppCreateRequest {
   force_recreate?: boolean;
+  add_new?: boolean;  // Флаг для явного создания нового номера
 }
 
 interface WppCreateResponse {
@@ -68,10 +69,17 @@ Deno.serve(async (req) => {
     const orgId = profile.organization_id;
     console.log('[wpp-create] Org ID:', orgId);
 
-    // Parse request body for force_recreate flag
+    // Parse request body for force_recreate and add_new flags
     const body = await req.json().catch(() => ({})) as WppCreateRequest;
     const forceRecreate = body.force_recreate === true;
-    console.log('[wpp-create] Force recreate:', forceRecreate);
+    const addNew = body.add_new === true;
+    console.log('[wpp-create] Force recreate:', forceRecreate, 'Add new:', addNew);
+
+    // При add_new: true — сразу переходим к созданию нового номера
+    if (addNew) {
+      console.log('[wpp-create] add_new=true: creating new WhatsApp number');
+      return await createNewWhatsAppNumber(supabaseClient, orgId, WPP_BASE_URL, WPP_SECRET);
+    }
 
     // Check for existing WPP integration with credentials
     const { data: existingIntegration } = await supabaseClient
@@ -303,4 +311,108 @@ Deno.serve(async (req) => {
 function maskApiKey(key: string): string {
   if (key.length < 12) return '***';
   return `${key.substring(0, 6)}••••••${key.slice(-4)}`;
+}
+
+/**
+ * Создаёт новый WhatsApp номер с уникальным subOrgId.
+ * Используется когда add_new=true для добавления второго/третьего номера.
+ */
+async function createNewWhatsAppNumber(
+  supabaseClient: ReturnType<typeof createClient>,
+  orgId: string,
+  baseUrl: string,
+  secret: string
+): Promise<Response> {
+  // Генерируем уникальный subOrgId для нового номера
+  const integrationUuid = crypto.randomUUID();
+  const subOrgId = `${orgId}__wpp__${integrationUuid.substring(0, 8)}`;
+  
+  console.log('[wpp-create] Creating new client with subOrgId:', subOrgId);
+  
+  const newClient = await WppMsgClient.createClient(baseUrl, secret, subOrgId);
+  
+  console.log('[wpp-create] New client created:', {
+    session: newClient.session,
+    apiKeyMasked: maskApiKey(newClient.apiKey),
+    apiKeyLength: newClient.apiKey?.length,
+    status: newClient.status,
+    subOrgId,
+  });
+
+  // Получаем JWT токен с retry-логикой
+  console.log('[wpp-create] Getting initial JWT token...');
+  const { token: jwtToken, expiresAt: jwtExpiresAt } = await WppMsgClient.getInitialToken(baseUrl, newClient.apiKey);
+  console.log('[wpp-create] JWT token obtained, expires:', new Date(jwtExpiresAt).toISOString());
+
+  const newSettings = {
+    wppApiKey: newClient.apiKey,
+    wppAccountNumber: newClient.session,
+    wppSubOrgId: subOrgId,  // Сохраняем subOrgId для идентификации
+    wppJwtToken: jwtToken,
+    wppJwtExpiresAt: jwtExpiresAt,
+  };
+
+  // Проверяем, есть ли уже primary интеграция
+  const { data: existingPrimary } = await supabaseClient
+    .from('messenger_integrations')
+    .select('id')
+    .eq('organization_id', orgId)
+    .eq('messenger_type', 'whatsapp')
+    .eq('provider', 'wpp')
+    .eq('is_primary', true)
+    .maybeSingle();
+
+  const isPrimary = !existingPrimary;  // Первый номер будет primary
+
+  // ВСЕГДА создаём новую запись для нового номера
+  const { data: insertedIntegration, error: insertError } = await supabaseClient
+    .from('messenger_integrations')
+    .insert({
+      organization_id: orgId,
+      messenger_type: 'whatsapp',
+      provider: 'wpp',
+      name: 'WhatsApp (WPP)',
+      is_active: true,
+      is_primary: isPrimary,
+      webhook_key: crypto.randomUUID(),
+      settings: newSettings,
+    })
+    .select()
+    .single();
+
+  if (insertError) {
+    console.error('[wpp-create] Failed to save new integration:', insertError);
+    return errorResponse('Failed to save integration: ' + insertError.message, 500);
+  }
+
+  console.log('[wpp-create] New integration saved:', insertedIntegration.id, 'isPrimary:', isPrimary);
+
+  // Инициализируем WPP клиент и запускаем аккаунт
+  const wpp = new WppMsgClient({
+    baseUrl,
+    apiKey: newClient.apiKey,
+    jwtToken,
+    jwtExpiresAt,
+  });
+
+  // Webhook URL
+  const SELF_HOSTED_URL = Deno.env.get('SELF_HOSTED_URL') || Deno.env.get('SUPABASE_URL');
+  const webhookUrl = `${SELF_HOSTED_URL}/functions/v1/wpp-webhook`;
+  console.log('[wpp-create] Webhook URL:', webhookUrl);
+
+  // Start account WITH webhook registration
+  const startResult = await wpp.ensureAccountWithQr(newClient.session, webhookUrl, 30);
+  console.log('[wpp-create] New account start result:', startResult.state);
+
+  const response: WppCreateResponse = {
+    success: true,
+    session: newClient.session,
+    apiKey: maskApiKey(newClient.apiKey),
+    status: startResult.state === 'connected' ? 'connected' : startResult.state === 'qr' ? 'qr_issued' : 'starting',
+    qrcode: startResult.state === 'qr' ? startResult.qr : undefined,
+  };
+
+  return new Response(JSON.stringify(response), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
 }

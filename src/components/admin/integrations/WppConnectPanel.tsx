@@ -164,13 +164,13 @@ export const WppConnectPanel: React.FC<WppConnectPanelProps> = ({ onConnected })
     }, 2000);
   }, [stopPolling, onConnected, refetch]);
 
-  const handleConnect = async (forceNew = false) => {
+  const handleConnect = async (addNew = false) => {
     setConnectStatus('loading');
     setError(null);
     setQrCode(null);
 
     try {
-      const result = await wppCreate(forceNew);
+      const result = await wppCreate({ addNew });
       console.log('[WppConnectPanel] Create result:', result);
 
       if (!result.success) {
@@ -406,7 +406,7 @@ export const WppConnectPanel: React.FC<WppConnectPanelProps> = ({ onConnected })
               <XCircle className="h-10 w-10 text-destructive" />
               <p className="text-sm text-destructive text-center">{error}</p>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => handleConnect(true)}>
+                <Button variant="outline" onClick={() => handleConnect(false)}>
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Попробовать снова
                 </Button>
