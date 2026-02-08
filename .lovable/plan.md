@@ -1,107 +1,92 @@
 
+# План: Добавление поддержки GreenAPI в messenger_integrations
 
-# План: Обновление wpp-create на self-hosted для поддержки нескольких номеров
+## Проблема
 
-## Текущая ситуация
+При подключении GreenAPI WhatsApp через `IntegrationsList`:
+1. **Сообщения НЕ уходят** — `whatsapp-send` ищет настройки только в `messenger_settings`
+2. **Сообщения НЕ приходят** — `whatsapp-webhook` ищет organization_id только в `messenger_settings`
 
-- Все WPP запросы идут на **self-hosted** (`api.academyos.ru`), а не на Lovable Cloud
-- Изменения с `add_new` и `subOrgId` сделаны **только в Lovable Cloud** и НЕ применены на self-hosted
-- Self-hosted возвращает **504 timeout** потому что:
-  1. Старый код вызывает `createClient(orgId)` с тем же orgId
-  2. WPP Platform возвращает существующий `apiKey`
-  3. Попытка запустить новую сессию с тем же ключом приводит к конфликту/timeout
+Новые интеграции сохраняются в `messenger_integrations`, но Edge Functions их не видят.
 
 ## Решение
 
-Необходимо **синхронизировать код на self-hosted** с актуальной версией из Lovable.
+### Файл 1: `supabase/functions/whatsapp-send/index.ts`
 
-### Шаг 1: Скопировать обновлённые файлы на self-hosted сервер
-
-**Файлы для обновления:**
-
-1. `supabase/functions/wpp-create/index.ts` — добавлена логика `add_new` и `createNewWhatsAppNumber()` с уникальным `subOrgId`
-
-2. `supabase/functions/_shared/wpp.ts` — добавлен retry для `getInitialToken()`
-
-### Шаг 2: Перезапустить edge functions контейнер
-
-```bash
-cd /home/automation/supabase-project
-docker compose restart functions
-```
-
-## Ключевые изменения в коде
-
-### wpp-create/index.ts — новая логика для add_new
+Добавить функцию `getGreenApiSettings()` которая:
+1. Сначала ищет в `messenger_integrations` (provider = 'green_api', is_enabled = true)
+2. Приоритет: `is_primary=true` → первый по `created_at`
+3. Fallback на `messenger_settings` если ничего не найдено
 
 ```typescript
-// При add_new: true — сразу переходим к созданию нового номера
-if (addNew) {
-  console.log('[wpp-create] add_new=true: creating new WhatsApp number');
-  return await createNewWhatsAppNumber(supabaseClient, orgId, WPP_BASE_URL, WPP_SECRET);
-}
+async function getGreenApiSettings(supabase, organizationId, integrationId?) {
+  // 1. messenger_integrations (приоритет)
+  let query = supabase
+    .from('messenger_integrations')
+    .select('id, settings, is_primary')
+    .eq('organization_id', organizationId)
+    .eq('messenger_type', 'whatsapp')
+    .eq('provider', 'green_api')
+    .eq('is_enabled', true)
+    .order('is_primary', { ascending: false })
+    .order('created_at', { ascending: true });
 
-// Новая функция createNewWhatsAppNumber:
-async function createNewWhatsAppNumber(...) {
-  // Генерируем уникальный subOrgId для каждого нового номера
-  const integrationUuid = crypto.randomUUID();
-  const subOrgId = `${orgId}__wpp__${integrationUuid.substring(0, 8)}`;
+  // Если найдено - возвращаем instanceId, apiToken, apiUrl из settings
   
-  // Создаём клиента с уникальным subOrgId
-  const newClient = await WppMsgClient.createClient(baseUrl, secret, subOrgId);
-  
-  // Сохраняем в settings
-  const newSettings = {
-    wppApiKey: newClient.apiKey,
-    wppAccountNumber: newClient.session,
-    wppSubOrgId: subOrgId,  // ← Уникальный идентификатор
-    wppJwtToken: jwtToken,
-    wppJwtExpiresAt: jwtExpiresAt,
-  };
-  
-  // ВСЕГДА создаём новую запись в messenger_integrations
-  await supabaseClient.from('messenger_integrations').insert({...});
+  // 2. Fallback на messenger_settings
+  // ...
 }
 ```
 
-### _shared/wpp.ts — retry для getInitialToken
+### Файл 2: `supabase/functions/whatsapp-webhook/index.ts`
+
+Изменить `resolveOrganizationIdFromWebhook()`:
+1. Сначала искать в `messenger_integrations` по instanceId в settings
+2. Fallback на `messenger_settings`
 
 ```typescript
-static async getInitialToken(baseUrl: string, apiKey: string, maxRetries = 3) {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const res = await fetch(url, {...});
-    if (res.ok) return data;
-    
-    if (attempt === maxRetries) throw new Error(...);
-    
-    // Ждём перед следующей попыткой
-    await new Promise(r => setTimeout(r, attempt * 1000));
+// PRIORITY 1: messenger_integrations
+const { data: integrations } = await supabase
+  .from('messenger_integrations')
+  .select('organization_id, settings')
+  .eq('messenger_type', 'whatsapp')
+  .eq('provider', 'green_api')
+  .eq('is_enabled', true);
+
+for (const int of integrations) {
+  if (String(int.settings?.instanceId) === instanceId) {
+    return int.organization_id;
   }
 }
-```
 
-## Команды для выполнения на сервере
-
-```bash
-# 1. Перейти в папку с функциями
-cd /home/automation/supabase-project/volumes/functions
-
-# 2. Обновить wpp-create/index.ts и _shared/wpp.ts
-# (вручную скопировать содержимое файлов)
-
-# 3. Перезапустить контейнер
-cd /home/automation/supabase-project
-docker compose restart functions
-
-# 4. Проверить логи
-docker compose logs -f functions --tail=100
+// PRIORITY 2: messenger_settings (fallback)
+// существующая логика
 ```
 
 ## Ожидаемый результат
 
-После обновления self-hosted:
-- Первый номер: `orgId` → `apiKey1`
-- Второй номер: `orgId__wpp__abc123` → `apiKey2` (уникальный)
-- Каждый номер получает уникальный apiKey
-- 504 timeout исчезает, QR-код для второго номера появляется
+| Сценарий | До | После |
+|----------|-----|--------|
+| Отправка с GreenAPI из messenger_integrations | ❌ Не находит настройки | ✅ Работает |
+| Приём webhooks | ❌ Не находит organization | ✅ Работает |
+| Обратная совместимость | - | ✅ Fallback на messenger_settings |
+| Несколько аккаунтов | ❌ | ✅ is_primary выбирается первым |
 
+## Технические детали
+
+### Порядок выбора интеграции для отправки
+
+| Условие | Какая интеграция |
+|---------|------------------|
+| Передан `integrationId` | Указанная интеграция |
+| 1 активная интеграция | Она |
+| Несколько активных | `is_primary = true` |
+| Нет primary | Первая по `created_at` |
+| Нет в `messenger_integrations` | Fallback на `messenger_settings` |
+
+### Файлы для изменения
+
+1. `supabase/functions/whatsapp-send/index.ts`
+2. `supabase/functions/whatsapp-webhook/index.ts`
+
+После деплоя через GitHub Actions на self-hosted сервер — GreenAPI интеграция заработает.
