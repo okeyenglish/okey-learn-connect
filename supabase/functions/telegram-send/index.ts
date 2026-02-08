@@ -150,65 +150,40 @@ Deno.serve(async (req) => {
 
     // Try to get chat ID from specified phone number first
     let recipient: string | null = null;
-    let usePhoneNumber = false;
-    
+
     if (phoneId) {
-      // Get chat ID from specific phone number
+      // Get chat ID from specific phone number (Telegram IDs only; phone fallback is not reliable)
       const { data: phoneRecord } = await supabase
         .from('client_phone_numbers')
-        .select('telegram_chat_id, telegram_user_id, phone')
+        .select('telegram_chat_id, telegram_user_id')
         .eq('id', phoneId)
         .eq('client_id', clientId)
         .single();
-      
+
       if (phoneRecord) {
-        recipient = phoneRecord.telegram_chat_id || phoneRecord.telegram_user_id?.toString();
-        if (!recipient && phoneRecord.phone) {
-          const cleanPhone = phoneRecord.phone.replace(/\D/g, '');
-          if (cleanPhone) {
-            recipient = cleanPhone;
-            usePhoneNumber = true;
-          }
-        }
+        recipient = phoneRecord.telegram_chat_id || phoneRecord.telegram_user_id?.toString() || null;
         console.log('Using specified phone:', phoneId, 'recipient:', recipient);
       }
     }
-    
-    // If no recipient from phoneId, try primary phone number
+
+    // If no recipient from phoneId, try primary phone number (Telegram IDs only)
     if (!recipient) {
       const { data: primaryPhone } = await supabase
         .from('client_phone_numbers')
-        .select('telegram_chat_id, telegram_user_id, phone')
+        .select('telegram_chat_id, telegram_user_id')
         .eq('client_id', clientId)
         .eq('is_primary', true)
         .maybeSingle();
-      
+
       if (primaryPhone) {
-        recipient = primaryPhone.telegram_chat_id || primaryPhone.telegram_user_id?.toString();
-        if (!recipient && primaryPhone.phone) {
-          const cleanPhone = primaryPhone.phone.replace(/\D/g, '');
-          if (cleanPhone) {
-            recipient = cleanPhone;
-            usePhoneNumber = true;
-          }
-        }
+        recipient = primaryPhone.telegram_chat_id || primaryPhone.telegram_user_id?.toString() || null;
         console.log('Using primary phone recipient:', recipient);
       }
     }
-    
+
     // Fallback to client's telegram fields (backward compatibility)
     if (!recipient) {
-      recipient = client.telegram_chat_id || client.telegram_user_id?.toString();
-    }
-    
-    // Final fallback: use client's phone number
-    if (!recipient && client.phone) {
-      const cleanPhone = client.phone.replace(/\D/g, '');
-      if (cleanPhone) {
-        recipient = cleanPhone;
-        usePhoneNumber = true;
-        console.log('Using client phone number as recipient:', recipient);
-      }
+      recipient = client.telegram_chat_id || client.telegram_user_id?.toString() || null;
     }
     
     if (!recipient) {
@@ -223,7 +198,7 @@ Deno.serve(async (req) => {
       );
     }
     
-    console.log('Sending Telegram message to:', recipient, 'usePhoneNumber:', usePhoneNumber);
+    console.log('Sending Telegram message to:', recipient);
 
     // Send message via Wappi.pro using per-organization apiToken
     let sendResult: { success: boolean; messageId?: string; error?: string };
