@@ -408,14 +408,14 @@ async function registerWappiTelegramWebhook(
     console.log('[messenger-integrations] Registering Wappi webhook:', { profileId, webhookUrl });
 
     const response = await fetch(
-      `https://wappi.pro/tapi/webhook/url/set?profile_id=${profileId}`,
+      `https://wappi.pro/tapi/webhook/url/set?profile_id=${encodeURIComponent(profileId)}&url=${encodeURIComponent(webhookUrl)}`,
       {
         method: 'POST',
         headers: {
           'Authorization': apiToken,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ webhook_url: webhookUrl })
+        body: JSON.stringify({ url: webhookUrl, webhook_url: webhookUrl })
       }
     );
 
