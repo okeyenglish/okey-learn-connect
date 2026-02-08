@@ -1,70 +1,89 @@
 
-## План исправления ошибок приложения - ВЫПОЛНЕНО ✅
+## План исправления: Регистрация Edge Functions в config.toml
 
-### ✅ Проблема 1: useTodayMessagesCount использует несуществующие колонки
+### Проблема
 
-**Файл:** `src/hooks/useTodayMessagesCount.ts`
+Edge Functions для групп сотрудников (`get-staff-group-chats`, `get-today-messages-count` и др.) **не зарегистрированы** в файле `supabase/config.toml`, хотя их папки и код существуют в репозитории.
 
-**Первоначальное решение:** Заменено `direction: 'outgoing'` и `sender_id` на `is_outgoing: true` и `user_id`
+Без регистрации в config.toml:
+- Lovable Cloud не деплоит эти функции
+- При вызове возвращается ошибка или HTML-страница вместо JSON
+- Хук `useStaffGroupChats` получает пустой массив групп
 
-**Дополнительное исправление:** Self-hosted схема НЕ имеет колонок `is_outgoing` и `user_id` в `chat_messages`. Вместо этого используется `message_type = 'manager'` для исходящих сообщений.
+### Решение
 
-**Окончательное решение:** Создан Edge Function `get-today-messages-count` который использует правильную схему self-hosted базы с `message_type = 'manager'`.
+Добавить все недостающие Edge Functions в `supabase/config.toml`:
 
----
+```toml
+[functions.get-staff-group-chats]
+verify_jwt = false
 
-### ✅ Проблема 2: UnreadByMessenger включает "calls" как messenger_type
+[functions.get-staff-group-members]
+verify_jwt = false
 
-**Файлы исправлены:**
-- `src/hooks/usePinnedChatThreads.ts`
-- `src/hooks/useChatThreadsInfinite.ts`
-- `src/hooks/usePhoneSearchThreads.ts`
+[functions.add-staff-group-member]
+verify_jwt = false
 
-**Решение применено:** Добавлена проверка `type !== 'calls'` перед инкрементом счётчика в unreadByMessenger.
+[functions.remove-staff-group-member]
+verify_jwt = false
 
-**Примечание:** Ошибка `invalid input value for enum messenger_type: "calls"` происходит в RPC функции `get_chat_threads_by_client_ids` на self-hosted базе. Это требует исправления на стороне сервера (добавление 'calls' в enum или фильтрация в RPC). Текущий fallback корректно обрабатывает эту ошибку.
+[functions.create-staff-group-chat]
+verify_jwt = false
 
----
+[functions.init-branch-groups]
+verify_jwt = false
 
-### ✅ Проблема 3: Button внутри button (NewChatModal в TabsTrigger)
+[functions.add-employee-to-branch-groups]
+verify_jwt = false
 
-**Файл:** `src/pages/CRM.tsx`
+[functions.get-today-messages-count]
+verify_jwt = false
 
-**Решение применено:** NewChatModal вынесен за пределы TabsTrigger и позиционирован абсолютно внутри контейнера с TabsList.
+[functions.holihope-settings]
+verify_jwt = true
 
----
+[functions.wpp-qr]
+verify_jwt = true
 
-### ⚠️ Проблема 4: DialogContent requires DialogTitle
-
-**Причина:** Некоторые Dialog компоненты не имеют DialogTitle для accessibility.
-
-**Статус:** Предупреждение, не критичная ошибка. Требует ревью всех Dialog компонентов.
-
----
-
-### ⚠️ Проблема 5: JSON.parse ошибки
-
-**Причина:** Массовые ошибки JSON.parse являются следствием:
-1. Проблем со схемой в useTodayMessagesCount (ИСПРАВЛЕНО)
-2. RPC ошибок с 'calls' enum (падает в fallback)
-3. Проблем с внешними сервисами (webhook.site, configcat)
-
----
-
-## Файлы изменены
-
-| Файл | Изменение |
-|------|-----------|
-| `src/hooks/useTodayMessagesCount.ts` | Переключен на self-hosted API endpoint |
-| `supabase/functions/get-today-messages-count/index.ts` | **НОВЫЙ** - Edge Function для подсчёта сообщений |
-| `src/hooks/usePinnedChatThreads.ts` | Исключить 'calls' из messenger_type инкремента |
-| `src/hooks/useChatThreadsInfinite.ts` | Исключить 'calls' из messenger_type инкремента |
-| `src/hooks/usePhoneSearchThreads.ts` | Исключить 'calls' из messenger_type инкремента |
-| `src/pages/CRM.tsx` | Вынести NewChatModal из TabsTrigger |
+[functions.wpp-create]
+verify_jwt = true
+```
 
 ---
 
-## Требуется на self-hosted сервере
+## Технические детали
 
-1. **Деплой Edge Function** `get-today-messages-count` на `api.academyos.ru`
-2. **Исправление RPC** `get_chat_threads_by_client_ids` - убрать 'calls' из результата или добавить в enum
+### Почему `verify_jwt = false`?
+
+Эти функции вызываются с self-hosted сервера (api.academyos.ru), где JWT токены от Lovable Cloud не валидны. Функции сами проверяют авторизацию через `user_id` в теле запроса и используют service role key для доступа к базе.
+
+### Что изменится
+
+| Функция | Назначение |
+|---------|------------|
+| `get-staff-group-chats` | Получить список групп сотрудников |
+| `get-staff-group-members` | Получить участников группы |
+| `add-staff-group-member` | Добавить участника |
+| `remove-staff-group-member` | Удалить участника |
+| `create-staff-group-chat` | Создать новую группу |
+| `init-branch-groups` | Инициализировать группы филиалов |
+| `add-employee-to-branch-groups` | Добавить сотрудника во все группы |
+| `get-today-messages-count` | Счётчик отправленных сообщений за день |
+
+### Порядок действий
+
+1. Добавить записи в `supabase/config.toml`
+2. После деплоя Lovable Cloud — функции станут доступны
+3. После синхронизации на self-hosted (GitHub Actions) — функции станут доступны там тоже
+4. UI начнёт показывать группы в ChatOS
+
+---
+
+## Дополнительно: Проверить другие функции
+
+При просмотре папок обнаружены ещё незарегистрированные функции:
+- `holihope-settings`
+- `wpp-qr`
+- `wpp-create`
+
+Их тоже нужно добавить для полноты.
