@@ -8,6 +8,72 @@ import {
   type TelegramWappiMessage,
 } from '../_shared/types.ts';
 
+/**
+ * Resilient insert for chat_messages that handles schema differences between
+ * Cloud and self-hosted instances. Self-hosted may lack columns like 'status',
+ * 'teacher_id', 'metadata', etc.
+ */
+async function resilientInsertMessage(
+  supabase: any,
+  payload: Record<string, any>
+): Promise<{ data: any; error: any }> {
+  // First attempt: full payload
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .insert(payload)
+    .select('id')
+    .maybeSingle();
+
+  if (!error) {
+    return { data, error: null };
+  }
+
+  // Check if error is due to missing columns
+  const errorMessage = error?.message || '';
+  const isMissingColumn = errorMessage.includes('column') && 
+    (errorMessage.includes('does not exist') || errorMessage.includes('не существует'));
+
+  if (!isMissingColumn) {
+    // Different error, return as-is
+    return { data: null, error };
+  }
+
+  console.log('[telegram-webhook] Full insert failed, trying minimal payload:', errorMessage);
+
+  // Fallback: minimal required columns for self-hosted
+  // Self-hosted schema: message_text (NOT NULL), message_type (NOT NULL), organization_id (NOT NULL)
+  const minimalPayload: Record<string, any> = {
+    client_id: payload.client_id || null,
+    organization_id: payload.organization_id,
+    message_text: payload.message_text || '[Сообщение]',
+    message_type: payload.message_type || 'client',
+    messenger_type: payload.messenger_type || 'telegram',
+    is_outgoing: payload.is_outgoing ?? false,
+    is_read: payload.is_read ?? false,
+    external_message_id: payload.external_message_id || null,
+    file_url: payload.file_url || null,
+    file_name: payload.file_name || null,
+    file_type: payload.file_type || null,
+  };
+
+  // Only add created_at if provided
+  if (payload.created_at) {
+    minimalPayload.created_at = payload.created_at;
+  }
+
+  const { data: data2, error: error2 } = await supabase
+    .from('chat_messages')
+    .insert(minimalPayload)
+    .select('id')
+    .maybeSingle();
+
+  if (error2) {
+    console.error('[telegram-webhook] Minimal insert also failed:', error2.message);
+  }
+
+  return { data: data2, error: error2 };
+}
+
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -337,24 +403,24 @@ async function handleIncomingMessage(
 
   // If teacher found, save message with teacher_id (not client_id)
   if (teacher) {
-    const { error: insertError } = await supabase
-      .from('chat_messages')
-      .insert({
-        teacher_id: teacher.id,
-        client_id: null, // Explicitly null for teacher messages
-        organization_id: organizationId,
-        message_text: messageText,
-        message_type: 'client', // incoming message
-        messenger_type: 'telegram',
-        status: 'delivered',
-        is_outgoing: false,
-        is_read: false,
-        external_message_id: message.id,
-        file_url: fileUrl,
-        file_name: fileName,
-        file_type: fileType || contentType,
-        created_at: message.timestamp || new Date().toISOString()
-      });
+    // Full payload for cloud, will fallback for self-hosted
+    const fullPayload = {
+      teacher_id: teacher.id,
+      client_id: null, // Explicitly null for teacher messages
+      organization_id: organizationId,
+      message_text: messageText,
+      message_type: 'client', // incoming message
+      messenger_type: 'telegram',
+      is_outgoing: false,
+      is_read: false,
+      external_message_id: message.id,
+      file_url: fileUrl,
+      file_name: fileName,
+      file_type: fileType || contentType,
+      created_at: message.timestamp || new Date().toISOString()
+    };
+
+    const { error: insertError } = await resilientInsertMessage(supabase, fullPayload);
 
     if (insertError) {
       console.error('Error saving teacher message:', insertError);
@@ -395,25 +461,24 @@ async function handleIncomingMessage(
     phoneNumber: phoneNumber
   });
 
-  // Save message with client_id
-  const { error: insertError } = await supabase
-    .from('chat_messages')
-    .insert({
-      client_id: client.id,
-      teacher_id: null,
-      organization_id: organizationId,
-      message_text: messageText,
-      message_type: 'client', // incoming message from client
-      messenger_type: 'telegram',
-      status: 'delivered', // incoming messages are already delivered
-      is_outgoing: false,
-      is_read: false,
-      external_message_id: message.id,
-      file_url: fileUrl,
-      file_name: fileName,
-      file_type: fileType || contentType, // store content type in file_type
-      created_at: message.timestamp || new Date().toISOString()
-    });
+  // Save message with client_id - use resilient insert for self-hosted compatibility
+  const fullPayload = {
+    client_id: client.id,
+    teacher_id: null,
+    organization_id: organizationId,
+    message_text: messageText,
+    message_type: 'client', // incoming message from client
+    messenger_type: 'telegram',
+    is_outgoing: false,
+    is_read: false,
+    external_message_id: message.id,
+    file_url: fileUrl,
+    file_name: fileName,
+    file_type: fileType || contentType, // store content type in file_type
+    created_at: message.timestamp || new Date().toISOString()
+  };
+
+  const { error: insertError } = await resilientInsertMessage(supabase, fullPayload);
 
   if (insertError) {
     console.error('Error saving message:', insertError);
@@ -508,7 +573,6 @@ async function handleOutgoingMessage(
     .from('clients')
     .select('id')
     .eq('organization_id', organizationId)
-    .eq('is_active', true)
     .or(`telegram_chat_id.eq.${chatId},telegram_user_id.eq.${telegramUserId}`)
     .limit(1);
 
@@ -528,7 +592,6 @@ async function handleOutgoingMessage(
       .from('clients')
       .select('id')
       .eq('organization_id', organizationId)
-      .eq('is_active', true)
       .ilike('phone', `%${phoneLast10}%`)
       .limit(1);
 
@@ -574,7 +637,6 @@ async function handleOutgoingMessage(
         .select('id')
         .eq('id', phoneRecords[0].client_id)
         .eq('organization_id', organizationId)
-        .eq('is_active', true)
         .maybeSingle();
 
       if (foundError) {
@@ -608,7 +670,7 @@ async function handleOutgoingMessage(
         telegram_chat_id: chatId,
         telegram_user_id: telegramUserId,
         phone: contactPhone ? `+${contactPhone}` : null,
-        is_active: true
+        // Note: is_active removed - column doesn't exist on self-hosted
       })
       .select('id')
       .single();
@@ -650,23 +712,28 @@ async function handleOutgoingMessage(
   }
 
   // Save outgoing message - message_type is 'manager' for outgoing
-  await supabase
-    .from('chat_messages')
-    .insert({
-      client_id: client.id,
-      organization_id: organizationId,
-      message_text: messageText,
-      message_type: 'manager', // outgoing from manager
-      messenger_type: 'telegram',
-      status: 'sent', // outgoing starts as sent, updated via delivery_status
-      is_outgoing: true,
-      is_read: true,
-      external_message_id: message.id,
-      file_url: fileUrl,
-      file_name: fileName,
-      file_type: fileType || contentType,
-      created_at: message.timestamp || new Date().toISOString()
-    });
+  // Use resilient insert for self-hosted compatibility
+  const outgoingPayload = {
+    client_id: client.id,
+    organization_id: organizationId,
+    message_text: messageText,
+    message_type: 'manager', // outgoing from manager
+    messenger_type: 'telegram',
+    is_outgoing: true,
+    is_read: true,
+    external_message_id: message.id,
+    file_url: fileUrl,
+    file_name: fileName,
+    file_type: fileType || contentType,
+    created_at: message.timestamp || new Date().toISOString()
+  };
+
+  const { error: outgoingError } = await resilientInsertMessage(supabase, outgoingPayload);
+  
+  if (outgoingError) {
+    console.error('Error saving outgoing message:', outgoingError);
+    return;
+  }
 
   console.log('Outgoing message saved for client:', client.id);
 }
@@ -747,11 +814,12 @@ async function mergeClients(
     })
     .eq('id', primaryClientId);
   
-  // Deactivate duplicate client (soft delete)
+  // Deactivate duplicate client (soft delete) - use status instead of is_active for self-hosted
+  // Note: update may fail on self-hosted if is_active column doesn't exist, that's OK
   await supabase
     .from('clients')
     .update({ 
-      is_active: false,
+      status: 'merged',
       notes: `Объединён с клиентом. Старые данные: telegram_chat_id=${telegramChatId}`
     })
     .eq('id', duplicateClientId);
@@ -881,7 +949,6 @@ async function findOrCreateClientLegacy(
     .select('id, name, first_name, last_name, avatar_url')
     .eq('organization_id', organizationId)
     .eq('telegram_chat_id', telegramChatId)
-    .eq('is_active', true)
     .limit(1);
 
   if (clientByChatId && clientByChatId.length > 0) {
@@ -897,7 +964,6 @@ async function findOrCreateClientLegacy(
       .from('clients')
       .select('id, name, first_name, last_name, avatar_url')
       .eq('organization_id', organizationId)
-      .eq('is_active', true)
       .ilike('phone', `%${phoneLast10}%`)
       .limit(1);
 
@@ -935,10 +1001,9 @@ async function findOrCreateClientLegacy(
       name: finalName,
       telegram_user_id: telegramUserId,
       telegram_chat_id: telegramChatId,
-      telegram_avatar_url: avatarUrl,
+      // Note: telegram_avatar_url and is_active removed - may not exist on self-hosted
       phone: finalPhone,
       notes: username ? `@${username}` : null,
-      is_active: true
     })
     .select('id, name, first_name, last_name, avatar_url')
     .single();
