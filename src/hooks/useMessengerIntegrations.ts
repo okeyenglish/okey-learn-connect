@@ -181,11 +181,18 @@ export const useMessengerIntegrations = (messengerType?: MessengerType) => {
   // Generate webhook URL for an integration
   const getWebhookUrl = useCallback((integration: MessengerIntegration) => {
     const baseUrl = 'https://api.academyos.ru/functions/v1';
-    // For telegram_crm provider, use query param format: telegram-crm-webhook?key=xxx
+    
+    // For GreenAPI WhatsApp, use query param format for better compatibility
+    if (integration.messenger_type === 'whatsapp' && integration.provider === 'green_api') {
+      return `${baseUrl}/whatsapp-webhook?key=${integration.webhook_key}`;
+    }
+    
+    // For telegram_crm provider, use query param format
     if (integration.provider === 'telegram_crm') {
       return `${baseUrl}/telegram-crm-webhook?key=${integration.webhook_key}`;
     }
-    // For other providers, use path format: messenger-webhook/xxx
+    
+    // For WPP and other providers, use path format: messenger-webhook/xxx
     return `${baseUrl}/${integration.messenger_type}-webhook/${integration.webhook_key}`;
   }, []);
 

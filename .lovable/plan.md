@@ -1,61 +1,58 @@
 
 # План: Добавление поддержки GreenAPI в messenger_integrations
 
-## ✅ ВЫПОЛНЕНО
+## ✅ ПОЛНОСТЬЮ ВЫПОЛНЕНО
 
 ### Изменения внесены:
 
 1. **`supabase/functions/whatsapp-send/index.ts`** ✅
-   - Добавлена функция `getGreenApiSettings()` с двухуровневым поиском:
-     1. Сначала ищет в `messenger_integrations` (provider = 'green_api', is_enabled = true)
-     2. Приоритет: `is_primary=true` → первый по `created_at`
-     3. Fallback на `messenger_settings` если ничего не найдено
-   - Поддержка `integrationId` в запросе для явного выбора аккаунта
-   - Возвращает `source` и `integrationId` в ответе для отладки
+   - Добавлена функция `getGreenApiSettings()` с двухуровневым поиском
+   - Приоритет: `is_primary=true` → первый по `created_at` → fallback на `messenger_settings`
+   - Поддержка `integrationId` для явного выбора аккаунта
 
 2. **`supabase/functions/whatsapp-webhook/index.ts`** ✅
    - Добавлена функция `resolveOrganizationByWebhookKey()`:
-     - PRIORITY 1: Извлекает `webhook_key` из URL path (`/whatsapp-webhook/{key}`)
-     - Или из query параметра (`?key=xxx`)
+     - Извлекает `webhook_key` из URL query `?key=xxx` или path `/{key}`
      - Ищет интеграцию в `messenger_integrations` по `webhook_key`
-   - PRIORITY 2: Fallback на поиск по `instanceId` в теле webhook
-   - Изменена функция `resolveOrganizationIdFromWebhook()`:
-     - Сначала ищет в `messenger_integrations` по instanceId
-     - Затем fallback на `messenger_settings` (legacy)
-   - Улучшено логирование с префиксами `[whatsapp-webhook]`
+   - Добавлена обработка не-POST запросов (GET health checks)
+   - Добавлена обработка невалидного JSON
+   - Улучшено логирование
+
+3. **`src/hooks/useMessengerIntegrations.ts`** ✅
+   - Изменён формат webhook URL для GreenAPI WhatsApp:
+     - **Было:** `/whatsapp-webhook/{key}`
+     - **Стало:** `/whatsapp-webhook?key={key}`
 
 ### Формат Webhook URL
 
-Для GreenAPI интеграций используется path-based формат:
-```
-https://api.academyos.ru/functions/v1/whatsapp-webhook/{webhook_key}
-```
-
-Пример: `https://api.academyos.ru/functions/v1/whatsapp-webhook/9fd5bb0a9582a969daf0816316a4c743`
+| Provider | Формат URL |
+|----------|------------|
+| GreenAPI WhatsApp | `https://api.academyos.ru/functions/v1/whatsapp-webhook?key={webhook_key}` |
+| Telegram CRM | `https://api.academyos.ru/functions/v1/telegram-crm-webhook?key={webhook_key}` |
+| WPP Connect | `https://api.academyos.ru/functions/v1/whatsapp-webhook/{webhook_key}` |
 
 ### Порядок резолва организации в webhook
 
-1. **webhook_key из URL** → ищем в `messenger_integrations` по `webhook_key`
+1. **webhook_key из URL** (`?key=xxx` или path) → ищем в `messenger_integrations`
 2. **instanceId из тела** → ищем в `messenger_integrations` по `settings.instanceId`
 3. **Fallback** → ищем в `messenger_settings` (legacy)
 
 ## Синхронизация на self-hosted
 
-После деплоя через GitHub Actions скопируйте файлы:
-- `supabase/functions/whatsapp-send/index.ts`
-- `supabase/functions/whatsapp-webhook/index.ts`
-
-На сервере `api.academyos.ru`:
+После commit/push скопируйте обновлённые файлы:
 ```bash
+# На сервере api.academyos.ru:
 docker compose restart functions
 ```
 
+**Важно:** После обновления webhook URL в админке — скопируйте новый URL и обновите его в консоли GreenAPI!
+
 ## Ожидаемый результат
 
-| Сценарий | До | После |
-|----------|-----|--------|
-| Отправка с GreenAPI из messenger_integrations | ❌ Не находит настройки | ✅ Работает |
-| Приём webhooks по webhook_key | ❌ Не поддерживалось | ✅ Работает |
-| Приём webhooks по instanceId | ❌ Только messenger_settings | ✅ Ищет в обеих таблицах |
-| Обратная совместимость | - | ✅ Fallback на messenger_settings |
-| Несколько аккаунтов | ❌ | ✅ is_primary выбирается первым |
+| Сценарий | Статус |
+|----------|--------|
+| Отправка с GreenAPI из messenger_integrations | ✅ |
+| Приём webhooks по `?key=xxx` | ✅ |
+| Приём webhooks по instanceId (fallback) | ✅ |
+| Обратная совместимость | ✅ |
+| Несколько аккаунтов | ✅ |

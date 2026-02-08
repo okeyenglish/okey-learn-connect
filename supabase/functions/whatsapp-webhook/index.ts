@@ -152,11 +152,41 @@ async function resolveOrganizationByWebhookKey(req: Request): Promise<{ organiza
 }
 
 Deno.serve(async (req) => {
+  console.log(`[whatsapp-webhook] ${req.method} request from ${req.headers.get('user-agent')?.substring(0, 50) || 'unknown'}`);
+  
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
+  // Handle non-POST requests gracefully (GreenAPI may send GET for health checks)
+  if (req.method !== 'POST') {
+    console.log('[whatsapp-webhook] Non-POST request, returning OK');
+    return new Response(JSON.stringify({ success: true, status: 'ok', method: req.method }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
-    const webhook: GreenAPIWebhook = await req.json()
+    // Try to parse JSON body
+    let webhook: GreenAPIWebhook;
+    try {
+      const rawBody = await req.text();
+      console.log('[whatsapp-webhook] Raw body length:', rawBody.length);
+      
+      if (!rawBody || rawBody.trim() === '') {
+        console.log('[whatsapp-webhook] Empty body received');
+        return new Response(JSON.stringify({ success: true, status: 'ignored', reason: 'empty body' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      webhook = JSON.parse(rawBody);
+    } catch (parseError) {
+      console.error('[whatsapp-webhook] JSON parse error:', parseError);
+      return new Response(JSON.stringify({ success: true, status: 'ignored', reason: 'invalid json' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
     console.log('[whatsapp-webhook] Received webhook:', JSON.stringify(webhook, null, 2))
 
     // Validate required webhook fields early
