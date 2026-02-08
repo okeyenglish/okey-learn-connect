@@ -1,78 +1,95 @@
 
 
-## План исправления: Диалоги преподавателей не загружаются
+## Диагностика: Белый экран при клике на чат преподавателя
 
-### Диагностика
+### Корневая причина
 
-Выявлена корневая причина проблемы:
+При выборе чата преподавателя система генерирует специальный идентификатор `clientId = 'teacher:${teacherId}'` вместо реального UUID клиента. Этот маркер правильно обрабатывается для загрузки сообщений, но **несколько хуков в ChatArea.tsx не проверяют формат clientId** и передают его напрямую в SQL-запросы.
 
-1. **Сообщения преподавателей хранятся с `teacher_id`** в таблице `chat_messages` (новая архитектура self-hosted)
-2. **Запросы сообщений ищут по `client_id`** (legacy архитектура), когда у преподавателя есть привязанный клиент
-3. **Результат**: Запрос возвращает 0 сообщений → UI показывает "Проверка наличия WhatsApp..." вместо диалога
-
-### Техническая причина
-
-В файле `src/components/crm/TeacherChatArea.tsx` строка 109:
-
-```typescript
-clientId: teacher.clientId || (conv.lastMessageTime ? `teacher:${teacher.id}` : null),
+Когда PostgreSQL получает `filter: client_id=eq.teacher:4d8b2754-...`, он выбрасывает ошибку:
+```
+invalid input syntax for type uuid: "teacher:4d8b2754-7f71-4abd-992a-7d5f0072d0aa"
 ```
 
-**Проблема**: Приоритет отдаётся `teacher.clientId` (обычный UUID от legacy системы). Маркер `teacher:xxx` используется только когда `clientId` отсутствует.
+Эта ошибка происходит в асинхронном callback (useEffect / realtime subscription) и **не перехватывается ErrorBoundary**, что приводит к краху React и белому экрану.
 
-Когда `ChatArea` получает обычный UUID:
-- `isDirectTeacherMessage = false` (не начинается с `teacher:`)
-- Используется хук `useTeacherChatMessagesByClientId` который ищет по `client_id`
-- Сообщения хранятся с `teacher_id`, не `client_id`
-- Запрос возвращает пустой массив
+### Проблемные хуки (ChatArea.tsx)
+
+| Строка | Хук | Проблема |
+|--------|-----|----------|
+| 349 | `useClientAvatars(clientId)` | Запрос к `clients` таблице с невалидным UUID |
+| 358 | `useTypingStatus(clientId)` | Upsert в `typing_status` с невалидным UUID |
+| 485 | `useMessageStatusRealtime(clientId)` | Realtime filter с невалидным UUID |
+| 586 | `useNewMessageRealtime(clientId)` | Realtime filter с невалидным UUID |
+| 493 | `useClientUnreadByMessenger(clientId)` | Запрос с невалидным UUID |
+| 496 | `useViewedMissedCalls(clientId)` | Запрос с невалидным UUID |
+| 499 | `useCallLogsRealtime(clientId)` | Realtime filter с невалидным UUID |
 
 ### Решение
 
-Изменить логику в `TeacherChatArea.tsx` чтобы **приоритизировать маркер `teacher:xxx`** когда есть сообщения по `teacher_id`:
+Добавить проверку `isValidUUID` перед передачей `clientId` в хуки, которые ожидают валидный UUID. Для преподавательских чатов (`isDirectTeacherMessage = true`) эти хуки должны получать `undefined` или быть отключены.
+
+### Изменения в ChatArea.tsx
 
 ```typescript
-// Строка 109 - БЫЛО:
-clientId: teacher.clientId || (conv.lastMessageTime ? `teacher:${teacher.id}` : null),
+// Добавить валидатор UUID (можно импортировать из useChatPresence)
+const isValidUUID = (str: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+};
 
-// СТАНЕТ:
-clientId: conv?.lastMessageTime 
-  ? `teacher:${teacher.id}`  // Приоритет: если есть сообщения по teacher_id, используем маркер
-  : teacher.clientId || null,  // Fallback: legacy clientId
+// Безопасный clientId для хуков, требующих UUID
+const safeClientId = isDirectTeacherMessage ? null : clientId;
+const safeClientIdForQuery = isDirectTeacherMessage || !isValidUUID(clientId) ? undefined : clientId;
+```
+
+Затем обновить вызовы хуков:
+
+| Хук | Было | Станет |
+|-----|------|--------|
+| `useClientAvatars` | `useClientAvatars(clientId)` | `useClientAvatars(safeClientIdForQuery ?? null)` |
+| `useTypingStatus` | `useTypingStatus(clientId)` | `useTypingStatus(safeClientIdForQuery ?? '')` |
+| `useMessageStatusRealtime` | `useMessageStatusRealtime(clientId, ...)` | `useMessageStatusRealtime(safeClientIdForQuery ?? '', ...)` |
+| `useNewMessageRealtime` | `useNewMessageRealtime(clientId, ...)` | `useNewMessageRealtime(safeClientIdForQuery ?? '', ...)` |
+| `useClientUnreadByMessenger` | `useClientUnreadByMessenger(clientId)` | `useClientUnreadByMessenger(safeClientIdForQuery ?? '')` |
+| `useViewedMissedCalls` | `useViewedMissedCalls(clientId)` | `useViewedMissedCalls(safeClientIdForQuery ?? '')` |
+| `useCallLogsRealtime` | `useCallLogsRealtime(clientId)` | `useCallLogsRealtime(safeClientIdForQuery)` |
+
+### Дополнительная защита в хуках
+
+Для надёжности добавить проверки UUID внутри самих хуков:
+
+**useClientAvatars.ts (строка 33):**
+```typescript
+const loadAvatars = useCallback(async () => {
+  // Skip for non-UUID clientIds (teacher markers)
+  if (!clientId || !isValidUUID(clientId)) return;
+  ...
+});
+```
+
+**useTypingStatus.ts (строка 46 и 188):**
+```typescript
+const fetchTypingUsers = useCallback(async () => {
+  if (!clientId || !isValidUUID(clientId)) return;
+  ...
+});
 ```
 
 ### Файлы для изменения
 
-| Файл | Изменение |
+| Файл | Изменения |
 |------|-----------|
-| `src/components/crm/TeacherChatArea.tsx` | Изменить логику приоритета clientId на строке 109 |
+| `src/components/crm/ChatArea.tsx` | Добавить `isValidUUID`, создать `safeClientIdForQuery`, обновить 7+ вызовов хуков |
+| `src/hooks/useClientAvatars.ts` | Добавить проверку UUID в `loadAvatars` |
+| `src/hooks/useTypingStatus.ts` | Добавить проверку UUID в `fetchTypingUsers` и `doUpdateTypingStatus` |
+| `src/hooks/useChatMessagesOptimized.ts` | Добавить проверку UUID в `useNewMessageRealtime` и `useMessageStatusRealtime` |
 
-### Дополнительные проверки
+### Результат
 
-Также нужно убедиться, что:
-1. Маркер `teacher:xxx` **не начинается с undefined** когда `teacher.id` отсутствует
-2. Логика `resolve()` в useEffect (строки 214-283) корректно обрабатывает оба случая
-
-### Изменения в resolve() функции
-
-Текущая логика:
-```typescript
-if (teacher.clientId) {
-  if (teacher.clientId.startsWith('teacher:')) {
-    // Маркер - работает правильно
-  }
-  // Обычный UUID - использует legacy путь
-  setResolvedClientId(teacher.clientId);
-  return;
-}
-```
-
-Эта логика уже правильно обрабатывает маркер `teacher:xxx`, если он передан. Проблема только в том, что маркер не передаётся из-за неправильного приоритета в `teachersWithMessages`.
-
-### Результат после исправления
-
-1. Преподаватели с сообщениями по `teacher_id` получат `clientId = 'teacher:xxx'`
-2. `ChatArea` определит `isDirectTeacherMessage = true`
-3. Будет использован хук `useTeacherChatMessagesByTeacherId` 
-4. Запрос пойдёт по `teacher_id` и вернёт сообщения
-5. Диалог загрузится корректно
+После исправления:
+1. Клики на чаты преподавателей не будут вызывать ошибки БД
+2. Хуки для клиентских функций (аватары, typing, presence) будут безопасно пропускаться
+3. Сообщения будут загружаться через правильный хук `useTeacherChatMessagesByTeacherId`
+4. Белый экран исчезнет
 
