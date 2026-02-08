@@ -40,17 +40,22 @@ export const IntegrationEditDialog: React.FC<IntegrationEditDialogProps> = ({
   
   const isEditing = !!integration;
   
+  const defaultProvider = providerOptions[0]?.value || '';
+  
   const [formData, setFormData] = useState({
     name: '',
-    provider: providerOptions[0]?.value || '',
+    provider: defaultProvider,
     is_enabled: true,
     is_primary: false,
     settings: {} as Record<string, string>,
   });
 
-  // Reset form when dialog opens/closes or integration changes
+  // Track if form was initialized for this dialog session
+  const [initialized, setInitialized] = useState(false);
+
+  // Reset form ONLY when dialog opens (not on every re-render)
   useEffect(() => {
-    if (open) {
+    if (open && !initialized) {
       if (integration) {
         setFormData({
           name: integration.name,
@@ -62,14 +67,20 @@ export const IntegrationEditDialog: React.FC<IntegrationEditDialogProps> = ({
       } else {
         setFormData({
           name: '',
-          provider: providerOptions[0]?.value || '',
+          provider: defaultProvider,
           is_enabled: true,
           is_primary: false,
           settings: {},
         });
       }
+      setInitialized(true);
     }
-  }, [open, integration, providerOptions]);
+    
+    // Reset initialized flag when dialog closes
+    if (!open) {
+      setInitialized(false);
+    }
+  }, [open, integration, defaultProvider, initialized]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
