@@ -286,16 +286,8 @@ const formatPhoneInput = (value: string): string => {
   
   if (digits.length === 0) return '';
   
-  // Russian-specific: 8 → 7
-  if (digits.startsWith('8') && digits.length <= 11) {
-    digits = '7' + digits.slice(1);
-  }
-  
-  // Russian-specific: starts with 9 without country code
-  if (digits.startsWith('9') && digits.length <= 10) {
-    digits = '7' + digits;
-  }
-  
+  // Detect country code first - do NOT auto-convert 8→7 or 9→79
+  // This prevents incorrect parsing of non-Russian numbers
   const countryCode = detectCountryCode(digits);
   
   if (countryCode && COUNTRY_MAP[countryCode]) {
@@ -304,6 +296,9 @@ const formatPhoneInput = (value: string): string => {
     return config.format(digits);
   }
   
+  // If no country code detected and starts with 8/9, could be Russian shorthand
+  // But only apply if user hasn't selected another country via dropdown
+  // For now, just format as-is without auto-conversion
   digits = digits.slice(0, 15);
   return defaultFormat(digits);
 };
