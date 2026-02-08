@@ -24,6 +24,52 @@ interface WappiDeleteResponse {
   error?: string;
 }
 
+async function getWappiSettings(organizationId: string): Promise<WappiSettings | null> {
+  // 1. First try messenger_integrations (priority)
+  const { data: integration } = await supabase
+    .from('messenger_integrations')
+    .select('id, settings, is_primary')
+    .eq('organization_id', organizationId)
+    .eq('messenger_type', 'whatsapp')
+    .eq('provider', 'wappi')
+    .eq('is_enabled', true)
+    .order('is_primary', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (integration?.settings) {
+    const settings = integration.settings as Record<string, unknown>;
+    if (settings.wappiProfileId && settings.wappiApiToken) {
+      return {
+        wappiProfileId: String(settings.wappiProfileId),
+        wappiApiToken: String(settings.wappiApiToken),
+      };
+    }
+  }
+
+  // 2. Fallback to messenger_settings
+  const { data: legacySettings } = await supabase
+    .from('messenger_settings')
+    .select('settings')
+    .eq('organization_id', organizationId)
+    .eq('messenger_type', 'whatsapp')
+    .eq('provider', 'wappi')
+    .eq('is_enabled', true)
+    .maybeSingle();
+
+  if (legacySettings?.settings) {
+    const settings = legacySettings.settings as Record<string, unknown>;
+    if (settings.wappiProfileId && settings.wappiApiToken) {
+      return {
+        wappiProfileId: String(settings.wappiProfileId),
+        wappiApiToken: String(settings.wappiApiToken),
+      };
+    }
+  }
+
+  return null;
+}
+
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -44,7 +90,7 @@ Deno.serve(async (req) => {
     // Get message details
     const { data: message, error: messageError } = await supabase
       .from('chat_messages')
-      .select('id, external_message_id, client_id, organization_id')
+      .select('id, external_id, client_id, organization_id')
       .eq('id', messageId)
       .single();
 
@@ -58,29 +104,32 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get Wappi credentials for the organization
-    const { data: settings, error: settingsError } = await supabase
-      .from('messenger_settings')
-      .select('settings')
-      .eq('messenger_type', 'whatsapp')
-      .eq('provider', 'wappi')
-      .eq('organization_id', message.organization_id)
-      .eq('is_enabled', true)
-      .maybeSingle();
-
-    if (settingsError || !settings) {
+    const organizationId = message.organization_id;
+    if (!organizationId) {
       return new Response(JSON.stringify({
         success: false,
-        error: 'Wappi settings not found'
+        error: 'Organization not found for message'
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const wappiSettings = settings.settings as WappiSettings;
-    const profileId = wappiSettings?.wappiProfileId;
-    const apiToken = wappiSettings?.wappiApiToken;
+    // Get Wappi credentials for the organization
+    const wappiSettings = await getWappiSettings(organizationId);
+
+    if (!wappiSettings) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Wappi settings not found for this organization'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const profileId = wappiSettings.wappiProfileId;
+    const apiToken = wappiSettings.wappiApiToken;
 
     if (!profileId || !apiToken) {
       return new Response(JSON.stringify({
@@ -92,18 +141,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    // If no external_message_id, just mark as deleted in database
-    if (!message.external_message_id) {
-      console.log('No external_message_id, marking as deleted in database only');
+    console.log('Using Wappi profile:', profileId);
+
+    // If no external_id, just mark as deleted in database
+    if (!message.external_id) {
+      console.log('No external_id, marking as deleted in database only');
       
       const { error: updateError } = await supabase
         .from('chat_messages')
         .update({ 
-          message_text: '[Сообщение удалено]',
-          message_status: 'deleted',
-          file_url: null,
+          content: '[Сообщение удалено]',
+          status: 'deleted',
+          media_url: null,
           file_name: null,
-          file_type: null,
+          media_type: null,
         })
         .eq('id', messageId);
 
@@ -123,7 +174,7 @@ Deno.serve(async (req) => {
     // Call Wappi API to delete message
     const url = `${WAPPI_BASE_URL}/api/sync/message/delete?profile_id=${profileId}`;
 
-    console.log('Deleting message via Wappi:', message.external_message_id);
+    console.log('Deleting message via Wappi:', message.external_id);
 
     const response = await fetch(url, {
       method: 'POST',
@@ -132,7 +183,7 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        message_id: message.external_message_id
+        message_id: message.external_id
       })
     });
 
@@ -168,11 +219,11 @@ Deno.serve(async (req) => {
     const { error: updateError } = await supabase
       .from('chat_messages')
       .update({ 
-        message_text: '[Сообщение удалено]',
-        message_status: 'deleted',
-        file_url: null,
+        content: '[Сообщение удалено]',
+        status: 'deleted',
+        media_url: null,
         file_name: null,
-        file_type: null,
+        media_type: null,
       })
       .eq('id', messageId);
 
