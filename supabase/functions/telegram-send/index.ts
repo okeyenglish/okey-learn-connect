@@ -570,8 +570,107 @@ Deno.serve(async (req) => {
         console.log(`[telegram-send] Fallback not triggered: shouldTryFallback=${shouldTryFallback}`);
       }
     }
+
+    // === FALLBACK TO OTHER INTEGRATIONS ===
+    // If primary integration failed (including phone fallback), try alternative integrations
+    if (!sendResult.success) {
+      console.log(`[telegram-send] Primary integration ${integration?.id} failed, looking for alternative integrations`);
       
-    // If still failed after fallback attempts
+      const { data: alternativeIntegrations } = await supabase
+        .from('messenger_integrations')
+        .select('id, provider, settings, is_enabled')
+        .eq('organization_id', organizationId)
+        .eq('messenger_type', 'telegram')
+        .eq('is_enabled', true)
+        .neq('id', integration?.id || '')
+        .order('is_primary', { ascending: false });
+      
+      if (alternativeIntegrations && alternativeIntegrations.length > 0) {
+        console.log(`[telegram-send] Found ${alternativeIntegrations.length} alternative integration(s)`);
+        
+        for (const altIntegration of alternativeIntegrations) {
+          console.log(`[telegram-send] Trying alternative: ${altIntegration.provider} (${altIntegration.id})`);
+          
+          if (altIntegration.provider === 'wappi') {
+            // Try Wappi with alternative account
+            const altSettings = altIntegration.settings as TelegramSettings;
+            if (altSettings?.profileId && altSettings?.apiToken) {
+              // Try with ID first
+              let altRecipient = recipient;
+              let altResult: { success: boolean; messageId?: string; error?: string };
+              
+              if (fileUrl) {
+                altResult = await sendFileMessage(altSettings.profileId, altRecipient, fileUrl, text || '', altSettings.apiToken);
+              } else if (text) {
+                altResult = await sendTextMessage(altSettings.profileId, altRecipient, text, altSettings.apiToken);
+              } else {
+                altResult = { success: false, error: 'No content' };
+              }
+              
+              // If ID failed, try phone
+              if (!altResult.success && fallbackPhoneNormalized && fallbackPhoneNormalized !== altRecipient) {
+                console.log(`[telegram-send] Alternative Wappi: ID failed, trying phone ${fallbackPhoneNormalized}`);
+                if (fileUrl) {
+                  altResult = await sendFileMessage(altSettings.profileId, fallbackPhoneNormalized, fileUrl, text || '', altSettings.apiToken);
+                } else if (text) {
+                  altResult = await sendTextMessage(altSettings.profileId, fallbackPhoneNormalized, text, altSettings.apiToken);
+                }
+                if (altResult.success) altRecipient = fallbackPhoneNormalized;
+              }
+              
+              if (altResult.success) {
+                console.log(`[telegram-send] Alternative Wappi integration SUCCEEDED! (${altIntegration.id})`);
+                sendResult = altResult;
+                recipientSource = `alternative wappi (${altIntegration.id})`;
+                break;
+              } else {
+                console.log(`[telegram-send] Alternative Wappi failed:`, altResult.error);
+              }
+            }
+          } else if (altIntegration.provider === 'telegram_crm') {
+            // Try Telegram CRM via cross-function call
+            try {
+              console.log(`[telegram-send] Trying alternative Telegram CRM (${altIntegration.id})`);
+              const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+              
+              const crmResponse = await fetch(`${supabaseUrl}/functions/v1/telegram-crm-send`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': authHeader,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  clientId: resolvedClientId,
+                  text,
+                  fileUrl,
+                  fileName,
+                  fileType,
+                  integrationId: altIntegration.id,
+                }),
+              });
+              
+              const crmResult = await crmResponse.json();
+              console.log(`[telegram-send] Telegram CRM response:`, crmResult);
+              
+              if (crmResult.success) {
+                console.log(`[telegram-send] Alternative Telegram CRM integration SUCCEEDED! (${altIntegration.id})`);
+                sendResult = { success: true, messageId: crmResult.messageId };
+                recipientSource = `alternative telegram_crm (${altIntegration.id})`;
+                break;
+              } else {
+                console.log(`[telegram-send] Alternative Telegram CRM failed:`, crmResult.error);
+              }
+            } catch (e) {
+              console.error(`[telegram-send] Alternative Telegram CRM exception:`, e);
+            }
+          }
+        }
+      } else {
+        console.log('[telegram-send] No alternative integrations available');
+      }
+    }
+      
+    // If still failed after ALL fallback attempts (primary + phone + alternatives)
     if (!sendResult.success) {
       const finalErrorMsg = sendResult.error || 'Failed to send message';
       const isFinalPeerNotFound = finalErrorMsg.toLowerCase().includes('peer not found') || 
@@ -581,10 +680,10 @@ Deno.serve(async (req) => {
       if (isFinalPeerNotFound) {
         const response: TelegramSendResponse = { 
           success: false,
-          error: 'Клиент не найден в Telegram. Попросите клиента написать вам первым, чтобы установить связь.',
+          error: 'Клиент не найден в Telegram. Попросите клиента написать вам первым, чтобы установить связь. Попробованы все доступные интеграции.',
           code: 'PEER_NOT_FOUND'
         };
-        console.error('[telegram-send] Peer not found error. Client needs to message first.');
+        console.error('[telegram-send] Peer not found error after trying all integrations. Client needs to message first.');
         return new Response(
           JSON.stringify(response),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
