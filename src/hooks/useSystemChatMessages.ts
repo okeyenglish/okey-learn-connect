@@ -185,8 +185,8 @@ export const useSystemChatMessages = () => {
     };
   }, [queryClient]);
 
-  // Use conversationsUnread as primary source (from direct teacher_id messages)
-  const effectiveTeachersUnread = conversationsUnread > 0 ? conversationsUnread : teachersTotalUnread;
+  // Sum unread from the already-merged teacherChats so badge matches the list
+  const effectiveTeachersUnread = teacherChats.reduce((sum, t) => sum + (t.unreadCount || 0), 0);
 
   return {
     corporateChats,
