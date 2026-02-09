@@ -1,132 +1,133 @@
 
-# Исправление: Клиенты с непрочитанными сообщениями скрываются от менеджеров
+# Исправление маршрутизации Telegram-сообщений: ответ на правильную интеграцию
 
 ## Суть проблемы
 
-Менеджеры видят клиентов в списке чатов, но когда появляется **непрочитанное входящее сообщение**, клиент исчезает из списка. Админ при этом продолжает видеть такого клиента.
+Клиент написал сообщение в Telegram, но при ответе система использует **не ту интеграцию** — вместо того чтобы ответить с того аккаунта, на который написал клиент, она отправляет с `is_primary=true` аккаунта. Это приводит к ошибке отправки (красный индикатор на скриншоте).
 
-## Диагноз
+## Техническая диагностика
 
-После анализа кода выявлено несколько точек отказа:
+### Текущее состояние smart routing по функциям:
 
-### 1. RPC-функция `get_unread_chat_threads` (self-hosted)
+| Edge Function | Smart Routing | Статус |
+|---------------|---------------|--------|
+| `wpp-send` | Ищет `integration_id` из последнего входящего | ✅ Работает |
+| `telegram-crm-send` | Ищет `integration_id` из последнего входящего | ✅ Работает |
+| `max-send` | Ищет `integration_id` из последнего входящего | ✅ Работает |
+| `whatsapp-send` | Ищет `integration_id` из последнего входящего | ✅ Работает |
+| **`telegram-send` (Wappi)** | Берёт только `is_primary=true` | ❌ **Проблема!** |
 
-В файле `docs/rpc-get-unread-chat-threads.sql` функция использует `SECURITY INVOKER`, то есть выполняется с правами текущего пользователя. Если в базе есть RLS-политики на таблицах `chat_messages` или `clients`, которые ограничивают доступ по филиалу, то менеджер не увидит клиентов с непрочитанными сообщениями, если:
-- У клиента `branch = NULL`
-- У клиента `branch`, который не совпадает с филиалами менеджера по RLS-логике в БД
+### Корневые причины:
 
-### 2. Два разных потока данных в `useChatThreadsInfinite`
+1. **`telegram-webhook`** при сохранении входящего сообщения **НЕ сохраняет `integration_id`** в `chat_messages`. Функция `resolveOrganizationByTelegramProfileId` возвращает только `organizationId`, но не `integrationId`.
 
-- **`unreadQuery`** — загружает RPC `get_unread_chat_threads` (клиенты с непрочитанными)
-- **`infiniteQuery`** — загружает RPC `get_chat_threads_paginated` (все клиенты постранично)
-
-При слиянии данных приоритет у `unreadQuery`. Если RPC для непрочитанных возвращает пустой массив (из-за RLS), клиент исчезает из списка.
-
-### 3. Миграции RLS на clients/chat_messages
-
-В файлах миграций видно, что были политики типа:
-```sql
-CREATE POLICY "managers_branch_clients" ON public.clients
-  FOR ALL USING (branch IN (SELECT unnest(get_user_branches(auth.uid()))));
-```
-
-Это означает: менеджер видит только клиентов, чей `branch` входит в его список филиалов. Если `branch = NULL`, клиент не попадает в выборку.
-
-Аналогично для `chat_messages`:
-```sql
-CREATE POLICY "managers_branch_messages" ON public.chat_messages
-  FOR ALL USING (EXISTS (
-    SELECT 1 FROM clients c WHERE c.id = chat_messages.client_id
-    AND c.branch IN (SELECT unnest(get_user_branches(auth.uid())))
-  ));
-```
-
-## Решение
-
-### Шаг 1: Обновить RLS-политики на self-hosted базе
-
-Нужно изменить политики так, чтобы клиенты с `branch = NULL` были видны менеджерам (согласно требованию "показывать null-branch"):
-
-```sql
--- clients: показывать клиентов с branch в списке менеджера ИЛИ с branch = NULL
-DROP POLICY IF EXISTS "managers_branch_clients" ON public.clients;
-CREATE POLICY "managers_branch_clients" ON public.clients
-  FOR SELECT USING (
-    branch IS NULL  -- <-- добавляем NULL
-    OR branch IN (SELECT unnest(get_user_branches(auth.uid())))
-  );
-
--- chat_messages: сообщения клиентов с branch = NULL тоже видны
-DROP POLICY IF EXISTS "managers_branch_messages" ON public.chat_messages;
-CREATE POLICY "managers_branch_messages" ON public.chat_messages
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM clients c 
-      WHERE c.id = chat_messages.client_id
-      AND (c.branch IS NULL OR c.branch IN (SELECT unnest(get_user_branches(auth.uid()))))
-    )
-  );
-```
-
-### Шаг 2: Проверить RPC-функцию `get_unread_chat_threads`
-
-Убедиться, что в теле функции нет дополнительной фильтрации по `branch`, которая отсекает `NULL`. Если есть - убрать или добавить `OR branch IS NULL`.
-
-### Шаг 3: Обновить клиентский fallback `fetchThreadsDirectly`
-
-В `src/hooks/useChatThreadsInfinite.ts` fallback-функция уже не фильтрует по филиалу (она просто загружает клиентов). Но нужно убедиться, что при слиянии данных не происходит потери:
-
-**Проверить `canAccessBranch` в `useManagerBranches`:**
+2. **`telegram-send`** (строки 57-65) жёстко ищет только `is_primary=true` интеграцию:
 ```typescript
-// Текущая логика (fail-closed для null):
-if (!clientBranch) return false;
-
-// Нужно изменить на (fail-open для null):
-if (!clientBranch) return true;
+const { data: integration } = await supabase
+  .from('messenger_integrations')
+  .eq('is_primary', true)  // <-- всегда primary!
+  .maybeSingle();
 ```
 
-### Шаг 4: Применить изменение в `canAccessBranch`
+3. При делегировании в `telegram-crm-send` передаётся `integrationId: integration.id` (ID primary интеграции), что **переопределяет** smart routing там.
+
+## План исправления
+
+### Шаг 1: Обновить `telegram-webhook` — возвращать и сохранять `integration_id`
+
+**Изменение 1a**: Функция `resolveOrganizationByTelegramProfileId` должна возвращать `{ organizationId, integrationId }`:
 
 ```typescript
-// src/hooks/useManagerBranches.ts, строка 144-146
 // Было:
-if (!clientBranch) return false;
+Promise<{ organizationId: string } | null>
 
-// Стало:
-if (!clientBranch) return true; // Менеджер видит клиентов без филиала
+// Станет:
+Promise<{ organizationId: string; integrationId?: string } | null>
 ```
 
-Аналогичное изменение в `useUserAllowedBranches.ts` уже есть (строка 77: `if (!branchName) return true;`), но нужно согласовать логику.
+**Изменение 1b**: При нахождении интеграции в `messenger_integrations` — также возвращать её `id`:
 
-## Технический план изменений
+```typescript
+// Добавить в select:
+.select('id, organization_id, is_enabled, settings')
 
-| Файл | Изменение |
+// Возвращать:
+return { organizationId: integration.organization_id, integrationId: integration.id };
+```
+
+**Изменение 1c**: В `handleIncomingMessage` передавать `integrationId` и сохранять его в `chat_messages`:
+
+```typescript
+// В fullPayload добавить:
+integration_id: integrationId || null,
+```
+
+### Шаг 2: Обновить `telegram-send` — добавить smart routing
+
+Добавить логику аналогичную `wpp-send` (строки 81-99):
+
+```typescript
+// После получения clientId из body, до поиска интеграции:
+let resolvedIntegrationId: string | null = null;
+if (clientId) {
+  const { data: lastMessage } = await supabase
+    .from('chat_messages')
+    .select('integration_id')
+    .eq('client_id', clientId)
+    .eq('is_outgoing', false)
+    .eq('messenger_type', 'telegram')
+    .not('integration_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastMessage?.integration_id) {
+    resolvedIntegrationId = lastMessage.integration_id;
+    console.log('[telegram-send] Smart routing: using integration from last message:', resolvedIntegrationId);
+  }
+}
+
+// Затем использовать resolvedIntegrationId при поиске интеграции
+if (resolvedIntegrationId) {
+  integrationQuery = integrationQuery.eq('id', resolvedIntegrationId);
+} else {
+  integrationQuery = integrationQuery.eq('is_primary', true);
+}
+```
+
+### Шаг 3: При делегировании в `telegram-crm-send` — не передавать `integrationId` из primary
+
+**Изменение**: Передавать `integrationId` только если он был получен через smart routing, а не жёстко из primary:
+
+```typescript
+// Было:
+body: JSON.stringify({
+  ...body,
+  integrationId: integration.id,  // <-- всегда primary
+}),
+
+// Станет (если smart routing нашёл интеграцию):
+body: JSON.stringify({
+  ...body,
+  integrationId: resolvedIntegrationId || undefined,  // <-- пустой = telegram-crm-send сам найдёт
+}),
+```
+
+## Файлы для изменения
+
+| Файл | Изменения |
 |------|-----------|
-| `src/hooks/useManagerBranches.ts` | Изменить `canAccessBranch`: `if (!clientBranch) return true;` вместо `false` |
-| **self-hosted DB (вручную)** | Обновить RLS-политики для `clients` и `chat_messages`, добавив `OR branch IS NULL` |
-| **self-hosted DB (вручную)** | Проверить RPC `get_unread_chat_threads` на отсутствие фильтрации по branch |
-
-## SQL-скрипт для self-hosted (выполнить вручную)
-
-```sql
--- 1. Обновить политику clients для менеджеров (если она есть)
-DROP POLICY IF EXISTS "managers_branch_clients" ON public.clients;
-
--- 2. Обновить политику chat_messages для менеджеров (если она есть)
-DROP POLICY IF EXISTS "managers_branch_messages" ON public.chat_messages;
-
--- Если политики используют другие имена, выполнить:
--- SELECT policyname FROM pg_policies WHERE tablename IN ('clients', 'chat_messages');
--- И удалить/пересоздать нужные с добавлением OR branch IS NULL
-
--- 3. Проверить RPC
--- SELECT prosrc FROM pg_proc WHERE proname = 'get_unread_chat_threads';
-```
+| `supabase/functions/telegram-webhook/index.ts` | 1. Изменить `resolveOrganizationByTelegramProfileId` — возвращать `integrationId`<br>2. Передавать `integrationId` в `handleIncomingMessage`<br>3. Сохранять `integration_id` в `chat_messages` |
+| `supabase/functions/telegram-send/index.ts` | 1. Добавить smart routing — поиск `integration_id` из последнего входящего<br>2. Использовать найденный ID при выборе интеграции<br>3. При делегировании в `telegram-crm-send` — не переопределять smart routing |
 
 ## Ожидаемый результат
 
-После применения изменений:
-1. Менеджер видит клиентов с `branch = NULL` или с его филиалом
-2. При появлении непрочитанного сообщения клиент **остается видимым** в списке
-3. Счетчик непрочитанных корректно увеличивается
-4. Кнопка "Непрочитанные" показывает всех клиентов с непрочитанными сообщениями, включая тех, у кого `branch = NULL`
+После исправления:
+1. Входящее сообщение от клиента сохраняется с `integration_id` — ID конкретной Telegram-интеграции (Wappi профиля)
+2. При ответе менеджера `telegram-send` находит этот `integration_id` в последнем входящем сообщении
+3. Ответ отправляется через ту же интеграцию, откуда пришло сообщение
+4. Ошибка отправки исчезает — сообщение доставляется клиенту
+
+## Примечание
+
+Для self-hosted инстансов нужно убедиться, что в таблице `chat_messages` есть колонка `integration_id`. Если её нет — функция `resilientInsertMessage` отбросит это поле при fallback (не критично для Cloud, где колонка есть).
