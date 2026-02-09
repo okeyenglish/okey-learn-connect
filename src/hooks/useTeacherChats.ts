@@ -285,7 +285,7 @@ export const useTeacherChats = (branch?: string | null) => {
           .select('teacher_id, message_text, created_at, messenger_type, messenger, is_read, is_outgoing')
           .in('teacher_id', teacherIds)
           .order('created_at', { ascending: false })
-          .limit(teacherIds.length * 20); // ~20 сообщений на преподавателя для превью
+          .limit(teacherIds.length * 50); // Enough messages per teacher for accurate unread count
         
         // Handle potential missing column (42703) gracefully
         if (directError) {
@@ -317,7 +317,7 @@ export const useTeacherChats = (branch?: string | null) => {
             if (messages && messages.length > 0) {
               const lastMsg = messages[0]; // Already sorted desc
               const unreadCount = messages.filter((m: any) => 
-                !m.is_read && (m.is_outgoing === false)
+                !m.is_read && m.is_outgoing === false && m.message_type !== 'system'
               ).length;
               
               directResults.push({
@@ -414,7 +414,7 @@ export const useTeacherChats = (branch?: string | null) => {
           const messages = messagesByClientId.get(match.clientId) || [];
           const lastMsg = messages[0]; // Already sorted desc
           const unreadCount = messages.filter((m: any) => 
-            !m.is_read && m.is_outgoing === false
+            !m.is_read && m.is_outgoing === false && m.message_type !== 'system'
           ).length;
           
           results.push({
