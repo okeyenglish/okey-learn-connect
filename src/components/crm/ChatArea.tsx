@@ -1093,10 +1093,45 @@ export const ChatArea = ({
         return;
       }
       
-      // Инвалидируем кэши для обновления UI
+      // Оптимистичное обновление кэша chat-threads — обнуляем unread_count мгновенно
+      queryClient.setQueriesData(
+        { queryKey: ['chat-threads'] },
+        (old: any[] | undefined) => {
+          if (!old) return old;
+          return old.map((t: any) => 
+            t.client_id === clientId ? { ...t, unread_count: 0 } : t
+          );
+        }
+      );
+
+      // Убрать клиента из unread-client-ids
+      queryClient.setQueriesData(
+        { queryKey: ['unread-client-ids'] },
+        (old: string[] | undefined) => {
+          if (!old) return old;
+          return old.filter((id: string) => id !== clientId);
+        }
+      );
+
+      // Оптимистичное обновление infinite-кэша chat-threads
+      queryClient.setQueriesData(
+        { queryKey: ['chat-threads-infinite'] },
+        (old: any) => {
+          if (!old?.pages) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page: any) => ({
+              ...page,
+              threads: page.threads?.map((t: any) =>
+                t.client_id === clientId ? { ...t, unread_count: 0 } : t
+              ),
+            })),
+          };
+        }
+      );
+
+      // Инвалидируем остальные кэши
       queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
-      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-      queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
       queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
       queryClient.invalidateQueries({ queryKey: ['chat-messages-infinite', clientId] });
