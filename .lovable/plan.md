@@ -1,127 +1,94 @@
 
-# План исправления: Синхронизация источника данных для чатов между мобильной и десктоп версиями
+# План: Добавить обработку ошибки IMPORT_FAILED в Wappi Telegram
 
 ## Проблема
 
-На мобильной версии чаты отображаются корректно (показано 23 сотрудника/группы), а на десктопной версии — пустой список (191 запись показывается только по онлайн-фильтру, но групповые чаты отсутствуют).
+При отправке сообщения через Wappi Telegram появляется ошибка **IMPORT_FAILED**. Это означает, что Wappi не может импортировать (найти) получателя по указанному номеру телефона в Telegram.
 
-### Причина
+Текущая логика fallback обрабатывает только ошибки:
+- `peer not found`
+- `peer_not_found`
+- `no peer`
 
-Два компонента используют **разные источники данных**:
-
-| Компонент | Хук | Источник данных |
-|-----------|-----|-----------------|
-| `AIHubInline` (мобильная) | `useStaffGroupChats()` | Таблица `staff_group_chats` через self-hosted API |
-| `AIHub` (десктоп) | `useInternalChats()` | Таблица `clients` (поиск по "Внутренний чат", "Корпоративный чат") |
-
-Хук `useInternalChats` — это устаревшая реализация, которая искала чаты среди обычных клиентов по ключевым словам в имени. Современные групповые чаты сотрудников хранятся в `staff_group_chats`.
+Но **не** обрабатывает `IMPORT_FAILED`, хотя это по сути та же самая ситуация — контакт не найден в Telegram.
 
 ## Решение
 
-Заменить использование `useInternalChats` на `useStaffGroupChats` в десктопной версии (`AIHub.tsx`), чтобы оба компонента получали данные из одного источника.
+Добавить `IMPORT_FAILED` в список ошибок, которые триггерят:
+1. Fallback на альтернативный номер телефона
+2. Fallback на другие Telegram интеграции
+3. Корректное сообщение пользователю
 
-## Файлы для изменения
+## Файл для изменения
 
-1. `src/components/ai-hub/AIHub.tsx`
+`supabase/functions/telegram-send/index.ts`
 
 ## Детали изменений
 
-### 1. Заменить импорт хука
-
-**Было:**
-```typescript
-import { useInternalChats, InternalChat } from '@/hooks/useInternalChats';
-```
-
-**Станет:**
-```typescript
-import { useStaffGroupChats, StaffGroupChat } from '@/hooks/useStaffGroupChats';
-```
-
-### 2. Заменить вызов хука
-
-**Было:**
-```typescript
-const { data: internalChats, isLoading: chatsLoading } = useInternalChats();
-```
-
-**Станет:**
-```typescript
-const { data: staffGroupChats, isLoading: groupChatsLoading } = useStaffGroupChats();
-```
-
-### 3. Обновить формирование списка групповых чатов
-
-**Было (строки 280-290):**
-```typescript
-// Group chats from internal_chats
-const groupChatItems: ChatItem[] = (internalChats || []).map(group => ({
-  id: group.id,
-  type: 'group' as ChatType,
-  name: group.name,
-  description: group.description || group.branch || 'Групповой чат',
-  icon: Users,
-  iconBg: 'bg-blue-500/10',
-  iconColor: 'text-blue-600',
-  data: group,
-}));
-```
-
-**Станет (идентично AIHubInline):**
-```typescript
-// Staff group chats (unified: branch groups + custom groups)
-const groupChatItems: ChatItem[] = (staffGroupChats || []).map(group => ({
-  id: group.id, 
-  type: 'group' as ChatType, 
-  name: group.name, 
-  description: group.description || (group.is_branch_group ? `Команда ${group.branch_name}` : 'Групповой чат'), 
-  icon: Users, 
-  iconBg: group.is_branch_group ? 'bg-indigo-500/10' : 'bg-blue-500/10', 
-  iconColor: group.is_branch_group ? 'text-indigo-600' : 'text-blue-600',
-  badge: group.branch_name || undefined,
-  data: group,
-}));
-```
-
-### 4. Обновить условие загрузки
-
-Заменить `chatsLoading` на `groupChatsLoading` в проверках состояния загрузки.
-
-### 5. Добавить получение previews для сотрудников (опционально)
-
-Для полного паритета с мобильной версией, добавить получение превью сообщений:
+### 1. Добавить helper-функцию для проверки "контакт не найден"
 
 ```typescript
-// Get all profile IDs for staff conversation previews
-const teacherProfileIds = teachers
-  .filter(t => t.profileId)
-  .map(t => t.profileId as string);
-const staffMemberIds = (staffMembers || []).map(s => s.id);
-const allProfileIds = [...new Set([...teacherProfileIds, ...staffMemberIds])];
-const { data: staffPreviews } = useStaffConversationPreviews(allProfileIds);
+// Helper function to check if error indicates contact not found
+function isContactNotFoundError(errorMsg: string): boolean {
+  const lower = errorMsg.toLowerCase();
+  return lower.includes('peer not found') ||
+         lower.includes('peer_not_found') ||
+         lower.includes('no peer') ||
+         lower.includes('import_failed') ||
+         lower.includes('import failed');
+}
 ```
 
-## Сравнение после исправления
+### 2. Заменить проверки в fallback логике
 
-| Параметр | Мобильная | Десктоп (после) |
-|----------|-----------|-----------------|
-| Источник групп | `staff_group_chats` | `staff_group_chats` |
-| Источник сотрудников | `profiles` + `staffMembers` | `profiles` + `staffMembers` |
-| Хук групп | `useStaffGroupChats` | `useStaffGroupChats` |
-| API | self-hosted | self-hosted |
+**Строка ~525-530 (первый fallback на телефон):**
+Добавить логирование типа ошибки для диагностики.
+
+**Строка ~676-679 (финальная проверка):**
+Заменить:
+```typescript
+const isFinalPeerNotFound = finalErrorMsg.toLowerCase().includes('peer not found') || 
+                            finalErrorMsg.toLowerCase().includes('peer_not_found') ||
+                            finalErrorMsg.toLowerCase().includes('no peer');
+```
+
+На:
+```typescript
+const isFinalPeerNotFound = isContactNotFoundError(finalErrorMsg);
+```
+
+### 3. Обновить сообщение об ошибке
+
+Сделать сообщение более информативным:
+```typescript
+error: 'Клиент не найден в Telegram (IMPORT_FAILED/PEER_NOT_FOUND). Попросите клиента написать вам первым, чтобы установить связь.',
+```
+
+## Технические детали
+
+| Параметр | Значение |
+|----------|----------|
+| Файл | `supabase/functions/telegram-send/index.ts` |
+| Строки изменения | ~676-684 (финальная обработка ошибки) |
+| Новые функции | `isContactNotFoundError()` — helper для проверки типа ошибки |
+| Влияние | Улучшенное распознавание ошибок Wappi, корректный fallback |
 
 ## Ожидаемый результат
 
 После изменений:
-- Десктоп версия будет показывать те же групповые чаты ("Команда Котельники", "Команда Мытищи" и т.д.)
-- Список сотрудников и групп будет идентичен на обеих платформах
-- Счётчик "Все N" будет показывать одинаковое количество
+- Ошибка `IMPORT_FAILED` будет триггерить fallback на другие интеграции
+- Если все интеграции не смогли доставить — пользователь увидит понятное сообщение
+- В логах будет видно какой тип ошибки вызвал fallback
 
-## Риски
+## Почему возникает IMPORT_FAILED
 
-- Минимальные: изменяется только источник данных, логика отображения остаётся прежней
-- `useStaffGroupChats` уже проверен в мобильной версии
+Wappi для Telegram работает через **клиентское API** (не бот API). Это означает:
+- Чтобы отправить сообщение, получатель должен быть в контактах ИЛИ ранее писал в этот аккаунт
+- Если просто указать номер телефона незнакомого человека — Wappi не сможет его "импортировать" в Telegram
+- Это ограничение самого Telegram, не Wappi
 
-## Дополнительно
+## Рекомендация пользователю
 
-После этого исправления можно будет удалить неиспользуемый хук `useInternalChats`, если он больше нигде не применяется.
+Для успешной отправки через Wappi Telegram:
+1. Клиент должен **первым написать** в Telegram-аккаунт организации
+2. ИЛИ добавить номер клиента в контакты Telegram-аккаунта вручную
