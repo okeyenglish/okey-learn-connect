@@ -31,14 +31,15 @@ import {
   FileText,
   HelpCircle,
   Check,
-  CheckCheck
+  CheckCheck,
+  Pencil
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useAuth } from '@/hooks/useAuth';
 import { isAdmin } from '@/lib/permissions';
 import { useQueryClient } from '@tanstack/react-query';
-import { useStaffGroupChats, StaffGroupChat } from '@/hooks/useStaffGroupChats';
+import { useStaffGroupChats, StaffGroupChat, useRenameStaffGroupChat } from '@/hooks/useStaffGroupChats';
 import { useTeacherChats, TeacherChatItem, useEnsureTeacherClient } from '@/hooks/useTeacherChats';
 import { useAssistantMessages } from '@/hooks/useAssistantMessages';
 import { useCommunityChats } from '@/hooks/useCommunityChats';
@@ -47,7 +48,8 @@ import {
   useStaffGroupMessages, 
   useSendStaffMessage, 
   useStaffMembers,
-  useStaffConversationPreviews
+  useStaffConversationPreviews,
+  useStaffGroupChatPreviews
 } from '@/hooks/useInternalStaffMessages';
 import { useStaffTypingIndicator } from '@/hooks/useStaffTypingIndicator';
 import { StaffTypingIndicator } from '@/components/ai-hub/StaffTypingIndicator';
@@ -113,6 +115,7 @@ interface ChatItem {
   badge?: string;
   unreadCount?: number;
   lastMessage?: string;
+  lastMessageTime?: string;
   // For groups/teachers/staff
   data?: StaffGroupChat | TeacherChatItem | StaffMember;
 }
@@ -162,6 +165,21 @@ export const AIHub = ({
   const { communityChats, totalUnread: communityUnread, isLoading: communityLoading } = useCommunityChats();
   const { onlineUsers, isUserOnline, getLastSeenFormatted, onlineCount } = useStaffOnlinePresence();
   const { data: staffMembers } = useStaffMembers();
+  
+  // Staff conversation previews (for teachers and staff) 
+  const teacherProfileIds = teachers.filter(t => t.profileId).map(t => t.profileId as string);
+  const staffMemberIds = (staffMembers || []).map(s => s.id);
+  const allProfileIds = [...new Set([...teacherProfileIds, ...staffMemberIds])];
+  const { data: staffPreviews } = useStaffConversationPreviews(allProfileIds);
+  
+  // Group chat previews
+  const groupChatIds = (staffGroupChats || []).map(g => g.id);
+  const { data: groupPreviews } = useStaffGroupChatPreviews(groupChatIds);
+  
+  // Rename hook
+  const renameGroupChat = useRenameStaffGroupChat();
+  const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
   
   // Staff messaging hooks - for staff direct messages using new internal_staff_messages table
   // Use profile_id for direct messaging with teachers/staff (links to profiles/auth.users)
@@ -278,40 +296,50 @@ export const AIHub = ({
   ];
 
   // Staff group chats (unified: branch groups + custom groups)
-  const groupChatItems: ChatItem[] = (staffGroupChats || []).map(group => ({
-    id: group.id,
-    type: 'group' as ChatType,
-    name: group.name,
-    description: group.description || (group.is_branch_group ? `Команда ${group.branch_name}` : 'Групповой чат'),
-    icon: Users,
-    iconBg: group.is_branch_group ? 'bg-indigo-500/10' : 'bg-blue-500/10',
-    iconColor: group.is_branch_group ? 'text-indigo-600' : 'text-blue-600',
-    badge: group.branch_name || undefined,
-    data: group,
-  }));
+  const groupChatItems: ChatItem[] = (staffGroupChats || []).map(group => {
+    const preview = groupPreviews?.[group.id];
+    return {
+      id: group.id,
+      type: 'group' as ChatType,
+      name: group.name,
+      description: group.description || (group.is_branch_group ? `Команда ${group.branch_name}` : 'Групповой чат'),
+      icon: Users,
+      iconBg: group.is_branch_group ? 'bg-indigo-500/10' : 'bg-blue-500/10',
+      iconColor: group.is_branch_group ? 'text-indigo-600' : 'text-blue-600',
+      badge: group.branch_name || undefined,
+      unreadCount: preview?.unreadCount || 0,
+      lastMessage: preview?.lastMessage ? `${preview.lastMessageSender ? preview.lastMessageSender + ': ' : ''}${preview.lastMessage}` : undefined,
+      lastMessageTime: preview?.lastMessageTime || undefined,
+      data: group,
+    };
+  });
 
-  // Teacher chats - with profile link indicator
-  const teacherChatItems: ChatItem[] = teachers.map(teacher => ({
-    id: teacher.id,
-    type: 'teacher' as ChatType,
-    name: teacher.fullName,
-    description: teacher.profileId 
-      ? (teacher.branch || teacher.email || 'Преподаватель')
-      : '⚠️ Нет привязки к профилю',
-    icon: GraduationCap,
-    iconBg: teacher.profileId ? 'bg-green-500/10' : 'bg-amber-500/10',
-    iconColor: teacher.profileId ? 'text-green-600' : 'text-amber-600',
-    unreadCount: teacher.unreadMessages,
-    lastMessage: teacher.lastMessageText || undefined,
-    data: teacher,
-  }));
+  // Teacher chats - with profile link indicator and previews
+  const teacherChatItems: ChatItem[] = teachers.map(teacher => {
+    const preview = teacher.profileId ? staffPreviews?.[teacher.profileId] : undefined;
+    return {
+      id: teacher.id,
+      type: 'teacher' as ChatType,
+      name: teacher.fullName,
+      description: teacher.profileId 
+        ? (teacher.branch || teacher.email || 'Преподаватель')
+        : '⚠️ Нет привязки к профилю',
+      icon: GraduationCap,
+      iconBg: teacher.profileId ? 'bg-green-500/10' : 'bg-amber-500/10',
+      iconColor: teacher.profileId ? 'text-green-600' : 'text-amber-600',
+      unreadCount: preview?.unreadCount || teacher.unreadMessages,
+      lastMessage: preview?.lastMessage || teacher.lastMessageText || undefined,
+      lastMessageTime: preview?.lastMessageTime || undefined,
+      data: teacher,
+    };
+  });
 
   // Staff members (managers, methodists, etc.) - exclude those already shown as teachers
-  const teacherProfileIds = teachers.filter(t => t.profileId).map(t => t.profileId as string);
   const teacherProfileIdsSet = new Set(teacherProfileIds);
   const staffChatItems: ChatItem[] = (staffMembers || [])
-    .filter(staff => !teacherProfileIdsSet.has(staff.id)) // Exclude users already shown as teachers
+    .filter(staff => !teacherProfileIdsSet.has(staff.id))
     .map(staff => {
+      const preview = staffPreviews?.[staff.id];
       const fullName = [staff.first_name, staff.last_name].filter(Boolean).join(' ') || staff.email || 'Сотрудник';
       return {
         id: staff.id,
@@ -321,6 +349,9 @@ export const AIHub = ({
         icon: Users,
         iconBg: 'bg-blue-500/10',
         iconColor: 'text-blue-600',
+        unreadCount: preview?.unreadCount || 0,
+        lastMessage: preview?.lastMessage || undefined,
+        lastMessageTime: preview?.lastMessageTime || undefined,
         data: staff,
       };
     });
@@ -605,10 +636,51 @@ export const AIHub = ({
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm truncate">{activeChat.name}</p>
-              <p className="text-xs text-muted-foreground truncate">
-                {activeChat.badge || activeChat.description}
-              </p>
+              {activeChat.type === 'group' && renamingGroupId === activeChat.id ? (
+                <div className="flex items-center gap-1">
+                  <Input
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        renameGroupChat.mutate({ groupId: activeChat.id, name: renameValue });
+                        setActiveChat({ ...activeChat, name: renameValue });
+                        setRenamingGroupId(null);
+                      }
+                      if (e.key === 'Escape') setRenamingGroupId(null);
+                    }}
+                    className="h-7 text-sm"
+                    autoFocus
+                  />
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => {
+                    renameGroupChat.mutate({ groupId: activeChat.id, name: renameValue });
+                    setActiveChat({ ...activeChat, name: renameValue });
+                    setRenamingGroupId(null);
+                  }}>
+                    <Check className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setRenamingGroupId(null)}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-1">
+                    <p className="font-semibold text-sm truncate">{activeChat.name}</p>
+                    {activeChat.type === 'group' && (
+                      <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => {
+                        setRenamingGroupId(activeChat.id);
+                        setRenameValue(activeChat.name);
+                      }}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {activeChat.badge || activeChat.description}
+                  </p>
+                </>
+              )}
             </div>
             
             {/* Link profile button for teachers without profile */}
@@ -770,6 +842,8 @@ export const AIHub = ({
   // Apply online filter to staff/teacher chats
   const corporateChatsListFiltered = staffFilter === 'online' 
     ? corporateChatsListBase.filter(item => {
+        // Always show groups
+        if (item.type === 'group') return true;
         if (item.type === 'teacher') {
           const profileId = (item.data as TeacherChatItem)?.profileId;
           return profileId ? isUserOnline(profileId) : false;
@@ -778,7 +852,7 @@ export const AIHub = ({
           const staffId = (item.data as StaffMember)?.id;
           return staffId ? isUserOnline(staffId) : false;
         }
-        return false; // Groups are excluded when filtering online
+        return false;
       })
     : corporateChatsListBase;
 
@@ -1124,16 +1198,28 @@ export const AIHub = ({
                             <span className={`text-sm ${hasUnread ? 'font-semibold' : 'font-medium'} truncate flex-1 min-w-0`}>
                               {item.name}
                             </span>
-                            {isTeacher && teacher?.branch && (
-                              <Badge variant="outline" className="text-[9px] h-4 px-1.5 shrink-0 font-normal bg-green-50 text-green-700 border-green-200">
-                                {teacher.branch}
-                              </Badge>
-                            )}
-                            {isStaff && staff?.branch && (
-                              <Badge variant="outline" className="text-[9px] h-4 px-1.5 shrink-0 font-normal bg-blue-50 text-blue-700 border-blue-200">
-                                {staff.branch}
-                              </Badge>
-                            )}
+                            {(() => {
+                              const branchStr = isTeacher ? teacher?.branch : isStaff ? staff?.branch : null;
+                              if (!branchStr) return null;
+                              const branches = branchStr.split(',').map(b => b.trim()).filter(Boolean);
+                              const visible = branches.slice(0, 2);
+                              const hidden = branches.length - visible.length;
+                              const colorCls = isTeacher ? 'bg-green-50 text-green-700 border-green-200' : 'bg-blue-50 text-blue-700 border-blue-200';
+                              return (
+                                <>
+                                  {visible.map(b => (
+                                    <Badge key={b} variant="outline" className={`text-[9px] h-4 px-1.5 shrink-0 font-normal ${colorCls}`}>
+                                      {b}
+                                    </Badge>
+                                  ))}
+                                  {hidden > 0 && (
+                                    <Badge variant="outline" className={`text-[9px] h-4 px-1.5 shrink-0 font-normal ${colorCls} cursor-default`} title={branches.join(', ')}>
+                                      +{hidden}
+                                    </Badge>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                           <div className="text-xs text-muted-foreground leading-relaxed overflow-hidden">
                             {lastSeenText && !isOnline ? (
