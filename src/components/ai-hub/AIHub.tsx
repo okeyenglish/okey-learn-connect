@@ -49,7 +49,8 @@ import {
   useSendStaffMessage, 
   useStaffMembers,
   useStaffConversationPreviews,
-  useStaffGroupChatPreviews
+  useStaffGroupChatPreviews,
+  useMarkStaffChatRead
 } from '@/hooks/useInternalStaffMessages';
 import { useStaffTypingIndicator } from '@/hooks/useStaffTypingIndicator';
 import { StaffTypingIndicator } from '@/components/ai-hub/StaffTypingIndicator';
@@ -502,6 +503,8 @@ export const AIHub = ({
     }
   };
 
+  const markChatRead = useMarkStaffChatRead();
+
   const handleSelectChat = async (item: ChatItem) => {
     try {
       // Check if teacher has profile link before opening chat
@@ -519,6 +522,16 @@ export const AIHub = ({
         }
       }
       setActiveChat(item);
+
+      // Mark as read using cursor
+      if (item.type === 'teacher' || item.type === 'staff') {
+        const profileId = item.type === 'teacher' 
+          ? (item.data as TeacherChatItem)?.profileId 
+          : (item.data as StaffMember)?.id;
+        if (profileId) markChatRead.mutate(profileId);
+      } else if (item.type === 'group') {
+        markChatRead.mutate(item.id);
+      }
     } catch (error) {
       console.error('[AIHub] Error selecting chat:', error);
       toast.error('Не удалось открыть чат. Попробуйте ещё раз.');

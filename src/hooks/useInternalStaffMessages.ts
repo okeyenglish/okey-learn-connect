@@ -234,7 +234,7 @@ export const useSendStaffMessage = () => {
   });
 };
 
-// Hook for marking messages as read
+// Hook for marking messages as read (legacy - kept for compatibility)
 export const useMarkStaffMessagesRead = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -272,6 +272,53 @@ export const useMarkStaffMessagesRead = () => {
       queryClient.invalidateQueries({ queryKey: ['staff-unread-count'] });
     }
   });
+};
+
+// Hook for marking chat as read using per-user cursors (new approach)
+export const useMarkStaffChatRead = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (chatId: string) => {
+      if (!user?.id) throw new Error('Not authenticated');
+      const { error } = await supabase
+        .from('staff_chat_read_cursors')
+        .upsert({
+          user_id: user.id,
+          chat_id: chatId,
+          last_read_at: new Date().toISOString()
+        }, { onConflict: 'user_id,chat_id' });
+      if (error) {
+        console.error('Error upserting read cursor:', error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-conversation-previews'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-group-previews'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-unread-count'] });
+    }
+  });
+};
+
+// Helper: fetch all read cursors for current user
+const fetchReadCursors = async (userId: string): Promise<Record<string, string>> => {
+  const { data, error } = await supabase
+    .from('staff_chat_read_cursors')
+    .select('chat_id, last_read_at')
+    .eq('user_id', userId);
+  
+  if (error) {
+    console.error('Error fetching read cursors:', error);
+    return {};
+  }
+  
+  const cursors: Record<string, string> = {};
+  (data || []).forEach((row: any) => {
+    cursors[row.chat_id] = row.last_read_at;
+  });
+  return cursors;
 };
 
 // Hook for getting unread message count with realtime sound notifications
@@ -332,21 +379,43 @@ export const useStaffUnreadCount = () => {
     queryFn: async () => {
       if (!user?.id) return 0;
 
-      const { count, error } = await supabase
-        .from('internal_staff_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('recipient_user_id', user.id)
-        .eq('is_read', false);
+      // Fetch user's read cursors
+      const cursors = await fetchReadCursors(user.id);
 
-      if (error) {
-        console.error('Error fetching unread count:', error);
-        return 0;
-      }
-      
-      return count || 0;
+      let unreadCount = 0;
+
+      // DM unread: messages sent to me, after my cursor for that sender
+      const { data: allDmUnread } = await supabase
+        .from('internal_staff_messages')
+        .select('sender_id, created_at')
+        .eq('recipient_user_id', user.id)
+        .neq('sender_id', user.id);
+
+      (allDmUnread || []).forEach((msg: any) => {
+        const cursor = cursors[msg.sender_id];
+        if (!cursor || new Date(msg.created_at) > new Date(cursor)) {
+          unreadCount++;
+        }
+      });
+
+      // Group unread: messages in groups, after my cursor for that group
+      const { data: groupMessages } = await supabase
+        .from('internal_staff_messages')
+        .select('group_chat_id, created_at')
+        .not('group_chat_id', 'is', null)
+        .neq('sender_id', user.id);
+
+      (groupMessages || []).forEach((msg: any) => {
+        const cursor = cursors[msg.group_chat_id];
+        if (!cursor || new Date(msg.created_at) > new Date(cursor)) {
+          unreadCount++;
+        }
+      });
+
+      return unreadCount;
     },
     enabled: !!user?.id,
-    refetchInterval: 30000 // Refresh every 30 seconds
+    refetchInterval: 30000
   });
 };
 
@@ -403,6 +472,8 @@ export const useStaffGroupChatPreviews = (groupIds: string[]) => {
     queryFn: async () => {
       if (!user?.id || groupIds.length === 0) return {} as Record<string, StaffGroupChatPreview>;
 
+      const cursors = await fetchReadCursors(user.id);
+
       const previews: Record<string, StaffGroupChatPreview> = {};
       groupIds.forEach(id => {
         previews[id] = { groupId: id, lastMessage: null, lastMessageTime: null, lastMessageSender: null, unreadCount: 0 };
@@ -417,13 +488,22 @@ export const useStaffGroupChatPreviews = (groupIds: string[]) => {
           .order('created_at', { ascending: false })
           .limit(1);
 
-        // Get unread count (messages not from current user that are unread)
-        const { count } = await supabase
+        // Get unread count using cursor
+        const cursor = cursors[groupId];
+        let unreadCount = 0;
+
+        let unreadQuery = supabase
           .from('internal_staff_messages')
           .select('*', { count: 'exact', head: true })
           .eq('group_chat_id', groupId)
-          .neq('sender_id', user.id)
-          .eq('is_read', false);
+          .neq('sender_id', user.id);
+
+        if (cursor) {
+          unreadQuery = unreadQuery.gt('created_at', cursor);
+        }
+
+        const { count } = await unreadQuery;
+        unreadCount = count || 0;
 
         if (messages && messages.length > 0) {
           const msg = messages[0] as any;
@@ -432,10 +512,10 @@ export const useStaffGroupChatPreviews = (groupIds: string[]) => {
             lastMessage: msg.message_text,
             lastMessageTime: msg.created_at,
             lastMessageSender: msg.sender?.first_name || null,
-            unreadCount: count || 0,
+            unreadCount,
           };
         } else {
-          previews[groupId].unreadCount = count || 0;
+          previews[groupId].unreadCount = unreadCount;
         }
       });
 
@@ -454,6 +534,8 @@ export const useStaffConversationPreviews = (profileIds: string[]) => {
     queryKey: ['staff-conversation-previews', profileIds],
     queryFn: async () => {
       if (!user?.id || profileIds.length === 0) return {} as Record<string, StaffConversationPreview>;
+
+      const cursors = await fetchReadCursors(user.id);
 
       const previews: Record<string, StaffConversationPreview> = {};
 
@@ -478,13 +560,20 @@ export const useStaffConversationPreviews = (profileIds: string[]) => {
           .order('created_at', { ascending: false })
           .limit(1);
 
-        // Get unread count
-        const { count } = await supabase
+        // Get unread count using cursor (chatId = recipientId for DMs)
+        const cursor = cursors[recipientId];
+
+        let unreadQuery = supabase
           .from('internal_staff_messages')
           .select('*', { count: 'exact', head: true })
           .eq('sender_id', recipientId)
-          .eq('recipient_user_id', user.id)
-          .eq('is_read', false);
+          .eq('recipient_user_id', user.id);
+
+        if (cursor) {
+          unreadQuery = unreadQuery.gt('created_at', cursor);
+        }
+
+        const { count } = await unreadQuery;
 
         if (messages && messages.length > 0) {
           previews[recipientId] = {

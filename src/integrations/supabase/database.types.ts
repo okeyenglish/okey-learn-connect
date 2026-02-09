@@ -1288,6 +1288,12 @@ export interface GlobalChatReadStatus {
   updated_at?: string;
 }
 
+export interface StaffChatReadCursor {
+  user_id: string;
+  chat_id: string;
+  last_read_at: string;
+}
+
 export interface StudentHistory {
   id: string;
   student_id: string;
@@ -2172,6 +2178,12 @@ export interface CustomDatabase {
         Row: GlobalChatReadStatus;
         Insert: Partial<GlobalChatReadStatus>;
         Update: Partial<GlobalChatReadStatus>;
+        Relationships: [];
+      };
+      staff_chat_read_cursors: {
+        Row: StaffChatReadCursor;
+        Insert: StaffChatReadCursor;
+        Update: Partial<StaffChatReadCursor>;
         Relationships: [];
       };
       student_history: {
