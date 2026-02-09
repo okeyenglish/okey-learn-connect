@@ -608,7 +608,17 @@ const CRMContent = () => {
       // Also listen for new clients (created via webhook)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'clients' }, debouncedRefetch)
       // Listen for client updates (e.g. has_pending_payment changes)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'clients' }, debouncedRefetch)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'clients' }, (payload: any) => {
+        debouncedRefetch();
+        // Update activeClientInfo if this is the currently active client
+        const updatedClient = payload.new;
+        if (updatedClient && updatedClient.id === activeChatId) {
+          setActiveClientInfo(prev => {
+            if (!prev) return prev;
+            return { ...prev, has_pending_payment: updatedClient.has_pending_payment || false };
+          });
+        }
+      })
       .subscribe((status) => {
         console.log('📡 [CRM] Real-time subscription status:', status);
       });
@@ -1443,7 +1453,8 @@ const CRMContent = () => {
           phone: existingClient.phone || existingThread?.client_phone || '',
           comment: existingClient.notes || 'Клиент',
           telegram_user_id: (existingClient as any).telegram_user_id || null,
-          max_chat_id: (existingClient as any).max_chat_id || null
+          max_chat_id: (existingClient as any).max_chat_id || null,
+          has_pending_payment: (existingClient as any).has_pending_payment || false
         });
       } else if (existingThread) {
         setActiveClientInfo({
@@ -1451,7 +1462,8 @@ const CRMContent = () => {
           phone: existingThread.client_phone || '',
           comment: 'Клиент',
           telegram_user_id: null,
-          max_chat_id: null
+          max_chat_id: null,
+          has_pending_payment: (existingThread as any).has_pending_payment || false
         });
       }
       
@@ -1474,7 +1486,7 @@ const CRMContent = () => {
             // Fetch client data - always get all needed fields
             const { data: clientData } = await supabase
               .from('clients')
-              .select('name, notes, telegram_user_id, phone, max_chat_id')
+              .select('name, notes, telegram_user_id, phone, max_chat_id, has_pending_payment')
               .eq('id', currentChatId)
               .single();
 
@@ -1489,7 +1501,8 @@ const CRMContent = () => {
                 phone: phone || '',
                 comment: (clientData as any).notes || 'Клиент',
                 telegram_user_id: telegramUserId || null,
-                max_chat_id: maxChatId
+                max_chat_id: maxChatId,
+                has_pending_payment: (clientData as any).has_pending_payment || false
               });
             } else if (phone || telegramUserId || maxChatId) {
               setActiveClientInfo(prev => {

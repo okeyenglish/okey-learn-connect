@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
           message_text: `tbank_success ${amountRub}`,
           message_type: 'system',
           is_outgoing: false,
-          is_read: false,
+          is_read: true,
           messenger_type: messengerType,
         });
 
@@ -262,11 +262,10 @@ Deno.serve(async (req) => {
                   'Authorization': `Bearer ${supabaseKey}`,
                 },
                 body: JSON.stringify({
-                  chat_id: telegramId,
-                  phone: phone,
-                  message: thankYouMessage,
-                  client_id: onlinePayment.client_id,
-                  organization_id: onlinePayment.organization_id,
+                  clientId: onlinePayment.client_id,
+                  text: thankYouMessage,
+                  phoneNumber: phone,
+                  organizationId: onlinePayment.organization_id,
                 }),
               });
               
