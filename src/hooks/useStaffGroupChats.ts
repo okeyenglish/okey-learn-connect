@@ -257,6 +257,32 @@ export const useRemoveGroupMember = () => {
 };
 
 /**
+ * Delete a staff group chat (admin only)
+ */
+export const useDeleteStaffGroupChat = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (groupId: string) => {
+      const response = await selfHostedPost('delete-staff-group-chat', {
+        group_id: groupId,
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to delete group');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-group-chats'] });
+      toast.success('Группа удалена');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Ошибка удаления группы');
+    },
+  });
+};
+
+/**
  * Rename a staff group chat
  */
 export const useRenameStaffGroupChat = () => {
