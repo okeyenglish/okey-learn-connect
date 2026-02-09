@@ -1,58 +1,54 @@
 
-# Fix: Оплата через Telegram — ₽ не показывается, непрочитанное "1" вместо значка, благодарственное сообщение не отправляется
+# Fix: Wappi Telegram — долгое сохранение и дублирование интеграций
 
-## 3 обнаруженные проблемы
+## Обнаруженные проблемы
 
-### Проблема 1: Значок ₽ не отображается в списке чатов и кнопка "Оплата проведена" отсутствует
+### 1. Двойная регистрация webhook (причина зависания)
+При сохранении Wappi Telegram интеграции происходит **двойной** вызов к Wappi API:
+- Сначала edge-функция `messenger-integrations` (self-hosted) вызывает `registerWappiTelegramWebhook` внутри себя (строки 156-169)
+- Затем клиентский код `IntegrationEditDialog.tsx` (строки 121-159) вызывает `supabase.functions.invoke('wappi-telegram-webhook-register')` — это отдельная edge-функция
 
-**Причина**: При открытии чата данные клиента кэшируются в `activeClientInfo` (CRM.tsx, строки 1441-1447), но **без поля `has_pending_payment`**. Функция `getActiveClientInfo()` (строка 1871) возвращает закэшированные данные приоритетно. В результате `hasPendingPayment` всегда `false` в ChatArea.
+Второй вызов идёт через `supabase` клиент, который указывает на self-hosted сервер. Если эта функция там не развёрнута или медленно отвечает — диалог зависает на "Сохранение..."
 
-**Решение**: Добавить `has_pending_payment` во все места, где устанавливается `activeClientInfo`.
+### 2. Дублирование интеграций
+`selfHostedPost` имеет retry-логику по умолчанию (3 попытки с backoff). Если первый запрос создаёт интеграцию, но Wappi webhook-регистрация внутри edge-функции занимает слишком долго и вызывает таймаут — retry создаёт **новую копию** интеграции.
 
-### Проблема 2: Показывается "1" непрочитанное вместо значка ₽
+### 3. Блокирующий вызов Wappi API в edge-функции
+Вызов `registerWappiTelegramWebhook` внутри `messenger-integrations` выполняется **синхронно** перед отправкой ответа. Если Wappi API медленно отвечает — весь запрос на создание интеграции таймаутит.
 
-**Причина**: Системное сообщение `tbank_success` создаётся в tbank-webhook с `is_read: false` и `is_outgoing: false` (строка 142-150). В `useChatThreadsInfinite.ts` (строка 128-130) подсчёт непрочитанных фильтрует только по `!is_read && !is_outgoing`, **не исключая** `message_type: 'system'`. Поэтому системное сообщение об оплате считается непрочитанным. А в ChatListItem значок ₽ показывается только при `has_pending_payment && !displayUnread` — если есть непрочитанные, они приоритетнее.
+## Решение
 
-Подождите — на самом деле ChatListItem (строка 336-350) показывает ₽ если `has_pending_payment`, а unread бейдж только если `!has_pending_payment`. Значит проблема именно в том, что `has_pending_payment` не попадает в данные. Но также нужно исключить системные сообщения из подсчёта непрочитанных.
+### Изменение 1: Убрать дублирующую регистрацию webhook из клиента
+**Файл**: `src/components/admin/integrations/IntegrationEditDialog.tsx`
 
-**Решение**: 
-- В tbank-webhook создавать системное сообщение с `is_read: true` (системные уведомления не должны считаться непрочитанными)
-- В useChatThreadsInfinite исключить `message_type: 'system'` из подсчёта непрочитанных
+Удалить блок кода (строки 121-159) который вызывает `supabase.functions.invoke('wappi-telegram-webhook-register')`. Edge-функция `messenger-integrations` уже делает это сама.
 
-### Проблема 3: Благодарственное сообщение не отправляется через Telegram
+### Изменение 2: Сделать webhook-регистрацию неблокирующей в edge-функции
+**Файл**: `supabase/functions/messenger-integrations/index.ts`
 
-**Причина**: tbank-webhook вызывает `telegram-send` через `fetch()`. На self-hosted сервере переменная `SELF_HOSTED_URL` может быть не установлена, и `SUPABASE_URL` внутри Docker = `http://kong:8000`, что не маршрутизируется к edge functions правильно. Также `telegram-send` ожидает параметр `text` (а не `message`) — нужно проверить.
+Заменить `await registerWappiTelegramWebhook(...)` на fire-and-forget вызов. Интеграция создаётся и возвращается клиенту немедленно, а webhook регистрируется в фоне.
 
-**Решение**: Проверить параметры вызова telegram-send в tbank-webhook и исправить имя параметра сообщения.
+Было:
+```typescript
+const webhookResult = await registerWappiTelegramWebhook(profileId, webhookUrl, apiToken);
+```
 
-## Файлы для изменения
+Станет:
+```typescript
+// Fire-and-forget: don't block response
+registerWappiTelegramWebhook(profileId, webhookUrl, apiToken)
+  .then(r => console.log('[messenger-integrations] Wappi webhook:', r))
+  .catch(e => console.error('[messenger-integrations] Wappi webhook error:', e));
+```
 
-### 1. `src/pages/CRM.tsx` — добавить `has_pending_payment` в кэш activeClientInfo
+### Изменение 3: Отключить retry для создания интеграций
+**Файл**: `src/hooks/useMessengerIntegrations.ts`
 
-Все 4 места, где вызывается `setActiveClientInfo`:
-- Строка 1441: из existingClient — добавить `has_pending_payment: (existingClient as any).has_pending_payment || false`
-- Строка 1449: из existingThread — добавить `has_pending_payment: (existingThread as any).has_pending_payment || false`
-- Строка 1487: из clientData (full fetch) — добавить `has_pending_payment: (clientData as any).has_pending_payment || false`
-- Строка 1495: partial update — сохранить `has_pending_payment` из prev
-
-Также добавить подписку на realtime-обновления `clients.has_pending_payment`:
-- При получении UPDATE для clients — обновить activeClientInfo если совпадает ID
-
-### 2. `supabase/functions/tbank-webhook/index.ts` — исправить создание системного сообщения
-
-Строка 148: изменить `is_read: false` на `is_read: true` — системные уведомления об оплате не должны считаться непрочитанными клиентскими сообщениями.
-
-### 3. `supabase/functions/tbank-webhook/index.ts` — исправить вызов telegram-send
-
-Строка 264-270: проверить и исправить параметры для telegram-send. Текущий параметр `message` может не совпадать с ожидаемым в telegram-send.
-
-### 4. `src/hooks/useChatThreadsInfinite.ts` — исключить системные сообщения из подсчёта непрочитанных
-
-Строка 128-130: добавить фильтр `&& m.message_type !== 'system'` в подсчёт непрочитанных.
+Добавить `retry: { noRetry: true }` в `selfHostedPost` при создании интеграции, чтобы предотвратить дублирование при retry.
 
 ## Ожидаемый результат
 
-- После оплаты через Telegram в списке чатов отображается значок ₽ (а не "1")
-- В тулбаре ChatArea появляется кнопка "Оплата проведена"
-- Благодарственное сообщение отправляется клиенту через Telegram автоматически
-- Системные сообщения об оплате не увеличивают счётчик непрочитанных
+- Сохранение Wappi Telegram интеграции занимает 1-2 секунды (вместо 10-30+)
+- Webhook регистрируется в фоне автоматически
+- Дубликаты интеграций больше не создаются
+- Удалён import `supabase` из `IntegrationEditDialog.tsx` (больше не нужен)
