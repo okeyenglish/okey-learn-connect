@@ -1,74 +1,45 @@
 
-# Исправление маршрутизации Telegram-сообщений: ответ на правильную интеграцию
+# Исправление Smart Routing для преподавателей в Telegram
 
 ## Суть проблемы
 
-Клиент написал сообщение в Telegram, но при ответе система использует **не ту интеграцию** — вместо того чтобы ответить с того аккаунта, на который написал клиент, она отправляет с `is_primary=true` аккаунта. Это приводит к ошибке отправки (красный индикатор на скриншоте).
+При отправке сообщения **преподавателю** система не использует smart routing — она всегда выбирает `is_primary=true` интеграцию вместо той, откуда преподаватель написал.
 
-## Техническая диагностика
+## Диагноз
 
-### Текущее состояние smart routing по функциям:
+Код `telegram-send` (строки 61-79) ищет `integration_id` **только по `client_id`**:
 
-| Edge Function | Smart Routing | Статус |
-|---------------|---------------|--------|
-| `wpp-send` | Ищет `integration_id` из последнего входящего | ✅ Работает |
-| `telegram-crm-send` | Ищет `integration_id` из последнего входящего | ✅ Работает |
-| `max-send` | Ищет `integration_id` из последнего входящего | ✅ Работает |
-| `whatsapp-send` | Ищет `integration_id` из последнего входящего | ✅ Работает |
-| **`telegram-send` (Wappi)** | Берёт только `is_primary=true` | ❌ **Проблема!** |
-
-### Корневые причины:
-
-1. **`telegram-webhook`** при сохранении входящего сообщения **НЕ сохраняет `integration_id`** в `chat_messages`. Функция `resolveOrganizationByTelegramProfileId` возвращает только `organizationId`, но не `integrationId`.
-
-2. **`telegram-send`** (строки 57-65) жёстко ищет только `is_primary=true` интеграцию:
 ```typescript
-const { data: integration } = await supabase
-  .from('messenger_integrations')
-  .eq('is_primary', true)  // <-- всегда primary!
-  .maybeSingle();
+if (clientId) {  // <-- Для преподавателей clientId = '' (пустая строка)
+  const { data: lastMessage } = await supabase
+    .from('chat_messages')
+    .select('integration_id')
+    .eq('client_id', clientId)  // <-- Никогда не найдёт для teacher
 ```
 
-3. При делегировании в `telegram-crm-send` передаётся `integrationId: integration.id` (ID primary интеграции), что **переопределяет** smart routing там.
+Для преподавателей передаётся:
+- `clientId: ''` (пустая строка)
+- `phoneNumber: '+7 (985) 261-50-56'`
+- `teacherId: 'xxxx-xxxx-xxxx'`
 
-## План исправления
-
-### Шаг 1: Обновить `telegram-webhook` — возвращать и сохранять `integration_id`
-
-**Изменение 1a**: Функция `resolveOrganizationByTelegramProfileId` должна возвращать `{ organizationId, integrationId }`:
-
+Но webhook **уже сохраняет `integration_id`** для сообщений преподавателей (строки 425-428 в `telegram-webhook`):
 ```typescript
-// Было:
-Promise<{ organizationId: string } | null>
-
-// Станет:
-Promise<{ organizationId: string; integrationId?: string } | null>
+if (integrationId) {
+  fullPayload.integration_id = integrationId;
+}
 ```
 
-**Изменение 1b**: При нахождении интеграции в `messenger_integrations` — также возвращать её `id`:
+Проблема в том, что при отправке ответа `telegram-send` не ищет по `teacher_id`.
+
+## Решение
+
+Добавить в `telegram-send` поиск `integration_id` по `teacher_id`, если `clientId` пустой:
 
 ```typescript
-// Добавить в select:
-.select('id, organization_id, is_enabled, settings')
-
-// Возвращать:
-return { organizationId: integration.organization_id, integrationId: integration.id };
-```
-
-**Изменение 1c**: В `handleIncomingMessage` передавать `integrationId` и сохранять его в `chat_messages`:
-
-```typescript
-// В fullPayload добавить:
-integration_id: integrationId || null,
-```
-
-### Шаг 2: Обновить `telegram-send` — добавить smart routing
-
-Добавить логику аналогичную `wpp-send` (строки 81-99):
-
-```typescript
-// После получения clientId из body, до поиска интеграции:
+// === SMART ROUTING: Find integration_id from last incoming message ===
 let resolvedIntegrationId: string | null = null;
+
+// Mode 1: Search by clientId (for client messages)
 if (clientId) {
   const { data: lastMessage } = await supabase
     .from('chat_messages')
@@ -83,51 +54,76 @@ if (clientId) {
 
   if (lastMessage?.integration_id) {
     resolvedIntegrationId = lastMessage.integration_id;
-    console.log('[telegram-send] Smart routing: using integration from last message:', resolvedIntegrationId);
+    console.log('[telegram-send] Smart routing (client): ', resolvedIntegrationId);
   }
 }
 
-// Затем использовать resolvedIntegrationId при поиске интеграции
-if (resolvedIntegrationId) {
-  integrationQuery = integrationQuery.eq('id', resolvedIntegrationId);
-} else {
-  integrationQuery = integrationQuery.eq('is_primary', true);
+// Mode 2: Search by teacherId (for teacher messages)
+if (!resolvedIntegrationId && teacherId) {
+  const { data: lastTeacherMessage } = await supabase
+    .from('chat_messages')
+    .select('integration_id')
+    .eq('teacher_id', teacherId)
+    .eq('is_outgoing', false)
+    .eq('messenger_type', 'telegram')
+    .not('integration_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastTeacherMessage?.integration_id) {
+    resolvedIntegrationId = lastTeacherMessage.integration_id;
+    console.log('[telegram-send] Smart routing (teacher): ', resolvedIntegrationId);
+  }
+}
+
+// Mode 3: Search by phone (fallback for new contacts)
+if (!resolvedIntegrationId && phoneNumber) {
+  // Normalize phone
+  const phone10 = phoneNumber.replace(/\D/g, '').slice(-10);
+  
+  // Find teacher by phone if teacherId not provided
+  if (!teacherId && phone10.length === 10) {
+    const { data: teacher } = await supabase
+      .from('teachers')
+      .select('id')
+      .ilike('phone', `%${phone10}`)
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+    
+    if (teacher?.id) {
+      // Search by found teacher_id
+      const { data: msg } = await supabase
+        .from('chat_messages')
+        .select('integration_id')
+        .eq('teacher_id', teacher.id)
+        .eq('is_outgoing', false)
+        .eq('messenger_type', 'telegram')
+        .not('integration_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (msg?.integration_id) {
+        resolvedIntegrationId = msg.integration_id;
+        console.log('[telegram-send] Smart routing (phone->teacher): ', resolvedIntegrationId);
+      }
+    }
+  }
 }
 ```
 
-### Шаг 3: При делегировании в `telegram-crm-send` — не передавать `integrationId` из primary
-
-**Изменение**: Передавать `integrationId` только если он был получен через smart routing, а не жёстко из primary:
-
-```typescript
-// Было:
-body: JSON.stringify({
-  ...body,
-  integrationId: integration.id,  // <-- всегда primary
-}),
-
-// Станет (если smart routing нашёл интеграцию):
-body: JSON.stringify({
-  ...body,
-  integrationId: resolvedIntegrationId || undefined,  // <-- пустой = telegram-crm-send сам найдёт
-}),
-```
-
-## Файлы для изменения
+## Файл для изменения
 
 | Файл | Изменения |
 |------|-----------|
-| `supabase/functions/telegram-webhook/index.ts` | 1. Изменить `resolveOrganizationByTelegramProfileId` — возвращать `integrationId`<br>2. Передавать `integrationId` в `handleIncomingMessage`<br>3. Сохранять `integration_id` в `chat_messages` |
-| `supabase/functions/telegram-send/index.ts` | 1. Добавить smart routing — поиск `integration_id` из последнего входящего<br>2. Использовать найденный ID при выборе интеграции<br>3. При делегировании в `telegram-crm-send` — не переопределять smart routing |
+| `supabase/functions/telegram-send/index.ts` | Добавить поиск `integration_id` по `teacher_id` когда `clientId` пустой |
 
 ## Ожидаемый результат
 
 После исправления:
-1. Входящее сообщение от клиента сохраняется с `integration_id` — ID конкретной Telegram-интеграции (Wappi профиля)
-2. При ответе менеджера `telegram-send` находит этот `integration_id` в последнем входящем сообщении
-3. Ответ отправляется через ту же интеграцию, откуда пришло сообщение
-4. Ошибка отправки исчезает — сообщение доставляется клиенту
-
-## Примечание
-
-Для self-hosted инстансов нужно убедиться, что в таблице `chat_messages` есть колонка `integration_id`. Если её нет — функция `resilientInsertMessage` отбросит это поле при fallback (не критично для Cloud, где колонка есть).
+1. Преподаватель пишет в Telegram на определённый аккаунт организации
+2. Webhook сохраняет `integration_id` в `chat_messages` (уже работает)
+3. При ответе менеджера `telegram-send` ищет `integration_id` **по `teacher_id`**
+4. Ответ уходит с того же аккаунта, откуда преподаватель написал
+5. Сообщение успешно доставляется (зелёная галочка вместо красной)
