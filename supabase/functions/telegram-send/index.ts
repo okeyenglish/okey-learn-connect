@@ -27,36 +27,38 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user from auth header
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return errorResponse('Authorization header required', 401);
-    }
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
-
-    if (authError || !user) {
-      return errorResponse('Unauthorized', 401);
-    }
-
-    // Get organization ID
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('organization_id')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError || !profile?.organization_id) {
-      return errorResponse('Organization not found', 404);
-    }
-
-    const organizationId = profile.organization_id;
-
     // Parse body early to get clientId for smart routing
-    const body = await req.json() as TelegramSendRequest & { phoneNumber?: string; teacherId?: string };
+    const body = await req.json() as TelegramSendRequest & { phoneNumber?: string; teacherId?: string; organizationId?: string };
     const { clientId, text, fileUrl, fileName, fileType, phoneId, phoneNumber, teacherId } = body;
+
+    // Get organization ID - try auth first, fall back to body.organizationId for inter-function calls
+    let organizationId: string | null = null;
+
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader) {
+      const { data: { user } } = await supabase.auth.getUser(
+        authHeader.replace('Bearer ', '')
+      );
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('organization_id')
+          .eq('id', user.id)
+          .single();
+        organizationId = profile?.organization_id || null;
+      }
+    }
+
+    // Fallback: use organizationId from body (for inter-function calls like tbank-webhook)
+    if (!organizationId && body.organizationId) {
+      organizationId = body.organizationId;
+      console.log('[telegram-send] Using organizationId from body (inter-function call)');
+    }
+
+    if (!organizationId) {
+      return errorResponse('Organization not found - auth failed and no organizationId provided', 401);
+    }
 
     // === SMART ROUTING: Find integration_id from last incoming message ===
     let resolvedIntegrationId: string | null = null;
