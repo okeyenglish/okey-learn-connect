@@ -238,35 +238,115 @@ Deno.serve(async (req) => {
       client = clientData;
     }
 
-    // Helper function to normalize phone for Wappi (digits only, with Russian +7 prefix)
-    function normalizePhone(phone: string | null | undefined): string | null {
-      if (!phone) return null;
+    // ====== STRICT PHONE VALIDATION ======
+    // Checks if a number looks like a phone (not a Telegram ID)
+    // Telegram IDs: 9-13 digits, don't follow phone patterns
+    // Russian phones: 79XXXXXXXXX (11 digits starting with 79)
+    function isLikelyPhoneNumber(input: string | null | undefined): boolean {
+      if (!input) return false;
       
-      // Remove all non-digit characters
+      const cleaned = input.replace(/\D/g, '');
+      const len = cleaned.length;
+      
+      // Too short or too long - not a phone
+      if (len < 10 || len > 15) return false;
+      
+      const first = cleaned[0];
+      const second = cleaned[1];
+      
+      // 11 digits starting with 7: check second digit
+      // Valid: 79 (mobile), 73/74/78 (landline)
+      // Invalid: 70, 71, 72 - these are likely Telegram IDs with 7 prepended
+      if (len === 11 && first === '7') {
+        if (second === '0' || second === '1' || second === '2') {
+          return false; // Likely Telegram ID
+        }
+        return true;
+      }
+      
+      // 11 digits starting with 8: same check
+      if (len === 11 && first === '8') {
+        if (second === '0' || second === '1' || second === '2') {
+          return false;
+        }
+        return true;
+      }
+      
+      // 10 digits starting with 9: mobile without country code
+      if (len === 10 && first === '9') {
+        return true;
+      }
+      
+      // 10 digits NOT starting with 9: likely Telegram ID (e.g., 1212686911)
+      if (len === 10 && first !== '9') {
+        return false;
+      }
+      
+      // 12+ digits: check for known country codes
+      if (len >= 12) {
+        const knownPrefixes = ['7', '380', '375', '998', '996', '992', '993', '994', '995', '374', '373', '370', '371', '372', '1', '44', '49', '33', '39', '34', '90', '86', '91'];
+        if (knownPrefixes.some(p => cleaned.startsWith(p))) {
+          return true;
+        }
+        return false; // Unknown prefix - likely Telegram ID
+      }
+      
+      return false;
+    }
+    
+    // Strict normalize: returns null if input doesn't look like a phone
+    function normalizePhoneStrict(phone: string | null | undefined): string | null {
+      if (!phone) return null;
+      if (!isLikelyPhoneNumber(phone)) return null;
+      
       let digits = phone.replace(/\D/g, '');
       
-      // Если 11 цифр и начинается с 8 (российский формат) → заменяем на 7
+      // 11 digits starting with 8 → replace with 7
       if (digits.length === 11 && digits.startsWith('8')) {
         digits = '7' + digits.substring(1);
       }
       
-      // Если 10 цифр и начинается с 9 → добавляем 7 (российский мобильный)
+      // 10 digits starting with 9 → prepend 7
       if (digits.length === 10 && digits.startsWith('9')) {
         digits = '7' + digits;
       }
       
-      // Return null if too short after normalization
+      return digits.length >= 10 ? digits : null;
+    }
+    
+    // Legacy normalize: for backward compatibility (any 10+ digit number)
+    function normalizePhone(phone: string | null | undefined): string | null {
+      if (!phone) return null;
+      
+      let digits = phone.replace(/\D/g, '');
+      
+      if (digits.length === 11 && digits.startsWith('8')) {
+        digits = '7' + digits.substring(1);
+      }
+      
+      if (digits.length === 10 && digits.startsWith('9')) {
+        digits = '7' + digits;
+      }
+      
       return digits.length >= 10 ? digits : null;
     }
 
     // Try to get chat ID from specified phone number first, with phone fallback
     let recipient: string | null = null;
     let recipientSource = 'none';
+    
+    // === COLLECT FALLBACK PHONE DURING RECIPIENT RESOLUTION ===
+    // This is the phone number we'll use for fallback if ID-based send fails
+    let fallbackPhoneRaw: string | null = null;
+    let fallbackPhoneNormalized: string | null = null;
 
     // Mode 2: Direct phone number (for teacher messages)
     if (phoneNumber && !clientId) {
       recipient = normalizePhone(phoneNumber);
       recipientSource = 'direct phoneNumber';
+      // For direct phone mode, the phone itself is the recipient, no fallback needed
+      fallbackPhoneRaw = phoneNumber;
+      fallbackPhoneNormalized = normalizePhoneStrict(phoneNumber);
       console.log(`[telegram-send] Direct phone mode: ${phoneNumber} → ${recipient}`);
       
       // Find teacher by phone if teacherId not provided
@@ -285,6 +365,9 @@ Deno.serve(async (req) => {
     }
     // Client mode: lookup by phoneId, primary phone, or client fields
     else if (clientId && client) {
+      // First, collect ALL possible phone sources for fallback
+      const phoneSources: string[] = [];
+      
       if (phoneId) {
         // Get chat ID from specific phone number
         const { data: phoneRecord } = await supabase
@@ -301,6 +384,11 @@ Deno.serve(async (req) => {
             telegram_username: phoneRecord.telegram_username,
             phone_number: phoneRecord.phone_number
           });
+          
+          // Collect phone for fallback (from same record)
+          if (phoneRecord.phone_number) {
+            phoneSources.push(phoneRecord.phone_number);
+          }
           
           // Priority: chat_id > user_id > username > phone
           if (phoneRecord.telegram_chat_id) {
@@ -336,6 +424,11 @@ Deno.serve(async (req) => {
             phone_number: primaryPhone.phone_number
           });
           
+          // Collect phone for fallback
+          if (primaryPhone.phone_number) {
+            phoneSources.push(primaryPhone.phone_number);
+          }
+          
           if (primaryPhone.telegram_chat_id) {
             recipient = primaryPhone.telegram_chat_id;
             recipientSource = 'telegram_chat_id (primary)';
@@ -350,6 +443,11 @@ Deno.serve(async (req) => {
             recipientSource = 'phone_number (primary fallback)';
           }
         }
+      }
+      
+      // Also collect client.phone for fallback
+      if (client.phone) {
+        phoneSources.push(client.phone);
       }
 
       // Fallback to client's telegram fields or phone (backward compatibility)
@@ -371,6 +469,31 @@ Deno.serve(async (req) => {
           recipientSource = 'phone (client fallback)';
         }
       }
+      
+      // Try to get any phone from client_phone_numbers if we don't have one yet
+      if (phoneSources.length === 0) {
+        const { data: anyPhone } = await supabase
+          .from('client_phone_numbers')
+          .select('phone_number')
+          .eq('client_id', clientId)
+          .limit(1)
+          .maybeSingle();
+        if (anyPhone?.phone_number) {
+          phoneSources.push(anyPhone.phone_number);
+        }
+      }
+      
+      // Find the first VALID phone from collected sources (using strict validation)
+      for (const rawPhone of phoneSources) {
+        const normalized = normalizePhoneStrict(rawPhone);
+        if (normalized) {
+          fallbackPhoneRaw = rawPhone;
+          fallbackPhoneNormalized = normalized;
+          break;
+        }
+      }
+      
+      console.log(`[telegram-send] Fallback phone collected: raw=${fallbackPhoneRaw}, normalized=${fallbackPhoneNormalized}`);
     }
     
     if (!recipient) {
@@ -398,87 +521,77 @@ Deno.serve(async (req) => {
       return errorResponse('Message text or file is required', 400);
     }
 
-    // === FALLBACK: If ID-based send failed, ALWAYS try phone number ===
+    // === FALLBACK: If first attempt failed, try phone number ===
     if (!sendResult.success) {
       const errorMsg = sendResult.error || 'Failed to send message';
-      console.log(`[telegram-send] First attempt failed: ${errorMsg}, source: ${recipientSource}`);
+      console.log(`[telegram-send] First attempt failed: ${errorMsg}`);
+      console.log(`[telegram-send] Recipient was: ${recipient}, source: ${recipientSource}`);
+      console.log(`[telegram-send] Fallback phone available: ${fallbackPhoneNormalized}`);
       
-      // If we used an ID (not phone), ALWAYS try phone fallback (regardless of error message)
-      const usedIdNotPhone = recipientSource.includes('telegram_chat_id') || 
-                              recipientSource.includes('telegram_user_id') ||
-                              recipientSource.includes('telegram_username') ||
-                              recipientSource === 'none';
+      // Determine if we should try phone fallback:
+      // 1. Source explicitly says we used telegram_* field
+      // 2. OR recipient doesn't look like a valid phone number (strict check)
+      const sourceIndicatesId = recipientSource.includes('telegram_chat_id') || 
+                                 recipientSource.includes('telegram_user_id') ||
+                                 recipientSource.includes('telegram_username') ||
+                                 recipientSource === 'none';
       
-      let phoneToTry: string | null = null;
+      const recipientLooksLikePhone = isLikelyPhoneNumber(recipient);
       
-      if (usedIdNotPhone) {
-        console.log(`[telegram-send] Attempting fallback. Original recipient: ${recipient}, source: ${recipientSource}`);
+      // Try fallback if: source says ID, OR recipient doesn't look like phone
+      const shouldTryFallback = sourceIndicatesId || !recipientLooksLikePhone;
+      
+      console.log(`[telegram-send] Fallback check: sourceIndicatesId=${sourceIndicatesId}, recipientLooksLikePhone=${recipientLooksLikePhone}, shouldTryFallback=${shouldTryFallback}`);
+      
+      if (shouldTryFallback && fallbackPhoneNormalized && fallbackPhoneNormalized !== recipient) {
+        console.log(`[telegram-send] ===== PHONE FALLBACK ATTEMPT =====`);
+        console.log(`[telegram-send] Original recipient: ${recipient}`);
+        console.log(`[telegram-send] Fallback phone: ${fallbackPhoneNormalized}`);
         
-        // Get phone from the appropriate source
-        if (phoneNumber) {
-          phoneToTry = normalizePhone(phoneNumber);
-        } else if (clientId && client?.phone) {
-          phoneToTry = normalizePhone(client.phone);
-        } else if (clientId) {
-          // Try to get phone from client_phone_numbers
-          const { data: anyPhone } = await supabase
-            .from('client_phone_numbers')
-            .select('phone_number')
-            .eq('client_id', clientId)
-            .limit(1)
-            .maybeSingle();
-          if (anyPhone?.phone_number) {
-            phoneToTry = normalizePhone(anyPhone.phone_number);
-          }
+        if (fileUrl) {
+          sendResult = await sendFileMessage(profileId, fallbackPhoneNormalized, fileUrl, text || '', wappiApiToken);
+        } else if (text) {
+          sendResult = await sendTextMessage(profileId, fallbackPhoneNormalized, text, wappiApiToken);
         }
         
-        console.log(`[telegram-send] Phone to try: ${phoneToTry}`);
-        
-        if (phoneToTry && phoneToTry !== recipient) {
-          console.log(`[telegram-send] Phone fallback: trying ${phoneToTry}`);
-          
-          if (fileUrl) {
-            sendResult = await sendFileMessage(profileId, phoneToTry, fileUrl, text || '', wappiApiToken);
-          } else if (text) {
-            sendResult = await sendTextMessage(profileId, phoneToTry, text, wappiApiToken);
-          }
-          
-          if (sendResult.success) {
-            console.log(`[telegram-send] Phone fallback succeeded!`);
-            recipient = phoneToTry;
-            recipientSource = 'phone (fallback after ID error)';
-          } else {
-            console.log(`[telegram-send] Phone fallback also failed:`, sendResult.error);
-          }
-        } else if (phoneToTry === recipient) {
-          console.log(`[telegram-send] Phone fallback skipped: already tried this phone`);
+        if (sendResult.success) {
+          console.log(`[telegram-send] Phone fallback SUCCEEDED!`);
+          recipient = fallbackPhoneNormalized;
+          recipientSource = 'phone (fallback after ID error)';
         } else {
-          console.log(`[telegram-send] No phone available for fallback`);
+          console.log(`[telegram-send] Phone fallback also failed:`, sendResult.error);
         }
+      } else if (fallbackPhoneNormalized === recipient) {
+        console.log(`[telegram-send] Phone fallback skipped: fallback phone equals recipient`);
+      } else if (!fallbackPhoneNormalized) {
+        console.log(`[telegram-send] No valid phone available for fallback (fallbackPhoneNormalized is null)`);
+        console.log(`[telegram-send] This means no phone number in DB passed strict validation (isLikelyPhoneNumber)`);
+      } else {
+        console.log(`[telegram-send] Fallback not triggered: shouldTryFallback=${shouldTryFallback}`);
+      }
+    }
+      
+    // If still failed after fallback attempts
+    if (!sendResult.success) {
+      const finalErrorMsg = sendResult.error || 'Failed to send message';
+      const isFinalPeerNotFound = finalErrorMsg.toLowerCase().includes('peer not found') || 
+                                  finalErrorMsg.toLowerCase().includes('peer_not_found') ||
+                                  finalErrorMsg.toLowerCase().includes('no peer');
+      
+      if (isFinalPeerNotFound) {
+        const response: TelegramSendResponse = { 
+          success: false,
+          error: 'Клиент не найден в Telegram. Попросите клиента написать вам первым, чтобы установить связь.',
+          code: 'PEER_NOT_FOUND'
+        };
+        console.error('[telegram-send] Peer not found error. Client needs to message first.');
+        return new Response(
+          JSON.stringify(response),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
       
-      // If still failed after fallback attempts
-      if (!sendResult.success) {
-        const finalErrorMsg = sendResult.error || 'Failed to send message';
-        const isFinalPeerNotFound = finalErrorMsg.toLowerCase().includes('peer not found') || 
-                                    finalErrorMsg.toLowerCase().includes('peer_not_found') ||
-                                    finalErrorMsg.toLowerCase().includes('no peer');
-        
-        if (isFinalPeerNotFound) {
-          const response: TelegramSendResponse = { 
-            success: false,
-            error: 'Клиент не найден в Telegram. Попросите клиента написать вам первым, чтобы установить связь.',
-            code: 'PEER_NOT_FOUND'
-          };
-          console.error('[telegram-send] Peer not found error. Client needs to message first.');
-          return new Response(
-            JSON.stringify(response),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        return errorResponse(finalErrorMsg, 500);
-      }
+      return errorResponse(finalErrorMsg, 500);
     }
 
     // Save message to database - message_type is 'manager' for outgoing messages
