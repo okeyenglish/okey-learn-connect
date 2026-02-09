@@ -1,128 +1,132 @@
 
-## Диагностика: почему менеджеры не видят клиентов
+# Исправление: Клиенты с непрочитанными сообщениями скрываются от менеджеров
 
-По текущему коду (и по симптомам “менеджер Новокосино не видит вообще никого”) наиболее вероятно, что происходит одно из двух:
+## Суть проблемы
 
-1) **Фильтрация по филиалу реально включилась (hasRestrictions=true), но сравнение филиалов всегда “не совпало”**, поэтому `canAccessBranch()` возвращает `false` для всех клиентских чатов.  
-Причина обычно в **разных написаниях/символах** (типографский апостроф `’` вместо `'`, неразрывные пробелы, “м. Новокосино”, “Новокосино ”, “O’KEY” и т.п.), которые текущая нормализация не отлавливает.
+Менеджеры видят клиентов в списке чатов, но когда появляется **непрочитанное входящее сообщение**, клиент исчезает из списка. Админ при этом продолжает видеть такого клиента.
 
-2) **Локальный фильтр UI по выбранному филиалу (selectedBranch)** мог “застрять” в localStorage в старом формате и теперь не матчится с текущей нормализацией. Тогда список может стать пустым даже без branch-restrictions.
+## Диагноз
 
-Чтобы не гадать, сделаем диагностику так, чтобы она сама показала, на каком шаге “обнуливается” список.
+После анализа кода выявлено несколько точек отказа:
 
----
+### 1. RPC-функция `get_unread_chat_threads` (self-hosted)
 
-## Что нужно сделать в коде (чтобы проблема точно ушла)
+В файле `docs/rpc-get-unread-chat-threads.sql` функция использует `SECURITY INVOKER`, то есть выполняется с правами текущего пользователя. Если в базе есть RLS-политики на таблицах `chat_messages` или `clients`, которые ограничивают доступ по филиалу, то менеджер не увидит клиентов с непрочитанными сообщениями, если:
+- У клиента `branch = NULL`
+- У клиента `branch`, который не совпадает с филиалами менеджера по RLS-логике в БД
 
-### 1) Убрать зависимость `useManagerBranches` от `selfHostedPost('get-user-branches')`
-Сейчас `useManagerBranches` зовёт **self-hosted backend function** `get-user-branches`, но эта функция легко может отсутствовать/быть недоступной/иметь RLS-ограничения, и главное — это лишняя точка отказа.
+### 2. Два разных потока данных в `useChatThreadsInfinite`
 
-План: переделать `useManagerBranches` так, чтобы он **читал филиалы напрямую через существующий backend-клиент** (который уже настроен на self-hosted `api.academyos.ru`), с тем же порядком fallback:
+- **`unreadQuery`** — загружает RPC `get_unread_chat_threads` (клиенты с непрочитанными)
+- **`infiniteQuery`** — загружает RPC `get_chat_threads_paginated` (все клиенты постранично)
 
-- `manager_branches` по `manager_id = user.id`
-- если пусто/таблица отсутствует → `user_branches` по `user_id = user.id`
-- если пусто → `profiles.branch` по `id = user.id`
-- если совсем ничего → “нет ограничений” (или “fail-closed” — см. пункт 4 ниже)
+При слиянии данных приоритет у `unreadQuery`. Если RPC для непрочитанных возвращает пустой массив (из-за RLS), клиент исчезает из списка.
 
-Это сразу даст:
-- понятные ошибки (если таблицы/права недоступны),
-- единый auth-контекст (текущий пользователь),
-- меньше сетевого шума.
+### 3. Миграции RLS на clients/chat_messages
 
-### 2) Сделать ЕДИНУЮ нормализацию филиала и использовать её везде
-Сейчас нормализация разная в:
-- `useManagerBranches.ts`
-- `CRM.tsx` (selectedBranch фильтр)
-- `useUserAllowedBranches.ts`
-- местами есть ещё `src/lib/branchNameMap.ts`, но он решает другую задачу (в основном для фото/витрины)
+В файлах миграций видно, что были политики типа:
+```sql
+CREATE POLICY "managers_branch_clients" ON public.clients
+  FOR ALL USING (branch IN (SELECT unnest(get_user_branches(auth.uid()))));
+```
 
-План: вынести одну функцию, условно `toBranchKey(name)`, и использовать её:
-- в `useManagerBranches` для вычисления `allowedBranchKeys`
-- в `CRM.tsx` для:
-  - генерации `branchKey` в dropdown
-  - фильтра по `selectedBranch`
-  - авто-фильтра `canAccessBranch`
-- в `useUserAllowedBranches` для `canAccessBranch`
+Это означает: менеджер видит только клиентов, чей `branch` входит в его список филиалов. Если `branch = NULL`, клиент не попадает в выборку.
 
-**Какая нормализация нужна, чтобы закрыть реальные кейсы:**
-- `name.normalize('NFKC')` (чинит часть “невидимых” отличий)
-- `toLowerCase()`
-- `ё → е`
-- заменить все варианты апострофов/кавычек на обычные или удалить: `' ’ ʻ ʼ " « »`
-- убрать токены бренда и служебные слова независимо от апострофа/пробелов:
-  - `okey`, `o’key`, `o'key`, `english`
-  - `филиал`, `branch`
-- убрать пунктуацию → пробел
-- схлопнуть пробелы
-- применить **alias-map** (важно):  
-  например (из вашего `branchNameMap.ts` и реальных кейсов):
-  - `стахановская` ↔ `грайвороновская`
-  - `красная горка` → `люберцы`
-  - `онлайн`, `онлайн школа` → `online school`
-  - и при необходимости: `м. новокосино` → `новокосино`
+Аналогично для `chat_messages`:
+```sql
+CREATE POLICY "managers_branch_messages" ON public.chat_messages
+  FOR ALL USING (EXISTS (
+    SELECT 1 FROM clients c WHERE c.id = chat_messages.client_id
+    AND c.branch IN (SELECT unnest(get_user_branches(auth.uid())))
+  ));
+```
 
-Идея простая: в сравнении участвует не “красивое название”, а **устойчивый ключ**.
+## Решение
 
-### 3) Миграция старого `selectedBranch` из localStorage (чтобы UI-фильтр не “убивал” список)
-У вас выбранный филиал хранится в `localStorage` (`crm-selected-branch`). Если там лежит старое значение (например полное “O’KEY ENGLISH Новокосино”), а сейчас UI ожидает “ключ” (например “новокосино”), то фильтр в `CRM.tsx` может не совпасть и скрыть всё.
+### Шаг 1: Обновить RLS-политики на self-hosted базе
 
-План:
-- при инициализации `usePersistedBranch` (или в `CRM.tsx` рядом) делать:
-  - если `selectedBranch !== 'all'` → преобразовать через `toBranchKey(selectedBranch)` и сохранить обратно
-  - если преобразование дало пусто/мусор → сбросить на `'all'`
-- дополнительно: если `selectedBranch` не входит в список доступных ключей dropdown — тоже сброс на `'all'` (защита от устаревших значений)
+Нужно изменить политики так, чтобы клиенты с `branch = NULL` были видны менеджерам (согласно требованию "показывать null-branch"):
 
-### 4) Добавить “диагностический режим” прямо в CRM (чтобы сразу видеть причину пустого списка)
-Чтобы больше не упираться в “не вижу и не понимаю почему”, добавим лёгкую диагностику:
+```sql
+-- clients: показывать клиентов с branch в списке менеджера ИЛИ с branch = NULL
+DROP POLICY IF EXISTS "managers_branch_clients" ON public.clients;
+CREATE POLICY "managers_branch_clients" ON public.clients
+  FOR SELECT USING (
+    branch IS NULL  -- <-- добавляем NULL
+    OR branch IN (SELECT unnest(get_user_branches(auth.uid())))
+  );
 
-- Посчитать:
-  - `threadsCount` (до фильтров)
-  - `afterSelectedBranchCount`
-  - `afterManagerRestrictionCount`
-- Если `threadsCount > 0`, но после авто-фильтра стало `0`, показать баннер:
-  - “Нет клиентов по вашим филиалам”
-  - “Ваши филиалы: …”
-  - “Примеры филиалов клиентов в списке: … (первые 10 уникальных)”
-  - “Сбросить фильтр филиала” (кнопка → setSelectedBranch('all'))
+-- chat_messages: сообщения клиентов с branch = NULL тоже видны
+DROP POLICY IF EXISTS "managers_branch_messages" ON public.chat_messages;
+CREATE POLICY "managers_branch_messages" ON public.chat_messages
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM clients c 
+      WHERE c.id = chat_messages.client_id
+      AND (c.branch IS NULL OR c.branch IN (SELECT unnest(get_user_branches(auth.uid()))))
+    )
+  );
+```
 
-Важно: без персональных данных, только агрегаты/уникальные названия филиалов.
+### Шаг 2: Проверить RPC-функцию `get_unread_chat_threads`
 
-### 5) (Опционально, но желательно) Убрать/обезопасить Lovable Cloud function `get-user-branches`
-Сейчас в репозитории есть backend-функция `supabase/functions/get-user-branches`, которая подключается к self-hosted по anon key и при этом ключ захардкожен в коде. Даже если она не используется фронтом, это:
-- создаёт путаницу “какая функция где живёт”
-- несёт риск утечки
+Убедиться, что в теле функции нет дополнительной фильтрации по `branch`, которая отсекает `NULL`. Если есть - убрать или добавить `OR branch IS NULL`.
 
-План:
-- либо полностью убрать её из цепочки (после пункта 1 она станет не нужна),
-- либо перевести на secrets (`SELF_HOSTED_URL`, `SELF_HOSTED_ANON_KEY`) и явно пометить как “не используется фронтом”.
+### Шаг 3: Обновить клиентский fallback `fetchThreadsDirectly`
 
----
+В `src/hooks/useChatThreadsInfinite.ts` fallback-функция уже не фильтрует по филиалу (она просто загружает клиентов). Но нужно убедиться, что при слиянии данных не происходит потери:
 
-## Как мы проверим, что всё исправилось (чеклист)
-1) Зайти под менеджером Новокосино:
-   - `selectedBranch = Все филиалы`
-   - менеджер видит клиентов с ветками:
-     - `Новокосино`
-     - `O'KEY ENGLISH Новокосино`
-     - `O’KEY ENGLISH Новокосино` (типографский апостроф)
-2) Менеджер не видит клиентов Окской.
-3) Менеджер с двумя филиалами видит оба.
-4) Админ видит всех.
-5) Если клиент без филиала (`branch = null`) — он скрыт только для менеджеров с активными ограничениями (как и задумано), но админ его видит.
+**Проверить `canAccessBranch` в `useManagerBranches`:**
+```typescript
+// Текущая логика (fail-closed для null):
+if (!clientBranch) return false;
 
----
+// Нужно изменить на (fail-open для null):
+if (!clientBranch) return true;
+```
 
-## Риски/краевые случаи, которые учтём
-- “Филиал” записан с нестандартными пробелами/кавычками → лечит `normalize('NFKC')` + чистка
-- alias-ветки (“Стахановская” vs “Грайвороновская”) → лечит alias-map
-- устаревший `selectedBranch` в localStorage → лечит миграция/сброс
-- если таблицы ограничений недоступны по правам → диагностика покажет ошибку получения филиалов (и можно выбрать поведение: fail-open или fail-closed)
+### Шаг 4: Применить изменение в `canAccessBranch`
 
----
+```typescript
+// src/hooks/useManagerBranches.ts, строка 144-146
+// Было:
+if (!clientBranch) return false;
 
-## Что мне нужно от вас для максимально точной подгонки alias-map (если после унификации ещё останутся “пустые” списки)
-Если после внедрения единого `toBranchKey` всё равно будет 0, тогда в баннере/логах будут видны:
-- `allowedBranchesRaw` (как хранится у менеджера)
-- `uniqueClientBranchesRaw` (как приходит у клиентов)
+// Стало:
+if (!clientBranch) return true; // Менеджер видит клиентов без филиала
+```
 
-По этим двум спискам мы добавим 1–3 alias-правила и закроем остаточные расхождения.
+Аналогичное изменение в `useUserAllowedBranches.ts` уже есть (строка 77: `if (!branchName) return true;`), но нужно согласовать логику.
+
+## Технический план изменений
+
+| Файл | Изменение |
+|------|-----------|
+| `src/hooks/useManagerBranches.ts` | Изменить `canAccessBranch`: `if (!clientBranch) return true;` вместо `false` |
+| **self-hosted DB (вручную)** | Обновить RLS-политики для `clients` и `chat_messages`, добавив `OR branch IS NULL` |
+| **self-hosted DB (вручную)** | Проверить RPC `get_unread_chat_threads` на отсутствие фильтрации по branch |
+
+## SQL-скрипт для self-hosted (выполнить вручную)
+
+```sql
+-- 1. Обновить политику clients для менеджеров (если она есть)
+DROP POLICY IF EXISTS "managers_branch_clients" ON public.clients;
+
+-- 2. Обновить политику chat_messages для менеджеров (если она есть)
+DROP POLICY IF EXISTS "managers_branch_messages" ON public.chat_messages;
+
+-- Если политики используют другие имена, выполнить:
+-- SELECT policyname FROM pg_policies WHERE tablename IN ('clients', 'chat_messages');
+-- И удалить/пересоздать нужные с добавлением OR branch IS NULL
+
+-- 3. Проверить RPC
+-- SELECT prosrc FROM pg_proc WHERE proname = 'get_unread_chat_threads';
+```
+
+## Ожидаемый результат
+
+После применения изменений:
+1. Менеджер видит клиентов с `branch = NULL` или с его филиалом
+2. При появлении непрочитанного сообщения клиент **остается видимым** в списке
+3. Счетчик непрочитанных корректно увеличивается
+4. Кнопка "Непрочитанные" показывает всех клиентов с непрочитанными сообщениями, включая тех, у кого `branch = NULL`
