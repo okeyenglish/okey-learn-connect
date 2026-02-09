@@ -386,6 +386,67 @@ export interface StaffConversationPreview {
   unreadCount: number;
 }
 
+// Hook for getting group chat previews (last message + unread count)
+export interface StaffGroupChatPreview {
+  groupId: string;
+  lastMessage: string | null;
+  lastMessageTime: string | null;
+  lastMessageSender: string | null;
+  unreadCount: number;
+}
+
+export const useStaffGroupChatPreviews = (groupIds: string[]) => {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['staff-group-previews', groupIds],
+    queryFn: async () => {
+      if (!user?.id || groupIds.length === 0) return {} as Record<string, StaffGroupChatPreview>;
+
+      const previews: Record<string, StaffGroupChatPreview> = {};
+      groupIds.forEach(id => {
+        previews[id] = { groupId: id, lastMessage: null, lastMessageTime: null, lastMessageSender: null, unreadCount: 0 };
+      });
+
+      const promises = groupIds.map(async (groupId) => {
+        // Get last message with sender info
+        const { data: messages } = await supabase
+          .from('internal_staff_messages')
+          .select('message_text, created_at, sender:profiles!internal_staff_messages_sender_id_fkey(first_name)')
+          .eq('group_chat_id', groupId)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        // Get unread count (messages not from current user that are unread)
+        const { count } = await supabase
+          .from('internal_staff_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('group_chat_id', groupId)
+          .neq('sender_id', user.id)
+          .eq('is_read', false);
+
+        if (messages && messages.length > 0) {
+          const msg = messages[0] as any;
+          previews[groupId] = {
+            groupId,
+            lastMessage: msg.message_text,
+            lastMessageTime: msg.created_at,
+            lastMessageSender: msg.sender?.first_name || null,
+            unreadCount: count || 0,
+          };
+        } else {
+          previews[groupId].unreadCount = count || 0;
+        }
+      });
+
+      await Promise.all(promises);
+      return previews;
+    },
+    enabled: !!user?.id && groupIds.length > 0,
+    staleTime: 30000,
+  });
+};
+
 export const useStaffConversationPreviews = (profileIds: string[]) => {
   const { user } = useAuth();
 

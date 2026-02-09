@@ -257,6 +257,33 @@ export const useRemoveGroupMember = () => {
 };
 
 /**
+ * Rename a staff group chat
+ */
+export const useRenameStaffGroupChat = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { groupId: string; name: string }) => {
+      const response = await selfHostedPost('update-staff-group-chat', {
+        group_id: data.groupId,
+        name: data.name,
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to rename group');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-group-chats'] });
+      toast.success('Группа переименована');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Ошибка переименования группы');
+    },
+  });
+};
+
+/**
  * Leave a group
  */
 export const useLeaveGroup = () => {
