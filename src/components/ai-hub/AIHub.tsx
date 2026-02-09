@@ -14,7 +14,6 @@ import {
   Scale, 
   Calculator, 
   Users, 
-  Building2,
   Loader2,
   X,
   TrendingUp,
@@ -40,7 +39,7 @@ import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useAuth } from '@/hooks/useAuth';
 import { isAdmin } from '@/lib/permissions';
 import { useQueryClient } from '@tanstack/react-query';
-import { useStaffGroupChats, StaffGroupChat, useRenameStaffGroupChat, useDeleteStaffGroupChat } from '@/hooks/useStaffGroupChats';
+import { useStaffGroupChats, StaffGroupChat, useRenameStaffGroupChat, useDeleteStaffGroupChat, useStaffGroupMembers } from '@/hooks/useStaffGroupChats';
 import { useTeacherChats, TeacherChatItem, useEnsureTeacherClient } from '@/hooks/useTeacherChats';
 import { useAssistantMessages } from '@/hooks/useAssistantMessages';
 import { useCommunityChats } from '@/hooks/useCommunityChats';
@@ -197,6 +196,9 @@ export const AIHub = ({
   const sendStaffMessage = useSendStaffMessage();
   const { findOrCreateClient } = useEnsureTeacherClient();
   const { unreadCount: assistantUnread } = useAssistantMessages();
+  
+  // Group members for header display
+  const groupMembers = useStaffGroupMembers(activeChat?.type === 'group' ? activeChat.id : '');
 
   // Staff typing indicator
   const typingChatId = activeChat?.type === 'teacher' || activeChat?.type === 'staff'
@@ -324,7 +326,7 @@ export const AIHub = ({
       type: 'teacher' as ChatType,
       name: teacher.fullName,
       description: teacher.profileId 
-        ? (teacher.email || 'Преподаватель')
+        ? 'Преподаватель'
         : '⚠️ Нет привязки к профилю',
       icon: GraduationCap,
       iconBg: teacher.profileId ? 'bg-green-500/10' : 'bg-amber-500/10',
@@ -347,7 +349,7 @@ export const AIHub = ({
         id: staff.id,
         type: 'staff' as ChatType,
         name: fullName,
-        description: staff.email || 'Сотрудник',
+        description: 'Сотрудник',
         icon: Users,
         iconBg: 'bg-blue-500/10',
         iconColor: 'text-blue-600',
@@ -679,7 +681,9 @@ export const AIHub = ({
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground truncate">
-                    {activeChat.badge || activeChat.description}
+                    {activeChat.type === 'group' && groupMembers.data?.length 
+                      ? groupMembers.data.map(m => m.profile?.first_name || 'Участник').join(', ')
+                      : (activeChat.badge || activeChat.description)}
                   </p>
                 </>
               )}
@@ -1238,9 +1242,28 @@ export const AIHub = ({
                         </div>
                         <div className="flex-1 min-w-0 overflow-hidden">
                           <div className="flex items-center gap-1.5 mb-0 overflow-hidden">
-                            <span className={`text-sm ${hasUnread ? 'font-semibold' : 'font-medium'} truncate flex-1 min-w-0`}>
+                            <span className={`text-sm ${hasUnread ? 'font-semibold' : 'font-medium'} truncate`}>
                               {item.name}
                             </span>
+                            {(() => {
+                              const branchStr = isTeacher ? teacher?.branch : isStaff ? staff?.branch : null;
+                              if (!branchStr) return null;
+                              const branches = branchStr.split(',').map(b => b.trim()).filter(Boolean);
+                              const visible = branches.slice(0, 2);
+                              const hiddenCount = branches.length - visible.length;
+                              return (
+                                <>
+                                  {visible.map(b => (
+                                    <Badge key={b} variant="secondary" className="text-[9px] h-3.5 px-1 shrink-0">{b}</Badge>
+                                  ))}
+                                  {hiddenCount > 0 && (
+                                    <Badge variant="outline" className="text-[9px] h-3.5 px-1 shrink-0 cursor-help" title={branches.join(', ')}>
+                                      +{hiddenCount}
+                                    </Badge>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                           <div className="text-xs text-muted-foreground leading-relaxed overflow-hidden">
                             {lastSeenText && !isOnline ? (
