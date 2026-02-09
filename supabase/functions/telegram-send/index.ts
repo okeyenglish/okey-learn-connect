@@ -398,27 +398,84 @@ Deno.serve(async (req) => {
       return errorResponse('Message text or file is required', 400);
     }
 
+    // === FALLBACK: If ID-based send failed, try phone number ===
     if (!sendResult.success) {
-      // Check for "peer not found" error and provide user-friendly message
       const errorMsg = sendResult.error || 'Failed to send message';
       const isPeerNotFound = errorMsg.toLowerCase().includes('peer not found') || 
                               errorMsg.toLowerCase().includes('peer_not_found') ||
-                              errorMsg.toLowerCase().includes('no peer');
+                              errorMsg.toLowerCase().includes('no peer') ||
+                              errorMsg.toLowerCase().includes('user not found') ||
+                              errorMsg.toLowerCase().includes('chat not found');
       
-      if (isPeerNotFound) {
-        const response: TelegramSendResponse = { 
-          success: false,
-          error: 'Клиент не найден в Telegram. Попросите клиента написать вам первым, чтобы установить связь.',
-          code: 'PEER_NOT_FOUND'
-        };
-        console.error('[telegram-send] Peer not found error. Client needs to message first.');
-        return new Response(
-          JSON.stringify(response),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      // If we used an ID (not phone) and got peer not found, try phone fallback
+      const usedIdNotPhone = recipientSource.includes('telegram_chat_id') || 
+                              recipientSource.includes('telegram_user_id') ||
+                              recipientSource.includes('telegram_username');
+      
+      let phoneToTry: string | null = null;
+      
+      if (isPeerNotFound && usedIdNotPhone) {
+        console.log(`[telegram-send] ID-based send failed (${recipientSource}), trying phone fallback...`);
+        
+        // Get phone from the appropriate source
+        if (phoneNumber) {
+          phoneToTry = normalizePhone(phoneNumber);
+        } else if (clientId && client?.phone) {
+          phoneToTry = normalizePhone(client.phone);
+        } else if (clientId) {
+          // Try to get phone from client_phone_numbers
+          const { data: anyPhone } = await supabase
+            .from('client_phone_numbers')
+            .select('phone_number')
+            .eq('client_id', clientId)
+            .limit(1)
+            .maybeSingle();
+          if (anyPhone?.phone_number) {
+            phoneToTry = normalizePhone(anyPhone.phone_number);
+          }
+        }
+        
+        if (phoneToTry && phoneToTry !== recipient) {
+          console.log(`[telegram-send] Phone fallback: trying ${phoneToTry}`);
+          
+          if (fileUrl) {
+            sendResult = await sendFileMessage(profileId, phoneToTry, fileUrl, text || '', wappiApiToken);
+          } else if (text) {
+            sendResult = await sendTextMessage(profileId, phoneToTry, text, wappiApiToken);
+          }
+          
+          if (sendResult.success) {
+            console.log(`[telegram-send] Phone fallback succeeded!`);
+            recipient = phoneToTry;
+            recipientSource = 'phone (fallback after ID error)';
+          } else {
+            console.log(`[telegram-send] Phone fallback also failed:`, sendResult.error);
+          }
+        }
       }
       
-      return errorResponse(errorMsg, 500);
+      // If still failed after fallback attempts
+      if (!sendResult.success) {
+        const finalErrorMsg = sendResult.error || 'Failed to send message';
+        const isFinalPeerNotFound = finalErrorMsg.toLowerCase().includes('peer not found') || 
+                                    finalErrorMsg.toLowerCase().includes('peer_not_found') ||
+                                    finalErrorMsg.toLowerCase().includes('no peer');
+        
+        if (isFinalPeerNotFound) {
+          const response: TelegramSendResponse = { 
+            success: false,
+            error: 'Клиент не найден в Telegram. Попросите клиента написать вам первым, чтобы установить связь.',
+            code: 'PEER_NOT_FOUND'
+          };
+          console.error('[telegram-send] Peer not found error. Client needs to message first.');
+          return new Response(
+            JSON.stringify(response),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        return errorResponse(finalErrorMsg, 500);
+      }
     }
 
     // Save message to database - message_type is 'manager' for outgoing messages
