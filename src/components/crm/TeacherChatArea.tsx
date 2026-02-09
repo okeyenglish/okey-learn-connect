@@ -381,26 +381,12 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
   // Context menu handlers
   const handleMarkUnread = useCallback(async (teacherId: string) => {
-    // Find the teacher to get their clientId
-    const teacher = teachers.find(t => t.id === teacherId);
-    const clientId = teacher?.clientId;
-    
-    if (!clientId) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось найти клиента для этого преподавателя",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     try {
-      // First, find the latest incoming message
+      // Find the latest incoming message using teacher_id directly
       const { data: latestMessage, error: findError } = await supabase
         .from('chat_messages')
         .select('id')
-        .eq('client_id', clientId)
-        // In self-hosted schema incoming messages are marked by is_outgoing = false
+        .eq('teacher_id', teacherId)
         .eq('is_outgoing', false)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -416,7 +402,6 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         return;
       }
       
-      // Now update that specific message
       const { error } = await supabase
         .from('chat_messages')
         .update({ is_read: false })
@@ -437,36 +422,20 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         description: "Чат отмечен как непрочитанный",
       });
       
-      // Invalidate queries to refresh UI
       refetchAllTeacherData();
     } catch (error) {
       console.error('Error in handleMarkUnread:', error);
     }
-  }, [teachers, toast, refetchAllTeacherData]);
+  }, [toast, refetchAllTeacherData]);
 
   const handleMarkRead = useCallback(async (teacherId: string) => {
-    // Find the teacher to get their clientId
-    const teacher = teachers.find(t => t.id === teacherId);
-    const clientId = teacher?.clientId;
-    
-    if (!clientId) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось найти клиента для этого преподавателя",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     try {
-      // Mark all unread messages as read
+      // Mark all unread messages as read using teacher_id directly
       const { error } = await supabase
         .from('chat_messages')
         .update({ is_read: true })
-        .eq('client_id', clientId)
-        // In self-hosted schema incoming messages are marked by is_outgoing = false
+        .eq('teacher_id', teacherId)
         .eq('is_outgoing', false)
-        // Some rows may have NULL is_read; treat them as unread too
         .or('is_read.is.null,is_read.eq.false');
       
       if (error) {
@@ -484,12 +453,11 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         description: "Чат отмечен как прочитанный",
       });
       
-      // Invalidate queries to refresh UI
       refetchAllTeacherData();
     } catch (error) {
       console.error('Error in handleMarkRead:', error);
     }
-  }, [teachers, toast, refetchAllTeacherData]);
+  }, [toast, refetchAllTeacherData]);
 
   const handlePinDialog = useCallback(async (teacherId: string) => {
     const isPinned = pinnedTeacherIds.has(teacherId);
