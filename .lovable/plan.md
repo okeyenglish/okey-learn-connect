@@ -1,54 +1,60 @@
 
-# Fix: Wappi Telegram — долгое сохранение и дублирование интеграций
 
-## Обнаруженные проблемы
+# Fix: Неправильный подсчёт непрочитанных в папке "Преподаватели"
 
-### 1. Двойная регистрация webhook (причина зависания)
-При сохранении Wappi Telegram интеграции происходит **двойной** вызов к Wappi API:
-- Сначала edge-функция `messenger-integrations` (self-hosted) вызывает `registerWappiTelegramWebhook` внутри себя (строки 156-169)
-- Затем клиентский код `IntegrationEditDialog.tsx` (строки 121-159) вызывает `supabase.functions.invoke('wappi-telegram-webhook-register')` — это отдельная edge-функция
+## Проблема
 
-Второй вызов идёт через `supabase` клиент, который указывает на self-hosted сервер. Если эта функция там не развёрнута или медленно отвечает — диалог зависает на "Сохранение..."
+Число "45" в папке "Преподаватели" не соответствует реальному количеству непрочитанных сообщений. Причины:
 
-### 2. Дублирование интеграций
-`selfHostedPost` имеет retry-логику по умолчанию (3 попытки с backoff). Если первый запрос создаёт интеграцию, но Wappi webhook-регистрация внутри edge-функции занимает слишком долго и вызывает таймаут — retry создаёт **новую копию** интеграции.
+1. **Ограничение выборки**: `useTeacherConversations` загружает только 5 последних сообщений на преподавателя (`limit: batchIds.length * 5`). Если у преподавателя 26 непрочитанных — будет подсчитано максимум 5.
 
-### 3. Блокирующий вызов Wappi API в edge-функции
-Вызов `registerWappiTelegramWebhook` внутри `messenger-integrations` выполняется **синхронно** перед отправкой ответа. Если Wappi API медленно отвечает — весь запрос на создание интеграции таймаутит.
+2. **Двойной источник данных**: В `useSystemChatMessages` используется логика "или-или" — берётся `conversationsUnread` (из `useTeacherConversations`) или `teachersTotalUnread` (из `useTeacherChats`). Оба могут быть неточными.
+
+3. **Системные сообщения не исключаются**: Оба хука считают все сообщения с `is_read=false && is_outgoing=false`, включая системные (`message_type: 'system'`), что завышает счётчик.
 
 ## Решение
 
-### Изменение 1: Убрать дублирующую регистрацию webhook из клиента
-**Файл**: `src/components/admin/integrations/IntegrationEditDialog.tsx`
+### Изменение 1: `src/hooks/useTeacherConversations.ts` — увеличить лимит и исключить системные
 
-Удалить блок кода (строки 121-159) который вызывает `supabase.functions.invoke('wappi-telegram-webhook-register')`. Edge-функция `messenger-integrations` уже делает это сама.
+- Увеличить лимит сообщений с `batchIds.length * 5` до `batchIds.length * 50` для корректного подсчёта непрочитанных
+- Добавить фильтр `.neq('message_type', 'system')` в запрос или исключать системные при подсчёте
 
-### Изменение 2: Сделать webhook-регистрацию неблокирующей в edge-функции
-**Файл**: `supabase/functions/messenger-integrations/index.ts`
+### Изменение 2: `src/hooks/useTeacherChats.ts` — исключить системные сообщения из подсчёта
 
-Заменить `await registerWappiTelegramWebhook(...)` на fire-and-forget вызов. Интеграция создаётся и возвращается клиенту немедленно, а webhook регистрируется в фоне.
+- В fallback-логике (строки 319-321 и 416-418) добавить фильтр `m.message_type !== 'system'` при подсчёте `unreadCount`
+- Увеличить лимит с `teacherIds.length * 20` до `teacherIds.length * 50`
+
+### Изменение 3: `src/hooks/useSystemChatMessages.ts` — суммировать из правильного источника
+
+- Вместо логики "или-или" на строке 189 использовать сумму непрочитанных из `teacherChats` (уже объединённых данных), чтобы итоговое число точно соответствовало тому, что видно в списке преподавателей
 
 Было:
 ```typescript
-const webhookResult = await registerWappiTelegramWebhook(profileId, webhookUrl, apiToken);
+const effectiveTeachersUnread = conversationsUnread > 0 ? conversationsUnread : teachersTotalUnread;
 ```
 
 Станет:
 ```typescript
-// Fire-and-forget: don't block response
-registerWappiTelegramWebhook(profileId, webhookUrl, apiToken)
-  .then(r => console.log('[messenger-integrations] Wappi webhook:', r))
-  .catch(e => console.error('[messenger-integrations] Wappi webhook error:', e));
+const effectiveTeachersUnread = teacherChats.reduce((sum, t) => sum + (t.unreadCount || 0), 0);
 ```
 
-### Изменение 3: Отключить retry для создания интеграций
-**Файл**: `src/hooks/useMessengerIntegrations.ts`
+## Технические детали
 
-Добавить `retry: { noRetry: true }` в `selfHostedPost` при создании интеграции, чтобы предотвратить дублирование при retry.
+### Файл: `src/hooks/useTeacherConversations.ts`
+- Строка 73: изменить `limit(batchIds.length * 5)` на `limit(batchIds.length * 50)`
+- Строка 100-103: добавить `&& m.message_type !== 'system'` в фильтр unread
+
+### Файл: `src/hooks/useTeacherChats.ts`
+- Строка 288: изменить `limit(teacherIds.length * 20)` на `limit(teacherIds.length * 50)`
+- Строка 319-321: добавить `&& m.message_type !== 'system'` в фильтр
+- Строка 416-418: добавить `&& m.message_type !== 'system'` в фильтр
+
+### Файл: `src/hooks/useSystemChatMessages.ts`
+- Строка 189: заменить логику "или-или" на суммирование из уже объединённого `teacherChats`
 
 ## Ожидаемый результат
 
-- Сохранение Wappi Telegram интеграции занимает 1-2 секунды (вместо 10-30+)
-- Webhook регистрируется в фоне автоматически
-- Дубликаты интеграций больше не создаются
-- Удалён import `supabase` из `IntegrationEditDialog.tsx` (больше не нужен)
+- Число в папке "Преподаватели" точно соответствует сумме непрочитанных по всем преподавателям в списке
+- Системные уведомления не влияют на счётчик
+- Преподаватели с большим количеством непрочитанных (26+) корректно учитываются
+
