@@ -38,7 +38,7 @@ import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useAuth } from '@/hooks/useAuth';
 import { isAdmin } from '@/lib/permissions';
 import { useQueryClient } from '@tanstack/react-query';
-import { useInternalChats, InternalChat } from '@/hooks/useInternalChats';
+import { useStaffGroupChats, StaffGroupChat } from '@/hooks/useStaffGroupChats';
 import { useTeacherChats, TeacherChatItem, useEnsureTeacherClient } from '@/hooks/useTeacherChats';
 import { useAssistantMessages } from '@/hooks/useAssistantMessages';
 import { useCommunityChats } from '@/hooks/useCommunityChats';
@@ -114,7 +114,7 @@ interface ChatItem {
   unreadCount?: number;
   lastMessage?: string;
   // For groups/teachers/staff
-  data?: InternalChat | TeacherChatItem | StaffMember;
+  data?: StaffGroupChat | TeacherChatItem | StaffMember;
 }
 
 export const AIHub = ({ 
@@ -157,7 +157,7 @@ export const AIHub = ({
   const userIsAdmin = isAdmin(roles);
 
   // Data hooks
-  const { data: internalChats, isLoading: chatsLoading } = useInternalChats();
+  const { data: staffGroupChats, isLoading: groupChatsLoading } = useStaffGroupChats();
   const { teachers, totalUnread: teachersUnread, isLoading: teachersLoading } = useTeacherChats(null);
   const { communityChats, totalUnread: communityUnread, isLoading: communityLoading } = useCommunityChats();
   const { onlineUsers, isUserOnline, getLastSeenFormatted, onlineCount } = useStaffOnlinePresence();
@@ -277,15 +277,16 @@ export const AIHub = ({
     })),
   ];
 
-  // Group chats from internal_chats
-  const groupChatItems: ChatItem[] = (internalChats || []).map(group => ({
+  // Staff group chats (unified: branch groups + custom groups)
+  const groupChatItems: ChatItem[] = (staffGroupChats || []).map(group => ({
     id: group.id,
     type: 'group' as ChatType,
     name: group.name,
-    description: group.description || group.branch || 'Групповой чат',
+    description: group.description || (group.is_branch_group ? `Команда ${group.branch_name}` : 'Групповой чат'),
     icon: Users,
-    iconBg: 'bg-blue-500/10',
-    iconColor: 'text-blue-600',
+    iconBg: group.is_branch_group ? 'bg-indigo-500/10' : 'bg-blue-500/10',
+    iconColor: group.is_branch_group ? 'text-indigo-600' : 'text-blue-600',
+    badge: group.branch_name || undefined,
     data: group,
   }));
 
@@ -817,7 +818,7 @@ export const AIHub = ({
 
         <ScrollArea className="flex-1 overflow-x-hidden">
           <div className="px-2 py-1 space-y-1 max-w-full overflow-hidden box-border">
-            {(chatsLoading || teachersLoading) && (
+            {(groupChatsLoading || teachersLoading) && (
               <div className="text-center py-4">
                 <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
               </div>
@@ -1161,7 +1162,7 @@ export const AIHub = ({
             )}
 
             {/* Empty state */}
-            {filteredChats.length === 0 && !chatsLoading && !teachersLoading && (
+            {filteredChats.length === 0 && !groupChatsLoading && !teachersLoading && (
               <div className="text-center py-8 text-muted-foreground">
                 {searchQuery ? 'Ничего не найдено' : 'Нет доступных чатов'}
               </div>
