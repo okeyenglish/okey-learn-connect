@@ -670,20 +670,30 @@ Deno.serve(async (req) => {
       }
     }
       
+    // Helper function to check if error indicates contact not found (PEER_NOT_FOUND, IMPORT_FAILED, etc.)
+    function isContactNotFoundError(errorMsg: string): boolean {
+      const lower = errorMsg.toLowerCase();
+      return lower.includes('peer not found') ||
+             lower.includes('peer_not_found') ||
+             lower.includes('no peer') ||
+             lower.includes('import_failed') ||
+             lower.includes('import failed');
+    }
+
     // If still failed after ALL fallback attempts (primary + phone + alternatives)
     if (!sendResult.success) {
       const finalErrorMsg = sendResult.error || 'Failed to send message';
-      const isFinalPeerNotFound = finalErrorMsg.toLowerCase().includes('peer not found') || 
-                                  finalErrorMsg.toLowerCase().includes('peer_not_found') ||
-                                  finalErrorMsg.toLowerCase().includes('no peer');
+      const isFinalPeerNotFound = isContactNotFoundError(finalErrorMsg);
+      
+      console.log(`[telegram-send] Final error analysis: "${finalErrorMsg}", isContactNotFound=${isFinalPeerNotFound}`);
       
       if (isFinalPeerNotFound) {
         const response: TelegramSendResponse = { 
           success: false,
-          error: 'Клиент не найден в Telegram. Попросите клиента написать вам первым, чтобы установить связь. Попробованы все доступные интеграции.',
+          error: 'Клиент не найден в Telegram (IMPORT_FAILED/PEER_NOT_FOUND). Попросите клиента написать вам первым, чтобы установить связь. Попробованы все доступные интеграции.',
           code: 'PEER_NOT_FOUND'
         };
-        console.error('[telegram-send] Peer not found error after trying all integrations. Client needs to message first.');
+        console.error('[telegram-send] Contact not found error after trying all integrations. Client needs to message first.');
         return new Response(
           JSON.stringify(response),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
