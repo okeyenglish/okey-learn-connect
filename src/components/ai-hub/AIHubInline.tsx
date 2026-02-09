@@ -33,7 +33,8 @@ import {
   HelpCircle,
   Check,
   CheckCheck,
-  Pencil
+  Pencil,
+  Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/typedClient';
@@ -41,7 +42,7 @@ import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useAuth } from '@/hooks/useAuth';
 import { isAdmin } from '@/lib/permissions';
 import { useQueryClient } from '@tanstack/react-query';
-import { useStaffGroupChats, StaffGroupChat, useRenameStaffGroupChat } from '@/hooks/useStaffGroupChats';
+import { useStaffGroupChats, StaffGroupChat, useRenameStaffGroupChat, useDeleteStaffGroupChat } from '@/hooks/useStaffGroupChats';
 import { useTeacherChats, TeacherChatItem, useEnsureTeacherClient } from '@/hooks/useTeacherChats';
 import { useAssistantMessages } from '@/hooks/useAssistantMessages';
 import { useCommunityChats } from '@/hooks/useCommunityChats';
@@ -281,8 +282,9 @@ export const AIHubInline = ({
   const groupChatIds = (staffGroupChats || []).map(g => g.id);
   const { data: groupPreviews } = useStaffGroupChatPreviews(groupChatIds);
   
-  // Rename hook
+  // Rename & delete hooks
   const renameGroupChat = useRenameStaffGroupChat();
+  const deleteGroupChat = useDeleteStaffGroupChat();
   const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const selectedStaffProfileId = activeChat?.type === 'teacher' 
@@ -360,7 +362,7 @@ export const AIHubInline = ({
         id: teacher.id, 
         type: 'teacher' as ChatType, 
         name: teacher.fullName, 
-        description: teacher.branch || teacher.email || 'Преподаватель', 
+        description: teacher.email || 'Преподаватель', 
         icon: GraduationCap, 
         iconBg: 'bg-green-500/10', 
         iconColor: 'text-green-600', 
@@ -382,7 +384,7 @@ export const AIHubInline = ({
         id: staff.id,
         type: 'staff' as ChatType,
         name: fullName,
-        description: staff.branch || staff.email || 'Сотрудник',
+        description: staff.email || 'Сотрудник',
         icon: Users,
         iconBg: 'bg-blue-500/10',
         iconColor: 'text-blue-600',
@@ -687,26 +689,24 @@ export const AIHubInline = ({
       if (aUnread > 0 && bUnread === 0) return -1;
       if (bUnread > 0 && aUnread === 0) return 1;
       
-      // Then sort by online status (online first)
+      // Then sort by last message time (most recent first) - like messengers
+      const aTime = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+      const bTime = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+      if (aTime !== bTime) return bTime - aTime;
+      
+      // Then sort by online status
       const aProfileId = a.type === 'teacher' 
         ? (a.data as TeacherChatItem)?.profileId 
-        : a.type === 'staff' 
-          ? (a.data as StaffMember)?.id 
-          : null;
+        : a.type === 'staff' ? (a.data as StaffMember)?.id : null;
       const bProfileId = b.type === 'teacher' 
         ? (b.data as TeacherChatItem)?.profileId 
-        : b.type === 'staff' 
-          ? (b.data as StaffMember)?.id 
-          : null;
+        : b.type === 'staff' ? (b.data as StaffMember)?.id : null;
       const aOnline = aProfileId ? isUserOnline(aProfileId) : false;
       const bOnline = bProfileId ? isUserOnline(bProfileId) : false;
       if (aOnline && !bOnline) return -1;
       if (bOnline && !aOnline) return 1;
       
-      // Then sort by last message time
-      const aTime = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
-      const bTime = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
-      return bTime - aTime; // Descending (most recent first)
+      return 0;
     });
   
   // Apply online filter - but always show groups
@@ -849,6 +849,22 @@ export const AIHubInline = ({
                 <Link2 className="h-3.5 w-3.5" />
               </Button>
             </LinkTeacherProfileModal>
+          )}
+          {/* Delete group button for admins */}
+          {activeChat.type === 'group' && userIsAdmin && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
+              onClick={() => {
+                if (confirm('Удалить групповой чат? Это действие нельзя отменить.')) {
+                  deleteGroupChat.mutate(activeChat.id);
+                  handleBack();
+                }
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           )}
         </div>
 
@@ -1272,28 +1288,6 @@ export const AIHubInline = ({
                             <span className={`text-sm ${hasUnread ? 'font-semibold' : 'font-medium'} truncate flex-1 min-w-0`}>
                               {item.name}
                             </span>
-                            {(() => {
-                              const branchStr = isTeacher ? teacher?.branch : isStaff ? staff?.branch : null;
-                              if (!branchStr) return null;
-                              const branches = branchStr.split(',').map(b => b.trim()).filter(Boolean);
-                              const visible = branches.slice(0, 2);
-                              const hidden = branches.length - visible.length;
-                              const colorCls = isTeacher ? 'bg-green-50 text-green-700 border-green-200' : 'bg-blue-50 text-blue-700 border-blue-200';
-                              return (
-                                <>
-                                  {visible.map(b => (
-                                    <Badge key={b} variant="outline" className={`text-[9px] h-4 px-1.5 shrink-0 font-normal ${colorCls}`}>
-                                      {b}
-                                    </Badge>
-                                  ))}
-                                  {hidden > 0 && (
-                                    <Badge variant="outline" className={`text-[9px] h-4 px-1.5 shrink-0 font-normal ${colorCls} cursor-default`} title={branches.join(', ')}>
-                                      +{hidden}
-                                    </Badge>
-                                  )}
-                                </>
-                              );
-                            })()}
                           </div>
                           <div className="text-xs text-muted-foreground leading-relaxed overflow-hidden">
                             {lastSeenText && !isOnline ? (
