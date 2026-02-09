@@ -1,109 +1,76 @@
 
-# UI-улучшения для чатов сотрудников и групповых чатов
+# UI-улучшения для чатов сотрудников и групповых чатов (часть 2)
 
-## Задача 1: Ограничить отображение филиалов до 2, остальные по наведению
+## Проблема 1: Build error
+Необходимо проверить и исправить ошибки сборки, оставшиеся после предыдущих изменений. Возможно неиспользуемый импорт `Building2` или другие проблемы.
 
-**Проблема**: У сотрудников с несколькими филиалами (например, "Окская, Новокосино, Котельники, Грайвороновская, ONLINE") бейдж филиала занимает всю строку и обрезается.
+## Проблема 2: Email вместо должности в превью
+Сейчас под именем сотрудника отображается email. Нужно заменить на должность: "Преподаватель" для `teacher`, "Сотрудник" для `staff`. Если есть превью последнего сообщения -- показывать его вместо должности.
 
-**Решение**: В обоих файлах (`AIHub.tsx` и `AIHubInline.tsx`) в секции рендеринга сотрудников/преподавателей:
-- Если `branch` содержит запятые (несколько филиалов), разбить на массив
-- Показать максимум 2 бейджа
-- Если филиалов больше 2, показать "+N" бейдж с `title` (тултип при наведении), содержащим полный список
+**Файлы**: `src/components/ai-hub/AIHub.tsx`, `src/components/ai-hub/AIHubInline.tsx`
 
-**Файлы**: `src/components/ai-hub/AIHub.tsx` (строки 1127-1136), `src/components/ai-hub/AIHubInline.tsx` (строки 1218-1228)
-
-## Задача 2: Показывать превью последнего сообщения в списке сотрудников
-
-**Проблема**: В `AIHub.tsx` не подключены `staffPreviews` (в отличие от `AIHubInline.tsx`), поэтому `lastMessage` всегда пустой для сотрудников.
-
-**Решение**: В `AIHub.tsx`:
-- Подключить `useStaffConversationPreviews` (уже импортирован, но не используется)
-- Добавить `lastMessage` и `lastMessageTime` из `staffPreviews` в `teacherChatItems` и `staffChatItems` (по аналогии с `AIHubInline.tsx`)
-
-**Файл**: `src/components/ai-hub/AIHub.tsx` (строки 294-326)
-
-## Задача 3: Показать групповые чаты филиалов с непрочитанными
-
-**Проблема**: Группы (чаты филиалов) скрыты при фильтре "Онлайн" (`return false; // Groups are excluded when filtering online`). Нет превью последнего сообщения и непрочитанных для групп.
-
-**Решение**:
-1. Изменить фильтр `corporateChatsListFiltered` в обоих файлах: группы всегда показывать (не скрывать при фильтре "Онлайн")
-2. Добавить подсчёт непрочитанных для групп из `useStaffGroupMessages` или новый хук `useStaffGroupPreviews`
-3. Добавить превью последнего сообщения для групповых чатов
-
-**Подход к непрочитанным для групп**: Создать новый хук `useStaffGroupChatPreviews` в `useInternalStaffMessages.ts`, который для каждого `group_chat_id` загружает:
-- Последнее сообщение (message_text, created_at, sender first_name)
-- Количество непрочитанных (is_read = false, sender_id != user.id)
-
-**Файлы**:
-- `src/hooks/useInternalStaffMessages.ts` — новый хук `useStaffGroupChatPreviews`
-- `src/components/ai-hub/AIHub.tsx` — подключить хук, передать данные в `groupChatItems`, показать группы при фильтре "Онлайн"
-- `src/components/ai-hub/AIHubInline.tsx` — аналогично
-
-## Задача 4: Возможность переименовать чат
-
-**Проблема**: Нет функциональности переименования групповых чатов.
-
-**Решение**:
-1. Добавить мутацию `useRenameStaffGroupChat` в `useStaffGroupChats.ts` — вызывает `selfHostedPost('update-staff-group-chat', { group_id, name })`
-2. В header чата (когда открыт групповой чат) добавить кнопку редактирования (иконка карандаша) рядом с названием
-3. По клику — показать инлайн-редактор (Input вместо текста) с кнопками сохранить/отменить
-4. Если edge function `update-staff-group-chat` не существует, создать её
-
-**Файлы**:
-- `supabase/functions/update-staff-group-chat/index.ts` — новая edge function (или `selfHostedPost` если таблица на self-hosted)
-- `src/hooks/useStaffGroupChats.ts` — новый хук `useRenameStaffGroupChat`
-- `src/components/ai-hub/AIHub.tsx` и `AIHubInline.tsx` — UI для переименования в header чата
-
-## Технические детали
-
-### Новый хук: `useStaffGroupChatPreviews`
-```typescript
-export const useStaffGroupChatPreviews = (groupIds: string[]) => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ['staff-group-previews', groupIds],
-    queryFn: async () => {
-      // Для каждого groupId:
-      // 1. Последнее сообщение из internal_staff_messages WHERE group_chat_id = groupId
-      // 2. COUNT непрочитанных WHERE group_chat_id = groupId AND is_read = false AND sender_id != user.id
-    },
-    enabled: !!user?.id && groupIds.length > 0,
-    staleTime: 30000,
-  });
-};
+В маппинге `teacherChatItems`:
+```
+description: 'Преподаватель'  // вместо teacher.email
 ```
 
-### Логика показа филиалов (max 2)
-```typescript
-const branches = (staff?.branch || '').split(',').map(b => b.trim()).filter(Boolean);
-const visibleBranches = branches.slice(0, 2);
-const hiddenCount = branches.length - visibleBranches.length;
+В маппинге `staffChatItems`:
+```
+description: 'Сотрудник'  // вместо staff.email
+```
 
-// Рендер:
-{visibleBranches.map(b => <Badge key={b}>{b}</Badge>)}
+## Проблема 3: 1-2 филиала рядом с именем + тултип
+Рядом с именем в строке (не под именем) показывать 1-2 бейджа филиалов. При наведении на "+N" бейдж -- показывать полный список.
+
+В рендеринге списка чатов для `teacher`/`staff`:
+```typescript
+const branches = (isTeacher ? teacher?.branch : staff?.branch || '').split(',').map(b => b.trim()).filter(Boolean);
+const visibleBranches = branches.slice(0, 2);
+const hiddenCount = branches.length - 2;
+```
+
+Добавить бейджи в строку имени (справа от имени):
+```tsx
+{visibleBranches.map(b => (
+  <Badge key={b} variant="secondary" className="text-[9px] h-3.5 px-1 shrink-0">{b}</Badge>
+))}
 {hiddenCount > 0 && (
-  <Badge title={branches.join(', ')}>+{hiddenCount}</Badge>
+  <Badge variant="outline" className="text-[9px] h-3.5 px-1 shrink-0 cursor-help" title={branches.join(', ')}>
+    +{hiddenCount}
+  </Badge>
 )}
 ```
 
-### Переименование чата (self-hosted)
-Поскольку `staff_group_chats` на self-hosted базе, используем `selfHostedPost`:
-```typescript
-const response = await selfHostedPost('update-staff-group-chat', {
-  group_id: groupId,
-  name: newName,
-});
-```
-Нужно будет создать edge function `update-staff-group-chat` на self-hosted, или обновлять через прямой запрос к Supabase если таблица доступна.
+## Проблема 4: Ошибки при удалении и переименовании чатов
+Ошибки связаны с тем, что edge-функции `update-staff-group-chat` и `delete-staff-group-chat` не существуют на self-hosted. Нужно создать их.
 
-### Группы при фильтре "Онлайн"
-Изменить строку `return false; // Groups are excluded` на `return true;` чтобы группы всегда отображались.
+### Edge Function: `update-staff-group-chat`
+Принимает `group_id` и `name`, обновляет `staff_group_chats.name` через service role key.
+
+### Edge Function: `delete-staff-group-chat`
+Принимает `group_id`, удаляет все `staff_group_chat_members` и `internal_staff_messages` с этим `group_chat_id`, затем удаляет сам `staff_group_chats` записm.
+
+## Проблема 5: Показать участников группового чата в header
+В header группового чата (под названием) показывать имена участников.
+
+Подключить `useStaffGroupMembers(activeChat.id)` в обоих файлах и отобразить список имен в подзаголовке:
+
+```tsx
+const groupMembers = useStaffGroupMembers(activeChat?.type === 'group' ? activeChat.id : '');
+
+// В header вместо activeChat.badge || activeChat.description:
+{activeChat.type === 'group' && groupMembers.data?.length ? (
+  <p className="text-xs text-muted-foreground truncate">
+    {groupMembers.data.map(m => m.profile?.first_name || 'Участник').join(', ')}
+  </p>
+) : (
+  <p className="text-xs text-muted-foreground truncate">{activeChat.description}</p>
+)}
+```
 
 ## Порядок реализации
-1. Создать `useStaffGroupChatPreviews` хук
-2. Обновить `groupChatItems` в обоих файлах с превью и непрочитанными
-3. Исправить фильтр "Онлайн" для групп
-4. Реализовать ограничение филиалов до 2
-5. Добавить мутацию переименования и UI в header чата
-6. Синхронизировать `AIHub.tsx` с `AIHubInline.tsx` по превью сообщений
+1. Создать edge functions `update-staff-group-chat` и `delete-staff-group-chat`
+2. Исправить `description` для `teacher`/`staff` (должность вместо email)
+3. Добавить бейджи филиалов рядом с именем
+4. Подключить `useStaffGroupMembers` в header группового чата
+5. Убрать неиспользуемый импорт `Building2` если он вызывает ошибку
