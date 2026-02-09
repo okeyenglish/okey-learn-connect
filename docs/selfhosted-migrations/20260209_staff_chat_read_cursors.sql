@@ -1,0 +1,16 @@
+-- Per-user read cursors for staff and group chats
+-- Apply this on self-hosted Supabase (api.academyos.ru)
+--
+-- CREATE TABLE IF NOT EXISTS public.staff_chat_read_cursors (
+--   user_id UUID NOT NULL,
+--   chat_id TEXT NOT NULL,
+--   last_read_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+--   PRIMARY KEY (user_id, chat_id)
+-- );
+--
+-- ALTER TABLE public.staff_chat_read_cursors ENABLE ROW LEVEL SECURITY;
+--
+-- CREATE POLICY "Users manage own cursors"
+--   ON public.staff_chat_read_cursors FOR ALL
+--   USING (auth.uid() = user_id)
+--   WITH CHECK (auth.uid() = user_id);
