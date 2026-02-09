@@ -1075,66 +1075,117 @@ export const ChatArea = ({
     if (!clientId) return;
     
     try {
-      // Помечаем все непрочитанные сообщения клиента как прочитанные
-      const { error } = await supabase
-        .from('chat_messages')
-        .update({ is_read: true })
-        .eq('client_id', clientId)
-        .eq('is_read', false)
-        .eq('message_type', 'client');
-      
-      if (error) {
-        console.error('Error marking messages as read:', error);
-        toast({
-          title: "Ошибка",
-          description: "Не удалось пометить сообщения как прочитанные",
-          variant: "destructive",
-        });
-        return;
+      const isTeacher = isTeacherMessages || isDirectTeacherMessage;
+
+      if (isTeacher) {
+        // Для преподавательских чатов — используем teacher_id
+        const teacherId = actualTeacherId || clientId?.replace('teacher:', '') || clientId;
+
+        const { error } = await (supabase
+          .from('chat_messages') as any)
+          .update({ is_read: true })
+          .eq('teacher_id', teacherId)
+          .eq('is_outgoing', false)
+          .or('is_read.is.null,is_read.eq.false');
+
+        if (error) {
+          console.error('Error marking teacher messages as read:', error);
+          toast({
+            title: "Ошибка",
+            description: "Не удалось пометить сообщения как прочитанные",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Оптимистичное обновление кэшей преподавателей
+        queryClient.setQueriesData(
+          { queryKey: ['teacher-conversations'] },
+          (old: any[] | undefined) => {
+            if (!old) return old;
+            return old.map((c: any) =>
+              c.teacherId === teacherId ? { ...c, unreadCount: 0 } : c
+            );
+          }
+        );
+        queryClient.setQueriesData(
+          { queryKey: ['teacher-chats'] },
+          (old: any[] | undefined) => {
+            if (!old) return old;
+            return old.map((t: any) =>
+              t.id === teacherId ? { ...t, unreadMessages: 0 } : t
+            );
+          }
+        );
+        queryClient.setQueriesData(
+          { queryKey: ['teacher-chat-messages-v2-infinite'] },
+          (old: any) => {
+            if (!old?.pages) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page: any) => ({
+                ...page,
+                messages: page.messages?.map((m: any) => ({ ...m, is_read: true })),
+              })),
+            };
+          }
+        );
+      } else {
+        // Для клиентских чатов — оригинальная логика
+        const { error } = await supabase
+          .from('chat_messages')
+          .update({ is_read: true })
+          .eq('client_id', clientId)
+          .eq('is_read', false)
+          .eq('message_type', 'client');
+
+        if (error) {
+          console.error('Error marking messages as read:', error);
+          toast({
+            title: "Ошибка",
+            description: "Не удалось пометить сообщения как прочитанные",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Оптимистичное обновление кэша chat-threads
+        queryClient.setQueriesData(
+          { queryKey: ['chat-threads'] },
+          (old: any[] | undefined) => {
+            if (!old) return old;
+            return old.map((t: any) => 
+              t.client_id === clientId ? { ...t, unread_count: 0 } : t
+            );
+          }
+        );
+        queryClient.setQueriesData(
+          { queryKey: ['unread-client-ids'] },
+          (old: string[] | undefined) => {
+            if (!old) return old;
+            return old.filter((id: string) => id !== clientId);
+          }
+        );
+        queryClient.setQueriesData(
+          { queryKey: ['chat-threads-infinite'] },
+          (old: any) => {
+            if (!old?.pages) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page: any) => ({
+                ...page,
+                threads: page.threads?.map((t: any) =>
+                  t.client_id === clientId ? { ...t, unread_count: 0 } : t
+                ),
+              })),
+            };
+          }
+        );
+        queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
+        queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
+        queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
+        queryClient.invalidateQueries({ queryKey: ['chat-messages-infinite', clientId] });
       }
-      
-      // Оптимистичное обновление кэша chat-threads — обнуляем unread_count мгновенно
-      queryClient.setQueriesData(
-        { queryKey: ['chat-threads'] },
-        (old: any[] | undefined) => {
-          if (!old) return old;
-          return old.map((t: any) => 
-            t.client_id === clientId ? { ...t, unread_count: 0 } : t
-          );
-        }
-      );
-
-      // Убрать клиента из unread-client-ids
-      queryClient.setQueriesData(
-        { queryKey: ['unread-client-ids'] },
-        (old: string[] | undefined) => {
-          if (!old) return old;
-          return old.filter((id: string) => id !== clientId);
-        }
-      );
-
-      // Оптимистичное обновление infinite-кэша chat-threads
-      queryClient.setQueriesData(
-        { queryKey: ['chat-threads-infinite'] },
-        (old: any) => {
-          if (!old?.pages) return old;
-          return {
-            ...old,
-            pages: old.pages.map((page: any) => ({
-              ...page,
-              threads: page.threads?.map((t: any) =>
-                t.client_id === clientId ? { ...t, unread_count: 0 } : t
-              ),
-            })),
-          };
-        }
-      );
-
-      // Инвалидируем остальные кэши
-      queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
-      queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
-      queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
-      queryClient.invalidateQueries({ queryKey: ['chat-messages-infinite', clientId] });
       
       toast({
         title: "Готово",
