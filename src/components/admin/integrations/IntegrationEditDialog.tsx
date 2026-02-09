@@ -14,7 +14,6 @@ import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Loader2, Save, Copy, ExternalLink } from 'lucide-react';
 import { useMessengerIntegrations, MessengerIntegration, MessengerType, CreateIntegrationPayload, UpdateIntegrationPayload } from '@/hooks/useMessengerIntegrations';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SettingsFieldConfig } from './IntegrationsList';
 import { cn } from '@/lib/utils';
@@ -118,47 +117,7 @@ export const IntegrationEditDialog: React.FC<IntegrationEditDialogProps> = ({
         await createIntegration(payload);
       }
 
-      // Auto-register webhook in Wappi for Telegram (Wappi) integrations
-      if (messengerType === 'telegram' && formData.provider === 'wappi') {
-        const profileId = (formData.settings?.profileId || '').trim();
-        const apiToken = (formData.settings?.apiToken || '').trim();
-
-        if (profileId && apiToken && !apiToken.startsWith('••')) {
-          const { data, error } = await supabase.functions.invoke('wappi-telegram-webhook-register', {
-            body: { profileId, apiToken },
-          });
-
-          const result = (data as any) || {};
-          const success = !error && result.success === true;
-
-          if (success) {
-            toast({
-              title: 'Webhook настроен',
-              description: 'Webhook автоматически зарегистрирован в Wappi',
-            });
-          } else {
-            const detail =
-              result?.wappi?.detail ||
-              result?.wappi?.message ||
-              result?.error ||
-              (error as any)?.message ||
-              'Не удалось зарегистрировать webhook в Wappi';
-
-            toast({
-              title: 'Webhook не настроен',
-              description: String(detail),
-              variant: 'destructive',
-            });
-          }
-        } else {
-          // Editing often returns masked tokens — in that case we cannot auto-register.
-          toast({
-            title: 'Webhook: пропущено',
-            description: 'Для автонастройки в Wappi укажите Profile ID и заново введите API Token',
-          });
-        }
-      }
-
+      // Webhook registration is handled server-side by messenger-integrations edge function
       onOpenChange(false);
     } catch (error) {
       // Error is handled in the hook
