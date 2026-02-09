@@ -163,8 +163,10 @@ Deno.serve(async (req) => {
             const baseUrl = Deno.env.get('SELF_HOSTED_URL') || supabaseUrl;
             const webhookUrl = `${baseUrl}/functions/v1/telegram-webhook?profile_id=${profileId}`;
             
-            const webhookResult = await registerWappiTelegramWebhook(profileId, webhookUrl, apiToken);
-            console.log('[messenger-integrations] Wappi webhook registration:', webhookResult);
+            // Fire-and-forget: don't block response
+            registerWappiTelegramWebhook(profileId, webhookUrl, apiToken)
+              .then(r => console.log('[messenger-integrations] Wappi webhook registered:', JSON.stringify(r)))
+              .catch(e => console.error('[messenger-integrations] Wappi webhook error:', e));
           }
         }
 
@@ -254,8 +256,10 @@ Deno.serve(async (req) => {
             const baseUrl = Deno.env.get('SELF_HOSTED_URL') || supabaseUrl;
             const webhookUrl = `${baseUrl}/functions/v1/telegram-webhook?profile_id=${profileId}`;
             
-            const webhookResult = await registerWappiTelegramWebhook(profileId, webhookUrl, apiToken);
-            console.log('[messenger-integrations] Wappi webhook registration on update:', webhookResult);
+            // Fire-and-forget: don't block response
+            registerWappiTelegramWebhook(profileId, webhookUrl, apiToken)
+              .then(r => console.log('[messenger-integrations] Wappi webhook registered (update):', JSON.stringify(r)))
+              .catch(e => console.error('[messenger-integrations] Wappi webhook error (update):', e));
           }
         }
 

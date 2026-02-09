@@ -80,7 +80,7 @@ export const useMessengerIntegrations = (messengerType?: MessengerType) => {
   // Create new integration
   const createMutation = useMutation({
     mutationFn: async (payload: CreateIntegrationPayload) => {
-      const response = await selfHostedPost<IntegrationsResponse>('messenger-integrations', payload);
+      const response = await selfHostedPost<IntegrationsResponse>('messenger-integrations', payload, { retry: { noRetry: true } });
       
       if (!response.success || response.error) {
         throw new Error(response.error || response.data?.error || 'Failed to create integration');
