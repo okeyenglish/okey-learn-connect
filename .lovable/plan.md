@@ -1,129 +1,90 @@
 
-# Исправление Smart Routing для преподавателей в Telegram
+# Исправление Smart Routing для Telegram: добавление колонки integration_id
 
-## Суть проблемы
+## Проблема
 
-При отправке сообщения **преподавателю** система не использует smart routing — она всегда выбирает `is_primary=true` интеграцию вместо той, откуда преподаватель написал.
+При отправке ответа клиенту или преподавателю система выбирает **неправильную интеграцию** (Telegram аккаунт). Вместо того чтобы ответить с аккаунта, на который написал клиент, система использует `is_primary=true` аккаунт, что приводит к ошибке отправки (красный индикатор).
 
-## Диагноз
+## Причина
 
-Код `telegram-send` (строки 61-79) ищет `integration_id` **только по `client_id`**:
+Колонка `integration_id` **отсутствует** в таблице `chat_messages` — как на Cloud, так и на self-hosted базе:
 
-```typescript
-if (clientId) {  // <-- Для преподавателей clientId = '' (пустая строка)
-  const { data: lastMessage } = await supabase
-    .from('chat_messages')
-    .select('integration_id')
-    .eq('client_id', clientId)  // <-- Никогда не найдёт для teacher
+```
+SELECT column_name FROM information_schema.columns 
+WHERE table_name = 'chat_messages';
+-- integration_id NOT FOUND
 ```
 
-Для преподавателей передаётся:
-- `clientId: ''` (пустая строка)
-- `phoneNumber: '+7 (985) 261-50-56'`
-- `teacherId: 'xxxx-xxxx-xxxx'`
-
-Но webhook **уже сохраняет `integration_id`** для сообщений преподавателей (строки 425-428 в `telegram-webhook`):
-```typescript
-if (integrationId) {
-  fullPayload.integration_id = integrationId;
-}
-```
-
-Проблема в том, что при отправке ответа `telegram-send` не ищет по `teacher_id`.
+Без этой колонки:
+1. Webhook не может сохранить информацию о том, с какого аккаунта пришло сообщение
+2. `telegram-send` не может найти правильную интеграцию для ответа
+3. Система всегда использует primary интеграцию
 
 ## Решение
 
-Добавить в `telegram-send` поиск `integration_id` по `teacher_id`, если `clientId` пустой:
+### Шаг 1: Добавить колонку в Cloud базу (миграция)
 
-```typescript
-// === SMART ROUTING: Find integration_id from last incoming message ===
-let resolvedIntegrationId: string | null = null;
+```sql
+-- Добавить колонку integration_id для smart routing
+ALTER TABLE public.chat_messages 
+ADD COLUMN IF NOT EXISTS integration_id uuid;
 
-// Mode 1: Search by clientId (for client messages)
-if (clientId) {
-  const { data: lastMessage } = await supabase
-    .from('chat_messages')
-    .select('integration_id')
-    .eq('client_id', clientId)
-    .eq('is_outgoing', false)
-    .eq('messenger_type', 'telegram')
-    .not('integration_id', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+-- Индекс для ускорения smart routing запросов
+CREATE INDEX IF NOT EXISTS idx_chat_messages_integration_id 
+ON public.chat_messages(integration_id) 
+WHERE integration_id IS NOT NULL;
 
-  if (lastMessage?.integration_id) {
-    resolvedIntegrationId = lastMessage.integration_id;
-    console.log('[telegram-send] Smart routing (client): ', resolvedIntegrationId);
-  }
-}
-
-// Mode 2: Search by teacherId (for teacher messages)
-if (!resolvedIntegrationId && teacherId) {
-  const { data: lastTeacherMessage } = await supabase
-    .from('chat_messages')
-    .select('integration_id')
-    .eq('teacher_id', teacherId)
-    .eq('is_outgoing', false)
-    .eq('messenger_type', 'telegram')
-    .not('integration_id', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (lastTeacherMessage?.integration_id) {
-    resolvedIntegrationId = lastTeacherMessage.integration_id;
-    console.log('[telegram-send] Smart routing (teacher): ', resolvedIntegrationId);
-  }
-}
-
-// Mode 3: Search by phone (fallback for new contacts)
-if (!resolvedIntegrationId && phoneNumber) {
-  // Normalize phone
-  const phone10 = phoneNumber.replace(/\D/g, '').slice(-10);
-  
-  // Find teacher by phone if teacherId not provided
-  if (!teacherId && phone10.length === 10) {
-    const { data: teacher } = await supabase
-      .from('teachers')
-      .select('id')
-      .ilike('phone', `%${phone10}`)
-      .eq('organization_id', organizationId)
-      .maybeSingle();
-    
-    if (teacher?.id) {
-      // Search by found teacher_id
-      const { data: msg } = await supabase
-        .from('chat_messages')
-        .select('integration_id')
-        .eq('teacher_id', teacher.id)
-        .eq('is_outgoing', false)
-        .eq('messenger_type', 'telegram')
-        .not('integration_id', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      if (msg?.integration_id) {
-        resolvedIntegrationId = msg.integration_id;
-        console.log('[telegram-send] Smart routing (phone->teacher): ', resolvedIntegrationId);
-      }
-    }
-  }
-}
+-- Комментарий для документации
+COMMENT ON COLUMN public.chat_messages.integration_id IS 
+'ID интеграции мессенджера для smart routing - определяет какой аккаунт использовать для ответа';
 ```
 
-## Файл для изменения
+### Шаг 2: Обновить resilientInsertMessage в telegram-webhook
 
-| Файл | Изменения |
+Добавить `integration_id` в минимальный payload fallback:
+
+```typescript
+const minimalPayload: Record<string, any> = {
+  client_id: payload.client_id || null,
+  organization_id: payload.organization_id,
+  message_text: payload.message_text || '[Сообщение]',
+  message_type: payload.message_type || 'client',
+  messenger_type: payload.messenger_type || 'telegram',
+  is_outgoing: payload.is_outgoing ?? false,
+  is_read: payload.is_read ?? false,
+  external_message_id: payload.external_message_id || null,
+  file_url: payload.file_url || null,
+  file_name: payload.file_name || null,
+  file_type: payload.file_type || null,
+  // ДОБАВИТЬ:
+  integration_id: payload.integration_id || null,
+};
+```
+
+### Шаг 3: Сгенерировать SQL для self-hosted
+
+Создать документ `docs/add_integration_id_column.sql` с миграцией для ручного выполнения на self-hosted сервере.
+
+## Файлы для изменения
+
+| Файл | Изменение |
 |------|-----------|
-| `supabase/functions/telegram-send/index.ts` | Добавить поиск `integration_id` по `teacher_id` когда `clientId` пустой |
+| Cloud Database | Миграция: добавить колонку `integration_id` |
+| `supabase/functions/telegram-webhook/index.ts` | Добавить `integration_id` в минимальный payload |
+| `docs/add_integration_id_column.sql` | SQL скрипт для self-hosted |
 
 ## Ожидаемый результат
 
 После исправления:
-1. Преподаватель пишет в Telegram на определённый аккаунт организации
-2. Webhook сохраняет `integration_id` в `chat_messages` (уже работает)
-3. При ответе менеджера `telegram-send` ищет `integration_id` **по `teacher_id`**
-4. Ответ уходит с того же аккаунта, откуда преподаватель написал
-5. Сообщение успешно доставляется (зелёная галочка вместо красной)
+1. Входящие сообщения сохраняются с `integration_id` — ID конкретного Telegram аккаунта
+2. При ответе `telegram-send` находит этот ID и использует нужную интеграцию
+3. Сообщение доставляется клиенту с правильного аккаунта (зелёная галочка)
+4. Smart routing работает для клиентов и преподавателей
+
+## Примечание для self-hosted
+
+После применения изменений в Cloud нужно выполнить миграцию на self-hosted:
+
+```bash
+psql -U postgres -d your_database -f docs/add_integration_id_column.sql
+```
