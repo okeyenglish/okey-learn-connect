@@ -1,125 +1,169 @@
 
-## Что происходит сейчас (почему “даже не было попытки”)
+# План: Fallback на другую Telegram интеграцию при ошибке
 
-По вашему скрину видно, что провайдер фиксирует ошибки `PEER_NOT_FOUND` и в поле “Получатель” фигурирует число `1212686911`.
+## Суть идеи
 
-С текущей реализацией есть 2 типовые причины, почему **вторая попытка по телефону реально не делается**:
+Если у организации настроено **несколько Telegram интеграций** (например, Wappi и Telegram CRM, или два разных Wappi аккаунта), и первая интеграция не смогла доставить сообщение (PEER_NOT_FOUND), система автоматически попробует отправить через **другую доступную интеграцию**.
 
-1) **ID ошибочно трактуется как “телефон”**  
-   В `telegram-send` функция `normalizePhone()` сейчас возвращает “телефон” почти для любого числа длиной ≥10 (даже если это Telegram ID).  
-   Если Telegram ID попал в `clients.phone` или `client_phone_numbers.phone_number`, код считает это телефоном, ставит `recipientSource = 'phone...'`, и дальше `usedIdNotPhone` становится `false` → fallback не запускается.
+Это полезно когда:
+- У одного аккаунта нет peer с клиентом, а у другого есть
+- Один аккаунт временно недоступен
+- Клиент общался с разных номеров
 
-2) **Телефон для fallback не найден/невалиден**  
-   Даже если отправка была по ID (и `usedIdNotPhone=true`), fallback не случится, если `phoneToTry` вычислился как `null` или совпал с `recipient` (и тогда попытка пропускается).
+## Текущая логика (до изменения)
 
-Нужно сделать так, чтобы:
-- телефон брался гарантированно из правильного поля,
-- “телефон” строго валидировался как телефон (а не любое 10–15-значное число),
-- fallback запускался всегда, когда первая отправка была по **Telegram-идентификатору** (id/username/chat_id) или когда “получатель-цифры” не похож на телефон.
+```text
+1. Smart routing: найти integration_id из последнего входящего сообщения
+2. Если нашли → использовать эту интеграцию
+3. Если не нашли → использовать primary интеграцию
+4. Отправка → ошибка PEER_NOT_FOUND
+5. Fallback по телефону (в той же интеграции)
+6. Всё ещё ошибка → показать "Клиент не найден в Telegram"
+```
 
----
+## Новая логика (после изменения)
 
-## Цель изменения
+```text
+1. Smart routing: найти integration_id из последнего входящего сообщения
+2. Если нашли → использовать эту интеграцию
+3. Если не нашли → использовать primary интеграцию
+4. Отправка → ошибка PEER_NOT_FOUND
+5. Fallback по телефону (в той же интеграции) → ошибка
+6. === НОВОЕ: FALLBACK НА ДРУГУЮ ИНТЕГРАЦИЮ ===
+   - Получить ВСЕ telegram интеграции организации (кроме уже попробованной)
+   - Для каждой интеграции:
+     - Если wappi → попробовать через telegram-send с этой интеграцией
+     - Если telegram_crm → попробовать через telegram-crm-send
+   - Если хоть одна успешна → вернуть успех
+7. Все интеграции не смогли → показать "Клиент не найден в Telegram"
+```
 
-Если отправка **по ID** (telegram_user_id / telegram_chat_id / telegram_username) дала ошибку — **обязательно** сделать вторую попытку **по телефону клиента** (нормализованному), чтобы в логах провайдера появилась вторая запись уже с номером телефона.
+## Файл для изменения
 
-Важно: даже если телефонная попытка тоже упадёт с `PEER_NOT_FOUND` (например, контакт не добавлен в адресную книгу аккаунта), мы хотя бы увидим факт попытки и будем понимать, что fallback реально отработал.
+`supabase/functions/telegram-send/index.ts`
 
----
+## Детали реализации
 
-## Где меняем
+### Шаг 1: После неудачи первой интеграции — найти альтернативы
 
-1 файл:
-- `supabase/functions/telegram-send/index.ts`
+После блока fallback по телефону (строка ~572), если всё ещё `!sendResult.success`:
 
-(Даже если вы используете только self-hosted, этот файл — источник правок; дальше вы обновляете вашу self-hosted функцию тем же кодом.)
+```typescript
+// === FALLBACK TO OTHER INTEGRATIONS ===
+if (!sendResult.success) {
+  console.log('[telegram-send] Primary integration failed, looking for alternative integrations');
+  
+  // Get all telegram integrations except the one we already tried
+  const { data: alternativeIntegrations } = await supabase
+    .from('messenger_integrations')
+    .select('id, provider, settings, is_enabled')
+    .eq('organization_id', organizationId)
+    .eq('messenger_type', 'telegram')
+    .eq('is_enabled', true)
+    .neq('id', integration?.id || '') // Exclude the one we already tried
+    .order('is_primary', { ascending: false });
+  
+  if (alternativeIntegrations && alternativeIntegrations.length > 0) {
+    console.log(`[telegram-send] Found ${alternativeIntegrations.length} alternative integration(s)`);
+    
+    for (const altIntegration of alternativeIntegrations) {
+      console.log(`[telegram-send] Trying alternative: ${altIntegration.provider} (${altIntegration.id})`);
+      
+      if (altIntegration.provider === 'wappi') {
+        // Try Wappi with alternative account
+        const altSettings = altIntegration.settings as TelegramSettings;
+        if (altSettings?.profileId && altSettings?.apiToken) {
+          // Try with ID first, then phone
+          let altRecipient = recipient;
+          let altResult = await sendTextMessage(altSettings.profileId, altRecipient, text || '', altSettings.apiToken);
+          
+          if (!altResult.success && fallbackPhoneNormalized && fallbackPhoneNormalized !== altRecipient) {
+            altResult = await sendTextMessage(altSettings.profileId, fallbackPhoneNormalized, text || '', altSettings.apiToken);
+            if (altResult.success) altRecipient = fallbackPhoneNormalized;
+          }
+          
+          if (altResult.success) {
+            console.log(`[telegram-send] Alternative Wappi integration SUCCEEDED!`);
+            sendResult = altResult;
+            break;
+          }
+        }
+      } else if (altIntegration.provider === 'telegram_crm') {
+        // Try Telegram CRM
+        try {
+          const crmResponse = await fetch(`${supabaseUrl}/functions/v1/telegram-crm-send`, {
+            method: 'POST',
+            headers: {
+              'Authorization': authHeader,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              clientId: resolvedClientId,
+              text,
+              fileUrl,
+              fileName,
+              fileType,
+              integrationId: altIntegration.id,
+            }),
+          });
+          
+          const crmResult = await crmResponse.json();
+          if (crmResult.success) {
+            console.log(`[telegram-send] Alternative Telegram CRM integration SUCCEEDED!`);
+            sendResult = { success: true, messageId: crmResult.messageId };
+            break;
+          }
+        } catch (e) {
+          console.error(`[telegram-send] Alternative Telegram CRM failed:`, e);
+        }
+      }
+    }
+  } else {
+    console.log('[telegram-send] No alternative integrations available');
+  }
+}
+```
 
----
+### Шаг 2: Обеспечить корректный возврат результата
 
-## План работ (пошагово)
+Если альтернативная интеграция успешна, код продолжает выполнение и сохраняет сообщение в БД как обычно.
 
-### Шаг 1. Сделать “строгую” нормализацию телефона (чтобы Telegram ID не считался телефоном)
-Внутри `telegram-send` заменить/расширить `normalizePhone()` так, чтобы она:
-- принимала **только телефон-похожее** (для РФ логика уже есть у вас на фронте; в функции повторим её упрощённо),
-- **возвращала null**, если число похоже на Telegram ID (например 10 цифр, но не начинается с `9`; 11 цифр, но `7` + вторая цифра `0/1/2`, и т.п.).
+### Шаг 3: Улучшить логирование
 
-Ожидаемый эффект: число `1212686911` больше не будет “валидным телефоном”, значит не попадёт в `recipientSource = phone...` и не будет блокировать fallback.
+Добавить в логи:
+- Какая интеграция была первичной
+- Сколько альтернатив найдено
+- Какая альтернатива сработала
 
-### Шаг 2. Во время выбора получателя сохранить “лучший телефон для fallback”
-Пока мы определяем `recipient` (из `phoneRecord`, `primaryPhone`, `client`), параллельно сохранить:
-- `fallbackPhoneRaw` (строка телефона из БД)
-- `fallbackPhoneNormalized` (после строгой нормализации)
+## Пример сценария
 
-Приоритет источников телефона для fallback (в self-hosted, где таблицы есть):
-1) `client_phone_numbers.phone_number` из **той же записи**, откуда взяли telegram_user_id/chat_id (если был `phoneId`)
-2) `client_phone_numbers.phone_number` из primary-записи
-3) `clients.phone`
-4) любая `client_phone_numbers.phone_number` (первую попавшуюся)
+| Шаг | Действие | Результат |
+|-----|----------|-----------|
+| 1 | Smart routing → Wappi (ID: abc123) | Выбрана |
+| 2 | Отправка по telegram_user_id `1212686911` | PEER_NOT_FOUND |
+| 3 | Fallback по телефону `79161234567` | PEER_NOT_FOUND |
+| 4 | Ищем альтернативы → Telegram CRM (ID: def456) | Найдена |
+| 5 | Отправка через Telegram CRM | УСПЕХ! |
+| 6 | Сообщение доставлено | Зелёная галочка |
 
-Так мы не будем зависеть от того, заполнен ли `clients.phone`.
+## Риски и ограничения
 
-### Шаг 3. Исправить условие запуска fallback (чтобы он точно стартовал)
-Сейчас fallback запускается, если `usedIdNotPhone === true`.
+- Если все интеграции не имеют peer с клиентом, fallback не поможет
+- Увеличивается задержка при неудачах (проверяем несколько интеграций)
+- Сообщение может уйти с "неожиданного" аккаунта (но это лучше чем не уйти вообще)
 
-Сделаем условие более надёжным:
-- “первая попытка была по ID”, если:
-  - `recipientSource` содержит `telegram_chat_id` / `telegram_user_id` / `telegram_username`
-  - **или** `recipient` выглядит как число, но **не** выглядит как валидный телефон (по новой строгой проверке)
+## Как тестировать
 
-Тогда даже если ID лежит в phone-полях и раньше считался телефоном — fallback всё равно сработает.
+1. Настройте 2+ Telegram интеграции (Wappi + Telegram CRM или 2 Wappi)
+2. Найдите клиента, у которого peer есть только с одним из аккаунтов
+3. Отправьте сообщение
+4. Ожидание: первая попытка fail → вторая интеграция success
 
-### Шаг 4. Гарантировать попытку по телефону (и чтобы это было видно в Wappi-логах)
-Если первая отправка неуспешна и условие fallback выполнено:
-- берём `fallbackPhoneNormalized`
-- если он есть и не равен `recipient` → делаем **второй вызов** `sendTextMessage/sendFileMessage` уже на телефон
-- логируем:
-  - что именно было первым получателем и источником,
-  - какой телефон взяли,
-  - что реально делаем второй запрос
+## Техническая сводка
 
-После этого в логах провайдера должна появиться **вторая строка** с “Получатель = 7XXXXXXXXXX”.
-
-### Шаг 5. Мини-диагностика “правильный ли ID”
-Чтобы быстро ответить на ваш вопрос “точно правильный ID?” и не гадать:
-- добавим в логи функции вывод:
-  - `Final recipient`, `recipientSource`,
-  - и отдельно: `fallbackPhoneNormalized`
-- это позволит сопоставить с вашим скрином: если “Final recipient” = `1212686911`, значит функция реально пыталась по этому ID.
-- если ID “правильный”, но `PEER_NOT_FOUND`, чаще всего это означает: у аккаунта нет peer (контакт/диалог) — тогда телефонная попытка может помочь только если номер есть в контактах аккаунта.
-
----
-
-## Как проверяем (на self-hosted)
-
-1) Выберите клиента, у которого:
-   - `telegram_user_id` заполнен (или другой Telegram ID),
-   - при этом есть корректный телефон в `client_phone_numbers.phone_number` или `clients.phone`.
-
-2) Отправьте сообщение из CRM.
-
-3) Ожидаемое в логах провайдера:
-   - первая запись: recipient = Telegram ID (например `1212686911`) → ошибка
-   - вторая запись: recipient = телефон (например `79XXXXXXXXX`) → успех или ошибка (но факт второй попытки обязателен)
-
-4) Если вторая попытка тоже `PEER_NOT_FOUND`:
-   - это уже “функция работает”, но провайдер/Telegram не может открыть peer по телефону без наличия контакта/диалога.
-
----
-
-## Риски и нюансы
-
-- Если в базе в “телефонных” полях реально лежат Telegram ID (как у вас похоже по скрину), строгая нормализация перестанет считать их телефоном — это правильно, иначе мы никогда не отличим телефон от ID.
-- Если у клиента вообще нет валидного телефона, fallback сделать физически невозможно — тогда будет лог “No phone available for fallback” и корректная ошибка.
-
----
-
-## Техническая часть (что именно будет изменено в коде)
-
-- В `telegram-send/index.ts`:
-  1) заменить `normalizePhone()` на строгую версию + добавить `isLikelyPhoneNumber()` (локально в функции, без импортов)
-  2) в блоках, где берём `phone_number` и `client.phone`, вычислять и сохранять `fallbackPhoneNormalized`
-  3) в fallback-блоке:
-     - вычислять `firstAttemptWasIdLike`
-     - использовать `fallbackPhoneNormalized` как основной кандидат
-     - всегда делать второй вызов при ошибке первой попытки, если телефон доступен
-
+| Параметр | Значение |
+|----------|----------|
+| Файл | `supabase/functions/telegram-send/index.ts` |
+| Строки изменения | ~575-650 (после существующего fallback) |
+| Новые зависимости | Нет |
+| Влияние на другие функции | Нет |
