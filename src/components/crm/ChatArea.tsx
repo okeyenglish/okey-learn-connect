@@ -1765,7 +1765,7 @@ export const ChatArea = ({
           message_text: commentText,
           message_type: 'comment',
           is_outgoing: true,
-          messenger_type: 'system'
+          messenger_type: activeMessengerTab === 'chatos' ? 'whatsapp' : activeMessengerTab
         }]);
 
       if (messageError) {
