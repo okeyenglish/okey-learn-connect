@@ -279,8 +279,47 @@ Deno.serve(async (req) => {
             } else {
               console.log('No telegram_user_id or phone found for client:', onlinePayment.client_id);
             }
+          } else if (messengerType === 'max') {
+            // Получаем max_user_id клиента из client_phone_numbers
+            const { data: phoneData } = await supabase
+              .from('client_phone_numbers')
+              .select('max_user_id, phone')
+              .eq('client_id', onlinePayment.client_id)
+              .not('max_user_id', 'is', null)
+              .limit(1)
+              .maybeSingle();
+            
+            const maxUserId = phoneData?.max_user_id;
+            const phone = phoneData?.phone;
+            
+            if (maxUserId || phone) {
+              console.log('Sending MAX message to client:', maxUserId || phone);
+              
+              const sendResponse = await fetch(`${baseUrl}/max-send`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${supabaseKey}`,
+                },
+                body: JSON.stringify({
+                  chat_id: maxUserId,
+                  phone: phone,
+                  text: thankYouMessage,
+                  clientId: onlinePayment.client_id,
+                  organizationId: onlinePayment.organization_id,
+                }),
+              });
+              
+              const responseText = await sendResponse.text();
+              if (!sendResponse.ok) {
+                console.error('Failed to send MAX message:', sendResponse.status, responseText);
+              } else {
+                console.log('MAX thank you message sent successfully:', responseText);
+              }
+            } else {
+              console.log('No max_user_id or phone found for client:', onlinePayment.client_id);
+            }
           }
-          // MAX messenger can be added similarly if needed
         } catch (sendErr) {
           console.error('Error sending thank you message:', sendErr);
         }
