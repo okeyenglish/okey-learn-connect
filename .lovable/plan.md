@@ -1,93 +1,58 @@
 
-# Fix: Кнопка "Не требует ответа" подвисает
+# Fix: Оплата через Telegram — ₽ не показывается, непрочитанное "1" вместо значка, благодарственное сообщение не отправляется
 
-## Корневая причина
+## 3 обнаруженные проблемы
 
-Кнопка работает корректно (сообщения помечаются как прочитанные в базе), но **UI не обновляется** из-за двух проблем:
+### Проблема 1: Значок ₽ не отображается в списке чатов и кнопка "Оплата проведена" отсутствует
 
-1. **Материализованное представление (MV)**: Счетчик непрочитанных (`unread_count`) в списке чатов берётся из `chat_threads_mv`, которое обновляется по расписанию, а не мгновенно. После нажатия кнопки MV всё ещё содержит старое значение.
+**Причина**: При открытии чата данные клиента кэшируются в `activeClientInfo` (CRM.tsx, строки 1441-1447), но **без поля `has_pending_payment`**. Функция `getActiveClientInfo()` (строка 1871) возвращает закэшированные данные приоритетно. В результате `hasPendingPayment` всегда `false` в ChatArea.
 
-2. **Не инвалидируется `unread-client-ids`**: Функция `handleMarkAsNoResponseNeeded` не инвалидирует кэш `unread-client-ids`, который определяет какие клиенты имеют непрочитанные сообщения.
+**Решение**: Добавить `has_pending_payment` во все места, где устанавливается `activeClientInfo`.
 
-## Решение
+### Проблема 2: Показывается "1" непрочитанное вместо значка ₽
 
-### Изменение 1: Оптимистичное обновление кэша `chat-threads`
+**Причина**: Системное сообщение `tbank_success` создаётся в tbank-webhook с `is_read: false` и `is_outgoing: false` (строка 142-150). В `useChatThreadsInfinite.ts` (строка 128-130) подсчёт непрочитанных фильтрует только по `!is_read && !is_outgoing`, **не исключая** `message_type: 'system'`. Поэтому системное сообщение об оплате считается непрочитанным. А в ChatListItem значок ₽ показывается только при `has_pending_payment && !displayUnread` — если есть непрочитанные, они приоритетнее.
 
-В `handleMarkAsNoResponseNeeded` (файл `src/components/crm/ChatArea.tsx`) вместо простого `invalidateQueries` сделать **оптимистичное обновление** кэша:
+Подождите — на самом деле ChatListItem (строка 336-350) показывает ₽ если `has_pending_payment`, а unread бейдж только если `!has_pending_payment`. Значит проблема именно в том, что `has_pending_payment` не попадает в данные. Но также нужно исключить системные сообщения из подсчёта непрочитанных.
 
-- Сразу после успешного `update` установить `unread_count = 0` для текущего клиента в кэше `chat-threads`
-- Это даст мгновенный визуальный отклик, не дожидаясь обновления MV
+**Решение**: 
+- В tbank-webhook создавать системное сообщение с `is_read: true` (системные уведомления не должны считаться непрочитанными)
+- В useChatThreadsInfinite исключить `message_type: 'system'` из подсчёта непрочитанных
 
-### Изменение 2: Добавить инвалидацию `unread-client-ids`
+### Проблема 3: Благодарственное сообщение не отправляется через Telegram
 
-Добавить `queryClient.invalidateQueries({ queryKey: ['unread-client-ids'] })` в `handleMarkAsNoResponseNeeded`, чтобы список непрочитанных клиентов тоже обновился.
+**Причина**: tbank-webhook вызывает `telegram-send` через `fetch()`. На self-hosted сервере переменная `SELF_HOSTED_URL` может быть не установлена, и `SUPABASE_URL` внутри Docker = `http://kong:8000`, что не маршрутизируется к edge functions правильно. Также `telegram-send` ожидает параметр `text` (а не `message`) — нужно проверить.
 
-### Изменение 3: Принудительный refetch после обновления
+**Решение**: Проверить параметры вызова telegram-send в tbank-webhook и исправить имя параметра сообщения.
 
-Заменить `invalidateQueries` на `refetchQueries` с `{type: 'active'}` для ключевых запросов, чтобы данные перезапрашивались немедленно, а не ожидали условий `staleTime`.
+## Файлы для изменения
 
-## Технические детали
+### 1. `src/pages/CRM.tsx` — добавить `has_pending_payment` в кэш activeClientInfo
 
-### Файл: `src/components/crm/ChatArea.tsx`
+Все 4 места, где вызывается `setActiveClientInfo`:
+- Строка 1441: из existingClient — добавить `has_pending_payment: (existingClient as any).has_pending_payment || false`
+- Строка 1449: из existingThread — добавить `has_pending_payment: (existingThread as any).has_pending_payment || false`
+- Строка 1487: из clientData (full fetch) — добавить `has_pending_payment: (clientData as any).has_pending_payment || false`
+- Строка 1495: partial update — сохранить `has_pending_payment` из prev
 
-Функция `handleMarkAsNoResponseNeeded` (~строки 1074-1111):
+Также добавить подписку на realtime-обновления `clients.has_pending_payment`:
+- При получении UPDATE для clients — обновить activeClientInfo если совпадает ID
 
-```typescript
-const handleMarkAsNoResponseNeeded = async () => {
-  if (!clientId) return;
-  
-  try {
-    const { error } = await supabase
-      .from('chat_messages')
-      .update({ is_read: true })
-      .eq('client_id', clientId)
-      .eq('is_read', false)
-      .eq('message_type', 'client');
-    
-    if (error) {
-      console.error('Error marking messages as read:', error);
-      toast({ title: "Ошибка", description: "...", variant: "destructive" });
-      return;
-    }
-    
-    // НОВОЕ: Оптимистичное обновление кэша chat-threads
-    queryClient.setQueriesData(
-      { queryKey: ['chat-threads'] },
-      (old: ChatThread[] | undefined) => {
-        if (!old) return old;
-        return old.map(t => 
-          t.client_id === clientId 
-            ? { ...t, unread_count: 0 } 
-            : t
-        );
-      }
-    );
-    
-    // НОВОЕ: Убрать клиента из unread-client-ids
-    queryClient.setQueriesData(
-      { queryKey: ['unread-client-ids'] },
-      (old: string[] | undefined) => {
-        if (!old) return old;
-        return old.filter(id => id !== clientId);
-      }
-    );
-    
-    // Инвалидируем остальные кэши
-    queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
-    queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
-    queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
-    queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
-    queryClient.invalidateQueries({ queryKey: ['chat-messages-infinite', clientId] });
-    
-    toast({ title: "Готово", description: "Чат помечен как не требующий ответа" });
-  } catch (error) {
-    console.error('Error in handleMarkAsNoResponseNeeded:', error);
-  }
-};
-```
+### 2. `supabase/functions/tbank-webhook/index.ts` — исправить создание системного сообщения
 
-### Ожидаемый результат
+Строка 148: изменить `is_read: false` на `is_read: true` — системные уведомления об оплате не должны считаться непрочитанными клиентскими сообщениями.
 
-- Счетчик непрочитанных в списке чатов обнулится **мгновенно** после нажатия кнопки
-- Чат переместится в правильную позицию в списке (не "сверху" среди непрочитанных)
-- При следующем обновлении MV данные синхронизируются с оптимистичным обновлением
+### 3. `supabase/functions/tbank-webhook/index.ts` — исправить вызов telegram-send
+
+Строка 264-270: проверить и исправить параметры для telegram-send. Текущий параметр `message` может не совпадать с ожидаемым в telegram-send.
+
+### 4. `src/hooks/useChatThreadsInfinite.ts` — исключить системные сообщения из подсчёта непрочитанных
+
+Строка 128-130: добавить фильтр `&& m.message_type !== 'system'` в подсчёт непрочитанных.
+
+## Ожидаемый результат
+
+- После оплаты через Telegram в списке чатов отображается значок ₽ (а не "1")
+- В тулбаре ChatArea появляется кнопка "Оплата проведена"
+- Благодарственное сообщение отправляется клиенту через Telegram автоматически
+- Системные сообщения об оплате не увеличивают счётчик непрочитанных
