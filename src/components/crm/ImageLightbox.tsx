@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo, useRef } from 'react';
+import { useState, useEffect, useCallback, memo, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Download, ZoomIn, ZoomOut, RotateCw, Loader2, ChevronLeft, ChevronRight, CloudOff, Cloud, Share2, Copy, Check, Save, Crop } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -131,6 +131,19 @@ export const ImageLightbox = memo(({
   const [isSavingWithTransforms, setIsSavingWithTransforms] = useState(false);
   const [showCropOverlay, setShowCropOverlay] = useState(false);
   const longPressStartRef = useRef<{ x: number; y: number } | null>(null);
+  
+  // Portal container - use state to ensure proper React lifecycle
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
+  
+  // Setup portal container safely
+  useLayoutEffect(() => {
+    // Only create container when opening
+    if (isOpen && typeof document !== 'undefined') {
+      setPortalContainer(document.body);
+    } else {
+      setPortalContainer(null);
+    }
+  }, [isOpen]);
 
   const currentImage = gallery[currentIndex];
   const hasMultipleImages = gallery.length > 1;
@@ -944,7 +957,8 @@ export const ImageLightbox = memo(({
     }
   }, [lastTap, scale, resetZoom, getPanBounds, panOffset]);
 
-  if (!isOpen || gallery.length === 0) return null;
+  // Early return if not open, no images, or portal container not ready
+  if (!isOpen || gallery.length === 0 || !portalContainer) return null;
 
   const opacity = Math.max(0, 1 - translateY / 200);
   const originalSrc = currentImage?.src?.replace(/^http:\/\//i, 'https://') || '';
@@ -1326,7 +1340,7 @@ export const ImageLightbox = memo(({
     </div>
   );
 
-  return createPortal(lightboxContent, document.body);
+  return createPortal(lightboxContent, portalContainer);
 });
 
 ImageLightbox.displayName = 'ImageLightbox';
