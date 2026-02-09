@@ -1,55 +1,56 @@
 
-
-# Fix: Ошибка при отметке чата преподавателя как прочитанного
+# Fix: Кнопка "Не требует ответа" не работает для чатов преподавателей
 
 ## Проблема
 
-В `TeacherChatArea.tsx` функция `handleMarkRead` (строка 447) ищет `clientId` у преподавателя и использует `.eq('client_id', clientId)` для обновления сообщений. Но преподаватели, которые пишут напрямую (через `teacher_id` в `chat_messages`), **не имеют клиентской записи**. Поэтому `clientId` = `undefined`, и выводится ошибка "Не удалось найти клиента для этого преподавателя".
+Функция `handleMarkAsNoResponseNeeded` в `ChatArea.tsx` (строка 1074) жёстко использует:
+- `.eq('client_id', clientId)` — но у преподавательских сообщений `client_id` может быть пустым, а идентификатор хранится в `teacher_id`
+- `.eq('message_type', 'client')` — но преподавательские сообщения используют `is_outgoing = false` для входящих, а не `message_type: 'client'`
+
+Поэтому запрос не находит ни одного сообщения и возвращает ошибку.
 
 ## Решение
 
-### Файл: `src/components/crm/TeacherChatArea.tsx`
+### Файл: `src/components/crm/ChatArea.tsx`
 
-Изменить `handleMarkRead` (строки 447-492): вместо поиска `clientId` и фильтрации по `client_id`, использовать `teacher_id` напрямую. Если `clientId` есть — обновлять по обоим полям (OR), если нет — только по `teacher_id`.
+Изменить `handleMarkAsNoResponseNeeded` (строки 1074-1146): добавить ветку для `isTeacherMessages || isDirectTeacherMessage`. В этом случае:
+
+1. Определить `teacherId` из `clientId` (убрать префикс `teacher:` если есть) или из `clientUUID`
+2. Выполнить update по `teacher_id` вместо `client_id`:
+   ```typescript
+   .update({ is_read: true })
+   .eq('teacher_id', teacherId)
+   .eq('is_outgoing', false)
+   .or('is_read.is.null,is_read.eq.false')
+   ```
+3. Оптимистично обновить кэши `teacher-conversations`, `teacher-chats`, `teacher-chat-messages-v2-infinite` (обнулить `unreadCount`/`unreadMessages`, пометить сообщения как прочитанные)
+4. Показать toast "Чат помечен как не требующий ответа"
+
+### Детали оптимистичного обновления кэша
 
 ```typescript
-const handleMarkRead = useCallback(async (teacherId: string) => {
-  try {
-    // Mark messages as read using teacher_id directly
-    const { error } = await (supabase
-      .from('chat_messages') as any)
-      .update({ is_read: true })
-      .eq('teacher_id', teacherId)
-      .eq('is_outgoing', false)
-      .or('is_read.is.null,is_read.eq.false');
+// teacher-conversations
+queryClient.setQueriesData({ queryKey: ['teacher-conversations'] }, (old) =>
+  old?.map(c => c.teacherId === teacherId ? { ...c, unreadCount: 0 } : c)
+);
 
-    if (error) {
-      console.error('Error marking as read:', error);
-      toast({
-        title: "Ошибка",
-        description: "Не удалось отметить как прочитанное",
-        variant: "destructive",
-      });
-      return;
-    }
+// teacher-chats
+queryClient.setQueriesData({ queryKey: ['teacher-chats'] }, (old) =>
+  old?.map(t => t.id === teacherId ? { ...t, unreadMessages: 0 } : t)
+);
 
-    toast({
-      title: "Отмечено прочитанным",
-      description: "Чат отмечен как прочитанный",
-    });
-
-    refetchAllTeacherData();
-  } catch (error) {
-    console.error('Error in handleMarkRead:', error);
-  }
-}, [toast, refetchAllTeacherData]);
+// teacher-chat-messages-v2-infinite
+queryClient.setQueriesData({ queryKey: ['teacher-chat-messages-v2-infinite'] }, (old) => ({
+  ...old,
+  pages: old?.pages?.map(page => ({
+    ...page,
+    messages: page.messages?.map(m => ({ ...m, is_read: true }))
+  }))
+}));
 ```
-
-Аналогично исправить `handleMarkUnread` (строки 383-445) — он тоже зависит от `clientId` и может падать с той же ошибкой.
 
 ## Ожидаемый результат
 
-- Кнопка "Прочитано" работает для всех преподавателей, включая тех, у кого нет клиентской записи
-- Сообщения корректно помечаются как прочитанные через `teacher_id`
-- Счётчик непрочитанных обновляется после отметки
-
+- Кнопка "Не требует ответа" мгновенно помечает чат преподавателя как прочитанный
+- Счётчик непрочитанных обновляется без задержки благодаря оптимистичному обновлению кэша
+- Ошибка больше не появляется
