@@ -1,76 +1,110 @@
 
-# UI-улучшения для чатов сотрудников и групповых чатов (часть 2)
 
-## Проблема 1: Build error
-Необходимо проверить и исправить ошибки сборки, оставшиеся после предыдущих изменений. Возможно неиспользуемый импорт `Building2` или другие проблемы.
+# Пометка сообщений как прочитанных при открытии чата
 
-## Проблема 2: Email вместо должности в превью
-Сейчас под именем сотрудника отображается email. Нужно заменить на должность: "Преподаватель" для `teacher`, "Сотрудник" для `staff`. Если есть превью последнего сообщения -- показывать его вместо должности.
+## Проблема
 
-**Файлы**: `src/components/ai-hub/AIHub.tsx`, `src/components/ai-hub/AIHubInline.tsx`
+Сейчас `useMarkStaffMessagesRead` определён, но **нигде не вызывается**. Когда сотрудник открывает чат, сообщения остаются непрочитанными, а бейдж с количеством не исчезает.
 
-В маппинге `teacherChatItems`:
+Дополнительно: для групповых чатов запрос фильтрует по `recipient_user_id = user.id`, но в групповых сообщениях это поле пустое -- запрос ничего не находит.
+
+Поскольку `is_read` -- общий флаг на строке сообщения, для групп нужна отдельная таблица `staff_chat_read_cursors`, хранящая "последнее время прочтения" для каждого пользователя в каждом чате.
+
+## Решение
+
+### 1. Новая таблица `staff_chat_read_cursors` (миграция)
+
+```sql
+CREATE TABLE IF NOT EXISTS staff_chat_read_cursors (
+  user_id UUID NOT NULL,
+  chat_id TEXT NOT NULL,        -- group_chat_id или recipient_user_id
+  last_read_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, chat_id)
+);
+
+ALTER TABLE staff_chat_read_cursors ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users manage own cursors"
+  ON staff_chat_read_cursors FOR ALL
+  USING (auth.uid() = user_id);
 ```
-description: 'Преподаватель'  // вместо teacher.email
-```
 
-В маппинге `staffChatItems`:
-```
-description: 'Сотрудник'  // вместо staff.email
-```
+### 2. Хук `useMarkStaffChatRead` (новый, заменяет старый)
 
-## Проблема 3: 1-2 филиала рядом с именем + тултип
-Рядом с именем в строке (не под именем) показывать 1-2 бейджа филиалов. При наведении на "+N" бейдж -- показывать полный список.
+В `src/hooks/useInternalStaffMessages.ts` добавить:
 
-В рендеринге списка чатов для `teacher`/`staff`:
 ```typescript
-const branches = (isTeacher ? teacher?.branch : staff?.branch || '').split(',').map(b => b.trim()).filter(Boolean);
-const visibleBranches = branches.slice(0, 2);
-const hiddenCount = branches.length - 2;
+export const useMarkStaffChatRead = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (chatId: string) => {
+      if (!user?.id) throw new Error('Not authenticated');
+      await supabase
+        .from('staff_chat_read_cursors')
+        .upsert({
+          user_id: user.id,
+          chat_id: chatId,
+          last_read_at: new Date().toISOString()
+        }, { onConflict: 'user_id,chat_id' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-conversation-previews'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-group-previews'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-unread-count'] });
+    }
+  });
+};
 ```
 
-Добавить бейджи в строку имени (справа от имени):
-```tsx
-{visibleBranches.map(b => (
-  <Badge key={b} variant="secondary" className="text-[9px] h-3.5 px-1 shrink-0">{b}</Badge>
-))}
-{hiddenCount > 0 && (
-  <Badge variant="outline" className="text-[9px] h-3.5 px-1 shrink-0 cursor-help" title={branches.join(', ')}>
-    +{hiddenCount}
-  </Badge>
-)}
+### 3. Вызов при открытии чата
+
+В `handleSelectChat` в `AIHub.tsx` и `AIHubInline.tsx`:
+
+```typescript
+const markChatRead = useMarkStaffChatRead();
+
+const handleSelectChat = async (item: ChatItem) => {
+  // ... existing logic ...
+  setActiveChat(item);
+  
+  // Mark as read
+  if (item.type === 'teacher' || item.type === 'staff') {
+    const profileId = item.type === 'teacher' 
+      ? (item.data as TeacherChatItem)?.profileId 
+      : (item.data as StaffMember)?.id;
+    if (profileId) markChatRead.mutate(profileId);
+  } else if (item.type === 'group') {
+    markChatRead.mutate(item.id);
+  }
+};
 ```
 
-## Проблема 4: Ошибки при удалении и переименовании чатов
-Ошибки связаны с тем, что edge-функции `update-staff-group-chat` и `delete-staff-group-chat` не существуют на self-hosted. Нужно создать их.
+Также помечать при получении новых сообщений, если чат уже открыт (в realtime-подписках).
 
-### Edge Function: `update-staff-group-chat`
-Принимает `group_id` и `name`, обновляет `staff_group_chats.name` через service role key.
+### 4. Обновить подсчёт непрочитанных
 
-### Edge Function: `delete-staff-group-chat`
-Принимает `group_id`, удаляет все `staff_group_chat_members` и `internal_staff_messages` с этим `group_chat_id`, затем удаляет сам `staff_group_chats` записm.
+В `useStaffConversationPreviews` и `useStaffGroupChatPreviews` -- вместо `is_read = false` считать непрочитанными сообщения, у которых `created_at > last_read_at` из таблицы курсоров:
 
-## Проблема 5: Показать участников группового чата в header
-В header группового чата (под названием) показывать имена участников.
+- Загрузить курсоры текущего пользователя из `staff_chat_read_cursors`
+- Для каждого чата: `unreadCount` = количество сообщений с `created_at > cursor.last_read_at` и `sender_id != user.id`
 
-Подключить `useStaffGroupMembers(activeChat.id)` в обоих файлах и отобразить список имен в подзаголовке:
+### 5. Обновить `useStaffUnreadCount` (общий счётчик)
 
-```tsx
-const groupMembers = useStaffGroupMembers(activeChat?.type === 'group' ? activeChat.id : '');
-
-// В header вместо activeChat.badge || activeChat.description:
-{activeChat.type === 'group' && groupMembers.data?.length ? (
-  <p className="text-xs text-muted-foreground truncate">
-    {groupMembers.data.map(m => m.profile?.first_name || 'Участник').join(', ')}
-  </p>
-) : (
-  <p className="text-xs text-muted-foreground truncate">{activeChat.description}</p>
-)}
-```
+Аналогично -- считать все DM и групповые сообщения, чей `created_at` позже соответствующего курсора.
 
 ## Порядок реализации
-1. Создать edge functions `update-staff-group-chat` и `delete-staff-group-chat`
-2. Исправить `description` для `teacher`/`staff` (должность вместо email)
-3. Добавить бейджи филиалов рядом с именем
-4. Подключить `useStaffGroupMembers` в header группового чата
-5. Убрать неиспользуемый импорт `Building2` если он вызывает ошибку
+
+1. Создать миграцию с таблицей `staff_chat_read_cursors`
+2. Добавить хук `useMarkStaffChatRead`
+3. Вызвать `markChatRead` при открытии чата в обоих файлах
+4. Обновить `useStaffConversationPreviews` и `useStaffGroupChatPreviews` для подсчёта непрочитанных через курсоры
+5. Обновить `useStaffUnreadCount` через курсоры
+6. Исправить build error (если остался)
+
+## Результат
+
+- Сотрудник открывает чат -- его курсор обновляется, бейдж пропадает
+- Каждый сотрудник видит свой собственный счётчик непрочитанных
+- Работает и для личных чатов, и для групповых
