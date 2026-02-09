@@ -54,23 +54,52 @@ Deno.serve(async (req) => {
 
     const organizationId = profile.organization_id;
 
-    // First, check messenger_integrations for multi-account support
-    const { data: integration, error: integrationError } = await supabase
+    // Parse body early to get clientId for smart routing
+    const body = await req.json() as TelegramSendRequest & { phoneNumber?: string; teacherId?: string };
+    const { clientId, text, fileUrl, fileName, fileType, phoneId, phoneNumber, teacherId } = body;
+
+    // === SMART ROUTING: Find integration_id from last incoming message ===
+    let resolvedIntegrationId: string | null = null;
+    if (clientId) {
+      const { data: lastMessage } = await supabase
+        .from('chat_messages')
+        .select('integration_id')
+        .eq('client_id', clientId)
+        .eq('is_outgoing', false)
+        .eq('messenger_type', 'telegram')
+        .not('integration_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (lastMessage?.integration_id) {
+        resolvedIntegrationId = lastMessage.integration_id;
+        console.log('[telegram-send] Smart routing: using integration from last incoming message:', resolvedIntegrationId);
+      }
+    }
+
+    // Build integration query based on smart routing result
+    let integrationQuery = supabase
       .from('messenger_integrations')
       .select('id, provider, settings, is_enabled')
       .eq('organization_id', organizationId)
       .eq('messenger_type', 'telegram')
-      .eq('is_primary', true)
-      .eq('is_enabled', true)
-      .maybeSingle();
+      .eq('is_enabled', true);
+
+    // If smart routing found an integration_id, use it; otherwise fall back to primary
+    if (resolvedIntegrationId) {
+      integrationQuery = integrationQuery.eq('id', resolvedIntegrationId);
+    } else {
+      integrationQuery = integrationQuery.eq('is_primary', true);
+    }
+
+    const { data: integration, error: integrationError } = await integrationQuery.maybeSingle();
 
     // If using telegram_crm provider, delegate to telegram-crm-send
     if (integration && integration.provider === 'telegram_crm') {
       console.log('[telegram-send] Routing to telegram-crm-send');
       
-      const body = await req.json();
-      
-      // Forward to telegram-crm-send
+      // Forward to telegram-crm-send - let it do its own smart routing if no resolvedIntegrationId
       const crmResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/telegram-crm-send`, {
         method: 'POST',
         headers: {
@@ -79,7 +108,8 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           ...body,
-          integrationId: integration.id,
+          // Only pass integrationId if we found it via smart routing, otherwise let telegram-crm-send find it
+          ...(resolvedIntegrationId ? { integrationId: resolvedIntegrationId } : {}),
         }),
       });
 
@@ -129,8 +159,7 @@ Deno.serve(async (req) => {
       return errorResponse('Telegram Profile ID or API Token not configured', 400);
     }
 
-    const body = await req.json() as TelegramSendRequest & { phoneNumber?: string; teacherId?: string };
-    const { clientId, text, fileUrl, fileName, fileType, phoneId, phoneNumber, teacherId } = body;
+    // body, clientId, text, etc. already parsed above for smart routing
 
     // Validate: either clientId or phoneNumber must be provided
     if (!clientId && !phoneNumber) {

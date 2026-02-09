@@ -202,7 +202,7 @@ Deno.serve(async (req) => {
 async function resolveOrganizationByTelegramProfileId(
   supabase: any,
   profileId: string
-): Promise<{ organizationId: string } | null> {
+): Promise<{ organizationId: string; integrationId?: string } | null> {
   console.log('[telegram-webhook] Resolving organization for profile_id:', profileId);
 
   if (!profileId) {
@@ -210,11 +210,11 @@ async function resolveOrganizationByTelegramProfileId(
     return null;
   }
 
-  // PRIORITY 1: messenger_integrations (multi-account)
+  // PRIORITY 1: messenger_integrations (multi-account) - now returns integrationId for smart routing
   try {
     const { data: integrations, error } = await supabase
       .from('messenger_integrations')
-      .select('organization_id, is_enabled, settings')
+      .select('id, organization_id, is_enabled, settings')
       .eq('messenger_type', 'telegram')
       .eq('is_enabled', true)
       .order('updated_at', { ascending: false });
@@ -235,16 +235,16 @@ async function resolveOrganizationByTelegramProfileId(
           settingsObj?.telegram?.profile_id;
 
         if (storedProfileId && String(storedProfileId) === String(profileId)) {
-          console.log('[telegram-webhook] Found org via messenger_integrations:', integration.organization_id);
-          return { organizationId: integration.organization_id };
+          console.log('[telegram-webhook] Found org via messenger_integrations:', integration.organization_id, 'integrationId:', integration.id);
+          return { organizationId: integration.organization_id, integrationId: integration.id };
         }
 
         // Extra resilience: if settings schema differs, fallback to substring search
         try {
           const settingsStr = JSON.stringify(settingsObj);
           if (settingsStr && settingsStr.includes(String(profileId))) {
-            console.log('[telegram-webhook] Found org via messenger_integrations (substring match):', integration.organization_id);
-            return { organizationId: integration.organization_id };
+            console.log('[telegram-webhook] Found org via messenger_integrations (substring match):', integration.organization_id, 'integrationId:', integration.id);
+            return { organizationId: integration.organization_id, integrationId: integration.id };
           }
         } catch {
           // ignore stringify issues
@@ -255,7 +255,7 @@ async function resolveOrganizationByTelegramProfileId(
     console.warn('[telegram-webhook] messenger_integrations lookup threw:', e);
   }
 
-  // PRIORITY 2: messenger_settings (legacy)
+  // PRIORITY 2: messenger_settings (legacy) - no integrationId available
   try {
     const { data: allSettings, error: settingsError } = await supabase
       .from('messenger_settings')
@@ -329,17 +329,18 @@ async function processMessage(supabase: any, message: TelegramWappiMessage, fall
   if (!resolvedOrg) return;
 
   const organizationId = resolvedOrg.organizationId;
+  const integrationId = resolvedOrg.integrationId; // For smart routing
 
   switch (wh_type) {
     case 'incoming_message':
-      await handleIncomingMessage(supabase, message, organizationId);
+      await handleIncomingMessage(supabase, message, organizationId, integrationId);
       break;
     case 'outgoing_message':
     case 'outgoing_message_phone':
     case 'outgoing_message_api':
       // outgoing_message_phone - сообщения отправленные с телефона
       // outgoing_message_api - сообщения отправленные через API
-      await handleOutgoingMessage(supabase, message, organizationId);
+      await handleOutgoingMessage(supabase, message, organizationId, integrationId);
       break;
     case 'delivery_status':
       await handleDeliveryStatus(supabase, message);
@@ -355,7 +356,8 @@ async function processMessage(supabase: any, message: TelegramWappiMessage, fall
 async function handleIncomingMessage(
   supabase: any, 
   message: TelegramWappiMessage, 
-  organizationId: string
+  organizationId: string,
+  integrationId?: string
 ): Promise<void> {
   const telegramUserId = message.from ? parseInt(message.from) : null;
   const chatId = message.chatId;
@@ -404,7 +406,7 @@ async function handleIncomingMessage(
   // If teacher found, save message with teacher_id (not client_id)
   if (teacher) {
     // Full payload for cloud, will fallback for self-hosted
-    const fullPayload = {
+    const fullPayload: Record<string, any> = {
       teacher_id: teacher.id,
       client_id: null, // Explicitly null for teacher messages
       organization_id: organizationId,
@@ -419,6 +421,11 @@ async function handleIncomingMessage(
       file_type: fileType || contentType,
       created_at: message.timestamp || new Date().toISOString()
     };
+    
+    // Add integration_id for smart routing (if available from messenger_integrations)
+    if (integrationId) {
+      fullPayload.integration_id = integrationId;
+    }
 
     const { error: insertError } = await resilientInsertMessage(supabase, fullPayload);
 
@@ -462,7 +469,7 @@ async function handleIncomingMessage(
   });
 
   // Save message with client_id - use resilient insert for self-hosted compatibility
-  const fullPayload = {
+  const fullPayload: Record<string, any> = {
     client_id: client.id,
     teacher_id: null,
     organization_id: organizationId,
@@ -477,6 +484,11 @@ async function handleIncomingMessage(
     file_type: fileType || contentType, // store content type in file_type
     created_at: message.timestamp || new Date().toISOString()
   };
+  
+  // Add integration_id for smart routing (if available from messenger_integrations)
+  if (integrationId) {
+    fullPayload.integration_id = integrationId;
+  }
 
   const { error: insertError } = await resilientInsertMessage(supabase, fullPayload);
 
@@ -550,7 +562,8 @@ async function handleIncomingMessage(
 async function handleOutgoingMessage(
   supabase: any,
   message: TelegramWappiMessage,
-  organizationId: string
+  organizationId: string,
+  integrationId?: string
 ): Promise<void> {
   const chatId = message.chatId;
   const telegramUserId = message.to ? parseInt(message.to) : null;
