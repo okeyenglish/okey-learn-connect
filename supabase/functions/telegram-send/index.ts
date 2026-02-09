@@ -60,6 +60,8 @@ Deno.serve(async (req) => {
 
     // === SMART ROUTING: Find integration_id from last incoming message ===
     let resolvedIntegrationId: string | null = null;
+    
+    // Mode 1: Search by clientId (for client messages)
     if (clientId) {
       const { data: lastMessage } = await supabase
         .from('chat_messages')
@@ -74,7 +76,58 @@ Deno.serve(async (req) => {
 
       if (lastMessage?.integration_id) {
         resolvedIntegrationId = lastMessage.integration_id;
-        console.log('[telegram-send] Smart routing: using integration from last incoming message:', resolvedIntegrationId);
+        console.log('[telegram-send] Smart routing (client):', resolvedIntegrationId);
+      }
+    }
+    
+    // Mode 2: Search by teacherId (for teacher messages)
+    if (!resolvedIntegrationId && teacherId) {
+      const { data: lastTeacherMessage } = await supabase
+        .from('chat_messages')
+        .select('integration_id')
+        .eq('teacher_id', teacherId)
+        .eq('is_outgoing', false)
+        .eq('messenger_type', 'telegram')
+        .not('integration_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (lastTeacherMessage?.integration_id) {
+        resolvedIntegrationId = lastTeacherMessage.integration_id;
+        console.log('[telegram-send] Smart routing (teacher):', resolvedIntegrationId);
+      }
+    }
+    
+    // Mode 3: Search by phone → teacher_id (fallback when teacherId not provided)
+    if (!resolvedIntegrationId && phoneNumber && !teacherId) {
+      const phone10 = phoneNumber.replace(/\D/g, '').slice(-10);
+      
+      if (phone10.length === 10) {
+        const { data: teacher } = await supabase
+          .from('teachers')
+          .select('id')
+          .ilike('phone', `%${phone10}`)
+          .eq('organization_id', organizationId)
+          .maybeSingle();
+        
+        if (teacher?.id) {
+          const { data: msg } = await supabase
+            .from('chat_messages')
+            .select('integration_id')
+            .eq('teacher_id', teacher.id)
+            .eq('is_outgoing', false)
+            .eq('messenger_type', 'telegram')
+            .not('integration_id', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          if (msg?.integration_id) {
+            resolvedIntegrationId = msg.integration_id;
+            console.log('[telegram-send] Smart routing (phone→teacher):', resolvedIntegrationId);
+          }
+        }
       }
     }
 
