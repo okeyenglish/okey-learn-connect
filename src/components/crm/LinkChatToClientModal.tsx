@@ -335,7 +335,48 @@ export const LinkChatToClientModal = ({
       }
 
       // Transfer all messages to target client
+      // Handle salebot_message_id unique constraint: (client_id, salebot_message_id)
+      // If target already has messages with same salebot_message_id, delete duplicates from source
       console.log("Transferring messages from", chatClientId, "to", selectedClientId);
+      
+      // Step 1: Find salebot_message_ids that exist in BOTH source and target
+      const { data: sourceMessages } = await supabase
+        .from("chat_messages")
+        .select("id, salebot_message_id")
+        .eq("client_id", chatClientId)
+        .not("salebot_message_id", "is", null);
+      
+      const { data: targetMessages } = await supabase
+        .from("chat_messages")
+        .select("salebot_message_id")
+        .eq("client_id", selectedClientId)
+        .not("salebot_message_id", "is", null);
+      
+      // Build set of target's salebot_message_ids
+      const targetSalebotIds = new Set(
+        (targetMessages || []).map(m => m.salebot_message_id)
+      );
+      
+      // Find source messages that would conflict
+      const duplicateMessageIds = (sourceMessages || [])
+        .filter(m => m.salebot_message_id && targetSalebotIds.has(m.salebot_message_id))
+        .map(m => m.id);
+      
+      // Step 2: Delete duplicate messages from source (they already exist in target)
+      if (duplicateMessageIds.length > 0) {
+        console.log(`Deleting ${duplicateMessageIds.length} duplicate salebot messages from source`);
+        const { error: deleteError } = await supabase
+          .from("chat_messages")
+          .delete()
+          .in("id", duplicateMessageIds);
+        
+        if (deleteError) {
+          console.error("Error deleting duplicate messages:", deleteError);
+          // Continue anyway - we'll try to transfer what we can
+        }
+      }
+      
+      // Step 3: Now transfer remaining messages (no conflicts)
       const { error: messagesError } = await supabase
         .from("chat_messages")
         .update({ client_id: selectedClientId })
@@ -343,7 +384,7 @@ export const LinkChatToClientModal = ({
 
       if (messagesError) {
         console.error("Error transferring messages:", messagesError);
-        throw messagesError;
+        throw new Error(`Ошибка при привязке чата: ${messagesError.message}`);
       }
 
       // Get target's existing phones to avoid duplicates
