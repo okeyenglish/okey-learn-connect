@@ -11,6 +11,8 @@
 | `create-staff-group-chat` | Создать пользовательскую группу |
 | `add-staff-group-member` | Добавить участника в группу |
 | `remove-staff-group-member` | Удалить участника из группы |
+| `update-staff-group-chat` | Переименовать группу |
+| `delete-staff-group-chat` | Удалить группу и все данные |
 | `add-employee-to-branch-groups` | Добавить сотрудника в группы филиала (вызывается из Lovable Cloud) |
 | `init-branch-groups` | Миграция: создать группы для всех филиалов |
 

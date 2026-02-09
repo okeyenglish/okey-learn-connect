@@ -545,3 +545,9 @@ verify_jwt = false
 
 [functions.get-user-branches]
 verify_jwt = false
+
+[functions.update-staff-group-chat]
+verify_jwt = false
+
+[functions.delete-staff-group-chat]
+verify_jwt = false
