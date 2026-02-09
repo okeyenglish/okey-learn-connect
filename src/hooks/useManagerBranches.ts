@@ -141,9 +141,9 @@ export function useManagerBranches() {
     // Если нет ограничений - доступ разрешён
     if (!hasRestrictions) return true;
 
-    // При активных ограничениях: если у клиента филиал не указан — НЕ показываем
-    // (чтобы не было утечек данных)
-    if (!clientBranch) return false;
+    // При активных ограничениях: если у клиента филиал не указан — ПОКАЗЫВАЕМ
+    // (согласно требованию "показывать null-branch")
+    if (!clientBranch) return true;
 
     const hasAccess = isBranchAllowed(clientBranch, allowedBranchNames);
     
