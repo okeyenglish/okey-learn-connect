@@ -398,24 +398,21 @@ Deno.serve(async (req) => {
       return errorResponse('Message text or file is required', 400);
     }
 
-    // === FALLBACK: If ID-based send failed, try phone number ===
+    // === FALLBACK: If ID-based send failed, ALWAYS try phone number ===
     if (!sendResult.success) {
       const errorMsg = sendResult.error || 'Failed to send message';
-      const isPeerNotFound = errorMsg.toLowerCase().includes('peer not found') || 
-                              errorMsg.toLowerCase().includes('peer_not_found') ||
-                              errorMsg.toLowerCase().includes('no peer') ||
-                              errorMsg.toLowerCase().includes('user not found') ||
-                              errorMsg.toLowerCase().includes('chat not found');
+      console.log(`[telegram-send] First attempt failed: ${errorMsg}, source: ${recipientSource}`);
       
-      // If we used an ID (not phone) and got peer not found, try phone fallback
+      // If we used an ID (not phone), ALWAYS try phone fallback (regardless of error message)
       const usedIdNotPhone = recipientSource.includes('telegram_chat_id') || 
                               recipientSource.includes('telegram_user_id') ||
-                              recipientSource.includes('telegram_username');
+                              recipientSource.includes('telegram_username') ||
+                              recipientSource === 'none';
       
       let phoneToTry: string | null = null;
       
-      if (isPeerNotFound && usedIdNotPhone) {
-        console.log(`[telegram-send] ID-based send failed (${recipientSource}), trying phone fallback...`);
+      if (usedIdNotPhone) {
+        console.log(`[telegram-send] Attempting fallback. Original recipient: ${recipient}, source: ${recipientSource}`);
         
         // Get phone from the appropriate source
         if (phoneNumber) {
@@ -435,6 +432,8 @@ Deno.serve(async (req) => {
           }
         }
         
+        console.log(`[telegram-send] Phone to try: ${phoneToTry}`);
+        
         if (phoneToTry && phoneToTry !== recipient) {
           console.log(`[telegram-send] Phone fallback: trying ${phoneToTry}`);
           
@@ -451,6 +450,10 @@ Deno.serve(async (req) => {
           } else {
             console.log(`[telegram-send] Phone fallback also failed:`, sendResult.error);
           }
+        } else if (phoneToTry === recipient) {
+          console.log(`[telegram-send] Phone fallback skipped: already tried this phone`);
+        } else {
+          console.log(`[telegram-send] No phone available for fallback`);
         }
       }
       
