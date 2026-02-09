@@ -1,94 +1,93 @@
 
-# План: Добавить обработку ошибки IMPORT_FAILED в Wappi Telegram
+# Fix: Кнопка "Не требует ответа" подвисает
 
-## Проблема
+## Корневая причина
 
-При отправке сообщения через Wappi Telegram появляется ошибка **IMPORT_FAILED**. Это означает, что Wappi не может импортировать (найти) получателя по указанному номеру телефона в Telegram.
+Кнопка работает корректно (сообщения помечаются как прочитанные в базе), но **UI не обновляется** из-за двух проблем:
 
-Текущая логика fallback обрабатывает только ошибки:
-- `peer not found`
-- `peer_not_found`
-- `no peer`
+1. **Материализованное представление (MV)**: Счетчик непрочитанных (`unread_count`) в списке чатов берётся из `chat_threads_mv`, которое обновляется по расписанию, а не мгновенно. После нажатия кнопки MV всё ещё содержит старое значение.
 
-Но **не** обрабатывает `IMPORT_FAILED`, хотя это по сути та же самая ситуация — контакт не найден в Telegram.
+2. **Не инвалидируется `unread-client-ids`**: Функция `handleMarkAsNoResponseNeeded` не инвалидирует кэш `unread-client-ids`, который определяет какие клиенты имеют непрочитанные сообщения.
 
 ## Решение
 
-Добавить `IMPORT_FAILED` в список ошибок, которые триггерят:
-1. Fallback на альтернативный номер телефона
-2. Fallback на другие Telegram интеграции
-3. Корректное сообщение пользователю
+### Изменение 1: Оптимистичное обновление кэша `chat-threads`
 
-## Файл для изменения
+В `handleMarkAsNoResponseNeeded` (файл `src/components/crm/ChatArea.tsx`) вместо простого `invalidateQueries` сделать **оптимистичное обновление** кэша:
 
-`supabase/functions/telegram-send/index.ts`
+- Сразу после успешного `update` установить `unread_count = 0` для текущего клиента в кэше `chat-threads`
+- Это даст мгновенный визуальный отклик, не дожидаясь обновления MV
 
-## Детали изменений
+### Изменение 2: Добавить инвалидацию `unread-client-ids`
 
-### 1. Добавить helper-функцию для проверки "контакт не найден"
+Добавить `queryClient.invalidateQueries({ queryKey: ['unread-client-ids'] })` в `handleMarkAsNoResponseNeeded`, чтобы список непрочитанных клиентов тоже обновился.
 
-```typescript
-// Helper function to check if error indicates contact not found
-function isContactNotFoundError(errorMsg: string): boolean {
-  const lower = errorMsg.toLowerCase();
-  return lower.includes('peer not found') ||
-         lower.includes('peer_not_found') ||
-         lower.includes('no peer') ||
-         lower.includes('import_failed') ||
-         lower.includes('import failed');
-}
-```
+### Изменение 3: Принудительный refetch после обновления
 
-### 2. Заменить проверки в fallback логике
-
-**Строка ~525-530 (первый fallback на телефон):**
-Добавить логирование типа ошибки для диагностики.
-
-**Строка ~676-679 (финальная проверка):**
-Заменить:
-```typescript
-const isFinalPeerNotFound = finalErrorMsg.toLowerCase().includes('peer not found') || 
-                            finalErrorMsg.toLowerCase().includes('peer_not_found') ||
-                            finalErrorMsg.toLowerCase().includes('no peer');
-```
-
-На:
-```typescript
-const isFinalPeerNotFound = isContactNotFoundError(finalErrorMsg);
-```
-
-### 3. Обновить сообщение об ошибке
-
-Сделать сообщение более информативным:
-```typescript
-error: 'Клиент не найден в Telegram (IMPORT_FAILED/PEER_NOT_FOUND). Попросите клиента написать вам первым, чтобы установить связь.',
-```
+Заменить `invalidateQueries` на `refetchQueries` с `{type: 'active'}` для ключевых запросов, чтобы данные перезапрашивались немедленно, а не ожидали условий `staleTime`.
 
 ## Технические детали
 
-| Параметр | Значение |
-|----------|----------|
-| Файл | `supabase/functions/telegram-send/index.ts` |
-| Строки изменения | ~676-684 (финальная обработка ошибки) |
-| Новые функции | `isContactNotFoundError()` — helper для проверки типа ошибки |
-| Влияние | Улучшенное распознавание ошибок Wappi, корректный fallback |
+### Файл: `src/components/crm/ChatArea.tsx`
 
-## Ожидаемый результат
+Функция `handleMarkAsNoResponseNeeded` (~строки 1074-1111):
 
-После изменений:
-- Ошибка `IMPORT_FAILED` будет триггерить fallback на другие интеграции
-- Если все интеграции не смогли доставить — пользователь увидит понятное сообщение
-- В логах будет видно какой тип ошибки вызвал fallback
+```typescript
+const handleMarkAsNoResponseNeeded = async () => {
+  if (!clientId) return;
+  
+  try {
+    const { error } = await supabase
+      .from('chat_messages')
+      .update({ is_read: true })
+      .eq('client_id', clientId)
+      .eq('is_read', false)
+      .eq('message_type', 'client');
+    
+    if (error) {
+      console.error('Error marking messages as read:', error);
+      toast({ title: "Ошибка", description: "...", variant: "destructive" });
+      return;
+    }
+    
+    // НОВОЕ: Оптимистичное обновление кэша chat-threads
+    queryClient.setQueriesData(
+      { queryKey: ['chat-threads'] },
+      (old: ChatThread[] | undefined) => {
+        if (!old) return old;
+        return old.map(t => 
+          t.client_id === clientId 
+            ? { ...t, unread_count: 0 } 
+            : t
+        );
+      }
+    );
+    
+    // НОВОЕ: Убрать клиента из unread-client-ids
+    queryClient.setQueriesData(
+      { queryKey: ['unread-client-ids'] },
+      (old: string[] | undefined) => {
+        if (!old) return old;
+        return old.filter(id => id !== clientId);
+      }
+    );
+    
+    // Инвалидируем остальные кэши
+    queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
+    queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
+    queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
+    queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
+    queryClient.invalidateQueries({ queryKey: ['chat-messages-infinite', clientId] });
+    
+    toast({ title: "Готово", description: "Чат помечен как не требующий ответа" });
+  } catch (error) {
+    console.error('Error in handleMarkAsNoResponseNeeded:', error);
+  }
+};
+```
 
-## Почему возникает IMPORT_FAILED
+### Ожидаемый результат
 
-Wappi для Telegram работает через **клиентское API** (не бот API). Это означает:
-- Чтобы отправить сообщение, получатель должен быть в контактах ИЛИ ранее писал в этот аккаунт
-- Если просто указать номер телефона незнакомого человека — Wappi не сможет его "импортировать" в Telegram
-- Это ограничение самого Telegram, не Wappi
-
-## Рекомендация пользователю
-
-Для успешной отправки через Wappi Telegram:
-1. Клиент должен **первым написать** в Telegram-аккаунт организации
-2. ИЛИ добавить номер клиента в контакты Telegram-аккаунта вручную
+- Счетчик непрочитанных в списке чатов обнулится **мгновенно** после нажатия кнопки
+- Чат переместится в правильную позицию в списке (не "сверху" среди непрочитанных)
+- При следующем обновлении MV данные синхронизируются с оптимистичным обновлением
