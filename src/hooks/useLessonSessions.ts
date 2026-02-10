@@ -46,29 +46,8 @@ export interface SessionFilters {
 export const useLessonSessions = (filters: SessionFilters = {}) => {
   const queryClient = useQueryClient();
 
-  // Realtime подписка на любые изменения в таблице lesson_sessions
-  useEffect(() => {
-    console.log('🔵 Subscribing to ALL lesson_sessions changes');
-
-    const channel = supabase
-      .channel('lesson_sessions_realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'lesson_sessions' },
-        (payload) => {
-          console.log('🔵 Realtime event for ALL lesson_sessions:', payload);
-          queryClient.invalidateQueries({ queryKey: ['lesson_sessions'] });
-        }
-      )
-      .subscribe((status) => {
-        console.log('🔵 Lesson sessions global channel status:', status);
-      });
-
-    return () => {
-      console.log('🔵 Unsubscribing from ALL lesson_sessions');
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
+  // Removed: Realtime subscription for lesson_sessions
+  // useRealtimeHub already handles query invalidation for 'lesson_sessions' table
 
   return useQuery({
     queryKey: ['lesson_sessions', filters],

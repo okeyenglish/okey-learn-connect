@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -54,7 +54,7 @@ interface UseStaffActivityLogOptions {
 export function useStaffActivityLog(options: UseStaffActivityLogOptions = {}) {
   const { user, profile } = useAuth();
   const { branches, actionTypes, userId, limit = 50, enabled = true } = options;
-  const [realtimeActivities, setRealtimeActivities] = useState<StaffActivityLog[]>([]);
+  // realtimeActivities state removed - now using polling via refetch
 
   const query = useQuery({
     queryKey: ['staff-activity-log', profile?.organization_id, branches, actionTypes, userId, limit],
@@ -97,60 +97,22 @@ export function useStaffActivityLog(options: UseStaffActivityLogOptions = {}) {
     refetchOnWindowFocus: true,
   });
 
-  // Realtime подписка
+  // Polling every 15 seconds instead of postgres_changes channel
+  // Staff activity log is not time-critical
   useEffect(() => {
     if (!profile?.organization_id || !enabled) return;
 
-    const channel = supabase
-      .channel('staff-activity-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'staff_activity_log',
-          filter: `organization_id=eq.${profile.organization_id}`,
-        },
-        (payload) => {
-          const newActivity = payload.new as StaffActivityLog;
-          
-          // Проверяем фильтры
-          if (branches && branches.length > 0 && !branches.includes('all')) {
-            if (!branches.includes(newActivity.user_branch || '')) return;
-          }
-          if (actionTypes && actionTypes.length > 0 && !actionTypes.includes('all')) {
-            if (!actionTypes.includes(newActivity.action_type)) return;
-          }
-          if (userId && newActivity.user_id !== userId) return;
-
-          setRealtimeActivities((prev) => [newActivity, ...prev].slice(0, limit));
-        }
-      )
-      .subscribe();
+    const pollInterval = setInterval(() => {
+      query.refetch();
+    }, 15000);
 
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(pollInterval);
     };
-  }, [profile?.organization_id, branches, actionTypes, userId, limit, enabled]);
-
-  // Объединяем realtime с загруженными данными
-  const allActivities = [...realtimeActivities, ...(query.data || [])];
-  
-  // Удаляем дубликаты по id
-  const uniqueActivities = allActivities.reduce((acc, activity) => {
-    if (!acc.find((a) => a.id === activity.id)) {
-      acc.push(activity);
-    }
-    return acc;
-  }, [] as StaffActivityLog[]);
-
-  // Сортируем по времени
-  const sortedActivities = uniqueActivities
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, limit);
+  }, [profile?.organization_id, enabled]);
 
   return {
-    activities: sortedActivities,
+    activities: query.data || [],
     isLoading: query.isLoading,
     error: query.error,
     refetch: query.refetch,

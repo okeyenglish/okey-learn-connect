@@ -4,9 +4,9 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { ChatMessage } from './useChatMessages';
 import { chatQueryConfig } from '@/lib/queryConfig';
 import { startMetric, endMetric } from '@/lib/performanceMetrics';
-import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { performanceAnalytics } from '@/utils/performanceAnalytics';
 import { isValidUUID } from '@/lib/uuidValidation';
+import { onMessageEvent, offMessageEvent } from './useOrganizationRealtimeMessages';
 
 const MESSAGES_PER_PAGE = 100;
 
@@ -100,11 +100,11 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
 
 /**
  * Hook for realtime new message subscription
- * Subscribes to INSERT events on chat_messages to instantly update the chat
- * Also triggers scroll to bottom when new messages arrive
+ * Now relies on useOrganizationRealtimeMessages hub which already invalidates
+ * ['chat-messages-optimized', clientId] queries, so no own channel is needed.
+ * Only triggers the onNewMessage callback (e.g. scroll-to-bottom).
  */
 export const useNewMessageRealtime = (clientId: string, onNewMessage?: () => void) => {
-  const queryClient = useQueryClient();
   const onNewMessageRef = useRef(onNewMessage);
 
   useEffect(() => {
@@ -114,38 +114,24 @@ export const useNewMessageRealtime = (clientId: string, onNewMessage?: () => voi
   useEffect(() => {
     if (!clientId || !isValidUUID(clientId)) return;
 
-    const channelName = `new-messages-${clientId}`;
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `client_id=eq.${clientId}`,
-        },
-        (payload: RealtimePostgresChangesPayload<ChatMessage>) => {
-          console.log('[Realtime] New message received for client:', clientId);
-          
-          queryClient.invalidateQueries({
-            queryKey: ['chat-messages-optimized', clientId],
-          });
-          
-          onNewMessageRef.current?.();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
+    const handleEvent = (msg: any, eventType: string) => {
+      if (eventType === 'INSERT' && msg.client_id === clientId) {
+        console.log('[Realtime] New message received for client (via hub):', clientId);
+        onNewMessageRef.current?.();
+      }
     };
-  }, [clientId, queryClient]);
+
+    onMessageEvent(handleEvent);
+    return () => {
+      offMessageEvent(handleEvent);
+    };
+  }, [clientId]);
 };
 
 /**
  * Hook for realtime message status updates
- * Subscribes to UPDATE events on chat_messages to track delivery status changes
+ * Now uses the callback registry from useOrganizationRealtimeMessages instead of
+ * creating its own postgres_changes channel.
  * Shows toast notification when a message delivery fails
  */
 export const useMessageStatusRealtime = (clientId: string, onDeliveryFailed?: (messageId: string) => void) => {
@@ -162,67 +148,52 @@ export const useMessageStatusRealtime = (clientId: string, onDeliveryFailed?: (m
     
     notifiedFailedRef.current = new Set();
 
-    const channelName = `message-status-${clientId}`;
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `client_id=eq.${clientId}`,
-        },
-        (payload: RealtimePostgresChangesPayload<{ status?: string; id?: string; message_text?: string }>) => {
-          performanceAnalytics.trackRealtimeEvent(channelName);
-          
-          const newRecord = payload.new as { status?: string; id?: string; message_text?: string };
-          const oldRecord = payload.old as { status?: string };
-          
-          if (newRecord?.status) {
-            console.log('[Realtime] Message status updated:', newRecord.id, '->', newRecord.status);
+    const handleEvent = (msg: any, eventType: string) => {
+      if (eventType !== 'UPDATE') return;
+      if (msg.client_id !== clientId) return;
+
+      const newRecord = msg as { status?: string; id?: string; message_text?: string };
+      
+      if (newRecord?.status) {
+        console.log('[Realtime] Message status updated (via hub):', newRecord.id, '->', newRecord.status);
+        
+        if (newRecord.status === 'failed') {
+          if (!notifiedFailedRef.current.has(newRecord.id!)) {
+            notifiedFailedRef.current.add(newRecord.id!);
             
-            if (newRecord.status === 'failed' && oldRecord?.status !== 'failed') {
-              if (!notifiedFailedRef.current.has(newRecord.id!)) {
-                notifiedFailedRef.current.add(newRecord.id!);
-                
-                const event = new CustomEvent('message-delivery-failed', {
-                  detail: {
-                    messageId: newRecord.id,
-                    messagePreview: newRecord.message_text?.substring(0, 50) || 'Сообщение'
-                  }
-                });
-                window.dispatchEvent(event);
-                
-                onDeliveryFailedRef.current?.(newRecord.id!);
+            const event = new CustomEvent('message-delivery-failed', {
+              detail: {
+                messageId: newRecord.id,
+                messagePreview: newRecord.message_text?.substring(0, 50) || 'Сообщение'
               }
-            }
+            });
+            window.dispatchEvent(event);
             
-            queryClient.setQueriesData(
-              { queryKey: ['chat-messages-optimized', clientId] },
-              (oldData: any) => {
-                if (!oldData?.messages) return oldData;
-                
-                return {
-                  ...oldData,
-                  messages: oldData.messages.map((msg: ChatMessage) => 
-                    msg.id === newRecord.id 
-                      ? { ...msg, status: newRecord.status }
-                      : msg
-                  )
-                };
-              }
-            );
+            onDeliveryFailedRef.current?.(newRecord.id!);
           }
         }
-      )
-      .subscribe();
-    
-    performanceAnalytics.trackRealtimeSubscription(channelName, 'chat_messages');
+        
+        queryClient.setQueriesData(
+          { queryKey: ['chat-messages-optimized', clientId] },
+          (oldData: any) => {
+            if (!oldData?.messages) return oldData;
+            
+            return {
+              ...oldData,
+              messages: oldData.messages.map((m: ChatMessage) => 
+                m.id === newRecord.id 
+                  ? { ...m, status: newRecord.status }
+                  : m
+              )
+            };
+          }
+        );
+      }
+    };
 
+    onMessageEvent(handleEvent);
     return () => {
-      performanceAnalytics.untrackRealtimeSubscription(channelName);
-      supabase.removeChannel(channel);
+      offMessageEvent(handleEvent);
     };
   }, [clientId, queryClient]);
 };

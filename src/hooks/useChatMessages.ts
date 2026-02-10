@@ -677,47 +677,14 @@ export const useMarkAsRead = () => {
   });
 };
 
+/**
+ * Realtime messages hook - now relies on useOrganizationRealtimeMessages hub
+ * which already invalidates ['chat-messages', clientId] queries.
+ * This hook is kept for API compatibility but no longer creates its own channel.
+ */
 export const useRealtimeMessages = (clientId: string) => {
-  const queryClient = useQueryClient();
-
-  useEffect(() => {
-    if (!clientId) return;
-
-    const channel = supabase
-      .channel('chat-messages-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `client_id=eq.${clientId}`,
-        },
-        () => {
-          // Only invalidate specific chat messages, not the entire chat-threads list
-          // chat-threads is already updated by debounced subscription in CRM.tsx
-          queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `client_id=eq.${clientId}`,
-        },
-        () => {
-          // Only invalidate specific chat messages, not the entire chat-threads list
-          queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [clientId, queryClient]);
+  // No-op: useOrganizationRealtimeMessages already handles query invalidation
+  // for all chat_messages changes including per-client queries.
 };
 
 // Mark all client messages as unread for a chat

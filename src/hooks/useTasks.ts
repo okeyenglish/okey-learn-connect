@@ -42,30 +42,8 @@ export const useTasks = (clientId?: string) => {
     enabled: !!clientId,
   });
 
-  // Real-time subscription for tasks
-  useEffect(() => {
-    if (!clientId) return;
-
-    const channel = supabase
-      .channel(`tasks-${clientId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tasks',
-          filter: `client_id=eq.${clientId}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['tasks', clientId] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [clientId, queryClient]);
+  // Removed: Real-time subscription for tasks
+  // useRealtimeHub already handles query invalidation for 'tasks' table changes
 
   return {
     tasks: tasks || [],
@@ -148,27 +126,8 @@ export const useAllTasks = () => {
     },
   });
 
-  // Real-time subscription for all tasks
-  useEffect(() => {
-    const channel = supabase
-      .channel('all-tasks-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tasks',
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
+  // Removed: Real-time subscription for all tasks
+  // useRealtimeHub already handles query invalidation for 'tasks' table changes
 
   return {
     tasks: tasks || [],
@@ -221,30 +180,8 @@ export const useTasksByDate = (date?: string) => {
     enabled: !!date,
   });
 
-  // Real-time subscription for tasks by date
-  useEffect(() => {
-    if (!date) return;
-
-    const channel = supabase
-      .channel(`tasks-by-date-${date}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tasks',
-          filter: `due_date=eq.${date}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['tasks-by-date', date] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [date, queryClient]);
+  // Removed: Real-time subscription for tasks by date
+  // useRealtimeHub already handles query invalidation for 'tasks' table changes
 
   return {
     tasks: tasks || [],
