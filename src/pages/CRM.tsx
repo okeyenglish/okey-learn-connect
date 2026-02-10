@@ -1626,7 +1626,7 @@ const CRMContent = () => {
           'Authorization': `Bearer ${token || SELF_HOSTED_ANON_KEY}`,
           'Prefer': 'return=minimal',
         },
-        body: JSON.stringify({ status: 'deleted' }),
+        body: JSON.stringify({ is_active: false }),
       });
       if (!res.ok) {
         const errText = await res.text();
