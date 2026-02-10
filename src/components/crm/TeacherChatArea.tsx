@@ -334,18 +334,26 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const activeFiltersCount = (filterBranch !== 'all' ? 1 : 0) + (filterSubject !== 'all' ? 1 : 0) + (filterCategory !== 'all' ? 1 : 0);
 
   const filteredTeachers = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
     return teachers.filter((teacher) => {
-      // Search filter - search by name, branch, phone, email
-      const q = searchQuery.toLowerCase().trim();
+      // Search filter - search by ФИО (fullName, firstName, lastName) and phone/email
       if (q) {
-        const matchesSearch = 
+        const qDigits = q.replace(/\D/g, '');
+        const isPhoneQuery = qDigits.length >= 3 && /^\d+$/.test(q.replace(/[\s\+\-\(\)]/g, ''));
+        
+        const matchesName = 
           (teacher.fullName || '').toLowerCase().includes(q) ||
           (teacher.firstName || '').toLowerCase().includes(q) ||
-          (teacher.lastName || '').toLowerCase().includes(q) ||
+          (teacher.lastName || '').toLowerCase().includes(q);
+        
+        const matchesPhone = isPhoneQuery && 
+          (teacher.phone || '').replace(/\D/g, '').includes(qDigits);
+        
+        const matchesOther = 
           (teacher.branch || '').toLowerCase().includes(q) ||
-          (teacher.phone || '').replace(/\D/g, '').includes(q.replace(/\D/g, '')) ||
           (teacher.email || '').toLowerCase().includes(q);
-        if (!matchesSearch) return false;
+        
+        if (!matchesName && !matchesPhone && !matchesOther) return false;
       }
 
       // Branch filter
