@@ -4268,6 +4268,9 @@ const CRMContent = () => {
                   setShowAddTaskModal(true);
                 }}
                 onOpenInvoiceModal={() => setShowInvoiceModal(true)}
+                managerName={profile && (profile.first_name || profile.last_name)
+                  ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+                  : 'Менеджер'}
                 onBackToList={isMobile ? () => {
                   setActiveChatId('');
                   setActiveTab('chats');
