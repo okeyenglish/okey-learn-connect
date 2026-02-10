@@ -4,7 +4,7 @@ import { FamilyCardSkeleton } from "./FamilyCardSkeleton";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { normalizePhone } from "@/utils/phoneNormalization";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+
 import type { FamilyGroup } from "@/hooks/useFamilyData";
 
 interface FamilyCardWrapperProps {
@@ -458,12 +458,14 @@ export const FamilyCardWrapper = ({ clientId, onOpenChat, activeMessengerTab }: 
     placeholderData: isCacheValid ? cachedData.data : undefined,
   });
 
-  // Also populate the family-data query cache for useFamilyData hook compatibility
-  useEffect(() => {
-    if (familyData?.id) {
+  // Populate the family-data query cache SYNCHRONOUSLY for useFamilyData hook compatibility
+  // This prevents FamilyCard from re-fetching via RPC when we already have data
+  if (familyData?.id) {
+    const existing = queryClient.getQueryData(['family-data', familyData.id]);
+    if (!existing) {
       queryClient.setQueryData(['family-data', familyData.id], familyData);
     }
-  }, [familyData, queryClient]);
+  }
 
   // Don't show skeleton if we have cached data
   if (isLoading && !isCacheValid) {
