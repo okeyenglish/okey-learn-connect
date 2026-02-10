@@ -50,7 +50,7 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
           .select(`
             id, client_id, message_text, message_type, system_type, is_read,
             created_at, file_url, file_name, file_type, external_message_id,
-            messenger_type, call_duration, message_status, metadata, sender_name
+            messenger_type, call_duration, message_status, metadata
           `)
           .eq('client_id', clientId)
           .order('created_at', { ascending: false })
@@ -314,7 +314,7 @@ export const usePrefetchMessages = () => {
           .from('chat_messages')
           .select(`
             id, client_id, message_text, message_type, system_type, is_read, created_at,
-            file_url, file_name, file_type, external_message_id, messenger_type, call_duration, message_status, metadata, sender_name,
+            file_url, file_name, file_type, external_message_id, messenger_type, call_duration, message_status, metadata,
             clients(avatar_url)
           `)
           .eq('client_id', clientId)
@@ -329,7 +329,7 @@ export const usePrefetchMessages = () => {
           // Fallback without join
           const fallback = await supabase
             .from('chat_messages')
-            .select('id, client_id, message_text, message_type, system_type, is_read, created_at, file_url, file_name, file_type, external_message_id, messenger_type, call_duration, message_status, sender_name')
+            .select('id, client_id, message_text, message_type, system_type, is_read, created_at, file_url, file_name, file_type, external_message_id, messenger_type, call_duration, message_status')
             .eq('client_id', clientId)
             .order('created_at', { ascending: false })
             .limit(MESSAGES_PER_PAGE + 1);
