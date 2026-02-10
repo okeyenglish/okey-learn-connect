@@ -1,32 +1,55 @@
 
-# Комментарии привязаны к конкретному мессенджеру
+# Исправление GreenAPI: цитирование и изображения
 
-## Проблема
+## Проблема 1: `[quotedMessage]` вместо текста цитаты
 
-Когда сотрудник оставляет комментарий в диалоге клиента, он сохраняется с `messenger_type: 'system'`. Сообщения в чате фильтруются по вкладкам мессенджеров (WhatsApp, Telegram, Max), и ни один фильтр не включает `system`. Поэтому комментарий виден только в превью списка чатов, но не внутри самого диалога.
+На скриншоте видно `[quotedMessage]` -- это происходит потому, что GreenAPI присылает `typeMessage: 'quotedMessage'` для цитированных сообщений, но в `switch` обработчике вебхука (`whatsapp-webhook/index.ts`) нет `case 'quotedMessage'`. Сообщение попадает в `default` и сохраняется как `[quotedMessage]`.
 
-## Решение
+По документации GreenAPI, для `quotedMessage` текст ответа находится в `extendedTextMessageData.text`, а ID цитируемого сообщения в `extendedTextMessageData.stanzaId`.
 
-Изменить функцию `saveComment` в `ChatArea.tsx` так, чтобы комментарий сохранялся с `messenger_type` текущей активной вкладки мессенджера (например, `whatsapp`, `telegram`, `max`), а не `system`.
+### Исправление
 
-## Файл: `src/components/crm/ChatArea.tsx`
-
-В функции `saveComment` (строка ~1768) заменить:
+В файле `supabase/functions/whatsapp-webhook/index.ts` добавить `case 'quotedMessage'` в оба `switch` блока (handleIncomingMessage ~строка 808 и handleOutgoingMessage ~строка 1038):
 
 ```typescript
-messenger_type: 'system'
+case 'quotedMessage':
+  messageText = messageData.extendedTextMessageData?.text || '';
+  break;
 ```
 
-на:
+Это нужно сделать в двух местах:
+- В `handleIncomingMessage` (строка ~808, перед `case 'extendedTextMessage'`)
+- В `handleOutgoingMessage` (строка ~1038, перед `default`)
+
+## Проблема 2: Изображения не приходят
+
+Изображения (`imageMessage`) обрабатываются в вебхуке, но `downloadUrl` от GreenAPI -- временная ссылка, которая быстро истекает. Вебхук вызывает `download-whatsapp-file` для получения постоянной ссылки, но если этот вызов фейлится, используется оригинальный `downloadUrl`, который потом перестает работать.
+
+Нужно проверить логи, чтобы понять конкретную причину. Однако основная проблема может быть в том, что для `quotedMessage` с изображением (цитата картинки) -- файл вообще не обрабатывается, т.к. `case 'quotedMessage'` отсутствует.
+
+Дополнительно: добавить обработку медиа-данных для `quotedMessage`, т.к. цитата может содержать файл:
 
 ```typescript
-messenger_type: activeMessengerTab === 'chatos' ? 'whatsapp' : activeMessengerTab
+case 'quotedMessage':
+  messageText = messageData.extendedTextMessageData?.text || '';
+  // quotedMessage может содержать файл в fileMessageData
+  if (messageData.fileMessageData?.downloadUrl) {
+    fileUrl = messageData.fileMessageData.downloadUrl;
+    fileName = messageData.fileMessageData?.fileName;
+    fileType = messageData.fileMessageData?.mimeType;
+  }
+  break;
 ```
 
-Это единственное изменение. Тип сообщения (`message_type: 'comment'`) остается прежним -- он отвечает за визуальное оформление комментария (желтый фон). А `messenger_type` теперь будет привязывать комментарий к нужной вкладке мессенджера.
+## Проблема 3: Отправка цитированных сообщений
 
-## Результат
+Функция `whatsapp-send` (`sendTextMessage`) не поддерживает параметр `quotedMessageId`. По документации GreenAPI, для отправки ответа с цитированием нужно добавить `quotedMessageId` в тело запроса к `sendMessage` API.
 
-- Комментарий, оставленный на вкладке WhatsApp, появится в ленте WhatsApp
-- Комментарий, оставленный на вкладке Telegram, появится в ленте Telegram
-- Комментарий, оставленный на вкладке Max, появится в ленте Max
+Это отдельная задача для будущей реализации (UI для reply + передача `quotedMessageId`).
+
+## Порядок реализации
+
+1. Добавить `case 'quotedMessage'` в `handleIncomingMessage` (с поддержкой медиа)
+2. Добавить `case 'quotedMessage'` в `handleOutgoingMessage`
+3. Задеплоить обновленную функцию `whatsapp-webhook`
+4. Проверить логи на предмет ошибок загрузки изображений
