@@ -8,6 +8,83 @@ import {
   type TelegramWappiMessage,
 } from '../_shared/types.ts';
 
+// === Media upload helpers (same pattern as wappi-whatsapp-webhook) ===
+
+function getExtFromMime(mime: string): string {
+  const map: Record<string, string> = {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+    'image/gif': '.gif',
+    'video/mp4': '.mp4',
+    'video/3gpp': '.3gp',
+    'audio/ogg': '.ogg',
+    'audio/ogg; codecs=opus': '.ogg',
+    'audio/mpeg': '.mp3',
+    'audio/mp4': '.m4a',
+    'application/pdf': '.pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+  };
+  return map[mime.toLowerCase()] || '.bin';
+}
+
+function generateFileName(mime: string, messageId: string): string {
+  const ext = getExtFromMime(mime);
+  const prefix = mime.startsWith('image/') ? 'image'
+    : mime.startsWith('video/') ? 'video'
+    : mime.startsWith('audio/') ? 'audio'
+    : 'file';
+  return `${prefix}_${messageId.slice(-8)}${ext}`;
+}
+
+async function uploadWappiMedia(
+  supabase: any,
+  base64Body: string,
+  messageId: string,
+  mimeType: string,
+  orgId: string
+): Promise<string | null> {
+  try {
+    const binaryStr = atob(base64Body);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+
+    const ext = getExtFromMime(mimeType);
+    const storagePath = `wappi-telegram/${orgId}/${messageId}${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('chat-media')
+      .upload(storagePath, bytes.buffer, {
+        contentType: mimeType,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error('[telegram-webhook] Storage upload error:', uploadError.message);
+      return null;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('chat-media')
+      .getPublicUrl(storagePath);
+
+    const publicUrl = publicUrlData?.publicUrl || null;
+    console.log('[telegram-webhook] Media uploaded:', storagePath, '->', publicUrl);
+    return publicUrl;
+  } catch (e) {
+    console.error('[telegram-webhook] uploadWappiMedia error:', e);
+    return null;
+  }
+}
+
+function looksLikeBase64(str: string): boolean {
+  if (!str || str.length < 20) return false;
+  return /^[A-Za-z0-9+/\n\r]+=*$/.test(str.trim());
+}
+
 /**
  * Resilient insert for chat_messages that handles schema differences between
  * Cloud and self-hosted instances. Self-hosted may lack columns like 'status',
@@ -384,7 +461,7 @@ async function handleIncomingMessage(
   }
 
   // Determine message content (type is stored in file_type, message_type is client/manager/system)
-  const { messageText, contentType, fileUrl, fileName, fileType } = extractMessageContent(message);
+  const { messageText, contentType, fileUrl, fileName, fileType } = await extractMessageContent(supabase, message, organizationId);
 
   // PRIORITY 1: Check if sender is a TEACHER by telegram_user_id
   let teacher = null;
@@ -708,7 +785,7 @@ async function handleOutgoingMessage(
     return;
   }
 
-  const { messageText, contentType, fileUrl, fileName, fileType } = extractMessageContent(message);
+  const { messageText, contentType, fileUrl, fileName, fileType } = await extractMessageContent(supabase, message, organizationId);
 
   // IMPORTANT: Mark all unread messages from this client as read
   // When manager responds (even from phone), all previous messages should be considered read
@@ -1030,63 +1107,88 @@ async function findOrCreateClientLegacy(
   return newClient as ClientResult;
 }
 
-function extractMessageContent(message: TelegramWappiMessage): {
+async function extractMessageContent(supabase: any, message: TelegramWappiMessage, organizationId: string): Promise<{
   messageText: string;
   contentType: string;
   fileUrl: string | null;
   fileName: string | null;
   fileType: string | null;
-} {
+}> {
   let messageText = message.body || '';
   let contentType = 'text';
   let fileUrl: string | null = null;
   let fileName: string | null = null;
   let fileType: string | null = null;
 
-  switch (message.type) {
-    case 'text':
-      contentType = 'text';
-      break;
-    case 'image':
-      contentType = 'image';
-      fileUrl = message.file_link || null;
-      fileType = message.mimetype || 'image/jpeg';
-      messageText = message.caption || '[Изображение]';
-      break;
-    case 'video':
-      contentType = 'video';
-      fileUrl = message.file_link || null;
-      fileType = message.mimetype || 'video/mp4';
-      messageText = message.caption || '[Видео]';
-      break;
-    case 'document':
-      contentType = 'document';
-      fileUrl = message.file_link || null;
-      fileType = message.mimetype || 'application/octet-stream';
-      messageText = message.caption || '[Документ]';
-      break;
-    case 'audio':
-    case 'ptt':
-      contentType = 'audio';
-      fileUrl = message.file_link || null;
-      fileType = message.mimetype || 'audio/ogg';
-      messageText = '[Голосовое сообщение]';
-      break;
-    case 'sticker':
-      contentType = 'sticker';
-      fileUrl = message.file_link || null;
-      messageText = '[Стикер]';
-      break;
-    case 'location':
-      contentType = 'location';
-      messageText = '[Геолокация]';
-      break;
-    case 'vcard':
-      contentType = 'contact';
-      messageText = '[Контакт]';
-      break;
-    default:
-      contentType = message.type || 'text';
+  const mediaTypes = ['image', 'video', 'document', 'audio', 'ptt', 'sticker'];
+
+  if (mediaTypes.includes(message.type || '')) {
+    // Set content type and defaults
+    switch (message.type) {
+      case 'image':
+        contentType = 'image';
+        fileType = message.mimetype || 'image/jpeg';
+        messageText = message.caption || '[Изображение]';
+        break;
+      case 'video':
+        contentType = 'video';
+        fileType = message.mimetype || 'video/mp4';
+        messageText = message.caption || '[Видео]';
+        break;
+      case 'document':
+        contentType = 'document';
+        fileType = message.mimetype || 'application/octet-stream';
+        messageText = message.caption || '[Документ]';
+        fileName = (message as any).file_name || (message as any).title || null;
+        break;
+      case 'audio':
+      case 'ptt':
+        contentType = 'audio';
+        fileType = message.mimetype || 'audio/ogg';
+        messageText = '[Голосовое сообщение]';
+        break;
+      case 'sticker':
+        contentType = 'sticker';
+        fileType = message.mimetype || 'image/webp';
+        messageText = '[Стикер]';
+        break;
+    }
+
+    // Try file_link first (direct URL from Wappi)
+    fileUrl = message.file_link || null;
+
+    // If no file_link, try uploading base64 body to storage
+    if (!fileUrl && message.body && looksLikeBase64(message.body)) {
+      const mime = fileType || 'application/octet-stream';
+      console.log('[telegram-webhook] Uploading base64 media, type:', message.type, 'mime:', mime, 'bodyLen:', message.body.length);
+      fileUrl = await uploadWappiMedia(supabase, message.body, message.id, mime, organizationId);
+      // Clear messageText body since it was base64 data, not text
+      if (fileUrl && !message.caption) {
+        // Keep the placeholder text like [Изображение]
+      }
+    }
+
+    // Generate fileName if not set
+    if (!fileName && fileUrl) {
+      fileName = generateFileName(fileType || 'application/octet-stream', message.id);
+    }
+  } else {
+    // Non-media types
+    switch (message.type) {
+      case 'text':
+        contentType = 'text';
+        break;
+      case 'location':
+        contentType = 'location';
+        messageText = '[Геолокация]';
+        break;
+      case 'vcard':
+        contentType = 'contact';
+        messageText = '[Контакт]';
+        break;
+      default:
+        contentType = message.type || 'text';
+    }
   }
 
   return { messageText, contentType, fileUrl, fileName, fileType };
