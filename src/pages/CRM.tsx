@@ -1614,11 +1614,24 @@ const CRMContent = () => {
     const chatName = deleteChatDialog.chatName;
     setIsDeletingChat(true);
     try {
-      const { error } = await supabase
-        .from('clients')
-        .update({ status: 'deleted' })
-        .eq('id', deleteChatDialog.chatId);
-      if (error) throw error;
+      // Use self-hosted API since clients live on the self-hosted DB
+      const { selfHostedFetch, SELF_HOSTED_URL, SELF_HOSTED_ANON_KEY } = await import('@/lib/selfHostedApi');
+      const { getAuthToken } = await import('@/lib/selfHostedApi');
+      const token = await getAuthToken();
+      const res = await fetch(`${SELF_HOSTED_URL}/rest/v1/clients?id=eq.${deleteChatDialog.chatId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SELF_HOSTED_ANON_KEY,
+          'Authorization': `Bearer ${token}`,
+          'Prefer': 'return=minimal',
+        },
+        body: JSON.stringify({ status: 'deleted' }),
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || `HTTP ${res.status}`);
+      }
       
       // Invalidate all chat-related queries
       queryClient.invalidateQueries({ queryKey: ['clients'] });
