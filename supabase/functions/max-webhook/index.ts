@@ -153,7 +153,16 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
   }
 
   // Extract message content
-  const { messageText, fileUrl, fileName, fileType, messageType } = extractMessageContent(messageData);
+  const { messageText, fileUrl: rawFileUrl, fileName, fileType, messageType } = extractMessageContent(messageData);
+
+  // Upload media to permanent storage if we have a temporary GreenAPI URL
+  let fileUrl = rawFileUrl;
+  if (rawFileUrl) {
+    const permanentUrl = await uploadMediaToStorage(supabase, organizationId, rawFileUrl, fileType);
+    if (permanentUrl) {
+      fileUrl = permanentUrl;
+    }
+  }
 
   // PRIORITY 1: Check if sender is a TEACHER by max_user_id or max_chat_id
   const maxUserId = extractPhoneFromChatId(chatId);
@@ -308,6 +317,70 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
   }
 }
 
+// Generate a file name from mimeType when GreenAPI doesn't provide one
+function generateFileName(mimeType: string | null, typeMessage?: string): string {
+  const extMap: Record<string, string> = {
+    'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp',
+    'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov',
+    'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/opus': 'opus',
+    'application/pdf': 'pdf',
+  };
+  let ext = 'bin';
+  if (mimeType && extMap[mimeType]) {
+    ext = extMap[mimeType];
+  } else if (mimeType) {
+    const sub = mimeType.split('/')[1];
+    if (sub) ext = sub.split(';')[0];
+  } else if (typeMessage) {
+    if (typeMessage === 'imageMessage') ext = 'jpg';
+    else if (typeMessage === 'videoMessage') ext = 'mp4';
+    else if (typeMessage === 'audioMessage') ext = 'ogg';
+  }
+  return `file_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+}
+
+// Upload media from temporary GreenAPI URL to Supabase Storage
+async function uploadMediaToStorage(
+  supabase: ReturnType<typeof createClient>,
+  orgId: string,
+  downloadUrl: string,
+  mimeType: string | null
+): Promise<string | null> {
+  try {
+    console.log('[max-webhook] Downloading media from GreenAPI:', downloadUrl.slice(0, 80));
+    const response = await fetch(downloadUrl);
+    if (!response.ok) {
+      console.error('[max-webhook] Failed to download media:', response.status);
+      return null;
+    }
+    const blob = await response.blob();
+    const ext = generateFileName(mimeType).split('.').pop() || 'bin';
+    const storagePath = `${orgId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('chat-media')
+      .upload(storagePath, blob, {
+        contentType: mimeType || 'application/octet-stream',
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error('[max-webhook] Storage upload error:', uploadError);
+      return null;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('chat-media')
+      .getPublicUrl(storagePath);
+
+    console.log('[max-webhook] Media uploaded to storage:', publicUrlData.publicUrl?.slice(0, 80));
+    return publicUrlData.publicUrl || null;
+  } catch (err) {
+    console.error('[max-webhook] uploadMediaToStorage error:', err);
+    return null;
+  }
+}
+
 // Helper to extract message content from webhook data
 function extractMessageContent(messageData: MaxWebhookMessageData): {
   messageText: string;
@@ -336,8 +409,9 @@ function extractMessageContent(messageData: MaxWebhookMessageData): {
     case 'audioMessage':
     case 'documentMessage':
       fileUrl = messageData.fileMessageData?.downloadUrl || null;
-      fileName = messageData.fileMessageData?.fileName || null;
       fileType = messageData.fileMessageData?.mimeType || null;
+      // Always ensure fileName is set — generate one if GreenAPI didn't provide it
+      fileName = messageData.fileMessageData?.fileName || generateFileName(fileType, messageData.typeMessage);
       // Use caption if available, otherwise create readable message based on type
       if (messageData.fileMessageData?.caption) {
         messageText = messageData.fileMessageData.caption;
@@ -700,7 +774,16 @@ async function handleOutgoingMessage(
   }
 
   // Extract message content
-  const { messageText, fileUrl, fileName, fileType } = extractMessageContent(messageData);
+  const { messageText, fileUrl: rawFileUrl, fileName, fileType } = extractMessageContent(messageData);
+
+  // Upload media to permanent storage
+  let fileUrl = rawFileUrl;
+  if (rawFileUrl) {
+    const permanentUrl = await uploadMediaToStorage(supabase, organizationId, rawFileUrl, fileType);
+    if (permanentUrl) {
+      fileUrl = permanentUrl;
+    }
+  }
 
   // Save message as outgoing (from manager/phone)
   const { error: insertError } = await supabase

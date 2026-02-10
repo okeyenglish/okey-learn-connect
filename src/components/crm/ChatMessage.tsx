@@ -436,7 +436,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                 ) : (
                   <div>
                     {/* Hide placeholder text like [documentMessage] if file is attached */}
-                    {!(fileUrl && /^\[(imageMessage|videoMessage|audioMessage|documentMessage)\]$/.test(message)) && (
+                    {!(fileUrl && /^\[(imageMessage|videoMessage|audioMessage|documentMessage)\]$|^🖼️ Изображение$|^🎬 Видео$|^🎵 Аудио$|^📷 Фото$|^📄 .+$|^📎 Файл$/.test(message)) && (
                       <p className="text-sm leading-relaxed whitespace-pre-wrap">{renderMessageWithLinks(editedMessage, searchQuery)}</p>
                     )}
                     {systemType === 'comment' && managerName && (
@@ -449,7 +449,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                 )}
                 
                 {/* Attached file - messenger style for media */}
-                {message !== '[Сообщение удалено]' && fileUrl && fileName && (
+                {message !== '[Сообщение удалено]' && fileUrl && (
                   <div className={
                     (fileType?.startsWith('image/') || fileType?.startsWith('video/') || fileType?.startsWith('audio/') ||
                      messageTypeHint?.toLowerCase().includes('image') || messageTypeHint?.toLowerCase().includes('video') ||
@@ -460,14 +460,14 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                   }>
                     <OptimizedAttachedFile
                       url={fileUrl}
-                      name={fileName}
+                      name={fileName || 'file'}
                       type={fileType || ''}
                       messageType={messageTypeHint}
                       className={
                         (fileType?.startsWith('image/') || fileType?.startsWith('video/') || fileType?.startsWith('audio/') ||
                          messageTypeHint?.toLowerCase().includes('image') || messageTypeHint?.toLowerCase().includes('video') ||
                          messageTypeHint?.toLowerCase().includes('audio') || messageTypeHint === 'ptt' ||
-                         /\.(jpg|jpeg|png|gif|webp|mp4|webm|mov|mp3|ogg|opus|m4a)$/i.test(fileName))
+                         /\.(jpg|jpeg|png|gif|webp|mp4|webm|mov|mp3|ogg|opus|m4a)$/i.test(fileName || ''))
                           ? '' 
                           : 'max-w-xs'
                       }
