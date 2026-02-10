@@ -975,6 +975,7 @@ export interface WappiMessage {
   mimetype?: string;
   file_name?: string;
   file_link?: string;
+  title?: string;
   contact_name?: string;
   contact_username?: string;
   contact_phone?: string;

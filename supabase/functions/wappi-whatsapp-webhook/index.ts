@@ -15,6 +15,87 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
+// ============================================================================
+// Media upload helper
+// ============================================================================
+
+const MIME_TO_EXT: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'video/mp4': '.mp4',
+  'video/3gpp': '.3gp',
+  'audio/ogg': '.ogg',
+  'audio/ogg; codecs=opus': '.ogg',
+  'audio/mpeg': '.mp3',
+  'audio/mp4': '.m4a',
+  'application/pdf': '.pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+  'application/msword': '.doc',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+  'application/vnd.ms-excel': '.xls',
+}
+
+function getExtFromMime(mime: string | undefined): string {
+  if (!mime) return '.bin'
+  // Handle mimes with parameters like "audio/ogg; codecs=opus"
+  const clean = mime.split(';')[0].trim().toLowerCase()
+  return MIME_TO_EXT[clean] || MIME_TO_EXT[mime] || `.${clean.split('/')[1] || 'bin'}`
+}
+
+function generateFileName(mime: string | undefined, messageId: string): string {
+  const ext = getExtFromMime(mime)
+  const typeLabel = mime?.startsWith('image') ? 'image'
+    : mime?.startsWith('video') ? 'video'
+    : mime?.startsWith('audio') ? 'audio'
+    : 'file'
+  return `${typeLabel}_${messageId.slice(-8)}${ext}`
+}
+
+async function uploadWappiMedia(
+  base64Body: string,
+  messageId: string,
+  mimeType: string | undefined,
+  orgId: string
+): Promise<string | null> {
+  try {
+    // Decode base64 to binary
+    const binaryString = atob(base64Body)
+    const bytes = new Uint8Array(binaryString.length)
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i)
+    }
+
+    const ext = getExtFromMime(mimeType)
+    const contentType = mimeType?.split(';')[0].trim() || 'application/octet-stream'
+    const storagePath = `wappi/${orgId}/${messageId}${ext}`
+
+    console.log(`[wappi-media] Uploading ${bytes.length} bytes to chat-media/${storagePath}`)
+
+    const { error: uploadError } = await supabase.storage
+      .from('chat-media')
+      .upload(storagePath, bytes, {
+        contentType,
+        upsert: true,
+      })
+
+    if (uploadError) {
+      console.error('[wappi-media] Upload error:', uploadError.message)
+      return null
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('chat-media')
+      .getPublicUrl(storagePath)
+
+    console.log('[wappi-media] Uploaded successfully:', publicUrlData.publicUrl)
+    return publicUrlData.publicUrl
+  } catch (err) {
+    console.error('[wappi-media] Failed to upload:', err)
+    return null
+  }
+}
+
 function extractPhoneFromChatId(chatId: string): string {
   // chatId format: 79999999999@c.us or group format
   return chatId.replace('@c.us', '').replace('@g.us', '')
@@ -347,11 +428,16 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
     return // Skip saving reactions as separate messages for now
   } else {
     messageText = message.caption || getMessageTypeDescription(message.type, message.mimetype)
-    fileName = message.file_name
-    fileType = message.mimetype
+    fileName = message.file_name || message.title || generateFileName(message.mimetype, message.id)
+    fileType = message.mimetype || null
 
-    if (message.body && message.type !== 'chat') {
-      fileUrl = `wappi://media/${message.id}`
+    // Upload base64 media to Supabase Storage
+    if (message.body && message.type !== 'chat' && organizationId) {
+      const uploadedUrl = await uploadWappiMedia(message.body, message.id, message.mimetype, organizationId)
+      fileUrl = uploadedUrl
+      if (!uploadedUrl) {
+        console.warn('[wappi-webhook] Media upload failed for message:', message.id)
+      }
     }
   }
 
@@ -536,6 +622,18 @@ async function handleOutgoingMessage(message: WappiMessage, organizationId: stri
     ? message.body
     : (message.caption || getMessageTypeDescription(message.type))
 
+  let fileUrl: string | null = null
+  let fileName: string | null = null
+  let fileType: string | null = null
+
+  // Upload media for outgoing messages too
+  if (message.type !== 'chat' && message.body && organizationId) {
+    fileName = message.file_name || message.title || generateFileName(message.mimetype, message.id)
+    fileType = message.mimetype || null
+    const uploadedUrl = await uploadWappiMedia(message.body, message.id, message.mimetype, organizationId)
+    fileUrl = uploadedUrl
+  }
+
   // Save message as outgoing from manager
   const { error } = await supabase.from('chat_messages').insert({
     client_id: client.id,
@@ -543,10 +641,13 @@ async function handleOutgoingMessage(message: WappiMessage, organizationId: stri
     message_text: messageText,
     message_type: 'manager',
     messenger_type: 'whatsapp',
-    status: 'sent', // outgoing message starts as sent, will be updated via delivery_status
+    status: 'sent',
     external_message_id: message.id,
     is_outgoing: true,
     is_read: true,
+    file_url: fileUrl,
+    file_name: fileName,
+    file_type: fileType,
     created_at: message.timestamp || new Date(message.time * 1000).toISOString()
   })
 
