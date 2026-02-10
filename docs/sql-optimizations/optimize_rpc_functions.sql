@@ -77,7 +77,7 @@
 -- Пример оптимизированной функции
 -- =====================================================
 
--- DROP FUNCTION IF EXISTS public.get_chat_threads_paginated(int, int);
+DROP FUNCTION IF EXISTS public.get_chat_threads_paginated(int, int);
 
 CREATE OR REPLACE FUNCTION public.get_chat_threads_paginated(p_limit int DEFAULT 50, p_offset int DEFAULT 0)
 RETURNS TABLE (
