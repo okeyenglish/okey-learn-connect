@@ -14,8 +14,10 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? Deno.env.get("SELF_HOSTED_URL") ?? "";
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    const supabase = createClient(supabaseUrl, serviceKey);
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY") ?? "";
+    const supabase = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
 
     const { clientId, messengerType } = await req.json();
 
@@ -58,7 +60,9 @@ serve(async (req) => {
       name: `${client.name || "Без имени"} (${messengerLabel})`,
       organization_id: client.organization_id,
       status: client.status || "active",
-      phone: null, // No phone for the unlinked messenger client
+      is_active: true,
+      phone: null,
+      branch: client.branch || null,
     };
 
     // Copy the relevant messenger IDs to the new client
