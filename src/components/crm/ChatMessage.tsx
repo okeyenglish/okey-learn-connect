@@ -260,7 +260,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
               <User className="h-4 w-4 text-blue-600" />
             </div>
             <div>
-              <div className="text-xs text-blue-600 font-medium">Менеджер поддержки</div>
+              <div className="text-xs text-blue-600 font-medium">{managerName || 'Менеджер поддержки'}</div>
               <div className="text-sm text-blue-800">{message}</div>
             </div>
           </div>
@@ -402,7 +402,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
           
           {type === 'manager' && !isEditing && showName && (
             <div className="text-xs text-muted-foreground mb-1 text-right">
-              Менеджер поддержки
+              {managerName || 'Менеджер поддержки'}
             </div>
           )}
            <div className={`rounded-2xl p-2 relative ${
