@@ -26,7 +26,9 @@ export const useUnlinkMessenger = () => {
       });
 
       if (!response.success || !response.data?.success) {
-        throw new Error(response.error || response.data?.toString() || 'Ошибка отвязки мессенджера');
+        const details = (response.data as any)?.details || '';
+        const errorMsg = (response.data as any)?.error || response.error || 'Ошибка отвязки мессенджера';
+        throw new Error(details ? `${errorMsg}: ${details}` : errorMsg);
       }
 
       return response.data;
