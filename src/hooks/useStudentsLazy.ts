@@ -11,7 +11,7 @@ export const useStudentsLazy = (enabled: boolean = false) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('students')
-        .select('*')
+        .select('id, first_name, last_name, phone, status, branch, organization_id, created_at')
         .order('created_at', { ascending: false })
         .limit(10000);
       

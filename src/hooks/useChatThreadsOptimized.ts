@@ -83,16 +83,9 @@ export const useChatThreadsOptimized = () => {
             .rpc('get_chat_threads_optimized', { p_limit: 200 });
           
           if (fallbackError) {
-            console.error('[useChatThreadsOptimized] Optimized RPC also failed, trying fast:', fallbackError);
-            const { data: fastData, error: fastError } = await supabase
-              .rpc('get_chat_threads_fast', { p_limit: 200 });
-            if (fastError) {
-              endMetric(metricId, 'failed', { error: fastError.message });
-              throw fastError;
-            }
-            const threads = mapRpcToThreads((fastData || []) as RpcThreadRow[]);
-            endMetric(metricId, 'completed', { count: threads.length, method: 'fast' });
-            return threads;
+            console.error('[useChatThreadsOptimized] Optimized RPC also failed:', fallbackError);
+            endMetric(metricId, 'failed', { error: fallbackError.message });
+            throw fallbackError;
           }
           
           const threads = mapRpcToThreads((fallbackData || []) as RpcThreadRow[]);

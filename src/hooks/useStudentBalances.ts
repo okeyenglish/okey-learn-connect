@@ -54,7 +54,7 @@ export const useStudentBalances = () => {
       // Временно: используем студентов напрямую
       const { data: students, error: studentsError } = await supabase
         .from('students')
-        .select('*')
+        .select('id, first_name, last_name, phone, status, branch, balance, organization_id, created_at')
         .eq('status', 'active');
 
       if (studentsError) throw studentsError;
