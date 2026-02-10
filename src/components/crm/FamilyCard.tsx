@@ -585,8 +585,8 @@ export const FamilyCard = ({
                 contactData={{
                   name: activeMember.name,
                   email: activeMember.email || "",
-                  dateOfBirth: "1993-12-25",
-                  branch: selectedBranch,
+                  dateOfBirth: "",
+                  branch: activeMember.branch || selectedBranch || "",
                   notes: "",
                   phoneNumbers: activeMember.phoneNumbers.map(p => {
                     // Normalize phone for display
@@ -605,11 +605,27 @@ export const FamilyCard = ({
                 }}
                 clientTelegramId={activeMember.telegramUserId?.toString()}
                 clientMaxId={activeMember.maxChatId}
-                onSave={(data) => {
+                onSave={async (data) => {
                   console.log('Saving contact data:', data);
                   // Update member phone numbers
                   handlePhoneNumbersUpdate(activeMember.id, data.phoneNumbers);
-                  // Here you would update the contact data in your backend
+                  // Persist name, email, branch, notes to database
+                  try {
+                    await updateClient.mutateAsync({
+                      id: activeMember.id,
+                      name: data.name,
+                      first_name: data.firstName || null,
+                      last_name: data.lastName || null,
+                      middle_name: data.middleName || null,
+                      email: data.email || null,
+                      branch: data.branch || null,
+                      notes: data.notes || null,
+                    } as any);
+                    toast.success('Контакт обновлён');
+                  } catch (error) {
+                    console.error('Failed to update client:', error);
+                    toast.error('Ошибка при сохранении контакта');
+                  }
                 }}
               />
             </div>
