@@ -31,7 +31,7 @@ import { useStudentsLazy } from "@/hooks/useStudentsLazy";
 import { useStudentsCount } from "@/hooks/useStudentsCount";
 import { useLeadsCount } from "@/hooks/useLeadsCount";
 import { useTasksLazy } from "@/hooks/useTasksLazy";
-import { useNewMessageHighlight } from "@/hooks/useNewMessageHighlight";
+import { CRMRealtimeProvider, useCRMRealtime } from "@/pages/crm/providers/CRMRealtimeProvider";
 import { ChatArea } from "@/components/crm/ChatArea";
 import { CorporateChatArea } from "@/components/crm/CorporateChatArea";
 import { TeacherChatArea } from "@/components/crm/TeacherChatArea";
@@ -151,8 +151,7 @@ import {
   Loader2
 } from "lucide-react";
 import { AnimatedLogo } from "@/components/AnimatedLogo";
-import { useTypingPresence } from "@/hooks/useTypingPresence";
-import { useChatPresenceList, useChatPresenceTracker } from "@/hooks/useChatPresence";
+import { useChatPresenceTracker } from "@/hooks/useChatPresence";
 import { useActiveCallPresence } from "@/hooks/useActiveCallPresence";
 import { useStaffOnlinePresence } from "@/hooks/useStaffOnlinePresence";
 import { useSystemChatMessages } from '@/hooks/useSystemChatMessages';
@@ -551,9 +550,7 @@ const CRMContent = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-  const { typingByClient } = useTypingPresence();
-  const { presenceByClient } = useChatPresenceList();
-  const { newMessageClientIds } = useNewMessageHighlight();
+  const { typingByClient, presenceByClient, newMessageClientIds } = useCRMRealtime();
   
   // Track current user's presence in the active chat
   const { updatePresence } = useChatPresenceTracker(activeChatId);
@@ -4887,7 +4884,9 @@ const CRMContent = () => {
 const CRM = () => {
   return (
     <ProtectedRoute allowedRoles={['admin', 'manager']}>
-      <CRMContent />
+      <CRMRealtimeProvider>
+        <CRMContent key={import.meta.hot ? Date.now() : 'stable'} />
+      </CRMRealtimeProvider>
     </ProtectedRoute>
   );
 };
