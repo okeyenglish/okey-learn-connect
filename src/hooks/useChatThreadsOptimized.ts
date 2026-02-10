@@ -355,7 +355,7 @@ export const useUnreadThreads = () => {
         last_unread_time: data.lastTime
       }));
     },
-    staleTime: 5000,
-    refetchOnWindowFocus: true,
+    staleTime: 30000, // OPTIMIZED: 5s → 30s to reduce DB load
+    refetchOnWindowFocus: false, // OPTIMIZED: disabled, using realtime
   });
 };

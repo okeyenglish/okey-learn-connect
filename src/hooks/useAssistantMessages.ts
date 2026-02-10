@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -147,10 +147,17 @@ export const useAssistantMessages = () => {
     },
   });
 
-  // Помечаем все сообщения как прочитанные
+  // Помечаем все сообщения как прочитанные (с защитой от лишних вызовов)
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
       if (!user?.id) return;
+      
+      // OPTIMIZATION: Не делаем запрос если нет непрочитанных сообщений
+      const currentUnread = queryClient.getQueryData<number>(['assistant-unread-count', user.id]);
+      if (currentUnread === 0) {
+        console.log('[useAssistantMessages] markAllAsRead skipped: no unread messages');
+        return;
+      }
       
       const { error } = await supabase
         .from('assistant_messages')
@@ -242,9 +249,23 @@ export const useAssistantMessages = () => {
     [addMessageMutation]
   );
 
+  // Debounced markAllAsRead - предотвращает множественные вызовы
+  const markAllAsReadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const markAllAsRead = useCallback(() => {
-    return markAllAsReadMutation.mutateAsync();
-  }, [markAllAsReadMutation]);
+    // Быстрая проверка на клиенте
+    if (unreadCount === 0) return Promise.resolve();
+    
+    // Debounce 500ms - если вызвали несколько раз подряд, выполнится только последний
+    if (markAllAsReadTimeoutRef.current) {
+      clearTimeout(markAllAsReadTimeoutRef.current);
+    }
+    
+    return new Promise<void>((resolve) => {
+      markAllAsReadTimeoutRef.current = setTimeout(() => {
+        markAllAsReadMutation.mutateAsync().then(() => resolve());
+      }, 500);
+    });
+  }, [markAllAsReadMutation, unreadCount]);
 
   const clearHistory = useCallback(() => {
     return clearHistoryMutation.mutateAsync();
