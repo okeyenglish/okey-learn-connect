@@ -134,7 +134,7 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
       telegram_user_id
     `)
     .in('id', clientIds)
-    .neq('status', 'deleted');
+    .eq('is_active', true);
 
   if (clientsError) {
     console.error('[usePhoneSearchThreads] Failed to fetch clients:', clientsError);
