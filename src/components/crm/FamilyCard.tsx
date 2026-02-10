@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ import { useUpdateClient } from "@/hooks/useClients";
 import { usePinnedModalsDB } from "@/hooks/usePinnedModalsDB";
 import { useOrganization } from "@/hooks/useOrganization";
 import { InviteToPortalButton } from "./InviteToPortalButton";
+import { UnlinkMessengerDialog } from "./UnlinkMessengerDialog";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { normalizePhone, formatPhoneForDisplay } from "@/utils/phoneNormalization";
@@ -78,6 +79,7 @@ export const FamilyCard = ({
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [activePhoneId, setActivePhoneId] = useState<string>(propActivePhoneId);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [unlinkMessenger, setUnlinkMessenger] = useState<{ type: 'whatsapp' | 'telegram' | 'max'; clientId: string; clientName: string } | null>(null);
   const [selectedCourseType, setSelectedCourseType] = useState<'group' | 'individual' | null>(null);
   const { familyData, loading, error, refetch } = useFamilyData(familyGroupId);
   const { branches: organizationBranches } = useOrganization();
@@ -628,6 +630,13 @@ export const FamilyCard = ({
                 onOpenChat?.(activeMember.id, messenger);
               }}
               onCallClick={handlePhoneCall}
+              onUnlinkMessenger={(messenger) => {
+                setUnlinkMessenger({
+                  type: messenger,
+                  clientId: activeMember.id,
+                  clientName: activeMember.name,
+                });
+              }}
               onPhoneSave={async (data) => {
                 // Save phone to client record and create client_phone_numbers entry with messenger data
                 try {
@@ -1002,6 +1011,18 @@ export const FamilyCard = ({
               setSelectedCourseType(null);
             }
           }}
+        />
+      )}
+
+      {/* Unlink Messenger Dialog */}
+      {unlinkMessenger && (
+        <UnlinkMessengerDialog
+          open={!!unlinkMessenger}
+          onOpenChange={(open) => !open && setUnlinkMessenger(null)}
+          clientId={unlinkMessenger.clientId}
+          clientName={unlinkMessenger.clientName}
+          messengerType={unlinkMessenger.type}
+          onSuccess={refetch}
         />
       )}
     </div>
