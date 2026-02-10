@@ -56,11 +56,11 @@ serve(async (req) => {
       messengerType === "whatsapp" ? "WhatsApp" :
       messengerType === "telegram" ? "Telegram" : "MAX";
 
+    // Build insert data — only include columns known to exist on self-hosted schema
+    // Self-hosted clients table lacks 'status' and 'whatsapp_id' columns
     const newClientData: Record<string, unknown> = {
       name: `${client.name || "Без имени"} (${messengerLabel})`,
       organization_id: client.organization_id,
-      status: client.status || "active",
-      is_active: true,
       phone: null,
       branch: client.branch || null,
     };
@@ -69,10 +69,10 @@ serve(async (req) => {
     if (messengerType === "telegram") {
       newClientData.telegram_user_id = client.telegram_user_id;
     } else if (messengerType === "whatsapp") {
-      newClientData.whatsapp_id = client.whatsapp_id;
-      // Try to extract phone from whatsapp_id
-      if (client.whatsapp_id) {
-        const digits = client.whatsapp_id.replace(/@c\.us$/i, "").replace(/\D/g, "");
+      // whatsapp_id may not exist on self-hosted, extract phone instead
+      const waId = client.whatsapp_id || client.phone;
+      if (waId) {
+        const digits = String(waId).replace(/@c\.us$/i, "").replace(/\D/g, "");
         if (digits.length >= 10) {
           newClientData.phone = digits;
         }
@@ -133,9 +133,8 @@ serve(async (req) => {
     const clearFields: Record<string, unknown> = {};
     if (messengerType === "telegram") {
       clearFields.telegram_user_id = null;
-    } else if (messengerType === "whatsapp") {
-      clearFields.whatsapp_id = null;
     }
+    // whatsapp_id column may not exist on self-hosted — skip clearing it
 
     if (Object.keys(clearFields).length > 0) {
       const { error: clearError } = await supabase
