@@ -179,107 +179,157 @@ const transformUnifiedResponse = (data: UnifiedRpcResponse): FamilyGroup => {
   };
 };
 
+// Direct client fallback - loads data from clients table when family tables are unavailable
+const fetchClientDirectFallback = async (clientId: string): Promise<FamilyGroup | null> => {
+  console.warn('[FamilyCardWrapper] Using direct client fallback (no family tables)');
+  try {
+    const { data: clientData, error } = await supabase
+      .from('clients')
+      .select('id, name, phone, email, avatar_url, branch')
+      .eq('id', clientId)
+      .maybeSingle();
+
+    if (error || !clientData) {
+      console.error('[FamilyCardWrapper] Direct client fallback failed:', error);
+      return null;
+    }
+
+    const result: FamilyGroup = {
+      id: `direct-${clientId}`,
+      name: (clientData as any).name || 'Клиент',
+      members: [{
+        id: clientData.id,
+        name: (clientData as any).name || '',
+        phone: (clientData as any).phone || '',
+        email: (clientData as any).email || undefined,
+        branch: (clientData as any).branch || undefined,
+        relationship: 'main' as const,
+        isPrimaryContact: true,
+        unreadMessages: 0,
+        isOnline: false,
+        avatar_url: (clientData as any).avatar_url || undefined,
+        phoneNumbers: [],
+      }],
+      students: [],
+    };
+
+    familyDataByClientCache.set(clientId, { data: result, timestamp: Date.now() });
+    return result;
+  } catch (err) {
+    console.error('[FamilyCardWrapper] Direct client fallback exception:', err);
+    return null;
+  }
+};
+
 // Legacy fallback: sequential queries for family group ID
 const fetchFamilyGroupIdLegacy = async (clientId: string): Promise<string | null> => {
   const startTime = performance.now();
   
-  // Step 1: Check if client already has a family group
-  const { data: existingMember, error: memberError } = await supabase
-    .from('family_members')
-    .select('family_group_id')
-    .eq('client_id', clientId)
-    .limit(1)
-    .maybeSingle();
+  try {
+    // Step 1: Check if client already has a family group
+    const { data: existingMember, error: memberError } = await supabase
+      .from('family_members')
+      .select('family_group_id')
+      .eq('client_id', clientId)
+      .limit(1)
+      .maybeSingle();
 
-  if (!memberError && existingMember?.family_group_id) {
-    console.log(`[FamilyCardWrapper] Found existing group in ${(performance.now() - startTime).toFixed(0)}ms`);
-    return existingMember.family_group_id;
-  }
+    if (!memberError && existingMember?.family_group_id) {
+      console.log(`[FamilyCardWrapper] Found existing group in ${(performance.now() - startTime).toFixed(0)}ms`);
+      return existingMember.family_group_id;
+    }
 
-  // Step 2: Get client phone to find or create group
-  const { data: client } = await supabase
-    .from('clients')
-    .select('name, first_name, last_name, phone')
-    .eq('id', clientId)
-    .maybeSingle();
+    // If table doesn't exist, bail out to direct fallback
+    if (memberError && (memberError.code === '42P01' || memberError.message?.includes('relation') || memberError.code === 'PGRST204')) {
+      console.warn('[FamilyCardWrapper] family_members table not available:', memberError.message);
+      return null;
+    }
 
-  // Step 3: Try to find existing group by phone
-  if (client?.phone) {
-    const phoneNorm = normalizePhone(client.phone);
-    if (phoneNorm) {
-      const { data: existingGroups } = await supabase
-        .from('family_members')
-        .select(`
-          family_group_id,
-          clients!inner (phone)
-        `)
-        .eq('clients.phone', phoneNorm)
-        .limit(1);
+    // Step 2: Get client phone to find or create group
+    const { data: client } = await supabase
+      .from('clients')
+      .select('name, first_name, last_name, phone')
+      .eq('id', clientId)
+      .maybeSingle();
 
-      if (existingGroups?.length && existingGroups[0].family_group_id) {
-        const groupId = existingGroups[0].family_group_id;
-        
-        // Link client to existing group
-        await supabase.from('family_members').insert({
-          family_group_id: groupId,
-          client_id: clientId,
-          relationship_type: 'parent',
-          is_primary_contact: false,
-        });
+    // Step 3: Try to find existing group by phone
+    if (client?.phone) {
+      const phoneNorm = normalizePhone(client.phone);
+      if (phoneNorm) {
+        const { data: existingGroups } = await supabase
+          .from('family_members')
+          .select(`
+            family_group_id,
+            clients!inner (phone)
+          `)
+          .eq('clients.phone', phoneNorm)
+          .limit(1);
 
-        console.log(`[FamilyCardWrapper] Linked to existing group in ${(performance.now() - startTime).toFixed(0)}ms`);
-        return groupId;
+        if (existingGroups?.length && existingGroups[0].family_group_id) {
+          const groupId = existingGroups[0].family_group_id;
+          
+          await supabase.from('family_members').insert({
+            family_group_id: groupId,
+            client_id: clientId,
+            relationship_type: 'parent',
+            is_primary_contact: false,
+          });
+
+          console.log(`[FamilyCardWrapper] Linked to existing group in ${(performance.now() - startTime).toFixed(0)}ms`);
+          return groupId;
+        }
       }
     }
-  }
 
-  // Step 4: Create new family group
-  let groupName = 'Семья клиента';
-  if (client?.last_name) {
-    groupName = `Семья ${client.last_name}`;
-  } else if (client?.name) {
-    const parts = client.name.split(' ');
-    groupName = `Семья ${parts[0] || 'клиента'}`;
-  }
+    // Step 4: Create new family group
+    let groupName = 'Семья клиента';
+    if (client?.last_name) {
+      groupName = `Семья ${client.last_name}`;
+    } else if (client?.name) {
+      const parts = client.name.split(' ');
+      groupName = `Семья ${parts[0] || 'клиента'}`;
+    }
 
-  const { data: group, error: groupError } = await supabase
-    .from('family_groups')
-    .insert({ name: groupName })
-    .select('id')
-    .single();
+    const { data: group, error: groupError } = await supabase
+      .from('family_groups')
+      .insert({ name: groupName })
+      .select('id')
+      .single();
 
-  if (groupError) {
-    console.error('[FamilyCardWrapper] Error creating group:', groupError);
+    if (groupError) {
+      console.warn('[FamilyCardWrapper] Error creating family_groups (table may not exist):', groupError);
+      return null;
+    }
+
+    await supabase.from('family_members').insert({
+      family_group_id: group.id,
+      client_id: clientId,
+      relationship_type: 'main',
+      is_primary_contact: true,
+    });
+
+    if (client?.phone) {
+      const { data: existingPhones } = await supabase
+        .from('client_phone_numbers')
+        .select('id')
+        .eq('client_id', clientId)
+        .limit(1);
+
+      if (!existingPhones?.length) {
+        await supabase.from('client_phone_numbers').insert({
+          client_id: clientId,
+          phone: client.phone,
+          is_primary: true,
+        });
+      }
+    }
+
+    console.log(`[FamilyCardWrapper] Created new group (legacy) in ${(performance.now() - startTime).toFixed(0)}ms`);
+    return group.id;
+  } catch (err) {
+    console.warn('[FamilyCardWrapper] fetchFamilyGroupIdLegacy exception (tables may not exist):', err);
     return null;
   }
-
-  // Link client to new group
-  await supabase.from('family_members').insert({
-    family_group_id: group.id,
-    client_id: clientId,
-    relationship_type: 'main',
-    is_primary_contact: true,
-  });
-
-  // Ensure phone number exists
-  if (client?.phone) {
-    const { data: existingPhones } = await supabase
-      .from('client_phone_numbers')
-      .select('id')
-      .eq('client_id', clientId)
-      .limit(1);
-
-    if (!existingPhones?.length) {
-      await supabase.from('client_phone_numbers').insert({
-        client_id: clientId,
-        phone: client.phone,
-        is_primary: true,
-      });
-    }
-  }
-
-  console.log(`[FamilyCardWrapper] Created new group (legacy) in ${(performance.now() - startTime).toFixed(0)}ms`);
-  return group.id;
 };
 
 // Fetch family data directly by client ID (unified RPC with fallback)
@@ -364,7 +414,8 @@ const fetchFamilyDataLegacy = async (clientId: string): Promise<FamilyGroup | nu
   }
   
   if (!familyGroupId) {
-    return null;
+    console.warn('[FamilyCardWrapper] No family group found, using direct client fallback');
+    return fetchClientDirectFallback(clientId);
   }
 
   // Step 2: Fetch family data
@@ -372,8 +423,8 @@ const fetchFamilyDataLegacy = async (clientId: string): Promise<FamilyGroup | nu
     .rpc('get_family_data_optimized', { p_family_group_id: familyGroupId });
 
   if (error || !data) {
-    console.error('[FamilyCardWrapper] Legacy fetch error:', error);
-    return null;
+    console.warn('[FamilyCardWrapper] get_family_data_optimized failed, using direct client fallback:', error);
+    return fetchClientDirectFallback(clientId);
   }
 
   console.log(`[FamilyCardWrapper] Legacy two-step completed in ${(performance.now() - startTime).toFixed(0)}ms`);
