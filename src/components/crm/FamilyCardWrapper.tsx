@@ -194,8 +194,50 @@ const fetchClientDirectFallback = async (clientId: string): Promise<FamilyGroup 
       return null;
     }
 
+    // Try to find students via family_members -> family_group_id -> students
+    let students: FamilyGroup['students'] = [];
+    let resolvedGroupId: string = clientId;
+    try {
+      const { data: memberData } = await supabase
+        .from('family_members')
+        .select('family_group_id')
+        .eq('client_id', clientId)
+        .limit(1)
+        .maybeSingle();
+
+      if (memberData?.family_group_id) {
+        resolvedGroupId = memberData.family_group_id;
+        const { data: studentsData } = await supabase
+          .from('students')
+          .select('id, name, first_name, last_name, middle_name, date_of_birth, avatar_url, status')
+          .eq('family_group_id', memberData.family_group_id);
+
+        if (studentsData?.length) {
+          const calcAge = (dob: string | null) => {
+            if (!dob) return undefined;
+            const diff = Date.now() - new Date(dob).getTime();
+            return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
+          };
+          students = studentsData.map((s: any) => ({
+            id: s.id,
+            name: s.name || [s.first_name, s.last_name].filter(Boolean).join(' '),
+            firstName: s.first_name || s.name || '',
+            lastName: s.last_name || '',
+            middleName: s.middle_name || '',
+            age: calcAge(s.date_of_birth),
+            dateOfBirth: s.date_of_birth || undefined,
+            status: s.status === 'active' ? 'active' : 'inactive',
+            courses: [],
+          }));
+          console.log(`[FamilyCardWrapper] Found ${students.length} students via family_group_id`);
+        }
+      }
+    } catch (err) {
+      console.warn('[FamilyCardWrapper] Could not fetch students:', err);
+    }
+
     const result: FamilyGroup = {
-      id: clientId,
+      id: resolvedGroupId,
       name: (clientData as any).name || 'Клиент',
       members: [{
         id: clientData.id,
@@ -210,7 +252,7 @@ const fetchClientDirectFallback = async (clientId: string): Promise<FamilyGroup 
         avatar_url: (clientData as any).avatar_url || undefined,
         phoneNumbers: [],
       }],
-      students: [],
+      students,
     };
 
     familyDataByClientCache.set(clientId, { data: result, timestamp: Date.now() });
