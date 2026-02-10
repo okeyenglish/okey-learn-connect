@@ -310,11 +310,6 @@ export const ChatListItem = React.memo(({
                     </span>
                     <span className="truncate">{typingInfo?.names?.[0] || 'Сотрудник'} печатает...</span>
                   </div>
-                  {typingInfo?.draftText && (
-                    <p className="text-[11px] text-orange-500/80 truncate mt-0.5 font-normal not-italic animate-fade-in" style={{animationDelay: '100ms'}}>
-                      «{typingInfo.draftText.length > 50 ? `${typingInfo.draftText.slice(0, 50)}…` : typingInfo.draftText}»
-                    </p>
-                  )}
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed transition-opacity duration-200">
