@@ -65,6 +65,7 @@ interface ContactInfoBlockProps {
   onMessengerClick?: (phoneId: string, messenger: 'whatsapp' | 'telegram' | 'max') => void;
   onCallClick?: (phone: string) => void;
   onPhoneSave?: (data: PhoneSaveData) => void; // Callback to save new/edited phone with messenger data
+  onUnlinkMessenger?: (messenger: 'whatsapp' | 'telegram' | 'max') => void;
   // Client-level messenger data (fallback when phone-level data is missing)
   clientTelegramChatId?: string | null;
   clientTelegramUserId?: number | null;
@@ -78,6 +79,7 @@ export const ContactInfoBlock = ({
   onMessengerClick,
   onCallClick,
   onPhoneSave,
+  onUnlinkMessenger,
   clientTelegramChatId,
   clientTelegramUserId,
   clientWhatsappChatId,
@@ -488,10 +490,22 @@ export const ContactInfoBlock = ({
                               ? `ID: ${String(getWhatsappId(phoneNumber)).replace('@c.us', '')}` 
                               : `Тел: ${phoneNumber.phone}`}
                           </div>
+                          {onUnlinkMessenger && (
+                            <div className="text-destructive mt-1 font-medium">Долгий клик — отвязать</div>
+                          )}
                         </div>
                       ) : 'WhatsApp не подключен'}
                     </TooltipContent>
                   </Tooltip>
+                  {waActive && onUnlinkMessenger && (
+                    <button
+                      className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
+                      onClick={(e) => { e.stopPropagation(); onUnlinkMessenger('whatsapp'); }}
+                      title="Отвязать WhatsApp"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
                   
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -515,10 +529,22 @@ export const ContactInfoBlock = ({
                               return 'Подключен';
                             })()}
                           </div>
+                          {onUnlinkMessenger && (
+                            <div className="text-destructive mt-1 font-medium">Долгий клик — отвязать</div>
+                          )}
                         </div>
                       ) : 'Telegram не подключен'}
                     </TooltipContent>
                   </Tooltip>
+                  {tgActive && onUnlinkMessenger && (
+                    <button
+                      className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
+                      onClick={(e) => { e.stopPropagation(); onUnlinkMessenger('telegram'); }}
+                      title="Отвязать Telegram"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
                   
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -534,6 +560,15 @@ export const ContactInfoBlock = ({
                       {maxActive ? 'Открыть MAX чат' : 'MAX не подключен'}
                     </TooltipContent>
                   </Tooltip>
+                  {maxActive && onUnlinkMessenger && (
+                    <button
+                      className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
+                      onClick={(e) => { e.stopPropagation(); onUnlinkMessenger('max'); }}
+                      title="Отвязать MAX"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
                 </div>
               )}
             </div>
