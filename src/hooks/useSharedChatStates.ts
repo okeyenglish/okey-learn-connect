@@ -173,19 +173,10 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
 
     fetchSharedStates();
 
-    // Подписываемся на изменения в chat_states с debounce
-    const changesChannel = supabase
-      .channel('shared-chat-states-realtime')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'chat_states' }, 
-        () => {
-          console.log('Shared chat states changed, debounced refetch...');
-          debouncedFetch();
-        }
-      )
-      .subscribe();
+    // Removed: postgres_changes subscription for chat_states
+    // useRealtimeHub already handles query invalidation for 'chat_states' table
 
-    // Доп. канал вещания для межпользовательской синхронизации
+    // Keep the broadcast channel for inter-user synchronization (this is NOT a postgres_changes channel)
     const busChannel = supabase
       .channel('chat-states-bus')
       .on('broadcast', { event: 'pin-change' }, () => {
@@ -198,7 +189,6 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
       if (debouncedFetchRef.current) {
         clearTimeout(debouncedFetchRef.current);
       }
-      supabase.removeChannel(changesChannel);
       supabase.removeChannel(busChannel);
     };
   }, [user?.id, chatIdsKey, fetchSharedStates, debouncedFetch]);

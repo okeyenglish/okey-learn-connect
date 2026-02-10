@@ -48,41 +48,9 @@ export const usePinnedChatIds = () => {
 
   useEffect(() => {
     loadPinnedChatIds();
-
-    // Subscribe to changes
-    if (user) {
-      const channel = supabase
-        .channel(`pinned-chat-ids-${user.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'chat_states',
-            filter: `user_id=eq.${user.id}`
-          },
-          (payload) => {
-            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-              const newState = payload.new as ChatStateRow;
-              if (newState.is_pinned) {
-                setPinnedChatIds(prev => 
-                  prev.includes(newState.chat_id) ? prev : [...prev, newState.chat_id]
-                );
-              } else {
-                setPinnedChatIds(prev => prev.filter(id => id !== newState.chat_id));
-              }
-            } else if (payload.eventType === 'DELETE') {
-              const oldState = payload.old as ChatStateRow;
-              setPinnedChatIds(prev => prev.filter(id => id !== oldState.chat_id));
-            }
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
+    // Removed: postgres_changes subscription for chat_states
+    // useRealtimeHub already handles query invalidation for 'chat_states' table
+    // We use refetchInterval as lightweight backup
   }, [loadPinnedChatIds, user]);
 
   return { pinnedChatIds, loading, refetch: loadPinnedChatIds };

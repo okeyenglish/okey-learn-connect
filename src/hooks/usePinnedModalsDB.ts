@@ -52,32 +52,20 @@ export const usePinnedModalsDB = () => {
     }
   }, [user]);
 
-  // Загружаем данные при монтировании компонента или изменении пользователя
+  // Загружаем данные при монтировании и используем polling вместо realtime
   useEffect(() => {
     loadPinnedModals();
 
-    // Подписка на realtime изменения
+    // Polling every 30 seconds instead of postgres_changes channel
+    // Pinned modals change rarely, no need for sub-second latency
     if (!user) return;
 
-    const channel = supabase
-      .channel('pinned_modals_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'pinned_modals',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          console.log('Pinned modals changed, reloading...');
-          loadPinnedModals();
-        }
-      )
-      .subscribe();
+    const pollInterval = setInterval(() => {
+      loadPinnedModals();
+    }, 30000);
 
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(pollInterval);
     };
   }, [loadPinnedModals, user]);
 

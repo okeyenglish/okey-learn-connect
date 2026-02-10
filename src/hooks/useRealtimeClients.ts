@@ -2,70 +2,27 @@ import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 
-interface RealtimeClientPayload {
-  new?: { id: string } | null;
-  old?: { id: string } | null;
-}
-
+/**
+ * Hook for polling client changes instead of using postgres_changes channel.
+ * Polls every 30 seconds and debounces rapid refetches.
+ * This reduces WAL decoding overhead on the server.
+ */
 export const useRealtimeClients = () => {
   const queryClient = useQueryClient();
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const pendingRefetchRef = useRef(false);
-  const eventCountRef = useRef(0);
-
-  const debouncedRefetch = useCallback(() => {
-    // Mark that we need a refetch
-    pendingRefetchRef.current = true;
-    eventCountRef.current += 1;
-    
-    // Clear existing timer and set a new one
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-    
-    // Wait 2 seconds after the last event before refetching
-    debounceTimerRef.current = setTimeout(() => {
-      if (pendingRefetchRef.current) {
-        console.log(`🔄 Debounced refetch triggered (${eventCountRef.current} events batched)`);
-        queryClient.refetchQueries({ queryKey: ['clients'] });
-        queryClient.refetchQueries({ queryKey: ['chat-threads'] });
-        pendingRefetchRef.current = false;
-        eventCountRef.current = 0;
-      }
-      debounceTimerRef.current = null;
-    }, 2000); // 2 second debounce
-  }, [queryClient]);
 
   useEffect(() => {
-    const channel = supabase
-      .channel('clients-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'clients'
-        },
-        (payload) => {
-          const typedPayload = payload as unknown as RealtimeClientPayload;
-          const affectedId = typedPayload.new?.id || typedPayload.old?.id;
-          
-          // Use debounced refetch for bulk operations
-          debouncedRefetch();
-          
-          // Refetch specific client query immediately if we have an ID
-          if (affectedId) {
-            queryClient.refetchQueries({ queryKey: ['client', affectedId] });
-          }
-        }
-      )
-      .subscribe();
+    // Poll every 30 seconds for client changes
+    const pollInterval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+    }, 30000);
 
     return () => {
+      clearInterval(pollInterval);
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
-      supabase.removeChannel(channel);
     };
-  }, [queryClient, debouncedRefetch]);
+  }, [queryClient]);
 };

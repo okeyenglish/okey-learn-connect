@@ -1,11 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/typedClient';
+import { onMessageEvent, offMessageEvent } from './useOrganizationRealtimeMessages';
+import type { ChatMessagePayload } from './useOrganizationRealtimeMessages';
 
 const HIGHLIGHT_DURATION_MS = 3000; // Время показа подсветки (совпадает с CSS анимацией)
 
 /**
  * Хук для отслеживания новых входящих сообщений и создания временной подсветки
  * в списке чатов. Подсветка автоматически снимается через 3 секунды.
+ * 
+ * Uses the callback registry from useOrganizationRealtimeMessages instead of
+ * creating its own postgres_changes channel.
  */
 export function useNewMessageHighlight() {
   const [newMessageClientIds, setNewMessageClientIds] = useState<Set<string>>(new Set());
@@ -47,29 +51,26 @@ export function useNewMessageHighlight() {
     };
   }, []);
 
-  // Подписка на realtime обновления chat_messages
+  // Subscribe to message events via callback registry (no new postgres_changes channel)
   useEffect(() => {
-    const channel = supabase
-      .channel('new-message-highlight')
-      .on(
-        'postgres_changes',
-        { 
-          event: 'INSERT', 
-          schema: 'public', 
-          table: 'chat_messages',
-          filter: 'direction=eq.incoming'
-        },
-        (payload) => {
-          const clientId = payload.new?.client_id;
-          if (clientId) {
-            addNewMessageHighlight(clientId);
-          }
-        }
-      )
-      .subscribe();
+    const handleMessageEvent = (msg: ChatMessagePayload, eventType: string) => {
+      if (eventType !== 'INSERT') return;
+      
+      // Only highlight incoming messages
+      // Self-hosted: message_type === 'client' or is_outgoing === false
+      // Cloud: direction === 'incoming'
+      const isIncoming = msg.message_type === 'client' || msg.is_outgoing === false || msg.direction === 'incoming';
+      if (!isIncoming) return;
 
+      const clientId = msg.client_id;
+      if (clientId) {
+        addNewMessageHighlight(clientId);
+      }
+    };
+
+    onMessageEvent(handleMessageEvent);
     return () => {
-      supabase.removeChannel(channel);
+      offMessageEvent(handleMessageEvent);
     };
   }, [addNewMessageHighlight]);
 

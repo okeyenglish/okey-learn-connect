@@ -49,49 +49,21 @@ export const useGlobalChatReadStatus = () => {
     }
   }, [user]);
 
-  // Загружаем данные при монтировании
+  // Загружаем данные при монтировании и используем polling вместо realtime
   useEffect(() => {
     loadGlobalReadStatuses();
 
-    // Настройка реального времени для синхронизации глобальных состояний
-    if (user) {
-      const channel = supabase
-        .channel('global-read-status-changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'global_chat_read_status'
-          },
-          (payload) => {
-            console.log('Global read status change:', payload);
-            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-              const newStatus = payload.new as GlobalChatReadStatus;
-              setGlobalReadStatuses(prev => ({
-                ...prev,
-                [newStatus.chat_id]: {
-                  chatId: newStatus.chat_id,
-                  lastReadAt: newStatus.last_read_at,
-                  lastReadBy: newStatus.last_read_by
-                }
-              }));
-            } else if (payload.eventType === 'DELETE') {
-              const oldStatus = payload.old as GlobalChatReadStatus;
-              setGlobalReadStatuses(prev => {
-                const newStatuses = { ...prev };
-                delete newStatuses[oldStatus.chat_id];
-                return newStatuses;
-              });
-            }
-          }
-        )
-        .subscribe();
+    // Polling every 15 seconds instead of postgres_changes channel
+    // Read status doesn't need sub-second latency
+    if (!user) return;
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
+    const pollInterval = setInterval(() => {
+      loadGlobalReadStatuses();
+    }, 15000);
+
+    return () => {
+      clearInterval(pollInterval);
+    };
   }, [loadGlobalReadStatuses, user]);
 
   // Пометить чат как прочитанный глобально

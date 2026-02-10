@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { playNotificationSound } from './useNotificationSound';
@@ -13,6 +13,7 @@ import { showBrowserNotification } from './useBrowserNotifications';
 interface ChatMessagePayload {
   client_id: string | null;
   organization_id: string | null;
+  created_at?: string | null;
   // Lovable Cloud schema
   direction?: string | null;
   content?: string | null;
@@ -20,9 +21,42 @@ interface ChatMessagePayload {
   message_type?: string | null;
   message_text?: string | null;
   is_outgoing?: boolean | null;
+  messenger_type?: string | null;
+  messenger?: string | null;
+  sender_name?: string | null;
 }
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'polling' | 'reconnecting';
+
+/** Callback signature for message event subscribers */
+export type MessageEventCallback = (
+  payload: ChatMessagePayload,
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE'
+) => void;
+
+// Global callback registry (shared across hook instances via module scope)
+const messageEventCallbacks = new Set<MessageEventCallback>();
+
+/** Subscribe to chat_messages events without creating a new postgres_changes channel */
+export const onMessageEvent = (cb: MessageEventCallback) => {
+  messageEventCallbacks.add(cb);
+};
+
+/** Unsubscribe from chat_messages events */
+export const offMessageEvent = (cb: MessageEventCallback) => {
+  messageEventCallbacks.delete(cb);
+};
+
+/** Notify all subscribers of a message event */
+const notifyMessageSubscribers = (payload: ChatMessagePayload, eventType: 'INSERT' | 'UPDATE' | 'DELETE') => {
+  messageEventCallbacks.forEach(cb => {
+    try {
+      cb(payload, eventType);
+    } catch (e) {
+      console.error('[OrgRealtime] Subscriber error:', e);
+    }
+  });
+};
 
 // Polling interval when WebSocket is unavailable (5 seconds for faster updates)
 const POLLING_INTERVAL = 5000;
@@ -265,6 +299,9 @@ export const useOrganizationRealtimeMessages = () => {
           
           console.log('[OrgRealtime] 📨 New message via realtime for client:', clientId);
 
+          // Notify all subscribers (useChatNotificationSound, useNewMessageHighlight, etc.)
+          notifyMessageSubscribers(newMsg, 'INSERT');
+
           if (clientId) {
             invalidateClientMessageQueries(clientId);
           }
@@ -301,6 +338,9 @@ export const useOrganizationRealtimeMessages = () => {
           const clientId = updatedMsg.client_id;
           
           console.log('[OrgRealtime] Message updated for client:', clientId);
+
+          // Notify all subscribers
+          notifyMessageSubscribers(updatedMsg, 'UPDATE');
           
           if (clientId) {
             invalidateClientMessageQueries(clientId);
@@ -324,6 +364,9 @@ export const useOrganizationRealtimeMessages = () => {
           const clientId = deletedMsg.client_id;
           
           console.log('[OrgRealtime] Message deleted for client:', clientId);
+
+          // Notify all subscribers
+          notifyMessageSubscribers(deletedMsg, 'DELETE');
           
           if (clientId) {
             invalidateClientMessageQueries(clientId);
@@ -473,7 +516,15 @@ export const useOrganizationRealtimeMessages = () => {
     };
   }, [createChannel]);
 
-  return { connectionStatus };
+  // Expose stable references for subscribers
+  const api = useMemo(() => ({
+    onMessageEvent,
+    offMessageEvent,
+  }), []);
+
+  return { connectionStatus, ...api };
 };
+
+export type { ChatMessagePayload };
 
 export default useOrganizationRealtimeMessages;
