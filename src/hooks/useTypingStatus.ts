@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from '@/hooks/useAuth';
 import type { TypingStatus } from '@/integrations/supabase/database.types';
-import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { useThrottle } from './useThrottle';
 import { performanceAnalytics } from '@/utils/performanceAnalytics';
 import { isValidUUID } from '@/lib/uuidValidation';
@@ -13,11 +12,22 @@ export interface TypingInfo {
   draftText: string | null;
 }
 
-// Extended type for internal use - Supabase returns these fields directly
+// Extended type for internal use
 type TypingStatusWithName = TypingStatus;
 
-// OPTIMIZED: Uses payload directly instead of refresh() SELECT queries
-// With fallback polling for unstable realtime connections
+// Broadcast event payload shape
+interface TypingBroadcastPayload {
+  user_id: string;
+  client_id: string;
+  is_typing: boolean;
+  manager_name: string | null;
+  draft_text: string | null;
+  updated_at: string;
+}
+
+// OPTIMIZED: Uses Broadcast API instead of postgres_changes
+// postgres_changes removed because typing_status was dropped from supabase_realtime publication
+// Broadcast goes directly via WebSocket — zero DB/WAL overhead
 export const useTypingStatus = (clientId: string) => {
   const { user, profile } = useAuth();
   const [typingUsers, setTypingUsers] = useState<TypingStatusWithName[]>([]);
@@ -26,11 +36,13 @@ export const useTypingStatus = (clientId: string) => {
   const managerNameRef = useRef<string>('Менеджер');
   const inactivityTimerRef = useRef<number | null>(null);
   
-  // Fallback polling refs
-  const realtimeWorkingRef = useRef(false);
+  // Broadcast channel ref
+  const broadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  
+  // Fallback polling ref
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Sync user info from AuthProvider (eliminates getUser() call)
+  // Sync user info from AuthProvider
   useEffect(() => {
     if (user) {
       currentUserIdRef.current = user.id;
@@ -42,9 +54,8 @@ export const useTypingStatus = (clientId: string) => {
     }
   }, [user, profile]);
 
-  // Fetch typing users - used for both initial load and fallback polling
+  // Fetch typing users - used for initial load and fallback polling
   const fetchTypingUsers = useCallback(async () => {
-    // Skip for non-UUID clientIds (teacher markers like "teacher:xxx")
     if (!clientId || !isValidUUID(clientId)) return;
     
     const { data, error } = await supabase
@@ -58,9 +69,8 @@ export const useTypingStatus = (clientId: string) => {
     }
   }, [clientId]);
 
-  // Fetch initial typing users for this client
+  // Fetch initial typing users
   useEffect(() => {
-    // Skip for non-UUID clientIds (teacher markers like "teacher:xxx")
     if (!clientId || !isValidUUID(clientId)) return;
     let isMounted = true;
     (async () => {
@@ -84,148 +94,113 @@ export const useTypingStatus = (clientId: string) => {
     return () => { isMounted = false; };
   }, [clientId]);
 
-  // Handle realtime payload directly - with proper field extraction
-  const handleRealtimePayload = useCallback((
-    payload: RealtimePostgresChangesPayload<TypingStatusWithName>
-  ) => {
-    const eventType = payload.eventType;
-    // For UPDATE events, always use 'new' record which contains updated values
-    const record = eventType === 'DELETE' 
-      ? (payload.old as TypingStatusWithName | undefined)
-      : (payload.new as TypingStatusWithName | undefined);
-    
-    if (!record) return;
-    
-    // Skip own typing status
-    if (record.user_id === currentUserIdRef.current) return;
-    
-    // Skip own typing status
-    if (record.user_id === currentUserIdRef.current) return;
-    
+  // Handle broadcast payload
+  const handleBroadcastPayload = useCallback((payload: TypingBroadcastPayload) => {
+    if (!payload || payload.client_id !== clientId) return;
+    if (payload.user_id === currentUserIdRef.current) return;
+
     setTypingUsers(prev => {
-      if (eventType === 'DELETE') {
-        return prev.filter(t => t.user_id !== record.user_id);
+      if (!payload.is_typing) {
+        return prev.filter(t => t.user_id !== payload.user_id);
       }
-      
-      // INSERT or UPDATE
-      if (!record.is_typing) {
-        // User stopped typing
-        return prev.filter(t => t.user_id !== record.user_id);
-      }
-      
-      // User is typing - add or update with FULL record replacement
-      const existingIdx = prev.findIndex(t => t.user_id === record.user_id);
+
+      const record: TypingStatusWithName = {
+        id: `broadcast-${payload.user_id}`,
+        user_id: payload.user_id,
+        client_id: payload.client_id,
+        is_typing: payload.is_typing,
+        manager_name: payload.manager_name,
+        draft_text: payload.draft_text,
+        updated_at: payload.updated_at,
+      };
+
+      const existingIdx = prev.findIndex(t => t.user_id === payload.user_id);
       if (existingIdx >= 0) {
-        // Create new array with updated record to ensure React detects change
         const updated = [...prev];
-        updated[existingIdx] = { ...record };
+        updated[existingIdx] = record;
         return updated;
       }
-      return [...prev, { ...record }];
+      return [...prev, record];
     });
-  }, []);
+  }, [clientId]);
 
-  // Subscribe to realtime typing updates for this client
-  // With fallback polling that disables after first realtime event
+  // Subscribe to Broadcast channel + fallback polling
   useEffect(() => {
-    // Skip for non-UUID clientIds (teacher markers like "teacher:xxx")
     if (!clientId || !isValidUUID(clientId)) return;
-    
-    // Reset realtime working flag for this client
-    realtimeWorkingRef.current = false;
-    
-    // Start fallback polling (every 10 seconds - reduced frequency for performance)
-    // Disabled after first realtime event
-    pollingIntervalRef.current = setInterval(() => {
-      if (!realtimeWorkingRef.current) {
-        fetchTypingUsers();
-      }
-    }, 10000);
-    
-    const channelName = `typing_status_${clientId}_optimized`;
+
+    const channelName = `typing-bc-${clientId}`;
     const channel = supabase
       .channel(channelName)
-      .on(
-        'postgres_changes',
-        // NOTE: Avoid server-side filter here. On some self-hosted realtime setups
-        // filtered subscriptions may not receive events reliably.
-        { event: '*', schema: 'public', table: 'typing_status' },
-        (payload) => {
-          const typed = payload as RealtimePostgresChangesPayload<TypingStatusWithName>;
-          const record = (typed.eventType === 'DELETE' ? typed.old : typed.new) as TypingStatusWithName | undefined;
-          if (!record) return;
-          if (record.client_id !== clientId) return;
-
-          // First realtime event received - disable fallback polling
-          if (!realtimeWorkingRef.current) {
-            realtimeWorkingRef.current = true;
-            if (pollingIntervalRef.current) {
-              clearInterval(pollingIntervalRef.current);
-              pollingIntervalRef.current = null;
-            }
-          }
-
-          // Track realtime event
-          performanceAnalytics.trackRealtimeEvent(channelName);
-          // Use payload directly instead of refreshTyping() SELECT
-          handleRealtimePayload(typed);
-        }
-      )
+      .on('broadcast', { event: 'typing' }, ({ payload }) => {
+        handleBroadcastPayload(payload as TypingBroadcastPayload);
+      })
       .subscribe();
-    
-    // Track subscription
-    performanceAnalytics.trackRealtimeSubscription(channelName, 'typing_status');
+
+    broadcastChannelRef.current = channel;
+
+    // Fallback polling every 10 seconds
+    pollingIntervalRef.current = setInterval(fetchTypingUsers, 10000);
 
     return () => {
-      // Cleanup polling
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
-      performanceAnalytics.untrackRealtimeSubscription(channelName);
       supabase.removeChannel(channel);
+      broadcastChannelRef.current = null;
     };
-  }, [clientId, handleRealtimePayload, fetchTypingUsers]);
+  }, [clientId, handleBroadcastPayload, fetchTypingUsers]);
 
-  // Core update function (will be throttled)
+  // Core update function — writes to DB + sends broadcast
   const doUpdateTypingStatus = useCallback(async (isTyping: boolean, draftText?: string) => {
     const userId = currentUserIdRef.current;
-    // Skip for non-UUID clientIds (teacher markers like "teacher:xxx")
     if (!userId || !clientId || !isValidUUID(clientId)) return;
 
-    const payload = {
+    const payload: TypingBroadcastPayload = {
       user_id: userId,
       client_id: clientId,
       is_typing: isTyping,
       updated_at: new Date().toISOString(),
-      // Include draft text (max 100 chars) and manager name when typing
       draft_text: isTyping && draftText ? draftText.slice(0, 100) : null,
       manager_name: isTyping ? managerNameRef.current : null,
     };
 
-    // Upsert to avoid duplicate key errors on rapid updates
+    // Send broadcast for instant delivery to other managers
+    if (broadcastChannelRef.current) {
+      broadcastChannelRef.current.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload,
+      });
+    }
+
+    // Also persist to DB (for polling consumers like useTypingPresence)
     await supabase
       .from('typing_status')
-      .upsert(payload, { onConflict: 'user_id,client_id' });
+      .upsert({
+        user_id: userId,
+        client_id: clientId,
+        is_typing: isTyping,
+        updated_at: payload.updated_at,
+        draft_text: payload.draft_text,
+        manager_name: payload.manager_name,
+      }, { onConflict: 'user_id,client_id' });
   }, [clientId]);
 
   // Throttled version - max 1 update per 500ms
   const throttledUpdate = useThrottle(doUpdateTypingStatus, 500);
 
-  // Public API for updating typing status with optional draft text
+  // Public API
   const updateTypingStatus = useCallback((isTyping: boolean, draftText?: string) => {
     setIsCurrentUserTyping(isTyping);
 
-    // Clear previous inactivity timer
     if (inactivityTimerRef.current) {
       window.clearTimeout(inactivityTimerRef.current);
       inactivityTimerRef.current = null;
     }
 
-    // Use throttled update
     throttledUpdate(isTyping, draftText);
 
-    // Auto set false after 5s of inactivity when typing
     if (isTyping) {
       inactivityTimerRef.current = window.setTimeout(() => {
         throttledUpdate(false);
@@ -234,7 +209,7 @@ export const useTypingStatus = (clientId: string) => {
     }
   }, [throttledUpdate]);
 
-  // Get detailed typing info (name + draft text + id)
+  // Get detailed typing info
   const getTypingInfo = useCallback((): TypingInfo | null => {
     const typingUser = typingUsers.find(t => t.is_typing);
     if (!typingUser) return null;
@@ -245,7 +220,7 @@ export const useTypingStatus = (clientId: string) => {
     };
   }, [typingUsers]);
 
-  // Legacy: simple message for backward compatibility
+  // Legacy: simple message
   const getTypingMessage = useCallback(() => {
     const otherTypingUsers = typingUsers.filter(t => t.is_typing);
     if (otherTypingUsers.length === 0) return null;
