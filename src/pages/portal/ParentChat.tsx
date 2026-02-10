@@ -37,7 +37,8 @@ export default function ParentChat() {
   useEffect(() => {
     if (client?.id) {
       loadMessages();
-      subscribeToMessages();
+      const unsubscribe = subscribeToMessages();
+      return unsubscribe;
     }
   }, [client?.id]);
 
