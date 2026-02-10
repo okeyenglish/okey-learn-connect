@@ -1,72 +1,25 @@
 
-# Fix: Telegram Unlink -- Tab Lock and Stale ID
 
-## Problem Analysis
+## Проблема
 
-Two bugs occur after unlinking Telegram from a client:
+Колонка `sender_name` не существует в таблице `chat_messages` на self-hosted сервере (`api.academyos.ru`). После добавления `sender_name` в select-запросы, сервер возвращает ошибку 400 (`column chat_messages.sender_name does not exist`), и сообщения не загружаются.
 
-### Bug 1: Only Telegram tab opens
-The `unlink-messenger` edge function clears `telegram_user_id` from the `clients` table but does **NOT** clear `telegram_chat_id`. The chat thread inference logic checks `telegram_chat_id` first:
+## Решение
 
-```
-if (row.telegram_chat_id) inferredMessenger = 'telegram';
-```
+Убрать `sender_name` из всех select-запросов к self-hosted серверу и определять имя менеджера через данные профиля текущего пользователя (уже доступны через `useAuth`).
 
-Since `telegram_chat_id` remains on the original client, the system infers the messenger as Telegram and auto-selects that tab. When the user clicks the chat, it always opens on Telegram with "No Telegram messages" (because messages were moved to the new client).
+## Изменения
 
-### Bug 2: Wrong Telegram ID displayed
-The ID "1050922645" visible in the right panel is the `telegram_user_id` that was either:
-- Not fully cleared from the `clients` table (race condition)
-- Still present in `client_phone_numbers` rows, which the `ContactInfoBlock` reads and displays
+### 1. `src/hooks/useChatMessagesOptimized.ts`
+- Убрать `sender_name` из select-строки в основном запросе (строка 53)
+- Убрать `sender_name` из select-строки в prefetch-запросе (строка 317)  
+- Убрать `sender_name` из fallback select-строки (строка 332)
 
-## Solution
+### 2. `src/components/crm/ChatArea.tsx`
+- Убрать использование `msg.sender_name` — оставить только `managerName` из профиля пользователя (уже передается как fallback)
 
-### File 1: `supabase/functions/unlink-messenger/index.ts`
+### 3. `src/hooks/useInfiniteChatMessages.ts` и `src/hooks/useInfiniteChatMessagesTyped.ts`
+- Проверить что `sender_name` не используется в select-запросах (они чистые, без `sender_name` — OK)
 
-Add `telegram_chat_id` to the cleared fields for Telegram unlink:
+Итого: минимальные правки в 2 файлах для восстановления работоспособности загрузки диалогов.
 
-```
-// Current (broken):
-if (messengerType === "telegram") {
-  savedFields.telegram_user_id = client.telegram_user_id;
-  clearFields.telegram_user_id = null;
-}
-
-// Fixed:
-if (messengerType === "telegram") {
-  savedFields.telegram_user_id = client.telegram_user_id;
-  savedFields.telegram_chat_id = client.telegram_chat_id;
-  clearFields.telegram_user_id = null;
-  clearFields.telegram_chat_id = null;
-}
-```
-
-Also copy `telegram_chat_id` to the new client:
-```
-if (messengerType === "telegram") {
-  newClientData.telegram_user_id = savedFields.telegram_user_id ?? client.telegram_user_id;
-  newClientData.telegram_chat_id = savedFields.telegram_chat_id ?? client.telegram_chat_id;
-}
-```
-
-### File 2: `src/hooks/useUnlinkMessenger.ts`
-
-After successful unlink, also invalidate the `client-unread-by-messenger` query for the affected client, so the ChatArea re-evaluates which tab to show:
-
-```
-queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', variables.clientId] });
-```
-
-## Technical Details
-
-- The edge function rollback logic already handles restoring saved fields on failure -- adding `telegram_chat_id` to `savedFields` ensures it gets restored if the insert fails
-- The `client_phone_numbers` clear logic (step 2b) already clears `telegram_chat_id` and `telegram_user_id` for telegram type -- this part is correct
-- The new client creation needs `telegram_chat_id` so that Telegram messages can be properly routed to it
-- Invalidating `client-unread-by-messenger` forces the ChatArea to recalculate the initial tab based on remaining messages (WhatsApp), not stale `telegram_chat_id` data
-
-## Expected Result
-
-After unlinking Telegram:
-- Original client: `telegram_user_id = null`, `telegram_chat_id = null` -- no Telegram ID displayed, chat opens on WhatsApp tab
-- New client: has both `telegram_user_id` and `telegram_chat_id` + all Telegram messages
-- All messenger tabs work normally on the original client
