@@ -500,8 +500,7 @@ async function findOrCreateClient(phoneNumber: string, displayName: string | und
     phone: formattedPhone,
     name: clientName,
     organization_id: organizationId,
-    source: 'whatsapp',
-    status: 'new',
+    is_active: true,
     last_message_at: new Date().toISOString(),
   };
 
@@ -512,6 +511,26 @@ async function findOrCreateClient(phoneNumber: string, displayName: string | und
     .single();
 
   if (createError) {
+    // Handle unique constraint — find and restore deactivated client
+    if (createError.code === '23505') {
+      console.log('[whatsapp-webhook] Unique constraint hit, searching for existing client');
+      const { data: conflictClient } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .ilike('phone', `%${last10}`)
+        .limit(1);
+      
+      if (conflictClient && conflictClient.length > 0) {
+        await supabase
+          .from('clients')
+          .update({ is_active: true, last_message_at: new Date().toISOString() })
+          .eq('id', conflictClient[0].id);
+        console.log('[whatsapp-webhook] Restored client after constraint:', conflictClient[0].id);
+        diagnosticInfo.clientId = conflictClient[0].id;
+        return conflictClient[0];
+      }
+    }
     console.error('[whatsapp-webhook] Error creating client:', createError);
     diagnosticInfo.error = 'client_create_failed: ' + createError.message;
     throw new Error(`Failed to create client: ${createError.message}`);

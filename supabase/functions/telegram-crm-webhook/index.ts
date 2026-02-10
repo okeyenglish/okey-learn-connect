@@ -109,22 +109,30 @@ Deno.serve(async (req) => {
     const telegramUserId = String(from_id);
     const chatId = payload.chat_id ? String(payload.chat_id) : telegramUserId;
 
-    // Find or create client by telegram_user_id
+    // Find or create client by telegram_user_id (including deactivated)
     let clientId: string | null = null;
 
-    // First, try to find existing client
+    // Search WITHOUT is_active filter to find deactivated clients too
     const { data: existingClient } = await supabase
       .from('clients')
-      .select('id')
+      .select('id, is_active')
       .eq('organization_id', organizationId)
       .eq('telegram_user_id', telegramUserId)
       .maybeSingle();
 
     if (existingClient) {
       clientId = existingClient.id;
+      // Restore deactivated client
+      if (existingClient.is_active === false) {
+        console.log('[telegram-crm-webhook] Restoring deactivated client:', clientId);
+        await supabase
+          .from('clients')
+          .update({ is_active: true })
+          .eq('id', clientId);
+      }
       console.log('[telegram-crm-webhook] Found existing client:', clientId);
     } else {
-      // Create new client
+      // Create new client — only use columns confirmed in self-hosted schema
       const clientName = payload.from_username 
         ? `@${payload.from_username}` 
         : `Telegram ${telegramUserId}`;
@@ -135,21 +143,47 @@ Deno.serve(async (req) => {
           organization_id: organizationId,
           telegram_user_id: telegramUserId,
           name: clientName,
-          source: 'telegram_crm',
+          is_active: true,
         })
         .select('id')
         .single();
 
       if (createError) {
-        console.error('[telegram-crm-webhook] Error creating client:', createError);
-        return new Response(
-          JSON.stringify({ success: false, error: 'Failed to create client' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        // Handle unique constraint violation — client may have been created concurrently or deactivated
+        if (createError.code === '23505') {
+          console.log('[telegram-crm-webhook] Unique constraint hit, finding existing client');
+          const { data: conflictClient } = await supabase
+            .from('clients')
+            .select('id')
+            .eq('organization_id', organizationId)
+            .eq('telegram_user_id', telegramUserId)
+            .maybeSingle();
+          
+          if (conflictClient) {
+            clientId = conflictClient.id;
+            await supabase
+              .from('clients')
+              .update({ is_active: true })
+              .eq('id', clientId);
+            console.log('[telegram-crm-webhook] Restored client after constraint:', clientId);
+          } else {
+            console.error('[telegram-crm-webhook] Could not find client after constraint violation');
+            return new Response(
+              JSON.stringify({ success: false, error: 'Failed to create client' }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        } else {
+          console.error('[telegram-crm-webhook] Error creating client:', createError);
+          return new Response(
+            JSON.stringify({ success: false, error: 'Failed to create client' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } else {
+        clientId = newClient.id;
+        console.log('[telegram-crm-webhook] Created new client:', clientId);
       }
-
-      clientId = newClient.id;
-      console.log('[telegram-crm-webhook] Created new client:', clientId);
     }
 
     // Determine message content

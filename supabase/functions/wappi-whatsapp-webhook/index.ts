@@ -241,20 +241,43 @@ async function findOrCreateClient(phoneNumber: string, senderName: string | unde
     .single()
 
   if (createError) {
+    // Handle unique constraint — find and restore deactivated client
+    if (createError.code === '23505') {
+      console.log('[wappi-webhook] Unique constraint hit, searching for existing client')
+      const { data: conflictClient } = await supabase
+        .from('clients')
+        .select('id, name, first_name, last_name')
+        .eq('organization_id', organizationId)
+        .eq('whatsapp_chat_id', chatId)
+        .maybeSingle()
+      
+      if (conflictClient) {
+        await supabase
+          .from('clients')
+          .update({ is_active: true })
+          .eq('id', conflictClient.id)
+        console.log('[wappi-webhook] Restored client after constraint:', conflictClient.id)
+        return conflictClient
+      }
+    }
     console.error('Error creating client:', createError)
     throw createError
   }
 
-  // Also create phone number record
-  await supabase
-    .from('client_phone_numbers')
-    .insert({
-      client_id: newClient.id,
-      phone: phoneNumber,
-      is_primary: true,
-      is_whatsapp_enabled: true,
-      whatsapp_chat_id: chatId
-    })
+  // Also create phone number record (table may not exist on self-hosted)
+  try {
+    await supabase
+      .from('client_phone_numbers')
+      .insert({
+        client_id: newClient.id,
+        phone: phoneNumber,
+        is_primary: true,
+        is_whatsapp_enabled: true,
+        whatsapp_chat_id: chatId
+      })
+  } catch (phoneErr) {
+    console.warn('[wappi-webhook] Could not insert into client_phone_numbers (table may not exist):', phoneErr)
+  }
 
   console.log('Created new client:', newClient.id)
   return newClient
