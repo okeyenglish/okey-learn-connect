@@ -1623,7 +1623,7 @@ const CRMContent = () => {
         headers: {
           'Content-Type': 'application/json',
           'apikey': SELF_HOSTED_ANON_KEY,
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${token || SELF_HOSTED_ANON_KEY}`,
           'Prefer': 'return=minimal',
         },
         body: JSON.stringify({ status: 'deleted' }),
