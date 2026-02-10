@@ -48,7 +48,7 @@ export const useTypingStatus = (clientId: string) => {
       currentUserIdRef.current = user.id;
       
       if (profile) {
-        const name = [profile.first_name, profile.last_name].filter(Boolean).join(' ');
+        const name = profile.first_name || profile.last_name || '';
         if (name) managerNameRef.current = name;
       }
     }
