@@ -760,17 +760,36 @@ async function handleOutgoingMessage(
         telegram_chat_id: chatId,
         telegram_user_id: telegramUserId,
         phone: contactPhone ? `+${contactPhone}` : null,
-        // Note: is_active removed - column doesn't exist on self-hosted
+        is_active: true,
       })
       .select('id')
       .single();
 
     if (createError) {
-      console.error('Error creating client for outgoing message:', createError);
-      return;
+      // Handle unique constraint
+      if (createError.code === '23505') {
+        console.log('[telegram-webhook] Unique constraint on outgoing, finding existing');
+        const { data: existing } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('organization_id', organizationId)
+          .or(`telegram_chat_id.eq.${chatId}${telegramUserId ? `,telegram_user_id.eq.${telegramUserId}` : ''}`)
+          .limit(1);
+        if (existing && existing.length > 0) {
+          client = existing[0];
+          await supabase.from('clients').update({ is_active: true }).eq('id', client.id);
+        } else {
+          console.error('Error creating client for outgoing message:', createError);
+          return;
+        }
+      } else {
+        console.error('Error creating client for outgoing message:', createError);
+        return;
+      }
+    } else {
+      client = newClient;
+      console.log('handleOutgoingMessage: Created new client:', client.id);
     }
-    client = newClient;
-    console.log('handleOutgoingMessage: Created new client:', client.id);
   }
 
   // Check for duplicate
@@ -1091,7 +1110,7 @@ async function findOrCreateClientLegacy(
       name: finalName,
       telegram_user_id: telegramUserId,
       telegram_chat_id: telegramChatId,
-      // Note: telegram_avatar_url and is_active removed - may not exist on self-hosted
+      is_active: true,
       phone: finalPhone,
       notes: username ? `@${username}` : null,
     })
@@ -1099,6 +1118,25 @@ async function findOrCreateClientLegacy(
     .single();
 
   if (createError) {
+    // Handle unique constraint — find and restore deactivated client
+    if (createError.code === '23505') {
+      console.log('[telegram-webhook] Unique constraint hit (legacy), searching for existing client');
+      const { data: conflictClients } = await supabase
+        .from('clients')
+        .select('id, name, first_name, last_name, avatar_url')
+        .eq('organization_id', organizationId)
+        .eq('telegram_chat_id', telegramChatId)
+        .limit(1);
+      
+      if (conflictClients && conflictClients.length > 0) {
+        await supabase
+          .from('clients')
+          .update({ is_active: true })
+          .eq('id', conflictClients[0].id);
+        console.log('[telegram-webhook] Restored client after constraint (legacy):', conflictClients[0].id);
+        return conflictClients[0] as ClientResult;
+      }
+    }
     console.error('Error creating client (legacy):', createError);
     return null;
   }

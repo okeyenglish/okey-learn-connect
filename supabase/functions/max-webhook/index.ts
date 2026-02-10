@@ -462,16 +462,24 @@ async function findOrCreateClient(
   senderName?: string,
   senderPhoneNumber?: number
 ): Promise<ClientRecord | null> {
-  // Try to find by max_chat_id first
+  // Helper to restore deactivated client
+  const restoreIfInactive = async (foundClient: any) => {
+    if (foundClient.is_active === false) {
+      console.log('[max-webhook] Restoring deactivated client:', foundClient.id);
+      await supabase.from('clients').update({ is_active: true }).eq('id', foundClient.id);
+    }
+  };
+
+  // Try to find by max_chat_id first (no is_active filter)
   const { data: client } = await supabase
     .from('clients')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('max_chat_id', chatId)
-    .single();
+    .maybeSingle();
 
   if (client) {
-    // Enrich existing client data if needed
+    await restoreIfInactive(client);
     await enrichClientFromMax(supabase, organizationId, client.id, chatId);
     return client as ClientRecord;
   }
@@ -484,16 +492,11 @@ async function findOrCreateClient(
       .select('*')
       .eq('organization_id', organizationId)
       .eq('max_user_id', numericChatId)
-      .single();
+      .maybeSingle();
 
     if (clientByUserId) {
-      // Update max_chat_id for future lookups
-      await supabase
-        .from('clients')
-        .update({ max_chat_id: chatId })
-        .eq('id', clientByUserId.id);
-      
-      // Enrich client data
+      await restoreIfInactive(clientByUserId);
+      await supabase.from('clients').update({ max_chat_id: chatId }).eq('id', clientByUserId.id);
       await enrichClientFromMax(supabase, organizationId, clientByUserId.id, chatId);
       return clientByUserId as ClientRecord;
     }
@@ -502,22 +505,17 @@ async function findOrCreateClient(
   // Try to find by phone number
   if (senderPhoneNumber) {
     const phoneStr = String(senderPhoneNumber);
-    const { data: clientByPhone } = await supabase
+    const { data: clientsByPhone } = await supabase
       .from('clients')
       .select('*')
       .eq('organization_id', organizationId)
       .or(`phone.ilike.%${phoneStr}%,phone.ilike.%${phoneStr.slice(-10)}%`)
-      .limit(1)
-      .single();
+      .limit(1);
 
+    const clientByPhone = clientsByPhone?.[0];
     if (clientByPhone) {
-      // Update max_chat_id for future lookups
-      await supabase
-        .from('clients')
-        .update({ max_chat_id: chatId })
-        .eq('id', clientByPhone.id);
-      
-      // Enrich client data
+      await restoreIfInactive(clientByPhone);
+      await supabase.from('clients').update({ max_chat_id: chatId }).eq('id', clientByPhone.id);
       await enrichClientFromMax(supabase, organizationId, clientByPhone.id, chatId);
       return clientByPhone as ClientRecord;
     }
@@ -538,6 +536,20 @@ async function findOrCreateClient(
     .single();
 
   if (createError) {
+    // Handle unique constraint — restore deactivated client
+    if (createError.code === '23505') {
+      console.log('[max-webhook] Unique constraint hit, searching for existing client');
+      const { data: conflictClient } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .eq('max_chat_id', chatId)
+        .maybeSingle();
+      if (conflictClient) {
+        await restoreIfInactive(conflictClient);
+        return conflictClient as ClientRecord;
+      }
+    }
     console.error('Error creating client:', createError);
     return null;
   }
