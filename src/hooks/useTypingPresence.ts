@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import type { TypingStatus } from '@/integrations/supabase/database.types';
-import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { performanceAnalytics } from '@/utils/performanceAnalytics';
 
 export interface TypingPresence {
@@ -24,56 +23,52 @@ const TYPING_SOUND_BASE64 =
 
 let typingSoundAudio: HTMLAudioElement | null = null;
 let lastTypingSoundTime = 0;
-const TYPING_SOUND_INTERVAL = 3000; // Play at most once per 3 seconds
+const TYPING_SOUND_INTERVAL = 3000;
 
 const playTypingSound = () => {
-  // Check if typing sound is enabled in settings
   try {
     const stored = localStorage.getItem('notification_settings');
     if (stored) {
       const settings = JSON.parse(stored);
-      if (settings.soundEnabled === false) {
-        return; // Sound is disabled globally
-      }
+      if (settings.soundEnabled === false) return;
     }
   } catch {
-    // Ignore parsing errors
+    // Ignore
   }
 
   const now = Date.now();
-  if (now - lastTypingSoundTime < TYPING_SOUND_INTERVAL) {
-    return; // Throttle
-  }
+  if (now - lastTypingSoundTime < TYPING_SOUND_INTERVAL) return;
 
   try {
     if (!typingSoundAudio) {
       typingSoundAudio = new Audio(TYPING_SOUND_BASE64);
     }
-    typingSoundAudio.volume = 0.2; // Quieter than message sounds
+    typingSoundAudio.volume = 0.2;
     lastTypingSoundTime = now;
     typingSoundAudio.currentTime = 0;
-    typingSoundAudio.play().catch(() => {
-      // Silently fail if autoplay is blocked
-    });
+    typingSoundAudio.play().catch(() => {});
   } catch {
     // Audio not supported
   }
 };
 
-// Tracks typing presence across all clients for chat lists
-// OPTIMIZED: Uses payload directly instead of refresh() SELECT queries
+// Consider typing stale after 10s
+const TYPING_TTL_MS = 10_000;
+// Polling interval — 10s (compensates for removed postgres_changes)
+const POLLING_INTERVAL_MS = 10_000;
+
+/**
+ * Tracks typing presence across all clients for chat list sidebar.
+ * 
+ * OPTIMIZED: Polling-only (no postgres_changes subscription).
+ * typing_status was removed from supabase_realtime publication to reduce
+ * WAL decoding CPU load on self-hosted server.
+ * 10s polling is acceptable for sidebar-level indicators.
+ */
 export const useTypingPresence = () => {
   const [typingByClient, setTypingByClient] = useState<Record<string, TypingPresence>>({});
   const prevTypingCountRef = useRef<number>(0);
 
-  // Fallback polling: keep list accurate if realtime is unstable
-  const realtimeWorkingRef = useRef(false);
-  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Consider typing stale after 10s (prevents stuck indicators if a tab closes mid-typing)
-  const TYPING_TTL_MS = 10_000;
-
-  // Initial fetch on mount
   const fetchCurrentPresence = useCallback(async () => {
     const start = performance.now();
     const cutoff = new Date(Date.now() - TYPING_TTL_MS).toISOString();
@@ -84,11 +79,10 @@ export const useTypingPresence = () => {
       .or(`updated_at.gt.${cutoff},last_activity.gt.${cutoff}`);
     
     if (error) {
-      console.error('[useTypingPresence] Initial fetch error:', error);
+      console.error('[useTypingPresence] Fetch error:', error);
       return;
     }
     
-    // Track query for analytics
     performanceAnalytics.trackQuery({
       table: 'typing_status',
       operation: 'SELECT',
@@ -113,131 +107,44 @@ export const useTypingPresence = () => {
       map[key].drafts = drafts;
     });
 
+    // Check for new typing users to play sound
+    let totalTypingCount = 0;
+
     Object.keys(map).forEach((clientId) => {
       const users = map[clientId].users || {};
       const drafts = map[clientId].drafts || {};
       const names = Array.from(new Set(Object.values(users)));
-      // Get the first draft text (most recent typing user)
       const draftText = Object.values(drafts)[0] || null;
+      const count = Object.keys(users).length;
+      totalTypingCount += count;
       map[clientId] = {
         ...map[clientId],
-        count: Object.keys(users).length,
+        count,
         names,
         draftText,
       };
     });
+
+    // Play sound if new typing users appeared
+    if (totalTypingCount > prevTypingCountRef.current && prevTypingCountRef.current >= 0) {
+      playTypingSound();
+    }
+    prevTypingCountRef.current = totalTypingCount;
+
     setTypingByClient(map);
   }, []);
 
-  // Handle realtime payload directly - NO additional SELECT queries
-  const handleRealtimePayload = useCallback((
-    payload: RealtimePostgresChangesPayload<TypingStatusRow>
-  ) => {
-    const eventType = payload.eventType;
-    const record = (payload.new || payload.old) as TypingStatusRow | undefined;
-    
-    if (!record) return;
-    
-    const clientId = record.client_id;
-    const userId = record.user_id;
-    const isTyping = record.is_typing;
-    const managerName = record.manager_name || 'Менеджер';
-    const draftText = record.draft_text || null;
-
-    // Drop stale typing - check both updated_at and last_activity
-    const timestamp = record.last_activity || record.updated_at;
-    const isFresh = !!timestamp && (Date.now() - new Date(timestamp).getTime() <= TYPING_TTL_MS);
-    const shouldRemove = eventType === 'DELETE' || !isTyping || !isFresh;
-
-    setTypingByClient(prev => {
-      const updated = { ...prev };
-
-      const current = updated[clientId] || { count: 0, names: [], users: {}, draftText: null };
-      const users = { ...(current.users || {}) };
-      const wasUserTyping = !!users[userId];
-
-      if (shouldRemove) {
-        delete users[userId];
-      } else {
-        users[userId] = managerName;
-      }
-
-      const names = Array.from(new Set(Object.values(users)));
-      const count = Object.keys(users).length;
-
-      // Play sound when a NEW user starts typing (not on draft updates)
-      if (!shouldRemove && !wasUserTyping && isTyping) {
-        playTypingSound();
-      }
-
-      if (count <= 0) {
-        delete updated[clientId];
-      } else {
-        // Use the latest draft text from the updating user
-        updated[clientId] = { 
-          count, 
-          names, 
-          users, 
-          draftText: shouldRemove ? (current.draftText || null) : (draftText || current.draftText || null),
-        };
-      }
-      
-      return updated;
-    });
-  }, []);
-
   useEffect(() => {
-    // Reset for new mount
-    realtimeWorkingRef.current = false;
-
     // Initial fetch
     fetchCurrentPresence();
 
-    // Start fallback polling (every 15 seconds - reduced frequency for performance)
-    // Disabled after first realtime event
-    pollingIntervalRef.current = setInterval(() => {
-      if (!realtimeWorkingRef.current) {
-        fetchCurrentPresence();
-      }
-    }, 15000);
-    
-    // Single subscription with event: '*' - handles INSERT, UPDATE, DELETE
-    const channelName = 'typing-status-list-optimized';
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'typing_status' },
-        (payload) => {
-          // First realtime event received - disable fallback polling
-          if (!realtimeWorkingRef.current) {
-            realtimeWorkingRef.current = true;
-            if (pollingIntervalRef.current) {
-              clearInterval(pollingIntervalRef.current);
-              pollingIntervalRef.current = null;
-            }
-          }
-
-          // Track realtime event
-          performanceAnalytics.trackRealtimeEvent(channelName);
-          // Use payload directly instead of refresh() to avoid SELECT queries
-          handleRealtimePayload(payload as RealtimePostgresChangesPayload<TypingStatusRow>);
-        }
-      )
-      .subscribe();
-    
-    // Track subscription
-    performanceAnalytics.trackRealtimeSubscription(channelName, 'typing_status');
+    // Poll every 10 seconds
+    const interval = setInterval(fetchCurrentPresence, POLLING_INTERVAL_MS);
     
     return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-      performanceAnalytics.untrackRealtimeSubscription(channelName);
-      supabase.removeChannel(channel);
+      clearInterval(interval);
     };
-  }, [fetchCurrentPresence, handleRealtimePayload]);
+  }, [fetchCurrentPresence]);
 
   return { typingByClient };
 };

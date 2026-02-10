@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/typedClient';
 
 const HIGHLIGHT_DURATION_MS = 3000; // Время показа подсветки (совпадает с CSS анимацией)
 

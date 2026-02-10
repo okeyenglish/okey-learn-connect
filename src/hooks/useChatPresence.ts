@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from '@/hooks/useAuth';
-import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+
 
 export type PresenceType = 'viewing' | 'on_call' | 'idle';
 
@@ -288,76 +288,18 @@ export const useChatPresenceList = () => {
     setPresenceByClient(map);
   }, []);
 
-  // Handle realtime updates
-  const handleRealtimePayload = useCallback((
-    payload: RealtimePostgresChangesPayload<ChatPresenceRecord>
-  ) => {
-    const eventType = payload.eventType;
-    const record = (eventType === 'DELETE' ? payload.old : payload.new) as ChatPresenceRecord | undefined;
 
-    if (!record) return;
-    
-    // Skip current user
-    if (record.user_id === currentUserIdRef.current) return;
-
-    const clientId = record.client_id;
-    const isStale = record.updated_at && (Date.now() - new Date(record.updated_at).getTime() > STALE_THRESHOLD_MS);
-
-    setPresenceByClient(prev => {
-      const updated = { ...prev };
-      const current = updated[clientId] || { viewers: [] };
-      let viewers = [...current.viewers];
-
-      if (eventType === 'DELETE' || isStale) {
-        viewers = viewers.filter(v => v.userId !== record.user_id);
-      } else {
-        const existingIdx = viewers.findIndex(v => v.userId === record.user_id);
-        const viewer = {
-          userId: record.user_id,
-          name: record.manager_name || 'Сотрудник',
-          avatarUrl: record.manager_avatar_url,
-          type: record.presence_type as PresenceType,
-        };
-
-        if (existingIdx >= 0) {
-          viewers[existingIdx] = viewer;
-        } else {
-          viewers.push(viewer);
-        }
-      }
-
-      if (viewers.length === 0) {
-        delete updated[clientId];
-      } else {
-        updated[clientId] = { viewers };
-      }
-
-      return updated;
-    });
-  }, []);
-
-  // Initial fetch and realtime subscription
+  // Polling-only (postgres_changes removed — chat_presence dropped from supabase_realtime publication)
+  // 30s polling is acceptable for presence indicators in chat list
   useEffect(() => {
     fetchPresence();
 
-    const channelName = 'chat-presence-list';
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'chat_presence' },
-        (payload) => handleRealtimePayload(payload as RealtimePostgresChangesPayload<ChatPresenceRecord>)
-      )
-      .subscribe();
-
-    // Refresh periodically to clear stale entries (every 60 seconds for performance)
-    const refreshInterval = setInterval(fetchPresence, 60_000);
+    const refreshInterval = setInterval(fetchPresence, 30_000);
 
     return () => {
       clearInterval(refreshInterval);
-      supabase.removeChannel(channel);
     };
-  }, [fetchPresence, handleRealtimePayload]);
+  }, [fetchPresence]);
 
   return { presenceByClient };
 };
