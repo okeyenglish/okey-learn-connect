@@ -1,49 +1,48 @@
 
-# Оптимизация нагрузки: RPC функции и лишние запросы
+
+# Исправление SQL: отсутствующие колонки на self-hosted
 
 ## Проблема
 
-За 10 минут RPC функции `get_chat_threads_paginated` и `get_chat_threads_fast` суммарно потребляют **1100 секунд CPU** (91% всей нагрузки). Каждый вызов занимает ~1.5 секунды. Также `hydrateClientBranches` генерирует 314 лишних запросов к таблице `clients`.
+Колонка `whatsapp_id` не существует в таблице `clients` на self-hosted сервере (api.academyos.ru). Из предыдущего опыта известно, что на self-hosted также отсутствует `avatar_url` в `clients`.
 
-## План исправлений
+## Исправление
 
-### 1. Увеличить staleTime для unread query
+В файле `docs/sql-optimizations/optimize_rpc_functions.sql` заменить строку 128:
 
-В `useChatThreadsInfinite.ts` запрос `chat-threads-unread-priority` имеет `staleTime: 30000` (30 сек), при этом `chatListQueryConfig` уже 60 сек. Нужно выровнять оба на 60 сек. Также `unread-client-ids` в `useChatThreadsOptimized.ts` имеет `staleTime: 15000` -- увеличить до 60 сек.
+```
+-- Было:
+c.whatsapp_id as whatsapp_chat_id,
 
-### 2. Убрать дублирование: `useChatThreadsOptimized` не используется
+-- Стало:
+NULL::text as whatsapp_chat_id,
+```
 
-CRM.tsx использует только `useChatThreadsInfinite`. Хук `useChatThreadsOptimized` вызывает `get_chat_threads_fast` как fallback и `get_chat_threads_from_mv` / `get_chat_threads_optimized` -- но нигде не используется. Нужно проверить, что он действительно нигде не импортирован, и если так -- можно оставить, он не генерирует нагрузку.
+Также на строке 126 заменить `c.avatar_url` на `NULL::text` если колонка отсутствует:
 
-### 3. Кэшировать `hydrateClientBranches`
+```
+-- Было:
+c.avatar_url,
 
-Сейчас каждый вызов RPC для paginated/unread threads вызывает `hydrateClientBranches`, который делает отдельный SELECT к `clients`. Нужно добавить простой кэш (Map) чтобы не запрашивать уже известные branch-значения повторно.
+-- Стало:
+NULL::text as avatar_url,
+```
 
-### 4. Увеличить staleTime для `global_chat_read_status`
+## Рекомендация
 
-307 вызовов за 10 минут -- это ~30/мин, слишком часто для polling. Нужно найти хук, который запрашивает эту таблицу, и увеличить интервал.
+Перед выполнением SQL проверьте какие колонки есть в таблице `clients`:
 
-### 5. SQL-скрипт для оптимизации RPC (для выполнения на self-hosted)
+```sql
+SELECT column_name FROM information_schema.columns 
+WHERE table_name = 'clients' AND table_schema = 'public' 
+ORDER BY ordinal_position;
+```
 
-Подготовить рекомендации по оптимизации тела SQL-функций `get_chat_threads_paginated` и `get_chat_threads_fast` -- они занимают 1.5 сек/вызов и это главная причина нагрузки. Без оптимизации SQL тела всё остальное -- полумеры.
+Это позволит точно убедиться какие колонки доступны и избежать повторных ошибок.
 
 ## Файлы для изменения
 
-| Файл | Что делаем |
+| Файл | Изменение |
 |------|-----------|
-| `src/hooks/useChatThreadsInfinite.ts` | Увеличить `staleTime` unread query до 60 сек |
-| `src/hooks/useChatThreadsOptimized.ts` | Увеличить `staleTime` unread-client-ids до 60 сек |
-| `src/lib/hydrateClientBranches.ts` | Добавить in-memory кэш branch по client_id (Map с TTL 5 мин), чтобы повторные вызовы не шли в БД |
-| `src/hooks/useGlobalReadStatus.ts` (или аналог) | Найти и увеличить интервал polling для `global_chat_read_status` |
-| `docs/sql-optimizations/optimize_rpc_functions.sql` | Рекомендации по оптимизации SQL тела RPC: убрать лишние JOIN, использовать `last_message_at` из таблицы `clients` вместо подзапроса к `chat_messages`, добавить LIMIT pushdown |
+| `docs/sql-optimizations/optimize_rpc_functions.sql` | Заменить `c.whatsapp_id` и `c.avatar_url` на `NULL::text` |
 
-## Ожидаемый результат
-
-| Метрика | Было (10 мин) | Будет |
-|---------|--------------|-------|
-| Вызовы RPC paginated+fast | 704 | ~350 (меньше за счет staleTime) |
-| hydrate branches запросов | 314 | ~50 (кэш) |
-| global_chat_read_status | 307 | ~100 (увеличен интервал) |
-| CPU на RPC | 1100 сек | ~550 сек (staleTime) -> нужна SQL оптимизация для x10 |
-
-**Главный вывод**: фронтенд-оптимизации снизят количество вызовов, но ключевое улучшение -- оптимизация SQL тела RPC на self-hosted сервере. Функция, работающая 1.5 сек, должна работать 50-100ms.
