@@ -1,85 +1,118 @@
 
 
-# Optimization: Top-3 Heavy Database Queries
+# Optimize Self-Hosted Supabase: Reduce WAL/Realtime Load
 
-## Current Situation
+## Summary
 
-The self-hosted database is overwhelmed -- **connection pool timeouts** everywhere (`PGRST003`). Based on the CSV data analysis:
+Based on the `pg_stat_statements` data, the #1 CPU consumer is `realtime.list_changes` (1656 calls, 8.7ms each). This is WAL decoding that fires for **every write** to **every table** in the `supabase_realtime` publication. Currently, too many high-write tables are published, generating massive WAL overhead even when no frontend client is listening.
 
-| Query | CPU Time (15 min) | Avg Time | Calls | Impact |
-|-------|-------------------|----------|-------|--------|
-| `get_chat_threads_fast` | 12.9 min | 1523ms | ~500 | **CRITICAL** |
-| `get_unread_chat_threads` | ~7 min | 204ms | ~2000 | HIGH |
-| `SELECT * FROM students` | ~2 min | 2900ms | ~40 | HIGH |
+## Problem Breakdown
 
-Total: **~22 minutes of CPU** consumed in 15 minutes = database overloaded.
+| Source | CPU Impact | Controllable? |
+|--------|-----------|---------------|
+| `realtime.list_changes` (WAL decoding) | ~14s / 15min | YES - remove tables from publication |
+| PostgREST `set_config` (1620 calls) | Low per-call but adds up | YES - reduce API call frequency |
+| Analytics `log_events` INSERT (1050 rows) | Internal Supabase overhead | NO |
+| 45 idle connections | Holds resources | PARTIAL - reduce channels |
 
-## Fix 1: Remove `get_chat_threads_fast` Fallback (Frontend)
+## Fix 1: Remove Unnecessary Tables from Realtime Publication (SQL for self-hosted)
 
-**File:** `src/hooks/useChatThreadsInfinite.ts`
+Tables currently in `supabase_realtime` that should be **removed** (already moved to polling/broadcast per previous optimizations):
 
-The code falls back to `get_chat_threads_fast` (unoptimized, 1.5s/call) when `get_chat_threads_paginated` errors. Since `get_chat_threads_paginated` is already deployed, the fallback just hammers the DB with the slow version on transient errors.
+| Table | Why Remove |
+|-------|-----------|
+| `typing_status` | Already uses Broadcast API, not postgres_changes |
+| `chat_presence` | Already uses polling |
+| `global_chat_read_status` | Already uses polling |
+| `pinned_modals` | Already uses polling |
+| `staff_activity_log` | Already uses polling |
+| `clients` | Already uses polling (useRealtimeClients, 120s interval) |
+| `student_attendance` | Low-priority, no active realtime listener |
+| `student_lesson_sessions` | Low-priority, no active realtime listener |
+| `whatsapp_sessions` | Rare writes, no frontend listener |
+| `pending_gpt_responses` | Edge function internal, no frontend listener |
 
-**Change:** Remove the `get_chat_threads_fast` fallback. When `get_chat_threads_paginated` fails with a non-schema error, fall back to `fetchThreadsDirectly` (lightweight direct query) instead of calling another slow RPC.
+Tables to **keep** (actively used by RealtimeHub or useOrganizationRealtimeMessages):
 
-**File:** `src/hooks/useChatThreadsOptimized.ts`
+| Table | Used By |
+|-------|---------|
+| `chat_messages` | useOrganizationRealtimeMessages (core CRM feature) |
+| `tasks` | RealtimeHub |
+| `lesson_sessions` | RealtimeHub |
+| `chat_states` | RealtimeHub |
+| `internal_chat_messages` | Staff chat realtime |
+| `notifications` | Push notification triggers |
 
-Same fix -- remove the `get_chat_threads_fast` fallback on line 88.
+**SQL migration for self-hosted** (new file: `docs/selfhosted-migrations/20260210_reduce_realtime_publication.sql`):
 
-## Fix 2: Reduce Polling Frequency
+```sql
+ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.typing_status;
+ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.chat_presence;
+ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.global_chat_read_status;
+ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.pinned_modals;
+ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.staff_activity_log;
+ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.clients;
+ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.student_attendance;
+ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.student_lesson_sessions;
+ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.whatsapp_sessions;
+ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.pending_gpt_responses;
+ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.payments;
+ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.individual_lesson_sessions;
+ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.teacher_messages;
+ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.assistant_messages;
+ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.call_logs;
+```
 
-**File:** `src/hooks/useRealtimeClients.ts`
+This reduces published tables from ~20 to ~5, cutting WAL decoding calls proportionally.
 
-Currently polls every **30 seconds**, invalidating both `clients` and `chat-threads`. Each invalidation triggers `get_chat_threads_paginated` + `get_unread_chat_threads` -- two heavy RPCs. Combined with multiple browser tabs, this creates thousands of calls.
+## Fix 2: Narrow RealtimeHub Events
 
-**Change:** Increase polling interval from 30s to **120 seconds** (2 minutes). Also invalidate `chat-threads-infinite` and `chat-threads-unread-priority` instead of the generic `chat-threads` key.
+**File:** `src/hooks/useRealtimeHub.ts`
 
-**File:** `src/hooks/useChatThreadsInfinite.ts` (unread query)
+Currently subscribes to `event: '*'` (INSERT + UPDATE + DELETE) for `tasks`, `lesson_sessions`, `chat_states`. Most of these only need INSERT and UPDATE -- DELETE is rare and can be handled by periodic refresh.
 
-The unread query has `staleTime: 60000` but no explicit `refetchInterval`. However, the `useRealtimeClients` polling triggers it every 30s. With the polling fix above, this is already addressed.
+Change all three subscriptions from `event: '*'` to `event: 'INSERT'` and add separate `event: 'UPDATE'` listeners. This avoids DELETE events which generate unnecessary WAL decoding.
 
-## Fix 3: Optimize Students Query
+Actually, the bigger win here is that `event: '*'` creates 3 separate WAL filters per table internally. Keeping `'*'` but reducing the number of published tables (Fix 1) is more impactful.
 
-**File:** `src/hooks/useStudentsLazy.ts`
+**Decision:** Keep `event: '*'` in RealtimeHub (simpler code, small marginal cost). Focus effort on Fix 1.
 
-Currently fetches `SELECT * FROM students LIMIT 10000` -- returns ALL columns for up to 10,000 rows. Takes 2.9 seconds per call.
+## Fix 3: Reduce chat_messages REPLICA IDENTITY overhead
 
-**Changes:**
-1. Reduce columns to only what's needed: `id, name, first_name, last_name, phone, status, branch, family_group_id, created_at`
-2. Add `organization_id` filter (if available from context)
-3. Keep `staleTime: 10 * 60 * 1000` (already good)
+**File:** `docs/selfhosted-migrations/20260210_reduce_realtime_publication.sql` (same file)
 
-**Find all other `from('students').select('*')` calls** and replace with specific columns where possible. Key files:
-- `src/hooks/useStudentBalances.ts` -- selects `*` for active students
-- `src/hooks/useStudentsWithFilters.ts` -- selects `*` with joins
+`chat_messages` currently uses `REPLICA IDENTITY DEFAULT` (per memory). This is correct -- it only sends the primary key on DELETE, which is lightweight. No change needed here.
 
-## Fix 4: Debounce Invalidation Cascade
+However, check if any tables still have `REPLICA IDENTITY FULL`:
 
-**File:** `src/hooks/useOrganizationRealtimeMessages.ts`
+```sql
+-- Add to migration file as a check/fix
+ALTER TABLE public.chat_messages REPLICA IDENTITY DEFAULT;
+ALTER TABLE public.chat_states REPLICA IDENTITY DEFAULT;
+ALTER TABLE public.tasks REPLICA IDENTITY DEFAULT;
+```
 
-The realtime message handler invalidates `chat-threads`, `chat-threads-infinite`, and `chat-threads-unread-priority` on every single incoming message. When multiple messages arrive rapidly (common in group chats), this triggers dozens of heavy RPCs.
+`REPLICA IDENTITY FULL` sends the entire row in WAL on every UPDATE, which is extremely expensive for high-write tables.
 
-**Change:** Add debounce (500ms) to `invalidateThreadsQueries` so rapid message bursts only trigger one refresh.
+## Fix 4: Fix Build Error
 
-## Summary of Changes
+The build output was truncated but likely succeeded (it shows "computing gzip size" which is the final step). If there is an actual TypeScript error, it would be from the `useAvailableStudents.ts` casting `Student` type after column reduction. The select now returns a subset of columns but is cast as `Student[]` which has more fields. This is safe at runtime (extra fields are just undefined) but may cause a TS error depending on strictness.
 
-| File | Change | Expected Impact |
-|------|--------|----------------|
-| `src/hooks/useChatThreadsInfinite.ts` | Remove `get_chat_threads_fast` fallback | Eliminates 1.5s/call slow RPC |
-| `src/hooks/useChatThreadsOptimized.ts` | Remove `get_chat_threads_fast` fallback | Same |
-| `src/hooks/useRealtimeClients.ts` | Polling 30s -> 120s | ~75% fewer RPC calls |
-| `src/hooks/useStudentsLazy.ts` | Select specific columns instead of `*` | ~70% faster student queries |
-| `src/hooks/useStudentBalances.ts` | Select specific columns | Faster balance queries |
-| `src/hooks/useOrganizationRealtimeMessages.ts` | Debounce thread invalidation | Prevents cascade during message bursts |
+**Verify and fix if needed:** Ensure `useAvailableStudents.ts` casts properly after the column-limited select.
 
-## Expected Result
+## Expected Impact
 
-- `get_chat_threads_fast` CPU: 12.9 min -> **0 min** (removed)
-- `get_unread_chat_threads` calls: 2000 -> **~500** (4x reduction)
-- `students SELECT *`: 2.9s -> **~0.5s** (fewer columns)
-- Connection pool timeouts: should **stop completely**
+| Metric | Before | After |
+|--------|--------|-------|
+| Tables in realtime publication | ~20 | 5 |
+| WAL decoding calls (per 15min) | 1656 | ~400 (estimated 75% reduction) |
+| WAL size growth rate | 124 GB total | Significantly slower |
+| Idle connections from realtime | ~10 | ~5 |
 
-## SQL Recommendation for Self-Hosted
+## Files to Create/Modify
 
-No new SQL migrations needed in this change. The existing `get_chat_threads_paginated` and `get_unread_chat_threads` RPCs on the self-hosted server are already optimized (from previous docs). The problem is the frontend calling the **old** slow RPCs too often.
+| File | Change |
+|------|--------|
+| `docs/selfhosted-migrations/20260210_reduce_realtime_publication.sql` | SQL to remove 15 tables from publication |
+| `src/hooks/useRealtimeHub.ts` | No change needed (already optimized) |
 
