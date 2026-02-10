@@ -350,7 +350,7 @@ export const useChatThreadsInfinite = () => {
       console.log(`[useChatThreadsInfinite] ✅ Unread: ${threads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
       return threads;
     },
-    staleTime: 30000, // 30 seconds (increased from 10)
+    staleTime: 60000, // 60 seconds - aligned with chatListQueryConfig
     refetchOnWindowFocus: false,
     retry: false, // Don't retry schema errors
   });
