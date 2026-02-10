@@ -12,11 +12,12 @@ export const useRealtimeClients = () => {
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Poll every 30 seconds for client changes
+    // Poll every 120 seconds (2 min) for client changes — reduced from 30s to lower DB load
     const pollInterval = setInterval(() => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
-      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-    }, 30000);
+      queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
+    }, 120000);
 
     return () => {
       clearInterval(pollInterval);

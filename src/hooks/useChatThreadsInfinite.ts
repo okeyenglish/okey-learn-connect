@@ -253,35 +253,15 @@ export const useChatThreadsInfinite = () => {
           };
         }
 
-        console.error('[useChatThreadsInfinite] RPC error:', error);
-        // Fallback to basic query
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .rpc('get_chat_threads_fast', { p_limit: PAGE_SIZE + 1 });
-        
-        if (fallbackError) {
-          // If fallback also fails with schema error, use direct fetch
-          if (fallbackError.code === '42883' || fallbackError.code === 'PGRST202') {
-            console.warn('[useChatThreadsInfinite] Fallback RPC also failed, using direct fetch');
-            usePaginatedRpc = false;
-            const directThreads = await fetchThreadsDirectly(PAGE_SIZE + 1, pageParam * PAGE_SIZE);
-            const hasMore = directThreads.length > PAGE_SIZE;
-            return { 
-              threads: directThreads.slice(0, PAGE_SIZE), 
-              hasMore, 
-              pageParam, 
-              executionTime: performance.now() - startTime 
-            };
-          }
-          throw fallbackError;
-        }
-        const fallbackArray = (fallbackData || []) as RpcThreadRow[];
-        const mapped = mapRpcToThreads(fallbackArray.slice(0, PAGE_SIZE));
-        const hydrated = await hydrateClientBranches(mapped);
-        return {
-          threads: hydrated,
-          hasMore: fallbackArray.length > PAGE_SIZE,
-          pageParam,
-          executionTime: performance.now() - startTime
+        console.error('[useChatThreadsInfinite] RPC error, using direct fetch:', error);
+        // Fallback to lightweight direct query instead of slow get_chat_threads_fast
+        const directThreads = await fetchThreadsDirectly(PAGE_SIZE + 1, pageParam * PAGE_SIZE);
+        const fallbackHasMore = directThreads.length > PAGE_SIZE;
+        return { 
+          threads: directThreads.slice(0, PAGE_SIZE), 
+          hasMore: fallbackHasMore, 
+          pageParam, 
+          executionTime: performance.now() - startTime 
         };
       }
 

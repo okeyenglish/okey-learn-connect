@@ -127,11 +127,19 @@ export const useOrganizationRealtimeMessages = () => {
     });
   }, [queryClient]);
 
+  // Debounced thread invalidation to prevent cascade during rapid message bursts
+  const threadInvalidationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const invalidateThreadsQueries = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-    queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
-    queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
-    queryClient.invalidateQueries({ queryKey: ['unread-client-ids'] });
+    if (threadInvalidationTimer.current) {
+      clearTimeout(threadInvalidationTimer.current);
+    }
+    threadInvalidationTimer.current = setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
+      queryClient.invalidateQueries({ queryKey: ['unread-client-ids'] });
+      threadInvalidationTimer.current = null;
+    }, 500);
   }, [queryClient]);
 
   // Polling fallback - fetches recent messages since last poll
@@ -461,6 +469,9 @@ export const useOrganizationRealtimeMessages = () => {
       stopPolling();
       stopHybridPolling();
       stopReconnecting();
+      if (threadInvalidationTimer.current) {
+        clearTimeout(threadInvalidationTimer.current);
+      }
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;

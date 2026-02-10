@@ -14,7 +14,7 @@ export const useAvailableStudents = (groupId?: string) => {
       // Получаем всех активных студентов
       const { data: allStudents, error: studentsError } = await supabase
         .from('students')
-        .select('*')
+        .select('id, first_name, last_name, phone, status, branch, organization_id, created_at')
         .eq('status', 'active');
 
       if (studentsError) throw studentsError;
