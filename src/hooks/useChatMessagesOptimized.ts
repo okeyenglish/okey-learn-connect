@@ -105,9 +105,13 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
  */
 export const useNewMessageRealtime = (clientId: string, onNewMessage?: () => void) => {
   const queryClient = useQueryClient();
+  const onNewMessageRef = useRef(onNewMessage);
 
   useEffect(() => {
-    // Skip for non-UUID clientIds (teacher markers like "teacher:xxx")
+    onNewMessageRef.current = onNewMessage;
+  }, [onNewMessage]);
+
+  useEffect(() => {
     if (!clientId || !isValidUUID(clientId)) return;
 
     const channelName = `new-messages-${clientId}`;
@@ -124,13 +128,11 @@ export const useNewMessageRealtime = (clientId: string, onNewMessage?: () => voi
         (payload: RealtimePostgresChangesPayload<ChatMessage>) => {
           console.log('[Realtime] New message received for client:', clientId);
           
-          // Immediately invalidate and refetch messages
           queryClient.invalidateQueries({
             queryKey: ['chat-messages-optimized', clientId],
           });
           
-          // Call the callback to trigger scroll
-          onNewMessage?.();
+          onNewMessageRef.current?.();
         }
       )
       .subscribe();
@@ -138,7 +140,7 @@ export const useNewMessageRealtime = (clientId: string, onNewMessage?: () => voi
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [clientId, queryClient, onNewMessage]);
+  }, [clientId, queryClient]);
 };
 
 /**
@@ -148,14 +150,16 @@ export const useNewMessageRealtime = (clientId: string, onNewMessage?: () => voi
  */
 export const useMessageStatusRealtime = (clientId: string, onDeliveryFailed?: (messageId: string) => void) => {
   const queryClient = useQueryClient();
-  // Ref to track which failed messages we've already shown a toast for
   const notifiedFailedRef = useRef<Set<string>>(new Set());
+  const onDeliveryFailedRef = useRef(onDeliveryFailed);
 
   useEffect(() => {
-    // Skip for non-UUID clientIds (teacher markers like "teacher:xxx")
+    onDeliveryFailedRef.current = onDeliveryFailed;
+  }, [onDeliveryFailed]);
+
+  useEffect(() => {
     if (!clientId || !isValidUUID(clientId)) return;
     
-    // Reset notified set when client changes
     notifiedFailedRef.current = new Set();
 
     const channelName = `message-status-${clientId}`;
@@ -170,22 +174,18 @@ export const useMessageStatusRealtime = (clientId: string, onDeliveryFailed?: (m
           filter: `client_id=eq.${clientId}`,
         },
         (payload: RealtimePostgresChangesPayload<{ status?: string; id?: string; message_text?: string }>) => {
-          // Track realtime event
           performanceAnalytics.trackRealtimeEvent(channelName);
           
           const newRecord = payload.new as { status?: string; id?: string; message_text?: string };
           const oldRecord = payload.old as { status?: string };
           
-          // Only process if status field was updated
           if (newRecord?.status) {
             console.log('[Realtime] Message status updated:', newRecord.id, '->', newRecord.status);
             
-            // Show toast notification for failed delivery (only once per message)
             if (newRecord.status === 'failed' && oldRecord?.status !== 'failed') {
               if (!notifiedFailedRef.current.has(newRecord.id!)) {
                 notifiedFailedRef.current.add(newRecord.id!);
                 
-                // Dispatch custom event for toast notification
                 const event = new CustomEvent('message-delivery-failed', {
                   detail: {
                     messageId: newRecord.id,
@@ -194,12 +194,10 @@ export const useMessageStatusRealtime = (clientId: string, onDeliveryFailed?: (m
                 });
                 window.dispatchEvent(event);
                 
-                // Call optional callback
-                onDeliveryFailed?.(newRecord.id!);
+                onDeliveryFailedRef.current?.(newRecord.id!);
               }
             }
             
-            // Update the cached messages data
             queryClient.setQueriesData(
               { queryKey: ['chat-messages-optimized', clientId] },
               (oldData: any) => {
@@ -220,14 +218,13 @@ export const useMessageStatusRealtime = (clientId: string, onDeliveryFailed?: (m
       )
       .subscribe();
     
-    // Track subscription
     performanceAnalytics.trackRealtimeSubscription(channelName, 'chat_messages');
 
     return () => {
       performanceAnalytics.untrackRealtimeSubscription(channelName);
       supabase.removeChannel(channel);
     };
-  }, [clientId, queryClient, onDeliveryFailed]);
+  }, [clientId, queryClient]);
 };
 
 /**
