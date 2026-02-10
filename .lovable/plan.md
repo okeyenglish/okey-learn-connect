@@ -2,24 +2,39 @@
 
 ## Проблема
 
-Колонка `sender_name` не существует в таблице `chat_messages` на self-hosted сервере (`api.academyos.ru`). После добавления `sender_name` в select-запросы, сервер возвращает ошибку 400 (`column chat_messages.sender_name does not exist`), и сообщения не загружаются.
+Компонент `FamilyCardWrapper` пытается загрузить данные клиента через цепочку: RPC `get_family_data_by_client_id` -> RPC `get_or_create_family_group_id` -> таблицы `family_members`/`family_groups`/`client_phone_numbers`. Если эти RPC и таблицы не существуют на self-hosted сервере, все fallback-ы возвращают `null`, и пользователь видит "Не удалось загрузить данные клиента".
 
 ## Решение
 
-Убрать `sender_name` из всех select-запросов к self-hosted серверу и определять имя менеджера через данные профиля текущего пользователя (уже доступны через `useAuth`).
+Добавить финальный fallback в `FamilyCardWrapper.tsx`: если все RPC и таблицы семейных групп недоступны, загрузить данные напрямую из таблицы `clients` и сформировать минимальный объект `FamilyGroup`.
 
 ## Изменения
 
-### 1. `src/hooks/useChatMessagesOptimized.ts`
-- Убрать `sender_name` из select-строки в основном запросе (строка 53)
-- Убрать `sender_name` из select-строки в prefetch-запросе (строка 317)  
-- Убрать `sender_name` из fallback select-строки (строка 332)
+### `src/components/crm/FamilyCardWrapper.tsx`
 
-### 2. `src/components/crm/ChatArea.tsx`
-- Убрать использование `msg.sender_name` — оставить только `managerName` из профиля пользователя (уже передается как fallback)
+**1. В функции `fetchFamilyDataLegacy` (строка 366-367)** -- вместо `return null` при отсутствии `familyGroupId`, добавить прямой запрос к таблице `clients`:
 
-### 3. `src/hooks/useInfiniteChatMessages.ts` и `src/hooks/useInfiniteChatMessagesTyped.ts`
-- Проверить что `sender_name` не используется в select-запросах (они чистые, без `sender_name` — OK)
+```typescript
+if (!familyGroupId) {
+  // Direct client fallback - family tables not available
+  return fetchClientDirectFallback(clientId);
+}
+```
 
-Итого: минимальные правки в 2 файлах для восстановления работоспособности загрузки диалогов.
+**2. В функции `fetchFamilyDataByClientId` (строка 312-314)** -- добавить аналогичный fallback при пустом ответе unified RPC.
+
+**3. Новая функция `fetchClientDirectFallback`** -- загружает данные клиента из таблицы `clients` и формирует минимальный `FamilyGroup`:
+
+```text
+fetchClientDirectFallback(clientId):
+  1. SELECT id, name, phone, email, avatar_url, branch FROM clients WHERE id = clientId
+  2. Если данные есть - сформировать FamilyGroup с одним member и пустым списком students
+  3. Если нет - return null
+```
+
+**4. В функции `fetchFamilyGroupIdLegacy`** -- обернуть запросы к `family_members` и `family_groups` в try/catch, чтобы ошибки "relation does not exist" (42P01) не прерывали выполнение, а позволяли дойти до direct fallback.
+
+## Что нужно от вас
+
+Ничего дополнительного -- все данные берутся из таблицы `clients`, которая точно существует на self-hosted сервере. Таблицы `family_members`/`family_groups` и RPC функции не обязательны.
 
