@@ -1,62 +1,48 @@
 
 
-# Оптимизация: замена postgres_changes на Broadcast/Polling
+# Fix: "Should have a queue" React HMR Error
 
-## Контекст
-Таблицы `typing_status` и `chat_presence` удалены из `supabase_realtime` публикации на self-hosted сервере. Сейчас код подписывается на `postgres_changes` для этих таблиц, но события больше не приходят. Нужно заменить механизм доставки.
+## Root Cause
+This is a **development-only** error caused by React's Hot Module Replacement (HMR). When files are edited, React tries to refresh components in-place, but `CRMContent` has so many hooks (~40+) that hook ordering gets corrupted during hot reload. The error fires at `useNewMessageHighlight` because it's deep in the hook chain.
 
-## Что будет изменено
+This does NOT affect production builds or end users.
 
-### 1. `useTypingStatus.ts` -- Broadcast API вместо postgres_changes
-**Текущее**: подписка на `postgres_changes` таблицы `typing_status` + fallback polling каждые 10 сек.
-**Новое**: 
-- Убрать postgres_changes подписку
-- Использовать Supabase Broadcast channel для мгновенной доставки typing-событий между менеджерами
-- При вызове `updateTypingStatus()` -- по-прежнему писать в БД (для персистентности), но параллельно отправлять broadcast-событие в канал `typing-broadcast-{clientId}`
-- Слушатели получают обновления через broadcast мгновенно
-- Fallback polling каждые 10 сек сохраняется как страховка
+## Solution
+Wrap `CRMContent` in an HMR-safe boundary by adding a unique key that forces a full remount on hot refresh, and extract the realtime/presence hooks into a dedicated provider to reduce hook density in the main component.
 
-### 2. `useTypingPresence.ts` -- только polling (без realtime)
-**Текущее**: подписка на `postgres_changes` таблицы `typing_status` + fallback polling каждые 15 сек.
-**Новое**:
-- Убрать postgres_changes подписку полностью
-- Увеличить частоту polling с 15 до 10 секунд (компенсация отсутствия realtime)
-- Это список-уровень (chat list sidebar), задержка 10 сек допустима
-- Меньше кода, проще логика
+## Changes
 
-### 3. `useChatPresence.ts` (`useChatPresenceList`) -- только polling
-**Текущее**: подписка на `postgres_changes` таблицы `chat_presence` + polling каждые 60 сек.
-**Новое**:
-- Убрать postgres_changes подписку
-- Polling каждые 30 секунд (компенсация)
-- Presence -- не критично для мгновенности, 30 сек достаточно
+### 1. Extract realtime hooks into a CRM Realtime Provider
+Create `src/pages/crm/providers/CRMRealtimeProvider.tsx` that owns:
+- `useNewMessageHighlight`
+- `useTypingPresence`
+- `useChatPresenceList`
 
-### 4. `useNewMessageHighlight.ts` -- исправление импорта
-Использует `supabase` из `@/integrations/supabase/client` вместо `typedClient`. Это не ошибка сборки, но стоит унифицировать.
+These values will be passed down via React Context, reducing the hook count in `CRMContent` by 3 and making HMR more stable.
 
-## Что НЕ меняется
-- `useChatPresenceTracker` (запись в `chat_presence`) -- без изменений, продолжает upsert/delete в БД
-- `useStaffTypingIndicator` -- уже использует Presence API, не трогаем
-- `staff_work_sessions` -- уже на polling (60 сек), без realtime подписки
-- `staff_tasks`, `staff_group_chats` -- уже на polling/invalidation, нет realtime подписок
+### 2. Update `CRM.tsx`
+- Remove direct calls to `useNewMessageHighlight`, `useTypingPresence`, `useChatPresenceList` from `CRMContent`
+- Wrap `CRMContent` with `CRMRealtimeProvider`
+- Consume values via `useCRMRealtime()` context hook (single hook instead of 3)
 
-## Технические детали
-
-### Broadcast API для typing (useTypingStatus)
+### 3. Add HMR error recovery
+In `CRM.tsx`, add a key to `CRMContent` that changes on HMR to force clean remount:
 ```text
-Отправка:  supabase.channel('typing-bc-{clientId}').send({ type: 'broadcast', event: 'typing', payload: {...} })
-Прием:     channel.on('broadcast', { event: 'typing' }, handler)
+// In the CRM page component that renders CRMContent:
+<CRMRealtimeProvider>
+  <CRMContent key={import.meta.hot ? Date.now() : 'stable'} />
+</CRMRealtimeProvider>
 ```
-Broadcast не проходит через PostgreSQL WAL, идет напрямую через WebSocket -- нулевая нагрузка на БД.
+This ensures that during development hot reloads, the component fully remounts instead of trying to reconcile stale hook queues.
 
-### Файлы для изменения
-- `src/hooks/useTypingStatus.ts` -- broadcast + polling
-- `src/hooks/useTypingPresence.ts` -- polling only
-- `src/hooks/useChatPresence.ts` -- polling only для useChatPresenceList
+## Files to create
+- `src/pages/crm/providers/CRMRealtimeProvider.tsx`
 
-### Ожидаемый результат
-- 3 канала `postgres_changes` убраны (typing_status x2 + chat_presence x1)
-- CPU нагрузка на self-hosted снижена (нет WAL-декодирования для этих таблиц)
-- Typing в открытом чате остается мгновенным (через Broadcast)
-- Typing в списке чатов и presence обновляются с задержкой до 10-30 сек (допустимо)
+## Files to modify
+- `src/pages/CRM.tsx` — remove 3 hook calls, wrap in provider, add HMR key
+
+## Impact
+- Eliminates the "Should have a queue" error during development
+- No behavior change in production
+- Slightly cleaner separation of concerns in the CRM component
 
