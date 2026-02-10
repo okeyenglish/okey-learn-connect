@@ -61,7 +61,9 @@ serve(async (req) => {
 
     if (messengerType === "telegram") {
       savedFields.telegram_user_id = client.telegram_user_id;
+      savedFields.telegram_chat_id = client.telegram_chat_id;
       clearFields.telegram_user_id = null;
+      clearFields.telegram_chat_id = null;
     }
     // whatsapp_id may not exist on self-hosted — skip
 
@@ -113,6 +115,7 @@ serve(async (req) => {
 
     if (messengerType === "telegram") {
       newClientData.telegram_user_id = savedFields.telegram_user_id ?? client.telegram_user_id;
+      newClientData.telegram_chat_id = savedFields.telegram_chat_id ?? client.telegram_chat_id;
     } else if (messengerType === "whatsapp") {
       const waId = client.whatsapp_id || client.phone;
       if (waId) {

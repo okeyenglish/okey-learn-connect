@@ -48,6 +48,7 @@ export const useUnlinkMessenger = () => {
       queryClient.invalidateQueries({ queryKey: ['client', variables.clientId] });
       queryClient.invalidateQueries({ queryKey: ['family-group', variables.clientId] });
       queryClient.invalidateQueries({ queryKey: ['family-group'] });
+      queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', variables.clientId] });
     },
     onError: (error: Error) => {
       toast.error(`Не удалось отвязать мессенджер: ${error.message}`);
