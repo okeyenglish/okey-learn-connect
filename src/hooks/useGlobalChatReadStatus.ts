@@ -59,7 +59,7 @@ export const useGlobalChatReadStatus = () => {
 
     const pollInterval = setInterval(() => {
       loadGlobalReadStatuses();
-    }, 15000);
+    }, 60000); // 60 seconds - reduced from 15s to lower DB load
 
     return () => {
       clearInterval(pollInterval);

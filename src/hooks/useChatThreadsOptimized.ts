@@ -136,7 +136,7 @@ export const useChatThreadsOptimized = () => {
       console.log(`[useChatThreadsOptimized] Step 2: Found ${clientIds.length} clients with unread in ${(performance.now() - startTime).toFixed(2)}ms`);
       return clientIds;
     },
-    staleTime: 15000, // Increased staleTime to reduce requests
+    staleTime: 60000, // 60 seconds - aligned with chatListQueryConfig
     refetchOnWindowFocus: false,
   });
 
