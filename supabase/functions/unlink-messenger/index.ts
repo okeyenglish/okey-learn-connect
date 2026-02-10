@@ -51,13 +51,59 @@ serve(async (req) => {
       );
     }
 
-    // 2. Build the new client data - copy messenger-specific fields
     const messengerLabel =
       messengerType === "whatsapp" ? "WhatsApp" :
       messengerType === "telegram" ? "Telegram" : "MAX";
 
-    // Build insert data — only include columns known to exist on self-hosted schema
-    // Self-hosted clients table lacks 'status' and 'whatsapp_id' columns
+    // 2. Save original fields for rollback, then CLEAR them BEFORE insert
+    const savedFields: Record<string, unknown> = {};
+    const clearFields: Record<string, unknown> = {};
+
+    if (messengerType === "telegram") {
+      savedFields.telegram_user_id = client.telegram_user_id;
+      clearFields.telegram_user_id = null;
+    }
+    // whatsapp_id may not exist on self-hosted — skip
+
+    if (Object.keys(clearFields).length > 0) {
+      const { error: clearError } = await supabase
+        .from("clients")
+        .update(clearFields)
+        .eq("id", clientId);
+
+      if (clearError) {
+        console.error("[unlink-messenger] Failed to clear messenger fields:", clearError);
+        return new Response(
+          JSON.stringify({ error: "Failed to clear messenger fields before transfer", details: clearError.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      console.log(`[unlink-messenger] Cleared ${Object.keys(clearFields).join(", ")} from original client`);
+    }
+
+    // 2b. Clear client_phone_numbers before insert too
+    try {
+      if (messengerType === "telegram") {
+        await supabase
+          .from("client_phone_numbers")
+          .update({ telegram_chat_id: null, telegram_user_id: null, is_telegram_enabled: false })
+          .eq("client_id", clientId);
+      } else if (messengerType === "whatsapp") {
+        await supabase
+          .from("client_phone_numbers")
+          .update({ whatsapp_chat_id: null, is_whatsapp_enabled: false })
+          .eq("client_id", clientId);
+      } else if (messengerType === "max") {
+        await supabase
+          .from("client_phone_numbers")
+          .update({ max_chat_id: null })
+          .eq("client_id", clientId);
+      }
+    } catch (e) {
+      console.warn("[unlink-messenger] client_phone_numbers pre-clear failed (table may not exist):", e);
+    }
+
+    // 3. Build the new client data
     const newClientData: Record<string, unknown> = {
       name: `${client.name || "Без имени"} (${messengerLabel})`,
       organization_id: client.organization_id,
@@ -65,11 +111,9 @@ serve(async (req) => {
       branch: client.branch || null,
     };
 
-    // Copy the relevant messenger IDs to the new client
     if (messengerType === "telegram") {
-      newClientData.telegram_user_id = client.telegram_user_id;
+      newClientData.telegram_user_id = savedFields.telegram_user_id ?? client.telegram_user_id;
     } else if (messengerType === "whatsapp") {
-      // whatsapp_id may not exist on self-hosted, extract phone instead
       const waId = client.whatsapp_id || client.phone;
       if (waId) {
         const digits = String(waId).replace(/@c\.us$/i, "").replace(/\D/g, "");
@@ -78,9 +122,8 @@ serve(async (req) => {
         }
       }
     }
-    // For MAX: max_chat_id is stored in chat_messages metadata, not on client
 
-    // 3. Insert new client
+    // 4. Insert new client
     const { data: newClient, error: insertError } = await supabase
       .from("clients")
       .insert(newClientData)
@@ -89,6 +132,13 @@ serve(async (req) => {
 
     if (insertError || !newClient) {
       console.error("[unlink-messenger] Failed to create new client:", insertError);
+
+      // Rollback: restore cleared fields on original client
+      if (Object.keys(savedFields).length > 0) {
+        console.log("[unlink-messenger] Rolling back cleared fields on original client");
+        await supabase.from("clients").update(savedFields).eq("id", clientId);
+      }
+
       return new Response(
         JSON.stringify({ error: "Failed to create new client", details: insertError?.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -97,14 +147,9 @@ serve(async (req) => {
 
     console.log(`[unlink-messenger] Created new client ${newClient.id} (${newClient.name})`);
 
-    // 4. Move messages of this messenger type to the new client
-    // Map messenger type to the value stored in chat_messages.messenger column
-    const messengerValue =
-      messengerType === "whatsapp" ? "whatsapp" :
-      messengerType === "telegram" ? "telegram" :
-      messengerType === "max" ? "max" : messengerType;
+    // 5. Move messages of this messenger type to the new client
+    const messengerValue = messengerType;
 
-    // Also handle messenger_type column (some schemas use this instead)
     const { data: movedMessages, error: moveError } = await supabase
       .from("chat_messages")
       .update({ client_id: newClient.id })
@@ -114,13 +159,12 @@ serve(async (req) => {
 
     if (moveError) {
       console.error("[unlink-messenger] Failed to move messages:", moveError);
-      // Try simpler query without OR (some schemas only have one column)
       const { error: moveError2 } = await supabase
         .from("chat_messages")
         .update({ client_id: newClient.id })
         .eq("client_id", clientId)
         .eq("messenger_type", messengerValue);
-      
+
       if (moveError2) {
         console.error("[unlink-messenger] Fallback move also failed:", moveError2);
       }
@@ -128,55 +172,6 @@ serve(async (req) => {
 
     const movedCount = movedMessages?.length || 0;
     console.log(`[unlink-messenger] Moved ${movedCount} messages to new client`);
-
-    // 5. Clear messenger fields on the original client
-    const clearFields: Record<string, unknown> = {};
-    if (messengerType === "telegram") {
-      clearFields.telegram_user_id = null;
-    }
-    // whatsapp_id column may not exist on self-hosted — skip clearing it
-
-    if (Object.keys(clearFields).length > 0) {
-      const { error: clearError } = await supabase
-        .from("clients")
-        .update(clearFields)
-        .eq("id", clientId);
-
-      if (clearError) {
-        console.warn("[unlink-messenger] Failed to clear messenger fields:", clearError);
-      }
-    }
-
-    // 6. If client_phone_numbers table exists, try to move/clear messenger data there too
-    try {
-      if (messengerType === "telegram") {
-        await supabase
-          .from("client_phone_numbers")
-          .update({
-            telegram_chat_id: null,
-            telegram_user_id: null,
-            is_telegram_enabled: false,
-          })
-          .eq("client_id", clientId);
-      } else if (messengerType === "whatsapp") {
-        await supabase
-          .from("client_phone_numbers")
-          .update({
-            whatsapp_chat_id: null,
-            is_whatsapp_enabled: false,
-          })
-          .eq("client_id", clientId);
-      } else if (messengerType === "max") {
-        await supabase
-          .from("client_phone_numbers")
-          .update({
-            max_chat_id: null,
-          })
-          .eq("client_id", clientId);
-      }
-    } catch (e) {
-      console.warn("[unlink-messenger] client_phone_numbers update failed (table may not exist):", e);
-    }
 
     return new Response(
       JSON.stringify({
