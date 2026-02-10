@@ -1,85 +1,85 @@
 
 
-# Fix Wappi Telegram Media: Upload Base64 to Storage
+# Optimization: Top-3 Heavy Database Queries
 
-## Problem
+## Current Situation
 
-When Wappi sends Telegram media messages (images, documents, audio, video), the webhook payload contains file data as base64 in the `body` field, just like WhatsApp. However, the `telegram-webhook` currently only looks at `message.file_link`, which is often null. This results in `file_url = null`, and the frontend shows "[Изображение]" as plain text with no actual image.
+The self-hosted database is overwhelmed -- **connection pool timeouts** everywhere (`PGRST003`). Based on the CSV data analysis:
 
-## Root Cause
+| Query | CPU Time (15 min) | Avg Time | Calls | Impact |
+|-------|-------------------|----------|-------|--------|
+| `get_chat_threads_fast` | 12.9 min | 1523ms | ~500 | **CRITICAL** |
+| `get_unread_chat_threads` | ~7 min | 204ms | ~2000 | HIGH |
+| `SELECT * FROM students` | ~2 min | 2900ms | ~40 | HIGH |
 
-In `supabase/functions/telegram-webhook/index.ts`, the `extractMessageContent` function (line 1050-1092) sets:
-```
-fileUrl = message.file_link || null;
-```
+Total: **~22 minutes of CPU** consumed in 15 minutes = database overloaded.
 
-Wappi Telegram rarely provides `file_link`. Instead, media is delivered as base64 in `message.body` -- the exact same pattern as Wappi WhatsApp.
+## Fix 1: Remove `get_chat_threads_fast` Fallback (Frontend)
 
-## Solution
+**File:** `src/hooks/useChatThreadsInfinite.ts`
 
-Apply the same `uploadWappiMedia` pattern from `wappi-whatsapp-webhook` to `telegram-webhook`:
+The code falls back to `get_chat_threads_fast` (unoptimized, 1.5s/call) when `get_chat_threads_paginated` errors. Since `get_chat_threads_paginated` is already deployed, the fallback just hammers the DB with the slow version on transient errors.
 
-1. Add `uploadWappiMedia`, `getExtFromMime`, and `generateFileName` helper functions (copied from wappi-whatsapp-webhook)
-2. Modify `extractMessageContent` to accept `organizationId` parameter
-3. For media types (image, video, document, audio, ptt, sticker), if `file_link` is absent but `body` exists, decode base64 and upload to `chat-media` bucket under path `wappi-telegram/{orgId}/{messageId}.{ext}`
-4. Use the resulting public URL as `fileUrl`
-5. Generate `fileName` when not provided
+**Change:** Remove the `get_chat_threads_fast` fallback. When `get_chat_threads_paginated` fails with a non-schema error, fall back to `fetchThreadsDirectly` (lightweight direct query) instead of calling another slow RPC.
 
-## Technical Changes
+**File:** `src/hooks/useChatThreadsOptimized.ts`
 
-### File: `supabase/functions/telegram-webhook/index.ts`
+Same fix -- remove the `get_chat_threads_fast` fallback on line 88.
 
-1. **Add helper functions** (top of file, after imports):
-   - `getExtFromMime(mime)` -- maps MIME type to file extension
-   - `generateFileName(mime, messageId)` -- generates human-readable filename
-   - `uploadWappiMedia(base64Body, messageId, mimeType, orgId)` -- decodes base64, uploads to `chat-media` bucket, returns public URL
+## Fix 2: Reduce Polling Frequency
 
-2. **Make `extractMessageContent` async** and add `organizationId` parameter:
-   - Change signature to `async function extractMessageContent(message, organizationId)`
-   - For each media type (image, video, document, audio/ptt, sticker):
-     - First try `message.file_link` (if Wappi provides a direct URL)
-     - If no `file_link` but `message.body` exists and looks like base64, call `uploadWappiMedia`
-     - Set `fileName` from `message.caption` or generate from MIME type
-   - Update return to include `fileName`
+**File:** `src/hooks/useRealtimeClients.ts`
 
-3. **Update callers** of `extractMessageContent`:
-   - Line 387 (handleIncomingMessage): `await extractMessageContent(message, organizationId)`
-   - Line 711 (handleOutgoingMessage): `await extractMessageContent(message, organizationId)`
+Currently polls every **30 seconds**, invalidating both `clients` and `chat-threads`. Each invalidation triggers `get_chat_threads_paginated` + `get_unread_chat_threads` -- two heavy RPCs. Combined with multiple browser tabs, this creates thousands of calls.
 
-### Storage Path
+**Change:** Increase polling interval from 30s to **120 seconds** (2 minutes). Also invalidate `chat-threads-infinite` and `chat-threads-unread-priority` instead of the generic `chat-threads` key.
 
-Media will be stored at: `wappi-telegram/{organizationId}/{messageId}.{extension}`
+**File:** `src/hooks/useChatThreadsInfinite.ts` (unread query)
 
-This uses a different prefix (`wappi-telegram/`) than WhatsApp (`wappi/`) to keep files organized.
+The unread query has `staleTime: 60000` but no explicit `refetchInterval`. However, the `useRealtimeClients` polling triggers it every 30s. With the polling fix above, this is already addressed.
 
-## Extension Mapping
+## Fix 3: Optimize Students Query
 
-Same as WhatsApp webhook:
-- image/jpeg -> .jpg
-- image/png -> .png
-- image/webp -> .webp
-- video/mp4 -> .mp4
-- audio/ogg -> .ogg
-- audio/mpeg -> .mp3
-- application/pdf -> .pdf
-- (default) -> .bin
+**File:** `src/hooks/useStudentsLazy.ts`
+
+Currently fetches `SELECT * FROM students LIMIT 10000` -- returns ALL columns for up to 10,000 rows. Takes 2.9 seconds per call.
+
+**Changes:**
+1. Reduce columns to only what's needed: `id, name, first_name, last_name, phone, status, branch, family_group_id, created_at`
+2. Add `organization_id` filter (if available from context)
+3. Keep `staleTime: 10 * 60 * 1000` (already good)
+
+**Find all other `from('students').select('*')` calls** and replace with specific columns where possible. Key files:
+- `src/hooks/useStudentBalances.ts` -- selects `*` for active students
+- `src/hooks/useStudentsWithFilters.ts` -- selects `*` with joins
+
+## Fix 4: Debounce Invalidation Cascade
+
+**File:** `src/hooks/useOrganizationRealtimeMessages.ts`
+
+The realtime message handler invalidates `chat-threads`, `chat-threads-infinite`, and `chat-threads-unread-priority` on every single incoming message. When multiple messages arrive rapidly (common in group chats), this triggers dozens of heavy RPCs.
+
+**Change:** Add debounce (500ms) to `invalidateThreadsQueries` so rapid message bursts only trigger one refresh.
+
+## Summary of Changes
+
+| File | Change | Expected Impact |
+|------|--------|----------------|
+| `src/hooks/useChatThreadsInfinite.ts` | Remove `get_chat_threads_fast` fallback | Eliminates 1.5s/call slow RPC |
+| `src/hooks/useChatThreadsOptimized.ts` | Remove `get_chat_threads_fast` fallback | Same |
+| `src/hooks/useRealtimeClients.ts` | Polling 30s -> 120s | ~75% fewer RPC calls |
+| `src/hooks/useStudentsLazy.ts` | Select specific columns instead of `*` | ~70% faster student queries |
+| `src/hooks/useStudentBalances.ts` | Select specific columns | Faster balance queries |
+| `src/hooks/useOrganizationRealtimeMessages.ts` | Debounce thread invalidation | Prevents cascade during message bursts |
 
 ## Expected Result
 
-After this change:
-- Incoming Telegram images via Wappi will display inline in the CRM chat
-- Documents will show with download buttons
-- Audio/voice messages will play with the audio player
-- Videos will render with the video player
-- All media permanently stored in Supabase Storage
+- `get_chat_threads_fast` CPU: 12.9 min -> **0 min** (removed)
+- `get_unread_chat_threads` calls: 2000 -> **~500** (4x reduction)
+- `students SELECT *`: 2.9s -> **~0.5s** (fewer columns)
+- Connection pool timeouts: should **stop completely**
 
-## Prerequisites
+## SQL Recommendation for Self-Hosted
 
-The `chat-media` storage bucket must exist on the self-hosted Supabase (already created for WhatsApp fix).
-
-## Files to Modify
-
-| File | Change |
-|------|--------|
-| `supabase/functions/telegram-webhook/index.ts` | Add `uploadWappiMedia` + helpers, make `extractMessageContent` async with base64 upload logic |
+No new SQL migrations needed in this change. The existing `get_chat_threads_paginated` and `get_unread_chat_threads` RPCs on the self-hosted server are already optimized (from previous docs). The problem is the frontend calling the **old** slow RPCs too often.
 
