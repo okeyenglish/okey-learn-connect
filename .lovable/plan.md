@@ -1,89 +1,55 @@
 
+# Исправление создания новых клиентов из всех мессенджеров
 
 ## Проблема
+Когда новый клиент пишет впервые, он не создается в системе. Причины различаются по каждому вебхуку, но сводятся к двум категориям:
+1. INSERT содержит колонки, которых нет в self-hosted схеме (`status`, `source`) -- INSERT падает
+2. Поиск клиента использует `.single()` вместо `.maybeSingle()` -- запрос падает при 0 результатов
+3. Деактивированные клиенты (`is_active = false`) не восстанавливаются при повторном обращении
 
-Таблица `students` на self-hosted **не имеет колонки `client_id`**. Связь клиент-ученик идёт исключительно через цепочку:
+## Что будет исправлено
+
+### 1. `whatsapp-webhook` (GreenAPI)
+**Проблема**: При создании клиента передаются `source: 'whatsapp'` и `status: 'new'` -- обе колонки отсутствуют в self-hosted схеме. INSERT падает.
+**Исправление**: Убрать `source` и `status`, добавить `is_active: true`. При ошибке unique constraint -- найти и восстановить деактивированного клиента.
+
+### 2. `telegram-crm-webhook` (Telethon)
+**Проблема**: При создании клиента передается `source: 'telegram_crm'` -- колонка отсутствует. INSERT падает.
+**Исправление**: Убрать `source`, добавить `is_active: true`. При ошибке unique constraint -- восстановить деактивированного клиента. Также расширить поиск на `is_active = false`.
+
+### 3. `telegram-webhook` (Wappi Telegram)
+**Проблема**: RPC функция `find_or_create_telegram_client` может не существовать на self-hosted, а legacy fallback не добавляет `is_active: true` и не восстанавливает деактивированных клиентов.
+**Исправление**: Добавить `is_active: true` в INSERT legacy-функции. При ошибке unique constraint -- восстановить клиента. Расширить поиск на неактивных клиентов.
+
+### 4. `max-webhook` (GreenAPI MAX)
+**Проблема**: Поиск по `max_chat_id` и `max_user_id` использует `.single()`, который падает при 0 результатах. Кроме того, поиск по телефону тоже использует `.limit(1).single()`.
+**Исправление**: Заменить `.single()` на `.maybeSingle()` во всех трех поисковых запросах. Добавить обработку unique constraint при создании.
+
+### 5. `wappi-whatsapp-webhook` (Wappi WhatsApp)
+**Проблема**: При ошибке создания клиента выбрасывается `throw createError`, что прерывает весь вебхук. Нет обработки unique constraint и восстановления деактивированных.
+**Исправление**: Обработать unique constraint -- найти и восстановить клиента. Обернуть вставку в `client_phone_numbers` в try/catch (таблица может не существовать). Расширить поиск на `is_active = false`.
+
+### 6. `wpp-webhook` (WPP)
+Уже корректно обрабатывает создание клиентов и unique constraint. Без изменений.
+
+## Общий паттерн для всех вебхуков
 
 ```text
-clients -> family_members (по client_id) -> family_group_id -> students (по family_group_id)
+findOrCreateClient():
+  1. Поиск клиента БЕЗ фильтра is_active (находим и деактивированных)
+  2. Если найден с is_active = false --> UPDATE is_active = true, вернуть
+  3. Если найден с is_active = true --> вернуть как есть
+  4. Если не найден --> INSERT с is_active: true, БЕЗ source/status
+  5. Если INSERT упал на unique constraint (23505):
+     --> Найти без фильтров и восстановить (UPDATE is_active = true)
 ```
 
-Текущий `fetchClientDirectFallback` загружает данные клиента, но всегда возвращает `students: []`, потому что не запрашивает таблицу `students`.
+## Список файлов для изменения
 
-## Решение
-
-Добавить поиск студентов в `fetchClientDirectFallback` через путь `family_members -> students.family_group_id`.
-
-## Изменения в `src/components/crm/FamilyCardWrapper.tsx`
-
-### 1. Добавить поиск студентов в `fetchClientDirectFallback` (после строки 195, где получены clientData)
-
-Логика:
-
-```text
-1. Запросить family_members WHERE client_id = clientId -> получить family_group_id
-2. Если найден family_group_id -> запросить students WHERE family_group_id = найденный ID
-3. Маппинг полей студентов: id, first_name (= name в таблице), last_name, middle_name, date_of_birth, avatar_url, status -> is_active
-4. Обернуть в try/catch — если таблицы нет, students останется пустым массивом
-```
-
-### 2. Конкретный код
-
-В функции `fetchClientDirectFallback`, между получением `clientData` (строка 195) и формированием `result` (строка 197):
-
-```typescript
-// Try to find students via family_members -> family_group_id -> students
-let students: FamilyGroup['students'] = [];
-try {
-  const { data: memberData } = await supabase
-    .from('family_members')
-    .select('family_group_id')
-    .eq('client_id', clientId)
-    .limit(1)
-    .maybeSingle();
-
-  if (memberData?.family_group_id) {
-    const { data: studentsData } = await supabase
-      .from('students')
-      .select('id, name, first_name, last_name, middle_name, date_of_birth, avatar_url, status')
-      .eq('family_group_id', memberData.family_group_id);
-
-    if (studentsData?.length) {
-      students = studentsData.map((s: any) => ({
-        id: s.id,
-        name: s.name || [s.first_name, s.last_name].filter(Boolean).join(' '),
-        firstName: s.first_name || s.name || '',
-        lastName: s.last_name || '',
-        middleName: s.middle_name || '',
-        age: calculateAge(s.date_of_birth),
-        dateOfBirth: s.date_of_birth || undefined,
-        status: s.status === 'active' || s.is_active ? 'active' : 'inactive',
-        courses: [],
-      }));
-      console.log(`[FamilyCardWrapper] Found ${students.length} students via family_group_id`);
-    }
-
-    // Also update the family group id in the result
-    // so it uses the real family_group_id instead of clientId
-  }
-} catch (err) {
-  console.warn('[FamilyCardWrapper] Could not fetch students:', err);
-}
-```
-
-Затем в объекте `result` на строке 213 заменить `students: []` на `students`.
-
-### 3. Импорт `calculateAge`
-
-Функция `calculateAge` уже определена в `useFamilyData.ts`, но не экспортируется. Нужно либо:
-- Продублировать простую функцию расчёта возраста в `FamilyCardWrapper.tsx`
-- Либо инлайнить расчёт
-
-Проще продублировать (3 строки кода).
-
-## Техническая секция
-
-- Колонка `client_id` в таблице `students` **не существует** на self-hosted — это подтверждено ошибкой `42703`
-- Связь всегда через `family_members.client_id` + `family_members.family_group_id` = `students.family_group_id`
-- Таблица `students` имеет колонку `name` (полное имя) и возможно `first_name`/`last_name`
-- Все запросы обёрнуты в try/catch для устойчивости к отсутствию таблиц
+| Файл | Изменения |
+|------|-----------|
+| `supabase/functions/whatsapp-webhook/index.ts` | Убрать `source`/`status` из INSERT, добавить `is_active: true`, обработка constraint |
+| `supabase/functions/telegram-crm-webhook/index.ts` | Убрать `source`, добавить `is_active: true`, поиск с восстановлением |
+| `supabase/functions/telegram-webhook/index.ts` | Добавить `is_active: true` в legacy INSERT, обработка constraint, поиск неактивных |
+| `supabase/functions/max-webhook/index.ts` | `.single()` --> `.maybeSingle()`, обработка constraint при создании |
+| `supabase/functions/wappi-whatsapp-webhook/index.ts` | Обработка constraint, try/catch для `client_phone_numbers`, поиск неактивных |
