@@ -195,7 +195,7 @@ const fetchClientDirectFallback = async (clientId: string): Promise<FamilyGroup 
     }
 
     const result: FamilyGroup = {
-      id: `direct-${clientId}`,
+      id: clientId,
       name: (clientData as any).name || 'Клиент',
       members: [{
         id: clientData.id,
