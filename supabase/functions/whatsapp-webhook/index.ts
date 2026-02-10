@@ -806,6 +806,15 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook, organizationId: s
       fileName = messageData.fileMessageData?.fileName;
       fileType = messageData.fileMessageData?.mimeType;
       break;
+    case 'quotedMessage':
+      messageText = messageData.extendedTextMessageData?.text || '';
+      // quotedMessage может содержать файл в fileMessageData
+      if (messageData.fileMessageData?.downloadUrl) {
+        fileUrl = messageData.fileMessageData.downloadUrl;
+        fileName = messageData.fileMessageData?.fileName;
+        fileType = messageData.fileMessageData?.mimeType;
+      }
+      break;
     case 'extendedTextMessage':
       messageText = messageData.extendedTextMessageData?.text || '';
       break;
@@ -1034,6 +1043,14 @@ async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: s
       fileUrl = messageData.fileMessageData?.downloadUrl;
       fileName = messageData.fileMessageData?.fileName;
       fileType = messageData.fileMessageData?.mimeType;
+      break;
+    case 'quotedMessage':
+      messageText = messageData.extendedTextMessageData?.text || '';
+      if (messageData.fileMessageData?.downloadUrl) {
+        fileUrl = messageData.fileMessageData.downloadUrl;
+        fileName = messageData.fileMessageData?.fileName;
+        fileType = messageData.fileMessageData?.mimeType;
+      }
       break;
     default:
       messageText = `[${messageData.typeMessage}]`;
