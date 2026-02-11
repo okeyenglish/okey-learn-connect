@@ -157,7 +157,7 @@ const BulkBranchReassign: React.FC = () => {
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal',
               },
-              body: JSON.stringify({ branch: selectedBranch }),
+              body: JSON.stringify({ branch: selectedBranch, last_message_at: null }),
             }
           );
 
