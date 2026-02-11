@@ -1,43 +1,28 @@
 
+# Fix: Real-time update after client merge
 
-# Исправление: превью сообщений у непрочитанных чатов
+## Problem
 
-## Проблема
+After merging (linking) two clients, the deactivated client still appears in the chat list. Users can navigate between both the original and merged client entries. The list only updates after a full page reload.
 
-В функции `get_unread_chat_threads` текст последнего сообщения всегда возвращается как `NULL` (строка 226: `NULL::text as last_message_text`). При мёрже в `useChatThreadsInfinite.ts` непрочитанные треды имеют приоритет и перезаписывают данные из paginated-запроса, где текст есть. В результате чаты с непрочитанными показывают "Нет сообщений".
+## Root Cause
 
-## Решение
+In `handleLinkChatSuccess` (CRM.tsx, line 1671), two critical query invalidations are missing:
+- `deleted-client-ids` -- this is the list of deactivated clients that gets filtered out from the chat list
+- `chat-threads-unread-priority` -- unread threads for the old client remain cached
 
-Добавить CTE `last_msgs` в `get_unread_chat_threads`, аналогично тому как это сделано в `get_chat_threads_paginated`.
+Without invalidating `deleted-client-ids`, the deactivated client's ID never enters the filter set, so it keeps appearing.
 
-## Технические детали
+## Solution
 
-### 1. Обновить SQL `get_unread_chat_threads` в `docs/rpc-branch-filter-update.sql`
-
-Добавить CTE для получения последнего сообщения:
+Add the missing `invalidateQueries` calls to `handleLinkChatSuccess` in `src/pages/CRM.tsx`:
 
 ```text
-last_msgs AS (
-  SELECT DISTINCT ON (cm.client_id)
-    cm.client_id,
-    cm.message_text,
-    cm.created_at,
-    cm.messenger_type
-  FROM chat_messages cm
-  WHERE cm.client_id IN (SELECT id FROM client_data)
-  ORDER BY cm.client_id, cm.created_at DESC
-)
+queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
+queryClient.invalidateQueries({ queryKey: ['deleted-client-ids'] });
+queryClient.invalidateQueries({ queryKey: ['deleted-chats'] });
 ```
 
-И заменить `NULL::text as last_message_text` на `lm.message_text as last_message_text`, добавив `LEFT JOIN last_msgs lm ON lm.client_id = cd.id`.
+### File: `src/pages/CRM.tsx`
 
-### 2. Создать отдельный SQL-файл для hotfix
-
-Файл: `docs/selfhosted-migrations/20260211_fix_unread_threads_preview.sql`
-
-Содержит обновленную версию `get_unread_chat_threads` с полным текстом последнего сообщения.
-
-### 3. Никаких изменений фронтенда не требуется
-
-Маппер `mapRpcToThreads` уже читает `last_message_text` (строка 486). После исправления SQL, данные будут корректно отображаться.
-
+Update `handleLinkChatSuccess` (around line 1671) to add the three missing invalidations alongside the existing ones. No other files need changes.
