@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ClientCardBubble, isClientCardMessage } from '@/components/ai-hub/ClientCardBubble';
+import { ForwardedMessageBubble, isForwardedMessage } from '@/components/ai-hub/ForwardedMessageBubble';
 import { 
   Bot, 
   Send, 
@@ -824,6 +825,8 @@ export const AIHub = ({
                         )}
                         {isClientCardMessage(msg.content, msg.message_type) ? (
                           <ClientCardBubble content={msg.content} isOwn={msg.type === 'user'} onOpenChat={(clientId) => { onOpenChat?.(clientId); onToggle(); }} />
+                        ) : isForwardedMessage(msg.content, msg.message_type) ? (
+                          <ForwardedMessageBubble content={msg.content} isOwn={msg.type === 'user'} onOpenChat={(clientId) => { onOpenChat?.(clientId); onToggle(); }} />
                         ) : (
                           <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                         )}

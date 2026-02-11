@@ -2195,58 +2195,11 @@ export const ChatArea = ({
     setIsSelectionMode(true);
   }, []);
 
-  const handleForwardMessages = async (recipients: Array<{id: string, type: 'client' | 'teacher' | 'corporate', name: string}>) => {
-    const messagesToForward = messages.filter(msg => selectedMessages.has(msg.id));
-    
-    try {
-      // Отправляем каждое сообщение каждому выбранному получателю
-      for (const recipient of recipients) {
-        for (const msg of messagesToForward) {
-          // Отправляем сообщение без префикса "Переслано:"
-          switch (recipient.type) {
-            case 'client':
-              // Отправляем клиенту через WhatsApp с информацией об источнике
-              await sendTextMessage(recipient.id, msg.message);
-              // Здесь можно добавить логику сохранения информации о пересылке в БД
-              break;
-            case 'teacher':
-              // Отправка преподавателю
-              console.log(`Отправка преподавателю ${recipient.name}:`, msg.message);
-              break;
-            case 'corporate':
-              // Отправка в корпоративный чат
-              console.log(`Отправка в корпоративный чат ${recipient.name}:`, msg.message);
-              break;
-          }
-        }
-      }
-      
-      const clientCount = recipients.filter(r => r.type === 'client').length;
-      const teacherCount = recipients.filter(r => r.type === 'teacher').length;
-      const corporateCount = recipients.filter(r => r.type === 'corporate').length;
-      
-      let description = `${messagesToForward.length} сообщений переслано: `;
-      const parts = [];
-      if (clientCount > 0) parts.push(`${clientCount} клиентам`);
-      if (teacherCount > 0) parts.push(`${teacherCount} преподавателям`);
-      if (corporateCount > 0) parts.push(`${corporateCount} корпоративным чатам`);
-      description += parts.join(', ');
-      
-      toast({
-        title: "Сообщения переслаты",
-        description,
-      });
-      
-      // Сбрасываем режим выделения
-      setIsSelectionMode(false);
-      setSelectedMessages(new Set());
-    } catch (error) {
-      toast({
-        title: "Ошибка пересылки",
-        description: "Не удалось переслать сообщения",
-        variant: "destructive",
-      });
-    }
+  const handleForwardMessages = async (recipients: Array<{id: string, type: 'staff' | 'group', name: string}>) => {
+    // ForwardMessageModal now handles sending via useSendStaffMessage internally
+    // This callback is kept for resetting selection mode
+    setIsSelectionMode(false);
+    setSelectedMessages(new Set());
   };
 
   const getSelectedMessagesForForward = () => {
@@ -4092,6 +4045,7 @@ export const ChatArea = ({
           onOpenChange={setShowForwardModal}
           selectedMessages={getSelectedMessagesForForward()}
           currentClientId={clientId}
+          clientName={clientName}
           onForward={handleForwardMessages}
         />
       )}
