@@ -107,6 +107,7 @@ async function insertChatMessage(params: MessageInsertParams): Promise<{ success
   const fullPayload: Record<string, unknown> = {
     organization_id: params.organization_id,
     client_id: params.teacher_id ? null : params.client_id,
+    teacher_id: params.teacher_id || null,
     message_text: params.content,
     message_type: params.message_type,
     messenger_type: params.messenger,
@@ -155,6 +156,7 @@ async function insertChatMessage(params: MessageInsertParams): Promise<{ success
   const minimalPayload: Record<string, unknown> = {
     organization_id: params.organization_id,
     client_id: params.teacher_id ? null : (params.client_id || null),
+    teacher_id: params.teacher_id || null,
     message_text: params.content,
     message_type: params.message_type,
     messenger_type: params.messenger,

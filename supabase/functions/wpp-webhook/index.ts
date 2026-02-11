@@ -397,6 +397,7 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
     
     const { error: teacherMsgError } = await supabase.from('chat_messages').insert({
       client_id: null,
+      teacher_id: teacherData.id,
       organization_id: organizationId,
       message_text: messageText,
       message_type: isFromMe ? 'manager' : 'client',
