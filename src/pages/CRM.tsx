@@ -1613,6 +1613,16 @@ const CRMContent = () => {
     console.log(`${action} для чата:`, chatId);
   }, [markAsUnread, markAsRead, markAsReadMutation, togglePin, toggleArchive]);
 
+  // "Не требует ответа" - marks chat as read both personally and globally
+  const handleNoResponseNeeded = useCallback((chatId: string) => {
+    markAsRead(chatId);
+    markAsReadMutation.mutate(chatId);
+    markChatAsReadGlobally(chatId).catch(err => 
+      console.error('Error marking chat as read globally:', err)
+    );
+    console.log('No response needed for chat:', chatId);
+  }, [markAsRead, markAsReadMutation, markChatAsReadGlobally]);
+
   // Handle URL parameter for deep linking from push notifications
   // This effect runs after handleChatClick is defined
   useEffect(() => {
@@ -3684,6 +3694,7 @@ const CRMContent = () => {
                                  onDelete={chat.type === 'client' ? () => handleDeleteChat(chat.id, chat.name) : undefined}
                                  onLinkToClient={chat.type === 'client' ? () => handleLinkChat(chat.id, chat.name) : undefined}
                                  onConvertToTeacher={chat.type === 'client' ? () => handleConvertToTeacher(chat.id, chat.name, chat.phone, (chat as any).email) : undefined}
+                                 onNoResponseNeeded={() => handleNoResponseNeeded(chat.id)}
                                  onBulkSelect={() => handleBulkSelectToggle(chat.id)}
                                />
                              );
@@ -3754,6 +3765,7 @@ const CRMContent = () => {
                           onDeleteChat={handleDeleteChat}
                           onLinkChat={handleLinkChat}
                           onConvertToTeacher={handleConvertToTeacher}
+                          onNoResponseNeeded={handleNoResponseNeeded}
                           isLoading={threadsLoading}
                           hasNextPage={hasNextPage}
                           isFetchingNextPage={isFetchingNextPage}
@@ -3805,6 +3817,7 @@ const CRMContent = () => {
                         onBulkSelect={handleBulkSelectToggle}
                         onDeleteChat={handleDeleteChat}
                         onLinkChat={handleLinkChat}
+                        onNoResponseNeeded={handleNoResponseNeeded}
                       />
                     </div>
                   )}
@@ -4231,6 +4244,7 @@ const CRMContent = () => {
                           onDeleteChat={handleDeleteChat}
                           onLinkChat={handleLinkChat}
                           onConvertToTeacher={handleConvertToTeacher}
+                          onNoResponseNeeded={handleNoResponseNeeded}
                           isLoading={threadsLoading}
                           onRefresh={refetchThreads}
                           hasNextPage={hasNextPage}
@@ -4284,6 +4298,7 @@ const CRMContent = () => {
                         onBulkSelect={handleBulkSelectToggle}
                         onDeleteChat={handleDeleteChat}
                         onLinkChat={handleLinkChat}
+                        onNoResponseNeeded={handleNoResponseNeeded}
                       />
                     </div>
                   )}

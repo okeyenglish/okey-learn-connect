@@ -112,6 +112,7 @@ interface ChatListItemProps {
   onDelete?: () => void;
   onLinkToClient?: () => void;
   onConvertToTeacher?: () => void;
+  onNoResponseNeeded?: () => void;
   onBulkSelect?: () => void;
 }
 
@@ -170,6 +171,7 @@ export const ChatListItem = React.memo(({
   onDelete,
   onLinkToClient,
   onConvertToTeacher,
+  onNoResponseNeeded,
   onBulkSelect
 }: ChatListItemProps) => {
   const isTyping = typingInfo && typingInfo.count > 0;
@@ -186,6 +188,7 @@ export const ChatListItem = React.memo(({
       onDelete={onDelete}
       onLinkToClient={onLinkToClient}
       onConvertToTeacher={onConvertToTeacher}
+      onNoResponseNeeded={onNoResponseNeeded}
       isPinned={isPinned}
       isArchived={isArchived}
       isUnread={displayUnread}
