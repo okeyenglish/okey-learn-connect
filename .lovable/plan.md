@@ -1,58 +1,75 @@
 
-# Fix: Wrong column names in remaining files + auto-retry status updates
+# Fix: Edge functions using wrong column names for chat_messages
 
 ## Problem
 
-After reverting most files, 3 files still use wrong column names for the `chat_messages` table, and the auto-retry logic in `ChatArea.tsx` uses wrong column name for status updates. These cause silent query failures.
+ALL edge functions that save messages to the `chat_messages` table use column names from the Lovable Cloud schema, but the app connects to a self-hosted database (`api.academyos.ru`) with different column names. This means:
 
-## Confirmed correct column names (from self-hosted DB CSV)
+- Sent messages are NOT saved to the database (INSERT uses non-existent columns)
+- Incoming webhook messages are also NOT saved
+- This is why no new messages appear in dialogs
 
-| Correct DB column | Wrong value in code |
+## Column mapping (wrong -> correct)
+
+| Edge function uses (WRONG) | Self-hosted DB has (CORRECT) |
 |---|---|
-| `message_status` | `status` |
-| `messenger_type` | `messenger` |
-| `message_text` | `content` |
-| `is_outgoing` (boolean) | `direction` (string) |
-| `file_url` | `media_url` |
-| `file_type` | `media_type` |
+| `content` | `message_text` |
+| `messenger` | `messenger_type` |
+| `direction: 'outgoing'` | `is_outgoing: true` |
+| `direction: 'incoming'` | `is_outgoing: false` |
+| `status` | `message_status` |
+| `external_id` | `external_message_id` |
+| `media_url` | `file_url` |
+| `media_type` | `file_type` |
+| `is_incoming` | `is_outgoing` (inverted boolean) |
 
-## Changes
+## Files to fix (12 edge functions)
 
-### 1. `src/components/crm/ChatArea.tsx` (lines 414-477)
+### 1. `supabase/functions/telegram-send/index.ts` (lines 711-723)
+Fix message record: `content` -> `message_text`, `messenger` -> `messenger_type`, `status` -> `message_status`, `direction` -> `is_outgoing`, `external_id` -> `external_message_id`, `media_url` -> `file_url`, `media_type` -> `file_type`
 
-The auto-retry function uses `.update({ status: ... })` three times. The correct column is `message_status`.
+### 2. `supabase/functions/telegram-crm-send/index.ts`
+Fix message record with same column mapping
 
-- Line 416: `.update({ status: 'queued' })` -> `.update({ message_status: 'queued' })`
-- Line 458: `.update({ status: 'sent' })` -> `.update({ message_status: 'sent' })`
-- Line 476: `.update({ status: 'failed' })` -> `.update({ message_status: 'failed' })`
+### 3. `supabase/functions/telegram-webhook/index.ts`
+Fix ALL insert records (incoming and outgoing echo messages) with correct columns
 
-### 2. `src/hooks/useChatThreadsInfinite.ts` (lines 169, 172)
+### 4. `supabase/functions/telegram-crm-webhook/index.ts`
+Fix incoming message insert with correct columns
 
-Field access uses `.messenger` but the SELECT on line 90 fetches `messenger_type`. Fix:
-- Line 169: `lastMessage?.messenger` -> `lastMessage?.messenger_type`
-- Line 172: `unreadMessages[0]?.messenger` -> `unreadMessages[0]?.messenger_type`
+### 5. `supabase/functions/whatsapp-send/index.ts`
+Fix outgoing message save with correct columns
 
-### 3. `src/hooks/useChatOSMessages.ts` (entire file)
+### 6. `supabase/functions/whatsapp-webhook/index.ts`
+Fix ALL insert records (incoming, outgoing echo, system messages). Also `is_incoming` -> `is_outgoing` (inverted)
 
-This file uses ALL wrong column names. Fix:
-- Line 35: `.eq('messenger', 'chatos')` -> `.eq('messenger_type', 'chatos')`
-- Line 48: `msg.direction === 'outgoing'` -> `msg.is_outgoing === true`
-- Line 49: `msg.content` -> `msg.message_text`
-- Line 51: `msg.media_url` -> `msg.file_url`
-- Line 53: `msg.media_type` -> `msg.file_type`
-- Line 104: `content:` -> `message_text:`
-- Line 105: `messenger: 'chatos'` -> `messenger_type: 'chatos'`
-- Line 107: `direction: 'outgoing'` -> `is_outgoing: true`
-- Line 110: `media_url:` -> `file_url:`
-- Line 112: `media_type:` -> `file_type:`
-- Line 114: `status: 'sent'` -> `message_status: 'sent'`
-- Line 150: `.eq('messenger', 'chatos')` -> `.eq('messenger_type', 'chatos')`
-- Line 151: `.eq('direction', 'incoming')` -> `.eq('is_outgoing', false)`
+### 7. `supabase/functions/wappi-whatsapp-send/index.ts`
+Fix outgoing message save with correct columns
 
-### 4. `src/hooks/useChatMessagesOptimized.ts` (line 152)
+### 8. `supabase/functions/wappi-whatsapp-webhook/index.ts`
+Fix ALL insert records with correct columns
 
-The realtime status handler types the payload as `{ status?: string }` but should be `{ message_status?: string }`. Fix the type and field access at lines 152-157.
+### 9. `supabase/functions/wpp-webhook/index.ts`
+Fix ALL insert records with correct columns
 
-## Expected result
+### 10. `supabase/functions/max-send/index.ts`
+Fix outgoing message save with correct columns
 
-After these fixes, all `chat_messages` queries will use the correct self-hosted column names, ensuring messages display properly and status updates work.
+### 11. `supabase/functions/max-webhook/index.ts`
+Fix ALL insert records (incoming and outgoing echo) with correct columns
+
+### 12. `supabase/functions/parent-lesson-reminders/index.ts`
+Fix ChatOS message insert with correct columns
+
+## Approach
+
+For each edge function, apply the column mapping above to every `chat_messages` INSERT operation. The `is_incoming` flag used in `whatsapp-webhook` needs special handling: it should be converted to `is_outgoing` with inverted boolean logic.
+
+Also verify that SELECT queries in these functions (e.g., for deduplication checks) use the correct column names.
+
+## Impact
+
+After this fix:
+- Outgoing messages via Telegram, WhatsApp, MAX will be saved and appear in the chat
+- Incoming webhook messages will be saved and appear in the chat
+- All messenger integrations will work correctly with the self-hosted database
