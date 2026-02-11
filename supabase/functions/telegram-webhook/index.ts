@@ -132,6 +132,7 @@ async function resilientInsertMessage(
     file_url: payload.file_url || null,
     file_name: payload.file_name || null,
     file_type: payload.file_type || null,
+    integration_id: payload.integration_id || null,
   };
 
   // Only add created_at if provided
@@ -502,6 +503,7 @@ async function handleIncomingMessage(
       file_name: fileName,
       file_type: fileType || contentType,
       metadata: teacherMetadata,
+      integration_id: integrationId || null,
       created_at: message.timestamp || new Date().toISOString()
     };
 
@@ -563,6 +565,7 @@ async function handleIncomingMessage(
     file_name: fileName,
     file_type: fileType || contentType,
     metadata: Object.keys(clientMetadata).length > 0 ? clientMetadata : null,
+    integration_id: integrationId || null,
     created_at: message.timestamp || new Date().toISOString()
   };
 

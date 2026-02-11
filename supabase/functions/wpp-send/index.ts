@@ -83,17 +83,17 @@ Deno.serve(async (req) => {
     if (!resolvedIntegrationId && payload.clientId) {
       const { data: lastMessage } = await supabase
         .from('chat_messages')
-        .select('integration_id')
+        .select('metadata')
         .eq('client_id', payload.clientId)
         .eq('is_outgoing', false)
         .eq('messenger_type', 'whatsapp')
-        .not('integration_id', 'is', null)
+        .not('metadata->integration_id', 'is', null)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (lastMessage?.integration_id) {
-        resolvedIntegrationId = lastMessage.integration_id as string;
+      if (lastMessage?.metadata?.integration_id) {
+        resolvedIntegrationId = lastMessage.metadata.integration_id as string;
         console.log('[wpp-send] Smart routing: using integration from last message:', resolvedIntegrationId);
       }
     }

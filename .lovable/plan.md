@@ -1,58 +1,32 @@
 
-# Fix: Smart routing reads integration_id from metadata JSONB
+# Fix: Smart routing — integration_id not saved/queried correctly
 
 ## Problem
 
 When a client writes through a Telegram Bot (Wappi), the reply goes out through the wrong integration (the one marked `is_primary`) instead of routing back through the same bot.
 
-## Root Cause
+## Root Cause (actual)
 
-The incoming webhook (`telegram-webhook`) correctly saves `integration_id` inside the `metadata` JSONB field:
-```
-metadata: { integration_id: "abc-123" }
-```
+The webhooks (telegram-webhook, max-webhook) save `integration_id` **only inside `metadata` JSONB**, but never set the **top-level `integration_id` column** which exists on self-hosted.
 
-But all send functions (`telegram-send`, `telegram-crm-send`, `max-send`, `wpp-send`) query `integration_id` as a **top-level column** which does NOT exist in the `chat_messages` table:
-```js
-.select('integration_id')              // column doesn't exist
-.not('integration_id', 'is', null)     // always fails
-```
+The send functions (telegram-send, telegram-crm-send, max-send) query `integration_id` as a top-level column — which is always NULL because the webhooks never populate it. Smart routing always fails and falls back to `is_primary`.
 
-Since the query always returns nothing, smart routing falls back to `is_primary`, which is the "numbered" personal account instead of the bot.
+For wpp-send (Lovable Cloud), the `integration_id` column doesn't exist at all — it must be queried from `metadata` JSONB.
 
-## Solution
+## Fix Applied
 
-Update the smart routing queries in all 4 send functions to read `integration_id` from the `metadata` JSONB field instead of a non-existent top-level column.
+### 1. Webhooks — save `integration_id` as top-level column
 
-### Change pattern (applied to every smart routing query):
+**telegram-webhook**: Added `integration_id: integrationId || null` to both `fullPayload` and `minimalPayload` in `resilientInsertMessage`.
 
-**Before:**
-```js
-.select('integration_id')
-.not('integration_id', 'is', null)
-// then: lastMessage?.integration_id
-```
+**max-webhook**: Added `integration_id: integrationId || null` to all 3 insert payloads (teacher, client, outgoing).
 
-**After:**
-```js
-.select('metadata')
-.not('metadata->integration_id', 'is', null)
-// then: lastMessage?.metadata?.integration_id
-```
+### 2. wpp-send — query metadata instead of non-existent column
 
-### Files to update:
+Changed from `.select('integration_id')` / `.not('integration_id', 'is', null)` to `.select('metadata')` / `.not('metadata->integration_id', 'is', null)` and reading `lastMessage?.metadata?.integration_id`.
 
-| File | Smart routing queries to fix |
-|------|------------------------------|
-| `supabase/functions/telegram-send/index.ts` | 3 queries (lines 69-83, 88-102, 118-131) |
-| `supabase/functions/telegram-crm-send/index.ts` | 1 query (lines 124-128) |
-| `supabase/functions/max-send/index.ts` | 1 query (lines 65-69) |
-| `supabase/functions/wpp-send/index.ts` | 1 query (lines 84-88) |
+### 3. telegram-send, telegram-crm-send, max-send — no changes needed
 
-### Technical detail
+These use self-hosted DB which has `integration_id` as a top-level column. Now that the webhooks populate it, the existing queries will work correctly.
 
-PostgREST supports JSONB arrow operators:
-- `metadata->integration_id` accesses the JSON key
-- `.not('metadata->integration_id', 'is', null)` filters rows where the key exists and is not null
-
-No database migration needed -- this is purely an edge function change.
+## Status: ✅ Complete
