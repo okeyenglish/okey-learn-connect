@@ -81,6 +81,10 @@ interface AIHubInlineProps {
   initialStaffUserId?: string | null;
   /** Clear the initialStaffUserId after it's been processed */
   onClearInitialStaffUserId?: () => void;
+  /** If set, auto-open a group chat on mount */
+  initialGroupChatId?: string | null;
+  /** Clear the initialGroupChatId after it's been processed */
+  onClearInitialGroupChatId?: () => void;
   /** If set, auto-open AI assistant and show this message */
   initialAssistantMessage?: string | null;
   /** Clear the initialAssistantMessage after it's been processed */
@@ -233,6 +237,8 @@ export const AIHubInline = ({
   onBack,
   initialStaffUserId,
   onClearInitialStaffUserId,
+  initialGroupChatId,
+  onClearInitialGroupChatId,
   initialAssistantMessage,
   onClearInitialAssistantMessage,
   quickReplyCategory,
@@ -464,6 +470,23 @@ export const AIHubInline = ({
       })();
     }
   }, [initialStaffUserId, staffChatItems, teacherChatItems, staffMembersLoading, teachersLoading, onClearInitialStaffUserId]);
+
+  // Auto-open group chat when initialGroupChatId is provided
+  useEffect(() => {
+    if (!initialGroupChatId) return;
+    
+    const targetGroup = groupChatItems.find(chat => {
+      const groupData = chat.data as any;
+      return groupData?.id === initialGroupChatId;
+    });
+
+    if (targetGroup) {
+      setActiveChat(targetGroup);
+      onClearInitialGroupChatId?.();
+    } else if (!groupChatsLoading) {
+      onClearInitialGroupChatId?.();
+    }
+  }, [initialGroupChatId, groupChatItems, groupChatsLoading, onClearInitialGroupChatId]);
 
   // Auto-open AI assistant when initialAssistantMessage is provided
   useEffect(() => {

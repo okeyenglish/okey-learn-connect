@@ -29,6 +29,7 @@ interface ShareClientCardModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   client: ClientInfo;
+  onSent?: (recipient: { type: RecipientType; id: string; name: string }) => void;
 }
 
 type RecipientType = 'staff' | 'group';
@@ -45,6 +46,7 @@ export const ShareClientCardModal = ({
   open,
   onOpenChange,
   client,
+  onSent,
 }: ShareClientCardModalProps) => {
   const [search, setSearch] = useState('');
   const [selectedRecipient, setSelectedRecipient] = useState<Recipient | null>(null);
@@ -108,11 +110,13 @@ export const ShareClientCardModal = ({
 
       await sendMessage.mutateAsync(payload);
       
+      const sentRecipient = { type: selectedRecipient.type, id: selectedRecipient.id, name: selectedRecipient.name };
       toast.success(`Карточка отправлена: ${selectedRecipient.name}`);
       onOpenChange(false);
       setSelectedRecipient(null);
       setMessageText('');
       setSearch('');
+      onSent?.(sentRecipient);
     } catch (error) {
       console.error('Error sharing client card:', error);
       toast.error('Не удалось отправить карточку');
