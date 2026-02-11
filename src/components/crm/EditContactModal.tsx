@@ -85,8 +85,13 @@ export const EditContactModal = ({ contactData, onSave, children, clientTelegram
   const [firstName, setFirstName] = useState(contactData.firstName || '');
   const [middleName, setMiddleName] = useState(contactData.middleName || '');
 
+  // Reset form data only when the modal opens
   useEffect(() => {
-    // If separate name fields not provided, parse from full name
+    if (!isOpen) return;
+    setFormData(contactData);
+    setPhoneNumbers(contactData.phoneNumbers || [
+      { id: '1', phone: '', phoneType: 'mobile', isPrimary: true, isWhatsappEnabled: true, isTelegramEnabled: false }
+    ]);
     if (!contactData.lastName && !contactData.firstName && contactData.name) {
       const parsed = parseFullName(contactData.name);
       setLastName(parsed.lastName);
@@ -97,7 +102,8 @@ export const EditContactModal = ({ contactData, onSave, children, clientTelegram
       setFirstName(contactData.firstName || '');
       setMiddleName(contactData.middleName || '');
     }
-  }, [contactData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const handleSave = () => {
     const fullName = combineFullName(lastName, firstName, middleName);
