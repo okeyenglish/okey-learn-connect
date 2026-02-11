@@ -19,7 +19,7 @@ interface ConvertToTeacherModalProps {
   clientName: string;
   clientPhone?: string;
   clientEmail?: string;
-  onSuccess?: () => void;
+  onSuccess?: (teacherId: string) => void;
 }
 
 type ModalMode = 'loading' | 'check' | 'form' | 'select';
@@ -237,7 +237,7 @@ export function ConvertToTeacherModal({
         description: `Перенесено ${migratedCount || 0} сообщений`,
       });
 
-      onSuccess?.();
+      onSuccess?.(existingTeacherId);
       onClose();
     } catch (error) {
       console.error('Error converting to teacher:', error);
@@ -332,7 +332,7 @@ export function ConvertToTeacherModal({
         description: `Перенесено ${migratedCount || 0} сообщений`,
       });
 
-      onSuccess?.();
+      onSuccess?.(teacherData.id);
       onClose();
     } catch (error) {
       console.error('Error converting to teacher:', error);

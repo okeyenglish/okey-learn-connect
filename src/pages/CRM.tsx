@@ -1722,16 +1722,20 @@ const CRMContent = () => {
     });
   }, []);
 
-  const handleConvertToTeacherSuccess = useCallback(() => {
+  const handleConvertToTeacherSuccess = useCallback((teacherId?: string) => {
     queryClient.invalidateQueries({ queryKey: ['teachers'] });
     queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
     queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
     queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
     queryClient.invalidateQueries({ queryKey: ['clients'] });
-    // Switch to teachers tab and select the chat
+    // Switch to teachers tab and open the teacher's chat
     setActiveTab('teachers');
-    setActiveChatId(null);
-  }, [queryClient, setActiveTab, setActiveChatId]);
+    if (teacherId) {
+      handleChatClick(teacherId, 'teachers');
+    } else {
+      setActiveChatId(null);
+    }
+  }, [queryClient, setActiveTab, setActiveChatId, handleChatClick]);
 
   // Bulk read/unread works only for client chats where chatId is a UUID (client_id).
   // If any non-UUID IDs slip into the selection (e.g. system chats), a single DB query may fail entirely.
