@@ -1091,7 +1091,7 @@ export const ChatArea = ({
           .from('chat_messages') as any)
           .update({ is_read: true })
           .eq('teacher_id', teacherId)
-          .eq('is_outgoing', false)
+          .eq('direction', 'incoming')
           .or('is_read.is.null,is_read.eq.false');
 
         if (error) {
@@ -2299,7 +2299,7 @@ export const ChatArea = ({
     // Update status to 'queued' optimistically
     await supabase
       .from('chat_messages')
-      .update({ message_status: 'queued' })
+      .update({ status: 'queued' })
       .eq('id', messageId);
     
     // Invalidate cache to show queued status
@@ -2343,7 +2343,7 @@ export const ChatArea = ({
       // Update original message status to 'sent' and remove the old failed record
       await supabase
         .from('chat_messages')
-        .update({ message_status: 'sent' })
+        .update({ status: 'sent' })
         .eq('id', messageId);
 
       queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
@@ -2356,7 +2356,7 @@ export const ChatArea = ({
       // Update status back to 'failed'
       await supabase
         .from('chat_messages')
-        .update({ message_status: 'failed' })
+        .update({ status: 'failed' })
         .eq('id', messageId);
 
       queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });

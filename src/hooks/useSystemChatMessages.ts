@@ -36,29 +36,27 @@ export const useSystemChatMessages = () => {
 
       const clientIds = clients.map(c => c.id);
 
-      // BATCH: Get last messages for ALL clients in one query
-      // Self-hosted uses message_text, not content
       const { data: lastMessages } = await supabase
         .from('chat_messages')
-        .select('client_id, message_text, created_at')
+        .select('client_id, content, created_at')
         .in('client_id', clientIds)
         .order('created_at', { ascending: false })
         .limit(500);
 
-      // BATCH: Get unread counts for ALL clients in one query (self-hosted: is_outgoing=false)
+      // BATCH: Get unread counts for ALL clients in one query (self-hosted: direction='incoming')
       const { data: unreadMessages } = await supabase
         .from('chat_messages')
         .select('client_id')
         .in('client_id', clientIds)
         .eq('is_read', false)
-        .eq('is_outgoing', false);
+        .eq('direction', 'incoming');
 
-      // Build lookup maps (use message_text for self-hosted compatibility)
+      // Build lookup maps
       const lastMessageMap = new Map<string, { content: string; created_at: string }>();
       (lastMessages || []).forEach(msg => {
         if (!lastMessageMap.has(msg.client_id!) && msg.client_id) {
           lastMessageMap.set(msg.client_id, { 
-            content: msg.message_text || '', 
+            content: msg.content || '', 
             created_at: msg.created_at 
           });
         }

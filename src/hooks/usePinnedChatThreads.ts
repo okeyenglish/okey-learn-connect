@@ -102,12 +102,12 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
   console.log('[usePinnedChatThreads] Fetched clients:', clients?.length || 0);
 
   // Fetch last message for each client
-  const { data: messages, error: messagesError } = await supabase
-    .from('chat_messages')
-    .select('client_id, message_text, created_at, is_read, messenger_type, message_type')
-    .in('client_id', clientIds)
-    .order('created_at', { ascending: false })
-    .limit(clientIds.length * 10);
+    const { data: messages, error: messagesError } = await supabase
+      .from('chat_messages')
+      .select('client_id, content, created_at, is_read, messenger, message_type')
+      .in('client_id', clientIds)
+      .order('created_at', { ascending: false })
+      .limit(clientIds.length * 10);
 
   if (messagesError) {
     console.error('[usePinnedChatThreads] Failed to fetch messages:', messagesError);
@@ -148,8 +148,8 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
         calls: 0,
       };
       unreadMessages.forEach((m: any) => {
-        const type = m.messenger_type as keyof UnreadByMessenger;
-        // Skip 'calls' as it's not a valid messenger_type enum value in the database
+        const type = m.messenger as keyof UnreadByMessenger;
+        // Skip 'calls' as it's not a valid messenger enum value in the database
         if (type && type !== 'calls' && type in unreadByMessenger) {
           unreadByMessenger[type]++;
         }
@@ -172,12 +172,12 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
         telegram_chat_id: null,
         whatsapp_chat_id: null,
         max_chat_id: null,
-        last_message: lastMessage?.message_text || '',
+        last_message: lastMessage?.content || '',
         last_message_time: lastMessage?.created_at || null,
-        last_message_messenger: lastMessage?.messenger_type || null,
+        last_message_messenger: lastMessage?.messenger || null,
         unread_count: unreadMessages.length,
         unread_by_messenger: unreadByMessenger,
-        last_unread_messenger: unreadMessages[0]?.messenger_type || null,
+        last_unread_messenger: unreadMessages[0]?.messenger || null,
         messages: [],
       };
     });
