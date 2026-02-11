@@ -160,10 +160,17 @@ serve(async (req) => {
       })
     }
 
-    // Binary response - return as is or convert to base64
+    // Binary response - return as is or convert to base64 (chunked to avoid stack overflow)
     const blob = await response.blob()
     const arrayBuffer = await blob.arrayBuffer()
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+    const bytes = new Uint8Array(arrayBuffer)
+    let binary = ''
+    const chunkSize = 8192
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize)
+      binary += String.fromCharCode(...chunk)
+    }
+    const base64 = btoa(binary)
 
     return new Response(JSON.stringify({
       success: true,

@@ -97,6 +97,144 @@ async function uploadWappiMedia(
   }
 }
 
+// ============================================================================
+// Full media download via Wappi API
+// ============================================================================
+
+async function getWappiCredentials(organizationId: string): Promise<{ profileId: string; apiToken: string } | null> {
+  try {
+    // Try messenger_integrations first
+    const { data: integrations } = await supabase
+      .from('messenger_integrations')
+      .select('settings')
+      .eq('messenger_type', 'whatsapp')
+      .eq('provider', 'wappi')
+      .eq('organization_id', organizationId)
+      .eq('is_enabled', true)
+      .limit(1)
+
+    if (integrations && integrations.length > 0) {
+      const s = integrations[0].settings as Record<string, unknown>
+      const pid = s?.wappiProfileId || s?.profileId
+      const token = s?.wappiApiToken || s?.apiToken
+      if (pid && token) return { profileId: String(pid), apiToken: String(token) }
+    }
+  } catch (_) { /* fallback below */ }
+
+  // Fallback to messenger_settings
+  try {
+    const { data: settings } = await supabase
+      .from('messenger_settings')
+      .select('settings')
+      .eq('messenger_type', 'whatsapp')
+      .eq('organization_id', organizationId)
+      .eq('is_enabled', true)
+      .limit(1)
+
+    if (settings && settings.length > 0) {
+      const s = settings[0].settings as Record<string, unknown>
+      const pid = s?.wappiProfileId || s?.profileId
+      const token = s?.wappiApiToken || s?.apiToken
+      if (pid && token) return { profileId: String(pid), apiToken: String(token) }
+    }
+  } catch (_) { /* ignore */ }
+
+  return null
+}
+
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = ''
+  const chunkSize = 8192
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize)
+    binary += String.fromCharCode(...chunk)
+  }
+  return btoa(binary)
+}
+
+async function downloadFullMedia(
+  profileId: string,
+  apiToken: string,
+  messageId: string,
+  mimeType: string | undefined,
+  orgId: string
+): Promise<string | null> {
+  try {
+    const url = `https://wappi.pro/api/sync/message/media/download?profile_id=${profileId}&message_id=${messageId}`
+    console.log(`[wappi-media] Downloading full media via API: ${messageId}`)
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Authorization': apiToken }
+    })
+
+    if (!response.ok) {
+      console.warn(`[wappi-media] Download API returned ${response.status}`)
+      return null
+    }
+
+    const contentType = response.headers.get('content-type') || ''
+
+    let fileBytes: Uint8Array
+    let finalMime = mimeType?.split(';')[0].trim() || 'application/octet-stream'
+
+    if (contentType.includes('application/json')) {
+      const result = await response.json()
+      // API may return base64 in body/data or a URL
+      if (result.url || result.downloadUrl) {
+        const fileResp = await fetch(result.url || result.downloadUrl)
+        if (!fileResp.ok) return null
+        fileBytes = new Uint8Array(await fileResp.arrayBuffer())
+        finalMime = fileResp.headers.get('content-type')?.split(';')[0].trim() || finalMime
+      } else if (result.body || result.data) {
+        const b64 = result.body || result.data
+        const bin = atob(b64)
+        fileBytes = new Uint8Array(bin.length)
+        for (let i = 0; i < bin.length; i++) fileBytes[i] = bin.charCodeAt(i)
+        finalMime = result.mimetype || result.mimeType || finalMime
+      } else {
+        console.warn('[wappi-media] Unknown JSON response format from download API')
+        return null
+      }
+    } else {
+      // Binary response
+      fileBytes = new Uint8Array(await response.arrayBuffer())
+      if (contentType && !contentType.includes('text/')) {
+        finalMime = contentType.split(';')[0].trim()
+      }
+    }
+
+    if (fileBytes.length < 100) {
+      console.warn(`[wappi-media] Downloaded file too small (${fileBytes.length} bytes), skipping`)
+      return null
+    }
+
+    // Upload to storage
+    const ext = getExtFromMime(finalMime)
+    const storagePath = `wappi/${orgId}/${messageId}${ext}`
+    console.log(`[wappi-media] Uploading ${fileBytes.length} bytes (full media) to chat-media/${storagePath}`)
+
+    const { error: uploadError } = await supabase.storage
+      .from('chat-media')
+      .upload(storagePath, fileBytes, { contentType: finalMime, upsert: true })
+
+    if (uploadError) {
+      console.error('[wappi-media] Upload error:', uploadError.message)
+      return null
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('chat-media')
+      .getPublicUrl(storagePath)
+
+    console.log('[wappi-media] Full media uploaded:', publicUrlData.publicUrl)
+    return publicUrlData.publicUrl
+  } catch (err) {
+    console.error('[wappi-media] downloadFullMedia failed:', err)
+    return null
+  }
+}
+
 function extractPhoneFromChatId(chatId: string): string {
   // chatId format: 79999999999@c.us or group format
   return chatId.replace('@c.us', '').replace('@g.us', '')
@@ -478,12 +616,19 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
     fileName = message.file_name || message.title || generateFileName(message.mimetype, message.id)
     fileType = message.mimetype || null
 
-    // Upload base64 media to Supabase Storage
-    if (message.body && message.type !== 'chat' && organizationId) {
-      const uploadedUrl = await uploadWappiMedia(message.body, message.id, message.mimetype, organizationId)
-      fileUrl = uploadedUrl
-      if (!uploadedUrl) {
-        console.warn('[wappi-webhook] Media upload failed for message:', message.id)
+    // Download full media via Wappi API, fallback to body base64
+    if (message.type !== 'chat' && organizationId) {
+      // 1. Try full media download via API
+      const credentials = await getWappiCredentials(organizationId)
+      if (credentials) {
+        fileUrl = await downloadFullMedia(credentials.profileId, credentials.apiToken, message.id, message.mimetype, organizationId)
+      }
+      // 2. Fallback: use body base64 only if large enough (>1KB = not a thumbnail)
+      if (!fileUrl && message.body && message.body.length > 1000) {
+        fileUrl = await uploadWappiMedia(message.body, message.id, message.mimetype, organizationId)
+      }
+      if (!fileUrl) {
+        console.warn('[wappi-webhook] Media not available for message:', message.id)
       }
     }
   }
@@ -696,12 +841,19 @@ async function handleOutgoingMessage(message: WappiMessage, organizationId: stri
   let fileName: string | null = null
   let fileType: string | null = null
 
-  // Upload media for outgoing messages too
-  if (message.type !== 'chat' && message.body && organizationId) {
+  // Download full media for outgoing messages too
+  if (message.type !== 'chat' && organizationId) {
     fileName = message.file_name || message.title || generateFileName(message.mimetype, message.id)
     fileType = message.mimetype || null
-    const uploadedUrl = await uploadWappiMedia(message.body, message.id, message.mimetype, organizationId)
-    fileUrl = uploadedUrl
+    // 1. Try full media download via API
+    const credentials = await getWappiCredentials(organizationId)
+    if (credentials) {
+      fileUrl = await downloadFullMedia(credentials.profileId, credentials.apiToken, message.id, message.mimetype, organizationId)
+    }
+    // 2. Fallback: body base64 only if large enough
+    if (!fileUrl && message.body && message.body.length > 1000) {
+      fileUrl = await uploadWappiMedia(message.body, message.id, message.mimetype, organizationId)
+    }
   }
 
   // Save message as outgoing from manager
