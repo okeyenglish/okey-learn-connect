@@ -823,7 +823,9 @@ export const ChatArea = ({
   };
 
   // Format message helper - мемоизированная функция
-  const formatMessage = useCallback((msg: any) => ({
+  const formatMessage = useCallback((msg: any) => {
+    const meta = msg.metadata || null;
+    return {
     id: msg.id,
     type: msg.message_type || (msg.is_outgoing ? 'manager' : 'client'),
     message: msg.message_text || '',
@@ -851,9 +853,13 @@ export const ChatArea = ({
     isForwarded: msg.is_forwarded || false,
     forwardedFrom: msg.forwarded_from || null,
     forwardedFromType: msg.forwarded_from_type || null,
+    // Edited/deleted status from metadata
+    isEdited: meta?.is_edited === true,
+    editedTime: meta?.edited_at ? new Date(meta.edited_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : undefined,
     // Task notification metadata
-    metadata: msg.metadata || null,
-  }), [managerName]);
+    metadata: meta,
+  };
+  }, [managerName]);
 
   // Format messages from React Query data using memoization for performance
   const messages = useMemo(() => {
@@ -2967,6 +2973,8 @@ export const ChatArea = ({
                             isHighlighted={msg.id === currentHighlightedId}
                             searchQuery={searchQuery}
                             isJustSent={isMessageJustSent(msg)}
+                            isEdited={msg.isEdited}
+                            editedTime={msg.editedTime}
                             metadata={msg.metadata}
                             clientId={clientId}
                           />
@@ -3113,6 +3121,8 @@ export const ChatArea = ({
                             isHighlighted={msg.id === currentHighlightedId}
                             searchQuery={searchQuery}
                             isJustSent={isMessageJustSent(msg)}
+                            isEdited={msg.isEdited}
+                            editedTime={msg.editedTime}
                             metadata={msg.metadata}
                             clientId={clientId}
                           />
@@ -3219,6 +3229,8 @@ export const ChatArea = ({
                             isHighlighted={msg.id === currentHighlightedId}
                             searchQuery={searchQuery}
                             isJustSent={isMessageJustSent(msg)}
+                            isEdited={msg.isEdited}
+                            editedTime={msg.editedTime}
                             metadata={msg.metadata}
                             clientId={clientId}
                           />
@@ -3338,6 +3350,8 @@ export const ChatArea = ({
                             isHighlighted={msg.id === currentHighlightedId}
                             searchQuery={searchQuery}
                             isJustSent={isMessageJustSent(msg)}
+                            isEdited={msg.isEdited}
+                            editedTime={msg.editedTime}
                             metadata={msg.metadata}
                             clientId={clientId}
                           />

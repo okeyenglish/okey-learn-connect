@@ -311,12 +311,12 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
       messageId={messageId}
       messageType={type}
       messageText={message}
-      onEdit={type === 'manager' && message !== '[Сообщение удалено]' ? () => setIsEditing(true) : undefined}
+      onEdit={type === 'manager' && message !== '[Сообщение удалено]' && message !== 'Сообщение было удалено' ? () => setIsEditing(true) : undefined}
       onDelete={onMessageDelete && messageId ? handleDelete : undefined}
       onForward={onForwardMessage && messageId ? handleForward : undefined}
       onSelectMultiple={onEnterSelectionMode ? handleSelectMultiple : undefined}
       onQuote={onQuoteMessage}
-      isDeleted={message === '[Сообщение удалено]'}
+      isDeleted={message === '[Сообщение удалено]' || message === 'Сообщение было удалено'}
     >
       <div 
         className={`flex ${type === 'manager' ? 'justify-end' : 'justify-start'} ${isLastInGroup ? 'mb-4' : 'mb-1'} ${isSelectionMode ? 'hover:bg-muted/20 p-2 rounded-lg' : ''} ${isHighlighted ? 'message-highlight' : ''} ${isJustSent ? 'animate-message-send' : 'animate-fade-in'}`}
@@ -431,7 +431,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
               </div>
             ) : (
               <>
-                {message === '[Сообщение удалено]' ? (
+                {(message === '[Сообщение удалено]' || message === 'Сообщение было удалено') ? (
                   <p className="text-sm leading-relaxed italic text-muted-foreground">*Данное сообщение удалено*</p>
                 ) : (
                   <div>
@@ -449,7 +449,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                 )}
                 
                 {/* Attached file - messenger style for media */}
-                {message !== '[Сообщение удалено]' && fileUrl && (
+                {message !== '[Сообщение удалено]' && message !== 'Сообщение было удалено' && fileUrl && (
                   <div className={
                     (fileType?.startsWith('image/') || fileType?.startsWith('video/') || fileType?.startsWith('audio/') ||
                      messageTypeHint?.toLowerCase().includes('image') || messageTypeHint?.toLowerCase().includes('video') ||
@@ -487,7 +487,7 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
                       )}
                     </span>
                     {/* Delivery status for outgoing messages - shows sent/delivered/read status */}
-                    {type === 'manager' && message !== '[Сообщение удалено]' && (
+                    {type === 'manager' && message !== '[Сообщение удалено]' && message !== 'Сообщение было удалено' && (
                       <MessageDeliveryStatus 
                         status={messageStatus}
                         className="ml-1"

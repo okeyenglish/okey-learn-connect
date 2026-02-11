@@ -438,6 +438,29 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
     return
   }
 
+  // Handle edited messages (is_edited=true, stanza_id=original message ID)
+  const wappiMsg = message as any
+  if (wappiMsg.is_edited && wappiMsg.stanza_id) {
+    console.log('[wappi-webhook] Edited message received, stanza_id:', wappiMsg.stanza_id)
+    const newText = wappiMsg.body || ''
+    const { error: editError } = await supabase
+      .from('chat_messages')
+      .update({
+        content: newText,
+        metadata: {
+          is_edited: true,
+          edited_at: wappiMsg.timestamp || new Date(wappiMsg.time * 1000).toISOString(),
+        },
+      })
+      .eq('external_id', wappiMsg.stanza_id)
+    if (editError) {
+      console.error('[wappi-webhook] Error updating edited message:', editError)
+    } else {
+      console.log('[wappi-webhook] ✓ Message edited in DB, stanza_id:', wappiMsg.stanza_id)
+    }
+    return // Don't insert as new message
+  }
+
   // Determine message text and file info
   let messageText = ''
   let fileUrl: string | null = null
@@ -634,6 +657,29 @@ async function handleOutgoingMessage(message: WappiMessage, organizationId: stri
 
   if (existingMessage) {
     console.log('Outgoing message already exists (sent via CRM), skipping:', message.id)
+    return
+  }
+
+  // Handle edited outgoing messages
+  const outMsg = message as any
+  if (outMsg.is_edited && outMsg.stanza_id) {
+    console.log('[wappi-webhook] Edited outgoing message, stanza_id:', outMsg.stanza_id)
+    const newText = outMsg.body || ''
+    const { error: editError } = await supabase
+      .from('chat_messages')
+      .update({
+        content: newText,
+        metadata: {
+          is_edited: true,
+          edited_at: outMsg.timestamp || new Date(outMsg.time * 1000).toISOString(),
+        },
+      })
+      .eq('external_id', outMsg.stanza_id)
+    if (editError) {
+      console.error('[wappi-webhook] Error updating edited outgoing message:', editError)
+    } else {
+      console.log('[wappi-webhook] ✓ Outgoing message edited in DB')
+    }
     return
   }
 
