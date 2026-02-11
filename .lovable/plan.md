@@ -1,55 +1,100 @@
 
-# Исправление создания новых клиентов из всех мессенджеров
+# Fix: Column name mismatch in ALL webhook functions + outgoing phone messages
 
-## Проблема
-Когда новый клиент пишет впервые, он не создается в системе. Причины различаются по каждому вебхуку, но сводятся к двум категориям:
-1. INSERT содержит колонки, которых нет в self-hosted схеме (`status`, `source`) -- INSERT падает
-2. Поиск клиента использует `.single()` вместо `.maybeSingle()` -- запрос падает при 0 результатов
-3. Деактивированные клиенты (`is_active = false`) не восстанавливаются при повторном обращении
+## Root Cause
 
-## Что будет исправлено
+The `chat_messages` table has a completely different schema than what all 5 webhook Edge Functions expect. Every `INSERT` and `SELECT` on `chat_messages` fails because the column names don't match. This is why:
+- New client messages are not being saved
+- Outgoing phone messages are not being recorded
+- Delivery statuses are not being updated
 
-### 1. `whatsapp-webhook` (GreenAPI)
-**Проблема**: При создании клиента передаются `source: 'whatsapp'` и `status: 'new'` -- обе колонки отсутствуют в self-hosted схеме. INSERT падает.
-**Исправление**: Убрать `source` и `status`, добавить `is_active: true`. При ошибке unique constraint -- найти и восстановить деактивированного клиента.
+## Column Mapping (Old -> Correct)
 
-### 2. `telegram-crm-webhook` (Telethon)
-**Проблема**: При создании клиента передается `source: 'telegram_crm'` -- колонка отсутствует. INSERT падает.
-**Исправление**: Убрать `source`, добавить `is_active: true`. При ошибке unique constraint -- восстановить деактивированного клиента. Также расширить поиск на `is_active = false`.
+| Used in code (WRONG) | Actual DB column | Notes |
+|---|---|---|
+| `message_text` | `content` | text content |
+| `messenger_type` | `messenger` | 'whatsapp', 'telegram', 'max' |
+| `is_outgoing: true/false` | `direction: 'outgoing'/'incoming'` | string instead of boolean |
+| `external_message_id` | `external_id` | external provider message ID |
+| `file_url` | `media_url` | media file URL |
+| `file_type` | `media_type` | MIME type |
+| `teacher_id` | N/A | store in `metadata` jsonb |
+| `integration_id` | N/A | store in `metadata` jsonb |
+| `message_status` | `status` | delivery status |
 
-### 3. `telegram-webhook` (Wappi Telegram)
-**Проблема**: RPC функция `find_or_create_telegram_client` может не существовать на self-hosted, а legacy fallback не добавляет `is_active: true` и не восстанавливает деактивированных клиентов.
-**Исправление**: Добавить `is_active: true` в INSERT legacy-функции. При ошибке unique constraint -- восстановить клиента. Расширить поиск на неактивных клиентов.
+Columns that stay the same: `client_id`, `organization_id`, `message_type`, `is_read`, `file_name`, `status`, `sender_id`, `sender_name`, `created_at`, `metadata`.
 
-### 4. `max-webhook` (GreenAPI MAX)
-**Проблема**: Поиск по `max_chat_id` и `max_user_id` использует `.single()`, который падает при 0 результатах. Кроме того, поиск по телефону тоже использует `.limit(1).single()`.
-**Исправление**: Заменить `.single()` на `.maybeSingle()` во всех трех поисковых запросах. Добавить обработку unique constraint при создании.
+## Files to Update (5 webhook functions)
 
-### 5. `wappi-whatsapp-webhook` (Wappi WhatsApp)
-**Проблема**: При ошибке создания клиента выбрасывается `throw createError`, что прерывает весь вебхук. Нет обработки unique constraint и восстановления деактивированных.
-**Исправление**: Обработать unique constraint -- найти и восстановить клиента. Обернуть вставку в `client_phone_numbers` в try/catch (таблица может не существовать). Расширить поиск на `is_active = false`.
+### 1. `supabase/functions/wappi-whatsapp-webhook/index.ts`
+- Fix all `chat_messages` INSERT statements (incoming, outgoing, teacher messages)
+- Fix all `chat_messages` SELECT/UPDATE queries (duplicate check, delivery status)
+- Map `teacher_id` to `metadata: { teacher_id: ... }`
+- This also addresses the user's request: outgoing phone messages (`outgoing_message_phone`) are already handled in the switch case, they just fail on INSERT due to wrong columns
 
-### 6. `wpp-webhook` (WPP)
-Уже корректно обрабатывает создание клиентов и unique constraint. Без изменений.
+### 2. `supabase/functions/whatsapp-webhook/index.ts` (GreenAPI)
+- Fix `saveMessageToDB` function column mapping
+- Fix delivery status update queries
+- Fix duplicate check queries
 
-## Общий паттерн для всех вебхуков
+### 3. `supabase/functions/telegram-webhook/index.ts` (Wappi Telegram)
+- Fix `insertChatMessage` function
+- Fix all inline INSERT statements
+- Fix delivery status updates
+
+### 4. `supabase/functions/telegram-crm-webhook/index.ts` (Telethon)
+- Fix message INSERT
+- Fix duplicate check
+
+### 5. `supabase/functions/max-webhook/index.ts` (GreenAPI MAX)
+- Fix all INSERT statements (incoming, outgoing)
+- Fix delivery status updates
+- Map `integration_id` to metadata
+
+## Example: Correct INSERT format
 
 ```text
-findOrCreateClient():
-  1. Поиск клиента БЕЗ фильтра is_active (находим и деактивированных)
-  2. Если найден с is_active = false --> UPDATE is_active = true, вернуть
-  3. Если найден с is_active = true --> вернуть как есть
-  4. Если не найден --> INSERT с is_active: true, БЕЗ source/status
-  5. Если INSERT упал на unique constraint (23505):
-     --> Найти без фильтров и восстановить (UPDATE is_active = true)
+Before (BROKEN):
+{
+  message_text: messageText,
+  message_type: 'client',
+  messenger_type: 'whatsapp',
+  is_outgoing: false,
+  external_message_id: message.id,
+  file_url: fileUrl,
+  file_type: fileType,
+}
+
+After (CORRECT):
+{
+  content: messageText,
+  message_type: 'client',
+  messenger: 'whatsapp',
+  direction: 'incoming',
+  external_id: message.id,
+  media_url: fileUrl,
+  media_type: fileType,
+}
 ```
 
-## Список файлов для изменения
+## Example: Correct query format
 
-| Файл | Изменения |
-|------|-----------|
-| `supabase/functions/whatsapp-webhook/index.ts` | Убрать `source`/`status` из INSERT, добавить `is_active: true`, обработка constraint |
-| `supabase/functions/telegram-crm-webhook/index.ts` | Убрать `source`, добавить `is_active: true`, поиск с восстановлением |
-| `supabase/functions/telegram-webhook/index.ts` | Добавить `is_active: true` в legacy INSERT, обработка constraint, поиск неактивных |
-| `supabase/functions/max-webhook/index.ts` | `.single()` --> `.maybeSingle()`, обработка constraint при создании |
-| `supabase/functions/wappi-whatsapp-webhook/index.ts` | Обработка constraint, try/catch для `client_phone_numbers`, поиск неактивных |
+```text
+Before: .eq('external_message_id', messageId)
+After:  .eq('external_id', messageId)
+
+Before: .update({ message_status: mappedStatus })
+After:  .update({ status: mappedStatus })
+```
+
+## Outgoing Phone Messages (Wappi)
+
+The `handleOutgoingMessage` function in `wappi-whatsapp-webhook` already processes both `outgoing_message_phone` and `outgoing_message_api` webhook types. The only reason they weren't being saved is the column mismatch. After fixing column names, both types will work:
+- `outgoing_message_phone` (sent from physical phone) -- `from_where: "phone"`
+- `outgoing_message_api` (sent via CRM/API) -- `from_where: "api"`, has `task_id`
+
+## Technical Notes
+
+- `teacher_id` and `integration_id` columns don't exist in `chat_messages`. Teacher ID will be stored in the `metadata` jsonb field as `{ teacher_id: "..." }`. Integration ID will also go in metadata as `{ integration_id: "..." }`.
+- The `webhook_logs` table uses `messenger_type` which is correct for that table (separate from `chat_messages`).
+- `wpp-webhook` also has the same wrong columns but will be fixed alongside the others.
