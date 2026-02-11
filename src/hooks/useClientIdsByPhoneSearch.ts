@@ -22,9 +22,9 @@ export const useClientIdsByPhoneSearch = (rawQuery: string) => {
         .from('clients')
         .select('id')
         .eq('organization_id', orgId)
-        .neq('status', 'deleted')
+        .eq('is_active', true)
         .ilike('phone', `%${normalized}%`)
-        .limit(50);
+        .limit(200);
 
       if (error) {
         console.error('[useClientIdsByPhoneSearch] Error:', error);
