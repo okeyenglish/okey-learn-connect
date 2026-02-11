@@ -146,7 +146,7 @@ export const useTelegramWappi = () => {
     fileUrl?: string,
     fileName?: string,
     fileType?: string,
-    options?: { phoneNumber?: string; chatId?: string; teacherId?: string }
+    options?: { phoneNumber?: string; chatId?: string; teacherId?: string; senderName?: string }
   ): Promise<{ success: boolean; messageId?: string }> => {
     // Deterministic key (no Date.now) so double-triggers within a short window are deduped
     const messageKey = `${clientId}::${options?.phoneNumber || options?.chatId || ''}::${text}::${fileUrl || ''}::${fileName || ''}`;
@@ -197,6 +197,7 @@ export const useTelegramWappi = () => {
             fileUrl,
             fileName,
             fileType,
+            senderName: options?.senderName,
           }
         : normalizedPhone.length >= 10
           ? {
@@ -208,8 +209,9 @@ export const useTelegramWappi = () => {
               fileUrl,
               fileName,
               fileType,
+              senderName: options?.senderName,
             }
-          : { clientId, text, fileUrl, fileName, fileType };
+          : { clientId, text, fileUrl, fileName, fileType, senderName: options?.senderName };
 
       const response = await selfHostedPost<{ messageId?: string; error?: string }>(
         'telegram-send',

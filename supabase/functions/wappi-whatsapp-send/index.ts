@@ -385,7 +385,8 @@ Deno.serve(async (req) => {
         is_read: true,
         file_url: fileUrl,
         file_name: fileName,
-        file_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null
+        file_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null,
+        sender_name: body.senderName || null
       })
       .select()
       .single();
