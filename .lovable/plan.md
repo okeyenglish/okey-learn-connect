@@ -1,25 +1,71 @@
 
-## Исправление: клик по карточке клиента в AI Hub открывает диалог с клиентом
+## Переделка модалки "Переслать сообщение" с реальными данными и навигацией
 
 ### Проблема
-Сейчас `ClientCardBubble` использует `window.location.href` для навигации, что вызывает полную перезагрузку страницы и закрывает AI Hub. Диалог с клиентом не открывается корректно.
+Текущий `ForwardMessageModal` не загружает реальных получателей:
+- **Клиенты**: запрос к БД работает, но список пуст (возможно ошибка запроса или `is_active`)
+- **Преподаватели**: используются **захардкоженные** mock-данные (4 фейковых записи)
+- **Корпоративные**: используются **захардкоженные** mock-данные (5 фейковых чатов)
+
+После пересылки нет ссылки на исходный диалог с клиентом и конкретное сообщение.
 
 ### Решение
-Передать callback `onOpenChat` из `AIHub` в `ClientCardBubble`, чтобы при клике:
-1. Закрыть AI Hub модалку
-2. Переключить CRM на вкладку "Чаты"
-3. Открыть диалог с выбранным клиентом (со всеми мессенджерами)
 
-### Изменения
+Полностью переписать `ForwardMessageModal` по образцу работающего `ShareClientCardModal`:
 
-**1. `src/components/ai-hub/ClientCardBubble.tsx`**
-- Добавить опциональный проп `onOpenChat?: (clientId: string) => void`
-- В `handleClick`: если `onOpenChat` передан — вызвать его вместо `window.location.href`
-- Убрать зависимость от `useNavigate` если `onOpenChat` доступен
+**Вкладка "Сотрудники"** -- загружать реальных сотрудников через `useStaffMembers()`
+**Вкладка "Группы"** -- загружать реальные группы через `useStaffGroupChats()`
 
-**2. `src/components/ai-hub/AIHub.tsx`**
-- В рендере `ClientCardBubble` передать проп `onOpenChat`, который:
-  - Вызывает `onOpenChat?.(clientId)` (callback из CRM)
-  - Вызывает `onToggle()` для закрытия AI Hub модалки
+Убрать вкладки "Клиенты", "Преподаватели", "Корпоративные" -- пересылка сообщений идет только сотрудникам и в группы (через `internal_staff_messages`).
 
-Никаких изменений в `CRM.tsx` не нужно — `onOpenChat` уже передается в `AIHub` и вызывает `handleChatClick(clientId, 'client')`.
+После отправки:
+1. Сохранить пересланное сообщение в `internal_staff_messages` с `message_type: 'forwarded_message'`
+2. В текст включить метаданные: `[forwarded_from:clientId:messageId]` -- для навигации к исходному сообщению
+3. Открыть AI Hub с диалогом получателя (как при отправке карточки клиента)
+4. В AI Hub отрисовать пересланное сообщение как кликабельный блок, при клике -- перейти в чат клиента к конкретному сообщению
+
+---
+
+### Технические детали
+
+**1. `src/components/crm/ForwardMessageModal.tsx` -- полная переделка**
+
+- Удалить mock-данные для преподавателей и корпоративных чатов
+- Заменить вкладки на две: "Сотрудники" и "Группы"
+- Использовать `useStaffMembers()` для списка сотрудников
+- Использовать `useStaffGroupChats()` для списка групп
+- Использовать `useSendStaffMessage()` для отправки
+- Формат пересланного сообщения:
+  ```
+  [forwarded_from:<clientId>:<messageId>]
+  ↩️ Переслано из диалога с <clientName>
+  ---
+  <текст сообщения>
+  ```
+- Добавить проп `clientName` для отображения имени клиента в пересланном сообщении
+- Добавить проп `onSent` (callback с `{ type, id, name }`) для навигации в AI Hub
+
+**2. `src/components/crm/ChatArea.tsx` -- обновить вызов ForwardMessageModal**
+
+- Передать `clientName` в ForwardMessageModal
+- Добавить `onSent` callback, который:
+  - Устанавливает `initialStaffUserId` / `initialGroupChatId` 
+  - Открывает AI Hub модалку (`setVoiceAssistantOpen(true)`)
+- Обновить тип `onForward` (убрать старые типы client/teacher/corporate)
+
+**3. `src/components/ai-hub/ForwardedMessageBubble.tsx` -- новый компонент**
+
+- Парсит формат `[forwarded_from:clientId:messageId]`
+- Отображает как стилизованный блок с иконкой "↩️" и именем клиента
+- При клике: закрывает AI Hub, открывает диалог клиента в CRM и скроллит к конкретному сообщению
+
+**4. `src/components/ai-hub/AIHub.tsx` и `AIHubInline.tsx`**
+
+- Добавить распознавание `forwarded_message` типа сообщений
+- Рендерить `ForwardedMessageBubble` вместо обычного текста
+- Передать `onOpenChat` для навигации при клике
+
+**5. `src/pages/CRM.tsx`**
+
+- Пробросить `onSent` callback из `ChatArea` для открытия AI Hub после пересылки
+- Добавить поддержку скролла к конкретному сообщению через `scrollToMessageId` state
