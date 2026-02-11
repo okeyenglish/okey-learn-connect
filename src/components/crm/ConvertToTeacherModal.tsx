@@ -208,6 +208,8 @@ export function ConvertToTeacherModal({
           max_user_id: null,
           telegram_user_id: null,
           telegram_chat_id: null,
+          whatsapp_chat_id: null,
+          is_whatsapp_enabled: false,
         })
         .eq('client_id', clientId);
 
@@ -302,6 +304,8 @@ export function ConvertToTeacherModal({
           max_user_id: null,
           telegram_user_id: null,
           telegram_chat_id: null,
+          whatsapp_chat_id: null,
+          is_whatsapp_enabled: false,
         })
         .eq('client_id', clientId);
 
