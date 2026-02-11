@@ -342,19 +342,23 @@ export const ChatListItem = React.memo(({
             )}
             {/* Unread badge - show only if no pending payment */}
             {displayUnread && !chat.has_pending_payment && (
-              <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1">
-                {showEye ? (
-                  <>
-                    <Avatar className="h-3.5 w-3.5">
-                      <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
-                      <AvatarFallback className="text-[7px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
-                    </Avatar>
-                    <span className="font-semibold">{Math.max(chat.unread || 0, 1)}</span>
-                  </>
-                ) : (
-                  <span className="font-semibold">{chat.unread}</span>
-                )}
-              </span>
+              (chat.unread || 0) > 0 ? (
+                <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1">
+                  {showEye ? (
+                    <>
+                      <Avatar className="h-3.5 w-3.5">
+                        <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
+                        <AvatarFallback className="text-[7px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
+                      </Avatar>
+                      <span className="font-semibold">{chat.unread}</span>
+                    </>
+                  ) : (
+                    <span className="font-semibold">{chat.unread}</span>
+                  )}
+                </span>
+              ) : (
+                <span className="w-3 h-3 rounded-full bg-primary shadow-sm flex-shrink-0" />
+              )
             )}
           </div>
         </div>
