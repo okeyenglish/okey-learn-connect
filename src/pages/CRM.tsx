@@ -4631,6 +4631,10 @@ const CRMContent = () => {
           setQuickReplyCategory(null);
         }}
         quickReplyCategory={quickReplyCategory}
+        initialStaffUserId={initialStaffUserId}
+        onClearInitialStaffUserId={() => setInitialStaffUserId(null)}
+        initialGroupChatId={initialGroupChatId}
+        onClearInitialGroupChatId={() => setInitialGroupChatId(null)}
       />
 
       {/* Мобильная нижняя навигация чатов - показываем когда не открыт диалог с клиентом */}
@@ -4947,14 +4951,13 @@ const CRMContent = () => {
           branch: shareCardClient.branch,
         }}
         onSent={(recipient) => {
-          // Navigate to the recipient's chat in ChatOS
+          // Open AIHub modal and navigate to the recipient's chat
           if (recipient.type === 'group') {
             setInitialGroupChatId(recipient.id);
           } else {
             setInitialStaffUserId(recipient.id);
           }
-          setActiveChatType('chatos');
-          setActiveTab('chats');
+          setVoiceAssistantOpen(true);
         }}
       />
       
