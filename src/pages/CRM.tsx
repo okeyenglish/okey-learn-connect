@@ -1733,7 +1733,7 @@ const CRMContent = () => {
     queryClient.invalidateQueries({ queryKey: ['teachers'] });
     queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
     queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-    queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
+    // Don't invalidate chat-threads-infinite — already updated optimistically in ConvertToTeacherModal
     queryClient.invalidateQueries({ queryKey: ['clients'] });
     // Switch to teachers tab and open the teacher's chat
     setActiveTab('teachers');

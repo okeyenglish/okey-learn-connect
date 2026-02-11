@@ -225,10 +225,27 @@ export function ConvertToTeacherModal({
 
       await supabase.from('teacher_client_links').delete().eq('client_id', clientId);
 
+      // Optimistically remove the converted client from chat threads cache
+      // instead of full invalidation which can cause the entire list to disappear
+      queryClient.setQueriesData<any>(
+        { queryKey: ['chat-threads-infinite'] },
+        (oldData: any) => {
+          if (!oldData?.pages) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page: any) => ({
+              ...page,
+              threads: page.threads.filter((t: any) => t.client_id !== clientId),
+            })),
+          };
+        }
+      );
+      // Add to deleted-client-ids cache so the client stays hidden
+      queryClient.setQueryData<string[]>(['deleted-client-ids'], (old = []) => [...old, clientId]);
+
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
       queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
       queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-      queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['teacher-client-links'] });
       queryClient.invalidateQueries({ queryKey: ['teacher-conversations'] });
@@ -320,10 +337,25 @@ export function ConvertToTeacherModal({
 
       await supabase.from('teacher_client_links').delete().eq('client_id', clientId);
 
+      // Optimistically remove the converted client from chat threads cache
+      queryClient.setQueriesData<any>(
+        { queryKey: ['chat-threads-infinite'] },
+        (oldData: any) => {
+          if (!oldData?.pages) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page: any) => ({
+              ...page,
+              threads: page.threads.filter((t: any) => t.client_id !== clientId),
+            })),
+          };
+        }
+      );
+      queryClient.setQueryData<string[]>(['deleted-client-ids'], (old = []) => [...old, clientId]);
+
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
       queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
       queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-      queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['teacher-client-links'] });
       queryClient.invalidateQueries({ queryKey: ['teacher-conversations'] });
