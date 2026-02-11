@@ -37,7 +37,9 @@ import {
   Check,
   CheckCheck,
   Pencil,
-  Trash2
+  Trash2,
+  ImageIcon,
+  UserRound
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { selfHostedPost } from '@/lib/selfHostedApi';
@@ -398,6 +400,28 @@ export const AIHub = ({
 
   // Combined flat list
   const allChats = [...aiChats, ...groupChatItems, ...teacherChatItems, ...staffChatItems];
+
+  // Format preview text for staff chat list
+  const formatPreviewText = (text: string | undefined): React.ReactNode => {
+    if (!text) return null;
+    const senderMatch = text.match(/^([^:]+): (.+)$/s);
+    const senderPrefix = senderMatch ? senderMatch[1] : null;
+    const raw = senderMatch ? senderMatch[2] : text;
+    const prefix = senderPrefix ? <><span className="font-medium">{senderPrefix}</span>: </> : null;
+    if (raw.match(/^\[client_card:[a-f0-9-]+\]$/i)) {
+      return <span className="flex items-center gap-1 truncate">{prefix}<UserRound className="h-3 w-3 shrink-0 text-primary" /> Контакт</span>;
+    }
+    if (raw.startsWith('[forwarded_from:')) {
+      return <span className="flex items-center gap-1 truncate">{prefix}<ArrowLeft className="h-3 w-3 shrink-0 rotate-180" /> Пересланное сообщение</span>;
+    }
+    if (raw.match(/\.(png|jpg|jpeg|gif|webp|bmp|svg)$/i)) {
+      return <span className="flex items-center gap-1 truncate">{prefix}<ImageIcon className="h-3 w-3 shrink-0 text-primary" /> Фото</span>;
+    }
+    if (raw.match(/\.(pdf|doc|docx|xls|xlsx|zip|rar|mp3|mp4|mov|avi)$/i)) {
+      return <span className="flex items-center gap-1 truncate">{prefix}<FileText className="h-3 w-3 shrink-0 text-primary" /> Файл</span>;
+    }
+    return <span className="truncate">{text}</span>;
+  };
 
   // Initialize greeting messages for consultants
   useEffect(() => {
@@ -1517,7 +1541,7 @@ export const AIHub = ({
                             <Badge variant="secondary" className="text-[10px] h-4 px-1 shrink-0">AI</Badge>
                           </div>
                           <p className="text-xs text-muted-foreground leading-relaxed overflow-hidden">
-                            <span className="block truncate">{item.lastMessage || item.description}</span>
+                            <span className="block truncate">{formatPreviewText(item.lastMessage) || item.description}</span>
                           </p>
                         </div>
                       </div>
@@ -1640,7 +1664,7 @@ export const AIHub = ({
                             {lastSeenText && !isOnline ? (
                               <span className="text-muted-foreground/70 block truncate">{lastSeenText}</span>
                             ) : (
-                              <span className="block truncate">{item.lastMessage || item.description}</span>
+                              <span className="block truncate">{formatPreviewText(item.lastMessage) || item.description}</span>
                             )}
                           </div>
                         </div>
