@@ -5,6 +5,7 @@ interface ClientCardBubbleProps {
   content: string;
   isOwn: boolean;
   onOpenChat?: (clientId: string) => void;
+  hideComment?: boolean;
 }
 
 /** Parse client card encoded as: [client_card:UUID]\n📋 ... */
@@ -29,7 +30,7 @@ export const parseClientCard = (content: string) => {
 export const isClientCardMessage = (content: string, messageType?: string) =>
   messageType === 'client_card' || (content.includes('📋 Карточка клиента') && content.includes('👤'));
 
-export const ClientCardBubble = ({ content, isOwn, onOpenChat }: ClientCardBubbleProps) => {
+export const ClientCardBubble = ({ content, isOwn, onOpenChat, hideComment }: ClientCardBubbleProps) => {
   const card = parseClientCard(content);
 
   if (!card) return null;
@@ -87,7 +88,7 @@ export const ClientCardBubble = ({ content, isOwn, onOpenChat }: ClientCardBubbl
           )}
         </div>
       </div>
-      {card.comment && (
+      {!hideComment && card.comment && (
         <p className="text-sm whitespace-pre-wrap">{card.comment}</p>
       )}
     </div>
