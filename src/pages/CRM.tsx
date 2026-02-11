@@ -1322,6 +1322,12 @@ const CRMContent = () => {
       if (aUnread && !bUnread) return -1;
       if (!aUnread && bUnread) return 1;
 
+      // Чаты без сообщений — в конец списка
+      const aNoMessages = a.lastMessage === 'Нет сообщений';
+      const bNoMessages = b.lastMessage === 'Нет сообщений';
+      if (aNoMessages && !bNoMessages) return 1;
+      if (!aNoMessages && bNoMessages) return -1;
+
       // Внутри каждой группы сортируем по времени (новые сверху)
       return (b.timestamp || 0) - (a.timestamp || 0);
     });
