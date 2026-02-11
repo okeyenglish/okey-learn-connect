@@ -197,6 +197,16 @@ AS $$
       -- Branch filter: if p_branches provided, filter to those branches + NULL (fail-open)
       AND (p_branches IS NULL OR c.branch IS NULL OR c.branch = ANY(p_branches))
   ),
+  last_msgs AS (
+    SELECT DISTINCT ON (cm.client_id)
+      cm.client_id,
+      cm.message_text,
+      cm.created_at,
+      cm.messenger_type
+    FROM chat_messages cm
+    WHERE cm.client_id IN (SELECT id FROM client_data)
+    ORDER BY cm.client_id, cm.created_at DESC
+  ),
   unread_stats AS (
     SELECT 
       m.client_id,
@@ -223,7 +233,7 @@ AS $$
     cd.telegram_chat_id,
     cd.whatsapp_chat_id,
     cd.max_chat_id,
-    NULL::text as last_message_text,
+    lm.message_text as last_message_text,
     COALESCE(us.last_unread_time, cd.last_message_at) as last_message_time,
     us.total_unread as unread_count,
     0::bigint as unread_whatsapp,
@@ -233,6 +243,7 @@ AS $$
     0::bigint as unread_calls,
     NULL::text as last_unread_messenger
   FROM client_data cd
+  LEFT JOIN last_msgs lm ON lm.client_id = cd.id
   JOIN unread_stats us ON us.client_id = cd.id
   ORDER BY us.total_unread DESC, us.last_unread_time DESC NULLS LAST
   LIMIT p_limit;
