@@ -1,99 +1,84 @@
 
-# Fix: Frontend queries use wrong column names — messages not displaying
+# Fix: Remaining files still using wrong column names for chat_messages
 
-## Root Cause
+## Problem
+The previous fix only updated 8 files, but there are **at least 12 more files** still querying `chat_messages` with non-existent column names (`message_text`, `is_outgoing`, `messenger_type`, `file_url`, `file_type`, `external_message_id`, `message_status`). This causes PostgREST to return errors, so messages don't display.
 
-All frontend hooks that fetch `chat_messages` are querying columns that **do not exist** in the self-hosted database. PostgREST returns errors or empty results, so no messages display.
+## Correct column mapping (reference)
 
-| Frontend queries (WRONG) | Actual DB column |
+| Wrong (used in code) | Correct (actual DB) |
 |---|---|
 | `message_text` | `content` |
-| `messenger_type` | `messenger` |
-| `is_outgoing` | `direction` (string) |
-| `external_message_id` | `external_id` |
+| `is_outgoing` | `direction` ('incoming'/'outgoing') |
+| `messenger_type` | `messenger` (on chat_messages table only!) |
 | `file_url` | `media_url` |
 | `file_type` | `media_type` |
+| `external_message_id` | `external_id` |
 | `message_status` | `status` |
 
-## Solution
+**NOTE**: `messenger_type` is correct on `messenger_settings`, `messenger_integrations`, and `webhook_logs` tables. Only `chat_messages` uses `messenger`.
 
-Create a single mapper utility that converts raw DB rows into the `ChatMessage` interface format. Update all SELECT queries to request the correct column names, then apply the mapper.
+## Files to fix (12 files)
 
-### Step 1: Create mapper utility (`src/lib/chatMessageMapper.ts`)
+### 1. `src/hooks/useChatThreadsInfinite.ts` (line 90)
+SELECT: `message_text, is_read, messenger_type, message_type, is_outgoing`
+Change to: `content, is_read, messenger, message_type, direction`
+Also fix references to `message_text` at lines 133-134.
 
-A function `mapDbRowToChatMessage(row)` that:
-- Maps `content` to `message_text`
-- Maps `messenger` to `messenger_type`
-- Maps `direction` to `is_outgoing` (boolean) and keeps `message_type` logic
-- Maps `media_url` to `file_url`, `media_type` to `file_type`
-- Maps `external_id` to `external_message_id`
-- Maps `status` to `message_status`
+### 2. `src/hooks/useClientChatData.ts` (lines 177-181, 199, 501)
+SELECT: `message_text, file_url, file_type, external_message_id, messenger_type, message_status`
+Change to: `content, media_url, media_type, external_id, messenger, status`
+Also fix `.select('messenger_type')` at line 199 and line 501.
 
-And a constant `CHAT_MESSAGE_SELECT` with the correct column names:
-```
-id, client_id, content, message_type, system_type, is_read,
-created_at, media_url, file_name, media_type, external_id,
-messenger, call_duration, status, metadata, sender_name, direction
-```
+### 3. `src/hooks/useSystemChatMessages.ts` (lines 43, 54)
+SELECT: `message_text` -> `content`
+Filter: `.eq('is_outgoing', false)` -> `.eq('direction', 'incoming')`
+Fix reference at line 61.
 
-### Step 2: Update hooks (6 files)
+### 4. `src/hooks/usePhoneSearchThreads.ts` (line 150)
+SELECT: `message_text, messenger_type, is_outgoing` -> `content, messenger, direction`
 
-**`src/hooks/useChatMessagesOptimized.ts`**
-- Replace the SELECT string (line 50-53) with correct column names
-- Apply mapper to returned data (line 68)
-- Fix `useUnreadCountOptimized` (line 236): `messenger_type` -> `messenger`
-- Fix `usePrefetchMessages` (lines 316-317): use correct SELECT and mapper
+### 5. `src/hooks/usePinnedChatThreads.ts` (line 107)
+SELECT: `message_text, messenger_type` -> `content, messenger`
 
-**`src/hooks/useChatMessages.ts`**
-- Fix `useChatThreads` SELECT (lines 159-171, 187): `message_text` -> `content`, `messenger_type` -> `messenger`, `is_outgoing` -> `direction`
-- Fix `useClientUnreadByMessenger` (lines 437-444): `messenger_type` -> `messenger`, `is_outgoing` -> `direction`
-- Fix `useSendMessage` (lines 589-611): `message_text` -> `content`, `is_outgoing` -> `direction`, `messenger_type` -> `messenger`
+### 6. `src/hooks/useTeacherChatMessagesV2.ts` (lines 30-32)
+MESSAGE_FIELDS constant: all wrong column names
+Change to use `CHAT_MESSAGE_SELECT` from chatMessageMapper and apply mapper.
 
-**`src/hooks/useInfiniteChatMessages.ts`**
-- Replace SELECT string (lines 14-17) with correct columns
-- Apply mapper
+### 7. `src/hooks/useTeacherChats.ts` (lines 285, 396)
+SELECT: `message_text, messenger_type, is_outgoing` -> `content, messenger, direction`
 
-**`src/hooks/useInfiniteChatMessagesTyped.ts`**
-- Replace `MESSAGE_SELECT` constant (lines 29-33) with correct columns
-- Apply mapper
+### 8. `src/hooks/useOrganizationRealtimeMessages.ts` (line 155)
+SELECT: `message_text` -> `content`
 
-**`src/hooks/useTeacherConversations.ts`**
-- Fix SELECT (line 75): `message_text` -> `content`, `messenger_type` -> `messenger`, `is_outgoing` -> `direction`
+### 9. `src/components/crm/TeacherListItem.tsx` (lines 194, 219)
+SELECT: all old column names -> correct ones, apply mapper.
 
-**`src/hooks/useChatMessages.ts` — `useSendMessage`**
-- Change INSERT payload: `message_text` -> `content`, `is_outgoing` -> `direction`, `messenger_type` -> `messenger`
+### 10. `src/components/crm/TeacherChatArea.tsx` (lines 398, 446)
+Filter: `.eq('is_outgoing', false)` -> `.eq('direction', 'incoming')`
 
-### Step 3: Fix ChatArea auto-retry updates
+### 11. `src/components/crm/ChatArea.tsx` (lines 1094, 2302, 2346, 2359)
+- Line 1094: `.eq('is_outgoing', false)` -> `.eq('direction', 'incoming')`
+- Lines 2302, 2346, 2359: `.update({ message_status: ... })` -> `.update({ status: ... })`
 
-In `src/components/crm/ChatArea.tsx`, the auto-retry logic (lines 414-477) uses:
-- `.update({ message_status: 'queued' })` -> `.update({ status: 'queued' })`
-- `.update({ message_status: 'sent' })` -> `.update({ status: 'sent' })`
-- `.update({ message_status: 'failed' })` -> `.update({ status: 'failed' })`
+### 12. `src/utils/sendActivityWarningMessage.ts` (lines 69, 77)
+Filter: `.eq('is_outgoing', false)` -> `.eq('direction', 'incoming')`
 
-ChatArea already handles dual-column names at lines 203-224 and 839-850 (fallback chains like `msg.message_text ?? msg.content`), so once data arrives with correct column names, the UI will render correctly.
+### 13. `src/components/crm/WppTestPanel.tsx` (line 101)
+SELECT: `external_message_id` -> `external_id`
 
-### Step 4: Fix `useCommunityChats.ts` SELECT
+### 14. `src/hooks/useMessageContentSearch.ts` (line 14)
+Interface: `messenger_type` -> `messenger` (but this uses RPC, so the RPC function itself may return `messenger_type` -- needs checking. If the RPC returns `messenger`, fix the interface.)
 
-Line 116: `message_text` -> `content`, `file_type` -> `media_type`
+## Implementation approach
 
-### Step 5: Fix `useMessageContentSearch.ts`
+For each file:
+1. Fix SELECT strings to use correct column names
+2. Fix `.eq()` / `.update()` calls to use correct column names
+3. Fix any field access on returned data (e.g. `msg.message_text` -> `msg.content`)
+4. Where complex mapping is needed, use the existing `mapDbRowsToChatMessages` from `chatMessageMapper.ts`
+5. Keep `messenger_type` references that target OTHER tables (`messenger_settings`, `webhook_logs`, etc.) -- those are correct
 
-The search hook queries `message_text` — needs to query `content` instead.
+## Order of changes
 
-### Step 6: Fix build error
-
-The build error is caused by these same wrong column names. Fixing the queries will resolve the build.
-
-## Files to change
-
-| File | Changes |
-|---|---|
-| `src/lib/chatMessageMapper.ts` | **NEW** — mapper + correct SELECT constant |
-| `src/hooks/useChatMessagesOptimized.ts` | Fix SELECT, apply mapper, fix unread count query |
-| `src/hooks/useChatMessages.ts` | Fix threads SELECT, unread query, useSendMessage INSERT |
-| `src/hooks/useInfiniteChatMessages.ts` | Fix SELECT, apply mapper |
-| `src/hooks/useInfiniteChatMessagesTyped.ts` | Fix MESSAGE_SELECT, apply mapper |
-| `src/hooks/useTeacherConversations.ts` | Fix SELECT columns |
-| `src/hooks/useCommunityChats.ts` | Fix SELECT columns |
-| `src/hooks/useMessageContentSearch.ts` | Fix search column |
-| `src/components/crm/ChatArea.tsx` | Fix `.update()` calls for status |
+All files can be updated in parallel since they are independent. The mapper utility already exists from the previous fix.
