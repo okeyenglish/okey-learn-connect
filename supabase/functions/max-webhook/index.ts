@@ -144,8 +144,8 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
   const { data: existingMessage } = await supabase
     .from('chat_messages')
     .select('id')
-    .eq('external_message_id', idMessage)
-    .single();
+    .eq('external_id', idMessage)
+    .maybeSingle();
 
   if (existingMessage) {
     console.log('Duplicate message, skipping:', idMessage);
@@ -181,20 +181,19 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
     const { error: insertError } = await supabase
       .from('chat_messages')
       .insert({
-        teacher_id: teacherData.id,
         client_id: null,
         organization_id: organizationId,
-        integration_id: integrationId,  // Smart routing
-        message_text: messageText,
+        content: messageText,
         message_type: 'client',
-        messenger_type: 'max',
-        is_outgoing: false,
+        messenger: 'max',
+        direction: 'incoming',
         is_read: false,
-        external_message_id: idMessage,
-        file_url: fileUrl,
+        external_id: idMessage,
+        media_url: fileUrl,
         file_name: fileName,
-        file_type: fileType,
-        message_status: 'delivered',
+        media_type: fileType,
+        status: 'delivered',
+        metadata: { teacher_id: teacherData.id, ...(integrationId ? { integration_id: integrationId } : {}) },
         created_at: new Date((timestamp || Date.now() / 1000) * 1000).toISOString()
       });
 
@@ -226,19 +225,18 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
     .from('chat_messages')
     .insert({
       client_id: client.id,
-      teacher_id: null,
       organization_id: organizationId,
-      integration_id: integrationId,  // Smart routing
-      message_text: messageText,
+      content: messageText,
       message_type: 'client',
-      messenger_type: 'max',
-      is_outgoing: false,
+      messenger: 'max',
+      direction: 'incoming',
       is_read: false,
-      external_message_id: idMessage,
-      file_url: fileUrl,
+      external_id: idMessage,
+      media_url: fileUrl,
       file_name: fileName,
-      file_type: fileType,
-      message_status: 'delivered',
+      media_type: fileType,
+      status: 'delivered',
+      metadata: integrationId ? { integration_id: integrationId } : null,
       created_at: new Date((timestamp || Date.now() / 1000) * 1000).toISOString()
     });
 
@@ -746,7 +744,7 @@ async function handleOutgoingMessage(
   const { data: existingMessage } = await supabase
     .from('chat_messages')
     .select('id')
-    .eq('external_message_id', idMessage)
+    .eq('external_id', idMessage)
     .maybeSingle();
 
   if (existingMessage) {
@@ -803,17 +801,17 @@ async function handleOutgoingMessage(
     .insert({
       client_id: client.id,
       organization_id: organizationId,
-      integration_id: integrationId,  // Smart routing
-      message_text: messageText,
-      message_type: 'manager', // Sent by manager (from phone)
-      messenger_type: 'max',
-      is_outgoing: true,
-      is_read: true, // Outgoing messages are already read
-      external_message_id: idMessage,
-      file_url: fileUrl,
+      content: messageText,
+      message_type: 'manager',
+      messenger: 'max',
+      direction: 'outgoing',
+      is_read: true,
+      external_id: idMessage,
+      media_url: fileUrl,
       file_name: fileName,
-      file_type: fileType,
-      message_status: 'sent',
+      media_type: fileType,
+      status: 'sent',
+      metadata: integrationId ? { integration_id: integrationId } : null,
       created_at: new Date((timestamp || Date.now() / 1000) * 1000).toISOString()
     });
 
@@ -854,8 +852,8 @@ async function handleMessageStatus(
   // Update message status
   const { error } = await supabase
     .from('chat_messages')
-    .update({ message_status: mappedStatus })
-    .eq('external_message_id', idMessage);
+    .update({ status: mappedStatus })
+    .eq('external_id', idMessage);
 
   if (error) {
     console.error('Error updating message status:', error);

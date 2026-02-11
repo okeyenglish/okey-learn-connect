@@ -430,7 +430,7 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
   const { data: existingMsg } = await supabase
     .from('chat_messages')
     .select('id')
-    .eq('external_message_id', message.id)
+    .eq('external_id', message.id)
     .maybeSingle()
 
   if (existingMsg) {
@@ -478,19 +478,19 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
     
     // Save message with teacher_id (not client_id)
     const { error } = await supabase.from('chat_messages').insert({
-      teacher_id: teacherData.id,
       client_id: null,
       organization_id: organizationId,
-      message_text: messageText,
+      content: messageText,
       message_type: 'client',
-      messenger_type: 'whatsapp',
+      messenger: 'whatsapp',
       status: 'delivered',
-      external_message_id: message.id,
-      is_outgoing: false,
+      external_id: message.id,
+      direction: 'incoming',
       is_read: false,
-      file_url: fileUrl,
+      media_url: fileUrl,
       file_name: fileName,
-      file_type: fileType,
+      media_type: fileType,
+      metadata: { teacher_id: teacherData.id },
       created_at: message.timestamp || new Date(message.time * 1000).toISOString()
     })
 
@@ -509,18 +509,17 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
   // Save message to database
   const { error } = await supabase.from('chat_messages').insert({
     client_id: client.id,
-    teacher_id: null,
     organization_id: organizationId,
-    message_text: messageText,
+    content: messageText,
     message_type: 'client',
-    messenger_type: 'whatsapp',
-    status: 'delivered', // incoming messages are already delivered
-    external_message_id: message.id,
-    is_outgoing: false,
+    messenger: 'whatsapp',
+    status: 'delivered',
+    external_id: message.id,
+    direction: 'incoming',
     is_read: false,
-    file_url: fileUrl,
+    media_url: fileUrl,
     file_name: fileName,
-    file_type: fileType,
+    media_type: fileType,
     created_at: message.timestamp || new Date(message.time * 1000).toISOString()
   })
 
@@ -630,7 +629,7 @@ async function handleOutgoingMessage(message: WappiMessage, organizationId: stri
   const { data: existingMessage } = await supabase
     .from('chat_messages')
     .select('id')
-    .eq('external_message_id', message.id)
+    .eq('external_id', message.id)
     .maybeSingle()
 
   if (existingMessage) {
@@ -661,16 +660,16 @@ async function handleOutgoingMessage(message: WappiMessage, organizationId: stri
   const { error } = await supabase.from('chat_messages').insert({
     client_id: client.id,
     organization_id: organizationId,
-    message_text: messageText,
+    content: messageText,
     message_type: 'manager',
-    messenger_type: 'whatsapp',
+    messenger: 'whatsapp',
     status: 'sent',
-    external_message_id: message.id,
-    is_outgoing: true,
+    external_id: message.id,
+    direction: 'outgoing',
     is_read: true,
-    file_url: fileUrl,
+    media_url: fileUrl,
     file_name: fileName,
-    file_type: fileType,
+    media_type: fileType,
     created_at: message.timestamp || new Date(message.time * 1000).toISOString()
   })
 
@@ -725,7 +724,7 @@ async function handleDeliveryStatus(message: WappiMessage) {
   const { error, count } = await supabase
     .from('chat_messages')
     .update({ status: mappedStatus })
-    .eq('external_message_id', messageIdToUpdate)
+    .eq('external_id', messageIdToUpdate)
 
   if (error) {
     console.error('Error updating message status:', error)

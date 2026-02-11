@@ -41,11 +41,11 @@ async function getSmartRoutingIntegrationId(
 ): Promise<string | null> {
   const { data: lastMessage } = await supabase
     .from('chat_messages')
-    .select('integration_id')
+    .select('metadata')
     .eq('client_id', clientId)
-    .eq('is_outgoing', false)
-    .eq('messenger_type', 'whatsapp')
-    .not('integration_id', 'is', null)
+    .eq('direction', 'incoming')
+    .eq('messenger', 'whatsapp')
+    .not('metadata->integration_id', 'is', null)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -395,16 +395,16 @@ Deno.serve(async (req) => {
         .insert({
           client_id: clientId,
           organization_id: organizationId,
-          message_text: message,
+          content: message,
           message_type: 'manager',
-          messenger_type: 'whatsapp',
-          message_status: messageStatus,
-          external_message_id: greenApiResponse.idMessage,
-          is_outgoing: true,
+          messenger: 'whatsapp',
+          status: messageStatus,
+          external_id: greenApiResponse.idMessage,
+          direction: 'outgoing',
           is_read: true,
-          file_url: fileUrl,
+          media_url: fileUrl,
           file_name: fileName,
-          file_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null
+          media_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null
         })
         .select()
         .single();

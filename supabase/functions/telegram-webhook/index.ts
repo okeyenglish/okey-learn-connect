@@ -122,15 +122,15 @@ async function resilientInsertMessage(
   const minimalPayload: Record<string, any> = {
     client_id: payload.client_id || null,
     organization_id: payload.organization_id,
-    message_text: payload.message_text || '[Сообщение]',
+    content: payload.content || '[Сообщение]',
     message_type: payload.message_type || 'client',
-    messenger_type: payload.messenger_type || 'telegram',
-    is_outgoing: payload.is_outgoing ?? false,
+    messenger: payload.messenger || 'telegram',
+    direction: payload.direction || 'incoming',
     is_read: payload.is_read ?? false,
-    external_message_id: payload.external_message_id || null,
-    file_url: payload.file_url || null,
+    external_id: payload.external_id || null,
+    media_url: payload.media_url || null,
     file_name: payload.file_name || null,
-    file_type: payload.file_type || null,
+    media_type: payload.media_type || null,
   };
 
   // Only add created_at if provided
@@ -452,7 +452,7 @@ async function handleIncomingMessage(
   const { data: existingMessage } = await supabase
     .from('chat_messages')
     .select('id')
-    .eq('external_message_id', message.id)
+    .eq('external_id', message.id)
     .maybeSingle();
 
   if (existingMessage) {
@@ -483,26 +483,24 @@ async function handleIncomingMessage(
   // If teacher found, save message with teacher_id (not client_id)
   if (teacher) {
     // Full payload for cloud, will fallback for self-hosted
+    const teacherMetadata: Record<string, unknown> = { teacher_id: teacher.id };
+    if (integrationId) teacherMetadata.integration_id = integrationId;
+
     const fullPayload: Record<string, any> = {
-      teacher_id: teacher.id,
-      client_id: null, // Explicitly null for teacher messages
+      client_id: null,
       organization_id: organizationId,
-      message_text: messageText,
-      message_type: 'client', // incoming message
-      messenger_type: 'telegram',
-      is_outgoing: false,
+      content: messageText,
+      message_type: 'client',
+      messenger: 'telegram',
+      direction: 'incoming',
       is_read: false,
-      external_message_id: message.id,
-      file_url: fileUrl,
+      external_id: message.id,
+      media_url: fileUrl,
       file_name: fileName,
-      file_type: fileType || contentType,
+      media_type: fileType || contentType,
+      metadata: teacherMetadata,
       created_at: message.timestamp || new Date().toISOString()
     };
-    
-    // Add integration_id for smart routing (if available from messenger_integrations)
-    if (integrationId) {
-      fullPayload.integration_id = integrationId;
-    }
 
     const { error: insertError } = await resilientInsertMessage(supabase, fullPayload);
 
@@ -546,26 +544,24 @@ async function handleIncomingMessage(
   });
 
   // Save message with client_id - use resilient insert for self-hosted compatibility
+  const clientMetadata: Record<string, unknown> = {};
+  if (integrationId) clientMetadata.integration_id = integrationId;
+
   const fullPayload: Record<string, any> = {
     client_id: client.id,
-    teacher_id: null,
     organization_id: organizationId,
-    message_text: messageText,
-    message_type: 'client', // incoming message from client
-    messenger_type: 'telegram',
-    is_outgoing: false,
+    content: messageText,
+    message_type: 'client',
+    messenger: 'telegram',
+    direction: 'incoming',
     is_read: false,
-    external_message_id: message.id,
-    file_url: fileUrl,
+    external_id: message.id,
+    media_url: fileUrl,
     file_name: fileName,
-    file_type: fileType || contentType, // store content type in file_type
+    media_type: fileType || contentType,
+    metadata: Object.keys(clientMetadata).length > 0 ? clientMetadata : null,
     created_at: message.timestamp || new Date().toISOString()
   };
-  
-  // Add integration_id for smart routing (if available from messenger_integrations)
-  if (integrationId) {
-    fullPayload.integration_id = integrationId;
-  }
 
   const { error: insertError } = await resilientInsertMessage(supabase, fullPayload);
 
@@ -796,7 +792,7 @@ async function handleOutgoingMessage(
   const { data: existingMessage } = await supabase
     .from('chat_messages')
     .select('id')
-    .eq('external_message_id', message.id)
+    .eq('external_id', message.id)
     .maybeSingle();
 
   if (existingMessage) {
@@ -825,15 +821,15 @@ async function handleOutgoingMessage(
   const outgoingPayload = {
     client_id: client.id,
     organization_id: organizationId,
-    message_text: messageText,
-    message_type: 'manager', // outgoing from manager
-    messenger_type: 'telegram',
-    is_outgoing: true,
+    content: messageText,
+    message_type: 'manager',
+    messenger: 'telegram',
+    direction: 'outgoing',
     is_read: true,
-    external_message_id: message.id,
-    file_url: fileUrl,
+    external_id: message.id,
+    media_url: fileUrl,
     file_name: fileName,
-    file_type: fileType || contentType,
+    media_type: fileType || contentType,
     created_at: message.timestamp || new Date().toISOString()
   };
 
@@ -883,7 +879,7 @@ async function handleDeliveryStatus(supabase: any, message: TelegramWappiMessage
   const { error, count } = await supabase
     .from('chat_messages')
     .update({ status: mappedStatus })
-    .eq('external_message_id', messageIdToUpdate);
+    .eq('external_id', messageIdToUpdate);
 
   if (error) {
     console.error('Error updating Telegram message status:', error);
