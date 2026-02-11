@@ -833,8 +833,8 @@ export const AIHub = ({
 
           {/* Members list (inline) or Messages */}
           {showMembersDialog && activeChat.type === 'group' && groupMembers.data ? (
-            <ScrollArea className="flex-1 overflow-auto">
-              <div className="p-2 space-y-1">
+            <div className="flex-1 overflow-y-auto">
+              <div className="px-2 py-1 space-y-0.5">
                 {groupMembers.data.map((member: any) => {
                   const firstName = member.profile?.first_name || '';
                   const lastName = member.profile?.last_name || '';
@@ -864,7 +864,7 @@ export const AIHub = ({
                   );
                 })}
               </div>
-            </ScrollArea>
+            </div>
           ) : (
           <ScrollArea ref={scrollAreaRef} className="flex-1 overflow-auto">
             <div className="space-y-1 px-3 py-4 pb-24">
