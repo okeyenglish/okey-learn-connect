@@ -171,7 +171,7 @@ export const ContactInfoBlock = ({
       }
       
       // Create separate entry for MAX if it exists
-      if (clientMaxChatId && result.length === 0) {
+      if (clientMaxChatId && !result.some(r => r.maxChatId)) {
         result.push({
           id: 'virtual-max-contact',
           phone: '',
@@ -440,6 +440,16 @@ export const ContactInfoBlock = ({
                       <TelegramIcon active={true} />
                       <span className="text-sm font-medium text-blue-600">
                         ID: {getTelegramId(phoneNumber)}
+                      </span>
+                    </button>
+                  ) : maxActive && phoneNumber.maxChatId ? (
+                    <button
+                      className="flex items-center gap-2 hover:bg-purple-50 rounded px-1 -ml-1 transition-colors"
+                      onClick={() => handleMessengerClick(phoneNumber.id, 'max', true)}
+                    >
+                      <MaxIcon active={true} />
+                      <span className="text-sm font-medium text-purple-600">
+                        MAX ID: {phoneNumber.maxChatId}
                       </span>
                     </button>
                   ) : (

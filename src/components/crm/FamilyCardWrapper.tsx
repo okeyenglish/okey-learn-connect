@@ -185,7 +185,7 @@ const fetchClientDirectFallback = async (clientId: string): Promise<FamilyGroup 
   try {
     const { data: clientData, error } = await supabase
       .from('clients')
-      .select('id, name, phone, email, avatar_url, branch')
+      .select('id, name, phone, email, avatar_url, branch, client_number, telegram_chat_id, telegram_user_id, whatsapp_chat_id, max_chat_id, max_user_id')
       .eq('id', clientId)
       .maybeSingle();
 
@@ -241,6 +241,7 @@ const fetchClientDirectFallback = async (clientId: string): Promise<FamilyGroup 
       name: (clientData as any).name || 'Клиент',
       members: [{
         id: clientData.id,
+        clientNumber: (clientData as any).client_number || undefined,
         name: (clientData as any).name || '',
         phone: (clientData as any).phone || '',
         email: (clientData as any).email || undefined,
@@ -250,6 +251,10 @@ const fetchClientDirectFallback = async (clientId: string): Promise<FamilyGroup 
         unreadMessages: 0,
         isOnline: false,
         avatar_url: (clientData as any).avatar_url || undefined,
+        telegramChatId: (clientData as any).telegram_chat_id || null,
+        telegramUserId: (clientData as any).telegram_user_id || null,
+        whatsappChatId: (clientData as any).whatsapp_chat_id || null,
+        maxChatId: (clientData as any).max_chat_id || (clientData as any).max_user_id?.toString() || null,
         phoneNumbers: [],
       }],
       students,
