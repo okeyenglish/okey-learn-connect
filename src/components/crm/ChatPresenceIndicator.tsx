@@ -300,40 +300,55 @@ export const ChatPresenceIndicator: React.FC<ChatPresenceIndicatorProps> = ({
   );
 
   if (compact) {
+    const tooltipNames = viewers.map(v => v.name).join(', ');
     return (
-      <Popover>
-        <PopoverTrigger asChild>
-          <div className={`flex items-center -space-x-1.5 cursor-pointer hover:opacity-80 transition-opacity`}>
-            {viewers.slice(0, 3).map((viewer, idx) => (
-              <Avatar 
-                key={viewer.userId} 
-                className={`h-5 w-5 ring-2 ring-background ${
-                  viewer.type === 'on_call' ? 'ring-green-400' : 
-                  viewer.type === 'idle' ? 'ring-slate-300' : 'ring-blue-300'
-                }`}
-                style={{ zIndex: 3 - idx }}
-              >
-                {viewer.avatarUrl && <AvatarImage src={viewer.avatarUrl} alt={viewer.name} />}
-                <AvatarFallback className={`text-[7px] font-medium ${
-                  viewer.type === 'on_call' ? 'bg-green-100 text-green-700' :
-                  viewer.type === 'idle' ? 'bg-slate-100 text-slate-500' :
-                  'bg-blue-100 text-blue-700'
-                }`}>
-                  {viewer.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-            ))}
-            {viewers.length > 3 && (
-              <div className="h-5 w-5 rounded-full bg-muted border-2 border-background flex items-center justify-center" style={{ zIndex: 0 }}>
-                <span className="text-[8px] font-medium text-muted-foreground">+{viewers.length - 3}</span>
-              </div>
-            )}
-          </div>
-        </PopoverTrigger>
-        <PopoverContent side="left" className="w-auto p-0">
-          {popoverContent}
-        </PopoverContent>
-      </Popover>
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Popover>
+              <PopoverTrigger asChild>
+                <div className={`flex items-center -space-x-1.5 cursor-pointer hover:opacity-80 transition-opacity`}>
+                  {viewers.slice(0, 3).map((viewer, idx) => (
+                    <Avatar 
+                      key={viewer.userId} 
+                      className={`h-5 w-5 ring-2 ring-background ${
+                        viewer.type === 'on_call' ? 'ring-green-400' : 
+                        viewer.type === 'idle' ? 'ring-slate-300' : 'ring-blue-300'
+                      }`}
+                      style={{ zIndex: 3 - idx }}
+                    >
+                      {viewer.avatarUrl && <AvatarImage src={viewer.avatarUrl} alt={viewer.name} />}
+                      <AvatarFallback className={`text-[7px] font-medium ${
+                        viewer.type === 'on_call' ? 'bg-green-100 text-green-700' :
+                        viewer.type === 'idle' ? 'bg-slate-100 text-slate-500' :
+                        'bg-blue-100 text-blue-700'
+                      }`}>
+                        {viewer.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  ))}
+                  {viewers.length > 3 && (
+                    <div className="h-5 w-5 rounded-full bg-muted border-2 border-background flex items-center justify-center" style={{ zIndex: 0 }}>
+                      <span className="text-[8px] font-medium text-muted-foreground">+{viewers.length - 3}</span>
+                    </div>
+                  )}
+                </div>
+              </PopoverTrigger>
+              <PopoverContent side="left" className="w-auto p-0">
+                {popoverContent}
+              </PopoverContent>
+            </Popover>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">
+            <div className="flex flex-col gap-0.5">
+              <span className="font-medium">👀 Сейчас смотрят:</span>
+              {viewers.map(v => (
+                <span key={v.userId}>{v.name}</span>
+              ))}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   }
 
