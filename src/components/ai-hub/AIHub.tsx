@@ -55,7 +55,8 @@ import {
   useStaffMembers,
   useStaffConversationPreviews,
   useStaffGroupChatPreviews,
-  useMarkStaffChatRead
+  useMarkStaffChatRead,
+  useChatReadCursors
 } from '@/hooks/useInternalStaffMessages';
 import { useStaffTypingIndicator } from '@/hooks/useStaffTypingIndicator';
 import { StaffTypingIndicator } from '@/components/ai-hub/StaffTypingIndicator';
@@ -224,6 +225,15 @@ export const AIHub = ({
   
   // Group members for header display
   const groupMembers = useStaffGroupMembers(activeChat?.type === 'group' ? activeChat.id : '');
+
+  // Read cursors for showing read status per message
+  const readCursorChatId = activeChat?.type === 'teacher' || activeChat?.type === 'staff'
+    ? selectedStaffProfileId
+    : activeChat?.type === 'group'
+      ? activeChat.id
+      : '';
+  const readCursorChatType = activeChat?.type === 'group' ? 'group' : 'direct';
+  const { data: readCursors } = useChatReadCursors(readCursorChatId, readCursorChatType as 'direct' | 'group');
 
   // Staff typing indicator
   const typingChatId = activeChat?.type === 'teacher' || activeChat?.type === 'staff'
@@ -834,6 +844,36 @@ export const AIHub = ({
                   const isFirstInGroup = !prevMsg || prevMsg.type !== msg.type;
                   const isLastInGroup = !nextMsg || nextMsg.type !== msg.type;
                   
+                  // Cursor-based read status
+                  const isStaffChat = activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group';
+                  const msgTime = msg.timestamp.toISOString();
+                  
+                  // For DMs: check if recipient read this message
+                  // For groups: check how many members read it
+                  const readByAll = isOwn && isStaffChat && readCursors
+                    ? readCursors.every(c => new Date(c.lastReadAt) >= msg.timestamp)
+                    : false;
+                  const readBySome = isOwn && isStaffChat && readCursors
+                    ? readCursors.some(c => new Date(c.lastReadAt) >= msg.timestamp)
+                    : false;
+                  const readByNames = isOwn && isStaffChat && activeChat.type === 'group' && readCursors
+                    ? readCursors.filter(c => new Date(c.lastReadAt) >= msg.timestamp).map(c => c.firstName || 'Участник')
+                    : [];
+                  
+                  // Read indicator component
+                  const ReadIndicator = isOwn && isStaffChat ? (
+                    activeChat.type === 'group' ? (
+                      readBySome ? (
+                        <span title={readByAll ? 'Прочитано всеми' : `Прочитали: ${readByNames.join(', ')}`}>
+                          <CheckCheck className={`h-3 w-3 inline ml-0.5 ${readByAll ? 'text-blue-400' : 'text-blue-300/70'}`} />
+                        </span>
+                      ) : <Check className="h-3 w-3 inline ml-0.5" />
+                    ) : (
+                      readByAll 
+                        ? <CheckCheck className="h-3 w-3 inline ml-0.5 text-blue-400" />
+                        : <Check className="h-3 w-3 inline ml-0.5" />
+                    )
+                  ) : null;
                   return (
                     <div 
                       key={msg.id}
@@ -881,11 +921,7 @@ export const AIHub = ({
                             })()}
                             <div className={`flex items-center gap-1 mt-0.5 px-1 text-[10px] text-muted-foreground ${isOwn ? 'justify-end' : ''}`}>
                               <span>{msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
-                              {isOwn && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
-                                msg.is_read 
-                                  ? <CheckCheck className="h-3 w-3 inline text-blue-400" />
-                                  : <Check className="h-3 w-3 inline" />
-                              )}
+                              {ReadIndicator}
                             </div>
                           </div>
                         ) : msg.file_url && msg.file_type?.startsWith('image/') ? (
@@ -913,11 +949,7 @@ export const AIHub = ({
                             )}
                             <div className={`flex items-center gap-1 mt-0.5 px-1 text-[10px] text-muted-foreground ${isOwn ? 'justify-end' : ''}`}>
                               <span>{msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
-                              {isOwn && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
-                                msg.is_read 
-                                  ? <CheckCheck className="h-3 w-3 inline text-blue-400" />
-                                  : <Check className="h-3 w-3 inline" />
-                              )}
+                              {ReadIndicator}
                             </div>
                           </div>
                         ) : (
@@ -964,11 +996,7 @@ export const AIHub = ({
                                   isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'
                                 }`}>
                                   {msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                                  {isOwn && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
-                                    msg.is_read 
-                                      ? <CheckCheck className="h-3 w-3 inline ml-0.5 text-blue-300" />
-                                      : <Check className="h-3 w-3 inline ml-0.5" />
-                                  )}
+                                  {ReadIndicator}
                                 </span>
                               </div>
                             ) : (
@@ -977,11 +1005,7 @@ export const AIHub = ({
                               }`}>
                                 <span>
                                   {msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                                  {isOwn && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
-                                    msg.is_read 
-                                      ? <CheckCheck className="h-3 w-3 inline ml-0.5 text-blue-300" />
-                                      : <Check className="h-3 w-3 inline ml-0.5" />
-                                  )}
+                                  {ReadIndicator}
                                 </span>
                               </div>
                             )}

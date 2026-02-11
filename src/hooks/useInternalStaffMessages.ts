@@ -594,3 +594,63 @@ export const useStaffConversationPreviews = (profileIds: string[]) => {
     staleTime: 30000,
   });
 };
+
+/**
+ * Hook to get read cursors for a specific chat (DM or group).
+ * For DMs: returns the recipient's cursor so we know which messages they've read.
+ * For groups: returns all members' cursors with their names.
+ */
+export interface ChatReadCursor {
+  userId: string;
+  firstName?: string;
+  lastReadAt: string;
+}
+
+export const useChatReadCursors = (chatId: string, chatType: 'direct' | 'group') => {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['chat-read-cursors', chatId, chatType],
+    queryFn: async (): Promise<ChatReadCursor[]> => {
+      if (!chatId || !user?.id) return [];
+
+      const { data, error } = await supabase
+        .from('staff_chat_read_cursors')
+        .select('user_id, last_read_at')
+        .eq('chat_id', chatId)
+        .neq('user_id', user.id);
+
+      if (error) {
+        console.error('Error fetching chat read cursors:', error);
+        return [];
+      }
+
+      if (!data || data.length === 0) return [];
+
+      // Get profile names for group chats
+      if (chatType === 'group') {
+        const userIds = data.map((d: any) => d.user_id);
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, first_name')
+          .in('id', userIds);
+
+        const profileMap = new Map((profiles || []).map((p: any) => [p.id, p.first_name]));
+        
+        return data.map((d: any) => ({
+          userId: d.user_id,
+          firstName: profileMap.get(d.user_id) || undefined,
+          lastReadAt: d.last_read_at,
+        }));
+      }
+
+      return data.map((d: any) => ({
+        userId: d.user_id,
+        lastReadAt: d.last_read_at,
+      }));
+    },
+    enabled: !!chatId && !!user?.id,
+    staleTime: 10000,
+    refetchInterval: 15000,
+  });
+};
