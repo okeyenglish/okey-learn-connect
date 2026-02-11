@@ -971,7 +971,7 @@ export const AIHubInline = ({
                       </div>
                     )}
                     
-                    {isClientCardMessage(msg.content) ? (
+                    {isClientCardMessage(msg.content, msg.message_type) ? (
                       <ClientCardBubble content={msg.content} isOwn={msg.type === 'user'} />
                     ) : msg.content ? (
                       <p className="text-sm whitespace-pre-wrap">{highlightText(msg.content, chatSearchQuery)}</p>
