@@ -196,6 +196,7 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
         file_type: fileType,
         message_status: 'delivered',
         metadata: { teacher_id: teacherData.id, ...(integrationId ? { integration_id: integrationId } : {}) },
+        integration_id: integrationId || null,
         created_at: new Date((timestamp || Date.now() / 1000) * 1000).toISOString()
       });
 
@@ -239,6 +240,7 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
       file_type: fileType,
       message_status: 'delivered',
       metadata: integrationId ? { integration_id: integrationId } : null,
+      integration_id: integrationId || null,
       created_at: new Date((timestamp || Date.now() / 1000) * 1000).toISOString()
     });
 
@@ -814,6 +816,7 @@ async function handleOutgoingMessage(
       file_type: fileType,
       message_status: 'sent',
       metadata: integrationId ? { integration_id: integrationId } : null,
+      integration_id: integrationId || null,
       created_at: new Date((timestamp || Date.now() / 1000) * 1000).toISOString()
     });
 
