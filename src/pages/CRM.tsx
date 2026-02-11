@@ -42,6 +42,7 @@ import { SearchResults } from "@/components/crm/SearchResults";
 import { LinkedContacts } from "@/components/crm/LinkedContacts";
 import { FamilyCard } from "@/components/crm/FamilyCard";
 import { FamilyCardWrapper } from "@/components/crm/FamilyCardWrapper";
+import { ShareClientCardModal } from "@/components/crm/ShareClientCardModal";
 import { ChatContextMenu } from "@/components/crm/ChatContextMenu";
 import { ChatListItem } from "@/components/crm/ChatListItem";
 import { VirtualizedChatList } from "@/components/crm/VirtualizedChatList";
@@ -384,6 +385,7 @@ const CRMContent = () => {
     clientEmail?: string; 
   }>({ open: false, clientId: '', clientName: '' });
   const [isDeletingChat, setIsDeletingChat] = useState(false);
+  const [shareCardClient, setShareCardClient] = useState<{ open: boolean; id: string; name: string; phone?: string; avatar_url?: string | null; branch?: string | null }>({ open: false, id: '', name: '' });
   const [selectedMessengerTab, setSelectedMessengerTab] = useState<{ tab: 'whatsapp' | 'telegram' | 'max'; ts: number } | undefined>(undefined);
   // Search query to pass to ChatArea when chat was found via message search
   const [chatInitialSearchQuery, setChatInitialSearchQuery] = useState<string | undefined>(undefined);
@@ -1619,6 +1621,10 @@ const CRMContent = () => {
   }, [markAsRead, markAsReadMutation, markChatAsReadGlobally]);
 
   // Handle URL parameter for deep linking from push notifications
+  const handleShareClientCard = useCallback((chatId: string, chatName: string, chatPhone?: string, avatarUrl?: string | null, branch?: string | null) => {
+    setShareCardClient({ open: true, id: chatId, name: chatName, phone: chatPhone, avatar_url: avatarUrl, branch });
+  }, []);
+
   // This effect runs after handleChatClick is defined
   useEffect(() => {
     if (deepLinkProcessedRef.current) return;
@@ -3690,6 +3696,7 @@ const CRMContent = () => {
                                  onLinkToClient={chat.type === 'client' ? () => handleLinkChat(chat.id, chat.name) : undefined}
                                  onConvertToTeacher={chat.type === 'client' ? () => handleConvertToTeacher(chat.id, chat.name, chat.phone, (chat as any).email) : undefined}
                                  onNoResponseNeeded={() => handleNoResponseNeeded(chat.id)}
+                                 onShareClientCard={chat.type === 'client' ? () => handleShareClientCard(chat.id, chat.name, chat.phone, chat.avatar_url, (chat as any).branch) : undefined}
                                  onBulkSelect={() => handleBulkSelectToggle(chat.id)}
                                />
                              );
@@ -3761,6 +3768,7 @@ const CRMContent = () => {
                           onLinkChat={handleLinkChat}
                           onConvertToTeacher={handleConvertToTeacher}
                           onNoResponseNeeded={handleNoResponseNeeded}
+                          onShareClientCard={handleShareClientCard}
                           isLoading={threadsLoading}
                           hasNextPage={hasNextPage}
                           isFetchingNextPage={isFetchingNextPage}
@@ -3813,6 +3821,7 @@ const CRMContent = () => {
                         onDeleteChat={handleDeleteChat}
                         onLinkChat={handleLinkChat}
                         onNoResponseNeeded={handleNoResponseNeeded}
+                        onShareClientCard={handleShareClientCard}
                       />
                     </div>
                   )}
@@ -4240,6 +4249,7 @@ const CRMContent = () => {
                           onLinkChat={handleLinkChat}
                           onConvertToTeacher={handleConvertToTeacher}
                           onNoResponseNeeded={handleNoResponseNeeded}
+                          onShareClientCard={handleShareClientCard}
                           isLoading={threadsLoading}
                           onRefresh={refetchThreads}
                           hasNextPage={hasNextPage}
@@ -4294,6 +4304,7 @@ const CRMContent = () => {
                         onDeleteChat={handleDeleteChat}
                         onLinkChat={handleLinkChat}
                         onNoResponseNeeded={handleNoResponseNeeded}
+                        onShareClientCard={handleShareClientCard}
                       />
                     </div>
                   )}
@@ -4918,6 +4929,19 @@ const CRMContent = () => {
         clientPhone={convertToTeacherModal.clientPhone}
         clientEmail={convertToTeacherModal.clientEmail}
         onSuccess={handleConvertToTeacherSuccess}
+      />
+      
+      {/* Share Client Card Modal */}
+      <ShareClientCardModal
+        open={shareCardClient.open}
+        onOpenChange={(open) => setShareCardClient(prev => ({ ...prev, open }))}
+        client={{
+          id: shareCardClient.id,
+          name: shareCardClient.name,
+          phone: shareCardClient.phone,
+          avatar_url: shareCardClient.avatar_url,
+          branch: shareCardClient.branch,
+        }}
       />
       
       {/* WhatsApp Status Notification */}
