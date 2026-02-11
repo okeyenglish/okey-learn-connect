@@ -77,7 +77,7 @@ interface ChatAreaProps {
   onOpenInvoiceModal?: () => void;
   managerName?: string; // Add manager name for comments
   onBackToList?: () => void; // Function to go back to chat list on mobile
-  onChatAction?: (chatId: string, action: 'unread' | 'pin' | 'archive' | 'block') => void; // Chat actions
+  onChatAction?: (chatId: string, action: 'unread' | 'read' | 'pin' | 'archive' | 'block') => void; // Chat actions
   rightPanelCollapsed?: boolean; // State of right panel
   onToggleRightPanel?: () => void; // Toggle right panel
   onOpenClientInfo?: () => void; // Open client info panel on mobile
@@ -1191,6 +1191,9 @@ export const ChatArea = ({
         queryClient.invalidateQueries({ queryKey: ['chat-messages-infinite', clientId] });
       }
       
+      // Clear personal unread marker
+      onChatAction?.(clientId, 'read');
+      
       toast({
         title: "Готово",
         description: "Чат помечен как не требующий ответа",
@@ -1311,6 +1314,8 @@ export const ChatArea = ({
       
       queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
       queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+      // Clear personal unread marker when sending a message
+      onChatAction?.(clientId, 'read');
     } catch (error) {
       console.error('Error marking messages as read on send:', error);
     }

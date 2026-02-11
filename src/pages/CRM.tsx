@@ -1344,8 +1344,10 @@ const CRMContent = () => {
       }
       
       // Сначала непрочитанные (по сообщениям / ручной отметке)
-      const aUnread = a.unread > 0;
-      const bUnread = b.unread > 0;
+      const aShowEye = !!getChatState(a.id)?.isUnread;
+      const bShowEye = !!getChatState(b.id)?.isUnread;
+      const aUnread = a.unread > 0 || aShowEye;
+      const bUnread = b.unread > 0 || bShowEye;
       
       if (aUnread && !bUnread) return -1;
       if (!aUnread && bUnread) return 1;
@@ -1558,30 +1560,23 @@ const CRMContent = () => {
       setActiveClientInfo(null);
     }
     
-    // Помечаем как прочитанное только при переключении на НОВЫЙ чат
-    // ВСЕ ОПЕРАЦИИ БЕЗ AWAIT - не блокируем UI
-    if (isNewChat) {
-      // Асинхронно помечаем чат как прочитанный (fire-and-forget)
-      markChatAsReadGlobally(chatId).catch(err => 
-        console.error('Error marking chat as read:', err)
-      );
-      
-      if (chatType === 'client') {
-        // Помечаем чат как прочитанный в персональном состоянии
-        markAsRead(chatId);
-      } else if (chatType === 'teachers') {
-        // Для преподавательских чатов - отложенная пакетная обработка
-        setTimeout(() => {
-          teacherChats.forEach((chat: any) => {
-            if (chat.id) {
-              markChatAsReadGlobally(chat.id).catch(() => {});
-              markChatMessagesAsReadMutation.mutate(chat.id);
-              markAsReadMutation.mutate(chat.id);
-              markAsRead(chat.id);
-            }
-          });
-        }, 100); // Отложим чтобы не блокировать первый рендер
-      }
+    // НЕ помечаем клиентский чат автоматически как прочитанный при открытии
+    // Чат помечается прочитанным только при:
+    // 1. Отправке сообщения клиенту
+    // 2. Нажатии "Не требует ответа"
+    // 3. Нажатии "Отметить прочитанным" в контекстном меню
+    if (isNewChat && chatType === 'teachers') {
+      // Для преподавательских чатов сохраняем старое поведение
+      setTimeout(() => {
+        teacherChats.forEach((chat: any) => {
+          if (chat.id) {
+            markChatAsReadGlobally(chat.id).catch(() => {});
+            markChatMessagesAsReadMutation.mutate(chat.id);
+            markAsReadMutation.mutate(chat.id);
+            markAsRead(chat.id);
+          }
+        });
+      }, 100);
     }
     
     // Обновляем имя активного клиента для модальных окон
