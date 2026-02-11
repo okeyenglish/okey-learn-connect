@@ -19,18 +19,10 @@ import {
 } from '@/integrations/supabase/useTypedQueries';
 import { JoinSelects } from '@/integrations/supabase/typedHelpers';
 import type { ChatMessage } from './useChatMessages';
+import { CHAT_MESSAGE_SELECT, mapDbRowsToChatMessages, type DbChatMessageRow } from '@/lib/chatMessageMapper';
 import { useMemo, useCallback } from 'react';
 
 const PAGE_SIZE = 50;
-
-// ============ Optimized select without JOIN ============
-// Avatars are fetched separately via useClientAvatars to avoid slow cross-table lookups
-
-const MESSAGE_SELECT = `
-  id, client_id, message_text, message_type, system_type, is_read,
-  created_at, file_url, file_name, file_type, external_message_id,
-  messenger_type, call_duration, message_status
-`;
 
 // ============ Основной типизированный хук ============
 
@@ -54,10 +46,9 @@ export const useInfiniteChatMessagesTyped = (clientId: string) => {
   const query = useInfiniteQuery({
     queryKey: ['chat-messages-infinite-typed', clientId],
     queryFn: async ({ pageParam = 0 }): Promise<InfinitePageData<ChatMessage>> => {
-      // Optimized: no JOIN, just message fields for fast loading
       const { data, error, count } = await supabase
         .from('chat_messages')
-        .select(MESSAGE_SELECT, { count: 'exact' })
+        .select(CHAT_MESSAGE_SELECT, { count: 'exact' })
         .eq('client_id', clientId)
         .order('created_at', { ascending: false })
         .range(pageParam, pageParam + PAGE_SIZE);
@@ -67,7 +58,7 @@ export const useInfiniteChatMessagesTyped = (clientId: string) => {
         throw new Error(error.message);
       }
 
-      const items = (data || []) as ChatMessage[];
+      const items = mapDbRowsToChatMessages((data || []) as DbChatMessageRow[]);
       const total = count ?? 0;
       const hasMore = total > pageParam + PAGE_SIZE;
 

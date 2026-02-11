@@ -2,6 +2,7 @@ import React, { useRef, useCallback, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { ChatMessage } from './useChatMessages';
+import { CHAT_MESSAGE_SELECT, mapDbRowsToChatMessages, type DbChatMessageRow } from '@/lib/chatMessageMapper';
 import { chatQueryConfig } from '@/lib/queryConfig';
 import { startMetric, endMetric } from '@/lib/performanceMetrics';
 import { performanceAnalytics } from '@/utils/performanceAnalytics';
@@ -47,11 +48,7 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
         // This reduces query time significantly (no cross-table lookup)
         const { data, error } = await supabase
           .from('chat_messages')
-          .select(`
-            id, client_id, message_text, message_type, system_type, is_read,
-            created_at, file_url, file_name, file_type, external_message_id,
-            messenger_type, call_duration, message_status, metadata, sender_name
-          `)
+          .select(CHAT_MESSAGE_SELECT)
           .eq('client_id', clientId)
           .order('created_at', { ascending: false })
           .limit(limit + 1);
@@ -65,7 +62,7 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
         const allData = data || [];
         const hasMore = allData.length > limit;
         const messages = hasMore ? allData.slice(0, limit) : allData;
-        const reversed = (messages as ChatMessage[]).reverse();
+        const reversed = mapDbRowsToChatMessages(messages as DbChatMessageRow[]).reverse();
 
         // Update in-memory cache
         messageCache.set(clientId, { messages: reversed, timestamp: Date.now() });
@@ -233,7 +230,7 @@ export const useUnreadCountOptimized = (clientId: string) => {
       // Self-hosted schema: message_type='client' for incoming messages
       const { data, error } = await supabase
         .from('chat_messages')
-        .select('messenger_type')
+        .select('messenger')
         .eq('client_id', clientId)
         .eq('is_read', false)
         .eq('message_type', 'client');
@@ -248,7 +245,7 @@ export const useUnreadCountOptimized = (clientId: string) => {
       };
 
       (data || []).forEach((msg: any) => {
-        const type = msg.messenger_type || 'whatsapp';
+        const type = msg.messenger || 'whatsapp';
         byMessenger[type] = (byMessenger[type] || 0) + 1;
       });
 
@@ -309,14 +306,9 @@ export const usePrefetchMessages = () => {
       queryFn: async () => {
         const startTime = performance.now();
         
-        // Self-hosted schema uses: message_text, message_type, messenger_type, file_url, etc.
         const { data, error } = await supabase
           .from('chat_messages')
-          .select(`
-            id, client_id, message_text, message_type, system_type, is_read, created_at,
-            file_url, file_name, file_type, external_message_id, messenger_type, call_duration, message_status, metadata, sender_name,
-            clients(avatar_url)
-          `)
+          .select(CHAT_MESSAGE_SELECT)
           .eq('client_id', clientId)
           .order('created_at', { ascending: false })
           .limit(MESSAGES_PER_PAGE + 1)
@@ -325,25 +317,7 @@ export const usePrefetchMessages = () => {
         // Remove from pending
         pendingPrefetches.current.delete(clientId);
 
-        if (error) {
-          // Fallback without join
-          const fallback = await supabase
-            .from('chat_messages')
-            .select('id, client_id, message_text, message_type, system_type, is_read, created_at, file_url, file_name, file_type, external_message_id, messenger_type, call_duration, message_status, sender_name')
-            .eq('client_id', clientId)
-            .order('created_at', { ascending: false })
-            .limit(MESSAGES_PER_PAGE + 1);
-          
-          const allData = fallback.data || [];
-          const hasMore = allData.length > MESSAGES_PER_PAGE;
-          const messages = hasMore ? allData.slice(0, MESSAGES_PER_PAGE) : allData;
-          
-          return {
-            messages: (messages as ChatMessage[]).reverse(),
-            hasMore,
-            totalCount: messages.length
-          };
-        }
+        if (error) throw error;
 
         const allData = data || [];
         const hasMore = allData.length > MESSAGES_PER_PAGE;
@@ -353,7 +327,7 @@ export const usePrefetchMessages = () => {
         console.log(`[Prefetch] ✅ ${clientId.slice(0, 8)} loaded in ${(endTime - startTime).toFixed(0)}ms`);
 
         return {
-          messages: (messages as ChatMessage[]).reverse(),
+          messages: mapDbRowsToChatMessages(messages as DbChatMessageRow[]).reverse(),
           hasMore,
           totalCount: messages.length
         };
