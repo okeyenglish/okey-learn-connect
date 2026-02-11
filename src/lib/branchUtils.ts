@@ -44,6 +44,37 @@ const BRANCH_ALIASES: Record<string, string> = {
  * toBranchKey("Филиал Окская") // => "окская"
  * toBranchKey("Стахановская") // => "грайвороновская" (alias)
  */
+/**
+ * Reverse alias map: for a given normalized key,
+ * what raw values might exist in the database?
+ */
+const REVERSE_ALIASES: Record<string, string[]> = {
+  'грайвороновская': ['Грайвороновская', 'Стахановская'],
+  'люберцы': ['Люберцы', 'Красная горка'],
+  'online school': ['Online school', 'Онлайн', 'Онлайн школа'],
+  'новокосино': ['Новокосино'],
+};
+
+/**
+ * Expands a display branch name into all possible raw database values.
+ * Used to build server-side filters that match all naming variants.
+ */
+export function expandBranchVariants(displayName: string): string[] {
+  const key = toBranchKey(displayName);
+  if (!key) return [displayName];
+  
+  const baseVariants = REVERSE_ALIASES[key] || [displayName];
+  const allVariants = new Set<string>(baseVariants);
+  
+  // Add prefixed variants with brand tokens
+  for (const variant of baseVariants) {
+    allVariants.add(`O'KEY ENGLISH ${variant}`);
+  }
+  allVariants.add(displayName);
+  
+  return Array.from(allVariants);
+}
+
 export function toBranchKey(name: string | null | undefined): string {
   if (!name) return '';
   

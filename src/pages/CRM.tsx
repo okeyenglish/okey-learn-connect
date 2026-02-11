@@ -92,7 +92,7 @@ import { useRealtimeHub } from "@/hooks/useRealtimeHub";
 import { RealtimeStatusIndicator } from "@/components/crm/RealtimeStatusIndicator";
 import { useManagerBranches } from "@/hooks/useManagerBranches";
 import { useUserAllowedBranches } from "@/hooks/useUserAllowedBranches";
-import { toBranchKey } from "@/lib/branchUtils";
+import { toBranchKey, expandBranchVariants } from "@/lib/branchUtils";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useAssistantMessages } from "@/hooks/useAssistantMessages";
 import { useStaffUnreadCount } from "@/hooks/useInternalStaffMessages";
@@ -412,19 +412,24 @@ const CRMContent = () => {
   const { organization, branches } = useOrganization();
 
   // Combine manager branch restrictions with UI branch filter for server-side filtering
+  // expandBranchVariants ensures all raw DB name variants are included (aliases, prefixed forms)
   const effectiveBranches = useMemo(() => {
     const managerBranches = hasManagerBranchRestrictions ? allowedBranchNames : null;
     
     if (selectedBranch && selectedBranch !== 'all') {
       if (managerBranches) {
         const filtered = managerBranches.filter(b => toBranchKey(b) === selectedBranch);
-        return filtered.length > 0 ? filtered : managerBranches;
+        const base = filtered.length > 0 ? filtered : managerBranches;
+        return base.flatMap(b => expandBranchVariants(b));
       }
       const matchedBranch = branches.find((b: any) => toBranchKey(b.name) === selectedBranch);
-      return matchedBranch ? [matchedBranch.name] : undefined;
+      if (matchedBranch) {
+        return expandBranchVariants(matchedBranch.name);
+      }
+      return undefined;
     }
     
-    return managerBranches || undefined;
+    return managerBranches ? managerBranches.flatMap(b => expandBranchVariants(b)) : undefined;
   }, [selectedBranch, hasManagerBranchRestrictions, allowedBranchNames, branches]);
 
   // Критичные данные - загружаем ТОЛЬКО threads с infinite scroll (50 за раз)
