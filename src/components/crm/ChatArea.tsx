@@ -632,13 +632,11 @@ export const ChatArea = ({
     lastMessageIdRef.current = null;
   }, [clientId]);
   
-  // Handle initial search query from message search (auto-open search modal)
+  // Handle initial search query from message search - just track it, don't open search UI
   const [initialSearchApplied, setInitialSearchApplied] = useState<string | null>(null);
   useEffect(() => {
     if (initialSearchQuery && initialSearchQuery !== initialSearchApplied) {
-      console.log('[ChatArea] Auto-opening search with query:', initialSearchQuery);
-      setSearchQuery(initialSearchQuery);
-      setShowSearchInput(true);
+      console.log('[ChatArea] Received search query for highlight (no search bar):', initialSearchQuery);
       setInitialSearchApplied(initialSearchQuery);
     }
   }, [initialSearchQuery, initialSearchApplied]);
