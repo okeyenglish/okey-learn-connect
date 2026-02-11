@@ -852,86 +852,102 @@ export const AIHub = ({
                       )}
                       
                       <div className={`max-w-[75%] ${isOwn ? 'items-end' : 'items-start'}`}>
-                        <div className={`relative px-3 py-1.5 ${
-                          isOwn 
-                            ? `bg-primary text-primary-foreground ${isLastInGroup ? 'rounded-2xl rounded-br-md' : 'rounded-2xl'}` 
-                            : `bg-muted ${isLastInGroup ? 'rounded-2xl rounded-bl-md' : 'rounded-2xl'}`
-                        }`}>
-                          {/* Sender name for group chats - only first in group */}
-                          {msg.sender && !isOwn && isFirstInGroup && activeChat.type === 'group' && (
-                            <p className="text-[11px] font-semibold mb-0.5 text-primary">{msg.sender}</p>
-                          )}
-                          
-                          {/* File attachment */}
-                          {msg.file_url && (
-                            <div className={msg.content ? 'mb-1.5' : ''}>
-                              {msg.file_type?.startsWith('image/') ? (
-                                <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="block">
-                                  <img 
-                                    src={msg.file_url} 
-                                    alt={msg.file_name || 'Image'} 
-                                    className="max-w-full rounded-lg max-h-52 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                  />
-                                </a>
+                        {/* Special messages (cards, forwarded) rendered without colored bubble */}
+                        {(isClientCardMessage(msg.content, msg.message_type) || isForwardedMessage(msg.content, msg.message_type)) ? (
+                          <div>
+                            <div className="rounded-2xl border border-border/50 bg-card p-2.5 shadow-sm">
+                              {isClientCardMessage(msg.content, msg.message_type) ? (
+                                <ClientCardBubble content={msg.content} isOwn={false} onOpenChat={(clientId) => { onOpenChat?.(clientId); onToggle(); }} />
                               ) : (
-                                <a 
-                                  href={msg.file_url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className={`flex items-center gap-2 px-2.5 py-2 rounded-lg transition-colors ${
-                                    isOwn ? 'bg-primary-foreground/10 hover:bg-primary-foreground/20' : 'bg-background/60 hover:bg-background/90'
-                                  }`}
-                                >
-                                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
-                                    isOwn ? 'bg-primary-foreground/20' : 'bg-primary/10'
-                                  }`}>
-                                    <FileText className={`h-4 w-4 ${isOwn ? 'text-primary-foreground' : 'text-primary'}`} />
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <span className="text-xs font-medium truncate block">{msg.file_name || 'Файл'}</span>
-                                    <span className={`text-[10px] ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>Скачать</span>
-                                  </div>
-                                  <Download className={`h-4 w-4 shrink-0 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`} />
-                                </a>
+                                <ForwardedMessageBubble content={msg.content} isOwn={false} onOpenChat={(clientId, messageId) => { onOpenChat?.(clientId, messageId); onToggle(); }} />
                               )}
                             </div>
-                          )}
-                          
-                          {/* Message content */}
-                          {isClientCardMessage(msg.content, msg.message_type) ? (
-                            <ClientCardBubble content={msg.content} isOwn={isOwn} onOpenChat={(clientId) => { onOpenChat?.(clientId); onToggle(); }} />
-                          ) : isForwardedMessage(msg.content, msg.message_type) ? (
-                            <ForwardedMessageBubble content={msg.content} isOwn={isOwn} onOpenChat={(clientId, messageId) => { onOpenChat?.(clientId, messageId); onToggle(); }} />
-                          ) : msg.content ? (
-                            <div className="flex items-end gap-2">
-                              <p className="text-[13.5px] leading-[18px] whitespace-pre-wrap">{msg.content}</p>
-                              <span className={`text-[10px] leading-[14px] shrink-0 self-end translate-y-[1px] ${
+                            <div className={`flex items-center gap-1 mt-0.5 px-1 text-[10px] text-muted-foreground ${isOwn ? 'justify-end' : ''}`}>
+                              <span>{msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
+                              {isOwn && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
+                                msg.is_read 
+                                  ? <CheckCheck className="h-3 w-3 inline text-blue-400" />
+                                  : <Check className="h-3 w-3 inline" />
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className={`relative px-3 py-1.5 ${
+                            isOwn 
+                              ? `bg-primary text-primary-foreground ${isLastInGroup ? 'rounded-2xl rounded-br-md' : 'rounded-2xl'}` 
+                              : `bg-muted ${isLastInGroup ? 'rounded-2xl rounded-bl-md' : 'rounded-2xl'}`
+                          }`}>
+                            {/* Sender name for group chats - only first in group */}
+                            {msg.sender && !isOwn && isFirstInGroup && activeChat.type === 'group' && (
+                              <p className="text-[11px] font-semibold mb-0.5 text-primary">{msg.sender}</p>
+                            )}
+                            
+                            {/* File attachment */}
+                            {msg.file_url && (
+                              <div className={msg.content ? 'mb-1.5' : ''}>
+                                {msg.file_type?.startsWith('image/') ? (
+                                  <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="block">
+                                    <img 
+                                      src={msg.file_url} 
+                                      alt={msg.file_name || 'Image'} 
+                                      className="max-w-full rounded-lg max-h-52 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                    />
+                                  </a>
+                                ) : (
+                                  <a 
+                                    href={msg.file_url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className={`flex items-center gap-2 px-2.5 py-2 rounded-lg transition-colors ${
+                                      isOwn ? 'bg-primary-foreground/10 hover:bg-primary-foreground/20' : 'bg-background/60 hover:bg-background/90'
+                                    }`}
+                                  >
+                                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                      isOwn ? 'bg-primary-foreground/20' : 'bg-primary/10'
+                                    }`}>
+                                      <FileText className={`h-4 w-4 ${isOwn ? 'text-primary-foreground' : 'text-primary'}`} />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <span className="text-xs font-medium truncate block">{msg.file_name || 'Файл'}</span>
+                                      <span className={`text-[10px] ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>Скачать</span>
+                                    </div>
+                                    <Download className={`h-4 w-4 shrink-0 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`} />
+                                  </a>
+                                )}
+                              </div>
+                            )}
+                            
+                            {/* Text content */}
+                            {msg.content ? (
+                              <div className="flex items-end gap-2">
+                                <p className="text-[13.5px] leading-[18px] whitespace-pre-wrap">{msg.content}</p>
+                                <span className={`text-[10px] leading-[14px] shrink-0 self-end translate-y-[1px] ${
+                                  isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'
+                                }`}>
+                                  {msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                                  {isOwn && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
+                                    msg.is_read 
+                                      ? <CheckCheck className="h-3 w-3 inline ml-0.5 text-blue-300" />
+                                      : <Check className="h-3 w-3 inline ml-0.5" />
+                                  )}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className={`flex justify-end mt-1 text-[10px] ${
                                 isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'
                               }`}>
-                                {msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                                {isOwn && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
-                                  msg.is_read 
-                                    ? <CheckCheck className="h-3 w-3 inline ml-0.5 text-blue-300" />
-                                    : <Check className="h-3 w-3 inline ml-0.5" />
-                                )}
-                              </span>
-                            </div>
-                          ) : (
-                            /* File-only message - show time */
-                            <div className={`flex justify-end mt-1 text-[10px] ${
-                              isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'
-                            }`}>
-                              <span>
-                                {msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                                {isOwn && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
-                                  msg.is_read 
-                                    ? <CheckCheck className="h-3 w-3 inline ml-0.5 text-blue-300" />
-                                    : <Check className="h-3 w-3 inline ml-0.5" />
-                                )}
-                              </span>
-                            </div>
-                          )}
-                        </div>
+                                <span>
+                                  {msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                                  {isOwn && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
+                                    msg.is_read 
+                                      ? <CheckCheck className="h-3 w-3 inline ml-0.5 text-blue-300" />
+                                      : <Check className="h-3 w-3 inline ml-0.5" />
+                                  )}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
