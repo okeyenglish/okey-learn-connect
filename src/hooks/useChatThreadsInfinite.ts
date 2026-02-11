@@ -84,13 +84,13 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
   const clientIds = clients.map(c => c.id);
   console.log(`[fetchThreadsDirectly] Fetched ${clientIds.length} clients`);
 
-  // 2. Fetch last messages for these clients (self-hosted schema: no content/direction columns)
-  const { data: messages, error: messagesError } = await supabase
-    .from('chat_messages')
-    .select('client_id, message_text, created_at, is_read, messenger_type, message_type, is_outgoing')
-    .in('client_id', clientIds)
-    .order('created_at', { ascending: false })
-    .limit(clientIds.length * 10);
+   // 2. Fetch last messages for these clients (self-hosted schema uses content, direction, messenger)
+    const { data: messages, error: messagesError } = await supabase
+      .from('chat_messages')
+      .select('client_id, content, created_at, is_read, messenger, message_type, direction')
+      .in('client_id', clientIds)
+      .order('created_at', { ascending: false })
+      .limit(clientIds.length * 10);
 
   if (messagesError) {
     console.error('[fetchThreadsDirectly] Failed to fetch messages:', messagesError);
@@ -124,13 +124,13 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
     .map((client: any) => {
       const clientMessages = messagesByClient.get(client.id) || [];
       const lastMessage = clientMessages[0];
-      // Self-hosted uses is_outgoing=false for incoming messages
+      // Self-hosted uses direction='incoming' for incoming messages
       const unreadMessages = clientMessages.filter((m: any) => 
-        !m.is_read && !m.is_outgoing && m.message_type !== 'system'
+        !m.is_read && m.direction !== 'outgoing' && m.message_type !== 'system'
       );
 
-      // Get message text (self-hosted uses message_text only)
-      const rawLastMessageText = lastMessage?.message_text || '';
+      // Get message text (self-hosted uses content)
+      const rawLastMessageText = lastMessage?.content || '';
       const lastMessageText = isSystemPreviewMessage(rawLastMessageText) ? '' : rawLastMessageText;
 
       const unreadByMessenger: UnreadByMessenger = {
@@ -143,8 +143,8 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
       };
       
       unreadMessages.forEach((m: any) => {
-        const type = m.messenger_type as keyof UnreadByMessenger;
-        // Skip 'calls' as it's not a valid messenger_type enum value in the database
+        const type = m.messenger as keyof UnreadByMessenger;
+        // Skip 'calls' as it's not a valid messenger enum value in the database
         if (type && type !== 'calls' && type in unreadByMessenger) {
           unreadByMessenger[type]++;
         }
@@ -166,10 +166,10 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
         max_chat_id: null,
         last_message: lastMessageText,
         last_message_time: lastMessage?.created_at || null,
-        last_message_messenger: lastMessage?.messenger_type || null,
+        last_message_messenger: lastMessage?.messenger || null,
         unread_count: unreadMessages.length,
         unread_by_messenger: unreadByMessenger,
-        last_unread_messenger: unreadMessages[0]?.messenger_type || null,
+        last_unread_messenger: unreadMessages[0]?.messenger || null,
         messages: [],
         has_pending_payment: (client as any).has_pending_payment || false,
       };

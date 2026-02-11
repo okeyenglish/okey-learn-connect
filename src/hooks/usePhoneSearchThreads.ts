@@ -48,12 +48,12 @@ interface ClientRow {
 /** Message row from fallback query */
 interface MessageRow {
   client_id: string;
-  message_text: string | null;
+  content: string | null;
   created_at: string;
   is_read: boolean;
-  messenger_type: string | null;
+  messenger: string | null;
   message_type: string | null;
-  is_outgoing?: boolean | null;
+  direction?: string | null;
 }
 
 /**
@@ -145,12 +145,12 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
   console.log('[usePhoneSearchThreads] Fetched clients:', clients.length);
 
   // Fetch last message for each client
-  const { data: messagesRaw, error: messagesError } = await supabase
-    .from('chat_messages')
-    .select('client_id, message_text, created_at, is_read, messenger_type, message_type, is_outgoing')
-    .in('client_id', clientIds)
-    .order('created_at', { ascending: false })
-    .limit(clientIds.length * 10); // Get a few messages per client
+    const { data: messagesRaw, error: messagesError } = await supabase
+      .from('chat_messages')
+      .select('client_id, content, created_at, is_read, messenger, message_type, direction')
+      .in('client_id', clientIds)
+      .order('created_at', { ascending: false })
+      .limit(clientIds.length * 10); // Get a few messages per client
 
   if (messagesError) {
     console.error('[usePhoneSearchThreads] Failed to fetch messages:', messagesError);
@@ -183,10 +183,10 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
     .map((client) => {
       const clientMessages = messagesByClient.get(client.id) || [];
       const lastMessage = clientMessages[0];
-      // Self-hosted: incoming = is_outgoing false; fallback: message_type === 'client'
+      // Self-hosted: incoming = direction !== 'outgoing'; fallback: message_type === 'client'
       const unreadMessages = clientMessages.filter((m) => {
-        const isIncoming = m.is_outgoing === false || m.message_type === 'client';
-        const isSystem = m.messenger_type === 'system' || /^crm_system_/i.test(String(m.message_text || ''));
+        const isIncoming = m.direction !== 'outgoing' || m.message_type === 'client';
+        const isSystem = m.messenger === 'system' || /^crm_system_/i.test(String(m.content || ''));
         return !m.is_read && isIncoming && !isSystem;
       });
 
@@ -200,8 +200,8 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
         calls: 0,
       };
       unreadMessages.forEach((m) => {
-        const type = (m.messenger_type || 'whatsapp') as keyof UnreadByMessenger;
-        // Skip 'calls' as it's not a valid messenger_type enum value in the database
+        const type = (m.messenger || 'whatsapp') as keyof UnreadByMessenger;
+        // Skip 'calls' as it's not a valid messenger enum value in the database
         if (type && type !== 'calls' && type in unreadByMessenger) unreadByMessenger[type]++;
       });
 
@@ -217,12 +217,12 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
         telegram_avatar_url: null, // Not in self-hosted schema
         whatsapp_avatar_url: null, // Not in self-hosted schema  
         max_avatar_url: null, // Not in self-hosted schema
-        last_message: lastMessage?.message_text || '',
+        last_message: lastMessage?.content || '',
         last_message_time: lastMessage?.created_at || null,
-        last_message_messenger: lastMessage?.messenger_type || null,
+        last_message_messenger: lastMessage?.messenger || null,
         unread_count: unreadMessages.length,
         unread_by_messenger: unreadByMessenger,
-        last_unread_messenger: unreadMessages[0]?.messenger_type || null,
+        last_unread_messenger: unreadMessages[0]?.messenger || null,
         messages: [],
       };
     });

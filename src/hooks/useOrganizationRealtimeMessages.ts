@@ -148,11 +148,10 @@ export const useOrganizationRealtimeMessages = () => {
     
     try {
       // Select only fields that exist in self-hosted schema
-      // Self-hosted uses: message_type, message_text, is_outgoing
-      // Avoid: direction, content (these don't exist in self-hosted DB)
+      // Self-hosted uses: message_type, content, direction
       const { data: newMessages, error } = await supabase
         .from('chat_messages')
-        .select('id, client_id, message_type, message_text, created_at')
+        .select('id, client_id, message_type, content, created_at')
         .gt('created_at', since)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -185,7 +184,7 @@ export const useOrganizationRealtimeMessages = () => {
           playNotificationSound(0.5, 'chat');
           
           const latestIncoming = incomingMessages[0];
-          const messagePreview = latestIncoming.message_text || 'Новое сообщение';
+          const messagePreview = (latestIncoming as any).content || 'Новое сообщение';
           const truncatedPreview = messagePreview.length > 50 
             ? messagePreview.substring(0, 50) + '...' 
             : messagePreview;
