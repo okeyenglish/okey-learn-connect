@@ -1,35 +1,66 @@
 
-
-# Fix: Cannot delete Telegram integration (okeyenglishbot)
+# Fix: New messages go to client instead of teacher after conversion
 
 ## Problem
 
-Clicking "Удалить" on the okeyenglishbot integration returns "Server error" (500).
+After converting a client to a teacher (merging chat history), new incoming messages from MAX still create/restore the old client record instead of going to the teacher.
 
 ## Root Cause
 
-In `supabase/functions/messenger-integrations/index.ts`, the DELETE handler (line 314-323) uses `.single()` when looking for the next primary integration after deletion. If the deleted integration was primary and there are no remaining integrations of the same type, `.single()` throws a `PGRST116` error ("no rows returned"). This unhandled error bubbles up to the catch block and returns a 500 response -- even though the actual deletion already succeeded.
+Two issues work together to cause this:
 
-## Fix
+**1. Deactivated client keeps messenger identifiers**
 
-**File: `supabase/functions/messenger-integrations/index.ts`**
+When converting, the code tries to delete the client (line 200-204). If deletion fails (foreign keys), it deactivates the client (`is_active: false`, line 207). But the client record still has `max_chat_id` and `max_user_id` set.
 
-**Line 323**: Change `.single()` to `.maybeSingle()` so that when no next integration exists, it returns `null` instead of throwing an error:
+**2. Webhook restores deactivated clients**
+
+In `max-webhook`, `findOrCreateClient` (line 476-486) searches by `max_chat_id` **without filtering by `is_active`**, finds the deactivated client, and restores it (`is_active: true`). The message then goes to the client instead of the teacher.
+
+Even if the teacher lookup (PRIORITY 1) runs first, it may fail due to type mismatches between the `max_user_id` stored on the client (numeric) vs what was copied to the teacher (string).
+
+## Solution
+
+### 1. Clear messenger identifiers from client before deletion/deactivation
+
+**File: `src/components/crm/ConvertToTeacherModal.tsx`** (in `handleConvertWithTeacher`, before the delete/deactivate block at line ~200)
+
+Add a step to clear all messenger identifiers from the client record so the webhook can never match the old client again:
 
 ```typescript
-// Before (line 323):
-.single();
+// Clear messenger IDs from client BEFORE deletion to prevent webhook conflicts
+await supabase
+  .from('clients')
+  .update({
+    max_chat_id: null,
+    max_user_id: null,
+    telegram_user_id: null,
+    telegram_chat_id: null,
+    whatsapp_id: null,
+    whatsapp_chat_id: null,
+  })
+  .eq('id', clientId);
 
-// After:
-.maybeSingle();
+// Also clear from client_phone_numbers
+await supabase
+  .from('client_phone_numbers')
+  .update({
+    max_chat_id: null,
+    max_user_id: null,
+    telegram_user_id: null,
+    whatsapp_id: null,
+  })
+  .eq('client_id', clientId);
 ```
 
-This is a one-line fix. The rest of the logic already handles `null` correctly (line 325: `if (nextIntegration)`).
+### 2. Same fix in "create new teacher" flow
 
-## Technical Details
+**File: `src/components/crm/ConvertToTeacherModal.tsx`** -- the `handleCreateNewTeacher` function (around line ~250-300) has a similar delete/deactivate block that also needs the same clearing logic.
 
-- `.single()` -- throws error if 0 or 2+ rows returned
-- `.maybeSingle()` -- returns `null` if 0 rows, throws only if 2+ rows
-- The delete itself (line 304-307) likely succeeds; it's the "reassign primary" logic that crashes
-- This follows the project convention noted in memory: "always use `.maybeSingle()` instead of `.single()` for prevention of function crashes"
+### Summary
 
+| File | Change |
+|------|--------|
+| `src/components/crm/ConvertToTeacherModal.tsx` | Clear all messenger IDs from `clients` and `client_phone_numbers` before attempting to delete/deactivate the client, in both `handleConvertWithTeacher` and `handleCreateNewTeacher` flows |
+
+This ensures that even if the client record survives (deactivated), webhooks will never match it by messenger identifiers. All identifiers are already copied to the teacher record before this step runs.
