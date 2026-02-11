@@ -1442,9 +1442,12 @@ const CRMContent = () => {
       const foundMessenger = messengerType || getMessengerType(chatId);
       if (foundMessenger) {
         setSelectedMessengerTab({ tab: foundMessenger, ts: Date.now() });
+        // Clear after consumed so it doesn't block manual tab switching
+        setTimeout(() => setSelectedMessengerTab(undefined), 500);
       }
     } else {
       setChatInitialSearchQuery(undefined);
+      setSelectedMessengerTab(undefined);
     }
     
     // Сначала СИНХРОННО устанавливаем данные из кэша
