@@ -1,66 +1,43 @@
 
-# Серверная фильтрация чатов по филиалам менеджера
+
+# Исправление: превью сообщений у непрочитанных чатов
 
 ## Проблема
 
-Сейчас `get_chat_threads_paginated` загружает 50 последних чатов **глобально**, а фильтрация по филиалу менеджера (`canAccessBranch`) происходит на клиенте (строки 1293-1301 в CRM.tsx). Если у менеджера открыты филиалы "Мытищи" и "Котельники", но среди глобальных топ-50 чатов только 5 из этих филиалов -- он видит лишь 5 чатов.
-
-Нужно передавать список разрешенных филиалов менеджера на уровень SQL, чтобы пагинация возвращала 50 чатов **из его филиалов**.
+В функции `get_unread_chat_threads` текст последнего сообщения всегда возвращается как `NULL` (строка 226: `NULL::text as last_message_text`). При мёрже в `useChatThreadsInfinite.ts` непрочитанные треды имеют приоритет и перезаписывают данные из paginated-запроса, где текст есть. В результате чаты с непрочитанными показывают "Нет сообщений".
 
 ## Решение
 
-### 1. Обновить RPC `get_chat_threads_paginated`
+Добавить CTE `last_msgs` в `get_unread_chat_threads`, аналогично тому как это сделано в `get_chat_threads_paginated`.
 
-Добавить параметр `p_branches TEXT[] DEFAULT NULL` (массив названий филиалов).
+## Технические детали
 
-Когда массив передан и не пуст, добавляется условие:
+### 1. Обновить SQL `get_unread_chat_threads` в `docs/rpc-branch-filter-update.sql`
+
+Добавить CTE для получения последнего сообщения:
+
 ```text
-WHERE ...
-  AND (p_branches IS NULL OR branch IS NULL OR branch = ANY(p_branches))
+last_msgs AS (
+  SELECT DISTINCT ON (cm.client_id)
+    cm.client_id,
+    cm.message_text,
+    cm.created_at,
+    cm.messenger_type
+  FROM chat_messages cm
+  WHERE cm.client_id IN (SELECT id FROM client_data)
+  ORDER BY cm.client_id, cm.created_at DESC
+)
 ```
 
-Клиенты с `branch = NULL` (нераспределённые) продолжают показываться всем -- это текущая политика "fail-open".
+И заменить `NULL::text as last_message_text` на `lm.message_text as last_message_text`, добавив `LEFT JOIN last_msgs lm ON lm.client_id = cd.id`.
 
-### 2. Аналогичное обновление для `get_unread_chat_threads`
+### 2. Создать отдельный SQL-файл для hotfix
 
-Добавить `p_branches TEXT[] DEFAULT NULL` с тем же условием.
+Файл: `docs/selfhosted-migrations/20260211_fix_unread_threads_preview.sql`
 
-### 3. Изменения в `useChatThreadsInfinite.ts`
+Содержит обновленную версию `get_unread_chat_threads` с полным текстом последнего сообщения.
 
-- Принять `allowedBranches?: string[]` как параметр хука
-- Добавить в `queryKey`: `['chat-threads-infinite', allowedBranches || 'all']`
-- Передавать `p_branches` в RPC:
-  ```
-  .rpc('get_chat_threads_paginated', {
-    p_limit: PAGE_SIZE + 1,
-    p_offset: pageParam * PAGE_SIZE,
-    p_branches: allowedBranches?.length ? allowedBranches : null
-  })
-  ```
-- Обновить `fetchThreadsDirectly`: при наличии `allowedBranches` добавить `.in('branch', allowedBranches)` с дополнительным `.or('branch.is.null')` для fail-open
-- Аналогично для `get_unread_chat_threads`
+### 3. Никаких изменений фронтенда не требуется
 
-### 4. Изменения в `CRM.tsx`
+Маппер `mapRpcToThreads` уже читает `last_message_text` (строка 486). После исправления SQL, данные будут корректно отображаться.
 
-- Из `useManagerBranches()` уже получаем `allowedBranchNames` и `hasRestrictions`
-- Передать в хук: `useChatThreadsInfinite(hasManagerBranchRestrictions ? allowedBranchNames : undefined)`
-- Это значит:
-  - **Админы**: `allowedBranches = undefined` => RPC загружает все чаты (как сейчас)
-  - **Менеджеры без ограничений**: то же
-  - **Менеджеры с филиалами**: RPC загружает 50 последних чатов только из их филиалов + нераспределённые
-- Ручной фильтр `selectedBranch` из dropdown остаётся как дополнительное сужение на клиенте
-
-### 5. Совместимость с ручным фильтром
-
-Ручной dropdown-фильтр по филиалу (строки 1281-1292) продолжает работать поверх серверной фильтрации. Если менеджеру открыты "Мытищи" и "Котельники", а он выбирает в dropdown "Мытищи" -- сервер отдаёт чаты обоих филиалов, клиент дополнительно фильтрует до "Мытищи".
-
-### 6. SQL для self-hosted
-
-Будет создан файл с инструкцией по обновлению RPC на self-hosted сервере, так как миграции Lovable Cloud не применяются к `api.academyos.ru` автоматически.
-
-### Результат
-
-- Менеджер с филиалами "Мытищи" + "Котельники" видит 50 последних чатов **из этих филиалов** + нераспределённые
-- Пагинация (infinite scroll) работает в рамках его филиалов
-- Админы видят всё как раньше
-- Ручной фильтр по филиалу работает как дополнительное сужение
