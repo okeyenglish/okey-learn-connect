@@ -11,6 +11,16 @@ import Papa from 'papaparse';
 import { normalizePhone } from '@/utils/phoneNormalization';
 import { branches } from '@/lib/branches';
 import { SELF_HOSTED_URL, SELF_HOSTED_ANON_KEY } from '@/lib/selfHostedApi';
+import { supabase } from '@/integrations/supabase/client';
+
+const getAuthHeaders = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token || SELF_HOSTED_ANON_KEY;
+  return {
+    'apikey': SELF_HOSTED_ANON_KEY,
+    'Authorization': `Bearer ${token}`,
+  };
+};
 
 interface ProcessingResult {
   total: number;
@@ -108,7 +118,7 @@ const BulkBranchReassign: React.FC = () => {
           try {
             const phoneNumRes = await fetch(
               `${SELF_HOSTED_URL}/rest/v1/client_phone_numbers?phone=ilike.%25${last10}%25&select=client_id&limit=1`,
-              { headers: { 'apikey': SELF_HOSTED_ANON_KEY, 'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}` } }
+              { headers: await getAuthHeaders() }
             );
             if (phoneNumRes.ok) {
               const phoneNums = await phoneNumRes.json();
@@ -127,7 +137,7 @@ const BulkBranchReassign: React.FC = () => {
           if (!clientId) {
             const searchRes = await fetch(
               `${SELF_HOSTED_URL}/rest/v1/clients?phone=ilike.%25${last10}%25&is_active=eq.true&select=id&limit=1`,
-              { headers: { 'apikey': SELF_HOSTED_ANON_KEY, 'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}` } }
+              { headers: await getAuthHeaders() }
             );
             if (searchRes.ok) {
               const clients = await searchRes.json();
@@ -152,11 +162,10 @@ const BulkBranchReassign: React.FC = () => {
             {
               method: 'PATCH',
               headers: {
-                'apikey': SELF_HOSTED_ANON_KEY,
-                'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'return=minimal',
-              },
+                  ...(await getAuthHeaders()),
+                  'Content-Type': 'application/json',
+                  'Prefer': 'return=minimal',
+                },
               body: JSON.stringify({ branch: selectedBranch, last_message_at: null }),
             }
           );
