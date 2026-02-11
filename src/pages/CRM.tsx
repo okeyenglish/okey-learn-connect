@@ -406,6 +406,9 @@ const CRMContent = () => {
   const [quickReplyCategory, setQuickReplyCategory] = useState<'activity_warning' | 'tab_feedback' | null>(null);
   const { data: deletedChats = [] } = useDeletedChats();
   
+  // Manager branch restrictions — needed before loading threads
+  const { canAccessBranch, hasRestrictions: hasManagerBranchRestrictions, allowedBranchNames } = useManagerBranches();
+  
   // Критичные данные - загружаем ТОЛЬКО threads с infinite scroll (50 за раз)
   // useClients убран из критического пути - 27К клиентов тормозили загрузку
   const { 
@@ -415,7 +418,7 @@ const CRMContent = () => {
     isFetchingNextPage, 
     loadMore,
     refetch: refetchThreads,
-  } = useChatThreadsInfinite();
+  } = useChatThreadsInfinite(hasManagerBranchRestrictions ? allowedBranchNames : undefined);
   const { corporateChats, teacherChats, isLoading: systemChatsLoading } = useSystemChatMessages();
   const { communityChats, totalUnread: communityUnread, latestCommunity, isLoading: communityLoading } = useCommunityChats();
   
@@ -500,7 +503,7 @@ const CRMContent = () => {
   const cancelTask = useCancelTask();
   const updateTask = useUpdateTask();
   const { organization, branches } = useOrganization();
-  const { canAccessBranch, hasRestrictions: hasManagerBranchRestrictions } = useManagerBranches();
+  // useManagerBranches() already called above (line ~410)
   const { filterAllowedBranches, hasRestrictions: hasUserBranchRestrictions } = useUserAllowedBranches();
   const { unreadCount: assistantUnreadCount, markAllAsRead: markAssistantAsRead } = useAssistantMessages();
   const { data: staffUnreadCount = 0 } = useStaffUnreadCount();

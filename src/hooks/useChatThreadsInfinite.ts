@@ -60,18 +60,25 @@ function isSystemPreviewMessage(text: string): boolean {
  * Direct SQL fallback for fetching chat threads when RPC is unavailable
  * This bypasses the RPC and fetches data directly from tables
  */
-async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: boolean = false): Promise<ChatThread[]> {
-  console.log(`[fetchThreadsDirectly] Fetching ${unreadOnly ? 'unread' : 'all'} threads, limit=${limit}, offset=${offset}`);
+async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: boolean = false, allowedBranches?: string[]): Promise<ChatThread[]> {
+  console.log(`[fetchThreadsDirectly] Fetching ${unreadOnly ? 'unread' : 'all'} threads, limit=${limit}, offset=${offset}, branches=${allowedBranches ? allowedBranches.join(',') : 'all'}`);
   const startTime = performance.now();
 
   // 1. Fetch clients ordered by last_message_at (most recent activity first)
-  const { data: clients, error: clientsError } = await supabase
+  let clientsQuery = supabase
     .from('clients')
     .select('id, name, first_name, last_name, phone, branch, avatar_url, telegram_user_id, has_pending_payment')
     .eq('is_active', true)
     .not('last_message_at', 'is', null)
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .range(offset, offset + limit - 1);
+
+  // Apply branch filter server-side (fail-open: include clients with NULL branch)
+  if (allowedBranches && allowedBranches.length > 0) {
+    clientsQuery = clientsQuery.or(`branch.in.(${allowedBranches.join(',')}),branch.is.null`);
+  }
+
+  const { data: clients, error: clientsError } = await clientsQuery;
 
   if (clientsError) {
     console.error('[fetchThreadsDirectly] Failed to fetch clients:', clientsError);
@@ -189,7 +196,7 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
  * Loads 50 threads at a time for fast initial render
  * Automatically fetches more when scrolling
  */
-export const useChatThreadsInfinite = () => {
+export const useChatThreadsInfinite = (allowedBranches?: string[]) => {
   const queryClient = useQueryClient();
   const { checkAndFetchMissingAvatars } = useBulkAvatarFetch();
 
@@ -215,15 +222,15 @@ export const useChatThreadsInfinite = () => {
 
   // Infinite query for paginated threads (with fallback for missing RPC)
   const infiniteQuery = useInfiniteQuery({
-    queryKey: ['chat-threads-infinite'],
+    queryKey: ['chat-threads-infinite', allowedBranches || 'all'],
     queryFn: async ({ pageParam = 0 }) => {
       const startTime = performance.now();
-      console.log(`[useChatThreadsInfinite] Loading page ${pageParam}, offset ${pageParam * PAGE_SIZE}...`);
+      console.log(`[useChatThreadsInfinite] Loading page ${pageParam}, offset ${pageParam * PAGE_SIZE}, branches=${allowedBranches ? allowedBranches.join(',') : 'all'}...`);
 
       // If RPC is broken, use direct fetch
       if (!usePaginatedRpc) {
         console.log('[useChatThreadsInfinite] Paginated RPC disabled, using direct fetch');
-        const directThreads = await fetchThreadsDirectly(PAGE_SIZE + 1, pageParam * PAGE_SIZE);
+        const directThreads = await fetchThreadsDirectly(PAGE_SIZE + 1, pageParam * PAGE_SIZE, false, allowedBranches);
         const hasMore = directThreads.length > PAGE_SIZE;
         return { 
           threads: directThreads.slice(0, PAGE_SIZE), 
@@ -233,11 +240,16 @@ export const useChatThreadsInfinite = () => {
         };
       }
 
+      const rpcParams: any = { 
+        p_limit: PAGE_SIZE + 1,
+        p_offset: pageParam * PAGE_SIZE,
+      };
+      if (allowedBranches && allowedBranches.length > 0) {
+        rpcParams.p_branches = allowedBranches;
+      }
+
       const { data, error } = await supabase
-        .rpc('get_chat_threads_paginated', { 
-          p_limit: PAGE_SIZE + 1, // +1 to check if there are more
-          p_offset: pageParam * PAGE_SIZE 
-        });
+        .rpc('get_chat_threads_paginated', rpcParams);
 
       if (error) {
         // If function not found - disable RPC and use fallback
@@ -245,7 +257,7 @@ export const useChatThreadsInfinite = () => {
           console.warn('[useChatThreadsInfinite] Disabling broken paginated RPC:', error.code, error.message);
           usePaginatedRpc = false;
           // Use direct fetch instead of returning empty
-          const directThreads = await fetchThreadsDirectly(PAGE_SIZE + 1, pageParam * PAGE_SIZE);
+          const directThreads = await fetchThreadsDirectly(PAGE_SIZE + 1, pageParam * PAGE_SIZE, false, allowedBranches);
           const hasMore = directThreads.length > PAGE_SIZE;
           return { 
             threads: directThreads.slice(0, PAGE_SIZE), 
@@ -257,7 +269,7 @@ export const useChatThreadsInfinite = () => {
 
         console.error('[useChatThreadsInfinite] RPC error, using direct fetch:', error);
         // Fallback to lightweight direct query instead of slow get_chat_threads_fast
-        const directThreads = await fetchThreadsDirectly(PAGE_SIZE + 1, pageParam * PAGE_SIZE);
+        const directThreads = await fetchThreadsDirectly(PAGE_SIZE + 1, pageParam * PAGE_SIZE, false, allowedBranches);
         const fallbackHasMore = directThreads.length > PAGE_SIZE;
         return { 
           threads: directThreads.slice(0, PAGE_SIZE), 
@@ -300,7 +312,7 @@ export const useChatThreadsInfinite = () => {
   // Separate fast query for unread threads (always shown at top)
   // With fallback mechanism for broken RPC
   const unreadQuery = useQuery({
-    queryKey: ['chat-threads-unread-priority'],
+    queryKey: ['chat-threads-unread-priority', allowedBranches || 'all'],
     queryFn: async () => {
       const startTime = performance.now();
       console.log('[useChatThreadsInfinite] Loading priority unread threads...');
@@ -308,11 +320,16 @@ export const useChatThreadsInfinite = () => {
       // If RPC is broken, use direct fetch
       if (!useUnreadRpc) {
         console.log('[useChatThreadsInfinite] Unread RPC disabled, using direct fetch');
-        return await fetchThreadsDirectly(50, 0, true);
+        return await fetchThreadsDirectly(50, 0, true, allowedBranches);
+      }
+
+      const rpcUnreadParams: any = { p_limit: 50 };
+      if (allowedBranches && allowedBranches.length > 0) {
+        rpcUnreadParams.p_branches = allowedBranches;
       }
 
       const { data, error } = await supabase
-        .rpc('get_unread_chat_threads', { p_limit: 50 });
+        .rpc('get_unread_chat_threads', rpcUnreadParams);
 
       if (error) {
         // If schema error (column doesn't exist or function not found) - use direct fetch
