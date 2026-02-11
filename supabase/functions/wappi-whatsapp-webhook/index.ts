@@ -503,6 +503,7 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
     // Save message with teacher_id (not client_id)
     const { error } = await supabase.from('chat_messages').insert({
       client_id: null,
+      teacher_id: teacherData.id,
       organization_id: organizationId,
       message_text: messageText,
       message_type: 'client',

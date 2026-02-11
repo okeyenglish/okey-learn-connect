@@ -121,6 +121,7 @@ async function resilientInsertMessage(
   // Self-hosted schema: message_text (NOT NULL), message_type (NOT NULL), organization_id (NOT NULL)
   const minimalPayload: Record<string, any> = {
     client_id: payload.client_id || null,
+    teacher_id: payload.teacher_id || null,
     organization_id: payload.organization_id,
     message_text: payload.message_text || '[Сообщение]',
     message_type: payload.message_type || 'client',
@@ -489,6 +490,7 @@ async function handleIncomingMessage(
 
     const fullPayload: Record<string, any> = {
       client_id: null,
+      teacher_id: teacher.id,
       organization_id: organizationId,
       message_text: messageText,
       message_type: 'client',
