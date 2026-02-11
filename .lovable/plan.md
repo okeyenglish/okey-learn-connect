@@ -1,32 +1,35 @@
 
-# Fix: Smart routing — integration_id not saved/queried correctly
+
+# Fix: Cannot delete Telegram integration (okeyenglishbot)
 
 ## Problem
 
-When a client writes through a Telegram Bot (Wappi), the reply goes out through the wrong integration (the one marked `is_primary`) instead of routing back through the same bot.
+Clicking "Удалить" on the okeyenglishbot integration returns "Server error" (500).
 
-## Root Cause (actual)
+## Root Cause
 
-The webhooks (telegram-webhook, max-webhook) save `integration_id` **only inside `metadata` JSONB**, but never set the **top-level `integration_id` column** which exists on self-hosted.
+In `supabase/functions/messenger-integrations/index.ts`, the DELETE handler (line 314-323) uses `.single()` when looking for the next primary integration after deletion. If the deleted integration was primary and there are no remaining integrations of the same type, `.single()` throws a `PGRST116` error ("no rows returned"). This unhandled error bubbles up to the catch block and returns a 500 response -- even though the actual deletion already succeeded.
 
-The send functions (telegram-send, telegram-crm-send, max-send) query `integration_id` as a top-level column — which is always NULL because the webhooks never populate it. Smart routing always fails and falls back to `is_primary`.
+## Fix
 
-For wpp-send (Lovable Cloud), the `integration_id` column doesn't exist at all — it must be queried from `metadata` JSONB.
+**File: `supabase/functions/messenger-integrations/index.ts`**
 
-## Fix Applied
+**Line 323**: Change `.single()` to `.maybeSingle()` so that when no next integration exists, it returns `null` instead of throwing an error:
 
-### 1. Webhooks — save `integration_id` as top-level column
+```typescript
+// Before (line 323):
+.single();
 
-**telegram-webhook**: Added `integration_id: integrationId || null` to both `fullPayload` and `minimalPayload` in `resilientInsertMessage`.
+// After:
+.maybeSingle();
+```
 
-**max-webhook**: Added `integration_id: integrationId || null` to all 3 insert payloads (teacher, client, outgoing).
+This is a one-line fix. The rest of the logic already handles `null` correctly (line 325: `if (nextIntegration)`).
 
-### 2. wpp-send — query metadata instead of non-existent column
+## Technical Details
 
-Changed from `.select('integration_id')` / `.not('integration_id', 'is', null)` to `.select('metadata')` / `.not('metadata->integration_id', 'is', null)` and reading `lastMessage?.metadata?.integration_id`.
+- `.single()` -- throws error if 0 or 2+ rows returned
+- `.maybeSingle()` -- returns `null` if 0 rows, throws only if 2+ rows
+- The delete itself (line 304-307) likely succeeds; it's the "reassign primary" logic that crashes
+- This follows the project convention noted in memory: "always use `.maybeSingle()` instead of `.single()` for prevention of function crashes"
 
-### 3. telegram-send, telegram-crm-send, max-send — no changes needed
-
-These use self-hosted DB which has `integration_id` as a top-level column. Now that the webhooks populate it, the existing queries will work correctly.
-
-## Status: ✅ Complete
