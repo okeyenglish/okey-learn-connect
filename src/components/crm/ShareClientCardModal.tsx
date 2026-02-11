@@ -89,7 +89,7 @@ export const ShareClientCardModal = ({
     if (!selectedRecipient) return;
 
     // Build the client card message with metadata encoded in the message
-    const cardText = `📋 Карточка клиента\n👤 ${client.name}${client.branch ? `\n📍 ${client.branch}` : ''}${client.phone ? `\n📞 ${client.phone}` : ''}`;
+    const cardText = `[client_card:${client.id}]\n📋 Карточка клиента\n👤 ${client.name}${client.branch ? `\n📍 ${client.branch}` : ''}${client.phone ? `\n📞 ${client.phone}` : ''}`;
     const fullMessage = messageText.trim() 
       ? `${cardText}\n\n💬 ${messageText.trim()}`
       : cardText;

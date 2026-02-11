@@ -37,6 +37,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { ClientCardBubble, isClientCardMessage } from '@/components/ai-hub/ClientCardBubble';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useAuth } from '@/hooks/useAuth';
@@ -100,6 +101,7 @@ interface ChatMessage {
   file_name?: string;
   file_type?: string;
   is_read?: boolean;
+  message_type?: string;
 }
 
 type ConsultantType = 'lawyer' | 'accountant' | 'marketer' | 'hr' | 'methodist' | 'it';
@@ -640,6 +642,7 @@ export const AIHubInline = ({
         file_name: m.file_name,
         file_type: m.file_type,
         is_read: m.is_read,
+        message_type: m.message_type,
       })) as ChatMessage[];
     }
     if (activeChat.type === 'group') {
@@ -653,6 +656,7 @@ export const AIHubInline = ({
         file_name: m.file_name,
         file_type: m.file_type,
         is_read: m.is_read,
+        message_type: m.message_type,
       })) as ChatMessage[];
     }
     return messages[activeChat.id] || [];
@@ -967,7 +971,11 @@ export const AIHubInline = ({
                       </div>
                     )}
                     
-                    {msg.content && <p className="text-sm whitespace-pre-wrap">{highlightText(msg.content, chatSearchQuery)}</p>}
+                    {isClientCardMessage(msg.content) ? (
+                      <ClientCardBubble content={msg.content} isOwn={msg.type === 'user'} />
+                    ) : msg.content ? (
+                      <p className="text-sm whitespace-pre-wrap">{highlightText(msg.content, chatSearchQuery)}</p>
+                    ) : null}
                     <div className={`flex items-center gap-1 text-[10px] mt-1 ${msg.type === 'user' ? 'text-primary-foreground/70 justify-end' : 'text-muted-foreground'}`}>
                       <span>{msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
                       {/* Read indicator for user messages in staff chats */}
