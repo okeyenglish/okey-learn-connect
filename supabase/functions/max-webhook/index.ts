@@ -25,9 +25,10 @@ Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  // Use self-hosted Supabase so incoming messages are saved to the correct DB
+  const selfHostedUrl = Deno.env.get('SELF_HOSTED_URL') || 'https://api.academyos.ru';
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const supabase = createClient(selfHostedUrl, supabaseKey);
 
   try {
     const body: MaxWebhookPayload = await req.json();

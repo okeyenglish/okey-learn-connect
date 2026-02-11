@@ -11,9 +11,10 @@ import {
 
 console.log('wappi-whatsapp-webhook function booted')
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+// Use self-hosted Supabase so incoming messages are saved to the correct DB
+const selfHostedUrl = Deno.env.get('SELF_HOSTED_URL') || 'https://api.academyos.ru'
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
+const supabase = createClient(selfHostedUrl, supabaseServiceKey)
 
 // ============================================================================
 // Media upload helper

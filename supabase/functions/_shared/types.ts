@@ -1943,3 +1943,19 @@ export async function getOrgAdminManagerUserIds(
   
   return userIds;
 }
+
+// ============================================================================
+// Self-Hosted Supabase Client Factory
+// ============================================================================
+
+/**
+ * Creates a Supabase client pointing to the self-hosted instance (api.academyos.ru).
+ * Use this in webhook functions so that incoming messages are saved to the correct DB.
+ * 
+ * Falls back to SUPABASE_URL if SELF_HOSTED_URL is not set.
+ */
+export function createSelfHostedSupabaseClient(createClientFn: typeof Function) {
+  const selfHostedUrl = Deno.env.get('SELF_HOSTED_URL') || SELF_HOSTED_URL;
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  return (createClientFn as any)(selfHostedUrl, serviceKey);
+}
