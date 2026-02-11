@@ -1,83 +1,43 @@
 
 
-# Fix: Ошибки при массовой перепривязке филиалов
+# Fix: Импортированные клиенты вытесняют реальные чаты из пагинации
 
 ## Проблема
-Все номера показывают ошибку при перепривязке. Наиболее вероятная причина: запрос к таблице `client_phone_numbers` возвращает HTML-страницу ошибки (если таблица не существует на self-hosted) или некорректный ответ, вызывая исключение при вызове `.json()`. Также отсутствует обработка HTTP-ошибок и логирование, что скрывает реальную причину.
+Массовая привязка обновляет колонку `last_message_at` в таблице `clients` (через PATCH). Клиенты без реальных сообщений получают дату 01.01 и занимают слоты в пагинации, вытесняя реальные чаты с более старой активностью. Сортировка "Нет сообщений вниз" работает только в рамках уже загруженных данных, но проблема в том, что эти пустые клиенты загружаются ВМЕСТО реальных чатов.
 
-## Что будет сделано
+## Решение
 
-### Файл: `src/components/admin/BulkBranchReassign.tsx`
+### 1. Файл: `src/components/admin/BulkBranchReassign.tsx`
+**Причина**: PATCH-запрос обновляет `branch`, но PostgREST может автоматически обновлять `last_message_at` через триггер, или оно уже было установлено при создании клиента.
 
-1. **Обернуть запрос к `client_phone_numbers` в try/catch** — если таблица не существует, сразу переходить к fallback поиску в `clients.phone`
-
-2. **Добавить проверку `response.ok` перед вызовом `.json()`** — предотвратить исключения при HTML-ответах от PostgREST
-
-3. **Добавить `console.log` для отладки** — логировать статус ответов и найденные/ненайденные номера
-
-4. **Добавить фильтр `is_active`** в запрос к `clients` — не привязывать филиал к удаленным клиентам
-
-5. **Логировать ошибку PATCH-запроса** — чтобы видеть причину ошибки обновления
-
-### Изменения в коде (строки 102-158):
+Добавить в PATCH-запрос явную установку `last_message_at: null` для клиентов, у которых нет реальных сообщений (чтобы они не занимали верхние позиции в пагинации):
 
 ```typescript
-await Promise.all(batch.map(async (phone) => {
-  try {
-    const last10 = phone.slice(-10);
-    let clientId: string | null = null;
-
-    // 1. Try client_phone_numbers (may not exist on self-hosted)
-    try {
-      const phoneNumRes = await fetch(
-        `${SELF_HOSTED_URL}/rest/v1/client_phone_numbers?phone=ilike.%25${last10}%25&select=client_id&limit=1`,
-        { headers: { 'apikey': SELF_HOSTED_ANON_KEY, 'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}` } }
-      );
-      if (phoneNumRes.ok) {
-        const phoneNums = await phoneNumRes.json();
-        if (Array.isArray(phoneNums) && phoneNums.length > 0 && phoneNums[0].client_id) {
-          clientId = phoneNums[0].client_id;
-        }
-      }
-    } catch (e) {
-      console.warn('[BulkBranch] client_phone_numbers lookup failed:', e);
-    }
-
-    // 2. Fallback: search clients.phone
-    if (!clientId) {
-      const searchRes = await fetch(
-        `${SELF_HOSTED_URL}/rest/v1/clients?phone=ilike.%25${last10}%25&is_active=eq.true&select=id&limit=1`,
-        { headers: { 'apikey': SELF_HOSTED_ANON_KEY, 'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}` } }
-      );
-      if (searchRes.ok) {
-        const clients = await searchRes.json();
-        if (Array.isArray(clients) && clients.length > 0) {
-          clientId = clients[0].id;
-        }
-      }
-    }
-
-    if (!clientId) {
-      res.notFound++;
-      res.notFoundPhones.push(phone);
-      return;
-    }
-
-    // 3. Update branch
-    const patchRes = await fetch(...);
-    if (patchRes.ok) {
-      res.updated++;
-    } else {
-      const errText = await patchRes.text();
-      console.error(`[BulkBranch] PATCH failed for ${clientId}:`, patchRes.status, errText);
-      res.errors++;
-    }
-  } catch (e) {
-    console.error('[BulkBranch] Error processing phone:', phone, e);
-    res.errors++;
-  }
-}));
+body: JSON.stringify({ 
+  branch: targetBranch,
+  last_message_at: null  // Сброс, чтобы не мешать пагинации
+})
 ```
 
-Основное изменение -- обертка запроса к `client_phone_numbers` в отдельный try/catch и проверка `response.ok`, чтобы ошибки одной таблицы не ломали весь процесс.
+### 2. Файл: `src/hooks/useChatThreadsInfinite.ts`
+**Строка 71**: Добавить фильтр `last_message_at` -- не загружать клиентов без реальной активности в основной поток чатов:
+
+Изменить запрос клиентов:
+```typescript
+const { data: clients, error: clientsError } = await supabase
+  .from('clients')
+  .select('id, name, first_name, last_name, phone, branch, avatar_url, telegram_user_id, has_pending_payment')
+  .not('last_message_at', 'is', null)
+  .order('last_message_at', { ascending: false, nullsFirst: false })
+  .range(offset, offset + limit - 1);
+```
+
+Это исключит клиентов без сообщений из пагинации, освободив слоты для реальных чатов.
+
+### 3. Файл: `src/pages/CRM.tsx` (уже сделано)
+Сортировка "Нет сообщений вниз" (строки 1325-1329) остается как дополнительная страховка для клиентов, попавших через поиск или закрепление.
+
+## Порядок приоритетов
+1. Основное исправление -- фильтр в `useChatThreadsInfinite` (п.2), чтобы пустые клиенты не загружались в список чатов
+2. Превентивная мера -- обнуление `last_message_at` при привязке (п.1), чтобы будущие импорты не создавали проблему
 
