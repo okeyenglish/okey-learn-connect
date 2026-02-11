@@ -710,16 +710,16 @@ Deno.serve(async (req) => {
     
     const messageRecord: Record<string, unknown> = {
       organization_id: organizationId,
-      message_text: text || (fileUrl ? '[Файл]' : ''),
-      message_type: 'manager', // outgoing message from manager
-      messenger_type: 'telegram',
-      message_status: 'sent', // Use 'message_status' field for delivery tracking
-      is_outgoing: true,
+      content: text || (fileUrl ? '[Файл]' : ''),
+      message_type: 'manager',
+      messenger: 'telegram',
+      status: 'sent',
+      direction: 'outgoing',
       is_read: true,
-      external_message_id: sendResult.messageId,
-      file_url: fileUrl,
+      external_id: sendResult.messageId,
+      media_url: fileUrl,
       file_name: fileName,
-      file_type: fileType || contentType // store content type
+      media_type: fileType || contentType
     };
 
     // Add client_id or teacher_id based on mode
@@ -727,7 +727,7 @@ Deno.serve(async (req) => {
       messageRecord.client_id = resolvedClientId;
     }
     if (resolvedTeacherId) {
-      messageRecord.teacher_id = resolvedTeacherId;
+      messageRecord.metadata = { teacher_id: resolvedTeacherId };
     }
     
     const { data: savedMessage, error: saveError } = await supabase

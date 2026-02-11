@@ -395,19 +395,18 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
     console.log('[wpp-webhook] Message from teacher:', teacherData.first_name)
     
     const { error: teacherMsgError } = await supabase.from('chat_messages').insert({
-      teacher_id: teacherData.id,
       client_id: null,
       organization_id: organizationId,
-      integration_id: integrationId,  // Smart routing
-      message_text: messageText,
+      content: messageText,
       message_type: isFromMe ? 'manager' : 'client',
-      messenger_type: 'whatsapp',
-      is_outgoing: isFromMe,
+      messenger: 'whatsapp',
+      direction: isFromMe ? 'outgoing' : 'incoming',
       is_read: isFromMe,
-      file_url: fileUrl,
+      media_url: fileUrl,
       file_name: fileName,
-      file_type: fileType,
-      external_message_id: data.messageId || (data as any).id || null,
+      media_type: fileType,
+      external_id: data.messageId || (data as any).id || null,
+      metadata: { teacher_id: teacherData.id, ...(integrationId ? { integration_id: integrationId } : {}) },
     })
     
     if (teacherMsgError) {
@@ -510,16 +509,16 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
     .insert({
       client_id: client.id,
       organization_id: organizationId,
-      integration_id: integrationId,  // Smart routing
-      message_text: messageText,
+      content: messageText,
       message_type: isFromMe ? 'manager' : 'client',
-      messenger_type: 'whatsapp',
-      is_outgoing: isFromMe,
+      messenger: 'whatsapp',
+      direction: isFromMe ? 'outgoing' : 'incoming',
       is_read: isFromMe,
-      file_url: fileUrl,
+      media_url: fileUrl,
       file_name: fileName,
-      file_type: fileType,
-      external_message_id: data.messageId || (data as any).id || null,
+      media_type: fileType,
+      external_id: data.messageId || (data as any).id || null,
+      metadata: integrationId ? { integration_id: integrationId } : null,
     })
     .select('id')
     .single()
@@ -576,8 +575,8 @@ async function handleDeliveryStatus(messageId: string | undefined, status: strin
   // Try to find message by external_message_id (taskId) first
   const { data: msgByTask, error: taskError } = await supabase
     .from('chat_messages')
-    .update({ message_status: mappedStatus })
-    .eq('external_message_id', messageId)
+    .update({ status: mappedStatus })
+    .eq('external_id', messageId)
     .select('id')
     .maybeSingle()
 
@@ -589,7 +588,7 @@ async function handleDeliveryStatus(messageId: string | undefined, status: strin
   // Fallback: try to find by waMessageId in metadata
   const { data: msgByWa, error: waError } = await supabase
     .from('chat_messages')
-    .update({ message_status: mappedStatus })
+    .update({ status: mappedStatus })
     .filter('metadata->waMessageId', 'eq', `"${messageId}"`)
     .select('id')
     .maybeSingle()
@@ -620,7 +619,7 @@ async function handleMessageStatus(data: any) {
     const { data: msg } = await supabase
       .from('chat_messages')
       .select('metadata')
-      .eq('external_message_id', taskId)
+      .eq('external_id', taskId)
       .maybeSingle()
     
     const existingMetadata = (msg?.metadata || {}) as Record<string, any>
@@ -628,13 +627,13 @@ async function handleMessageStatus(data: any) {
     const { error: updateError } = await supabase
       .from('chat_messages')
       .update({ 
-        message_status: status,
+        status: status,
         metadata: {
           ...existingMetadata,
-          waMessageId: waMessageId,  // Save for reactions
+          waMessageId: waMessageId,
         },
       })
-      .eq('external_message_id', taskId)
+      .eq('external_id', taskId)
     
     if (updateError) {
       console.warn('[wpp-webhook] Failed to save waMessageId:', updateError.message)
@@ -648,8 +647,8 @@ async function handleMessageStatus(data: any) {
   if (status && (id || taskId || waMessageId)) {
     await supabase
       .from('chat_messages')
-      .update({ message_status: status })
-      .eq('external_message_id', id || taskId || waMessageId)
+      .update({ status: status })
+      .eq('external_id', id || taskId || waMessageId)
   }
 }
 

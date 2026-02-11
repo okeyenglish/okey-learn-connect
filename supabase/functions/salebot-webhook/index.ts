@@ -257,15 +257,15 @@ Deno.serve(async (req) => {
       .insert({
         client_id: clientId,
         organization_id: organizationId,
-        message_text: payload.message || '',
+        content: payload.message || '',
         message_type: isFromClient ? 'client' : 'manager',
-        is_outgoing: !isFromClient,
-        is_read: !isFromClient, // Outgoing messages are read by default
-        messenger_type: messengerType,
+        direction: isFromClient ? 'incoming' : 'outgoing',
+        is_read: !isFromClient,
+        messenger: messengerType,
         salebot_message_id: salebotMessageId,
-        file_url: fileUrl,
+        media_url: fileUrl,
         file_name: fileName,
-        file_type: fileType,
+        media_type: fileType,
       })
 
     if (insertError) {

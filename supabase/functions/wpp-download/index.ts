@@ -25,17 +25,17 @@ serve(async (req) => {
     // Files are stored in Supabase Storage by wpp-webhook
     const { data: message, error: msgError } = await supabase
       .from('chat_messages')
-      .select('file_url, file_name, file_type, external_message_id')
-      .eq('external_message_id', messageId)
+      .select('media_url, file_name, media_type, external_id')
+      .eq('external_id', messageId)
       .maybeSingle();
 
-    if (message?.file_url) {
-      console.log('[wpp-download] Found stored file_url:', message.file_url);
+    if (message?.media_url) {
+      console.log('[wpp-download] Found stored media_url:', message.media_url);
       return new Response(JSON.stringify({ 
         success: true,
-        downloadUrl: message.file_url,
+        downloadUrl: message.media_url,
         fileName: message.file_name,
-        fileType: message.file_type,
+        fileType: message.media_type,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -188,8 +188,8 @@ serve(async (req) => {
     if (messageId) {
       await supabase
         .from('chat_messages')
-        .update({ file_url: fileUrl })
-        .eq('external_message_id', messageId);
+        .update({ media_url: fileUrl })
+        .eq('external_id', messageId);
     }
 
     console.log('[wpp-download] File saved and URL updated:', fileUrl);

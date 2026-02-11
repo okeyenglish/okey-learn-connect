@@ -198,16 +198,16 @@ Deno.serve(async (req) => {
       .insert({
         client_id: clientId,
         organization_id: organizationId,
-        message_text: messageText,
-        message_type: 'client', // incoming from client
-        messenger_type: 'telegram',
-        is_outgoing: false,
+        content: messageText,
+        message_type: 'client',
+        messenger: 'telegram',
+        direction: 'incoming',
         is_read: false,
-        external_message_id: payload.message_id ? String(payload.message_id) : null,
-        file_url: fileUrl,
-        file_type: fileType,
+        external_id: payload.message_id ? String(payload.message_id) : null,
+        media_url: fileUrl,
+        media_type: fileType,
         file_name: fileName,
-        integration_id: integrationId, // Store integration for reply routing
+        metadata: { integration_id: integrationId },
       })
       .select('id')
       .single();

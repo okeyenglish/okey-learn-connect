@@ -308,16 +308,16 @@ Deno.serve(async (req) => {
     // Save message to database
     const messageRecord: Record<string, unknown> = {
       organization_id: organizationId,
-      message_text: text || `[Файл: ${fileName || 'file'}]`,
+      content: text || `[Файл: ${fileName || 'file'}]`,
       message_type: 'manager',
-      messenger_type: 'max',
-      is_outgoing: true,
+      messenger: 'max',
+      direction: 'outgoing',
       is_read: true,
-      external_message_id: messageId,
-      file_url: fileUrl || null,
+      external_id: messageId,
+      media_url: fileUrl || null,
       file_name: fileName || null,
-      file_type: fileType || null,
-      message_status: 'sent'
+      media_type: fileType || null,
+      status: 'sent'
     };
 
     // Add client_id or teacher_id based on mode
@@ -325,7 +325,7 @@ Deno.serve(async (req) => {
       messageRecord.client_id = resolvedClientId;
     }
     if (resolvedTeacherId) {
-      messageRecord.teacher_id = resolvedTeacherId;
+      messageRecord.metadata = { teacher_id: resolvedTeacherId };
     }
 
     const { data: savedMessage, error: saveError } = await supabase

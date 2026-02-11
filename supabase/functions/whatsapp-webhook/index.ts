@@ -99,29 +99,27 @@ async function insertChatMessage(params: MessageInsertParams): Promise<{ success
   const now = params.created_at || new Date().toISOString();
   
   // ===== STEP 1: Full payload (for schemas with all columns) =====
+  // Build metadata with optional teacher_id and integration_id
+  const metadataObj: Record<string, unknown> = { ...(params.metadata || {}) };
+  if (params.teacher_id) metadataObj.teacher_id = params.teacher_id;
+  if (params.integration_id) metadataObj.integration_id = params.integration_id;
+
   const fullPayload: Record<string, unknown> = {
     organization_id: params.organization_id,
-    message_text: params.content,
+    client_id: params.teacher_id ? null : params.client_id,
+    content: params.content,
     message_type: params.message_type,
-    messenger_type: params.messenger,
-    is_outgoing: !params.is_incoming,
+    messenger: params.messenger,
+    direction: params.is_incoming ? 'incoming' : 'outgoing',
     is_read: !params.is_incoming,
-    message_status: params.status,
-    external_message_id: params.external_id,
-    file_url: params.media_url || null,
-    file_type: params.media_type || null,
+    status: params.status,
+    external_id: params.external_id,
+    media_url: params.media_url || null,
+    media_type: params.media_type || null,
     file_name: params.file_name || null,
     created_at: now,
-    integration_id: params.integration_id || null,  // Smart routing
+    metadata: Object.keys(metadataObj).length > 0 ? metadataObj : null,
   };
-  
-  // Set either client_id or teacher_id
-  if (params.teacher_id) {
-    fullPayload.teacher_id = params.teacher_id;
-    fullPayload.client_id = null;
-  } else {
-    fullPayload.client_id = params.client_id;
-  }
   
   console.log('[whatsapp-webhook] Attempting full insert with keys:', Object.keys(fullPayload));
   
@@ -156,21 +154,15 @@ async function insertChatMessage(params: MessageInsertParams): Promise<{ success
   
   const minimalPayload: Record<string, unknown> = {
     organization_id: params.organization_id,
-    message_text: params.content,
-    message_type: params.message_type, // Required NOT NULL in self-hosted
-    messenger_type: params.messenger,
-    is_outgoing: !params.is_incoming,
+    client_id: params.teacher_id ? null : (params.client_id || null),
+    content: params.content,
+    message_type: params.message_type,
+    messenger: params.messenger,
+    direction: params.is_incoming ? 'incoming' : 'outgoing',
     is_read: !params.is_incoming,
-    external_message_id: params.external_id,
+    external_id: params.external_id,
     created_at: now,
   };
-  
-  // Set client_id or teacher_id
-  if (params.teacher_id) {
-    minimalPayload.teacher_id = params.teacher_id;
-  } else if (params.client_id) {
-    minimalPayload.client_id = params.client_id;
-  }
   
   console.log('[whatsapp-webhook] Minimal payload keys:', Object.keys(minimalPayload));
   
@@ -980,9 +972,9 @@ async function handleMessageStatus(webhook: GreenAPIWebhook) {
   const { error } = await supabase
     .from('chat_messages')
     .update({ 
-      message_status: status as any
+      status: status as any
     })
-    .eq('external_message_id', messageId);
+    .eq('external_id', messageId);
 
   if (error) {
     console.error('Error updating message status:', error);
@@ -1010,7 +1002,7 @@ async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: s
   const { data: existingMessage } = await supabase
     .from('chat_messages')
     .select('id')
-    .eq('external_message_id', idMessage)
+    .eq('external_id', idMessage)
     .maybeSingle();
 
   if (existingMessage) {
@@ -1376,7 +1368,7 @@ async function handleReactionMessage(webhook: GreenAPIWebhook, client: any) {
     const { data: originalMessage, error: messageError } = await supabase
       .from('chat_messages')
       .select('id')
-      .eq('external_message_id', originalMessageId)
+      .eq('external_id', originalMessageId)
       .single();
 
     if (messageError || !originalMessage) {
@@ -1462,7 +1454,7 @@ async function handleReactionMessageForTeacher(webhook: GreenAPIWebhook, teacher
     const { data: originalMessage, error: messageError } = await supabase
       .from('chat_messages')
       .select('id')
-      .eq('external_message_id', originalMessageId)
+      .eq('external_id', originalMessageId)
       .single();
 
     if (messageError || !originalMessage) {

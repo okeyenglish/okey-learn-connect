@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
     // Get message info from database
     const { data: messageData, error: fetchError } = await supabase
       .from('chat_messages')
-      .select('external_message_id, client_id, messenger_type')
+      .select('external_id, client_id, messenger')
       .eq('id', messageId)
       .single();
 
@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
     }
 
     // Verify this is a MAX message
-    if (messageData.messenger_type !== 'max') {
+    if (messageData.messenger !== 'max') {
       return new Response(
         JSON.stringify({ success: false, error: 'This is not a MAX message' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -154,11 +154,11 @@ Deno.serve(async (req) => {
     }
 
     // If no external_message_id, update only locally
-    if (!messageData.external_message_id) {
-      console.log('No external_message_id, updating only in database');
+    if (!messageData.external_id) {
+      console.log('No external_id, updating only in database');
       const { error: updateError } = await supabase
         .from('chat_messages')
-        .update({ message_text: newMessage })
+        .update({ content: newMessage })
         .eq('id', messageId);
 
       if (updateError) {
@@ -180,7 +180,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Editing MAX message: chatId=${chatId}, idMessage=${messageData.external_message_id}`);
+    console.log(`Editing MAX message: chatId=${chatId}, idMessage=${messageData.external_id}`);
 
     // Call Green API v3 editMessage
     const apiUrl = `${GREEN_API_URL}/v3/waInstance${instanceId}/editMessage/${apiToken}`;
@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chatId,
-        idMessage: messageData.external_message_id,
+        idMessage: messageData.external_id,
         message: newMessage
       })
     });
@@ -206,7 +206,7 @@ Deno.serve(async (req) => {
       console.log('Edit API failed, updating only in database');
       const { error: updateError } = await supabase
         .from('chat_messages')
-        .update({ message_text: newMessage })
+        .update({ content: newMessage })
         .eq('id', messageId);
 
       if (updateError) {
@@ -229,8 +229,8 @@ Deno.serve(async (req) => {
       const { error: updateError } = await supabase
         .from('chat_messages')
         .update({ 
-          message_text: newMessage,
-          external_message_id: result.idMessage
+          content: newMessage,
+          external_id: result.idMessage
         })
         .eq('id', messageId);
 
