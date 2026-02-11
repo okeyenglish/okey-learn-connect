@@ -403,6 +403,8 @@ const CRMContent = () => {
   
   // ChatOS - target staff user ID to auto-open a chat with
   const [initialStaffUserId, setInitialStaffUserId] = useState<string | null>(null);
+  // ChatOS - target group chat ID to auto-open
+  const [initialGroupChatId, setInitialGroupChatId] = useState<string | null>(null);
   // ChatOS - initial message for AI assistant (e.g., from tab feedback)
   const [initialAssistantMessage, setInitialAssistantMessage] = useState<string | null>(null);
   // ChatOS - quick reply category for AI assistant
@@ -4378,6 +4380,8 @@ const CRMContent = () => {
                   }}
                   onBack={() => setActiveChatType('client')}
                   initialStaffUserId={initialStaffUserId}
+                  initialGroupChatId={initialGroupChatId}
+                  onClearInitialGroupChatId={() => setInitialGroupChatId(null)}
                   onClearInitialStaffUserId={() => setInitialStaffUserId(null)}
                   initialAssistantMessage={initialAssistantMessage}
                   onClearInitialAssistantMessage={() => {
@@ -4941,6 +4945,16 @@ const CRMContent = () => {
           phone: shareCardClient.phone,
           avatar_url: shareCardClient.avatar_url,
           branch: shareCardClient.branch,
+        }}
+        onSent={(recipient) => {
+          // Navigate to the recipient's chat in ChatOS
+          if (recipient.type === 'group') {
+            setInitialGroupChatId(recipient.id);
+          } else {
+            setInitialStaffUserId(recipient.id);
+          }
+          setActiveChatType('chatos');
+          setActiveTab('chats');
         }}
       />
       
