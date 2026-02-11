@@ -40,6 +40,7 @@ interface VirtualizedChatListProps {
   onDeleteChat?: (chatId: string, chatName: string) => void;
   onLinkChat?: (chatId: string, chatName: string) => void;
   onConvertToTeacher?: (chatId: string, chatName: string, phone?: string, email?: string) => void;
+  onNoResponseNeeded?: (chatId: string) => void;
   // Loading state
   isLoading?: boolean;
   // Refresh
@@ -78,6 +79,7 @@ export const VirtualizedChatList = React.memo(({
   onDeleteChat,
   onLinkChat,
   onConvertToTeacher,
+  onNoResponseNeeded,
   isLoading = false,
   onRefresh,
   hasNextPage,
@@ -261,6 +263,7 @@ export const VirtualizedChatList = React.memo(({
                   onDelete={chat.type === 'client' && onDeleteChat ? () => onDeleteChat(chat.id, chat.name) : undefined}
                   onLinkToClient={chat.type === 'client' && onLinkChat ? () => onLinkChat(chat.id, chat.name) : undefined}
                   onConvertToTeacher={chat.type === 'client' && onConvertToTeacher ? () => onConvertToTeacher(chat.id, chat.name, chat.phone, (chat as any).email) : undefined}
+                  onNoResponseNeeded={onNoResponseNeeded ? () => onNoResponseNeeded(chat.id) : undefined}
                   onBulkSelect={() => onBulkSelect(chat.id)}
                 />
               </div>

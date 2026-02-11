@@ -16,7 +16,8 @@ import {
   Link2,
   GraduationCap,
   BellOff,
-  Bell
+  Bell,
+  CheckCheck
 } from "lucide-react";
 
 interface ChatContextMenuProps {
@@ -30,6 +31,7 @@ interface ChatContextMenuProps {
   onLinkToClient?: () => void;
   onConvertToTeacher?: () => void;
   onToggleMute?: () => void;
+  onNoResponseNeeded?: () => void;
   isPinned?: boolean;
   isArchived?: boolean;
   isUnread?: boolean;
@@ -47,6 +49,7 @@ export const ChatContextMenu = ({
   onLinkToClient,
   onConvertToTeacher,
   onToggleMute,
+  onNoResponseNeeded,
   isPinned = false,
   isArchived = false,
   isUnread = false,
@@ -91,6 +94,13 @@ export const ChatContextMenu = ({
             </>
           )}
         </ContextMenuItem>
+        
+        {isUnread && onNoResponseNeeded && (
+          <ContextMenuItem onClick={onNoResponseNeeded} className="cursor-pointer text-emerald-600">
+            <CheckCheck className="mr-2 h-4 w-4" />
+            Не требует ответа
+          </ContextMenuItem>
+        )}
         
         <ContextMenuItem onClick={onPinDialog} className="cursor-pointer">
           <Pin className="mr-2 h-4 w-4" />
