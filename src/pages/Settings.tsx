@@ -13,6 +13,7 @@ import { SubscriptionSettings } from '@/components/settings/SubscriptionSettings
 import { UserManagementSettings } from '@/components/settings/UserManagementSettings';
 import { TeacherRegistrationLink } from '@/components/settings/TeacherRegistrationLink';
 import { PaymentTerminalsSettings } from '@/components/settings/PaymentTerminalsSettings';
+import { BulkBranchReassign } from '@/components/admin/BulkBranchReassign';
 import { useAuth } from '@/hooks/useAuth';
 
 const Settings = () => {
@@ -111,6 +112,7 @@ const Settings = () => {
                 <BranchesSettings />
               </CardContent>
             </Card>
+            <BulkBranchReassign />
           </TabsContent>
 
           <TabsContent value="branding" className="space-y-4">
