@@ -101,39 +101,52 @@ const BulkBranchReassign: React.FC = () => {
 
       await Promise.all(batch.map(async (phone) => {
         try {
-          // Search client by phone in client_phone_numbers table (last 10 digits)
           const last10 = phone.slice(-10);
-          
-          // First try client_phone_numbers table (primary phone storage)
-          const phoneNumRes = await fetch(
-            `${SELF_HOSTED_URL}/rest/v1/client_phone_numbers?phone=ilike.%25${last10}%25&select=client_id&limit=1`,
-            { headers: { 'apikey': SELF_HOSTED_ANON_KEY, 'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}` } }
-          );
-          
           let clientId: string | null = null;
-          const phoneNums = await phoneNumRes.json();
-          
-          if (Array.isArray(phoneNums) && phoneNums.length > 0) {
-            clientId = phoneNums[0].client_id;
-          } else {
-            // Fallback: search in clients.phone column
-            const searchRes = await fetch(
-              `${SELF_HOSTED_URL}/rest/v1/clients?phone=ilike.%25${last10}%25&select=id&limit=1`,
+
+          // 1. Try client_phone_numbers (may not exist on self-hosted)
+          try {
+            const phoneNumRes = await fetch(
+              `${SELF_HOSTED_URL}/rest/v1/client_phone_numbers?phone=ilike.%25${last10}%25&select=client_id&limit=1`,
               { headers: { 'apikey': SELF_HOSTED_ANON_KEY, 'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}` } }
             );
-            const clients = await searchRes.json();
-            if (Array.isArray(clients) && clients.length > 0) {
-              clientId = clients[0].id;
+            if (phoneNumRes.ok) {
+              const phoneNums = await phoneNumRes.json();
+              if (Array.isArray(phoneNums) && phoneNums.length > 0 && phoneNums[0].client_id) {
+                clientId = phoneNums[0].client_id;
+                console.log(`[BulkBranch] Found via client_phone_numbers: ${phone} -> ${clientId}`);
+              }
+            } else {
+              console.warn(`[BulkBranch] client_phone_numbers returned ${phoneNumRes.status}`);
+            }
+          } catch (e) {
+            console.warn('[BulkBranch] client_phone_numbers lookup failed:', e);
+          }
+
+          // 2. Fallback: search clients.phone
+          if (!clientId) {
+            const searchRes = await fetch(
+              `${SELF_HOSTED_URL}/rest/v1/clients?phone=ilike.%25${last10}%25&is_active=eq.true&select=id&limit=1`,
+              { headers: { 'apikey': SELF_HOSTED_ANON_KEY, 'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}` } }
+            );
+            if (searchRes.ok) {
+              const clients = await searchRes.json();
+              if (Array.isArray(clients) && clients.length > 0) {
+                clientId = clients[0].id;
+                console.log(`[BulkBranch] Found via clients.phone: ${phone} -> ${clientId}`);
+              }
+            } else {
+              console.warn(`[BulkBranch] clients search returned ${searchRes.status}`);
             }
           }
-          
+
           if (!clientId) {
             res.notFound++;
             res.notFoundPhones.push(phone);
             return;
           }
 
-          // Update branch
+          // 3. Update branch
           const patchRes = await fetch(
             `${SELF_HOSTED_URL}/rest/v1/clients?id=eq.${clientId}`,
             {
@@ -151,9 +164,12 @@ const BulkBranchReassign: React.FC = () => {
           if (patchRes.ok) {
             res.updated++;
           } else {
+            const errText = await patchRes.text();
+            console.error(`[BulkBranch] PATCH failed for ${clientId}:`, patchRes.status, errText);
             res.errors++;
           }
-        } catch {
+        } catch (e) {
+          console.error('[BulkBranch] Error processing phone:', phone, e);
           res.errors++;
         }
       }));
