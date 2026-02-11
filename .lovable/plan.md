@@ -1,70 +1,47 @@
 
-
-# Fix: Save manager name (sender_name) when sending messages
+# Fix: Show client phone number in edit modal
 
 ## Problem
 
-When a manager sends a message via WhatsApp/Telegram/MAX, the edge functions save the message to the database WITHOUT the `sender_name` field. So when the message is rendered, it falls back to the hardcoded "Менеджер поддержки".
-
-The `sender_name` is only saved for ChatOS messages (internal chat), not for messenger messages.
+The "Редактировать контакт" modal shows "Нет телефонов" even though the client's phone number is known (visible in the right panel as +79261979556).
 
 ## Root Cause
 
-1. `SendMessageParams` in `useWhatsApp.ts` doesn't include `senderName`
-2. The edge functions (`wpp-send`, `wappi-whatsapp-send`, `whatsapp-send`, `max-send`, `telegram-send`, `telegram-crm-send`) don't include `sender_name` in the DB insert
-3. `ChatArea.tsx` doesn't pass the manager's name when calling send functions
+The self-hosted database doesn't have a `client_phone_numbers` table. The RPC `get_family_data_optimized` returns an empty `phone_numbers` array for every member. However, the client's phone IS available in `activeMember.phone` (from the `clients.phone` column).
+
+The edit modal receives `activeMember.phoneNumbers` (always empty) and never falls back to `activeMember.phone`.
 
 ## Solution
 
-### 1. Add `senderName` to hook params
+**File: `src/components/crm/FamilyCard.tsx` (lines 591-604)**
 
-**Files:**
-- `src/hooks/useWhatsApp.ts` -- add `senderName?: string` to `SendMessageParams`
-- `src/hooks/useMaxGreenApi.ts` -- add `senderName` param
-- `src/hooks/useTelegramWappi.ts` -- add `senderName` param
+When `activeMember.phoneNumbers` is empty but `activeMember.phone` exists, create a synthetic phone number entry from the client's main phone:
 
-### 2. Pass `senderName` from ChatArea
-
-**File: `src/components/crm/ChatArea.tsx`**
-
-In `sendMessageNow()`, compute `senderName` from `authProfile` (already available at line 373) and include it in all send calls (WhatsApp, MAX, Telegram).
-
-### 3. Update edge functions to save `sender_name`
-
-**Files (6 edge functions):**
-- `supabase/functions/wpp-send/index.ts` -- add `sender_name: payload.senderName` to `baseInsert` (line 250)
-- `supabase/functions/wappi-whatsapp-send/index.ts` -- add `sender_name: payload.senderName` to insert (line 376)
-- `supabase/functions/whatsapp-send/index.ts` -- add `sender_name` to insert
-- `supabase/functions/max-send/index.ts` -- add `sender_name` to insert
-- `supabase/functions/telegram-send/index.ts` -- add `sender_name` to insert
-- `supabase/functions/telegram-crm-send/index.ts` -- add `sender_name` to insert
-
-### 4. Also save `sender_name` for failed messages in ChatArea
-
-In `sendMessageNow()`, the failed-message inserts (lines 1409, 1444, 1478, 1514) also don't include `sender_name`. Add it there too.
-
-## Display logic (unchanged)
-
-In `ChatArea.tsx` line 841:
-```
-managerName: msg.sender_name || managerName
+```typescript
+phoneNumbers: (activeMember.phoneNumbers.length > 0 
+  ? activeMember.phoneNumbers 
+  : activeMember.phone 
+    ? [{ phone: activeMember.phone, type: 'mobile', isPrimary: true, 
+         isWhatsappEnabled: true, isTelegramEnabled: false, id: 'main' }]
+    : []
+).map(p => {
+  const normalized = normalizePhone(p.phone);
+  const displayPhone = normalized 
+    ? (formatPhoneForDisplay(normalized) || `+${normalized}`) 
+    : p.phone;
+  return {
+    id: p.id,
+    phone: displayPhone,
+    phoneType: (p.type as 'mobile' | 'work' | 'home' | 'other') || 'mobile',
+    isPrimary: p.isPrimary,
+    isWhatsappEnabled: p.isWhatsappEnabled,
+    isTelegramEnabled: p.isTelegramEnabled,
+    isMaxEnabled: p.isMaxEnabled ?? true,
+  };
+})
 ```
 
-- If `sender_name` exists in DB -- show it (real sender)
-- If not -- fall back to `managerName` prop which is "Менеджер поддержки" (line 4322, kept as-is per user's request)
-
-## Summary of changes
-
-| File | Change |
-|------|--------|
-| `src/hooks/useWhatsApp.ts` | Add `senderName` to params interface |
-| `src/hooks/useMaxGreenApi.ts` | Add `senderName` to send function |
-| `src/hooks/useTelegramWappi.ts` | Add `senderName` to send function |
-| `src/components/crm/ChatArea.tsx` | Compute and pass `senderName` in all send paths + failed inserts |
-| `supabase/functions/wpp-send/index.ts` | Save `sender_name` from payload |
-| `supabase/functions/wappi-whatsapp-send/index.ts` | Save `sender_name` from payload |
-| `supabase/functions/whatsapp-send/index.ts` | Save `sender_name` from payload |
-| `supabase/functions/max-send/index.ts` | Save `sender_name` from payload |
-| `supabase/functions/telegram-send/index.ts` | Save `sender_name` from payload |
-| `supabase/functions/telegram-crm-send/index.ts` | Save `sender_name` from payload |
-
+This ensures:
+- If the `client_phone_numbers` table has data (cloud schema), it works as before
+- If it's empty (self-hosted), the client's main phone from `clients.phone` is shown
+- The phone is properly formatted for display
