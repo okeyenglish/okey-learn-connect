@@ -83,6 +83,14 @@ interface AIHubProps {
   onClearInitialAssistantMessage?: () => void;
   /** Category for quick reply suggestions in AI assistant */
   quickReplyCategory?: 'activity_warning' | 'tab_feedback' | null;
+  /** If set, auto-open a direct chat with this staff user */
+  initialStaffUserId?: string | null;
+  /** Clear the initialStaffUserId after it's been processed */
+  onClearInitialStaffUserId?: () => void;
+  /** If set, auto-open a group chat */
+  initialGroupChatId?: string | null;
+  /** Clear the initialGroupChatId after it's been processed */
+  onClearInitialGroupChatId?: () => void;
 }
 
 interface ChatMessage {
@@ -132,7 +140,11 @@ export const AIHub = ({
   onOpenScripts,
   initialAssistantMessage,
   onClearInitialAssistantMessage,
-  quickReplyCategory
+  quickReplyCategory,
+  initialStaffUserId,
+  onClearInitialStaffUserId,
+  initialGroupChatId,
+  onClearInitialGroupChatId
 }: AIHubProps) => {
   const navigate = useNavigate();
   const [activeChat, setActiveChat] = useState<ChatItem | null>(null);
@@ -389,6 +401,41 @@ export const AIHub = ({
       setActiveChat(assistantChat);
     }
   }, [initialAssistantMessage, isOpen, aiChats]);
+
+  // Auto-open staff chat when initialStaffUserId is provided
+  useEffect(() => {
+    if (!initialStaffUserId || !isOpen) return;
+    
+    const targetChat = [...staffChatItems, ...teacherChatItems].find(chat => {
+      if (chat.type === 'staff') {
+        return (chat.data as StaffMember)?.id === initialStaffUserId;
+      }
+      if (chat.type === 'teacher') {
+        return (chat.data as TeacherChatItem)?.profileId === initialStaffUserId;
+      }
+      return false;
+    });
+
+    if (targetChat) {
+      setActiveChat(targetChat);
+      onClearInitialStaffUserId?.();
+    }
+  }, [initialStaffUserId, isOpen, staffChatItems, teacherChatItems, onClearInitialStaffUserId]);
+
+  // Auto-open group chat when initialGroupChatId is provided
+  useEffect(() => {
+    if (!initialGroupChatId || !isOpen) return;
+    
+    const targetGroup = groupChatItems.find(chat => {
+      const groupData = chat.data as any;
+      return groupData?.id === initialGroupChatId;
+    });
+
+    if (targetGroup) {
+      setActiveChat(targetGroup);
+      onClearInitialGroupChatId?.();
+    }
+  }, [initialGroupChatId, isOpen, groupChatItems, onClearInitialGroupChatId]);
 
   // Auto-scroll
   useEffect(() => {
