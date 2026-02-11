@@ -1578,16 +1578,15 @@ export const ChatArea = ({
             .from('chat_messages')
             .insert({
               client_id: clientId,
-              content: messageText,
-              messenger: 'chatos',
+              message_text: messageText,
+              messenger_type: 'chatos',
               message_type: filesToSend.length > 0 ? 'file' : 'text',
-              direction: 'outgoing',
-              is_outgoing: true, // Mark as outgoing for self-hosted schema compatibility
+              is_outgoing: true,
               sender_id: authUser?.id,
               sender_name: senderName,
-              media_url: filesToSend[0]?.url,
+              file_url: filesToSend[0]?.url,
               file_name: filesToSend[0]?.name,
-              media_type: filesToSend[0]?.type,
+              file_type: filesToSend[0]?.type,
               is_read: true,
               message_status: 'sent',
               organization_id: orgId as string,
@@ -1698,6 +1697,10 @@ export const ChatArea = ({
           }
         }
       }
+
+      // Invalidate message cache to show the newly sent message
+      queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
 
       // Remove any pending GPT suggestions for this client after a successful send
       // Skip for teacher messages since they don't have pending GPT responses
