@@ -1,100 +1,99 @@
 
-# Fix: Column name mismatch in ALL webhook functions + outgoing phone messages
+# Fix: Frontend queries use wrong column names — messages not displaying
 
 ## Root Cause
 
-The `chat_messages` table has a completely different schema than what all 5 webhook Edge Functions expect. Every `INSERT` and `SELECT` on `chat_messages` fails because the column names don't match. This is why:
-- New client messages are not being saved
-- Outgoing phone messages are not being recorded
-- Delivery statuses are not being updated
+All frontend hooks that fetch `chat_messages` are querying columns that **do not exist** in the self-hosted database. PostgREST returns errors or empty results, so no messages display.
 
-## Column Mapping (Old -> Correct)
+| Frontend queries (WRONG) | Actual DB column |
+|---|---|
+| `message_text` | `content` |
+| `messenger_type` | `messenger` |
+| `is_outgoing` | `direction` (string) |
+| `external_message_id` | `external_id` |
+| `file_url` | `media_url` |
+| `file_type` | `media_type` |
+| `message_status` | `status` |
 
-| Used in code (WRONG) | Actual DB column | Notes |
-|---|---|---|
-| `message_text` | `content` | text content |
-| `messenger_type` | `messenger` | 'whatsapp', 'telegram', 'max' |
-| `is_outgoing: true/false` | `direction: 'outgoing'/'incoming'` | string instead of boolean |
-| `external_message_id` | `external_id` | external provider message ID |
-| `file_url` | `media_url` | media file URL |
-| `file_type` | `media_type` | MIME type |
-| `teacher_id` | N/A | store in `metadata` jsonb |
-| `integration_id` | N/A | store in `metadata` jsonb |
-| `message_status` | `status` | delivery status |
+## Solution
 
-Columns that stay the same: `client_id`, `organization_id`, `message_type`, `is_read`, `file_name`, `status`, `sender_id`, `sender_name`, `created_at`, `metadata`.
+Create a single mapper utility that converts raw DB rows into the `ChatMessage` interface format. Update all SELECT queries to request the correct column names, then apply the mapper.
 
-## Files to Update (5 webhook functions)
+### Step 1: Create mapper utility (`src/lib/chatMessageMapper.ts`)
 
-### 1. `supabase/functions/wappi-whatsapp-webhook/index.ts`
-- Fix all `chat_messages` INSERT statements (incoming, outgoing, teacher messages)
-- Fix all `chat_messages` SELECT/UPDATE queries (duplicate check, delivery status)
-- Map `teacher_id` to `metadata: { teacher_id: ... }`
-- This also addresses the user's request: outgoing phone messages (`outgoing_message_phone`) are already handled in the switch case, they just fail on INSERT due to wrong columns
+A function `mapDbRowToChatMessage(row)` that:
+- Maps `content` to `message_text`
+- Maps `messenger` to `messenger_type`
+- Maps `direction` to `is_outgoing` (boolean) and keeps `message_type` logic
+- Maps `media_url` to `file_url`, `media_type` to `file_type`
+- Maps `external_id` to `external_message_id`
+- Maps `status` to `message_status`
 
-### 2. `supabase/functions/whatsapp-webhook/index.ts` (GreenAPI)
-- Fix `saveMessageToDB` function column mapping
-- Fix delivery status update queries
-- Fix duplicate check queries
-
-### 3. `supabase/functions/telegram-webhook/index.ts` (Wappi Telegram)
-- Fix `insertChatMessage` function
-- Fix all inline INSERT statements
-- Fix delivery status updates
-
-### 4. `supabase/functions/telegram-crm-webhook/index.ts` (Telethon)
-- Fix message INSERT
-- Fix duplicate check
-
-### 5. `supabase/functions/max-webhook/index.ts` (GreenAPI MAX)
-- Fix all INSERT statements (incoming, outgoing)
-- Fix delivery status updates
-- Map `integration_id` to metadata
-
-## Example: Correct INSERT format
-
-```text
-Before (BROKEN):
-{
-  message_text: messageText,
-  message_type: 'client',
-  messenger_type: 'whatsapp',
-  is_outgoing: false,
-  external_message_id: message.id,
-  file_url: fileUrl,
-  file_type: fileType,
-}
-
-After (CORRECT):
-{
-  content: messageText,
-  message_type: 'client',
-  messenger: 'whatsapp',
-  direction: 'incoming',
-  external_id: message.id,
-  media_url: fileUrl,
-  media_type: fileType,
-}
+And a constant `CHAT_MESSAGE_SELECT` with the correct column names:
+```
+id, client_id, content, message_type, system_type, is_read,
+created_at, media_url, file_name, media_type, external_id,
+messenger, call_duration, status, metadata, sender_name, direction
 ```
 
-## Example: Correct query format
+### Step 2: Update hooks (6 files)
 
-```text
-Before: .eq('external_message_id', messageId)
-After:  .eq('external_id', messageId)
+**`src/hooks/useChatMessagesOptimized.ts`**
+- Replace the SELECT string (line 50-53) with correct column names
+- Apply mapper to returned data (line 68)
+- Fix `useUnreadCountOptimized` (line 236): `messenger_type` -> `messenger`
+- Fix `usePrefetchMessages` (lines 316-317): use correct SELECT and mapper
 
-Before: .update({ message_status: mappedStatus })
-After:  .update({ status: mappedStatus })
-```
+**`src/hooks/useChatMessages.ts`**
+- Fix `useChatThreads` SELECT (lines 159-171, 187): `message_text` -> `content`, `messenger_type` -> `messenger`, `is_outgoing` -> `direction`
+- Fix `useClientUnreadByMessenger` (lines 437-444): `messenger_type` -> `messenger`, `is_outgoing` -> `direction`
+- Fix `useSendMessage` (lines 589-611): `message_text` -> `content`, `is_outgoing` -> `direction`, `messenger_type` -> `messenger`
 
-## Outgoing Phone Messages (Wappi)
+**`src/hooks/useInfiniteChatMessages.ts`**
+- Replace SELECT string (lines 14-17) with correct columns
+- Apply mapper
 
-The `handleOutgoingMessage` function in `wappi-whatsapp-webhook` already processes both `outgoing_message_phone` and `outgoing_message_api` webhook types. The only reason they weren't being saved is the column mismatch. After fixing column names, both types will work:
-- `outgoing_message_phone` (sent from physical phone) -- `from_where: "phone"`
-- `outgoing_message_api` (sent via CRM/API) -- `from_where: "api"`, has `task_id`
+**`src/hooks/useInfiniteChatMessagesTyped.ts`**
+- Replace `MESSAGE_SELECT` constant (lines 29-33) with correct columns
+- Apply mapper
 
-## Technical Notes
+**`src/hooks/useTeacherConversations.ts`**
+- Fix SELECT (line 75): `message_text` -> `content`, `messenger_type` -> `messenger`, `is_outgoing` -> `direction`
 
-- `teacher_id` and `integration_id` columns don't exist in `chat_messages`. Teacher ID will be stored in the `metadata` jsonb field as `{ teacher_id: "..." }`. Integration ID will also go in metadata as `{ integration_id: "..." }`.
-- The `webhook_logs` table uses `messenger_type` which is correct for that table (separate from `chat_messages`).
-- `wpp-webhook` also has the same wrong columns but will be fixed alongside the others.
+**`src/hooks/useChatMessages.ts` — `useSendMessage`**
+- Change INSERT payload: `message_text` -> `content`, `is_outgoing` -> `direction`, `messenger_type` -> `messenger`
+
+### Step 3: Fix ChatArea auto-retry updates
+
+In `src/components/crm/ChatArea.tsx`, the auto-retry logic (lines 414-477) uses:
+- `.update({ message_status: 'queued' })` -> `.update({ status: 'queued' })`
+- `.update({ message_status: 'sent' })` -> `.update({ status: 'sent' })`
+- `.update({ message_status: 'failed' })` -> `.update({ status: 'failed' })`
+
+ChatArea already handles dual-column names at lines 203-224 and 839-850 (fallback chains like `msg.message_text ?? msg.content`), so once data arrives with correct column names, the UI will render correctly.
+
+### Step 4: Fix `useCommunityChats.ts` SELECT
+
+Line 116: `message_text` -> `content`, `file_type` -> `media_type`
+
+### Step 5: Fix `useMessageContentSearch.ts`
+
+The search hook queries `message_text` — needs to query `content` instead.
+
+### Step 6: Fix build error
+
+The build error is caused by these same wrong column names. Fixing the queries will resolve the build.
+
+## Files to change
+
+| File | Changes |
+|---|---|
+| `src/lib/chatMessageMapper.ts` | **NEW** — mapper + correct SELECT constant |
+| `src/hooks/useChatMessagesOptimized.ts` | Fix SELECT, apply mapper, fix unread count query |
+| `src/hooks/useChatMessages.ts` | Fix threads SELECT, unread query, useSendMessage INSERT |
+| `src/hooks/useInfiniteChatMessages.ts` | Fix SELECT, apply mapper |
+| `src/hooks/useInfiniteChatMessagesTyped.ts` | Fix MESSAGE_SELECT, apply mapper |
+| `src/hooks/useTeacherConversations.ts` | Fix SELECT columns |
+| `src/hooks/useCommunityChats.ts` | Fix SELECT columns |
+| `src/hooks/useMessageContentSearch.ts` | Fix search column |
+| `src/components/crm/ChatArea.tsx` | Fix `.update()` calls for status |
