@@ -197,6 +197,30 @@ export function ConvertToTeacherModal({
 
       if (migrateError) throw new Error('Не удалось перенести историю сообщений');
 
+      // Clear messenger IDs from client BEFORE deletion to prevent webhook conflicts
+      await supabase
+        .from('clients')
+        .update({
+          max_chat_id: null,
+          max_user_id: null,
+          telegram_user_id: null,
+          telegram_chat_id: null,
+          whatsapp_id: null,
+          whatsapp_chat_id: null,
+        })
+        .eq('id', clientId);
+
+      // Also clear from client_phone_numbers
+      await supabase
+        .from('client_phone_numbers')
+        .update({
+          max_chat_id: null,
+          max_user_id: null,
+          telegram_user_id: null,
+          whatsapp_id: null,
+        })
+        .eq('client_id', clientId);
+
       // Delete client
       const { error: deleteClientError } = await supabase
         .from('clients')
@@ -270,6 +294,29 @@ export function ConvertToTeacherModal({
         .eq('client_id', clientId);
 
       if (migrateError) throw new Error('Не удалось перенести историю сообщений');
+
+      // Clear messenger IDs from client BEFORE deletion to prevent webhook conflicts
+      await supabase
+        .from('clients')
+        .update({
+          max_chat_id: null,
+          max_user_id: null,
+          telegram_user_id: null,
+          telegram_chat_id: null,
+          whatsapp_id: null,
+          whatsapp_chat_id: null,
+        })
+        .eq('id', clientId);
+
+      await supabase
+        .from('client_phone_numbers')
+        .update({
+          max_chat_id: null,
+          max_user_id: null,
+          telegram_user_id: null,
+          whatsapp_id: null,
+        })
+        .eq('client_id', clientId);
 
       const { error: deleteClientError } = await supabase
         .from('clients')
