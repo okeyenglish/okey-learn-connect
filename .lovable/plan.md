@@ -1,84 +1,105 @@
 
-# Fix: Remaining files still using wrong column names for chat_messages
+
+# Revert: Restore original column names in all files
 
 ## Problem
-The previous fix only updated 8 files, but there are **at least 12 more files** still querying `chat_messages` with non-existent column names (`message_text`, `is_outgoing`, `messenger_type`, `file_url`, `file_type`, `external_message_id`, `message_status`). This causes PostgREST to return errors, so messages don't display.
 
-## Correct column mapping (reference)
+The self-hosted database CSV confirms the **original** column names were correct all along:
 
-| Wrong (used in code) | Correct (actual DB) |
+| Column in DB (CORRECT) | What I wrongly changed to |
 |---|---|
 | `message_text` | `content` |
-| `is_outgoing` | `direction` ('incoming'/'outgoing') |
-| `messenger_type` | `messenger` (on chat_messages table only!) |
+| `is_outgoing` (boolean) | `direction` (string) |
+| `messenger_type` | `messenger` |
 | `file_url` | `media_url` |
 | `file_type` | `media_type` |
 | `external_message_id` | `external_id` |
 | `message_status` | `status` |
+| `integration_id` | `metadata->integration_id` |
+| `teacher_id` | `metadata->teacher_id` |
 
-**NOTE**: `messenger_type` is correct on `messenger_settings`, `messenger_integrations`, and `webhook_logs` tables. Only `chat_messages` uses `messenger`.
+## Solution
 
-## Files to fix (12 files)
+Revert all 14+ files back to using the original correct column names. Delete or rewrite the mapper utility since it maps to wrong names.
 
-### 1. `src/hooks/useChatThreadsInfinite.ts` (line 90)
-SELECT: `message_text, is_read, messenger_type, message_type, is_outgoing`
-Change to: `content, is_read, messenger, message_type, direction`
-Also fix references to `message_text` at lines 133-134.
+## Files to revert
 
-### 2. `src/hooks/useClientChatData.ts` (lines 177-181, 199, 501)
-SELECT: `message_text, file_url, file_type, external_message_id, messenger_type, message_status`
-Change to: `content, media_url, media_type, external_id, messenger, status`
-Also fix `.select('messenger_type')` at line 199 and line 501.
+### 1. `src/lib/chatMessageMapper.ts`
+Rewrite entirely: `CHAT_MESSAGE_SELECT` must use `message_text, is_outgoing, messenger_type, file_url, file_type, external_message_id, message_status, integration_id, teacher_id` etc. The mapper should be a passthrough or removed, since DB columns already match the `ChatMessage` interface.
 
-### 3. `src/hooks/useSystemChatMessages.ts` (lines 43, 54)
-SELECT: `message_text` -> `content`
-Filter: `.eq('is_outgoing', false)` -> `.eq('direction', 'incoming')`
-Fix reference at line 61.
+### 2. `src/hooks/useChatMessagesOptimized.ts`
+- Restore SELECT to use `message_text, messenger_type, is_outgoing, file_url, file_type, external_message_id, message_status`
+- Remove mapper call, data already matches interface
 
-### 4. `src/hooks/usePhoneSearchThreads.ts` (line 150)
-SELECT: `message_text, messenger_type, is_outgoing` -> `content, messenger, direction`
+### 3. `src/hooks/useChatMessages.ts`
+- Restore SELECT columns: `message_text`, `messenger_type`, `is_outgoing`
+- Restore INSERT payload: `message_text`, `is_outgoing`, `messenger_type`
+- Restore `.eq('is_outgoing', false)` filters
+- Restore `.select('messenger_type')` calls
 
-### 5. `src/hooks/usePinnedChatThreads.ts` (line 107)
-SELECT: `message_text, messenger_type` -> `content, messenger`
+### 4. `src/hooks/useInfiniteChatMessages.ts`
+- Restore SELECT to original columns
+- Remove mapper import/usage
 
-### 6. `src/hooks/useTeacherChatMessagesV2.ts` (lines 30-32)
-MESSAGE_FIELDS constant: all wrong column names
-Change to use `CHAT_MESSAGE_SELECT` from chatMessageMapper and apply mapper.
+### 5. `src/hooks/useInfiniteChatMessagesTyped.ts`
+- Restore MESSAGE_SELECT to original columns
+- Remove mapper import/usage
 
-### 7. `src/hooks/useTeacherChats.ts` (lines 285, 396)
-SELECT: `message_text, messenger_type, is_outgoing` -> `content, messenger, direction`
+### 6. `src/hooks/useChatThreadsInfinite.ts`
+- Restore: `message_text, is_read, messenger_type, message_type, is_outgoing`
+- Restore field access: `msg.message_text`
 
-### 8. `src/hooks/useOrganizationRealtimeMessages.ts` (line 155)
-SELECT: `message_text` -> `content`
+### 7. `src/hooks/useClientChatData.ts`
+- Restore: `message_text, file_url, file_type, external_message_id, messenger_type, message_status`
+- Restore `.select('messenger_type')` calls
 
-### 9. `src/components/crm/TeacherListItem.tsx` (lines 194, 219)
-SELECT: all old column names -> correct ones, apply mapper.
+### 8. `src/hooks/useSystemChatMessages.ts`
+- Restore: `message_text` in SELECT
+- Restore: `.eq('is_outgoing', false)`
 
-### 10. `src/components/crm/TeacherChatArea.tsx` (lines 398, 446)
-Filter: `.eq('is_outgoing', false)` -> `.eq('direction', 'incoming')`
+### 9. `src/hooks/usePhoneSearchThreads.ts`
+- Restore: `message_text, messenger_type, is_outgoing`
 
-### 11. `src/components/crm/ChatArea.tsx` (lines 1094, 2302, 2346, 2359)
-- Line 1094: `.eq('is_outgoing', false)` -> `.eq('direction', 'incoming')`
-- Lines 2302, 2346, 2359: `.update({ message_status: ... })` -> `.update({ status: ... })`
+### 10. `src/hooks/usePinnedChatThreads.ts`
+- Restore: `message_text, messenger_type`
 
-### 12. `src/utils/sendActivityWarningMessage.ts` (lines 69, 77)
-Filter: `.eq('is_outgoing', false)` -> `.eq('direction', 'incoming')`
+### 11. `src/hooks/useTeacherChatMessagesV2.ts`
+- Restore MESSAGE_FIELDS to original columns: `message_text, is_outgoing, messenger_type, file_url, file_type, external_message_id, message_status, teacher_id, integration_id`
+- Remove mapper usage, remove normalization code
 
-### 13. `src/components/crm/WppTestPanel.tsx` (line 101)
-SELECT: `external_message_id` -> `external_id`
+### 12. `src/hooks/useTeacherChats.ts`
+- Restore: `message_text, messenger_type, is_outgoing`
 
-### 14. `src/hooks/useMessageContentSearch.ts` (line 14)
-Interface: `messenger_type` -> `messenger` (but this uses RPC, so the RPC function itself may return `messenger_type` -- needs checking. If the RPC returns `messenger`, fix the interface.)
+### 13. `src/hooks/useOrganizationRealtimeMessages.ts`
+- Restore: `message_text`
 
-## Implementation approach
+### 14. `src/hooks/useTeacherConversations.ts`
+- Restore SELECT columns to original names
 
-For each file:
-1. Fix SELECT strings to use correct column names
-2. Fix `.eq()` / `.update()` calls to use correct column names
-3. Fix any field access on returned data (e.g. `msg.message_text` -> `msg.content`)
-4. Where complex mapping is needed, use the existing `mapDbRowsToChatMessages` from `chatMessageMapper.ts`
-5. Keep `messenger_type` references that target OTHER tables (`messenger_settings`, `webhook_logs`, etc.) -- those are correct
+### 15. `src/hooks/useCommunityChats.ts`
+- Restore: `message_text`, `file_type`
 
-## Order of changes
+### 16. `src/components/crm/ChatArea.tsx`
+- Restore: `.eq('is_outgoing', false)` filters
+- Restore: `.update({ message_status: ... })` calls
 
-All files can be updated in parallel since they are independent. The mapper utility already exists from the previous fix.
+### 17. `src/components/crm/TeacherChatArea.tsx`
+- Restore: `.eq('is_outgoing', false)` filters
+
+### 18. `src/components/crm/TeacherListItem.tsx`
+- Restore SELECT to original columns
+
+### 19. `src/components/crm/WppTestPanel.tsx`
+- Restore: `external_message_id`
+
+### 20. `src/utils/sendActivityWarningMessage.ts`
+- Restore: `.eq('is_outgoing', false)`
+
+## Approach
+
+Since the DB columns match the ChatMessage interface directly, the mapper utility is unnecessary. I will either delete it or make it a simple passthrough. All hooks and components will be reverted to use the original column names that match the actual database schema.
+
+## Technical note
+
+The Lovable Cloud database schema shown in the system context has different column names (`content`, `direction`, `messenger`, etc.) -- but the app connects to `api.academyos.ru` (self-hosted), which uses `message_text`, `is_outgoing`, `messenger_type`, etc. The self-hosted schema is what matters.
+
