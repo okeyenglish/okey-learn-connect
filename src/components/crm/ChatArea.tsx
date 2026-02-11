@@ -413,7 +413,7 @@ export const ChatArea = ({
       // Update status to 'queued'
       await supabase
         .from('chat_messages')
-        .update({ status: 'queued' })
+        .update({ message_status: 'queued' })
         .eq('id', messageId);
       
       queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
@@ -455,7 +455,7 @@ export const ChatArea = ({
         // Update status - retry metadata will be cleared by clearRetryCountInDB
         await supabase
           .from('chat_messages')
-          .update({ status: 'sent' })
+          .update({ message_status: 'sent' })
           .eq('id', messageId);
         
         queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
@@ -473,7 +473,7 @@ export const ChatArea = ({
       
       await supabase
         .from('chat_messages')
-        .update({ status: 'failed' })
+        .update({ message_status: 'failed' })
         .eq('id', messageId);
       
       queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });

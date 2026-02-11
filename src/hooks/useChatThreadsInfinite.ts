@@ -166,10 +166,10 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
         max_chat_id: null,
         last_message: lastMessageText,
         last_message_time: lastMessage?.created_at || null,
-        last_message_messenger: lastMessage?.messenger || null,
+        last_message_messenger: lastMessage?.messenger_type || null,
         unread_count: unreadMessages.length,
         unread_by_messenger: unreadByMessenger,
-        last_unread_messenger: unreadMessages[0]?.messenger || null,
+        last_unread_messenger: unreadMessages[0]?.messenger_type || null,
         messages: [],
         has_pending_payment: (client as any).has_pending_payment || false,
       };

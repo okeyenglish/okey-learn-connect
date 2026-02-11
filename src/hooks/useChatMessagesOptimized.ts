@@ -149,12 +149,12 @@ export const useMessageStatusRealtime = (clientId: string, onDeliveryFailed?: (m
       if (eventType !== 'UPDATE') return;
       if (msg.client_id !== clientId) return;
 
-      const newRecord = msg as { status?: string; id?: string; message_text?: string };
+      const newRecord = msg as { message_status?: string; id?: string; message_text?: string };
       
-      if (newRecord?.status) {
-        console.log('[Realtime] Message status updated (via hub):', newRecord.id, '->', newRecord.status);
+      if (newRecord?.message_status) {
+        console.log('[Realtime] Message status updated (via hub):', newRecord.id, '->', newRecord.message_status);
         
-        if (newRecord.status === 'failed') {
+        if (newRecord.message_status === 'failed') {
           if (!notifiedFailedRef.current.has(newRecord.id!)) {
             notifiedFailedRef.current.add(newRecord.id!);
             
@@ -179,7 +179,7 @@ export const useMessageStatusRealtime = (clientId: string, onDeliveryFailed?: (m
               ...oldData,
               messages: oldData.messages.map((m: ChatMessage) => 
                 m.id === newRecord.id 
-                  ? { ...m, status: newRecord.status }
+                  ? { ...m, message_status: newRecord.message_status }
                   : m
               )
             };
