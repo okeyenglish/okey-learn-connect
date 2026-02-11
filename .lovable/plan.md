@@ -1,55 +1,85 @@
 
 
-# Fix: Server-side branch filtering for UI dropdown
+# Fix: Branch filter not matching database values for server-side queries
 
 ## Problem
 
-When selecting a branch in the filter dropdown (e.g. "Мытищи"), the system fetches 50 threads from ALL branches, then filters client-side. This results in only 2-3 visible chats instead of the expected 50 for that branch.
+Two issues with branch filtering:
+
+1. **Грайвороновская shows 0 chats**: The filter sends `branch = "Грайвороновская"` to the server, but clients in the database have `branch = "Стахановская"` (the old name). The alias mapping (`стахановская` -> `грайвороновская`) only works client-side via `toBranchKey()`, not in SQL queries.
+
+2. **Мытищи not loading all chats on scroll**: Same root cause -- if some clients have `branch = "O'KEY ENGLISH Мытищи"` in the database, the exact match `branch = "Мытищи"` misses them.
 
 ## Root Cause
 
-`useChatThreadsInfinite` is called with `allowedBranches` only for manager restrictions (line 421 in CRM.tsx). The UI dropdown filter (`selectedBranch`) is applied purely client-side (line 1285), after the 50-thread page is already fetched.
+`effectiveBranches` in CRM.tsx (line 415) passes display names like `["Грайвороновская"]` to the server query. Both the RPC (`branch = ANY(p_branches)`) and the direct fallback (`branch.in.(...)`) do **exact string matching** against the `clients.branch` column, which stores raw imported values that may differ from the display names in `organization_branches`.
 
 ## Solution
 
-Merge the UI `selectedBranch` into the `allowedBranches` parameter passed to `useChatThreadsInfinite`, so filtering happens server-side (in the RPC or direct query).
+Add a reverse-alias expansion function to `branchUtils.ts` that, given a normalized key, returns all raw branch name variants that should match in the database. Then use it in `effectiveBranches` to pass all variants to the server.
+
+### File: `src/lib/branchUtils.ts`
+
+Add a new function `expandBranchVariants(displayName)` that returns an array of all possible raw database values for a given branch:
+- The display name itself (e.g., "Грайвороновская")
+- Any reverse aliases (e.g., "Стахановская" since it maps to "грайвороновская")
+- Common prefixed variants (e.g., "O'KEY ENGLISH Грайвороновская", "O'KEY ENGLISH Стахановская")
+
+```typescript
+// Reverse alias map: for a given normalized key, 
+// what raw values might exist in the database?
+const REVERSE_ALIASES: Record<string, string[]> = {
+  'грайвороновская': ['Грайвороновская', 'Стахановская'],
+  'люберцы': ['Люберцы', 'Красная горка'],
+  'online school': ['Online school', 'Онлайн', 'Онлайн школа'],
+  'новокосино': ['Новокосино'],
+};
+
+export function expandBranchVariants(displayName: string): string[] {
+  const key = toBranchKey(displayName);
+  if (!key) return [displayName];
+  
+  const baseVariants = REVERSE_ALIASES[key] || [displayName];
+  const allVariants = new Set<string>(baseVariants);
+  
+  // Add prefixed variants with brand tokens
+  for (const variant of baseVariants) {
+    allVariants.add(`O'KEY ENGLISH ${variant}`);
+  }
+  allVariants.add(displayName);
+  
+  return Array.from(allVariants);
+}
+```
 
 ### File: `src/pages/CRM.tsx`
 
-**Change the call to `useChatThreadsInfinite` (line ~421):**
-
-Compute effective branches by combining manager restrictions with the UI filter:
+Update `effectiveBranches` (line 415) to expand branch names into all database variants before passing to the server:
 
 ```typescript
-// Combine manager branch restrictions with UI branch filter
 const effectiveBranches = useMemo(() => {
-  // Start with manager restrictions (if any)
   const managerBranches = hasManagerBranchRestrictions ? allowedBranchNames : null;
   
-  // If UI filter is set to a specific branch
   if (selectedBranch && selectedBranch !== 'all') {
-    // If manager has restrictions, intersect (only if selected branch is in allowed list)
     if (managerBranches) {
       const filtered = managerBranches.filter(b => toBranchKey(b) === selectedBranch);
-      return filtered.length > 0 ? filtered : managerBranches; // fallback to all allowed
+      const base = filtered.length > 0 ? filtered : managerBranches;
+      return base.flatMap(b => expandBranchVariants(b));
     }
-    // No manager restrictions - use UI selection directly
-    // Need to find the original branch name from the normalized key
     const matchedBranch = branches.find((b: any) => toBranchKey(b.name) === selectedBranch);
-    return matchedBranch ? [matchedBranch.name] : undefined;
+    if (matchedBranch) {
+      return expandBranchVariants(matchedBranch.name);
+    }
+    return undefined;
   }
   
-  // No UI filter - use manager restrictions only
-  return managerBranches || undefined;
+  return managerBranches ? managerBranches.flatMap(b => expandBranchVariants(b)) : undefined;
 }, [selectedBranch, hasManagerBranchRestrictions, allowedBranchNames, branches]);
 ```
 
-Then pass `effectiveBranches` to the hook:
-```typescript
-useChatThreadsInfinite(effectiveBranches);
-```
+This ensures the SQL query includes all raw name variants that normalize to the same branch key, so "Грайвороновская" filter also matches clients with `branch = "Стахановская"` or `branch = "O'KEY ENGLISH Стахановская"` in the database.
 
-This ensures the RPC/direct query fetches 50 threads specifically for the selected branch, not 50 from all branches then filtered down.
+### Build Error Fix
 
-**Note:** The client-side branch filter (line 1285) can remain as a safety net -- it won't cause harm since server already filtered, but ensures consistency.
+The build error (if any) from the previous change will also be addressed -- the `useOrganization()` hook placement and dependencies are already correct.
 
