@@ -49,7 +49,7 @@ export const useUnifiedSearch = (query: string) => {
       const { data, error } = await supabase.rpc('unified_crm_search', {
         p_org_id: orgId || '',
         p_query: debouncedQuery,
-        p_limit: 50
+        p_limit: 200
       });
 
       const duration = (performance.now() - startTime).toFixed(0);

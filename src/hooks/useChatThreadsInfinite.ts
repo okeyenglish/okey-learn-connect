@@ -68,6 +68,7 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
   const { data: clients, error: clientsError } = await supabase
     .from('clients')
     .select('id, name, first_name, last_name, phone, branch, avatar_url, telegram_user_id, has_pending_payment')
+    .eq('is_active', true)
     .not('last_message_at', 'is', null)
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .range(offset, offset + limit - 1);
