@@ -23,10 +23,10 @@ import { usePhoneSearchThreads } from "@/hooks/usePhoneSearchThreads";
 import { usePinnedChatThreads } from "@/hooks/usePinnedChatThreads";
 import { useUnifiedSearch } from "@/hooks/useUnifiedSearch";
 import { useClientStatus } from "@/hooks/useClientStatus";
-import { useRealtimeMessages, useMarkAsRead, useMarkAsUnread } from "@/hooks/useChatMessages";
+import { useRealtimeMessages, useMarkAsRead } from "@/hooks/useChatMessages";
 import { useChatThreadsInfinite } from "@/hooks/useChatThreadsInfinite";
 // useTeacherLinkedClientIds removed - now using teacher_id directly in chat_messages
-import { useMarkChatMessagesAsRead, useBulkMarkChatsAsRead, useBulkMarkChatsAsUnread } from "@/hooks/useMessageReadStatus";
+import { useMarkChatMessagesAsRead, useBulkMarkChatsAsRead } from "@/hooks/useMessageReadStatus";
 import { useStudentsLazy } from "@/hooks/useStudentsLazy";
 import { useStudentsCount } from "@/hooks/useStudentsCount";
 import { useLeadsCount } from "@/hooks/useLeadsCount";
@@ -473,10 +473,8 @@ const CRMContent = () => {
   } = useSearchClients();
   const createClient = useCreateClient();
   const markAsReadMutation = useMarkAsRead();
-  const markAsUnreadMutation = useMarkAsUnread();
   const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
   const bulkMarkChatsAsReadMutation = useBulkMarkChatsAsRead();
-  const bulkMarkChatsAsUnreadMutation = useBulkMarkChatsAsUnread();
   const { 
     pinnedModals, 
     loading: pinnedLoading,
@@ -1601,10 +1599,8 @@ const CRMContent = () => {
 
   const handleChatAction = useCallback((chatId: string, action: 'unread' | 'read' | 'pin' | 'archive' | 'block') => {
     if (action === 'unread') {
-      // 1) Флаг чата для текущего пользователя
+      // Personal marker only (no DB updates for message-level is_read)
       markAsUnread(chatId);
-      // 2) Обновим сообщения в таблице, чтобы счётчик нитей тоже мог обновиться
-      markAsUnreadMutation.mutate(chatId);
     } else if (action === 'read') {
       // Отметить как прочитанное
       markAsRead(chatId);
@@ -1615,7 +1611,7 @@ const CRMContent = () => {
       toggleArchive(chatId);
     }
     console.log(`${action} для чата:`, chatId);
-  }, [markAsUnread, markAsUnreadMutation, markAsRead, markAsReadMutation, togglePin, toggleArchive]);
+  }, [markAsUnread, markAsRead, markAsReadMutation, togglePin, toggleArchive]);
 
   // Handle URL parameter for deep linking from push notifications
   // This effect runs after handleChatClick is defined
@@ -1747,19 +1743,17 @@ const CRMContent = () => {
 
   const handleBulkUndo = useCallback((actionState: BulkActionState) => {
     console.log('[CRM] Undoing bulk action:', actionState.action, 'for', actionState.chatIds.length, 'chats');
-    
-    // Collect chat IDs for batch operations
+
+    // Collect chat IDs for batch operations (read only)
     const chatsToMarkAsRead: string[] = [];
-    const chatsToMarkAsUnread: string[] = [];
-    
+
     actionState.chatIds.forEach(chatId => {
       const prevState = actionState.previousStates.get(chatId);
-      
+
       if (actionState.action === 'read' && prevState) {
-        // Restore unread state
+        // Restore unread state (personal marker only)
         if (!prevState.isRead) {
           if (isUuid(chatId)) {
-            chatsToMarkAsUnread.push(chatId);
             markAsUnread(chatId);
           }
         }
@@ -1778,21 +1772,18 @@ const CRMContent = () => {
           togglePin(chatId); // Toggle back to unpinned
         }
       } else if (actionState.action === 'archive' && prevState) {
-        // Restore previous archive state  
+        // Restore previous archive state
         if (!prevState.isArchived) {
           toggleArchive(chatId); // Toggle back to unarchived
         }
       }
     });
-    
+
     // Execute batch operations
-    if (chatsToMarkAsUnread.length > 0) {
-      bulkMarkChatsAsUnreadMutation.mutate(chatsToMarkAsUnread);
-    }
     if (chatsToMarkAsRead.length > 0) {
       bulkMarkChatsAsReadMutation.mutate(chatsToMarkAsRead);
     }
-  }, [markAsUnread, markAsRead, markChatAsReadGlobally, bulkMarkChatsAsUnreadMutation, bulkMarkChatsAsReadMutation, togglePin, toggleArchive, isUuid]);
+  }, [markAsUnread, markAsRead, markChatAsReadGlobally, bulkMarkChatsAsReadMutation, togglePin, toggleArchive, isUuid]);
 
   const { startUndoTimer } = useBulkActionUndo({
     onUndo: handleBulkUndo,
@@ -1803,10 +1794,10 @@ const CRMContent = () => {
   const confirmBulkAction = useCallback(() => {
     const chatIdsArray = Array.from(selectedChatIds);
     const action = bulkActionConfirm.action;
-    
+
     if (!action) return;
 
-    const requiresDbUpdate = action === 'read' || action === 'unread';
+    const requiresDbUpdate = action === 'read';
     const actionableChatIds = requiresDbUpdate ? chatIdsArray.filter(isUuid) : chatIdsArray;
     const skippedChatIds = requiresDbUpdate ? chatIdsArray.filter((id) => !isUuid(id)) : [];
     if (requiresDbUpdate && skippedChatIds.length > 0) {
@@ -1819,9 +1810,9 @@ const CRMContent = () => {
       setBulkActionConfirm({ open: false, action: null, count: 0 });
       return;
     }
-    
+
     console.log('[CRM] Bulk action confirmed:', action, 'for', actionableChatIds.length, 'chats');
-    
+
     // Save previous states for undo
     const previousStates = new Map<string, { isRead?: boolean; isPinned?: boolean; isArchived?: boolean }>();
     actionableChatIds.forEach(chatId => {
@@ -1832,7 +1823,7 @@ const CRMContent = () => {
         isArchived: state?.isArchived || false,
       });
     });
-    
+
     // Execute action
     if (action === 'read') {
       // Use batch operation for efficiency - single database query
@@ -1842,22 +1833,14 @@ const CRMContent = () => {
           toast.error('Не удалось отметить как прочитанное');
         }
       });
-      
+
       // Update local state immediately for all chats
       actionableChatIds.forEach(chatId => {
         markChatAsReadGlobally(chatId);
         markAsRead(chatId);
       });
     } else if (action === 'unread') {
-      // Use batch operation for efficiency - single database query
-      bulkMarkChatsAsUnreadMutation.mutate(actionableChatIds, {
-        onError: (err) => {
-          console.error('[CRM] Bulk mark as unread failed:', err);
-          toast.error('Не удалось отметить как непрочитанное');
-        }
-      });
-      
-      // Update local state immediately for all chats
+      // Personal marker only (no DB updates for message-level is_read)
       actionableChatIds.forEach(chatId => {
         markAsUnread(chatId);
       });
@@ -1866,7 +1849,7 @@ const CRMContent = () => {
     } else if (action === 'archive') {
       actionableChatIds.forEach(chatId => toggleArchive(chatId));
     }
-    
+
     // Start undo timer with toast
     startUndoTimer({
       action,
@@ -1874,11 +1857,11 @@ const CRMContent = () => {
       previousStates,
       timestamp: Date.now(),
     });
-    
+
     setBulkSelectMode(false);
     setSelectedChatIds(new Set());
     setBulkActionConfirm({ open: false, action: null, count: 0 });
-  }, [selectedChatIds, bulkActionConfirm.action, markChatAsReadGlobally, bulkMarkChatsAsReadMutation, bulkMarkChatsAsUnreadMutation, markAsRead, markAsUnread, togglePin, toggleArchive, setBulkSelectMode, setSelectedChatIds, getChatState, isChatReadGlobally, startUndoTimer, isUuid]);
+  }, [selectedChatIds, bulkActionConfirm.action, markChatAsReadGlobally, bulkMarkChatsAsReadMutation, markAsRead, markAsUnread, togglePin, toggleArchive, setBulkSelectMode, setSelectedChatIds, getChatState, isChatReadGlobally, startUndoTimer, isUuid]);
 
   const [activeFamilyMemberId, setActiveFamilyMemberId] = useState('550e8400-e29b-41d4-a716-446655440001');
 
