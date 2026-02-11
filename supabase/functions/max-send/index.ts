@@ -318,7 +318,8 @@ Deno.serve(async (req) => {
       file_url: fileUrl || null,
       file_name: fileName || null,
       file_type: fileType || null,
-      message_status: 'sent'
+      message_status: 'sent',
+      sender_name: body.senderName || null
     };
 
     // Add client_id or teacher_id based on mode

@@ -12,6 +12,7 @@ interface TelegramCrmSendRequest {
   fileName?: string;
   fileType?: string;
   integrationId?: string;
+  senderName?: string;
 }
 
 interface TelegramCrmSettings {
@@ -283,6 +284,7 @@ Deno.serve(async (req) => {
         file_url: fileUrl,
         file_name: fileName,
         file_type: fileType,
+        sender_name: body.senderName || null,
       })
       .select('id')
       .single();

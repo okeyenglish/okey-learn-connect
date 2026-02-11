@@ -259,6 +259,7 @@ Deno.serve(async (req) => {
       file_url: fileUrl || null,
       file_name: fileName || null,
       file_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null,
+      sender_name: payload.senderName || null,
     }
 
     // Set either client_id or teacher_id

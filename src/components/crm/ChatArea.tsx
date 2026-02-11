@@ -1385,6 +1385,11 @@ export const ChatArea = ({
 
   const sendMessageNow = async (messageText: string, filesToSend: Array<{url: string, name: string, type: string, size: number}> = []) => {
     try {
+      // Compute sender name from auth profile for saving with messages
+      const senderName = authProfile
+        ? [((authProfile as any).first_name), ((authProfile as any).last_name)].filter(Boolean).join(' ') || 'Менеджер поддержки'
+        : 'Менеджер поддержки';
+
       // For direct teacher messages (teacher:xxx), we need special handling
       // Use teacher's phone directly since clientId is not a valid UUID
       const effectiveClientId = isDirectTeacherMessage ? null : clientId;
@@ -1412,7 +1417,8 @@ export const ChatArea = ({
           message_type: 'manager',
           is_outgoing: true,
           messenger_type: messengerType,
-          message_status: 'failed'
+          message_status: 'failed',
+          sender_name: senderName
         });
         
         queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
@@ -1422,7 +1428,7 @@ export const ChatArea = ({
       // Check which messenger tab is active and send via appropriate service
       if (activeMessengerTab === 'max') {
         // Send via MAX - pass phoneNumber and teacherId for teachers
-        const maxOptions = effectivePhone ? { phoneNumber: effectivePhone, teacherId: actualTeacherId } : undefined;
+        const maxOptions = effectivePhone ? { phoneNumber: effectivePhone, teacherId: actualTeacherId, senderName } : { senderName };
         
         if (filesToSend.length > 0) {
           for (const file of filesToSend) {
@@ -1450,7 +1456,8 @@ export const ChatArea = ({
                 message_status: 'failed',
                 file_url: file.url,
                 file_name: file.name,
-                file_type: file.type
+                file_type: file.type,
+                sender_name: senderName
               }));
               queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
               if (isDirectTeacherMessage) {
@@ -1481,7 +1488,8 @@ export const ChatArea = ({
               message_type: 'manager',
               is_outgoing: true,
               messenger_type: 'max',
-              message_status: 'failed'
+              message_status: 'failed',
+              sender_name: senderName
             }));
             queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
             if (isDirectTeacherMessage) {
@@ -1492,7 +1500,7 @@ export const ChatArea = ({
         }
       } else if (activeMessengerTab === 'telegram') {
         // Send via Telegram - pass phoneNumber and teacherId for teachers
-        const telegramOptions = effectivePhone ? { phoneNumber: effectivePhone, teacherId: actualTeacherId } : undefined;
+        const telegramOptions = effectivePhone ? { phoneNumber: effectivePhone, teacherId: actualTeacherId, senderName } : { senderName };
         
         if (filesToSend.length > 0) {
           for (const file of filesToSend) {
@@ -1520,7 +1528,8 @@ export const ChatArea = ({
                 message_status: 'failed',
                 file_url: file.url,
                 file_name: file.name,
-                file_type: file.type
+                file_type: file.type,
+                sender_name: senderName
               }));
               queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
               if (isDirectTeacherMessage) {
@@ -1551,7 +1560,8 @@ export const ChatArea = ({
               message_type: 'manager',
               is_outgoing: true,
               messenger_type: 'telegram',
-              message_status: 'failed'
+              message_status: 'failed',
+              sender_name: senderName
             }));
             queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
             if (isDirectTeacherMessage) {
@@ -1617,7 +1627,7 @@ export const ChatArea = ({
         
         if (filesToSend.length > 0) {
           for (const file of filesToSend) {
-            const result = await sendFileMessage(whatsappClientId, file.url, file.name, messageText, effectivePhone, actualTeacherId || undefined);
+            const result = await sendFileMessage(whatsappClientId, file.url, file.name, messageText, effectivePhone, actualTeacherId || undefined, senderName);
             if (!result.success) {
               toast({
                 title: "Ошибка отправки файла",
@@ -1634,7 +1644,8 @@ export const ChatArea = ({
                 message_status: 'failed',
                 file_url: file.url,
                 file_name: file.name,
-                file_type: file.type
+                file_type: file.type,
+                sender_name: senderName
               }));
               queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
               if (isDirectTeacherMessage) {
@@ -1646,7 +1657,7 @@ export const ChatArea = ({
           
           // If we have files and text, send text separately only if it's not just a caption
           if (messageText && messageText !== '[Файл]') {
-            const textResult = await sendTextMessage(whatsappClientId, messageText, effectivePhone, actualTeacherId || undefined);
+            const textResult = await sendTextMessage(whatsappClientId, messageText, effectivePhone, actualTeacherId || undefined, senderName);
             if (!textResult.success) {
               toast({
                 title: "Ошибка отправки текста",
@@ -1660,7 +1671,8 @@ export const ChatArea = ({
                 message_type: 'manager',
                 is_outgoing: true,
                 messenger_type: 'whatsapp',
-                message_status: 'failed'
+                message_status: 'failed',
+                sender_name: senderName
               }));
               queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
               if (isDirectTeacherMessage) {
@@ -1671,7 +1683,7 @@ export const ChatArea = ({
           }
         } else if (messageText) {
           // Send text message only
-          const result = await sendTextMessage(whatsappClientId, messageText, effectivePhone, actualTeacherId || undefined);
+          const result = await sendTextMessage(whatsappClientId, messageText, effectivePhone, actualTeacherId || undefined, senderName);
           if (!result.success) {
             toast({
               title: "Ошибка отправки",
@@ -1685,7 +1697,8 @@ export const ChatArea = ({
               message_type: 'manager',
               is_outgoing: true,
               messenger_type: 'whatsapp',
-              message_status: 'failed'
+              message_status: 'failed',
+              sender_name: senderName
             }));
             queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
             if (isDirectTeacherMessage) {

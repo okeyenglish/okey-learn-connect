@@ -720,7 +720,8 @@ Deno.serve(async (req) => {
       external_message_id: sendResult.messageId,
       file_url: fileUrl,
       file_name: fileName,
-      file_type: fileType || contentType
+      file_type: fileType || contentType,
+      sender_name: body.senderName || null
     };
 
     // Add client_id or teacher_id based on mode

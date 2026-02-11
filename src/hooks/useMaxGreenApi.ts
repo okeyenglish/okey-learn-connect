@@ -134,7 +134,7 @@ export const useMaxGreenApi = () => {
     fileUrl?: string,
     fileName?: string,
     fileType?: string,
-    options?: { phoneNumber?: string; teacherId?: string }
+    options?: { phoneNumber?: string; teacherId?: string; senderName?: string }
   ) => {
     retryStatus.reset();
 
@@ -172,6 +172,7 @@ export const useMaxGreenApi = () => {
             fileUrl,
             fileName,
             fileType,
+            senderName: options?.senderName,
           }
         : {
             clientId,
@@ -179,6 +180,7 @@ export const useMaxGreenApi = () => {
             fileUrl,
             fileName,
             fileType,
+            senderName: options?.senderName,
           };
 
       const response = await selfHostedPost<{ error?: string }>(
