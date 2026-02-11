@@ -4343,6 +4343,14 @@ const CRMContent = () => {
                 initialSearchQuery={chatInitialSearchQuery}
                 highlightedMessageId={highlightedMessageId}
                 hasPendingPayment={(currentChatClientInfo as any).has_pending_payment || false}
+                onForwardSent={(recipient) => {
+                  if (recipient.type === 'group') {
+                    setInitialGroupChatId(recipient.id);
+                  } else {
+                    setInitialStaffUserId(recipient.id);
+                  }
+                  setVoiceAssistantOpen(true);
+                }}
               />
             </div>
           ) : activeChatType === 'corporate' ? (
