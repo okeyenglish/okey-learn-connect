@@ -853,7 +853,37 @@ export const AIHub = ({
                     : isTeacher ? 'Преподаватель' 
                     : 'Сотрудник';
                   return (
-                    <div key={member.user_id} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors">
+                    <div 
+                      key={member.user_id} 
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                      onClick={() => {
+                        // Skip if clicking on self
+                        if (member.user_id === user?.id) return;
+                        // Find existing chat item for this user
+                        const existingChat = [...staffChatItems, ...teacherChatItems].find(c => {
+                          if (c.type === 'staff') return (c.data as StaffMember)?.id === member.user_id;
+                          if (c.type === 'teacher') return (c.data as TeacherChatItem)?.profileId === member.user_id;
+                          return false;
+                        });
+                        if (existingChat) {
+                          setShowMembersDialog(false);
+                          setActiveChat(existingChat);
+                        } else {
+                          // Create a minimal staff chat item
+                          setShowMembersDialog(false);
+                          setActiveChat({
+                            id: member.user_id,
+                            type: 'staff',
+                            name: fullName,
+                            description: roleLabel,
+                            icon: Users,
+                            iconBg: 'bg-primary/10',
+                            iconColor: 'text-primary',
+                            data: { id: member.user_id, first_name: firstName, last_name: lastName, email: member.profile?.email, branch: member.profile?.branch } as StaffMember,
+                          });
+                        }
+                      }}
+                    >
                       <div className="relative">
                         <Avatar className="h-9 w-9">
                           <AvatarFallback className="text-xs bg-primary/10 text-primary">{initials}</AvatarFallback>
