@@ -303,12 +303,30 @@ export const ChatPresenceIndicator: React.FC<ChatPresenceIndicatorProps> = ({
     return (
       <Popover>
         <PopoverTrigger asChild>
-          <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full border ${containerClass} cursor-pointer hover:opacity-80 transition-opacity`}>
-            {mainIcon}
-            {additionalCount > 0 && (
-              <span className="text-[10px] font-medium text-muted-foreground ml-0.5">
-                +{additionalCount}
-              </span>
+          <div className={`flex items-center -space-x-1.5 cursor-pointer hover:opacity-80 transition-opacity`}>
+            {viewers.slice(0, 3).map((viewer, idx) => (
+              <Avatar 
+                key={viewer.userId} 
+                className={`h-5 w-5 ring-2 ring-background ${
+                  viewer.type === 'on_call' ? 'ring-green-400' : 
+                  viewer.type === 'idle' ? 'ring-slate-300' : 'ring-blue-300'
+                }`}
+                style={{ zIndex: 3 - idx }}
+              >
+                {viewer.avatarUrl && <AvatarImage src={viewer.avatarUrl} alt={viewer.name} />}
+                <AvatarFallback className={`text-[7px] font-medium ${
+                  viewer.type === 'on_call' ? 'bg-green-100 text-green-700' :
+                  viewer.type === 'idle' ? 'bg-slate-100 text-slate-500' :
+                  'bg-blue-100 text-blue-700'
+                }`}>
+                  {viewer.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            ))}
+            {viewers.length > 3 && (
+              <div className="h-5 w-5 rounded-full bg-muted border-2 border-background flex items-center justify-center" style={{ zIndex: 0 }}>
+                <span className="text-[8px] font-medium text-muted-foreground">+{viewers.length - 3}</span>
+              </div>
             )}
           </div>
         </PopoverTrigger>
@@ -322,25 +340,29 @@ export const ChatPresenceIndicator: React.FC<ChatPresenceIndicatorProps> = ({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <div className={`flex items-center gap-1 px-2 py-1 rounded-full border ${containerClass} cursor-pointer hover:opacity-80 transition-opacity`}>
-          {/* Show first viewer's avatar */}
-          <Avatar className="h-4 w-4">
-            {primaryViewer.avatarUrl && (
-              <AvatarImage src={primaryViewer.avatarUrl} alt={primaryViewer.name} />
-            )}
-            <AvatarFallback className="text-[7px] bg-primary/10">
-              {primaryViewer.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          
-          {mainIcon}
-          
-          {additionalCount > 0 && (
-            <div className="flex items-center gap-0.5">
-              <Users className="h-2.5 w-2.5 text-muted-foreground" />
-              <span className="text-[10px] font-medium text-muted-foreground">
-                +{additionalCount}
-              </span>
+        <div className={`flex items-center -space-x-1.5 cursor-pointer hover:opacity-80 transition-opacity`}>
+          {viewers.slice(0, 4).map((viewer, idx) => (
+            <Avatar 
+              key={viewer.userId} 
+              className={`h-6 w-6 ring-2 ring-background ${
+                viewer.type === 'on_call' ? 'ring-green-400' : 
+                viewer.type === 'idle' ? 'ring-slate-300' : 'ring-blue-300'
+              }`}
+              style={{ zIndex: 4 - idx }}
+            >
+              {viewer.avatarUrl && <AvatarImage src={viewer.avatarUrl} alt={viewer.name} />}
+              <AvatarFallback className={`text-[8px] font-medium ${
+                viewer.type === 'on_call' ? 'bg-green-100 text-green-700' :
+                viewer.type === 'idle' ? 'bg-slate-100 text-slate-500' :
+                'bg-blue-100 text-blue-700'
+              }`}>
+                {viewer.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          ))}
+          {viewers.length > 4 && (
+            <div className="h-6 w-6 rounded-full bg-muted border-2 border-background flex items-center justify-center" style={{ zIndex: 0 }}>
+              <span className="text-[9px] font-medium text-muted-foreground">+{viewers.length - 4}</span>
             </div>
           )}
         </div>
