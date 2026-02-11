@@ -829,6 +829,58 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook, organizationId: s
     case 'extendedTextMessage':
       messageText = messageData.extendedTextMessageData?.text || '';
       break;
+    case 'editedMessage': {
+      // Message was edited — find original by stanzaId and update content
+      const editedData = (messageData as any).editedMessageData;
+      const stanzaId = editedData?.stanzaId;
+      const newText = editedData?.textMessage || '';
+      if (stanzaId) {
+        console.log('[whatsapp-webhook] Edited message received, stanzaId:', stanzaId);
+        const { error: editError } = await supabase
+          .from('chat_messages')
+          .update({
+            content: newText,
+            metadata: {
+              is_edited: true,
+              edited_at: new Date(webhook.timestamp * 1000).toISOString(),
+            },
+          })
+          .eq('external_id', stanzaId);
+        if (editError) {
+          console.error('[whatsapp-webhook] Error updating edited message:', editError);
+        } else {
+          console.log('[whatsapp-webhook] ✓ Message edited in DB, stanzaId:', stanzaId);
+        }
+      }
+      return; // No need to insert a new message
+    }
+    case 'deletedMessage': {
+      // Message was deleted — find original by stanzaId and mark as deleted
+      const deletedData = (messageData as any).deletedMessageData;
+      const deletedStanzaId = deletedData?.stanzaId;
+      if (deletedStanzaId) {
+        console.log('[whatsapp-webhook] Deleted message received, stanzaId:', deletedStanzaId);
+        const { error: deleteError } = await supabase
+          .from('chat_messages')
+          .update({
+            content: 'Сообщение было удалено',
+            metadata: {
+              is_deleted: true,
+              deleted_at: new Date(webhook.timestamp * 1000).toISOString(),
+            },
+            media_url: null,
+            file_name: null,
+            media_type: null,
+          })
+          .eq('external_id', deletedStanzaId);
+        if (deleteError) {
+          console.error('[whatsapp-webhook] Error marking message as deleted:', deleteError);
+        } else {
+          console.log('[whatsapp-webhook] ✓ Message marked as deleted, stanzaId:', deletedStanzaId);
+        }
+      }
+      return; // No need to insert a new message
+    }
     default:
       messageText = `[${messageData.typeMessage}]`;
   }
@@ -1063,6 +1115,32 @@ async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: s
         fileType = messageData.fileMessageData?.mimeType;
       }
       break;
+    case 'editedMessage': {
+      const editedData = (messageData as any).editedMessageData;
+      const stanzaId = editedData?.stanzaId;
+      const newText = editedData?.textMessage || '';
+      if (stanzaId) {
+        console.log('[whatsapp-webhook] Edited outgoing message, stanzaId:', stanzaId);
+        await supabase.from('chat_messages').update({
+          content: newText,
+          metadata: { is_edited: true, edited_at: new Date(webhook.timestamp * 1000).toISOString() },
+        }).eq('external_id', stanzaId);
+      }
+      return;
+    }
+    case 'deletedMessage': {
+      const deletedData = (messageData as any).deletedMessageData;
+      const deletedStanzaId = deletedData?.stanzaId;
+      if (deletedStanzaId) {
+        console.log('[whatsapp-webhook] Deleted outgoing message, stanzaId:', deletedStanzaId);
+        await supabase.from('chat_messages').update({
+          content: 'Сообщение было удалено',
+          metadata: { is_deleted: true, deleted_at: new Date(webhook.timestamp * 1000).toISOString() },
+          media_url: null, file_name: null, media_type: null,
+        }).eq('external_id', deletedStanzaId);
+      }
+      return;
+    }
     default:
       messageText = `[${messageData.typeMessage}]`;
   }
