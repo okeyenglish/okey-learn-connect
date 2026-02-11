@@ -497,7 +497,7 @@ const CRMContent = () => {
     getChatState
   } = useChatStatesDB(visibleChatIds);
 
-  const { isInWorkByOthers, isPinnedByCurrentUser, isPinnedByAnyone, getPinnedByUserName, getPinnedByUserId, isLoading: sharedStatesLoading } = useSharedChatStates(visibleChatIds);
+  const { isInWorkByOthers, isPinnedByCurrentUser, isPinnedByAnyone, getPinnedByUserName, getPinnedByUserId, getAllPinners, isLoading: sharedStatesLoading } = useSharedChatStates(visibleChatIds);
   const { markChatAsReadGlobally, isChatReadGlobally } = useGlobalChatReadStatus();
   const completeTask = useCompleteTask();
   const cancelTask = useCancelTask();
@@ -3645,6 +3645,7 @@ const CRMContent = () => {
                                  pinnedByUserName={getPinnedByUserName(chat.id)}
                                  pinnedByUserId={getPinnedByUserId ? getPinnedByUserId(chat.id) : undefined}
                                  isPinnedByUserOnline={isUserOnline && getPinnedByUserId ? isUserOnline(getPinnedByUserId(chat.id) || '') : false}
+                                 allPinners={getAllPinners(chat.id)}
                                  onMessageUser={handleMessageUser}
                                  profile={profile}
                                  bulkSelectMode={bulkSelectMode}
@@ -3719,6 +3720,7 @@ const CRMContent = () => {
                           getPinnedByUserName={getPinnedByUserName}
                           getPinnedByUserId={getPinnedByUserId}
                           isUserOnline={isUserOnline}
+                          getAllPinners={getAllPinners}
                           onMessageUser={handleMessageUser}
                           messageSearchClientIds={messageSearchClientIds}
                           getMessengerType={getMessengerType}
@@ -3770,6 +3772,7 @@ const CRMContent = () => {
                         getPinnedByUserName={getPinnedByUserName}
                         getPinnedByUserId={getPinnedByUserId}
                         isUserOnline={isUserOnline}
+                        getAllPinners={getAllPinners}
                         onMessageUser={handleMessageUser}
                         messageSearchClientIds={messageSearchClientIds}
                         getMessengerType={getMessengerType}
@@ -4065,11 +4068,15 @@ const CRMContent = () => {
                                           <p className={`text-sm ${displayUnread ? 'font-semibold' : 'font-medium'} truncate`}>
                                             {chat.name}
                                           </p>
-                                          <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0 cursor-default" />
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="text-xs">
+                                              📌 Закреплено вами
+                                            </TooltipContent>
+                                          </Tooltip>
                                         </div>
-                                        <Badge variant="outline" className="text-[10px] h-4 px-1.5 mb-1 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/50">
-                                          В работе
-                                        </Badge>
                                         <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
                                           {(typingByClient[chat.id]?.count ?? 0) > 0
                                             ? `${typingByClient[chat.id]?.names?.[0] || 'Менеджер'} печатает...`
@@ -4190,6 +4197,7 @@ const CRMContent = () => {
                           getPinnedByUserName={getPinnedByUserName}
                           getPinnedByUserId={getPinnedByUserId}
                           isUserOnline={isUserOnline}
+                          getAllPinners={getAllPinners}
                           onMessageUser={handleMessageUser}
                           messageSearchClientIds={messageSearchClientIds}
                           getMessengerType={getMessengerType}
@@ -4243,6 +4251,7 @@ const CRMContent = () => {
                         getPinnedByUserName={getPinnedByUserName}
                         getPinnedByUserId={getPinnedByUserId}
                         isUserOnline={isUserOnline}
+                        getAllPinners={getAllPinners}
                         onMessageUser={handleMessageUser}
                         messageSearchClientIds={messageSearchClientIds}
                         getMessengerType={getMessengerType}

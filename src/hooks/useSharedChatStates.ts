@@ -2,6 +2,11 @@ import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/typedClient";
 import { useAuth } from "@/hooks/useAuth";
 
+interface PinnerInfo {
+  user_id: string;
+  user_name: string;
+}
+
 interface SharedChatState {
   chat_id: string;
   is_pinned: boolean;
@@ -9,6 +14,7 @@ interface SharedChatState {
   pinned_by_others: boolean;
   pinned_by_user_name?: string;
   pinned_by_user_id?: string;
+  all_pinners: PinnerInfo[];
 }
 
 export const useSharedChatStates = (chatIds: string[] = []) => {
@@ -81,17 +87,19 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
         }
       });
 
-      // Process otherPins results and collect user IDs
+      // Process otherPins results and collect user IDs (support multiple pinners)
       const otherUserIds = new Set<string>();
-      const chatIdToUserIdMap = new Map<string, string>();
+      const chatIdToUserIdsMap = new Map<string, string[]>();
       
       otherPinsResults.forEach(result => {
         if (!result.error && result.data) {
           result.data.forEach((pin: any) => {
             otherUserIds.add(pin.user_id);
-            if (!chatIdToUserIdMap.has(pin.chat_id)) {
-              chatIdToUserIdMap.set(pin.chat_id, pin.user_id);
+            const existing = chatIdToUserIdsMap.get(pin.chat_id) || [];
+            if (!existing.includes(pin.user_id)) {
+              existing.push(pin.user_id);
             }
+            chatIdToUserIdsMap.set(pin.chat_id, existing);
           });
         }
       });
@@ -125,25 +133,31 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
         });
       }
 
-      // Build pinnedByMap with names
-      chatIdToUserIdMap.forEach((userId, chatId) => {
-        const userName = userNamesMap.get(userId) || 'Менеджер';
-        pinnedByMap.set(chatId, { user_id: userId, user_name: userName });
+      // Build pinnedByMap with names (multiple pinners)
+      const chatIdToPinnersMap = new Map<string, PinnerInfo[]>();
+      chatIdToUserIdsMap.forEach((userIds, chatId) => {
+        const pinners = userIds.map(uid => ({
+          user_id: uid,
+          user_name: userNamesMap.get(uid) || 'Менеджер'
+        }));
+        chatIdToPinnersMap.set(chatId, pinners);
       });
 
       // Собираем итоговую карту только для запрошенных chatIds
       const chatStatesMap: Record<string, SharedChatState> = {};
       currentChatIds.forEach((chatId) => {
         const isPinnedByMe = myStatesMap.get(chatId) || false;
-        const pinnedByOther = pinnedByMap.get(chatId);
+        const pinners = chatIdToPinnersMap.get(chatId) || [];
+        const firstPinner = pinners[0];
         
         chatStatesMap[chatId] = {
           chat_id: chatId,
           is_pinned: isPinnedByMe,
           user_id: isPinnedByMe ? user.id : '',
-          pinned_by_others: !!pinnedByOther,
-          pinned_by_user_name: pinnedByOther?.user_name,
-          pinned_by_user_id: pinnedByOther?.user_id
+          pinned_by_others: pinners.length > 0,
+          pinned_by_user_name: firstPinner?.user_name,
+          pinned_by_user_id: firstPinner?.user_id,
+          all_pinners: pinners
         };
       });
 
@@ -218,12 +232,18 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
     return state?.pinned_by_user_id;
   };
 
+  const getAllPinners = (chatId: string): PinnerInfo[] => {
+    const state = sharedStates[chatId];
+    return state?.all_pinners || [];
+  };
+
   return {
     isInWorkByOthers,
     isPinnedByCurrentUser,
     isPinnedByAnyone,
     getPinnedByUserName,
     getPinnedByUserId,
+    getAllPinners,
     isLoading
   };
 };
