@@ -160,10 +160,10 @@ export const useChatThreads = () => {
       // Try selecting with join to clients; if blocked by RLS, fall back to no-join select
       const selectWithJoin = `
           client_id,
-          content,
+          message_text,
           message_type,
-          messenger,
-          direction,
+          messenger_type,
+          is_outgoing,
           created_at,
           is_read,
           clients (
@@ -186,7 +186,7 @@ export const useChatThreads = () => {
           console.warn('[useChatThreads] Join to clients failed, falling back:', error.message);
           const { data: noJoinData, error: noJoinError } = await supabase
             .from('chat_messages')
-             .select('client_id, content, message_type, messenger, direction, created_at, is_read')
+             .select('client_id, message_text, message_type, messenger_type, is_outgoing, created_at, is_read')
             .order('created_at', { ascending: false })
             .limit(500);
 
@@ -439,12 +439,12 @@ export const useClientUnreadByMessenger = (clientId: string) => {
         const trySelfHosted = async () => {
           const { data, error } = await supabase
             .from('chat_messages')
-            .select('messenger, created_at, direction')
+            .select('messenger_type, created_at, is_outgoing')
             .eq('client_id', clientId)
-            .eq('direction', 'incoming')
+            .eq('is_outgoing', false)
             // Some rows may have NULL is_read; treat them as unread too
             .or('is_read.is.null,is_read.eq.false')
-            .neq('messenger', 'system')
+            .neq('messenger_type', 'system')
             .order('created_at', { ascending: false });
           if (error) throw error;
           return (data || []) as unknown as UnreadMessageRow[];
@@ -453,11 +453,11 @@ export const useClientUnreadByMessenger = (clientId: string) => {
         const tryFallback = async () => {
           const { data, error } = await supabase
             .from('chat_messages')
-            .select('messenger, created_at')
+            .select('messenger_type, created_at')
             .eq('client_id', clientId)
             .eq('message_type', 'client')
             .or('is_read.is.null,is_read.eq.false')
-            .neq('messenger', 'system')
+            .neq('messenger_type', 'system')
             .order('created_at', { ascending: false });
           if (error) throw error;
           return (data || []) as unknown as UnreadMessageRow[];
@@ -591,9 +591,9 @@ export const useSendMessage = () => {
       const isOutgoingMessage = messageType === 'manager' || messageType === 'system';
       const payload: Record<string, unknown> = {
         client_id: clientId,
-        content: messageText,
+        message_text: messageText,
         message_type: messageType,
-        direction: isOutgoingMessage ? 'outgoing' : 'incoming',
+        is_outgoing: isOutgoingMessage,
         is_read: isOutgoingMessage, // Outgoing messages are marked as read
       };
 
@@ -610,7 +610,7 @@ export const useSendMessage = () => {
         payload.metadata = metadata;
       }
       if (messengerType !== undefined) {
-        payload.messenger = messengerType;
+        payload.messenger_type = messengerType;
       }
 
       const tryInsert = async (p: Record<string, unknown>) => {

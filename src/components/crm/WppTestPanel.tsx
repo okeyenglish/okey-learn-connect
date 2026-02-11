@@ -98,7 +98,7 @@ export const WppTestPanel = () => {
         // Get the last message for this client
         const { data: messages } = await supabase
           .from('chat_messages')
-          .select('id, external_id')
+          .select('id, external_message_id')
           .eq('client_id', clientId)
           .order('created_at', { ascending: false })
           .limit(1);

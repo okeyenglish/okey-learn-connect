@@ -38,7 +38,7 @@ export const useSystemChatMessages = () => {
 
       const { data: lastMessages } = await supabase
         .from('chat_messages')
-        .select('client_id, content, created_at')
+        .select('client_id, message_text, created_at')
         .in('client_id', clientIds)
         .order('created_at', { ascending: false })
         .limit(500);
@@ -49,14 +49,14 @@ export const useSystemChatMessages = () => {
         .select('client_id')
         .in('client_id', clientIds)
         .eq('is_read', false)
-        .eq('direction', 'incoming');
+        .eq('is_outgoing', false);
 
       // Build lookup maps
       const lastMessageMap = new Map<string, { content: string; created_at: string }>();
       (lastMessages || []).forEach(msg => {
         if (!lastMessageMap.has(msg.client_id!) && msg.client_id) {
           lastMessageMap.set(msg.client_id, { 
-            content: msg.content || '', 
+            content: msg.message_text || '', 
             created_at: msg.created_at 
           });
         }

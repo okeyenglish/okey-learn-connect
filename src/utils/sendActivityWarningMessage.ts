@@ -66,7 +66,7 @@ const fetchActivityStats = async (organizationId: string, userId: string): Promi
       .from('chat_messages')
       .select('id, client_id', { count: 'exact' })
       .eq('organization_id', organizationId)
-      .eq('direction', 'incoming')
+      .eq('is_outgoing', false)
       .eq('is_read', false),
     
     // Клиенты с непрочитанными сообщениями (уникальные)
@@ -74,7 +74,7 @@ const fetchActivityStats = async (organizationId: string, userId: string): Promi
       .from('chat_messages')
       .select('client_id')
       .eq('organization_id', organizationId)
-      .eq('direction', 'incoming')
+      .eq('is_outgoing', false)
       .eq('is_read', false)
       .not('client_id', 'is', null),
     

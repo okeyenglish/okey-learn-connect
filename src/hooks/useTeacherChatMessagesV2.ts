@@ -25,9 +25,9 @@ interface InfinitePageData<T> {
 
 // Optimized field selection - self-hosted actual columns
 const MESSAGE_FIELDS = `
-  id, teacher_id, content, message_type, system_type, is_read, direction,
-  created_at, media_url, file_name, media_type, external_id,
-  messenger, call_duration, status, metadata, sender_name
+  id, teacher_id, message_text, message_type, system_type, is_read, is_outgoing,
+  created_at, file_url, file_name, file_type, external_message_id,
+  messenger_type, call_duration, message_status, metadata, sender_name
 `;
 
 /**
@@ -105,27 +105,8 @@ const useTeacherChatMessagesInternal = (teacherId: string) => {
       const fetchedItems = data || [];
       const hasMore = fetchedItems.length >= PAGE_SIZE;
 
-      // Normalize field names for UI compatibility
-      // DB uses: content, direction, messenger, status, media_url, media_type, external_id
-      // UI expects: message_text, is_outgoing, messenger_type, message_status, file_url, file_type, external_message_id
-      const normalizedItems = fetchedItems.map((m: any) => ({
-        ...m,
-        // Map DB -> UI aliases
-        message_text: m.content || '',
-        content: m.content || '',
-        is_outgoing: m.direction === 'outgoing',
-        direction: m.direction || 'incoming',
-        file_url: m.media_url,
-        media_url: m.media_url,
-        file_type: m.media_type,
-        media_type: m.media_type,
-        external_message_id: m.external_id,
-        external_id: m.external_id,
-        messenger_type: m.messenger,
-        messenger: m.messenger,
-        message_status: m.status,
-        status: m.status,
-      })) as ChatMessage[];
+      // Self-hosted DB columns match ChatMessage interface directly
+      const normalizedItems = fetchedItems as ChatMessage[];
 
       const chronologicalItems = normalizedItems.reverse();
 

@@ -68,7 +68,7 @@ export const useTeacherConversations = (branch?: string | null) => {
         // Self-hosted uses message_text only (no content, direction columns)
         const { data: batchStats, error: batchError } = await (supabase
           .from('chat_messages') as any)
-          .select('teacher_id, created_at, content, messenger, is_read, direction')
+          .select('teacher_id, created_at, message_text, messenger_type, is_read, is_outgoing')
           .in('teacher_id', batchIds)
           .order('created_at', { ascending: false })
           .limit(batchIds.length * 50); // Enough messages per teacher for accurate unread count
@@ -108,13 +108,13 @@ export const useTeacherConversations = (branch?: string | null) => {
         
         const lastMessage = sortedMessages[0];
         const unreadCount = messages.filter(
-          (m: any) => !m.is_read && m.direction === 'incoming' && m.message_type !== 'system'
+          (m: any) => !m.is_read && !m.is_outgoing && m.message_type !== 'system'
         ).length;
 
         teacherStatsMap.set(teacherId, {
           lastMessageTime: lastMessage?.created_at || null,
-          lastMessageText: lastMessage?.content || null,
-          lastMessengerType: lastMessage?.messenger || null,
+          lastMessageText: lastMessage?.message_text || null,
+          lastMessengerType: lastMessage?.messenger_type || null,
           unreadCount,
         });
       });

@@ -191,7 +191,7 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
           queryFn: async () => {
             // Self-hosted schema: message_text, is_outgoing, messenger_type (no content, direction, external_id)
             const { data } = await (supabase.from('chat_messages') as any)
-              .select('id, teacher_id, content, message_type, is_read, direction, created_at, media_url, file_name, media_type, external_id, messenger, call_duration, status, metadata, sender_name')
+              .select('id, teacher_id, message_text, message_type, is_read, is_outgoing, created_at, file_url, file_name, file_type, external_message_id, messenger_type, call_duration, message_status, metadata, sender_name')
               .eq('teacher_id', teacherId)
               .order('created_at', { ascending: false })
               .limit(50);
@@ -216,7 +216,7 @@ export const TeacherListItem: React.FC<TeacherListItemProps> = ({
           // Self-hosted schema: NO content, media_url, messenger, status, external_id
             const { data } = await supabase
               .from('chat_messages')
-              .select('id, client_id, content, message_type, is_read, direction, created_at, media_url, file_name, media_type, external_id, messenger, call_duration, status, metadata, sender_name')
+              .select('id, client_id, message_text, message_type, is_read, is_outgoing, created_at, file_url, file_name, file_type, external_message_id, messenger_type, call_duration, message_status, metadata, sender_name')
             .eq('client_id', clientId!)
             .order('created_at', { ascending: false })
             .limit(50);
