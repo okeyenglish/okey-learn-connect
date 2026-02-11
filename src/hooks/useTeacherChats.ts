@@ -128,7 +128,7 @@ export const useTeacherChatMessages = (clientId: string, enabled = true) => {
         const { data: directData, error: directError } = await supabase
           .from('chat_messages')
           .select(
-            'id, client_id, content, message_type, system_type, is_read, direction, created_at, media_url, file_name, media_type, external_id, messenger, call_duration, status, metadata, sender_name'
+            'id, client_id, message_text, message_type, system_type, is_read, is_outgoing, created_at, file_url, file_name, file_type, external_message_id, messenger_type, call_duration, message_status, metadata, sender_name'
           )
           .eq('client_id', clientId)
           .order('created_at', { ascending: false })
@@ -137,24 +137,8 @@ export const useTeacherChatMessages = (clientId: string, enabled = true) => {
         if (!directError && directData) {
           console.log('[useTeacherChatMessages] Direct query succeeded:', directData.length, 'messages');
           endMetric(metricId, 'completed', { msgCount: directData.length, method: 'direct' });
-          // Normalize field names for UI compatibility (DB: content, direction, messenger, status)
-          return directData.map((m: Record<string, unknown>) => ({
-            ...m,
-            message_text: m.content || '',
-            content: m.content || '',
-            file_url: m.media_url,
-            file_type: m.media_type,
-            media_url: m.media_url,
-            media_type: m.media_type,
-            external_message_id: m.external_id,
-            external_id: m.external_id,
-            messenger_type: m.messenger,
-            messenger: m.messenger,
-            message_status: m.status,
-            status: m.status,
-            is_outgoing: m.direction === 'outgoing',
-            direction: m.direction || 'incoming',
-          }));
+          // Self-hosted DB columns match ChatMessage interface directly
+          return directData;
         }
 
         console.error('[useTeacherChatMessages] Direct select also failed:', directError);
@@ -287,7 +271,7 @@ export const useTeacherChats = (branch?: string | null) => {
         // Self-hosted uses message_text only (no content column)
         const { data: directMessages, error: directError } = await (supabase
           .from('chat_messages') as any)
-          .select('teacher_id, content, created_at, messenger, is_read, direction')
+          .select('teacher_id, message_text, created_at, messenger_type, is_read, is_outgoing')
           .in('teacher_id', teacherIds)
           .order('created_at', { ascending: false })
           .limit(teacherIds.length * 50); // Enough messages per teacher for accurate unread count
@@ -322,7 +306,7 @@ export const useTeacherChats = (branch?: string | null) => {
             if (messages && messages.length > 0) {
               const lastMsg = messages[0]; // Already sorted desc
               const unreadCount = messages.filter((m: any) => 
-                !m.is_read && m.direction === 'incoming' && m.message_type !== 'system'
+                !m.is_read && !m.is_outgoing && m.message_type !== 'system'
               ).length;
               
               directResults.push({
@@ -330,8 +314,8 @@ export const useTeacherChats = (branch?: string | null) => {
                 client_id: `teacher:${teacher.id}`, // Special marker for direct teacher messages
                 unread_count: unreadCount,
                 last_message_time: lastMsg.created_at,
-                last_message_text: lastMsg.content || null,
-                last_messenger_type: lastMsg.messenger || null,
+                last_message_text: lastMsg.message_text || null,
+                last_messenger_type: lastMsg.messenger_type || null,
               });
             }
           });
@@ -398,7 +382,7 @@ export const useTeacherChats = (branch?: string | null) => {
         
         const { data: allClientMessages } = await supabase
           .from('chat_messages')
-          .select('client_id, content, created_at, messenger, is_read, direction')
+          .select('client_id, message_text, created_at, messenger_type, is_read, is_outgoing')
           .in('client_id', matchedClientIds)
           .order('created_at', { ascending: false })
           .limit(matchedClientIds.length * 10); // ~10 messages per client
@@ -419,7 +403,7 @@ export const useTeacherChats = (branch?: string | null) => {
           const messages = messagesByClientId.get(match.clientId) || [];
           const lastMsg = messages[0]; // Already sorted desc
           const unreadCount = messages.filter((m: any) => 
-            !m.is_read && m.direction === 'incoming' && m.message_type !== 'system'
+            !m.is_read && !m.is_outgoing && m.message_type !== 'system'
           ).length;
           
           results.push({
@@ -427,8 +411,8 @@ export const useTeacherChats = (branch?: string | null) => {
             client_id: match.clientId,
             unread_count: unreadCount,
             last_message_time: lastMsg?.created_at || null,
-            last_message_text: lastMsg?.content || null,
-            last_messenger_type: lastMsg?.messenger || null,
+            last_message_text: lastMsg?.message_text || null,
+            last_messenger_type: lastMsg?.messenger_type || null,
           });
         }
         

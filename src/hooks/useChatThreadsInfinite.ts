@@ -84,10 +84,10 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
   const clientIds = clients.map(c => c.id);
   console.log(`[fetchThreadsDirectly] Fetched ${clientIds.length} clients`);
 
-   // 2. Fetch last messages for these clients (self-hosted schema uses content, direction, messenger)
+   // 2. Fetch last messages for these clients (self-hosted schema uses message_text, is_outgoing, messenger_type)
     const { data: messages, error: messagesError } = await supabase
       .from('chat_messages')
-      .select('client_id, content, created_at, is_read, messenger, message_type, direction')
+      .select('client_id, message_text, created_at, is_read, messenger_type, message_type, is_outgoing')
       .in('client_id', clientIds)
       .order('created_at', { ascending: false })
       .limit(clientIds.length * 10);
@@ -124,13 +124,13 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
     .map((client: any) => {
       const clientMessages = messagesByClient.get(client.id) || [];
       const lastMessage = clientMessages[0];
-      // Self-hosted uses direction='incoming' for incoming messages
+      // Self-hosted uses is_outgoing boolean for message direction
       const unreadMessages = clientMessages.filter((m: any) => 
-        !m.is_read && m.direction !== 'outgoing' && m.message_type !== 'system'
+        !m.is_read && !m.is_outgoing && m.message_type !== 'system'
       );
 
-      // Get message text (self-hosted uses content)
-      const rawLastMessageText = lastMessage?.content || '';
+      // Get message text (self-hosted uses message_text)
+      const rawLastMessageText = lastMessage?.message_text || '';
       const lastMessageText = isSystemPreviewMessage(rawLastMessageText) ? '' : rawLastMessageText;
 
       const unreadByMessenger: UnreadByMessenger = {
@@ -143,7 +143,7 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
       };
       
       unreadMessages.forEach((m: any) => {
-        const type = m.messenger as keyof UnreadByMessenger;
+        const type = m.messenger_type as keyof UnreadByMessenger;
         // Skip 'calls' as it's not a valid messenger enum value in the database
         if (type && type !== 'calls' && type in unreadByMessenger) {
           unreadByMessenger[type]++;

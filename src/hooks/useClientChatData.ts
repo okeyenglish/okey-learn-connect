@@ -176,9 +176,9 @@ export const useClientChatData = (
       const { data: messagesData, error: messagesError } = await supabase
         .from('chat_messages')
         .select(`
-          id, client_id, content, message_type, system_type, is_read,
-          created_at, media_url, file_name, media_type, external_id,
-          messenger, call_duration, status, metadata, sender_name, direction
+          id, client_id, message_text, message_type, system_type, is_read,
+          created_at, file_url, file_name, file_type, external_message_id,
+          messenger_type, call_duration, message_status, metadata, sender_name, is_outgoing
         `)
         .eq('client_id', clientId)
         .order('created_at', { ascending: false })
@@ -196,14 +196,14 @@ export const useClientChatData = (
       // 2. Fetch unread counts
       const { data: unreadData } = await supabase
         .from('chat_messages')
-        .select('messenger')
+        .select('messenger_type')
         .eq('client_id', clientId)
         .eq('is_read', false)
         .eq('message_type', 'client');
 
       const unreadCounts: Record<string, number> = {};
       (unreadData || []).forEach((msg: any) => {
-        const type = msg.messenger || 'unknown';
+        const type = msg.messenger_type || 'unknown';
         unreadCounts[type] = (unreadCounts[type] || 0) + 1;
       });
 
@@ -498,7 +498,7 @@ export const usePrefetchClientChatData = () => {
         // Minimal fallback for prefetch
         const { data: msgs } = await supabase
           .from('chat_messages')
-          .select('id, content, message_type, created_at, messenger')
+          .select('id, message_text, message_type, created_at, messenger_type')
           .eq('client_id', clientId)
           .order('created_at', { ascending: false })
           .limit(50);

@@ -9,8 +9,8 @@ export const useInfiniteChatMessages = (clientId: string) => {
   return useInfiniteQuery({
     queryKey: ['chat-messages-infinite', clientId],
     queryFn: async ({ pageParam = 0 }) => {
-      const { data, error, count } = await supabase
-        .from('chat_messages')
+      const { data, error, count } = await (supabase
+        .from('chat_messages') as any)
         .select(CHAT_MESSAGE_SELECT, { count: 'exact' })
         .eq('client_id', clientId)
         .order('created_at', { ascending: false })

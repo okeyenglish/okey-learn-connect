@@ -395,7 +395,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         .from('chat_messages')
         .select('id')
         .eq('teacher_id', teacherId)
-        .eq('direction', 'incoming')
+        .eq('is_outgoing', false)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -443,7 +443,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         .from('chat_messages')
         .update({ is_read: true })
         .eq('teacher_id', teacherId)
-        .eq('direction', 'incoming')
+        .eq('is_outgoing', false)
         .or('is_read.is.null,is_read.eq.false');
       
       if (error) {

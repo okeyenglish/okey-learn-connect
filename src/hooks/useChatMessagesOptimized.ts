@@ -230,7 +230,7 @@ export const useUnreadCountOptimized = (clientId: string) => {
       // Self-hosted schema: message_type='client' for incoming messages
       const { data, error } = await supabase
         .from('chat_messages')
-        .select('messenger')
+        .select('messenger_type')
         .eq('client_id', clientId)
         .eq('is_read', false)
         .eq('message_type', 'client');
@@ -245,7 +245,7 @@ export const useUnreadCountOptimized = (clientId: string) => {
       };
 
       (data || []).forEach((msg: any) => {
-        const type = msg.messenger || 'whatsapp';
+        const type = msg.messenger_type || 'whatsapp';
         byMessenger[type] = (byMessenger[type] || 0) + 1;
       });
 
