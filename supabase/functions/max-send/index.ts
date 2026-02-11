@@ -308,16 +308,16 @@ Deno.serve(async (req) => {
     // Save message to database
     const messageRecord: Record<string, unknown> = {
       organization_id: organizationId,
-      content: text || `[Файл: ${fileName || 'file'}]`,
+      message_text: text || `[Файл: ${fileName || 'file'}]`,
       message_type: 'manager',
-      messenger: 'max',
-      direction: 'outgoing',
+      messenger_type: 'max',
+      is_outgoing: true,
       is_read: true,
-      external_id: messageId,
-      media_url: fileUrl || null,
+      external_message_id: messageId,
+      file_url: fileUrl || null,
       file_name: fileName || null,
-      media_type: fileType || null,
-      status: 'sent'
+      file_type: fileType || null,
+      message_status: 'sent'
     };
 
     // Add client_id or teacher_id based on mode

@@ -375,16 +375,16 @@ Deno.serve(async (req) => {
       .insert({
         client_id: clientId,
         organization_id: client.organization_id,
-        content: message,
+        message_text: message,
         message_type: 'manager',
-        messenger: 'whatsapp',
-        status: messageStatus,
-        external_id: externalMessageId,
-        direction: 'outgoing',
+        messenger_type: 'whatsapp',
+        message_status: messageStatus,
+        external_message_id: externalMessageId,
+        is_outgoing: true,
         is_read: true,
-        media_url: fileUrl,
+        file_url: fileUrl,
         file_name: fileName,
-        media_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null
+        file_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null
       })
       .select()
       .single();

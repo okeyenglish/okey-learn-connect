@@ -306,13 +306,13 @@ Deno.serve(async (req) => {
                 .from('chat_messages')
                 .insert({
                   client_id: student.client_id,
-                  content: message,
-                  messenger: 'chatos',
+                  message_text: message,
+                  messenger_type: 'chatos',
                   message_type: 'text',
-                  direction: 'outgoing',
+                  is_outgoing: true,
                   sender_name: 'Система',
                   is_read: false,
-                  status: 'sent',
+                  message_status: 'sent',
                   organization_id: lesson.organization_id,
                 });
 

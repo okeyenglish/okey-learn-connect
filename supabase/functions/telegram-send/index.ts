@@ -710,16 +710,16 @@ Deno.serve(async (req) => {
     
     const messageRecord: Record<string, unknown> = {
       organization_id: organizationId,
-      content: text || (fileUrl ? '[Файл]' : ''),
+      message_text: text || (fileUrl ? '[Файл]' : ''),
       message_type: 'manager',
-      messenger: 'telegram',
-      status: 'sent',
-      direction: 'outgoing',
+      messenger_type: 'telegram',
+      message_status: 'sent',
+      is_outgoing: true,
       is_read: true,
-      external_id: sendResult.messageId,
-      media_url: fileUrl,
+      external_message_id: sendResult.messageId,
+      file_url: fileUrl,
       file_name: fileName,
-      media_type: fileType || contentType
+      file_type: fileType || contentType
     };
 
     // Add client_id or teacher_id based on mode
