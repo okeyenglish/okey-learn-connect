@@ -17,7 +17,8 @@ import {
   GraduationCap,
   BellOff,
   Bell,
-  CheckCheck
+  CheckCheck,
+  Share2
 } from "lucide-react";
 
 interface ChatContextMenuProps {
@@ -32,6 +33,7 @@ interface ChatContextMenuProps {
   onConvertToTeacher?: () => void;
   onToggleMute?: () => void;
   onNoResponseNeeded?: () => void;
+  onShareClientCard?: () => void;
   isPinned?: boolean;
   isArchived?: boolean;
   isUnread?: boolean;
@@ -50,6 +52,7 @@ export const ChatContextMenu = ({
   onConvertToTeacher,
   onToggleMute,
   onNoResponseNeeded,
+  onShareClientCard,
   isPinned = false,
   isArchived = false,
   isUnread = false,
@@ -120,6 +123,13 @@ export const ChatContextMenu = ({
                 Отключить звук
               </>
             )}
+          </ContextMenuItem>
+        )}
+        
+        {onShareClientCard && (
+          <ContextMenuItem onClick={onShareClientCard} className="cursor-pointer text-blue-600">
+            <Share2 className="mr-2 h-4 w-4" />
+            Переслать карточку
           </ContextMenuItem>
         )}
         

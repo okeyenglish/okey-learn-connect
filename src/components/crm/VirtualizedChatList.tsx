@@ -41,6 +41,7 @@ interface VirtualizedChatListProps {
   onLinkChat?: (chatId: string, chatName: string) => void;
   onConvertToTeacher?: (chatId: string, chatName: string, phone?: string, email?: string) => void;
   onNoResponseNeeded?: (chatId: string) => void;
+  onShareClientCard?: (chatId: string, chatName: string, chatPhone?: string, avatarUrl?: string | null, branch?: string | null) => void;
   // Loading state
   isLoading?: boolean;
   // Refresh
@@ -80,6 +81,7 @@ export const VirtualizedChatList = React.memo(({
   onLinkChat,
   onConvertToTeacher,
   onNoResponseNeeded,
+  onShareClientCard,
   isLoading = false,
   onRefresh,
   hasNextPage,
@@ -264,6 +266,7 @@ export const VirtualizedChatList = React.memo(({
                   onLinkToClient={chat.type === 'client' && onLinkChat ? () => onLinkChat(chat.id, chat.name) : undefined}
                   onConvertToTeacher={chat.type === 'client' && onConvertToTeacher ? () => onConvertToTeacher(chat.id, chat.name, chat.phone, (chat as any).email) : undefined}
                   onNoResponseNeeded={onNoResponseNeeded ? () => onNoResponseNeeded(chat.id) : undefined}
+                  onShareClientCard={chat.type === 'client' && onShareClientCard ? () => onShareClientCard(chat.id, chat.name, chat.phone, chat.avatar_url, (chat as any).branch) : undefined}
                   onBulkSelect={() => onBulkSelect(chat.id)}
                 />
               </div>
