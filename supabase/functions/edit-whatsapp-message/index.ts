@@ -78,7 +78,7 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SELF_HOSTED_URL') || 'https://api.academyos.ru',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 

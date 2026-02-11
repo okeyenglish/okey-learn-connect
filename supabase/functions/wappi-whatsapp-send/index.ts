@@ -12,9 +12,10 @@ console.log('wappi-whatsapp-send function booted');
 
 const WAPPI_BASE_URL = 'https://wappi.pro';
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+// Use self-hosted Supabase for DB operations
+const selfHostedUrl = Deno.env.get('SELF_HOSTED_URL') || 'https://api.academyos.ru';
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(selfHostedUrl, supabaseServiceKey);
 
 interface WappiSettings {
   wappiProfileId?: string;
