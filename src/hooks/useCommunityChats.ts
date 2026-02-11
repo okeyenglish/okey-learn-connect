@@ -113,7 +113,7 @@ export const useCommunityChats = () => {
       // Batch fetch last messages for all communities (limit to recent for performance)
       const { data: lastMessages } = await supabase
         .from('chat_messages')
-        .select('client_id, message_text, file_type, file_name, created_at')
+        .select('client_id, content, media_type, file_name, created_at')
         .in('client_id', clientIds)
         .order('created_at', { ascending: false })
         .limit(500);
@@ -161,16 +161,16 @@ export const useCommunityChats = () => {
         const unreadCount = unreadCountMap.get(client.id) || 0;
 
         // Format last message - show file type if no text
-        let lastMessageText = lastMsg?.message_text || '';
-        if (!lastMessageText && lastMsg?.file_type) {
+        let lastMessageText = lastMsg?.content || '';
+        if (!lastMessageText && lastMsg?.media_type) {
           // Show media type indicator
-          if (lastMsg.file_type.startsWith('image/')) {
+          if (lastMsg.media_type.startsWith('image/')) {
             lastMessageText = '📷 Фото';
-          } else if (lastMsg.file_type.startsWith('video/')) {
+          } else if (lastMsg.media_type.startsWith('video/')) {
             lastMessageText = '🎥 Видео';
-          } else if (lastMsg.file_type.startsWith('audio/')) {
+          } else if (lastMsg.media_type.startsWith('audio/')) {
             lastMessageText = '🎵 Аудио';
-          } else if (lastMsg.file_type === 'voice') {
+          } else if (lastMsg.media_type === 'voice') {
             lastMessageText = '🎤 Голосовое сообщение';
           } else if (lastMsg.file_name) {
             lastMessageText = `📎 ${lastMsg.file_name}`;

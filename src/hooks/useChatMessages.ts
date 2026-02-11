@@ -64,12 +64,15 @@ export interface ChatThread {
 
 interface MessageWithClient {
   client_id: string;
-  message_text: string;
+  message_text?: string;
+  content?: string;
   message_type: string;
   messenger_type?: string | null;
+  messenger?: string | null;
   created_at: string;
   is_read: boolean;
   is_outgoing?: boolean | null;
+  direction?: string | null;
   salebot_message_id?: string | null;
   clients?: {
     id: string;
@@ -157,13 +160,12 @@ export const useChatThreads = () => {
       // Try selecting with join to clients; if blocked by RLS, fall back to no-join select
       const selectWithJoin = `
           client_id,
-          message_text,
+          content,
           message_type,
-          messenger_type,
-          is_outgoing,
+          messenger,
+          direction,
           created_at,
           is_read,
-          salebot_message_id,
           clients (
             id,
             name,
@@ -184,7 +186,7 @@ export const useChatThreads = () => {
           console.warn('[useChatThreads] Join to clients failed, falling back:', error.message);
           const { data: noJoinData, error: noJoinError } = await supabase
             .from('chat_messages')
-             .select('client_id, message_text, message_type, messenger_type, is_outgoing, created_at, is_read, salebot_message_id')
+             .select('client_id, content, message_type, messenger, direction, created_at, is_read')
             .order('created_at', { ascending: false })
             .limit(500);
 
@@ -254,14 +256,16 @@ export const useChatThreads = () => {
         // Обрабатываем даже если клиент не подтянулся из join (RLS/доступ)
         const safeClient = message.clients || { id: message.client_id, name: '', phone: '' };
         
-        const messengerOfMessage = message.messenger_type || 'whatsapp';
+        const anyMsg = message as any;
+        const messengerOfMessage = anyMsg.messenger || anyMsg.messenger_type || 'whatsapp';
+        const msgText = anyMsg.content ?? anyMsg.message_text ?? '';
         
         if (!threadsMap.has(clientId)) {
           threadsMap.set(clientId, {
             client_id: clientId,
             client_name: safeClient.name || '',
             client_phone: safeClient.phone || '',
-            last_message: message.message_text,
+            last_message: msgText,
             last_message_time: message.created_at,
             last_message_messenger: messengerOfMessage,
             unread_count: 0,
@@ -273,22 +277,21 @@ export const useChatThreads = () => {
         
         const thread = threadsMap.get(clientId)!;
         if (new Date(message.created_at) > new Date(thread.last_message_time)) {
-          thread.last_message = message.message_text;
+          thread.last_message = msgText;
           thread.last_message_time = message.created_at;
           thread.last_message_messenger = messengerOfMessage;
         }
         
         // Считаем только непрочитанные ВХОДЯЩИЕ сообщения (от клиентов), игнорируем исходящие/системные
-        const anyMsg = message as unknown as Record<string, any>;
-        const isIncoming = anyMsg.is_outgoing === false || message.message_type === 'client';
-        const isSystemLikeText = typeof message.message_text === 'string' && /^crm_system_/i.test(message.message_text);
-        const isSystemRow = message.message_type === 'system' || message.messenger_type === 'system' || isSystemLikeText;
+        const isIncoming = anyMsg.direction === 'incoming' || anyMsg.is_outgoing === false || message.message_type === 'client';
+        const isSystemLikeText = typeof msgText === 'string' && /^crm_system_/i.test(msgText);
+        const isSystemRow = message.message_type === 'system' || messengerOfMessage === 'system' || isSystemLikeText;
 
         if (!message.is_read && isIncoming && !isSystemRow) {
           thread.unread_count++;
           
           // Подсчёт по мессенджерам и отслеживание последнего непрочитанного
-          const messengerType = message.messenger_type || 'whatsapp';
+          const messengerType = messengerOfMessage;
           const normalizedMessenger = (messengerType === 'whatsapp' || !messengerType) ? 'whatsapp' : messengerType;
           
           // Поскольку сообщения отсортированы по убыванию времени, первое непрочитанное - самое новое
@@ -436,12 +439,12 @@ export const useClientUnreadByMessenger = (clientId: string) => {
         const trySelfHosted = async () => {
           const { data, error } = await supabase
             .from('chat_messages')
-            .select('messenger_type, created_at, is_outgoing')
+            .select('messenger, created_at, direction')
             .eq('client_id', clientId)
-            .eq('is_outgoing', false)
+            .eq('direction', 'incoming')
             // Some rows may have NULL is_read; treat them as unread too
             .or('is_read.is.null,is_read.eq.false')
-            .neq('messenger_type', 'system')
+            .neq('messenger', 'system')
             .order('created_at', { ascending: false });
           if (error) throw error;
           return (data || []) as unknown as UnreadMessageRow[];
@@ -450,11 +453,11 @@ export const useClientUnreadByMessenger = (clientId: string) => {
         const tryFallback = async () => {
           const { data, error } = await supabase
             .from('chat_messages')
-            .select('messenger_type, created_at')
+            .select('messenger, created_at')
             .eq('client_id', clientId)
             .eq('message_type', 'client')
             .or('is_read.is.null,is_read.eq.false')
-            .neq('messenger_type', 'system')
+            .neq('messenger', 'system')
             .order('created_at', { ascending: false });
           if (error) throw error;
           return (data || []) as unknown as UnreadMessageRow[];
@@ -463,8 +466,8 @@ export const useClientUnreadByMessenger = (clientId: string) => {
         try {
           messages = await trySelfHosted();
         } catch (e: any) {
-          const msg = String(e?.message || '').toLowerCase();
-          const isMissingColumn = msg.includes('does not exist') && msg.includes('column') && msg.includes('is_outgoing');
+        const msg = String(e?.message || '').toLowerCase();
+          const isMissingColumn = msg.includes('does not exist') && msg.includes('column');
           if (isMissingColumn) {
             messages = await tryFallback();
           } else {
@@ -477,10 +480,10 @@ export const useClientUnreadByMessenger = (clientId: string) => {
       let lastUnreadMessenger: string | null = null;
       let latestUnreadTime: Date | null = null;
 
-      const messageRows = (messages || []) as UnreadMessageRow[];
+      const messageRows = (messages || []) as any[];
 
       messageRows.forEach((msg) => {
-        const messengerType = msg.messenger_type || 'whatsapp';
+        const messengerType = msg.messenger || msg.messenger_type || 'whatsapp';
         const msgTime = new Date(msg.created_at);
 
         if (!latestUnreadTime || msgTime > latestUnreadTime) {
@@ -588,9 +591,9 @@ export const useSendMessage = () => {
       const isOutgoingMessage = messageType === 'manager' || messageType === 'system';
       const payload: Record<string, unknown> = {
         client_id: clientId,
-        message_text: messageText,
+        content: messageText,
         message_type: messageType,
-        is_outgoing: isOutgoingMessage, // Mark outgoing messages to exclude from unread count
+        direction: isOutgoingMessage ? 'outgoing' : 'incoming',
         is_read: isOutgoingMessage, // Outgoing messages are marked as read
       };
 
@@ -607,7 +610,7 @@ export const useSendMessage = () => {
         payload.metadata = metadata;
       }
       if (messengerType !== undefined) {
-        payload.messenger_type = messengerType;
+        payload.messenger = messengerType;
       }
 
       const tryInsert = async (p: Record<string, unknown>) => {

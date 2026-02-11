@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { ChatMessage } from './useChatMessages';
+import { CHAT_MESSAGE_SELECT, mapDbRowsToChatMessages, type DbChatMessageRow } from '@/lib/chatMessageMapper';
 
 const PAGE_SIZE = 50;
 
@@ -8,14 +9,9 @@ export const useInfiniteChatMessages = (clientId: string) => {
   return useInfiniteQuery({
     queryKey: ['chat-messages-infinite', clientId],
     queryFn: async ({ pageParam = 0 }) => {
-      // Optimized: no JOIN on clients, avatars fetched separately
       const { data, error, count } = await supabase
         .from('chat_messages')
-        .select(`
-          id, client_id, message_text, message_type, system_type, is_read,
-          created_at, file_url, file_name, file_type, external_message_id,
-          messenger_type, call_duration, message_status
-        `, { count: 'exact' })
+        .select(CHAT_MESSAGE_SELECT, { count: 'exact' })
         .eq('client_id', clientId)
         .order('created_at', { ascending: false })
         .range(pageParam, pageParam + PAGE_SIZE - 1);
@@ -25,7 +21,7 @@ export const useInfiniteChatMessages = (clientId: string) => {
         throw error;
       }
 
-      const messages = (data || []) as ChatMessage[];
+      const messages = mapDbRowsToChatMessages((data || []) as DbChatMessageRow[]);
       
       return {
         messages: messages.reverse(),
