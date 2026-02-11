@@ -1,8 +1,7 @@
 import React from 'react';
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { LazyAvatar, getAvatarInitials } from "@/components/ui/LazyAvatar";
+import { LazyAvatar } from "@/components/ui/LazyAvatar";
 import { Badge } from "@/components/ui/badge";
-import { Pin, MessageSquare, MessageCircle, Info, Phone, Banknote } from "lucide-react";
+import { Pin, MessageSquare, Info, Phone, Banknote } from "lucide-react";
 import { ChatContextMenu } from "./ChatContextMenu";
 import { ChatPresenceIndicator } from "./ChatPresenceIndicator";
 import {
@@ -342,23 +341,14 @@ export const ChatListItem = React.memo(({
             )}
             {/* Unread badge - show only if no pending payment */}
             {displayUnread && !chat.has_pending_payment && (
-              (chat.unread || 0) > 0 ? (
-                <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1">
-                  {showEye ? (
-                    <>
-                      <Avatar className="h-3.5 w-3.5">
-                        <AvatarImage src={profile?.avatar_url || ''} alt={`${profile?.first_name || ''} ${profile?.last_name || ''}`} />
-                        <AvatarFallback className="text-[7px]">{`${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}` || 'M'}</AvatarFallback>
-                      </Avatar>
-                      <span className="font-semibold">{chat.unread}</span>
-                    </>
-                  ) : (
-                    <span className="font-semibold">{chat.unread}</span>
-                  )}
-                </span>
-              ) : (
+              showEye ? (
+                // Manual "marked as unread" should be a simple dot, without counts
                 <span className="w-3 h-3 rounded-full bg-primary shadow-sm flex-shrink-0" />
-              )
+              ) : (chat.unread || 0) > 0 ? (
+                <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1">
+                  <span className="font-semibold">{chat.unread}</span>
+                </span>
+              ) : null
             )}
           </div>
         </div>
