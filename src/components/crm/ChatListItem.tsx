@@ -94,6 +94,7 @@ interface ChatListItemProps {
   pinnedByUserName?: string;
   pinnedByUserId?: string;
   isPinnedByUserOnline?: boolean;
+  allPinners?: { user_id: string; user_name: string }[];
   onMessageUser?: (userId: string, userName: string) => void;
   profile?: any;
   bulkSelectMode: boolean;
@@ -151,6 +152,7 @@ export const ChatListItem = React.memo(({
   pinnedByUserName,
   pinnedByUserId,
   isPinnedByUserOnline,
+  allPinners,
   onMessageUser,
   profile,
   bulkSelectMode,
@@ -257,35 +259,32 @@ export const ChatListItem = React.memo(({
                   <HighlightText text={chat.name} query={searchQuery} />
                 </p>
                 {isPinned && (
-                  <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
-                )}
-                {isPinned && (
-                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/50 flex-shrink-0">
-                    В работе
-                  </Badge>
-                )}
-                {isInWorkByOthers && pinnedByUserName && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Badge 
-                        variant="outline" 
-                        className="text-[10px] h-4 px-1.5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 cursor-pointer hover:bg-blue-100 transition-colors flex items-center gap-0.5 flex-shrink-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (pinnedByUserId && onMessageUser) {
-                            onMessageUser(pinnedByUserId, pinnedByUserName);
-                          }
-                        }}
-                      >
-                        {isPinnedByUserOnline && (
-                          <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                        )}
-                        В работе: {pinnedByUserName.split(' ')[0]}
-                        <MessageCircle className="h-2.5 w-2.5 ml-0.5" />
-                      </Badge>
+                      <Pin className="h-3.5 w-3.5 text-orange-500 flex-shrink-0 cursor-default" />
                     </TooltipTrigger>
                     <TooltipContent side="top" className="text-xs">
-                      {isPinnedByUserOnline ? '🟢 Онлайн — ' : ''}Написать в ChatOS
+                      📌 Закреплено вами
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {isInWorkByOthers && allPinners && allPinners.length > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Pin className="h-3.5 w-3.5 text-blue-500 flex-shrink-0 cursor-pointer" onClick={(e) => {
+                        e.stopPropagation();
+                        if (pinnedByUserId && onMessageUser && pinnedByUserName) {
+                          onMessageUser(pinnedByUserId, pinnedByUserName);
+                        }
+                      }} />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium">📌 Закрепили:</span>
+                        {allPinners.map(p => (
+                          <span key={p.user_id}>{p.user_name}</span>
+                        ))}
+                      </div>
                     </TooltipContent>
                   </Tooltip>
                 )}
