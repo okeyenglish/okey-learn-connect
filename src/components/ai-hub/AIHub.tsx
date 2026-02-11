@@ -855,7 +855,7 @@ export const AIHub = ({
                         {/* Special messages (cards, forwarded) rendered without colored bubble */}
                         {(isClientCardMessage(msg.content, msg.message_type) || isForwardedMessage(msg.content, msg.message_type)) ? (
                           <div className="w-full">
-                            <div className="rounded-2xl border border-border/50 bg-card p-2.5 shadow-sm">
+                            <div className="rounded-2xl bg-primary/5 border border-primary/10 p-2.5">
                               {isClientCardMessage(msg.content, msg.message_type) ? (
                                 <ClientCardBubble content={msg.content} isOwn={false} onOpenChat={(clientId) => { onOpenChat?.(clientId); onToggle(); }} hideComment />
                               ) : (
