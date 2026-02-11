@@ -51,15 +51,13 @@ export function ConvertToTeacherModal({
   const [phone, setPhone] = useState(clientPhone || '');
   const [email, setEmail] = useState(clientEmail || '');
   const [telegramId, setTelegramId] = useState<string>('');
-  const [whatsappId, setWhatsappId] = useState<string>('');
   const [maxUserId, setMaxUserId] = useState<string>('');
+
   
   // Store client data for migration
   const [clientData, setClientData] = useState<{
     telegram_user_id?: string;
     telegram_chat_id?: string;
-    whatsapp_id?: string;
-    whatsapp_chat_id?: string;
     max_user_id?: string;
     max_chat_id?: string;
   }>({});
@@ -101,7 +99,7 @@ export function ConvertToTeacherModal({
         // Fetch client data with all messenger IDs
         const { data: client } = await supabase
           .from('clients')
-          .select('phone, email, telegram_user_id, telegram_chat_id, whatsapp_id, whatsapp_chat_id, max_user_id, max_chat_id')
+          .select('phone, email, telegram_user_id, telegram_chat_id, max_user_id, max_chat_id')
           .eq('id', clientId)
           .maybeSingle();
         
@@ -123,14 +121,11 @@ export function ConvertToTeacherModal({
         setPhone(displayPhone);
         setEmail(bestEmail);
         setTelegramId(client?.telegram_user_id || '');
-        setWhatsappId(client?.whatsapp_id || client?.whatsapp_chat_id || '');
         setMaxUserId(client?.max_user_id || '');
         
         setClientData({
           telegram_user_id: client?.telegram_user_id,
           telegram_chat_id: client?.telegram_chat_id,
-          whatsapp_id: client?.whatsapp_id,
-          whatsapp_chat_id: client?.whatsapp_chat_id,
           max_user_id: client?.max_user_id,
           max_chat_id: client?.max_chat_id,
         });
@@ -175,9 +170,6 @@ export function ConvertToTeacherModal({
       const updateData: Record<string, string | null> = {};
       if (clientData.telegram_user_id) updateData.telegram_user_id = clientData.telegram_user_id;
       if (clientData.telegram_chat_id) updateData.telegram_chat_id = clientData.telegram_chat_id;
-      if (clientData.whatsapp_id || clientData.whatsapp_chat_id) {
-        updateData.whatsapp_id = clientData.whatsapp_id || clientData.whatsapp_chat_id || null;
-      }
       if (clientData.max_user_id) updateData.max_user_id = clientData.max_user_id;
       if (clientData.max_chat_id) updateData.max_chat_id = clientData.max_chat_id;
       
@@ -276,7 +268,6 @@ export function ConvertToTeacherModal({
           is_active: true,
           telegram_user_id: clientData.telegram_user_id || null,
           telegram_chat_id: clientData.telegram_chat_id || null,
-          whatsapp_id: clientData.whatsapp_id || clientData.whatsapp_chat_id || null,
           max_user_id: clientData.max_user_id || null,
           max_chat_id: clientData.max_chat_id || null,
         })
@@ -462,12 +453,6 @@ export function ConvertToTeacherModal({
         <div className="space-y-2">
           <Label>Telegram ID</Label>
           <Input value={telegramId} readOnly className="bg-muted text-muted-foreground" />
-        </div>
-      )}
-      {whatsappId && (
-        <div className="space-y-2">
-          <Label>WhatsApp ID</Label>
-          <Input value={whatsappId} readOnly className="bg-muted text-muted-foreground" />
         </div>
       )}
       {maxUserId && (
