@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ClientCardBubble, isClientCardMessage } from '@/components/ai-hub/ClientCardBubble';
 import { ForwardedMessageBubble, isForwardedMessage } from '@/components/ai-hub/ForwardedMessageBubble';
+import { FileUpload, FileUploadRef } from '@/components/crm/FileUpload';
 import { 
   Bot, 
   Send, 
@@ -30,6 +31,8 @@ import {
   ChevronRight,
   BookOpen,
   FileText,
+  Download,
+  Paperclip,
   HelpCircle,
   Check,
   CheckCheck,
@@ -100,6 +103,9 @@ interface ChatMessage {
   content: string;
   timestamp: Date;
   sender?: string;
+  file_url?: string;
+  file_name?: string;
+  file_type?: string;
   is_read?: boolean;
   message_type?: string;
 }
@@ -155,6 +161,7 @@ export const AIHub = ({
   const [isRecording, setIsRecording] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [teacherClientId, setTeacherClientId] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<{ url: string; name: string; type: string } | null>(null);
   
   const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('online'); // По умолчанию показываем онлайн
   
@@ -169,6 +176,7 @@ export const AIHub = ({
   } = usePersistedSections();
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const fileUploadRef = useRef<FileUploadRef>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const { user, roles } = useAuth();
@@ -463,7 +471,10 @@ export const AIHub = ({
   };
 
   const handleSendMessage = async () => {
-    if (!message.trim() || !activeChat) return;
+    if ((!message.trim() && !pendingFile) || !activeChat) return;
+
+    const textToSend = message.trim();
+    const fileToSend = pendingFile;
 
     const chatId = activeChat.id;
 
@@ -517,11 +528,15 @@ export const AIHub = ({
       try {
         await sendStaffMessage.mutateAsync({
           group_chat_id: activeChat.id,
-          message_text: message.trim(),
-          message_type: 'text'
+          message_text: textToSend || (fileToSend ? fileToSend.name : ''),
+          message_type: fileToSend ? 'file' : 'text',
+          file_url: fileToSend?.url,
+          file_name: fileToSend?.name,
+          file_type: fileToSend?.type,
         });
         setMessage('');
-        stopTyping(); // Stop typing indicator after sending
+        setPendingFile(null);
+        stopTyping();
       } catch (error) {
         toast.error('Ошибка отправки сообщения');
       }
@@ -539,14 +554,17 @@ export const AIHub = ({
         return;
       }
       try {
-        // Use profileId as recipient - links to profiles/auth.users
         await sendStaffMessage.mutateAsync({
           recipient_user_id: profileId,
-          message_text: message.trim(),
-          message_type: 'text'
+          message_text: textToSend || (fileToSend ? fileToSend.name : ''),
+          message_type: fileToSend ? 'file' : 'text',
+          file_url: fileToSend?.url,
+          file_name: fileToSend?.name,
+          file_type: fileToSend?.type,
         });
         setMessage('');
-        stopTyping(); // Stop typing indicator after sending
+        setPendingFile(null);
+        stopTyping();
       } catch (error) {
         toast.error('Ошибка отправки сообщения');
       }
@@ -604,6 +622,9 @@ export const AIHub = ({
         content: m.message_text || '',
         timestamp: new Date(m.created_at),
         sender: m.sender?.first_name,
+        file_url: m.file_url,
+        file_name: m.file_name,
+        file_type: m.file_type,
         is_read: m.is_read,
         message_type: m.message_type
       })) as ChatMessage[];
@@ -617,6 +638,9 @@ export const AIHub = ({
         content: m.message_text || '',
         timestamp: new Date(m.created_at),
         sender: m.sender?.first_name,
+        file_url: m.file_url,
+        file_name: m.file_name,
+        file_type: m.file_type,
         is_read: m.is_read,
         message_type: m.message_type
       })) as ChatMessage[];
@@ -823,13 +847,38 @@ export const AIHub = ({
                         {msg.sender && msg.type === 'assistant' && (
                           <p className="text-xs font-medium mb-1 text-primary">{msg.sender}</p>
                         )}
+                        {/* File attachment */}
+                        {msg.file_url && (
+                          <div className="mb-2">
+                            {msg.file_type?.startsWith('image/') ? (
+                              <a href={msg.file_url} target="_blank" rel="noopener noreferrer">
+                                <img 
+                                  src={msg.file_url} 
+                                  alt={msg.file_name || 'Image'} 
+                                  className="max-w-full rounded-lg max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                />
+                              </a>
+                            ) : (
+                              <a 
+                                href={msg.file_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-background/50 hover:bg-background/80 transition-colors"
+                              >
+                                <FileText className="h-5 w-5 shrink-0" />
+                                <span className="text-xs truncate flex-1">{msg.file_name || 'Файл'}</span>
+                                <Download className="h-4 w-4 shrink-0 opacity-60" />
+                              </a>
+                            )}
+                          </div>
+                        )}
                         {isClientCardMessage(msg.content, msg.message_type) ? (
                           <ClientCardBubble content={msg.content} isOwn={msg.type === 'user'} onOpenChat={(clientId) => { onOpenChat?.(clientId); onToggle(); }} />
                         ) : isForwardedMessage(msg.content, msg.message_type) ? (
                           <ForwardedMessageBubble content={msg.content} isOwn={msg.type === 'user'} onOpenChat={(clientId, messageId) => { onOpenChat?.(clientId, messageId); onToggle(); }} />
-                        ) : (
+                        ) : msg.content ? (
                           <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                        )}
+                        ) : null}
                       </div>
                       <div className={`flex items-center gap-1 text-xs text-muted-foreground mt-1 px-1 ${msg.type === 'user' ? 'justify-end' : ''}`}>
                         <span>
@@ -871,12 +920,38 @@ export const AIHub = ({
 
           {/* Input */}
           <div className="p-3 border-t bg-background absolute inset-x-0 bottom-0">
+            {/* Pending file preview */}
+            {pendingFile && (
+              <div className="flex items-center gap-2 mb-2 px-2 py-1.5 bg-muted rounded-lg text-xs">
+                {pendingFile.type.startsWith('image/') ? (
+                  <img src={pendingFile.url} alt="" className="h-8 w-8 rounded object-cover" />
+                ) : (
+                  <FileText className="h-4 w-4 shrink-0" />
+                )}
+                <span className="truncate flex-1">{pendingFile.name}</span>
+                <button onClick={() => setPendingFile(null)} className="text-muted-foreground hover:text-foreground">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
             <div className="flex gap-2 items-center">
+              {/* File upload button - only for staff/teacher/group chats */}
+              {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
+                <FileUpload
+                  ref={fileUploadRef}
+                  onFileUpload={(fileInfo) => {
+                    setPendingFile({ url: fileInfo.url, name: fileInfo.name, type: fileInfo.type });
+                  }}
+                  onFileRemove={() => setPendingFile(null)}
+                  disabled={isProcessing || sendStaffMessage.isPending}
+                  maxFiles={1}
+                  maxSize={10}
+                />
+              )}
               <Input
                 value={message}
                 onChange={(e) => {
                   setMessage(e.target.value);
-                  // Trigger typing indicator for staff chats
                   if (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') {
                     if (e.target.value.trim()) {
                       setTyping(true, e.target.value);
@@ -887,7 +962,6 @@ export const AIHub = ({
                 }}
                 onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                 onBlur={() => {
-                  // Stop typing when input loses focus
                   if (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') {
                     stopTyping();
                   }
@@ -898,7 +972,7 @@ export const AIHub = ({
               />
               <Button 
                 onClick={handleSendMessage}
-                disabled={!message.trim() || isProcessing || isRecording || sendStaffMessage.isPending}
+                disabled={(!message.trim() && !pendingFile) || isProcessing || isRecording || sendStaffMessage.isPending}
                 size="icon"
                 className="shrink-0 h-9 w-9"
               >
