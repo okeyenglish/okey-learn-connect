@@ -834,12 +834,6 @@ export const AIHub = ({
           {/* Members list (inline) or Messages */}
           {showMembersDialog && activeChat.type === 'group' && groupMembers.data ? (
             <ScrollArea className="flex-1 overflow-auto">
-              <div className="px-3 py-3 border-b flex items-center justify-between">
-                <h3 className="font-semibold text-sm">Участники ({groupMembers.data.length})</h3>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowMembersDialog(false)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
               <div className="p-2 space-y-1">
                 {groupMembers.data.map((member: any) => {
                   const firstName = member.profile?.first_name || '';
