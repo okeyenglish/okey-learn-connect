@@ -134,8 +134,9 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
       const clientMessages = messagesByClient.get(client.id) || [];
       const lastMessage = clientMessages[0];
       // Self-hosted uses is_outgoing boolean for message direction
+      // Only count incoming client messages as unread (exclude system, comment, manager types)
       const unreadMessages = clientMessages.filter((m: any) => 
-        !m.is_read && !m.is_outgoing && m.message_type !== 'system'
+        !m.is_read && !m.is_outgoing && m.message_type === 'client'
       );
 
       // Get message text (self-hosted uses message_text)
