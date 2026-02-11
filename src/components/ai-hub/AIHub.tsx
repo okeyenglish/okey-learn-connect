@@ -814,7 +814,7 @@ export const AIHub = ({
 
           {/* Messages */}
           <ScrollArea ref={scrollAreaRef} className="flex-1 overflow-auto">
-            <div className="space-y-3 p-4 pb-24">
+            <div className="space-y-1 px-3 py-4 pb-24">
               {isLoading ? (
                 <div className="text-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
@@ -823,80 +823,119 @@ export const AIHub = ({
               ) : currentMessages.length === 0 ? (
                 <div className="text-center py-8">
                   <MessagesSquare className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
-                  <p className="mt-2 text-sm text-muted-foreground">Нет сообщений</p>
+                  <p className="mt-2 text-sm text-muted-foreground">Начните диалог</p>
                 </div>
               ) : (
-                currentMessages.map((msg) => (
-                  <div 
-                    key={msg.id}
-                    className={`flex gap-2 ${msg.type === 'user' ? 'justify-end' : ''}`}
-                  >
-                    {msg.type === 'assistant' && (
-                      <Avatar className="h-8 w-8 shrink-0">
-                        <AvatarFallback className={activeChat.iconBg}>
-                          <activeChat.icon className={`h-4 w-4 ${activeChat.iconColor}`} />
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
-                    <div className={`max-w-[85%] ${msg.type === 'user' ? 'flex justify-end' : ''}`}>
-                      <div className={`rounded-lg px-3 py-2 ${
-                        msg.type === 'user' 
-                          ? 'bg-primary text-primary-foreground ml-auto' 
-                          : 'bg-muted'
-                      }`}>
-                        {msg.sender && msg.type === 'assistant' && (
-                          <p className="text-xs font-medium mb-1 text-primary">{msg.sender}</p>
-                        )}
-                        {/* File attachment */}
-                        {msg.file_url && (
-                          <div className="mb-2">
-                            {msg.file_type?.startsWith('image/') ? (
-                              <a href={msg.file_url} target="_blank" rel="noopener noreferrer">
-                                <img 
-                                  src={msg.file_url} 
-                                  alt={msg.file_name || 'Image'} 
-                                  className="max-w-full rounded-lg max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                />
-                              </a>
-                            ) : (
-                              <a 
-                                href={msg.file_url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-background/50 hover:bg-background/80 transition-colors"
-                              >
-                                <FileText className="h-5 w-5 shrink-0" />
-                                <span className="text-xs truncate flex-1">{msg.file_name || 'Файл'}</span>
-                                <Download className="h-4 w-4 shrink-0 opacity-60" />
-                              </a>
-                            )}
-                          </div>
-                        )}
-                        {isClientCardMessage(msg.content, msg.message_type) ? (
-                          <ClientCardBubble content={msg.content} isOwn={msg.type === 'user'} onOpenChat={(clientId) => { onOpenChat?.(clientId); onToggle(); }} />
-                        ) : isForwardedMessage(msg.content, msg.message_type) ? (
-                          <ForwardedMessageBubble content={msg.content} isOwn={msg.type === 'user'} onOpenChat={(clientId, messageId) => { onOpenChat?.(clientId, messageId); onToggle(); }} />
-                        ) : msg.content ? (
-                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                        ) : null}
-                      </div>
-                      <div className={`flex items-center gap-1 text-xs text-muted-foreground mt-1 px-1 ${msg.type === 'user' ? 'justify-end' : ''}`}>
-                        <span>
-                          {msg.timestamp.toLocaleTimeString('ru-RU', { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </span>
-                        {/* Read indicator for user messages in staff chats */}
-                        {msg.type === 'user' && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
-                          msg.is_read 
-                            ? <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
-                            : <Check className="h-3.5 w-3.5" />
-                        )}
+                currentMessages.map((msg, idx) => {
+                  const isOwn = msg.type === 'user';
+                  const prevMsg = idx > 0 ? currentMessages[idx - 1] : null;
+                  const nextMsg = idx < currentMessages.length - 1 ? currentMessages[idx + 1] : null;
+                  const isFirstInGroup = !prevMsg || prevMsg.type !== msg.type;
+                  const isLastInGroup = !nextMsg || nextMsg.type !== msg.type;
+                  
+                  return (
+                    <div 
+                      key={msg.id}
+                      className={`flex items-end gap-1.5 ${isOwn ? 'justify-end' : 'justify-start'} ${isLastInGroup ? 'mb-3' : 'mb-0.5'}`}
+                    >
+                      {/* Avatar for incoming messages - only on last in group */}
+                      {!isOwn && (
+                        <div className="w-7 shrink-0">
+                          {isLastInGroup && (
+                            <Avatar className="h-7 w-7">
+                              <AvatarFallback className={`${activeChat.iconBg} text-[10px]`}>
+                                {msg.sender ? msg.sender.charAt(0).toUpperCase() : <activeChat.icon className={`h-3.5 w-3.5 ${activeChat.iconColor}`} />}
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+                        </div>
+                      )}
+                      
+                      <div className={`max-w-[75%] ${isOwn ? 'items-end' : 'items-start'}`}>
+                        <div className={`relative px-3 py-1.5 ${
+                          isOwn 
+                            ? `bg-primary text-primary-foreground ${isLastInGroup ? 'rounded-2xl rounded-br-md' : 'rounded-2xl'}` 
+                            : `bg-muted ${isLastInGroup ? 'rounded-2xl rounded-bl-md' : 'rounded-2xl'}`
+                        }`}>
+                          {/* Sender name for group chats - only first in group */}
+                          {msg.sender && !isOwn && isFirstInGroup && activeChat.type === 'group' && (
+                            <p className="text-[11px] font-semibold mb-0.5 text-primary">{msg.sender}</p>
+                          )}
+                          
+                          {/* File attachment */}
+                          {msg.file_url && (
+                            <div className={msg.content ? 'mb-1.5' : ''}>
+                              {msg.file_type?.startsWith('image/') ? (
+                                <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="block">
+                                  <img 
+                                    src={msg.file_url} 
+                                    alt={msg.file_name || 'Image'} 
+                                    className="max-w-full rounded-lg max-h-52 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                  />
+                                </a>
+                              ) : (
+                                <a 
+                                  href={msg.file_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className={`flex items-center gap-2 px-2.5 py-2 rounded-lg transition-colors ${
+                                    isOwn ? 'bg-primary-foreground/10 hover:bg-primary-foreground/20' : 'bg-background/60 hover:bg-background/90'
+                                  }`}
+                                >
+                                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                    isOwn ? 'bg-primary-foreground/20' : 'bg-primary/10'
+                                  }`}>
+                                    <FileText className={`h-4 w-4 ${isOwn ? 'text-primary-foreground' : 'text-primary'}`} />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <span className="text-xs font-medium truncate block">{msg.file_name || 'Файл'}</span>
+                                    <span className={`text-[10px] ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>Скачать</span>
+                                  </div>
+                                  <Download className={`h-4 w-4 shrink-0 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`} />
+                                </a>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Message content */}
+                          {isClientCardMessage(msg.content, msg.message_type) ? (
+                            <ClientCardBubble content={msg.content} isOwn={isOwn} onOpenChat={(clientId) => { onOpenChat?.(clientId); onToggle(); }} />
+                          ) : isForwardedMessage(msg.content, msg.message_type) ? (
+                            <ForwardedMessageBubble content={msg.content} isOwn={isOwn} onOpenChat={(clientId, messageId) => { onOpenChat?.(clientId, messageId); onToggle(); }} />
+                          ) : msg.content ? (
+                            <div className="flex items-end gap-2">
+                              <p className="text-[13.5px] leading-[18px] whitespace-pre-wrap">{msg.content}</p>
+                              <span className={`text-[10px] leading-[14px] shrink-0 self-end translate-y-[1px] ${
+                                isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'
+                              }`}>
+                                {msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                                {isOwn && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
+                                  msg.is_read 
+                                    ? <CheckCheck className="h-3 w-3 inline ml-0.5 text-blue-300" />
+                                    : <Check className="h-3 w-3 inline ml-0.5" />
+                                )}
+                              </span>
+                            </div>
+                          ) : (
+                            /* File-only message - show time */
+                            <div className={`flex justify-end mt-1 text-[10px] ${
+                              isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'
+                            }`}>
+                              <span>
+                                {msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                                {isOwn && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
+                                  msg.is_read 
+                                    ? <CheckCheck className="h-3 w-3 inline ml-0.5 text-blue-300" />
+                                    : <Check className="h-3 w-3 inline ml-0.5" />
+                                )}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
               {isProcessing && (
                 <div className="flex gap-2">
@@ -919,23 +958,25 @@ export const AIHub = ({
           </ScrollArea>
 
           {/* Input */}
-          <div className="p-3 border-t bg-background absolute inset-x-0 bottom-0">
+          <div className="px-3 py-2 bg-background/95 backdrop-blur-sm absolute inset-x-0 bottom-0 border-t">
             {/* Pending file preview */}
             {pendingFile && (
-              <div className="flex items-center gap-2 mb-2 px-2 py-1.5 bg-muted rounded-lg text-xs">
+              <div className="flex items-center gap-2 mb-2 mx-1 px-3 py-2 bg-muted rounded-xl text-xs">
                 {pendingFile.type.startsWith('image/') ? (
-                  <img src={pendingFile.url} alt="" className="h-8 w-8 rounded object-cover" />
+                  <img src={pendingFile.url} alt="" className="h-10 w-10 rounded-lg object-cover" />
                 ) : (
-                  <FileText className="h-4 w-4 shrink-0" />
+                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <FileText className="h-5 w-5 text-primary" />
+                  </div>
                 )}
-                <span className="truncate flex-1">{pendingFile.name}</span>
-                <button onClick={() => setPendingFile(null)} className="text-muted-foreground hover:text-foreground">
-                  <X className="h-3.5 w-3.5" />
+                <span className="truncate flex-1 text-sm">{pendingFile.name}</span>
+                <button onClick={() => setPendingFile(null)} className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-background/50 transition-colors">
+                  <X className="h-4 w-4" />
                 </button>
               </div>
             )}
-            <div className="flex gap-2 items-center">
-              {/* File upload button - only for staff/teacher/group chats */}
+            <div className="flex gap-1.5 items-end">
+              {/* File upload button */}
               {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
                 <FileUpload
                   ref={fileUploadRef}
@@ -968,28 +1009,19 @@ export const AIHub = ({
                 }}
                 placeholder={getCurrentPlaceholder()}
                 disabled={isProcessing || isRecording || sendStaffMessage.isPending}
-                className="flex-1 h-9"
+                className="flex-1 h-10 rounded-full bg-muted border-0 px-4 text-sm focus-visible:ring-1"
               />
               <Button 
                 onClick={handleSendMessage}
                 disabled={(!message.trim() && !pendingFile) || isProcessing || isRecording || sendStaffMessage.isPending}
                 size="icon"
-                className="shrink-0 h-9 w-9"
+                className="shrink-0 h-10 w-10 rounded-full"
               >
                 {isProcessing || sendStaffMessage.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Send className="h-4 w-4" />
                 )}
-              </Button>
-              <Button
-                onClick={() => setIsRecording(!isRecording)}
-                disabled={isProcessing || sendStaffMessage.isPending}
-                size="icon"
-                variant={isRecording ? "destructive" : "outline"}
-                className="shrink-0 h-9 w-9"
-              >
-                {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
               </Button>
             </div>
           </div>
