@@ -43,47 +43,41 @@ export const ForwardedMessageBubble = ({ content, isOwn, onOpenChat }: Forwarded
   };
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       {/* Comment above the forwarded block */}
       {comment && (
-        <p className="text-sm whitespace-pre-wrap">{comment}</p>
+        <p className="text-[13.5px] leading-[18px] whitespace-pre-wrap">{comment}</p>
       )}
 
-      {/* Forwarded message block */}
+      {/* Forwarded message block - compact quote style */}
       <div
-        className={`rounded-xl overflow-hidden cursor-pointer transition-all hover:opacity-90 active:scale-[0.98] ${
-          isOwn
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-accent text-accent-foreground'
-        }`}
+        className="cursor-pointer transition-opacity hover:opacity-80 active:scale-[0.99]"
         onClick={handleClick}
       >
-        {/* Header */}
-        <div className={`flex items-center gap-1.5 px-3 pt-2.5 pb-1 text-xs font-medium ${
-          isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
-        }`}>
-          <Forward className="h-3 w-3" />
-          <span>Переслано от</span>
-        </div>
+        <div className={`border-l-2 ${isOwn ? 'border-primary-foreground/40' : 'border-primary/50'} pl-2.5 py-0.5`}>
+          {/* Header with icon */}
+          <div className={`flex items-center gap-1 text-[11px] ${
+            isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'
+          }`}>
+            <Forward className="h-3 w-3" />
+            <span>Переслано от</span>
+            <span className={`font-semibold ${isOwn ? 'text-primary-foreground/80' : 'text-primary'}`}>{clientName}</span>
+          </div>
 
-        {/* Client name */}
-        <div className={`px-3 pb-1 text-xs font-semibold ${
-          isOwn ? 'text-primary-foreground/90' : 'text-primary'
-        }`}>
-          {clientName}
+          {/* Message text */}
+          {messageText && (
+            <p className={`text-[13px] leading-[17px] whitespace-pre-wrap mt-0.5 ${
+              isOwn ? 'text-primary-foreground/90' : 'text-foreground/80'
+            }`}>{messageText}</p>
+          )}
         </div>
-
-        {/* Message text */}
-        <div className="px-3 pb-2">
-          <p className="text-sm whitespace-pre-wrap">{messageText}</p>
-        </div>
-
+        
         {/* Footer hint */}
-        <div className={`px-3 pb-2 text-[10px] ${
-          isOwn ? 'text-primary-foreground/50' : 'text-muted-foreground/70'
+        <p className={`text-[10px] mt-1 ${
+          isOwn ? 'text-primary-foreground/40' : 'text-muted-foreground/60'
         }`}>
-          Нажмите, чтобы перейти к сообщению
-        </div>
+          Нажмите, чтобы перейти →
+        </p>
       </div>
     </div>
   );
