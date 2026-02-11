@@ -1,38 +1,66 @@
 
-# Исправление: массовая привязка клиентов к филиалу не находит клиентов
+# Серверная фильтрация чатов по филиалам менеджера
 
-## Причина
-Все 4773 запроса к таблице `clients` возвращают пустой массив `[]` (статус 200). Это происходит потому, что запросы отправляются с `anon key` вместо JWT токена авторизованного пользователя. RLS-политики на таблице `clients` требуют `organization_id = get_user_organization_id()`, а для анонимного ключа `auth.uid()` = NULL, поэтому ни одна строка не проходит фильтр.
+## Проблема
+
+Сейчас `get_chat_threads_paginated` загружает 50 последних чатов **глобально**, а фильтрация по филиалу менеджера (`canAccessBranch`) происходит на клиенте (строки 1293-1301 в CRM.tsx). Если у менеджера открыты филиалы "Мытищи" и "Котельники", но среди глобальных топ-50 чатов только 5 из этих филиалов -- он видит лишь 5 чатов.
+
+Нужно передавать список разрешенных филиалов менеджера на уровень SQL, чтобы пагинация возвращала 50 чатов **из его филиалов**.
 
 ## Решение
-В файле `src/components/admin/BulkBranchReassign.tsx` заменить использование `SELF_HOSTED_ANON_KEY` в заголовках `Authorization` на JWT токен текущего пользователя из `supabase.auth.getSession()`. Ключ `apikey` остаётся anon key (так требует PostgREST), но `Authorization` должен содержать Bearer-токен пользователя.
 
-## Технические изменения
+### 1. Обновить RPC `get_chat_threads_paginated`
 
-### Файл: `src/components/admin/BulkBranchReassign.tsx`
+Добавить параметр `p_branches TEXT[] DEFAULT NULL` (массив названий филиалов).
 
-1. Добавить импорт supabase клиента:
-```typescript
-import { supabase } from '@/integrations/supabase/client';
+Когда массив передан и не пуст, добавляется условие:
+```text
+WHERE ...
+  AND (p_branches IS NULL OR branch IS NULL OR branch = ANY(p_branches))
 ```
 
-2. Добавить вспомогательную функцию для получения заголовков авторизации с токеном пользователя:
-```typescript
-const getAuthHeaders = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token || SELF_HOSTED_ANON_KEY;
-  return {
-    'apikey': SELF_HOSTED_ANON_KEY,
-    'Authorization': `Bearer ${token}`,
-  };
-};
-```
+Клиенты с `branch = NULL` (нераспределённые) продолжают показываться всем -- это текущая политика "fail-open".
 
-3. В функции `processUpdate` (строки 102-175) заменить все хардкод-заголовки на вызов `getAuthHeaders()`:
-   - Строка 111: в запросе к `client_phone_numbers`
-   - Строка 130: в запросе к `clients` (поиск)
-   - Строки 154-156: в PATCH-запросе на обновление филиала
+### 2. Аналогичное обновление для `get_unread_chat_threads`
 
-Все три fetch-вызова будут использовать `await getAuthHeaders()` вместо статических заголовков с anon key.
+Добавить `p_branches TEXT[] DEFAULT NULL` с тем же условием.
 
-Это единственное необходимое изменение -- проблема не в филиале, а в том, что RLS не пропускает запросы без идентификации пользователя.
+### 3. Изменения в `useChatThreadsInfinite.ts`
+
+- Принять `allowedBranches?: string[]` как параметр хука
+- Добавить в `queryKey`: `['chat-threads-infinite', allowedBranches || 'all']`
+- Передавать `p_branches` в RPC:
+  ```
+  .rpc('get_chat_threads_paginated', {
+    p_limit: PAGE_SIZE + 1,
+    p_offset: pageParam * PAGE_SIZE,
+    p_branches: allowedBranches?.length ? allowedBranches : null
+  })
+  ```
+- Обновить `fetchThreadsDirectly`: при наличии `allowedBranches` добавить `.in('branch', allowedBranches)` с дополнительным `.or('branch.is.null')` для fail-open
+- Аналогично для `get_unread_chat_threads`
+
+### 4. Изменения в `CRM.tsx`
+
+- Из `useManagerBranches()` уже получаем `allowedBranchNames` и `hasRestrictions`
+- Передать в хук: `useChatThreadsInfinite(hasManagerBranchRestrictions ? allowedBranchNames : undefined)`
+- Это значит:
+  - **Админы**: `allowedBranches = undefined` => RPC загружает все чаты (как сейчас)
+  - **Менеджеры без ограничений**: то же
+  - **Менеджеры с филиалами**: RPC загружает 50 последних чатов только из их филиалов + нераспределённые
+- Ручной фильтр `selectedBranch` из dropdown остаётся как дополнительное сужение на клиенте
+
+### 5. Совместимость с ручным фильтром
+
+Ручной dropdown-фильтр по филиалу (строки 1281-1292) продолжает работать поверх серверной фильтрации. Если менеджеру открыты "Мытищи" и "Котельники", а он выбирает в dropdown "Мытищи" -- сервер отдаёт чаты обоих филиалов, клиент дополнительно фильтрует до "Мытищи".
+
+### 6. SQL для self-hosted
+
+Будет создан файл с инструкцией по обновлению RPC на self-hosted сервере, так как миграции Lovable Cloud не применяются к `api.academyos.ru` автоматически.
+
+### Результат
+
+- Менеджер с филиалами "Мытищи" + "Котельники" видит 50 последних чатов **из этих филиалов** + нераспределённые
+- Пагинация (infinite scroll) работает в рамках его филиалов
+- Админы видят всё как раньше
+- Ручной фильтр по филиалу работает как дополнительное сужение
