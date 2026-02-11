@@ -162,6 +162,7 @@ export const AIHub = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [teacherClientId, setTeacherClientId] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<{ url: string; name: string; type: string } | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   
   const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('online'); // По умолчанию показываем онлайн
   
@@ -890,14 +891,18 @@ export const AIHub = ({
                         ) : msg.file_url && msg.file_type?.startsWith('image/') ? (
                           /* Image messages - clean, no colored bg, no filename */
                           <div>
-                            <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="block">
+                            <div 
+                              className="cursor-pointer" 
+                              onClick={() => setLightboxUrl(msg.file_url!)}
+                            >
                               <img 
                                 src={msg.file_url} 
                                 alt="" 
-                                className="max-w-full rounded-2xl max-h-56 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                className="max-w-full rounded-2xl max-h-56 object-cover hover:opacity-90 transition-opacity"
                               />
-                            </a>
-                            {msg.content && (
+                            </div>
+                            {/* Only show text if it's not just the filename */}
+                            {msg.content && msg.content !== msg.file_name && !msg.content.match(/\.(png|jpg|jpeg|gif|webp|heic|svg|bmp)$/i) && (
                               <div className={`mt-1 px-3 py-1.5 ${
                                 isOwn 
                                   ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-md' 
@@ -1076,6 +1081,39 @@ export const AIHub = ({
             </div>
           </div>
         </SheetContent>
+        
+        {/* Image lightbox modal */}
+        {lightboxUrl && (
+          <div 
+            className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 cursor-pointer"
+            onClick={() => setLightboxUrl(null)}
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 right-4 text-white hover:bg-white/20 z-10"
+              onClick={() => setLightboxUrl(null)}
+            >
+              <X className="h-6 w-6" />
+            </Button>
+            <img
+              src={lightboxUrl}
+              alt=""
+              className="max-w-full max-h-full object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <a
+              href={lightboxUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute bottom-6 bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-full text-sm flex items-center gap-2 transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Download className="h-4 w-4" />
+              Открыть оригинал
+            </a>
+          </div>
+        )}
       </Sheet>
     );
   }
