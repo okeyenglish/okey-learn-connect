@@ -101,22 +101,39 @@ const BulkBranchReassign: React.FC = () => {
 
       await Promise.all(batch.map(async (phone) => {
         try {
-          // Search client by phone (last 10 digits, ilike pattern)
+          // Search client by phone in client_phone_numbers table (last 10 digits)
           const last10 = phone.slice(-10);
-          const searchRes = await fetch(
-            `${SELF_HOSTED_URL}/rest/v1/clients?phone=ilike.%25${last10}%25&select=id&limit=1`,
+          
+          // First try client_phone_numbers table (primary phone storage)
+          const phoneNumRes = await fetch(
+            `${SELF_HOSTED_URL}/rest/v1/client_phone_numbers?phone=ilike.%25${last10}%25&select=client_id&limit=1`,
             { headers: { 'apikey': SELF_HOSTED_ANON_KEY, 'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}` } }
           );
-
-          const clients = await searchRes.json();
-          if (!Array.isArray(clients) || clients.length === 0) {
+          
+          let clientId: string | null = null;
+          const phoneNums = await phoneNumRes.json();
+          
+          if (Array.isArray(phoneNums) && phoneNums.length > 0) {
+            clientId = phoneNums[0].client_id;
+          } else {
+            // Fallback: search in clients.phone column
+            const searchRes = await fetch(
+              `${SELF_HOSTED_URL}/rest/v1/clients?phone=ilike.%25${last10}%25&select=id&limit=1`,
+              { headers: { 'apikey': SELF_HOSTED_ANON_KEY, 'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}` } }
+            );
+            const clients = await searchRes.json();
+            if (Array.isArray(clients) && clients.length > 0) {
+              clientId = clients[0].id;
+            }
+          }
+          
+          if (!clientId) {
             res.notFound++;
             res.notFoundPhones.push(phone);
             return;
           }
 
           // Update branch
-          const clientId = clients[0].id;
           const patchRes = await fetch(
             `${SELF_HOSTED_URL}/rest/v1/clients?id=eq.${clientId}`,
             {
