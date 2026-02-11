@@ -397,15 +397,15 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
     const { error: teacherMsgError } = await supabase.from('chat_messages').insert({
       client_id: null,
       organization_id: organizationId,
-      content: messageText,
+      message_text: messageText,
       message_type: isFromMe ? 'manager' : 'client',
-      messenger: 'whatsapp',
-      direction: isFromMe ? 'outgoing' : 'incoming',
+      messenger_type: 'whatsapp',
+      is_outgoing: isFromMe,
       is_read: isFromMe,
-      media_url: fileUrl,
+      file_url: fileUrl,
       file_name: fileName,
-      media_type: fileType,
-      external_id: data.messageId || (data as any).id || null,
+      file_type: fileType,
+      external_message_id: data.messageId || (data as any).id || null,
       metadata: { teacher_id: teacherData.id, ...(integrationId ? { integration_id: integrationId } : {}) },
     })
     
@@ -509,15 +509,15 @@ async function handleIncomingMessage(data: WppWebhookPayload, organizationId: st
     .insert({
       client_id: client.id,
       organization_id: organizationId,
-      content: messageText,
+      message_text: messageText,
       message_type: isFromMe ? 'manager' : 'client',
-      messenger: 'whatsapp',
-      direction: isFromMe ? 'outgoing' : 'incoming',
+      messenger_type: 'whatsapp',
+      is_outgoing: isFromMe,
       is_read: isFromMe,
-      media_url: fileUrl,
+      file_url: fileUrl,
       file_name: fileName,
-      media_type: fileType,
-      external_id: data.messageId || (data as any).id || null,
+      file_type: fileType,
+      external_message_id: data.messageId || (data as any).id || null,
       metadata: integrationId ? { integration_id: integrationId } : null,
     })
     .select('id')
@@ -575,8 +575,8 @@ async function handleDeliveryStatus(messageId: string | undefined, status: strin
   // Try to find message by external_message_id (taskId) first
   const { data: msgByTask, error: taskError } = await supabase
     .from('chat_messages')
-    .update({ status: mappedStatus })
-    .eq('external_id', messageId)
+    .update({ message_status: mappedStatus })
+    .eq('external_message_id', messageId)
     .select('id')
     .maybeSingle()
 
@@ -588,7 +588,7 @@ async function handleDeliveryStatus(messageId: string | undefined, status: strin
   // Fallback: try to find by waMessageId in metadata
   const { data: msgByWa, error: waError } = await supabase
     .from('chat_messages')
-    .update({ status: mappedStatus })
+    .update({ message_status: mappedStatus })
     .filter('metadata->waMessageId', 'eq', `"${messageId}"`)
     .select('id')
     .maybeSingle()
@@ -619,7 +619,7 @@ async function handleMessageStatus(data: any) {
     const { data: msg } = await supabase
       .from('chat_messages')
       .select('metadata')
-      .eq('external_id', taskId)
+      .eq('external_message_id', taskId)
       .maybeSingle()
     
     const existingMetadata = (msg?.metadata || {}) as Record<string, any>
@@ -627,13 +627,13 @@ async function handleMessageStatus(data: any) {
     const { error: updateError } = await supabase
       .from('chat_messages')
       .update({ 
-        status: status,
+        message_status: status,
         metadata: {
           ...existingMetadata,
           waMessageId: waMessageId,
         },
       })
-      .eq('external_id', taskId)
+      .eq('external_message_id', taskId)
     
     if (updateError) {
       console.warn('[wpp-webhook] Failed to save waMessageId:', updateError.message)
@@ -647,8 +647,8 @@ async function handleMessageStatus(data: any) {
   if (status && (id || taskId || waMessageId)) {
     await supabase
       .from('chat_messages')
-      .update({ status: status })
-      .eq('external_id', id || taskId || waMessageId)
+      .update({ message_status: status })
+      .eq('external_message_id', id || taskId || waMessageId)
   }
 }
 

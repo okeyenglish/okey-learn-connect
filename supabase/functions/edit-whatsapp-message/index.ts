@@ -89,7 +89,7 @@ serve(async (req) => {
     // Get message info including organization_id
     const { data: messageData, error: fetchError } = await supabase
       .from('chat_messages')
-      .select('external_id, client_id, organization_id')
+      .select('external_message_id, client_id, organization_id')
       .eq('id', messageId)
       .single()
 
@@ -150,12 +150,12 @@ serve(async (req) => {
       )
     }
 
-    if (!messageData.external_id) {
-      // Old messages without external_id - edit only locally
-      console.log('No external_id, updating only in database')
+    if (!messageData.external_message_id) {
+      // Old messages without external_message_id - edit only locally
+      console.log('No external_message_id, updating only in database')
       const { error: updateError } = await supabase
         .from('chat_messages')
-        .update({ content: newMessage })
+        .update({ message_text: newMessage })
         .eq('id', messageId)
 
       if (updateError) {
@@ -208,7 +208,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             chatId: chatId,
-            idMessage: messageData.external_id,
+            idMessage: messageData.external_message_id,
             message: newMessage
           })
         }
@@ -222,8 +222,8 @@ serve(async (req) => {
         const { error: updateError } = await supabase
           .from('chat_messages')
           .update({ 
-            content: newMessage,
-            external_id: editResult.idMessage
+            message_text: newMessage,
+            external_message_id: editResult.idMessage
           })
           .eq('id', messageId)
 

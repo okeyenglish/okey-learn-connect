@@ -430,7 +430,7 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
   const { data: existingMsg } = await supabase
     .from('chat_messages')
     .select('id')
-    .eq('external_id', message.id)
+    .eq('external_message_id', message.id)
     .maybeSingle()
 
   if (existingMsg) {
@@ -446,13 +446,13 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
     const { error: editError } = await supabase
       .from('chat_messages')
       .update({
-        content: newText,
+        message_text: newText,
         metadata: {
           is_edited: true,
           edited_at: wappiMsg.timestamp || new Date(wappiMsg.time * 1000).toISOString(),
         },
       })
-      .eq('external_id', wappiMsg.stanza_id)
+      .eq('external_message_id', wappiMsg.stanza_id)
     if (editError) {
       console.error('[wappi-webhook] Error updating edited message:', editError)
     } else {
@@ -503,16 +503,16 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
     const { error } = await supabase.from('chat_messages').insert({
       client_id: null,
       organization_id: organizationId,
-      content: messageText,
+      message_text: messageText,
       message_type: 'client',
-      messenger: 'whatsapp',
-      status: 'delivered',
-      external_id: message.id,
-      direction: 'incoming',
+      messenger_type: 'whatsapp',
+      message_status: 'delivered',
+      external_message_id: message.id,
+      is_outgoing: false,
       is_read: false,
-      media_url: fileUrl,
+      file_url: fileUrl,
       file_name: fileName,
-      media_type: fileType,
+      file_type: fileType,
       metadata: { teacher_id: teacherData.id },
       created_at: message.timestamp || new Date(message.time * 1000).toISOString()
     })
@@ -533,16 +533,16 @@ async function handleIncomingMessage(message: WappiMessage, organizationId: stri
   const { error } = await supabase.from('chat_messages').insert({
     client_id: client.id,
     organization_id: organizationId,
-    content: messageText,
+    message_text: messageText,
     message_type: 'client',
-    messenger: 'whatsapp',
-    status: 'delivered',
-    external_id: message.id,
-    direction: 'incoming',
+    messenger_type: 'whatsapp',
+    message_status: 'delivered',
+    external_message_id: message.id,
+    is_outgoing: false,
     is_read: false,
-    media_url: fileUrl,
+    file_url: fileUrl,
     file_name: fileName,
-    media_type: fileType,
+    file_type: fileType,
     created_at: message.timestamp || new Date(message.time * 1000).toISOString()
   })
 
@@ -652,7 +652,7 @@ async function handleOutgoingMessage(message: WappiMessage, organizationId: stri
   const { data: existingMessage } = await supabase
     .from('chat_messages')
     .select('id')
-    .eq('external_id', message.id)
+    .eq('external_message_id', message.id)
     .maybeSingle()
 
   if (existingMessage) {
@@ -668,13 +668,13 @@ async function handleOutgoingMessage(message: WappiMessage, organizationId: stri
     const { error: editError } = await supabase
       .from('chat_messages')
       .update({
-        content: newText,
+        message_text: newText,
         metadata: {
           is_edited: true,
           edited_at: outMsg.timestamp || new Date(outMsg.time * 1000).toISOString(),
         },
       })
-      .eq('external_id', outMsg.stanza_id)
+      .eq('external_message_id', outMsg.stanza_id)
     if (editError) {
       console.error('[wappi-webhook] Error updating edited outgoing message:', editError)
     } else {
@@ -706,16 +706,16 @@ async function handleOutgoingMessage(message: WappiMessage, organizationId: stri
   const { error } = await supabase.from('chat_messages').insert({
     client_id: client.id,
     organization_id: organizationId,
-    content: messageText,
+    message_text: messageText,
     message_type: 'manager',
-    messenger: 'whatsapp',
-    status: 'sent',
-    external_id: message.id,
-    direction: 'outgoing',
+    messenger_type: 'whatsapp',
+    message_status: 'sent',
+    external_message_id: message.id,
+    is_outgoing: true,
     is_read: true,
-    media_url: fileUrl,
+    file_url: fileUrl,
     file_name: fileName,
-    media_type: fileType,
+    file_type: fileType,
     created_at: message.timestamp || new Date(message.time * 1000).toISOString()
   })
 
@@ -769,8 +769,8 @@ async function handleDeliveryStatus(message: WappiMessage) {
   // Update message status in database
   const { error, count } = await supabase
     .from('chat_messages')
-    .update({ status: mappedStatus })
-    .eq('external_id', messageIdToUpdate)
+    .update({ message_status: mappedStatus })
+    .eq('external_message_id', messageIdToUpdate)
 
   if (error) {
     console.error('Error updating message status:', error)

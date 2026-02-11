@@ -107,15 +107,15 @@ async function insertChatMessage(params: MessageInsertParams): Promise<{ success
   const fullPayload: Record<string, unknown> = {
     organization_id: params.organization_id,
     client_id: params.teacher_id ? null : params.client_id,
-    content: params.content,
+    message_text: params.content,
     message_type: params.message_type,
-    messenger: params.messenger,
-    direction: params.is_incoming ? 'incoming' : 'outgoing',
+    messenger_type: params.messenger,
+    is_outgoing: !params.is_incoming,
     is_read: !params.is_incoming,
-    status: params.status,
-    external_id: params.external_id,
-    media_url: params.media_url || null,
-    media_type: params.media_type || null,
+    message_status: params.status,
+    external_message_id: params.external_id,
+    file_url: params.media_url || null,
+    file_type: params.media_type || null,
     file_name: params.file_name || null,
     created_at: now,
     metadata: Object.keys(metadataObj).length > 0 ? metadataObj : null,
@@ -155,12 +155,12 @@ async function insertChatMessage(params: MessageInsertParams): Promise<{ success
   const minimalPayload: Record<string, unknown> = {
     organization_id: params.organization_id,
     client_id: params.teacher_id ? null : (params.client_id || null),
-    content: params.content,
+    message_text: params.content,
     message_type: params.message_type,
-    messenger: params.messenger,
-    direction: params.is_incoming ? 'incoming' : 'outgoing',
+    messenger_type: params.messenger,
+    is_outgoing: !params.is_incoming,
     is_read: !params.is_incoming,
-    external_id: params.external_id,
+    external_message_id: params.external_id,
     created_at: now,
   };
   
@@ -839,13 +839,13 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook, organizationId: s
         const { error: editError } = await supabase
           .from('chat_messages')
           .update({
-            content: newText,
+            message_text: newText,
             metadata: {
               is_edited: true,
               edited_at: new Date(webhook.timestamp * 1000).toISOString(),
             },
           })
-          .eq('external_id', stanzaId);
+          .eq('external_message_id', stanzaId);
         if (editError) {
           console.error('[whatsapp-webhook] Error updating edited message:', editError);
         } else {
@@ -863,16 +863,16 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook, organizationId: s
         const { error: deleteError } = await supabase
           .from('chat_messages')
           .update({
-            content: 'Сообщение было удалено',
+            message_text: 'Сообщение было удалено',
             metadata: {
               is_deleted: true,
               deleted_at: new Date(webhook.timestamp * 1000).toISOString(),
             },
-            media_url: null,
+            file_url: null,
             file_name: null,
-            media_type: null,
+            file_type: null,
           })
-          .eq('external_id', deletedStanzaId);
+          .eq('external_message_id', deletedStanzaId);
         if (deleteError) {
           console.error('[whatsapp-webhook] Error marking message as deleted:', deleteError);
         } else {
@@ -1024,9 +1024,9 @@ async function handleMessageStatus(webhook: GreenAPIWebhook) {
   const { error } = await supabase
     .from('chat_messages')
     .update({ 
-      status: status as any
+      message_status: status as any
     })
-    .eq('external_id', messageId);
+    .eq('external_message_id', messageId);
 
   if (error) {
     console.error('Error updating message status:', error);
@@ -1054,7 +1054,7 @@ async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: s
   const { data: existingMessage } = await supabase
     .from('chat_messages')
     .select('id')
-    .eq('external_id', idMessage)
+    .eq('external_message_id', idMessage)
     .maybeSingle();
 
   if (existingMessage) {
@@ -1122,9 +1122,9 @@ async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: s
       if (stanzaId) {
         console.log('[whatsapp-webhook] Edited outgoing message, stanzaId:', stanzaId);
         await supabase.from('chat_messages').update({
-          content: newText,
+          message_text: newText,
           metadata: { is_edited: true, edited_at: new Date(webhook.timestamp * 1000).toISOString() },
-        }).eq('external_id', stanzaId);
+        }).eq('external_message_id', stanzaId);
       }
       return;
     }
@@ -1134,10 +1134,10 @@ async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: s
       if (deletedStanzaId) {
         console.log('[whatsapp-webhook] Deleted outgoing message, stanzaId:', deletedStanzaId);
         await supabase.from('chat_messages').update({
-          content: 'Сообщение было удалено',
+          message_text: 'Сообщение было удалено',
           metadata: { is_deleted: true, deleted_at: new Date(webhook.timestamp * 1000).toISOString() },
-          media_url: null, file_name: null, media_type: null,
-        }).eq('external_id', deletedStanzaId);
+          file_url: null, file_name: null, file_type: null,
+        }).eq('external_message_id', deletedStanzaId);
       }
       return;
     }

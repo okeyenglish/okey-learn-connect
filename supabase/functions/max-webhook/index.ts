@@ -144,7 +144,7 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
   const { data: existingMessage } = await supabase
     .from('chat_messages')
     .select('id')
-    .eq('external_id', idMessage)
+    .eq('external_message_id', idMessage)
     .maybeSingle();
 
   if (existingMessage) {
@@ -183,16 +183,16 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
       .insert({
         client_id: null,
         organization_id: organizationId,
-        content: messageText,
+        message_text: messageText,
         message_type: 'client',
-        messenger: 'max',
-        direction: 'incoming',
+        messenger_type: 'max',
+        is_outgoing: false,
         is_read: false,
-        external_id: idMessage,
-        media_url: fileUrl,
+        external_message_id: idMessage,
+        file_url: fileUrl,
         file_name: fileName,
-        media_type: fileType,
-        status: 'delivered',
+        file_type: fileType,
+        message_status: 'delivered',
         metadata: { teacher_id: teacherData.id, ...(integrationId ? { integration_id: integrationId } : {}) },
         created_at: new Date((timestamp || Date.now() / 1000) * 1000).toISOString()
       });
@@ -226,16 +226,16 @@ async function handleIncomingMessage(supabase: ReturnType<typeof createClient>, 
     .insert({
       client_id: client.id,
       organization_id: organizationId,
-      content: messageText,
+      message_text: messageText,
       message_type: 'client',
-      messenger: 'max',
-      direction: 'incoming',
+      messenger_type: 'max',
+      is_outgoing: false,
       is_read: false,
-      external_id: idMessage,
-      media_url: fileUrl,
+      external_message_id: idMessage,
+      file_url: fileUrl,
       file_name: fileName,
-      media_type: fileType,
-      status: 'delivered',
+      file_type: fileType,
+      message_status: 'delivered',
       metadata: integrationId ? { integration_id: integrationId } : null,
       created_at: new Date((timestamp || Date.now() / 1000) * 1000).toISOString()
     });
@@ -744,7 +744,7 @@ async function handleOutgoingMessage(
   const { data: existingMessage } = await supabase
     .from('chat_messages')
     .select('id')
-    .eq('external_id', idMessage)
+    .eq('external_message_id', idMessage)
     .maybeSingle();
 
   if (existingMessage) {
@@ -801,16 +801,16 @@ async function handleOutgoingMessage(
     .insert({
       client_id: client.id,
       organization_id: organizationId,
-      content: messageText,
+      message_text: messageText,
       message_type: 'manager',
-      messenger: 'max',
-      direction: 'outgoing',
+      messenger_type: 'max',
+      is_outgoing: true,
       is_read: true,
-      external_id: idMessage,
-      media_url: fileUrl,
+      external_message_id: idMessage,
+      file_url: fileUrl,
       file_name: fileName,
-      media_type: fileType,
-      status: 'sent',
+      file_type: fileType,
+      message_status: 'sent',
       metadata: integrationId ? { integration_id: integrationId } : null,
       created_at: new Date((timestamp || Date.now() / 1000) * 1000).toISOString()
     });
@@ -852,8 +852,8 @@ async function handleMessageStatus(
   // Update message status
   const { error } = await supabase
     .from('chat_messages')
-    .update({ status: mappedStatus })
-    .eq('external_id', idMessage);
+    .update({ message_status: mappedStatus })
+    .eq('external_message_id', idMessage);
 
   if (error) {
     console.error('Error updating message status:', error);

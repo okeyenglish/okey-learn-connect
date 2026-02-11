@@ -272,16 +272,16 @@ Deno.serve(async (req) => {
       .insert({
         client_id: clientId,
         organization_id: organizationId,
-        content: messageText,
+        message_text: messageText,
         message_type: 'manager',
-        messenger: 'telegram',
-        status: 'sent',
-        direction: 'outgoing',
+        messenger_type: 'telegram',
+        message_status: 'sent',
+        is_outgoing: true,
         is_read: true,
-        external_id: responseData.message_id,
-        media_url: fileUrl,
+        external_message_id: responseData.message_id,
+        file_url: fileUrl,
         file_name: fileName,
-        media_type: fileType,
+        file_type: fileType,
       })
       .select('id')
       .single();

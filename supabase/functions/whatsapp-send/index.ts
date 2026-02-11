@@ -43,8 +43,8 @@ async function getSmartRoutingIntegrationId(
     .from('chat_messages')
     .select('metadata')
     .eq('client_id', clientId)
-    .eq('direction', 'incoming')
-    .eq('messenger', 'whatsapp')
+    .eq('is_outgoing', false)
+    .eq('messenger_type', 'whatsapp')
     .not('metadata->integration_id', 'is', null)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -395,16 +395,16 @@ Deno.serve(async (req) => {
         .insert({
           client_id: clientId,
           organization_id: organizationId,
-          content: message,
+          message_text: message,
           message_type: 'manager',
-          messenger: 'whatsapp',
-          status: messageStatus,
-          external_id: greenApiResponse.idMessage,
-          direction: 'outgoing',
+          messenger_type: 'whatsapp',
+          message_status: messageStatus,
+          external_message_id: greenApiResponse.idMessage,
+          is_outgoing: true,
           is_read: true,
-          media_url: fileUrl,
+          file_url: fileUrl,
           file_name: fileName,
-          media_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null
+          file_type: fileUrl ? getFileTypeFromUrl(fileUrl) : null
         })
         .select()
         .single();

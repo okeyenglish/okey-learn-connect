@@ -122,15 +122,15 @@ async function resilientInsertMessage(
   const minimalPayload: Record<string, any> = {
     client_id: payload.client_id || null,
     organization_id: payload.organization_id,
-    content: payload.content || '[Сообщение]',
+    message_text: payload.message_text || '[Сообщение]',
     message_type: payload.message_type || 'client',
-    messenger: payload.messenger || 'telegram',
-    direction: payload.direction || 'incoming',
+    messenger_type: payload.messenger_type || 'telegram',
+    is_outgoing: payload.is_outgoing ?? false,
     is_read: payload.is_read ?? false,
-    external_id: payload.external_id || null,
-    media_url: payload.media_url || null,
+    external_message_id: payload.external_message_id || null,
+    file_url: payload.file_url || null,
     file_name: payload.file_name || null,
-    media_type: payload.media_type || null,
+    file_type: payload.file_type || null,
   };
 
   // Only add created_at if provided
@@ -452,7 +452,7 @@ async function handleIncomingMessage(
   const { data: existingMessage } = await supabase
     .from('chat_messages')
     .select('id')
-    .eq('external_id', message.id)
+    .eq('external_message_id', message.id)
     .maybeSingle();
 
   if (existingMessage) {
@@ -489,15 +489,15 @@ async function handleIncomingMessage(
     const fullPayload: Record<string, any> = {
       client_id: null,
       organization_id: organizationId,
-      content: messageText,
+      message_text: messageText,
       message_type: 'client',
-      messenger: 'telegram',
-      direction: 'incoming',
+      messenger_type: 'telegram',
+      is_outgoing: false,
       is_read: false,
-      external_id: message.id,
-      media_url: fileUrl,
+      external_message_id: message.id,
+      file_url: fileUrl,
       file_name: fileName,
-      media_type: fileType || contentType,
+      file_type: fileType || contentType,
       metadata: teacherMetadata,
       created_at: message.timestamp || new Date().toISOString()
     };
@@ -550,15 +550,15 @@ async function handleIncomingMessage(
   const fullPayload: Record<string, any> = {
     client_id: client.id,
     organization_id: organizationId,
-    content: messageText,
+    message_text: messageText,
     message_type: 'client',
-    messenger: 'telegram',
-    direction: 'incoming',
+    messenger_type: 'telegram',
+    is_outgoing: false,
     is_read: false,
-    external_id: message.id,
-    media_url: fileUrl,
+    external_message_id: message.id,
+    file_url: fileUrl,
     file_name: fileName,
-    media_type: fileType || contentType,
+    file_type: fileType || contentType,
     metadata: Object.keys(clientMetadata).length > 0 ? clientMetadata : null,
     created_at: message.timestamp || new Date().toISOString()
   };
@@ -792,7 +792,7 @@ async function handleOutgoingMessage(
   const { data: existingMessage } = await supabase
     .from('chat_messages')
     .select('id')
-    .eq('external_id', message.id)
+    .eq('external_message_id', message.id)
     .maybeSingle();
 
   if (existingMessage) {
@@ -821,15 +821,15 @@ async function handleOutgoingMessage(
   const outgoingPayload = {
     client_id: client.id,
     organization_id: organizationId,
-    content: messageText,
+    message_text: messageText,
     message_type: 'manager',
-    messenger: 'telegram',
-    direction: 'outgoing',
+    messenger_type: 'telegram',
+    is_outgoing: true,
     is_read: true,
-    external_id: message.id,
-    media_url: fileUrl,
+    external_message_id: message.id,
+    file_url: fileUrl,
     file_name: fileName,
-    media_type: fileType || contentType,
+    file_type: fileType || contentType,
     created_at: message.timestamp || new Date().toISOString()
   };
 
@@ -878,8 +878,8 @@ async function handleDeliveryStatus(supabase: any, message: TelegramWappiMessage
   // Update message status in database
   const { error, count } = await supabase
     .from('chat_messages')
-    .update({ status: mappedStatus })
-    .eq('external_id', messageIdToUpdate);
+    .update({ message_status: mappedStatus })
+    .eq('external_message_id', messageIdToUpdate);
 
   if (error) {
     console.error('Error updating Telegram message status:', error);
