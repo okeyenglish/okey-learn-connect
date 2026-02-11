@@ -4038,7 +4038,7 @@ export const ChatArea = ({
                   commentMode ? "bg-yellow-500 hover:bg-yellow-600" : ""
                 }`}
                 onClick={handleSendMessage}
-                disabled={(loading || maxLoading) || (!message.trim() && attachedFiles.length === 0) || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
+                disabled={(loading || maxLoading) || (!message.trim() && attachedFiles.length === 0 && !paymentLinkAttachment) || message.length > MAX_MESSAGE_LENGTH || !!pendingMessage}
                 aria-label="Отправить"
               >
                 <Send className="h-5 w-5 shrink-0" />
