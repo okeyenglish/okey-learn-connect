@@ -409,8 +409,25 @@ const CRMContent = () => {
   // Manager branch restrictions — needed before loading threads
   const { canAccessBranch, hasRestrictions: hasManagerBranchRestrictions, allowedBranchNames } = useManagerBranches();
   
+  const { organization, branches } = useOrganization();
+
+  // Combine manager branch restrictions with UI branch filter for server-side filtering
+  const effectiveBranches = useMemo(() => {
+    const managerBranches = hasManagerBranchRestrictions ? allowedBranchNames : null;
+    
+    if (selectedBranch && selectedBranch !== 'all') {
+      if (managerBranches) {
+        const filtered = managerBranches.filter(b => toBranchKey(b) === selectedBranch);
+        return filtered.length > 0 ? filtered : managerBranches;
+      }
+      const matchedBranch = branches.find((b: any) => toBranchKey(b.name) === selectedBranch);
+      return matchedBranch ? [matchedBranch.name] : undefined;
+    }
+    
+    return managerBranches || undefined;
+  }, [selectedBranch, hasManagerBranchRestrictions, allowedBranchNames, branches]);
+
   // Критичные данные - загружаем ТОЛЬКО threads с infinite scroll (50 за раз)
-  // useClients убран из критического пути - 27К клиентов тормозили загрузку
   const { 
     data: threads = [], 
     isLoading: threadsLoading, 
@@ -418,7 +435,8 @@ const CRMContent = () => {
     isFetchingNextPage, 
     loadMore,
     refetch: refetchThreads,
-  } = useChatThreadsInfinite(hasManagerBranchRestrictions ? allowedBranchNames : undefined);
+  } = useChatThreadsInfinite(effectiveBranches);
+
   const { corporateChats, teacherChats, isLoading: systemChatsLoading } = useSystemChatMessages();
   const { communityChats, totalUnread: communityUnread, latestCommunity, isLoading: communityLoading } = useCommunityChats();
   
@@ -502,7 +520,7 @@ const CRMContent = () => {
   const completeTask = useCompleteTask();
   const cancelTask = useCancelTask();
   const updateTask = useUpdateTask();
-  const { organization, branches } = useOrganization();
+  // organization & branches already declared above (line ~412)
   // useManagerBranches() already called above (line ~410)
   const { filterAllowedBranches, hasRestrictions: hasUserBranchRestrictions } = useUserAllowedBranches();
   const { unreadCount: assistantUnreadCount, markAllAsRead: markAssistantAsRead } = useAssistantMessages();
