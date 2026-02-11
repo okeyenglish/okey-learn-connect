@@ -89,6 +89,7 @@ interface ChatAreaProps {
   simplifiedToolbar?: boolean; // Show simplified toolbar with only basic icons and dropdown (for teacher chats)
   hasPendingPayment?: boolean; // True when client has an unacknowledged payment
   onPaymentProcessed?: () => void; // Callback when payment is marked as processed
+  onForwardSent?: (recipient: { type: 'staff' | 'group'; id: string; name: string }) => void; // Open AI Hub after forwarding
 }
 
 interface ScheduledMessage {
@@ -123,7 +124,8 @@ export const ChatArea = ({
   messagesSource = 'default',
   simplifiedToolbar = false,
   hasPendingPayment = false,
-  onPaymentProcessed
+  onPaymentProcessed,
+  onForwardSent
 }: ChatAreaProps) => {
   // Use persistent draft hook to preserve message across tab switches
   const { draft: message, setDraft: setMessage, clearDraft } = useMessageDrafts(clientId);
@@ -4047,6 +4049,7 @@ export const ChatArea = ({
           currentClientId={clientId}
           clientName={clientName}
           onForward={handleForwardMessages}
+          onSent={onForwardSent}
         />
       )}
 
