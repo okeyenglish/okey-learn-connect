@@ -1672,6 +1672,9 @@ const CRMContent = () => {
     queryClient.invalidateQueries({ queryKey: ['clients'] });
     queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
     queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
+    queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
+    queryClient.invalidateQueries({ queryKey: ['deleted-client-ids'] });
+    queryClient.invalidateQueries({ queryKey: ['deleted-chats'] });
     queryClient.invalidateQueries({ queryKey: ['family-data'] }); // Refresh FamilyCard after merge
     if (activeChatId === linkChatModal.chatId) {
       setActiveChatId(null);
