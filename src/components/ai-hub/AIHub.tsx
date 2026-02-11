@@ -164,6 +164,7 @@ export const AIHub = ({
   const [teacherClientId, setTeacherClientId] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<{ url: string; name: string; type: string } | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [showMembersDialog, setShowMembersDialog] = useState(false);
   
   const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('online'); // По умолчанию показываем онлайн
   
@@ -780,7 +781,14 @@ export const AIHub = ({
                       </Button>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p 
+                    className={`text-xs text-muted-foreground truncate ${activeChat.type === 'group' && groupMembers.data?.length ? 'cursor-pointer hover:text-primary transition-colors' : ''}`}
+                    onClick={() => {
+                      if (activeChat.type === 'group' && groupMembers.data?.length) {
+                        setShowMembersDialog(true);
+                      }
+                    }}
+                  >
                     {activeChat.type === 'group' && groupMembers.data?.length 
                       ? groupMembers.data.map(m => m.profile?.first_name || 'Участник').join(', ')
                       : (activeChat.badge || activeChat.description)}
@@ -1136,6 +1144,58 @@ export const AIHub = ({
               <Download className="h-4 w-4" />
               Открыть оригинал
             </a>
+          </div>
+        )}
+
+        {/* Group members dialog */}
+        {showMembersDialog && activeChat?.type === 'group' && groupMembers.data && (
+          <div 
+            className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4"
+            onClick={() => setShowMembersDialog(false)}
+          >
+            <div 
+              className="bg-background rounded-xl shadow-xl w-full max-w-sm max-h-[70vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b">
+                <h3 className="font-semibold text-sm">Участники ({groupMembers.data.length})</h3>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowMembersDialog(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <ScrollArea className="flex-1 overflow-auto">
+                <div className="p-2 space-y-1">
+                  {groupMembers.data.map((member: any) => {
+                    const firstName = member.profile?.first_name || '';
+                    const lastName = member.profile?.last_name || '';
+                    const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'Участник';
+                    const initials = `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`.toUpperCase() || '?';
+                    const isOnline = isUserOnline(member.user_id);
+                    return (
+                      <div key={member.user_id} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors">
+                        <div className="relative">
+                          <Avatar className="h-9 w-9">
+                            <AvatarFallback className="text-xs bg-primary/10 text-primary">{initials}</AvatarFallback>
+                          </Avatar>
+                          {isOnline && (
+                            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 border-2 border-background" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{fullName}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {member.profile?.branch || member.profile?.email || (member.role === 'admin' ? 'Админ' : 'Участник')}
+                          </p>
+                        </div>
+                        {member.role === 'admin' && (
+                          <Badge variant="secondary" className="text-[10px] shrink-0">Админ</Badge>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
           </div>
         )}
       </Sheet>
