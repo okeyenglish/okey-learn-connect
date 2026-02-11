@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { ClientCardBubble, isClientCardMessage } from '@/components/ai-hub/ClientCardBubble';
 import { 
   Bot, 
   Send, 
@@ -91,6 +92,7 @@ interface ChatMessage {
   timestamp: Date;
   sender?: string;
   is_read?: boolean;
+  message_type?: string;
 }
 
 type ConsultantType = 'lawyer' | 'accountant' | 'marketer' | 'hr' | 'methodist' | 'it';
@@ -554,7 +556,8 @@ export const AIHub = ({
         content: m.message_text || '',
         timestamp: new Date(m.created_at),
         sender: m.sender?.first_name,
-        is_read: m.is_read
+        is_read: m.is_read,
+        message_type: m.message_type
       })) as ChatMessage[];
     }
     
@@ -566,7 +569,8 @@ export const AIHub = ({
         content: m.message_text || '',
         timestamp: new Date(m.created_at),
         sender: m.sender?.first_name,
-        is_read: m.is_read
+        is_read: m.is_read,
+        message_type: m.message_type
       })) as ChatMessage[];
     }
     
@@ -771,7 +775,11 @@ export const AIHub = ({
                         {msg.sender && msg.type === 'assistant' && (
                           <p className="text-xs font-medium mb-1 text-primary">{msg.sender}</p>
                         )}
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        {isClientCardMessage(msg.content) ? (
+                          <ClientCardBubble content={msg.content} isOwn={msg.type === 'user'} />
+                        ) : (
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        )}
                       </div>
                       <div className={`flex items-center gap-1 text-xs text-muted-foreground mt-1 px-1 ${msg.type === 'user' ? 'justify-end' : ''}`}>
                         <span>
