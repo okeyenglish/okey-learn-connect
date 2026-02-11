@@ -47,7 +47,7 @@ export const ClientCardBubble = ({ content, isOwn }: ClientCardBubbleProps) => {
     e.stopPropagation();
     e.preventDefault();
     if (card.clientId) {
-      navigate(`/crm/chats?client=${card.clientId}`);
+      navigate(`/?clientId=${card.clientId}`);
     }
   };
 
