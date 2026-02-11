@@ -32,7 +32,7 @@ export const useChatOSMessages = (clientId: string, enabled = true) => {
         .from('chat_messages')
         .select('*')
         .eq('client_id', clientId)
-        .eq('messenger', 'chatos')
+        .eq('messenger_type', 'chatos')
         .order('created_at', { ascending: true });
 
       if (error) {
@@ -45,12 +45,12 @@ export const useChatOSMessages = (clientId: string, enabled = true) => {
         client_id: msg.client_id || clientId,
         sender_id: msg.sender_id || '',
         sender_name: msg.sender_name || 'Система',
-        sender_role: (msg.direction === 'outgoing' ? 'company' : 'client') as ChatOSMessage['sender_role'],
-        message_text: msg.content || '',
+        sender_role: (msg.is_outgoing === true ? 'company' : 'client') as ChatOSMessage['sender_role'],
+        message_text: msg.message_text || '',
         message_type: msg.message_type || 'text',
-        file_url: msg.media_url,
+        file_url: msg.file_url,
         file_name: msg.file_name,
-        file_type: msg.media_type,
+        file_type: msg.file_type,
         is_read: msg.is_read || false,
         created_at: msg.created_at,
       })) as ChatOSMessage[];
@@ -101,17 +101,17 @@ export const useSendChatOSMessage = () => {
         .from('chat_messages')
         .insert([{
           client_id: messageData.client_id,
-          content: messageData.message_text,
-          messenger: 'chatos',
+          message_text: messageData.message_text,
+          messenger_type: 'chatos',
           message_type: messageData.file_url ? 'file' : 'text',
-          direction: 'outgoing',
+          is_outgoing: true,
           sender_id: user?.id,
           sender_name: senderName,
-          media_url: messageData.file_url,
+          file_url: messageData.file_url,
           file_name: messageData.file_name,
-          media_type: messageData.file_type,
+          file_type: messageData.file_type,
           is_read: true,
-          status: 'sent',
+          message_status: 'sent',
           organization_id: organizationId,
         }])
         .select()
@@ -147,8 +147,8 @@ export const useChatOSUnreadCount = (clientId: string) => {
         .from('chat_messages')
         .select('*', { count: 'exact', head: true })
         .eq('client_id', clientId)
-        .eq('messenger', 'chatos')
-        .eq('direction', 'incoming')
+        .eq('messenger_type', 'chatos')
+        .eq('is_outgoing', false)
         .eq('is_read', false);
 
       if (error) {
