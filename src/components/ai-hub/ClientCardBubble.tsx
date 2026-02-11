@@ -26,8 +26,8 @@ export const parseClientCard = (content: string) => {
   };
 };
 
-export const isClientCardMessage = (content: string) =>
-  content.includes('📋 Карточка клиента') && content.includes('👤');
+export const isClientCardMessage = (content: string, messageType?: string) =>
+  messageType === 'client_card' || (content.includes('📋 Карточка клиента') && content.includes('👤'));
 
 export const ClientCardBubble = ({ content, isOwn }: ClientCardBubbleProps) => {
   const navigate = useNavigate();
@@ -57,9 +57,11 @@ export const ClientCardBubble = ({ content, isOwn }: ClientCardBubbleProps) => {
     <div className="space-y-1.5">
       <div
         onClick={handleClick}
+        onPointerUp={handleClick}
         role="button"
         tabIndex={0}
-        className={`flex items-center gap-3 w-full text-left p-2.5 rounded-xl transition-all relative z-10 ${
+        style={{ pointerEvents: 'auto' }}
+        className={`flex items-center gap-3 w-full text-left p-2.5 rounded-xl transition-all relative z-50 ${
           card.clientId ? 'cursor-pointer hover:opacity-80 active:scale-[0.98]' : 'cursor-default'
         } ${isOwn ? 'bg-primary-foreground/15' : 'bg-background/60'}`}
       >

@@ -775,7 +775,7 @@ export const AIHub = ({
                         {msg.sender && msg.type === 'assistant' && (
                           <p className="text-xs font-medium mb-1 text-primary">{msg.sender}</p>
                         )}
-                        {isClientCardMessage(msg.content) ? (
+                        {isClientCardMessage(msg.content, msg.message_type) ? (
                           <ClientCardBubble content={msg.content} isOwn={msg.type === 'user'} />
                         ) : (
                           <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
