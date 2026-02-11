@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ClientCardBubble, isClientCardMessage } from '@/components/ai-hub/ClientCardBubble';
+import { ForwardedMessageBubble, isForwardedMessage } from '@/components/ai-hub/ForwardedMessageBubble';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useAuth } from '@/hooks/useAuth';
@@ -996,6 +997,8 @@ export const AIHubInline = ({
                     
                     {isClientCardMessage(msg.content, msg.message_type) ? (
                       <ClientCardBubble content={msg.content} isOwn={msg.type === 'user'} onOpenChat={onOpenChat} />
+                    ) : isForwardedMessage(msg.content, msg.message_type) ? (
+                      <ForwardedMessageBubble content={msg.content} isOwn={msg.type === 'user'} onOpenChat={onOpenChat} />
                     ) : msg.content ? (
                       <p className="text-sm whitespace-pre-wrap">{highlightText(msg.content, chatSearchQuery)}</p>
                     ) : null}
