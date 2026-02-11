@@ -101,10 +101,10 @@ const BulkBranchReassign: React.FC = () => {
 
       await Promise.all(batch.map(async (phone) => {
         try {
-          // Search client by phone (try multiple formats)
-          const searchPhone = phone.startsWith('7') ? phone : phone;
+          // Search client by phone (last 10 digits, ilike pattern)
+          const last10 = phone.slice(-10);
           const searchRes = await fetch(
-            `${SELF_HOSTED_URL}/rest/v1/clients?or=(phone.eq.${searchPhone},phone.eq.%2B${searchPhone},phone.eq.8${searchPhone.slice(1)})&select=id&limit=1`,
+            `${SELF_HOSTED_URL}/rest/v1/clients?phone=ilike.%25${last10}%25&select=id&limit=1`,
             { headers: { 'apikey': SELF_HOSTED_ANON_KEY, 'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}` } }
           );
 
