@@ -46,8 +46,10 @@ export const ClientCardBubble = ({ content, isOwn }: ClientCardBubbleProps) => {
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    console.log('[ClientCardBubble] clicked, card:', card);
     if (card.clientId) {
-      navigate(`/?clientId=${card.clientId}`);
+      // Close any open sheet/dialog by navigating
+      window.location.href = `/?clientId=${card.clientId}`;
     }
   };
 
