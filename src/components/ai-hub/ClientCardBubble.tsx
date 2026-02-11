@@ -43,7 +43,9 @@ export const ClientCardBubble = ({ content, isOwn }: ClientCardBubbleProps) => {
     .slice(0, 2)
     .toUpperCase();
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
     if (card.clientId) {
       navigate(`/crm/chats?client=${card.clientId}`);
     }
@@ -51,10 +53,11 @@ export const ClientCardBubble = ({ content, isOwn }: ClientCardBubbleProps) => {
 
   return (
     <div className="space-y-1.5">
-      <button
+      <div
         onClick={handleClick}
-        disabled={!card.clientId}
-        className={`flex items-center gap-3 w-full text-left p-2.5 rounded-xl transition-all ${
+        role="button"
+        tabIndex={0}
+        className={`flex items-center gap-3 w-full text-left p-2.5 rounded-xl transition-all relative z-10 ${
           card.clientId ? 'cursor-pointer hover:opacity-80 active:scale-[0.98]' : 'cursor-default'
         } ${isOwn ? 'bg-primary-foreground/15' : 'bg-background/60'}`}
       >
@@ -77,7 +80,7 @@ export const ClientCardBubble = ({ content, isOwn }: ClientCardBubbleProps) => {
             </p>
           )}
         </div>
-      </button>
+      </div>
       {card.comment && (
         <p className="text-sm whitespace-pre-wrap">{card.comment}</p>
       )}
