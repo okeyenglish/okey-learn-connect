@@ -92,7 +92,8 @@ import { useRealtimeHub } from "@/hooks/useRealtimeHub";
 import { RealtimeStatusIndicator } from "@/components/crm/RealtimeStatusIndicator";
 import { useManagerBranches } from "@/hooks/useManagerBranches";
 import { useUserAllowedBranches } from "@/hooks/useUserAllowedBranches";
-import { toBranchKey, expandBranchVariants } from "@/lib/branchUtils";
+import { toBranchKey } from "@/lib/branchUtils";
+import { useClientBranchValues } from "@/hooks/useClientBranchValues";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useAssistantMessages } from "@/hooks/useAssistantMessages";
 import { useStaffUnreadCount } from "@/hooks/useInternalStaffMessages";
@@ -410,27 +411,30 @@ const CRMContent = () => {
   const { canAccessBranch, hasRestrictions: hasManagerBranchRestrictions, allowedBranchNames } = useManagerBranches();
   
   const { organization, branches } = useOrganization();
+  const { getRawValues } = useClientBranchValues();
 
   // Combine manager branch restrictions with UI branch filter for server-side filtering
-  // expandBranchVariants ensures all raw DB name variants are included (aliases, prefixed forms)
+  // Uses dynamic lookup of raw DB values instead of manual alias maps
   const effectiveBranches = useMemo(() => {
     const managerBranches = hasManagerBranchRestrictions ? allowedBranchNames : null;
     
     if (selectedBranch && selectedBranch !== 'all') {
+      // selectedBranch is already a normalized key (from usePersistedBranch)
       if (managerBranches) {
-        const filtered = managerBranches.filter(b => toBranchKey(b) === selectedBranch);
-        const base = filtered.length > 0 ? filtered : managerBranches;
-        return base.flatMap(b => expandBranchVariants(b));
+        const managerKeys = new Set(managerBranches.map(toBranchKey));
+        if (!managerKeys.has(selectedBranch)) return undefined; // not allowed
       }
-      const matchedBranch = branches.find((b: any) => toBranchKey(b.name) === selectedBranch);
-      if (matchedBranch) {
-        return expandBranchVariants(matchedBranch.name);
-      }
-      return undefined;
+      const rawValues = getRawValues(selectedBranch);
+      return rawValues.length > 0 ? rawValues : undefined;
     }
     
-    return managerBranches ? managerBranches.flatMap(b => expandBranchVariants(b)) : undefined;
-  }, [selectedBranch, hasManagerBranchRestrictions, allowedBranchNames, branches]);
+    if (managerBranches) {
+      const allRaw = managerBranches.flatMap(b => getRawValues(toBranchKey(b)));
+      return allRaw.length > 0 ? allRaw : undefined;
+    }
+    
+    return undefined;
+  }, [selectedBranch, hasManagerBranchRestrictions, allowedBranchNames, getRawValues]);
 
   // Критичные данные - загружаем ТОЛЬКО threads с infinite scroll (50 за раз)
   const { 
