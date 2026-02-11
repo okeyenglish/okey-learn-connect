@@ -1,85 +1,110 @@
 
 
-# Fix: Branch filter not matching database values for server-side queries
+# Fix: Reliable server-side branch filtering
 
 ## Problem
 
-Two issues with branch filtering:
+Branch filter doesn't work because:
 
-1. **Грайвороновская shows 0 chats**: The filter sends `branch = "Грайвороновская"` to the server, but clients in the database have `branch = "Стахановская"` (the old name). The alias mapping (`стахановская` -> `грайвороновская`) only works client-side via `toBranchKey()`, not in SQL queries.
-
-2. **Мытищи not loading all chats on scroll**: Same root cause -- if some clients have `branch = "O'KEY ENGLISH Мытищи"` in the database, the exact match `branch = "Мытищи"` misses them.
-
-## Root Cause
-
-`effectiveBranches` in CRM.tsx (line 415) passes display names like `["Грайвороновская"]` to the server query. Both the RPC (`branch = ANY(p_branches)`) and the direct fallback (`branch.in.(...)`) do **exact string matching** against the `clients.branch` column, which stores raw imported values that may differ from the display names in `organization_branches`.
+1. `REVERSE_ALIASES` in `branchUtils.ts` only covers 4 branches (Грайвороновская, Люберцы, Online school, Новокосино). Other branches like Мытищи, Окская, Котельники, Солнцево have no expansion entries.
+2. `expandBranchVariants` adds `O'KEY ENGLISH ...` prefixed variants, but the PostgREST `.or()` filter syntax `branch.in.(O'KEY ENGLISH Мытищи,...)` breaks on apostrophes and special characters.
+3. The approach of manually maintaining a reverse-alias map is fragile and incomplete.
 
 ## Solution
 
-Add a reverse-alias expansion function to `branchUtils.ts` that, given a normalized key, returns all raw branch name variants that should match in the database. Then use it in `effectiveBranches` to pass all variants to the server.
+Instead of maintaining a manual `REVERSE_ALIASES` map, dynamically build the list of all possible raw DB values by:
 
-### File: `src/lib/branchUtils.ts`
+1. **Querying actual distinct branch values from the `clients` table** (one-time cached query)
+2. **Matching them via `toBranchKey()` normalization** against the selected filter branch
+3. Passing only the matched raw DB values to the server filter
 
-Add a new function `expandBranchVariants(displayName)` that returns an array of all possible raw database values for a given branch:
-- The display name itself (e.g., "Грайвороновская")
-- Any reverse aliases (e.g., "Стахановская" since it maps to "грайвороновская")
-- Common prefixed variants (e.g., "O'KEY ENGLISH Грайвороновская", "O'KEY ENGLISH Стахановская")
+This is a single source of truth approach: `organization_branches` defines display names, `toBranchKey()` normalizes everything, and the actual raw values come from the DB itself.
+
+### Changes
+
+**File: `src/hooks/useChatThreadsInfinite.ts`**
+
+Add a helper that fetches distinct `branch` values from `clients` table (cached), then filters them by `toBranchKey` match. Replace the raw `allowedBranches` parameter with normalized matching.
+
+**File: `src/pages/CRM.tsx`**
+
+Simplify `effectiveBranches` logic:
+- Remove `expandBranchVariants` usage
+- Instead, create a new hook `useClientBranchValues()` that returns all distinct raw branch values from the `clients` table
+- When UI filter is set, find all raw DB values whose `toBranchKey()` matches the selected normalized key
+- Pass these exact raw values to `useChatThreadsInfinite`
+
+**File: `src/lib/branchUtils.ts`**
+
+Keep `expandBranchVariants` for backward compatibility but it won't be used in the critical path anymore.
+
+### New hook: `src/hooks/useClientBranchValues.ts`
 
 ```typescript
-// Reverse alias map: for a given normalized key, 
-// what raw values might exist in the database?
-const REVERSE_ALIASES: Record<string, string[]> = {
-  'грайвороновская': ['Грайвороновская', 'Стахановская'],
-  'люберцы': ['Люберцы', 'Красная горка'],
-  'online school': ['Online school', 'Онлайн', 'Онлайн школа'],
-  'новокосино': ['Новокосино'],
-};
+// Fetches all distinct branch values from clients table
+// Maps each to its normalized key via toBranchKey()
+// Allows looking up raw DB values for a given normalized key
+export function useClientBranchValues() {
+  const { data: branchMap } = useQuery({
+    queryKey: ['client-branch-raw-values'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('clients')
+        .select('branch')
+        .not('branch', 'is', null)
+        .eq('is_active', true);
+      
+      // Group raw values by normalized key
+      const map = new Map<string, Set<string>>();
+      for (const row of data || []) {
+        if (!row.branch) continue;
+        const key = toBranchKey(row.branch);
+        if (!key) continue;
+        if (!map.has(key)) map.set(key, new Set());
+        map.get(key)!.add(row.branch);
+      }
+      return map;
+    },
+    staleTime: 10 * 60 * 1000, // 10 min cache
+  });
 
-export function expandBranchVariants(displayName: string): string[] {
-  const key = toBranchKey(displayName);
-  if (!key) return [displayName];
-  
-  const baseVariants = REVERSE_ALIASES[key] || [displayName];
-  const allVariants = new Set<string>(baseVariants);
-  
-  // Add prefixed variants with brand tokens
-  for (const variant of baseVariants) {
-    allVariants.add(`O'KEY ENGLISH ${variant}`);
-  }
-  allVariants.add(displayName);
-  
-  return Array.from(allVariants);
+  // Given a normalized key, return all raw DB values
+  const getRawValues = (normalizedKey: string): string[] => {
+    return Array.from(branchMap?.get(normalizedKey) || []);
+  };
+
+  return { branchMap, getRawValues };
 }
 ```
 
-### File: `src/pages/CRM.tsx`
-
-Update `effectiveBranches` (line 415) to expand branch names into all database variants before passing to the server:
+**File: `src/pages/CRM.tsx`** - Updated `effectiveBranches`:
 
 ```typescript
+const { getRawValues } = useClientBranchValues();
+
 const effectiveBranches = useMemo(() => {
   const managerBranches = hasManagerBranchRestrictions ? allowedBranchNames : null;
   
   if (selectedBranch && selectedBranch !== 'all') {
+    // selectedBranch is already a normalized key (from toBranchKey)
+    const rawValues = getRawValues(selectedBranch);
+    
     if (managerBranches) {
-      const filtered = managerBranches.filter(b => toBranchKey(b) === selectedBranch);
-      const base = filtered.length > 0 ? filtered : managerBranches;
-      return base.flatMap(b => expandBranchVariants(b));
+      // Intersect: only include raw values that also match manager restrictions
+      const managerKeys = new Set(managerBranches.map(toBranchKey));
+      if (!managerKeys.has(selectedBranch)) return undefined; // not allowed
     }
-    const matchedBranch = branches.find((b: any) => toBranchKey(b.name) === selectedBranch);
-    if (matchedBranch) {
-      return expandBranchVariants(matchedBranch.name);
-    }
-    return undefined;
+    
+    return rawValues.length > 0 ? rawValues : undefined;
   }
   
-  return managerBranches ? managerBranches.flatMap(b => expandBranchVariants(b)) : undefined;
-}, [selectedBranch, hasManagerBranchRestrictions, allowedBranchNames, branches]);
+  if (managerBranches) {
+    // Expand all manager branches to raw values
+    return managerBranches.flatMap(b => getRawValues(toBranchKey(b)));
+  }
+  
+  return undefined;
+}, [selectedBranch, hasManagerBranchRestrictions, allowedBranchNames, getRawValues]);
 ```
 
-This ensures the SQL query includes all raw name variants that normalize to the same branch key, so "Грайвороновская" filter also matches clients with `branch = "Стахановская"` or `branch = "O'KEY ENGLISH Стахановская"` in the database.
-
-### Build Error Fix
-
-The build error (if any) from the previous change will also be addressed -- the `useOrganization()` hook placement and dependencies are already correct.
-
+This guarantees that the SQL filter uses exact values that exist in the database, regardless of naming inconsistencies, prefixes, or aliases.
