@@ -588,8 +588,13 @@ export const FamilyCard = ({
                   dateOfBirth: "",
                   branch: activeMember.branch || selectedBranch || "",
                   notes: "",
-                  phoneNumbers: activeMember.phoneNumbers.map(p => {
-                    // Normalize phone for display
+                  phoneNumbers: (activeMember.phoneNumbers.length > 0 
+                    ? activeMember.phoneNumbers 
+                    : activeMember.phone 
+                      ? [{ phone: activeMember.phone, type: 'mobile' as const, isPrimary: true, 
+                           isWhatsappEnabled: true, isTelegramEnabled: false, id: 'main' }]
+                      : []
+                  ).map(p => {
                     const normalized = normalizePhone(p.phone);
                     const displayPhone = normalized ? (formatPhoneForDisplay(normalized) || `+${normalized}`) : p.phone;
                     return {
@@ -599,9 +604,9 @@ export const FamilyCard = ({
                       isPrimary: p.isPrimary,
                       isWhatsappEnabled: p.isWhatsappEnabled,
                       isTelegramEnabled: p.isTelegramEnabled,
-                      isMaxEnabled: p.isMaxEnabled ?? true,
+                      isMaxEnabled: (p as any).isMaxEnabled ?? true,
                     };
-                  }) || []
+                  })
                 }}
                 clientTelegramId={activeMember.telegramUserId?.toString()}
                 clientMaxId={activeMember.maxChatId}
