@@ -728,6 +728,7 @@ Deno.serve(async (req) => {
       messageRecord.client_id = resolvedClientId;
     }
     if (resolvedTeacherId) {
+      messageRecord.teacher_id = resolvedTeacherId;
       messageRecord.metadata = { teacher_id: resolvedTeacherId };
     }
     
