@@ -27,6 +27,7 @@ import { MessengersSettings } from "./MessengersSettings";
 import { SyncDashboard } from "./SyncDashboard";
 import { PaymentTerminalsSettings } from "@/components/settings/PaymentTerminalsSettings";
 import { BranchesSettings } from "@/components/settings/BranchesSettings";
+import { BulkBranchReassign } from "./BulkBranchReassign";
 import { OnlinePBXSettings } from "./OnlinePBXSettings";
 import { TelephonySection } from "./TelephonySection";
 import { WebhooksDirectory } from "./WebhooksDirectory";
@@ -132,6 +133,7 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
               <p className="text-muted-foreground">Управление филиалами и аудиториями</p>
             </div>
             <BranchesSettings />
+            <BulkBranchReassign />
           </div>
         );
       case "settings":
