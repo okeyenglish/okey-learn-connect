@@ -6,8 +6,8 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ClientCardBubble, isClientCardMessage } from '@/components/ai-hub/ClientCardBubble';
-import { ForwardedMessageBubble, isForwardedMessage } from '@/components/ai-hub/ForwardedMessageBubble';
+import { ClientCardBubble, isClientCardMessage, parseClientCard } from '@/components/ai-hub/ClientCardBubble';
+import { ForwardedMessageBubble, isForwardedMessage, parseForwardedComment } from '@/components/ai-hub/ForwardedMessageBubble';
 import { FileUpload, FileUploadRef } from '@/components/crm/FileUpload';
 import { 
   Bot, 
@@ -851,17 +851,61 @@ export const AIHub = ({
                         </div>
                       )}
                       
-                      <div className={`max-w-[75%] ${isOwn ? 'items-end' : 'items-start'}`}>
+                      <div className={`max-w-[75%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
                         {/* Special messages (cards, forwarded) rendered without colored bubble */}
                         {(isClientCardMessage(msg.content, msg.message_type) || isForwardedMessage(msg.content, msg.message_type)) ? (
-                          <div>
+                          <div className="w-full">
                             <div className="rounded-2xl border border-border/50 bg-card p-2.5 shadow-sm">
                               {isClientCardMessage(msg.content, msg.message_type) ? (
-                                <ClientCardBubble content={msg.content} isOwn={false} onOpenChat={(clientId) => { onOpenChat?.(clientId); onToggle(); }} />
+                                <ClientCardBubble content={msg.content} isOwn={false} onOpenChat={(clientId) => { onOpenChat?.(clientId); onToggle(); }} hideComment />
                               ) : (
-                                <ForwardedMessageBubble content={msg.content} isOwn={false} onOpenChat={(clientId, messageId) => { onOpenChat?.(clientId, messageId); onToggle(); }} />
+                                <ForwardedMessageBubble content={msg.content} isOwn={false} onOpenChat={(clientId, messageId) => { onOpenChat?.(clientId, messageId); onToggle(); }} hideComment />
                               )}
                             </div>
+                            {/* Comment rendered as separate bubble below */}
+                            {(() => {
+                              const commentText = isClientCardMessage(msg.content, msg.message_type)
+                                ? parseClientCard(msg.content)?.comment
+                                : parseForwardedComment(msg.content);
+                              if (!commentText) return null;
+                              return (
+                                <div className={`mt-1 px-3 py-1.5 ${
+                                  isOwn 
+                                    ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-md' 
+                                    : 'bg-muted rounded-2xl rounded-bl-md'
+                                }`}>
+                                  <p className="text-[13.5px] leading-[18px] whitespace-pre-wrap">{commentText}</p>
+                                </div>
+                              );
+                            })()}
+                            <div className={`flex items-center gap-1 mt-0.5 px-1 text-[10px] text-muted-foreground ${isOwn ? 'justify-end' : ''}`}>
+                              <span>{msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
+                              {isOwn && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
+                                msg.is_read 
+                                  ? <CheckCheck className="h-3 w-3 inline text-blue-400" />
+                                  : <Check className="h-3 w-3 inline" />
+                              )}
+                            </div>
+                          </div>
+                        ) : msg.file_url && msg.file_type?.startsWith('image/') ? (
+                          /* Image messages - clean, no colored bg, no filename */
+                          <div>
+                            <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="block">
+                              <img 
+                                src={msg.file_url} 
+                                alt="" 
+                                className="max-w-full rounded-2xl max-h-56 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                              />
+                            </a>
+                            {msg.content && (
+                              <div className={`mt-1 px-3 py-1.5 ${
+                                isOwn 
+                                  ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-md' 
+                                  : 'bg-muted rounded-2xl rounded-bl-md'
+                              }`}>
+                                <p className="text-[13.5px] leading-[18px] whitespace-pre-wrap">{msg.content}</p>
+                              </div>
+                            )}
                             <div className={`flex items-center gap-1 mt-0.5 px-1 text-[10px] text-muted-foreground ${isOwn ? 'justify-end' : ''}`}>
                               <span>{msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
                               {isOwn && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
@@ -882,38 +926,28 @@ export const AIHub = ({
                               <p className="text-[11px] font-semibold mb-0.5 text-primary">{msg.sender}</p>
                             )}
                             
-                            {/* File attachment */}
-                            {msg.file_url && (
+                            {/* Non-image file attachment */}
+                            {msg.file_url && !msg.file_type?.startsWith('image/') && (
                               <div className={msg.content ? 'mb-1.5' : ''}>
-                                {msg.file_type?.startsWith('image/') ? (
-                                  <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="block">
-                                    <img 
-                                      src={msg.file_url} 
-                                      alt={msg.file_name || 'Image'} 
-                                      className="max-w-full rounded-lg max-h-52 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                    />
-                                  </a>
-                                ) : (
-                                  <a 
-                                    href={msg.file_url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className={`flex items-center gap-2 px-2.5 py-2 rounded-lg transition-colors ${
-                                      isOwn ? 'bg-primary-foreground/10 hover:bg-primary-foreground/20' : 'bg-background/60 hover:bg-background/90'
-                                    }`}
-                                  >
-                                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
-                                      isOwn ? 'bg-primary-foreground/20' : 'bg-primary/10'
-                                    }`}>
-                                      <FileText className={`h-4 w-4 ${isOwn ? 'text-primary-foreground' : 'text-primary'}`} />
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <span className="text-xs font-medium truncate block">{msg.file_name || 'Файл'}</span>
-                                      <span className={`text-[10px] ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>Скачать</span>
-                                    </div>
-                                    <Download className={`h-4 w-4 shrink-0 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`} />
-                                  </a>
-                                )}
+                                <a 
+                                  href={msg.file_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className={`flex items-center gap-2 px-2.5 py-2 rounded-lg transition-colors ${
+                                    isOwn ? 'bg-primary-foreground/10 hover:bg-primary-foreground/20' : 'bg-background/60 hover:bg-background/90'
+                                  }`}
+                                >
+                                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                    isOwn ? 'bg-primary-foreground/20' : 'bg-primary/10'
+                                  }`}>
+                                    <FileText className={`h-4 w-4 ${isOwn ? 'text-primary-foreground' : 'text-primary'}`} />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <span className="text-xs font-medium truncate block">{msg.file_name || 'Файл'}</span>
+                                    <span className={`text-[10px] ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>Скачать</span>
+                                  </div>
+                                  <Download className={`h-4 w-4 shrink-0 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`} />
+                                </a>
                               </div>
                             )}
                             

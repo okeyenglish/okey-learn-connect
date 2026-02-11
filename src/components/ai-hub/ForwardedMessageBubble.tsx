@@ -4,6 +4,7 @@ interface ForwardedMessageBubbleProps {
   content: string;
   isOwn: boolean;
   onOpenChat?: (clientId: string, messageId?: string) => void;
+  hideComment?: boolean;
 }
 
 const parseForwardedMessage = (content: string) => {
@@ -28,10 +29,15 @@ const parseForwardedMessage = (content: string) => {
   return { clientId, messageId, clientName, messageText, comment };
 };
 
+export const parseForwardedComment = (content: string) => {
+  const { comment } = parseForwardedMessage(content);
+  return comment || null;
+};
+
 export const isForwardedMessage = (content: string, messageType?: string) =>
   messageType === 'forwarded_message' || content.startsWith('[forwarded_from:');
 
-export const ForwardedMessageBubble = ({ content, isOwn, onOpenChat }: ForwardedMessageBubbleProps) => {
+export const ForwardedMessageBubble = ({ content, isOwn, onOpenChat, hideComment }: ForwardedMessageBubbleProps) => {
   const { clientId, messageId, clientName, messageText, comment } = parseForwardedMessage(content);
 
   const handleClick = (e: React.MouseEvent) => {
@@ -45,7 +51,7 @@ export const ForwardedMessageBubble = ({ content, isOwn, onOpenChat }: Forwarded
   return (
     <div className="space-y-1">
       {/* Comment above the forwarded block */}
-      {comment && (
+      {!hideComment && comment && (
         <p className="text-[13.5px] leading-[18px] whitespace-pre-wrap">{comment}</p>
       )}
 
