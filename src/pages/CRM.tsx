@@ -4383,7 +4383,8 @@ const CRMContent = () => {
                     userBranch: profile?.branch || undefined,
                     activeChatType
                   }}
-                  onOpenChat={(clientId: string) => {
+                  onOpenChat={(clientId: string, messageId?: string) => {
+                    if (messageId) setHighlightedMessageId(messageId);
                     handleChatClick(clientId, 'client');
                   }}
                   onBack={() => setActiveChatType('client')}
@@ -4629,7 +4630,8 @@ const CRMContent = () => {
             setShowEditTaskModal(true);
           }
         }}
-        onOpenChat={(clientId: string) => {
+        onOpenChat={(clientId: string, messageId?: string) => {
+          if (messageId) setHighlightedMessageId(messageId);
           handleChatClick(clientId, 'client');
         }}
         onOpenScripts={() => setShowScriptsModal(true)}

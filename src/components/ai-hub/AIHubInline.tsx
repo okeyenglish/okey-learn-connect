@@ -76,7 +76,7 @@ interface AIHubInlineProps {
     activeChatType?: string;
   };
   onOpenModal?: any;
-  onOpenChat?: (clientId: string) => void;
+  onOpenChat?: (clientId: string, messageId?: string) => void;
   onBack?: () => void;
   /** If set, auto-open a direct chat with this staff user on mount */
   initialStaffUserId?: string | null;

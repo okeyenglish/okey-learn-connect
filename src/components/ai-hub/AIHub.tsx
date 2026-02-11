@@ -75,7 +75,7 @@ interface AIHubProps {
     activeChatType?: string;
   };
   onOpenModal?: any;
-  onOpenChat?: (clientId: string) => void;
+  onOpenChat?: (clientId: string, messageId?: string) => void;
   /** Callback to open scripts modal from Knowledge Base */
   onOpenScripts?: () => void;
   /** If set, auto-open AI assistant and show this message */
@@ -826,7 +826,7 @@ export const AIHub = ({
                         {isClientCardMessage(msg.content, msg.message_type) ? (
                           <ClientCardBubble content={msg.content} isOwn={msg.type === 'user'} onOpenChat={(clientId) => { onOpenChat?.(clientId); onToggle(); }} />
                         ) : isForwardedMessage(msg.content, msg.message_type) ? (
-                          <ForwardedMessageBubble content={msg.content} isOwn={msg.type === 'user'} onOpenChat={(clientId) => { onOpenChat?.(clientId); onToggle(); }} />
+                          <ForwardedMessageBubble content={msg.content} isOwn={msg.type === 'user'} onOpenChat={(clientId, messageId) => { onOpenChat?.(clientId, messageId); onToggle(); }} />
                         ) : (
                           <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                         )}
