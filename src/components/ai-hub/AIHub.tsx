@@ -835,12 +835,23 @@ export const AIHub = ({
           {showMembersDialog && activeChat.type === 'group' && groupMembers.data ? (
             <div className="flex-1 overflow-y-auto">
               <div className="px-2 py-1 space-y-0.5">
-                {groupMembers.data.map((member: any) => {
+                {[...groupMembers.data]
+                  .sort((a: any, b: any) => {
+                    const aOnline = isUserOnline(a.user_id) ? 1 : 0;
+                    const bOnline = isUserOnline(b.user_id) ? 1 : 0;
+                    return bOnline - aOnline;
+                  })
+                  .map((member: any) => {
                   const firstName = member.profile?.first_name || '';
                   const lastName = member.profile?.last_name || '';
                   const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'Участник';
                   const initials = `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`.toUpperCase() || '?';
                   const isOnline = isUserOnline(member.user_id);
+                  // Determine role label
+                  const isTeacher = teachers.some(t => t.profileId === member.user_id);
+                  const roleLabel = member.role === 'admin' ? 'Администратор' 
+                    : isTeacher ? 'Преподаватель' 
+                    : 'Сотрудник';
                   return (
                     <div key={member.user_id} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors">
                       <div className="relative">
@@ -853,9 +864,7 @@ export const AIHub = ({
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{fullName}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {member.profile?.branch || member.profile?.email || (member.role === 'admin' ? 'Админ' : 'Участник')}
-                        </p>
+                        <p className="text-xs text-muted-foreground truncate">{roleLabel}</p>
                       </div>
                       {member.role === 'admin' && (
                         <Badge variant="secondary" className="text-[10px] shrink-0">Админ</Badge>
