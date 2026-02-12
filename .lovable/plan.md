@@ -1,43 +1,60 @@
 
 
-## Problem
+# Plan: Optimize Interface Loading and Fix Key Issues
 
-On smaller desktop screens (not mobile), the floating ChatOS button (bottom-right corner) overlaps the send button in the chat area, making it hard to send messages.
+## Summary
+Based on the analysis of 9,279 lines of console logs, two main problems were identified that directly affect performance: ServiceWorker hangs and excessive AIHub re-renders. No critical JS errors were found from the application code itself.
 
-## Solution
+---
 
-Move the ChatOS button out of the way on smaller screens by repositioning it **above the message input area** when a chat is active, and add a small "ChatOS" button in the **chat header toolbar** as an alternative entry point.
+## Problem 1: ServiceWorker Grace Timeout
 
-### Changes:
+The browser repeatedly kills the ServiceWorker because promises in `waitUntil`/`respondWith` never resolve. This happens when `staleWhileRevalidate()` or `networkFirst()` fetch calls hang indefinitely (e.g., slow network, server not responding).
 
-**1. `src/pages/CRM.tsx`** - Adjust the floating button position
-- When an active chat is open (activeChatId is set), shift the button higher (e.g., `bottom-24` instead of `bottom-6`) so it doesn't overlap the input area
-- On screens below `lg` breakpoint, use responsive positioning: `bottom-24 right-4` to avoid overlap with the send button area
+### Fix
+Add a timeout wrapper (5 seconds) to all fetch calls in `src/sw.ts` so promises always resolve. Also reduce excessive console.log calls in the SW that add overhead.
 
-**2. `src/components/crm/ChatArea.tsx`** - Add padding/margin to the input area
-- Add `pr-20` (right padding) to the message input container on smaller screens so the text field doesn't extend under the floating button
+### Changes to `src/sw.ts`:
+- Add a `fetchWithTimeout(request, timeout)` utility that wraps `fetch()` with `AbortController` and a 5-second timeout
+- Replace all `fetch(request)` calls in `staleWhileRevalidate`, `networkFirst`, and `cacheFirstImages` with `fetchWithTimeout(request, 5000)`
+- Remove verbose `console.log` for cache hits (keep only warnings/errors)
 
-**3. Alternative approach (recommended)**: Add a ChatOS shortcut button in the top toolbar of the chat area (next to existing icons like search, phone, etc.) so users can open ChatOS from the header. Then hide the floating button when a chat is open on smaller screens.
+---
 
-### Specific implementation:
+## Problem 2: AIHub Excessive Re-renders
 
-- In `CRM.tsx`, change the floating button classes from `fixed bottom-6 right-6` to `fixed bottom-6 right-6 xl:bottom-6 xl:right-6` with a media-query-based offset: on screens `< xl`, use `bottom-20 right-4` to sit above the input toolbar
-- Add a `Sparkles` icon button in the `ChatArea.tsx` header toolbar (next to the existing action buttons) that opens ChatOS, providing an alternative access point that never overlaps
-- This dual approach ensures ChatOS is always accessible without blocking the send button
+The `AIHub` component re-renders 20-30+ times when `isOpen` is `false` (panel is closed). This happens because:
+- CRM.tsx passes inline objects/callbacks as props: `context={{...}}`, `onOpenModal={{...}}`, `onToggle={() => ...}`
+- Every CRM re-render creates new object references, triggering AIHub re-render
+- AIHub has ~20 hooks that all execute on each render even when the panel is hidden
 
-### Technical details:
+### Fix
+1. **Early return in AIHub**: When `isOpen === false` and no `initialStaffUserId`/`initialGroupChatId`/`initialAssistantMessage`, skip all hook execution by returning `null` immediately after the first few essential hooks
+2. **Memoize props in CRM.tsx**: Wrap `context`, `onOpenModal`, and `onToggle` in `useMemo`/`useCallback`
+3. **Remove debug console.log**: Remove `console.log('[AIHub] Rendering, isOpen:', isOpen)` that fires on every render
 
-```
-File: src/pages/CRM.tsx (line ~4440)
-Change: "fixed bottom-6 right-6 z-50 h-14 w-14"
-To: "fixed z-50 h-14 w-14 bottom-20 right-4 xl:bottom-6 xl:right-6"
+---
 
-This pushes the button above the input area on screens smaller than xl.
-```
+## Problem 3: Minor Optimizations
 
-```
-File: src/components/crm/ChatArea.tsx
-Add: A small Sparkles button in the chat header toolbar 
-that calls a new onOpenAssistant callback prop
-```
+### ServiceWorker registration
+- Add a periodic `CLEANUP_CACHES` message from the main app (currently defined in SW but never triggered)
+
+### Console noise reduction
+- Remove or gate behind `import.meta.env.DEV` the frequent `[AIHub] Rendering` log
+- Remove `[Prefetch]` logs from production builds
+
+---
+
+## Technical Details
+
+### Files to modify:
+1. **`src/sw.ts`** -- Add fetch timeout, reduce logging
+2. **`src/components/ai-hub/AIHub.tsx`** -- Early return when closed, remove debug log
+3. **`src/pages/CRM.tsx`** -- Memoize AIHub props (context, onOpenModal, onToggle)
+
+### Estimated impact:
+- ServiceWorker will no longer hang and get killed by the browser
+- AIHub re-renders reduced from ~30 to 0 when the panel is closed
+- Smoother CRM interface with less CPU usage from unnecessary React reconciliation
 
