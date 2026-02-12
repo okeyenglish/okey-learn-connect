@@ -331,11 +331,17 @@ export const ChatListItem = React.memo(({
             <span className="text-[10px] text-muted-foreground font-medium">{chat.time}</span>
             {/* Badge area: presence avatars + unread badge */}
             <div className="relative flex items-center">
-              {/* Payment pending badge - takes priority over unread count */}
+              {/* Presence avatars first */}
+              {hasPresence && (
+                <div className="relative z-10">
+                  <ChatPresenceIndicator presence={presenceInfo} compact clientName={chat.name} />
+                </div>
+              )}
+              {/* Payment pending badge */}
               {chat.has_pending_payment && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="bg-gradient-to-r from-green-600 to-green-500 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1">
+                    <span className={`bg-gradient-to-r from-green-600 to-green-500 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1 ${hasPresence ? '-ml-1.5' : ''}`}>
                       <Banknote className="h-3.5 w-3.5" />
                       <span className="font-semibold">₽</span>
                     </span>
@@ -345,21 +351,15 @@ export const ChatListItem = React.memo(({
                   </TooltipContent>
                 </Tooltip>
               )}
-              {/* Unread badge - show only if no pending payment */}
+              {/* Unread badge - overlapped by presence avatars */}
               {displayUnread && !chat.has_pending_payment && (
                 showEye ? (
-                  <span className="w-3 h-3 rounded-full bg-primary shadow-sm flex-shrink-0" />
+                  <span className={`w-3 h-3 rounded-full bg-primary shadow-sm flex-shrink-0 ${hasPresence ? '-ml-1.5' : ''}`} />
                 ) : (chat.unread || 0) > 0 ? (
-                  <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1">
+                  <span className={`bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1 ${hasPresence ? '-ml-1.5' : ''}`}>
                     <span className="font-semibold">{chat.unread}</span>
                   </span>
                 ) : null
-              )}
-              {/* Presence indicator - overlaps unread badge from the left */}
-              {hasPresence && (
-                <div className={`${displayUnread && !chat.has_pending_payment && ((showEye) || (chat.unread || 0) > 0) ? '-ml-1.5' : ''} relative z-10`}>
-                  <ChatPresenceIndicator presence={presenceInfo} compact clientName={chat.name} />
-                </div>
               )}
             </div>
           </div>
