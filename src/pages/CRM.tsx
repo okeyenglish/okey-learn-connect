@@ -4377,7 +4377,7 @@ const CRMContent = () => {
               </div>
             </div>
           ) : activeChatId && activeChatType === 'client' ? (
-            <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex-1 flex flex-col min-h-0 animate-fade-in" key={`chat-wrapper-${activeChatId}`}>
               <ChatArea
                 key={activeChatId}
                 clientId={activeChatId}
@@ -4426,7 +4426,7 @@ const CRMContent = () => {
               onMessageChange={setHasUnsavedChat}
             />
           ) : activeChatType === 'teachers' ? (
-            <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden w-full">
+            <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden w-full animate-fade-in" key={`teacher-wrapper-${activeChatId}`}>
               <TeacherChatArea 
                 selectedTeacherId={activeChatId === 'teachers' ? 'teachers-group' : activeChatId}
                 onSelectTeacher={(teacherId: string | null) => {
@@ -4441,7 +4441,7 @@ const CRMContent = () => {
               />
             </div>
           ) : activeChatType === 'chatos' ? (
-            <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden w-full">
+            <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden w-full animate-fade-in">
               <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
                 <AIHubInline 
                   context={{
