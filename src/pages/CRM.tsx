@@ -414,8 +414,13 @@ const CRMContent = () => {
   
   // Memoized AIHub callbacks (stable refs that don't depend on late-defined functions)
   const handleAIHubToggle = useCallback((open?: boolean) => {
-    setVoiceAssistantOpen(prev => typeof open === 'boolean' ? open : !prev);
-  }, []);
+    console.log('[AIHub Toggle] called with:', open, 'current voiceAssistantOpen:', voiceAssistantOpen);
+    setVoiceAssistantOpen(prev => {
+      const next = typeof open === 'boolean' ? open : !prev;
+      console.log('[AIHub Toggle] prev:', prev, '→ next:', next);
+      return next;
+    });
+  }, [voiceAssistantOpen]);
   const handleAIHubOpenScripts = useCallback(() => setShowScriptsModal(true), []);
   const handleClearInitialAssistantMessage = useCallback(() => {
     setInitialAssistantMessage(null);
