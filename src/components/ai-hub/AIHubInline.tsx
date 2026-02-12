@@ -43,7 +43,7 @@ import { ForwardedMessageBubble, isForwardedMessage } from '@/components/ai-hub/
 import { StaffMessageReactions } from '@/components/ai-hub/StaffMessageReactions';
 import { StaffForwardedBubble, isStaffForwardedMessage } from '@/components/ai-hub/StaffForwardedBubble';
 import { StaffForwardPicker } from '@/components/ai-hub/StaffForwardPicker';
-import { useStaffReactionsBatch } from '@/hooks/useStaffMessageReactions';
+import { useStaffReactionsBatch, useStaffReactionsBroadcast } from '@/hooks/useStaffMessageReactions';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useAuth } from '@/hooks/useAuth';
@@ -340,6 +340,7 @@ export const AIHubInline = ({
       : [];
   const staffMessageIdsInline = currentStaffMessagesInline.map(m => m.id);
   const { data: reactionsMapInline } = useStaffReactionsBatch(staffMessageIdsInline);
+  useStaffReactionsBroadcast();
 
   // Forward targets for picker
   const forwardTargets = useMemo(() => {
@@ -1026,7 +1027,8 @@ export const AIHubInline = ({
                       <Forward className="h-3 w-3 text-muted-foreground" />
                     </button>
                   )}
-                  <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 ${msg.type === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                  <div className={`max-w-[85%] flex flex-col ${msg.type === 'user' ? 'items-end' : 'items-start'} relative`}>
+                    <div className={`rounded-2xl px-4 py-2.5 ${msg.type === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                     {msg.sender && msg.type !== 'user' && <p className="text-xs font-medium mb-1 opacity-70">{msg.sender}</p>}
                     
                     {/* File attachment */}
@@ -1072,6 +1074,15 @@ export const AIHubInline = ({
                           : <Check className="h-3 w-3" />
                       )}
                     </div>
+                    </div>
+                    {/* Emoji reactions */}
+                    {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && reactionsMapInline && (
+                      <StaffMessageReactions
+                        messageId={msg.id}
+                        reactions={reactionsMapInline[msg.id] || []}
+                        isOwn={msg.type === 'user'}
+                      />
+                    )}
                   </div>
                   {/* Forward button for incoming messages */}
                   {msg.type !== 'user' && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
@@ -1082,14 +1093,6 @@ export const AIHubInline = ({
                     >
                       <Forward className="h-3 w-3 text-muted-foreground" />
                     </button>
-                  )}
-                  {/* Emoji reactions */}
-                  {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && reactionsMapInline && (
-                    <StaffMessageReactions
-                      messageId={msg.id}
-                      reactions={reactionsMapInline[msg.id] || []}
-                      isOwn={msg.type === 'user'}
-                    />
                   )}
                 </div>
               ))
