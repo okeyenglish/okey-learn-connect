@@ -556,11 +556,14 @@ const CRMContent = () => {
   useChatNotificationSound(activeChatId);
   
   // Staff message notifications with toast and click-to-open chat
-  const handleStaffMessageClick = useCallback((staffUserId: string, _isGroupChat?: boolean, _groupChatId?: string) => {
-    // Switch to ChatOS and open the staff chat
-    setInitialStaffUserId(staffUserId);
-    setActiveChatType('chatos');
-    setActiveTab('chats');
+  const handleStaffMessageClick = useCallback((staffUserId: string, isGroupChat?: boolean, groupChatId?: string) => {
+    // Open AI Hub Sheet and auto-open the staff/group chat inside it
+    if (isGroupChat && groupChatId) {
+      setInitialGroupChatId(groupChatId);
+    } else {
+      setInitialStaffUserId(staffUserId);
+    }
+    setVoiceAssistantOpen(true);
   }, []);
   
   useStaffMessageNotifications({
