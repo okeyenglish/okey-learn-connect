@@ -55,15 +55,13 @@ export const ChatBubbleNotification = ({ floating = false }: ChatBubbleNotificat
             : 'opacity-0 translate-y-4 scale-95 pointer-events-none'
         }`}
       >
-        {/* Speech bubble tail */}
-        <div className="absolute -bottom-2 right-6 w-4 h-4 bg-blue-50 dark:bg-blue-950/80 border-r border-b border-blue-200 dark:border-blue-800 rotate-45" />
         <div
           onClick={() => { notification.onOpen(); dismiss(); }}
-          className="bg-blue-50 dark:bg-blue-950/80 backdrop-blur-lg border border-blue-200 dark:border-blue-800 rounded-2xl shadow-2xl cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
+          className="bg-background/95 backdrop-blur-xl border border-border/60 rounded-2xl shadow-2xl shadow-black/10 cursor-pointer hover:shadow-xl hover:border-border transition-all duration-200"
         >
           <div className="px-4 py-3 flex items-center gap-3">
             {/* Avatar */}
-            <div className="shrink-0 w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary text-sm font-semibold">
+            <div className="shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-semibold">
               {notification.senderInitial}
             </div>
             {/* Content */}
@@ -74,12 +72,28 @@ export const ChatBubbleNotification = ({ floating = false }: ChatBubbleNotificat
             {/* Close */}
             <button
               onClick={(e) => { e.stopPropagation(); dismiss(); }}
-              className="shrink-0 h-6 w-6 rounded-full flex items-center justify-center hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+              className="shrink-0 h-6 w-6 rounded-full flex items-center justify-center hover:bg-muted transition-colors"
             >
               <X className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
           </div>
         </div>
+        {/* SVG tail pointing to the button */}
+        <svg
+          className="absolute -bottom-[7px] right-7 w-4 h-2 text-background/95 drop-shadow-sm"
+          viewBox="0 0 16 8"
+          fill="none"
+        >
+          <path
+            d="M0 0C4 0 6 4 8 8C10 4 12 0 16 0H0Z"
+            fill="currentColor"
+            stroke="hsl(var(--border) / 0.6)"
+            strokeWidth="1"
+            strokeLinejoin="round"
+          />
+          {/* Cover the top border line */}
+          <path d="M0.5 0H15.5" stroke="currentColor" strokeWidth="2" />
+        </svg>
       </div>
     );
   }
