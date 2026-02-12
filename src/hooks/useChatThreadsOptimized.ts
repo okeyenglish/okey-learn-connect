@@ -16,10 +16,16 @@ function isSystemPreviewMessage(text: string): boolean {
     lower.includes('задача создана') ||
     lower.includes('задача выполнена') ||
     lower.includes('задача отменена') ||
-    lower.startsWith('задача "') ||
-    lower.includes('отметил(а): ответ не требуется') ||
-    lower.includes('подтвердил(а) оплату')
+    lower.startsWith('задача "')
   );
+}
+
+// Replace verbose system action messages with short preview text
+function shortenSystemActionPreview(text: string): string {
+  if (!text) return text;
+  if (/отметил\(а\): ответ не требуется/i.test(text)) return '✓ Ответ не требуется';
+  if (/подтвердил\(а\) оплату/i.test(text)) return '✓ Оплата подтверждена';
+  return text;
 }
 
 interface RpcThreadRow {
@@ -278,7 +284,7 @@ function mapRpcToThreads(data: RpcThreadRow[], startTime?: number): ChatThread[]
     // Get raw last message
     const rawLastMessage = row.last_message_text || row.last_message || '';
     // Filter out system messages from preview
-    const lastMessage = isSystemPreviewMessage(rawLastMessage) ? '' : rawLastMessage;
+    const lastMessage = isSystemPreviewMessage(rawLastMessage) ? '' : shortenSystemActionPreview(rawLastMessage);
     
     return {
       client_id: row.client_id, // get_chat_threads_optimized returns client_id directly
