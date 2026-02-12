@@ -178,8 +178,8 @@ const StudentsLeadsModal = lazy(() => import("@/components/students/StudentsLead
 const ImportStudentsModal = lazy(() => import("@/components/students/ImportStudentsModal").then(m => ({ default: m.ImportStudentsModal })));
 const EnhancedStudentCard = lazy(() => import("@/components/students/EnhancedStudentCard").then(m => ({ default: m.EnhancedStudentCard })));
 const NewFinancesSection = lazy(() => import("@/components/finances/NewFinancesSection").then(m => ({ default: m.NewFinancesSection })));
-const AIHub = lazy(() => import("@/components/ai-hub/AIHub").then(m => ({ default: m.AIHub })));
-const AIHubInline = lazy(() => import("@/components/ai-hub/AIHubInline").then(m => ({ default: m.AIHubInline })));
+import { AIHub } from "@/components/ai-hub/AIHub";
+import { AIHubInline } from "@/components/ai-hub/AIHubInline";
 const ScheduleSection = lazy(() => import("@/components/crm/sections/ScheduleSection"));
 const DocumentsSection = lazy(() => import("@/components/documents/DocumentsSection").then(m => ({ default: m.DocumentsSection })));
 const AnalyticsSection = lazy(() => import("@/components/analytics/AnalyticsSection").then(m => ({ default: m.AnalyticsSection })));
@@ -4622,7 +4622,6 @@ const CRMContent = () => {
       
       {/* AI Центр */}
       <ErrorBoundary>
-        <Suspense fallback={null}>
           <AIHub 
             isOpen={voiceAssistantOpen}
             onToggle={() => setVoiceAssistantOpen(!voiceAssistantOpen)}
@@ -4665,7 +4664,6 @@ const CRMContent = () => {
             initialGroupChatId={initialGroupChatId}
             onClearInitialGroupChatId={() => setInitialGroupChatId(null)}
           />
-        </Suspense>
       </ErrorBoundary>
 
       {/* Мобильная нижняя навигация чатов - показываем когда не открыт диалог с клиентом */}
