@@ -224,6 +224,8 @@ export const useSendStaffMessage = () => {
         queryClient.invalidateQueries({ queryKey: ['staff-group-messages', variables.group_chat_id] });
       }
       queryClient.invalidateQueries({ queryKey: ['staff-conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-conversation-previews'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-group-previews'] });
     },
     onError: (error: any) => {
       console.error('Error sending staff message:', error);
