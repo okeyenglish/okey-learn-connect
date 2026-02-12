@@ -159,6 +159,10 @@ export const ChatArea = ({
   
   // Helper to build message record with correct client_id/teacher_id
   const buildMessageRecord = (baseRecord: Record<string, any>) => {
+    // Always store sender_name in metadata for self-hosted compatibility
+    if (baseRecord.sender_name) {
+      baseRecord.metadata = { ...(baseRecord.metadata || {}), sender_name: baseRecord.sender_name };
+    }
     if (isDirectTeacherMessage && actualTeacherId) {
       // For direct teacher messages, use teacher_id instead of client_id
       const { client_id, ...rest } = baseRecord;
@@ -853,7 +857,7 @@ export const ChatArea = ({
     // Get avatar based on messenger type, with fallback chain
     // Self-hosted schema only has avatar_url (no messenger-specific avatars)
     clientAvatar: msg.clients?.avatar_url || null,
-    managerName: msg.sender_name || 'Менеджер поддержки',
+    managerName: msg.sender_name || (meta as any)?.sender_name || 'Менеджер поддержки',
     fileUrl: msg.file_url,
     fileName: msg.file_name,
     fileType: msg.file_type || msg.media_type,
@@ -1480,7 +1484,8 @@ export const ChatArea = ({
           is_outgoing: true,
           messenger_type: messengerType,
           message_status: 'failed',
-          sender_name: senderName
+          sender_name: senderName,
+          metadata: { sender_name: senderName }
         });
         
         queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
@@ -1662,6 +1667,7 @@ export const ChatArea = ({
               is_read: true,
               message_status: 'sent',
               organization_id: orgId as string,
+              metadata: { sender_name: senderName },
             });
 
           if (insertError) {
