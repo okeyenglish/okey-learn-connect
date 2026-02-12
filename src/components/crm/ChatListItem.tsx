@@ -198,9 +198,13 @@ export const ChatListItem = React.memo(({
     >
       <button 
         className={`w-full p-2 text-left rounded-lg transition-all duration-200 relative mb-0.5 border select-none touch-manipulation ${
-          isActive 
-            ? 'bg-accent/50 shadow-sm border-accent' 
-            : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
+          chat.has_pending_payment
+            ? isActive
+              ? 'bg-emerald-100/70 dark:bg-emerald-950/40 shadow-sm border-emerald-300 dark:border-emerald-700'
+              : 'bg-emerald-50/80 dark:bg-emerald-950/20 hover:bg-emerald-100/60 dark:hover:bg-emerald-950/30 hover:shadow-sm border-emerald-200 dark:border-emerald-800/50'
+            : isActive 
+              ? 'bg-accent/50 shadow-sm border-accent' 
+              : 'bg-card hover:bg-accent/30 hover:shadow-sm border-border/50'
         } ${bulkSelectMode && isSelected ? 'ring-2 ring-primary ring-offset-1' : ''} ${
           isNewMessage ? 'new-message-glow' : ''
         }`}
