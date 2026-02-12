@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { playNotificationSound } from '@/hooks/useNotificationSound';
 import { showBrowserNotification } from '@/hooks/useBrowserNotifications';
 import { toast } from 'sonner';
+import { createElement } from 'react';
 import type { StaffMessage } from '@/hooks/useInternalStaffMessages';
 
 interface StaffMessageNotificationsOptions {
@@ -131,14 +132,21 @@ export const useStaffMessageNotifications = (options: StaffMessageNotificationsO
             }
           };
 
-          toast(title, {
-            description: messagePreview,
-            duration: 5000,
-            action: {
-              label: 'Открыть',
-              onClick: handleOpenChat,
+          toast.custom(
+            (id) => createElement('div', {
+              onClick: () => { handleOpenChat(); toast.dismiss(id); },
+              style: { cursor: 'pointer' },
+              className: 'bg-background border border-border rounded-2xl rounded-br-sm shadow-lg p-3 max-w-[320px] w-full animate-in slide-in-from-bottom-2 fade-in duration-300',
             },
-          });
+              createElement('div', { className: 'flex items-center gap-2 mb-1' },
+                createElement('span', { className: 'text-lg' }, '💬'),
+                createElement('span', { className: 'text-sm font-semibold text-foreground truncate' }, title.replace('💬 ', '')),
+              ),
+              createElement('p', { className: 'text-[13px] text-muted-foreground line-clamp-2 leading-snug' }, messagePreview),
+              createElement('p', { className: 'text-[10px] text-muted-foreground/60 mt-1.5 text-right' }, 'Нажмите, чтобы открыть'),
+            ),
+            { duration: 5000 },
+          );
 
           // Show browser notification if tab is not visible
           if (document.hidden) {
