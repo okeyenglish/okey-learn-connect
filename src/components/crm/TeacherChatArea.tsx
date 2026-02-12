@@ -156,6 +156,10 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
           if (newRecord && newRecord.teacher_id) {
             const teacherId = String(newRecord.teacher_id);
             const messageText = String(newRecord.message_text || newRecord.content || '');
+            const messageType = String(newRecord.message_type || '');
+            // Don't update preview with system messages about actions
+            const isSystemAction = messageText.includes('отметил(а): ответ не требуется') || messageText.includes('подтвердил(а) оплату');
+            const previewText = (messageType === 'system' || isSystemAction) ? '' : messageText;
             const messengerType = String(newRecord.messenger_type || newRecord.messenger || '');
             const createdAt = String(newRecord.created_at || new Date().toISOString());
             const isOutgoing = newRecord.is_outgoing === true || newRecord.direction === 'outgoing';
@@ -169,7 +173,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                   if (c.teacherId === teacherId) {
                     return {
                       ...c,
-                      lastMessageText: messageText,
+                      lastMessageText: previewText || c.lastMessageText,
                       lastMessageTime: createdAt,
                       lastMessengerType: messengerType,
                       unreadCount: isOutgoing ? c.unreadCount : (c.unreadCount || 0) + 1,
