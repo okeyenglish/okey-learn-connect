@@ -441,7 +441,7 @@ export const ChatArea = ({
           msg.file_url,
           msg.file_name,
           msg.file_type,
-          isDirectTeacherMessage ? { phoneNumber: clientPhone } : undefined
+          isDirectTeacherMessage ? { phoneNumber: clientPhone, teacherId: actualTeacherId, telegramUserId: clientTelegramUserId } : undefined
         );
         success = result.success;
       } else {
@@ -1557,8 +1557,10 @@ export const ChatArea = ({
           }
         }
       } else if (activeMessengerTab === 'telegram') {
-        // Send via Telegram - pass phoneNumber and teacherId for teachers
-        const telegramOptions = effectivePhone ? { phoneNumber: effectivePhone, teacherId: actualTeacherId, senderName } : { senderName };
+        // Send via Telegram - pass telegramUserId (priority) and phoneNumber for teachers
+        const telegramOptions = isDirectTeacherMessage 
+          ? { phoneNumber: effectivePhone, teacherId: actualTeacherId, senderName, telegramUserId: clientTelegramUserId }
+          : { senderName };
         
         if (filesToSend.length > 0) {
           for (const file of filesToSend) {
@@ -2338,10 +2340,12 @@ export const ChatArea = ({
     try {
       let result;
       
-      // For direct teacher messages, use phone as fallback
+      // For direct teacher messages, use telegramUserId (priority) or phone as fallback
       const resendPhone = isDirectTeacherMessage ? clientPhone : undefined;
       const resendClientId = isDirectTeacherMessage ? '' : clientId;
-      const resendOptions = resendPhone ? { phoneNumber: resendPhone } : undefined;
+      const resendOptions = isDirectTeacherMessage 
+        ? { phoneNumber: resendPhone, teacherId: actualTeacherId, telegramUserId: clientTelegramUserId } 
+        : undefined;
       
       if (messengerType === 'max') {
         result = await sendMaxMessage(resendClientId, msg.message, msg.fileUrl, msg.fileName, msg.fileType, resendOptions);
