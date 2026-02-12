@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { ClientCardBubble, isClientCardMessage, parseClientCard } from '@/components/ai-hub/ClientCardBubble';
 import { ForwardedMessageBubble, isForwardedMessage, parseForwardedComment } from '@/components/ai-hub/ForwardedMessageBubble';
 import { StaffMessageReactions } from '@/components/ai-hub/StaffMessageReactions';
+import { StaffForwardedBubble, isStaffForwardedMessage, parseStaffForwardedComment } from '@/components/ai-hub/StaffForwardedBubble';
+import { StaffForwardPicker } from '@/components/ai-hub/StaffForwardPicker';
 import { useStaffReactionsBatch } from '@/hooks/useStaffMessageReactions';
 import { FileUpload, FileUploadRef } from '@/components/crm/FileUpload';
 import { 
@@ -41,7 +43,8 @@ import {
   Pencil,
   Trash2,
   ImageIcon,
-  UserRound
+  UserRound,
+  Forward
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { selfHostedPost } from '@/lib/selfHostedApi';
@@ -169,6 +172,7 @@ export const AIHub = ({
   const [pendingFile, setPendingFile] = useState<{ url: string; name: string; type: string } | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [showMembersDialog, setShowMembersDialog] = useState(false);
+  const [forwardingMessage, setForwardingMessage] = useState<{ id: string; content: string; senderName: string; chatName: string } | null>(null);
   
   const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('online'); // По умолчанию показываем онлайн
   
@@ -422,8 +426,8 @@ export const AIHub = ({
     if (raw.match(/^\[client_card:[a-f0-9-]+\]$/i)) {
       return <span className="flex items-center gap-1 truncate">{prefix}<UserRound className="h-3 w-3 shrink-0 text-primary" /> Контакт</span>;
     }
-    if (raw.startsWith('[forwarded_from:')) {
-      return <span className="flex items-center gap-1 truncate">{prefix}<ArrowLeft className="h-3 w-3 shrink-0 rotate-180" /> Пересланное сообщение</span>;
+    if (raw.startsWith('[forwarded_from:') || raw.startsWith('[staff_forwarded:')) {
+      return <span className="flex items-center gap-1 truncate">{prefix}<Forward className="h-3 w-3 shrink-0" /> Пересланное сообщение</span>;
     }
     if (raw.match(/\.(png|jpg|jpeg|gif|webp|bmp|svg)$/i)) {
       return <span className="flex items-center gap-1 truncate">{prefix}<ImageIcon className="h-3 w-3 shrink-0 text-primary" /> Фото</span>;
@@ -655,6 +659,56 @@ export const AIHub = ({
       console.error('[AIHub] Error selecting chat:', error);
       toast.error('Не удалось открыть чат. Попробуйте ещё раз.');
     }
+  };
+
+  // Forward targets for picker
+  const forwardTargets = useMemo(() => {
+    const targets: Array<{ id: string; name: string; type: 'staff' | 'teacher' | 'group'; icon: 'staff' | 'teacher' | 'group' }> = [];
+    
+    // Groups
+    (staffGroupChats || []).forEach(g => {
+      targets.push({ id: g.id, name: g.name, type: 'group', icon: 'group' });
+    });
+    // Teachers
+    teachers.forEach(t => {
+      if (t.profileId) {
+        targets.push({ id: t.profileId, name: t.fullName, type: 'teacher', icon: 'teacher' });
+      }
+    });
+    // Staff
+    const teacherProfileIdsSet2 = new Set(teachers.filter(t => t.profileId).map(t => t.profileId as string));
+    (staffMembers || []).filter(s => !teacherProfileIdsSet2.has(s.id)).forEach(s => {
+      const name = [s.first_name, s.last_name].filter(Boolean).join(' ') || s.email || 'Сотрудник';
+      targets.push({ id: s.id, name, type: 'staff', icon: 'staff' });
+    });
+    
+    return targets;
+  }, [staffGroupChats, teachers, staffMembers]);
+
+  const handleForwardMessage = async (target: { id: string; name: string; type: 'staff' | 'teacher' | 'group' }, comment: string) => {
+    if (!forwardingMessage) return;
+    
+    const forwardedContent = `[staff_forwarded:${forwardingMessage.senderName}:${forwardingMessage.chatName}]\n---\n${forwardingMessage.content}${comment ? `\n\n💬 ${comment}` : ''}`;
+    
+    try {
+      if (target.type === 'group') {
+        await sendStaffMessage.mutateAsync({
+          group_chat_id: target.id,
+          message_text: forwardedContent,
+          message_type: 'staff_forwarded',
+        });
+      } else {
+        await sendStaffMessage.mutateAsync({
+          recipient_user_id: target.id,
+          message_text: forwardedContent,
+          message_type: 'staff_forwarded',
+        });
+      }
+      toast.success(`Сообщение переслано → ${target.name}`);
+    } catch (error) {
+      toast.error('Не удалось переслать сообщение');
+    }
+    setForwardingMessage(null);
   };
 
   const handleBack = () => {
@@ -1012,15 +1066,28 @@ export const AIHub = ({
                         </div>
                       )}
                       
+                      {/* Forward button on hover - for staff chats only */}
+                      {isStaffChat && isOwn && (
+                        <button
+                          className="h-6 w-6 rounded-full flex items-center justify-center bg-background/80 border border-border/40 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background shrink-0"
+                          onClick={() => setForwardingMessage({ id: msg.id, content: msg.content, senderName: msg.sender || 'Вы', chatName: activeChat.name })}
+                          title="Переслать"
+                        >
+                          <Forward className="h-3 w-3 text-muted-foreground" />
+                        </button>
+                      )}
+
                       <div className={`max-w-[75%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
                         {/* Special messages (cards, forwarded) rendered without colored bubble */}
-                        {(isClientCardMessage(msg.content, msg.message_type) || isForwardedMessage(msg.content, msg.message_type)) ? (
+                        {(isClientCardMessage(msg.content, msg.message_type) || isForwardedMessage(msg.content, msg.message_type) || isStaffForwardedMessage(msg.content, msg.message_type)) ? (
                           <div className="w-full">
                             <div className="rounded-2xl bg-primary/5 border border-primary/10 p-2.5">
                               {isClientCardMessage(msg.content, msg.message_type) ? (
                                 <ClientCardBubble content={msg.content} isOwn={false} onOpenChat={(clientId) => { onOpenChat?.(clientId); onToggle(); }} hideComment />
-                              ) : (
+                              ) : isForwardedMessage(msg.content, msg.message_type) ? (
                                 <ForwardedMessageBubble content={msg.content} isOwn={false} onOpenChat={(clientId, messageId) => { onOpenChat?.(clientId, messageId); onToggle(); }} hideComment />
+                              ) : (
+                                <StaffForwardedBubble content={msg.content} isOwn={false} />
                               )}
                             </div>
                             {/* Comment rendered as separate bubble below */}
@@ -1140,6 +1207,17 @@ export const AIHub = ({
                           />
                         )}
                       </div>
+
+                      {/* Forward button on hover - for incoming staff messages */}
+                      {isStaffChat && !isOwn && (
+                        <button
+                          className="h-6 w-6 rounded-full flex items-center justify-center bg-background/80 border border-border/40 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background shrink-0"
+                          onClick={() => setForwardingMessage({ id: msg.id, content: msg.content, senderName: msg.sender || 'Коллега', chatName: activeChat.name })}
+                          title="Переслать"
+                        >
+                          <Forward className="h-3 w-3 text-muted-foreground" />
+                        </button>
+                      )}
                     </div>
                   );
                 })
@@ -1727,6 +1805,15 @@ export const AIHub = ({
           </div>
         </ScrollArea>
       </SheetContent>
+
+      {/* Staff Forward Picker */}
+      <StaffForwardPicker
+        open={!!forwardingMessage}
+        onClose={() => setForwardingMessage(null)}
+        onForward={handleForwardMessage}
+        messagePreview={forwardingMessage?.content || ''}
+        staffMembers={forwardTargets}
+      />
     </Sheet>
   );
 };
