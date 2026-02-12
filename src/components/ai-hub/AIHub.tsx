@@ -11,6 +11,7 @@ import { ForwardedMessageBubble, isForwardedMessage, parseForwardedComment } fro
 import { StaffMessageReactions } from '@/components/ai-hub/StaffMessageReactions';
 import { StaffForwardedBubble, isStaffForwardedMessage, parseStaffForwardedComment } from '@/components/ai-hub/StaffForwardedBubble';
 import { StaffForwardPicker } from '@/components/ai-hub/StaffForwardPicker';
+import { ChatBubbleNotification } from '@/components/ai-hub/ChatBubbleNotification';
 import { useStaffReactionsBatch, useStaffReactionsBroadcast } from '@/hooks/useStaffMessageReactions';
 import { FileUpload, FileUploadRef } from '@/components/crm/FileUpload';
 import { 
@@ -803,7 +804,8 @@ export const AIHub = ({
   if (activeChat?.type === 'assistant') {
     return (
       <Sheet open={isOpen} onOpenChange={onToggle}>
-        <SheetContent side="right" className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden">
+        <SheetContent side="right" className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden relative">
+          <ChatBubbleNotification />
           {/* Header */}
           <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
             <Button variant="ghost" size="icon" onClick={() => setActiveChat(null)} className="h-8 w-8">
@@ -846,7 +848,8 @@ export const AIHub = ({
 
     return (
       <Sheet open={isOpen} onOpenChange={onToggle}>
-        <SheetContent side="right" className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden">
+        <SheetContent side="right" className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden relative">
+          <ChatBubbleNotification />
           {/* Header */}
           <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
             <Button variant="ghost" size="icon" onClick={handleBack} className="h-8 w-8">
@@ -1513,7 +1516,8 @@ export const AIHub = ({
   // Main chat list - EXACT copy of mobile AIHubInline layout
   return (
     <Sheet open={isOpen} onOpenChange={onToggle}>
-      <SheetContent side="right" hideCloseButton className="w-full sm:w-[400px] sm:max-w-[400px] h-full p-0 flex flex-col overflow-hidden">
+      <SheetContent side="right" hideCloseButton className="w-full sm:w-[400px] sm:max-w-[400px] h-full p-0 flex flex-col overflow-hidden relative">
+        <ChatBubbleNotification />
         {/* Header */}
         <div className="px-4 py-3 border-b shrink-0 flex items-center justify-between">
           <div className="flex items-center gap-3">
