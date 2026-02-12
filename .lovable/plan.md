@@ -1,71 +1,42 @@
 
-## Моментальное открытие правильной вкладки мессенджера
+## Исправление: оплаченные чаты не закрепляются наверху с зеленым фоном
 
-### Проблема
+### Причина проблемы
 
-При клике на чат в списке вкладка мессенджера (WhatsApp/Telegram/Max) определяется только **после загрузки всех сообщений**. ChatArea ждет завершения запросов `unreadLoading`, `unreadFetching` и `loadingMessages`, и только потом выбирает вкладку по последнему сообщению. Это создает задержку ~1 секунду, во время которой пользователь видит пустую или неправильную вкладку.
+При оптимизации загрузки чатов (переходе на RPC `get_chat_threads_paginated`) поле `has_pending_payment` было потеряно:
+
+1. RPC-функция `get_chat_threads_paginated` **не возвращает** поле `has_pending_payment`
+2. Функция `mapRpcToThreads` **не включает** это поле в результат
+3. В итоге все чаты получают `has_pending_payment = undefined`, сортировка и зеленая подсветка не работают
+
+Fallback-путь (`fetchThreadsDirectly`) корректно загружает `has_pending_payment` из таблицы `clients`, но при использовании RPC это поле теряется.
 
 ### Решение
 
-Список чатов уже содержит информацию о мессенджере последнего сообщения (`last_message_messenger`) и последнего непрочитанного (`last_unread_messenger`). Нужно передавать эту информацию при клике, чтобы ChatArea мог **мгновенно** установить правильную вкладку без ожидания загрузки сообщений.
+Дополнить RPC-путь загрузкой `has_pending_payment` из таблицы `clients` для всех загруженных тредов.
 
 ### Технические детали
 
-**1. Файл: `src/components/crm/VirtualizedChatList.tsx`**
+**Файл: `src/hooks/useChatThreadsInfinite.ts`**
 
-В `onChatClick` вызове (строка ~258) -- передавать мессенджер из данных чата, даже если это не результат поиска:
-
-```text
-// Было:
-const messengerType = foundInMessages && getMessengerType ? getMessengerType(chat.id) : null;
-
-// Будет:
-const messengerType = foundInMessages && getMessengerType 
-  ? getMessengerType(chat.id) 
-  : (chat.last_unread_messenger || chat.last_message_messenger || null);
-```
-
-**2. Файл: `src/pages/CRM.tsx`**
-
-В `handleChatClick` (строка ~1475) -- всегда устанавливать `selectedMessengerTab`, если передан `messengerType`, а не только при `foundInMessages`:
+1. После получения тредов из RPC (`mapRpcToThreads`), сделать легкий запрос к `clients` для получения `has_pending_payment`:
 
 ```text
-// Было (строки ~1493-1506): messengerTab устанавливается только для foundInMessages
+// После mapRpcToThreads:
+const clientIds = threads.map(t => t.client_id).filter(Boolean);
+const { data: pendingData } = await supabase
+  .from('clients')
+  .select('id, has_pending_payment')
+  .in('id', clientIds)
+  .eq('has_pending_payment', true);
 
-// Будет: если messengerType передан -- устанавливаем вкладку сразу
-if (messengerType) {
-  setSelectedMessengerTab({ tab: messengerType, ts: Date.now() });
-  setTimeout(() => setSelectedMessengerTab(undefined), 500);
-}
+// Проставить флаг в тредах
+const pendingSet = new Set((pendingData || []).map(c => c.id));
+threads.forEach(t => { t.has_pending_payment = pendingSet.has(t.client_id); });
 ```
 
-**3. Файл: `src/pages/CRM.tsx`**
+Этот запрос очень легкий: фильтрует по индексу `idx_clients_has_pending_payment` и возвращает обычно 0-3 строки (только клиенты с активной оплатой). Задержка ~5-10мс.
 
-В inline-рендере ChatListItem (строка ~3718) -- аналогично передавать мессенджер из данных чата:
+2. Аналогичную проверку добавить в `mapRpcToThreads` нельзя (она синхронная), поэтому обогащение происходит в `queryFn` после маппинга.
 
-```text
-// Было:
-const messengerType = foundInMessages && getMessengerType ? getMessengerType(chat.id) : null;
-
-// Будет:
-const messengerType = foundInMessages && getMessengerType 
-  ? getMessengerType(chat.id)
-  : (chat.last_unread_messenger || chat.last_message_messenger || null);
-```
-
-**4. Файл: `src/components/crm/ChatArea.tsx`**
-
-В useEffect для начальной вкладки (строки ~729-769) -- если `initialMessengerTab` передан, устанавливать его **немедленно**, не дожидаясь загрузки сообщений:
-
-```text
-// Добавить ранний выход: если вкладка уже передана из списка -- применить сразу
-if (initialMessengerTab && initialTabSet !== clientId) {
-  setActiveMessengerTab(initialMessengerTab);
-  setInitialTabSet(clientId);
-  return; // Не ждем загрузки сообщений
-}
-```
-
-### Результат
-
-Вместо ожидания ~1с загрузки сообщений для определения вкладки, правильная вкладка устанавливается **мгновенно** при клике на чат из списка. Если данные о мессенджере отсутствуют в списке (редкий случай), сохраняется текущая логика определения по загруженным сообщениям.
+Результат: чаты с оплатой снова будут закрепляться наверху с изумрудным фоном и значком "₽".
