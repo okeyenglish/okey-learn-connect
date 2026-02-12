@@ -1,67 +1,45 @@
 
 
-## Исправление: имя сотрудника не подхватывается при отправке сообщений
+## Исправление: Edge Functions не сохраняют sender_name в metadata
 
-### Диагностика
+### Проблема
 
-Причина найдена: в self-hosted базе `profiles` у текущего пользователя (Даниил Пышнов, ID `0a5d61cf...`) поля `first_name` и `last_name` равны `null`. Поэтому код:
-
-```typescript
-const senderName = authProfile
-  ? [authProfile.first_name, authProfile.last_name].filter(Boolean).join(' ') || 'Менеджер поддержки'
-  : 'Менеджер поддержки';
-```
-
-...всегда возвращает "Менеджер поддержки".
-
-Однако в JWT токене (в `user_metadata`) имя уже есть:
-```
-"first_name": "Даниил", "last_name": "Пышнов"
-```
+Фронтенд уже умеет читать `metadata.sender_name` как фоллбэк, но edge functions записывают имя только в колонку `sender_name`, которой нет в self-hosted базе. Данные теряются.
 
 ### Что будет сделано
 
-**1. `src/hooks/useAuth.tsx`** -- при загрузке профиля, если `first_name`/`last_name` пустые, подставлять значения из `user_metadata` JWT токена:
+Обновить 4 edge functions, добавив `sender_name` в объект `metadata` при вставке сообщения в БД.
 
-В функции `fetchProfile`, после получения `profileData`, добавить fallback:
+### Файлы для изменения
+
+**1. `supabase/functions/wpp-send/index.ts`**
+- В объекте вставки сообщения (строка ~250-263) добавить поле `metadata` с `sender_name`
+- Если `metadata` уже используется, мержить с существующими данными
+
+**2. `supabase/functions/telegram-send/index.ts`**
+- В месте вставки сообщения добавить `metadata: { sender_name: body.senderName || null }`
+
+**3. `supabase/functions/max-send/index.ts`**
+- Аналогично добавить `metadata: { sender_name: body.senderName || null }`
+
+**4. `supabase/functions/telegram-crm-send/index.ts`**
+- Аналогично добавить `metadata: { sender_name: body.senderName || null }`
+
+### Логика изменения (одинаковая для всех)
+
+В каждой функции, в месте где формируется объект для вставки в `chat_messages`, добавить:
 
 ```typescript
-if (profileData) {
-  const userMeta = (await supabase.auth.getUser())?.data?.user?.user_metadata;
-  const profileWithFallback = {
-    ...profileData,
-    first_name: profileData.first_name || userMeta?.first_name || null,
-    last_name: profileData.last_name || userMeta?.last_name || null,
-    avatar_url: null
-  };
-  setProfile(profileWithFallback);
+metadata: {
+  ...(existingMetadata || {}),
+  sender_name: payload.senderName || body.senderName || null
 }
 ```
 
-Это решит проблему для всех мест где используется `authProfile` -- и для `managerName` prop, и для `senderName` при отправке сообщений, и для системных сообщений ("Даниил Пышнов отметил(а): ответ не требуется").
+Если в объекте вставки уже есть поле `metadata` (например, с `integration_id`), нужно мержить, а не перезаписывать.
 
-### Альтернативный подход (если профиль вообще не найден)
+### Результат
 
-Также добавить обработку случая когда `profileData` = null (профиль не существует в таблице):
-
-```typescript
-if (!profileError) {
-  const userMeta = (await supabase.auth.getUser())?.data?.user?.user_metadata;
-  const profile = profileData || {};
-  setProfile({
-    id: userId,
-    first_name: profile.first_name || userMeta?.first_name || null,
-    last_name: profile.last_name || userMeta?.last_name || null,
-    email: profile.email || userMeta?.email || null,
-    // ... остальные поля
-  });
-}
-```
-
-### Затронутые файлы
-
-- `src/hooks/useAuth.tsx` -- одно место в функции `fetchProfile` (строки 145-159)
-
-### Почему это работает
-
-JWT токен уже содержит корректные данные пользователя (`user_metadata`). Не нужно менять базу данных или edge functions -- достаточно использовать эти данные как fallback при загрузке профиля.
+- Новые сообщения будут сохранять имя менеджера в `metadata.sender_name`
+- Фронтенд уже читает это поле через фоллбэк-цепочку
+- Старые сообщения останутся с "Менеджер поддержки" -- это ожидаемо
