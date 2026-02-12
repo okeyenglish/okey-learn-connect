@@ -8,6 +8,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ClientCardBubble, isClientCardMessage, parseClientCard } from '@/components/ai-hub/ClientCardBubble';
 import { ForwardedMessageBubble, isForwardedMessage, parseForwardedComment } from '@/components/ai-hub/ForwardedMessageBubble';
+import { StaffMessageReactions } from '@/components/ai-hub/StaffMessageReactions';
+import { useStaffReactionsBatch } from '@/hooks/useStaffMessageReactions';
 import { FileUpload, FileUploadRef } from '@/components/crm/FileUpload';
 import { 
   Bot, 
@@ -249,6 +251,15 @@ export const AIHub = ({
     chatId: typingChatId,
     chatType: typingChatType as 'direct' | 'group',
   });
+
+  // Staff message reactions (batch for current visible messages)
+  const currentStaffMessages = activeChat?.type === 'teacher' || activeChat?.type === 'staff'
+    ? (staffDirectMessages || [])
+    : activeChat?.type === 'group'
+      ? (staffGroupMessages || [])
+      : [];
+  const staffMessageIds = currentStaffMessages.map(m => m.id);
+  const { data: reactionsMap } = useStaffReactionsBatch(staffMessageIds);
 
   // Consultants config
   const consultants: Array<{
@@ -986,7 +997,7 @@ export const AIHub = ({
                   return (
                     <div 
                       key={msg.id}
-                      className={`flex items-end gap-1.5 ${isOwn ? 'justify-end' : 'justify-start'} ${isLastInGroup ? 'mb-3' : 'mb-0.5'}`}
+                      className={`group flex items-end gap-1.5 ${isOwn ? 'justify-end' : 'justify-start'} ${isLastInGroup ? 'mb-3' : 'mb-0.5'}`}
                     >
                       {/* Avatar for incoming messages - only on last in group */}
                       {!isOwn && (
@@ -1119,6 +1130,14 @@ export const AIHub = ({
                               </div>
                             )}
                           </div>
+                        )}
+                        {/* Emoji reactions for staff/teacher/group chats */}
+                        {isStaffChat && reactionsMap && (
+                          <StaffMessageReactions
+                            messageId={msg.id}
+                            reactions={reactionsMap[msg.id] || []}
+                            isOwn={isOwn}
+                          />
                         )}
                       </div>
                     </div>

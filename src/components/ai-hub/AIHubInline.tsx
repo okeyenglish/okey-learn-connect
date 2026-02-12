@@ -39,6 +39,8 @@ import {
 import { toast } from 'sonner';
 import { ClientCardBubble, isClientCardMessage } from '@/components/ai-hub/ClientCardBubble';
 import { ForwardedMessageBubble, isForwardedMessage } from '@/components/ai-hub/ForwardedMessageBubble';
+import { StaffMessageReactions } from '@/components/ai-hub/StaffMessageReactions';
+import { useStaffReactionsBatch } from '@/hooks/useStaffMessageReactions';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useAuth } from '@/hooks/useAuth';
@@ -325,6 +327,15 @@ export const AIHubInline = ({
     chatId: typingChatId,
     chatType: typingChatType as 'direct' | 'group',
   });
+
+  // Staff message reactions (batch for current visible messages)
+  const currentStaffMessagesInline = activeChat?.type === 'teacher' || activeChat?.type === 'staff'
+    ? (staffDirectMessages || [])
+    : activeChat?.type === 'group'
+      ? (staffGroupMessages || [])
+      : [];
+  const staffMessageIdsInline = currentStaffMessagesInline.map(m => m.id);
+  const { data: reactionsMapInline } = useStaffReactionsBatch(staffMessageIdsInline);
 
   const consultants: Array<{
     id: ConsultantType;
@@ -965,7 +976,7 @@ export const AIHubInline = ({
               </div>
             ) : (
               filteredMessages.map((msg) => (
-                <div key={msg.id} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div key={msg.id} className={`group flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 ${msg.type === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                     {msg.sender && msg.type !== 'user' && <p className="text-xs font-medium mb-1 opacity-70">{msg.sender}</p>}
                     
@@ -1012,6 +1023,14 @@ export const AIHubInline = ({
                       )}
                     </div>
                   </div>
+                  {/* Emoji reactions for staff/teacher/group chats */}
+                  {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && reactionsMapInline && (
+                    <StaffMessageReactions
+                      messageId={msg.id}
+                      reactions={reactionsMapInline[msg.id] || []}
+                      isOwn={msg.type === 'user'}
+                    />
+                  )}
                 </div>
               ))
             )}
