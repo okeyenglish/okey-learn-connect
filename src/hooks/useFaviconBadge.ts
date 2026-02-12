@@ -37,97 +37,65 @@ export const useFaviconBadge = (unreadCount: number) => {
     if (!ctx) return;
 
     // Load original favicon
-    const loadAndDrawFavicon = () => {
-      if (!originalImageRef.current) {
-        originalImageRef.current = new Image();
-        originalImageRef.current.crossOrigin = 'anonymous';
-        originalImageRef.current.src = ORIGINAL_FAVICON;
+    const drawBadge = (img: HTMLImageElement | null) => {
+      ctx.clearRect(0, 0, FAVICON_SIZE, FAVICON_SIZE);
+
+      if (img && img.complete && img.naturalWidth > 0) {
+        ctx.drawImage(img, 0, 0, FAVICON_SIZE, FAVICON_SIZE);
+      } else {
+        // Fallback: white background
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, FAVICON_SIZE, FAVICON_SIZE);
       }
 
-      const img = originalImageRef.current;
+      if (unreadCount > 0) {
+        const displayCount = unreadCount > 99 ? '99+' : String(unreadCount);
+        const badgeX = FAVICON_SIZE - BADGE_SIZE / 2 - 1;
+        const badgeY = BADGE_SIZE / 2 + 1;
+        const badgeRadius = BADGE_SIZE / 2;
 
-      const draw = () => {
-        // Clear canvas
-        ctx.clearRect(0, 0, FAVICON_SIZE, FAVICON_SIZE);
+        ctx.beginPath();
+        ctx.arc(badgeX, badgeY, badgeRadius + 1, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fill();
 
-        // Draw original favicon
-        ctx.drawImage(img, 0, 0, FAVICON_SIZE, FAVICON_SIZE);
+        ctx.beginPath();
+        ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2);
+        ctx.fillStyle = '#ef4444';
+        ctx.fill();
 
-        // Draw badge if there are unread messages
-        if (unreadCount > 0) {
-          const displayCount = unreadCount > 99 ? '99+' : String(unreadCount);
-          
-          // Badge background (red circle)
-          const badgeX = FAVICON_SIZE - BADGE_SIZE / 2 - 1;
-          const badgeY = BADGE_SIZE / 2 + 1;
-          const badgeRadius = BADGE_SIZE / 2;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
 
-          // Draw shadow for better visibility
-          ctx.beginPath();
-          ctx.arc(badgeX, badgeY, badgeRadius + 1, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-          ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const fontSize = displayCount.length > 2 ? 6 : displayCount.length > 1 ? 7 : 9;
+        ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+        ctx.fillText(displayCount, badgeX, badgeY + 0.5);
+      }
 
-          // Draw red circle
-          ctx.beginPath();
-          ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2);
-          ctx.fillStyle = '#ef4444'; // Tailwind red-500
-          ctx.fill();
+      if (linkRef.current) {
+        linkRef.current.href = canvas.toDataURL('image/png');
+      }
+    };
 
-          // Draw white border
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-
-          // Draw count text
-          ctx.fillStyle = '#ffffff';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          
-          // Adjust font size based on text length
-          const fontSize = displayCount.length > 2 ? 6 : displayCount.length > 1 ? 7 : 9;
-          ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-          
-          ctx.fillText(displayCount, badgeX, badgeY + 0.5);
-        }
-
-        // Update favicon
-        if (linkRef.current) {
-          linkRef.current.href = canvas.toDataURL('image/png');
-        }
-      };
-
-      if (img.complete) {
-        draw();
-      } else {
-        img.onload = draw;
-        img.onerror = () => {
-          // If favicon fails to load, just draw the badge on white background
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, FAVICON_SIZE, FAVICON_SIZE);
-          
-          if (unreadCount > 0) {
-            const displayCount = unreadCount > 99 ? '99+' : String(unreadCount);
-            const badgeX = FAVICON_SIZE / 2;
-            const badgeY = FAVICON_SIZE / 2;
-            const badgeRadius = FAVICON_SIZE / 2 - 2;
-
-            ctx.beginPath();
-            ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2);
-            ctx.fillStyle = '#ef4444';
-            ctx.fill();
-
-            ctx.fillStyle = '#ffffff';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.font = 'bold 14px Arial, sans-serif';
-            ctx.fillText(displayCount, badgeX, badgeY);
-          }
-
-          if (linkRef.current) {
-            linkRef.current.href = canvas.toDataURL('image/png');
-          }
+    const loadAndDrawFavicon = () => {
+      if (!originalImageRef.current) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          originalImageRef.current = img;
+          drawBadge(img);
         };
+        img.onerror = () => {
+          originalImageRef.current = null;
+          drawBadge(null);
+        };
+        img.src = ORIGINAL_FAVICON;
+      } else {
+        drawBadge(originalImageRef.current);
       }
     };
 
