@@ -77,20 +77,19 @@ export const StaffMessageReactions = ({ messageId, reactions, isOwn, className }
   }
 
   return (
-    <div className={cn("flex items-center gap-0.5 flex-wrap mt-0.5", className)}>
+    <div className={cn("flex items-center gap-0.5 flex-wrap -mt-2 relative z-10", className)}>
       {/* Existing reactions */}
       {grouped.map((r) => (
         <button
           key={r.emoji}
           className={cn(
-            "h-5 px-1.5 rounded-full flex items-center gap-0.5 text-[11px] transition-all hover:scale-105",
-            "bg-background/90 border border-border/40 shadow-sm",
-            r.isOwn && "bg-primary/15 border-primary/30"
+            "h-5 px-1 rounded-full flex items-center gap-0.5 text-[13px] transition-all hover:scale-110",
+            r.isOwn && "bg-primary/10 rounded-full"
           )}
           onClick={() => handleEmoji(r.emoji)}
           disabled={isPending}
         >
-          <span className="text-[11px] leading-none">{r.emoji}</span>
+          <span className="text-[13px] leading-none">{r.emoji}</span>
           {r.count > 1 && <span className="text-[10px] text-muted-foreground font-medium">{r.count}</span>}
         </button>
       ))}
