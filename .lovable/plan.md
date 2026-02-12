@@ -1,51 +1,42 @@
 
-# Fix: AI Hub Panel Not Opening (Only Overlay Shows)
 
-## Diagnosis
+## Диагностика: Изображения из Wappi не загружаются
 
-After analyzing the code and all log files, the issue is clear:
+### Найденная проблема
 
-1. **Missing `SheetTitle` (DialogTitle)** - The `SheetContent` in all three return paths of AIHub.tsx lacks a `SheetTitle` component. Radix UI requires this for the Dialog/Sheet to function correctly. The console shows repeated errors: `DialogContent requires a DialogTitle`. While typically this is just a warning, certain browser versions (especially Firefox, which the user runs) can suppress the content rendering when accessibility requirements are not met.
+В файле `src/hooks/useWhatsAppFile.ts` (строка 23) отсутствует обработка провайдера `'wappi'`. Код обрабатывает только два случая:
 
-2. **Missing `aria-describedby`** - The SheetContent also lacks a description, triggering another warning that compounds the rendering issue.
+- `'wpp'` -- вызывает `wpp-download`
+- Все остальное (включая `'wappi'`) -- вызывает `download-whatsapp-file` (GreenAPI)
 
-3. **No error boundary inside SheetContent** - If any hook or child component throws inside the Sheet Portal, the overlay stays visible while the content silently disappears, with no error message for the user.
+```text
+provider === 'wpp'  -->  wpp-download          (правильно)
+provider === 'wappi' --> download-whatsapp-file (НЕПРАВИЛЬНО, должен быть wappi-whatsapp-download)
+```
 
-## Solution
+Это значит, что при попытке загрузить изображение из Wappi вызывается функция GreenAPI с неправильным форматом тела запроса, и загрузка всегда завершается ошибкой.
 
-### File: `src/components/ai-hub/AIHub.tsx`
+### Вторая проблема
 
-Add `SheetTitle` (visually hidden) and `SheetDescription` to all three Sheet return paths:
+Формат тела запроса для `wappi-whatsapp-download` -- `{ messageId, organizationId }`, но в текущем коде для не-WPP провайдеров отправляется `{ chatId, idMessage: messageId }` (формат GreenAPI).
 
-**Return path 1** (activeChat === 'assistant', ~line 807-842):
-- Add `import { VisuallyHidden } from '@radix-ui/react-visually-hidden'` at top
-- Add `SheetTitle` and `SheetDescription` imports from sheet component
-- Inside SheetContent, add visually hidden title and description:
-  ```
-  <VisuallyHidden asChild><SheetTitle>AI Assistant</SheetTitle></VisuallyHidden>
-  ```
-- Add `aria-describedby={undefined}` to SheetContent
+### План исправления
 
-**Return path 2** (activeChat exists, ~line 851-853):
-- Same pattern: add hidden SheetTitle + aria-describedby
+**Файл: `src/hooks/useWhatsAppFile.ts`**
 
-**Return path 3** (main chat list, ~line 1564-1566):
-- Same pattern: add hidden SheetTitle + aria-describedby
+Добавить обработку провайдера `'wappi'`:
 
-### File: `src/components/ui/sheet.tsx`
+1. Если `provider === 'wappi'` -- вызывать функцию `wappi-whatsapp-download` с телом `{ messageId, organizationId }`
+2. Если `provider === 'wpp'` -- вызывать `wpp-download` (как сейчас)
+3. Иначе -- вызывать `download-whatsapp-file` для GreenAPI (как сейчас)
 
-No changes needed - the component already supports custom content.
+### Технические детали
 
-## Technical Details
+Изменение затрагивает только один файл. Логика выбора функции и формата тела запроса будет расширена на три варианта вместо двух:
 
-### New dependency
-- `@radix-ui/react-visually-hidden` - already available as a transitive dependency of Radix UI components, no install needed
+```text
+provider === 'wappi' --> functionName: 'wappi-whatsapp-download', body: { messageId, organizationId }
+provider === 'wpp'   --> functionName: 'wpp-download',             body: { messageId, organizationId }
+default (greenapi)   --> functionName: 'download-whatsapp-file',    body: { chatId, idMessage: messageId }
+```
 
-### Changes summary
-1. Add import for `VisuallyHidden` from `@radix-ui/react-visually-hidden`
-2. Add import for `SheetTitle, SheetDescription` from sheet component  
-3. Add `<VisuallyHidden asChild><SheetTitle>...</SheetTitle></VisuallyHidden>` inside each SheetContent
-4. Add `aria-describedby={undefined}` to each SheetContent to suppress the description warning
-
-### Why this fixes the issue
-The Radix Dialog engine expects a `DialogTitle` (= `SheetTitle`) to be present. Without it, the internal focus-trap and portal rendering logic may not complete correctly in all browsers, particularly Firefox. The overlay renders because it is a simple div, but the Content (which has focus-trap, escape-key handling, and accessibility tree integration) may silently fail to mount its children.
