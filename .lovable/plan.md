@@ -1,58 +1,71 @@
 
+## Моментальное открытие правильной вкладки мессенджера
 
-## Ускорение загрузки чатов с клиентами
+### Проблема
 
-### Текущая ситуация
+При клике на чат в списке вкладка мессенджера (WhatsApp/Telegram/Max) определяется только **после загрузки всех сообщений**. ChatArea ждет завершения запросов `unreadLoading`, `unreadFetching` и `loadingMessages`, и только потом выбирает вкладку по последнему сообщению. Это создает задержку ~1 секунду, во время которой пользователь видит пустую или неправильную вкладку.
 
-Из логов и сетевых запросов видно:
-- `get_unread_chat_threads` -- **729мс**, возвращает 0 полезных тредов (все непрочитанные -- это групповые чаты типа "ЖК Волгоградский" с 598 непрочитанными, которые потом отфильтровываются на клиенте)
-- `get_chat_threads_paginated` -- **880-1100мс** за первую страницу (50 тредов)
-- `hydrateClientBranches` -- дополнительный запрос к `clients` для подстановки филиалов, если RPC их не вернул
-- Итого: **~1.5-2 секунды** до появления списка чатов
+### Решение
 
-### Узкие места
-
-1. **Бесполезный запрос непрочитанных**: RPC `get_unread_chat_threads` возвращает групповые чаты (ЖК, Support с telegram_chat_id начинающимся на -100), которые потом фильтруются на клиенте. 700мс потрачены впустую.
-
-2. **Два параллельных RPC вместо одного**: `useChatThreadsInfinite` делает 2 запроса одновременно (unread + paginated), хотя `get_chat_threads_paginated` уже сортирует непрочитанные наверх.
-
-3. **hydrateClientBranches**: Дополнительный SELECT к `clients` для подстановки филиалов, хотя RPC `get_chat_threads_paginated` уже возвращает `client_branch`.
-
-### План оптимизации
-
-**Файл: `src/hooks/useChatThreadsInfinite.ts`**
-
-1. **Убрать отдельный запрос `get_unread_chat_threads`**: Он дублирует данные из `get_chat_threads_paginated` и тратит 700мс впустую. RPC `get_chat_threads_paginated` уже сортирует непрочитанные наверх -- отдельный запрос не нужен.
-
-2. **Убрать `hydrateClientBranches`**: Проверка сетевого ответа показывает, что `get_chat_threads_paginated` уже возвращает `client_branch` (например "Котельники", "Окская"). Дополнительный SELECT не нужен.
-
-3. **Убрать дублирующую логику мержа и сортировки**: Без отдельного unread-запроса не нужен сложный `useMemo` с дедупликацией и сортировкой двух массивов.
+Список чатов уже содержит информацию о мессенджере последнего сообщения (`last_message_messenger`) и последнего непрочитанного (`last_unread_messenger`). Нужно передавать эту информацию при клике, чтобы ChatArea мог **мгновенно** установить правильную вкладку без ожидания загрузки сообщений.
 
 ### Технические детали
 
-Изменения затрагивают только `src/hooks/useChatThreadsInfinite.ts`:
+**1. Файл: `src/components/crm/VirtualizedChatList.tsx`**
+
+В `onChatClick` вызове (строка ~258) -- передавать мессенджер из данных чата, даже если это не результат поиска:
 
 ```text
-Было:
-  useInfiniteQuery(['chat-threads-infinite'])  ~880мс
-  + useQuery(['chat-threads-unread-priority'])  ~730мс  (впустую)
-  + hydrateClientBranches()                     ~50-100мс (не нужна)
-  + useMemo merge + sort + dedup               ~5мс
-  = ~1.7 секунды
+// Было:
+const messengerType = foundInMessages && getMessengerType ? getMessengerType(chat.id) : null;
 
-Будет:
-  useInfiniteQuery(['chat-threads-infinite'])  ~880мс
-  = ~0.9 секунды (ускорение ~2x)
+// Будет:
+const messengerType = foundInMessages && getMessengerType 
+  ? getMessengerType(chat.id) 
+  : (chat.last_unread_messenger || chat.last_message_messenger || null);
 ```
 
-Конкретные изменения:
-- Удалить `unreadQuery` (useQuery с ключом `chat-threads-unread-priority`) -- строки ~315-356
-- Удалить вызов `hydrateClientBranches` после `mapRpcToThreads` -- строка 286
-- Убрать импорт `hydrateClientBranches`
-- Упростить `allThreads` useMemo: просто брать данные из infiniteQuery без мержа с unread
-- Упростить `isLoading`: убрать зависимость от `unreadQuery`
-- Упростить `refetch`: убрать рефетч `unreadQuery`
-- Удалить флаг `useUnreadRpc` и связанную логику
+**2. Файл: `src/pages/CRM.tsx`**
 
-Fallback `fetchThreadsDirectly` остается без изменений для случаев, когда RPC недоступна.
+В `handleChatClick` (строка ~1475) -- всегда устанавливать `selectedMessengerTab`, если передан `messengerType`, а не только при `foundInMessages`:
 
+```text
+// Было (строки ~1493-1506): messengerTab устанавливается только для foundInMessages
+
+// Будет: если messengerType передан -- устанавливаем вкладку сразу
+if (messengerType) {
+  setSelectedMessengerTab({ tab: messengerType, ts: Date.now() });
+  setTimeout(() => setSelectedMessengerTab(undefined), 500);
+}
+```
+
+**3. Файл: `src/pages/CRM.tsx`**
+
+В inline-рендере ChatListItem (строка ~3718) -- аналогично передавать мессенджер из данных чата:
+
+```text
+// Было:
+const messengerType = foundInMessages && getMessengerType ? getMessengerType(chat.id) : null;
+
+// Будет:
+const messengerType = foundInMessages && getMessengerType 
+  ? getMessengerType(chat.id)
+  : (chat.last_unread_messenger || chat.last_message_messenger || null);
+```
+
+**4. Файл: `src/components/crm/ChatArea.tsx`**
+
+В useEffect для начальной вкладки (строки ~729-769) -- если `initialMessengerTab` передан, устанавливать его **немедленно**, не дожидаясь загрузки сообщений:
+
+```text
+// Добавить ранний выход: если вкладка уже передана из списка -- применить сразу
+if (initialMessengerTab && initialTabSet !== clientId) {
+  setActiveMessengerTab(initialMessengerTab);
+  setInitialTabSet(clientId);
+  return; // Не ждем загрузки сообщений
+}
+```
+
+### Результат
+
+Вместо ожидания ~1с загрузки сообщений для определения вкладки, правильная вкладка устанавливается **мгновенно** при клике на чат из списка. Если данные о мессенджере отсутствуют в списке (редкий случай), сохраняется текущая логика определения по загруженным сообщениям.
