@@ -1213,9 +1213,11 @@ export const ChatArea = ({
       try {
         const { data: orgId } = await supabase.rpc('get_user_organization_id');
         if (orgId) {
+          const realName = authProfile ? [((authProfile as any).first_name), ((authProfile as any).last_name)].filter(Boolean).join(' ') : '';
+          const displayName = realName || managerName || 'Менеджер';
           await supabase.from('chat_messages').insert(buildMessageRecord({
             client_id: clientId,
-            message_text: `${managerName || 'Менеджер'} отметил(а): ответ не требуется`,
+            message_text: `${displayName} отметил(а): ответ не требуется`,
             message_type: 'system',
             messenger_type: activeMessengerTab,
             is_outgoing: true,
@@ -1267,9 +1269,11 @@ export const ChatArea = ({
       try {
         const { data: orgId } = await supabase.rpc('get_user_organization_id');
         if (orgId) {
+          const realName = authProfile ? [((authProfile as any).first_name), ((authProfile as any).last_name)].filter(Boolean).join(' ') : '';
+          const displayName = realName || managerName || 'Менеджер';
           await supabase.from('chat_messages').insert(buildMessageRecord({
             client_id: clientId,
-            message_text: `${managerName || 'Менеджер'} подтвердил(а) оплату`,
+            message_text: `${displayName} подтвердил(а) оплату`,
             message_type: 'system',
             messenger_type: activeMessengerTab,
             is_outgoing: true,
