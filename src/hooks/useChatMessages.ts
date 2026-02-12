@@ -60,6 +60,8 @@ export interface ChatThread {
   messages: ChatMessage[];
   /** True when client has an unacknowledged payment */
   has_pending_payment?: boolean;
+  /** True when last outgoing message has failed status */
+  last_message_failed?: boolean;
 }
 
 interface MessageWithClient {

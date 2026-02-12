@@ -94,7 +94,7 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
    // 2. Fetch last messages for these clients (self-hosted schema uses message_text, is_outgoing, messenger_type)
     const { data: messages, error: messagesError } = await supabase
       .from('chat_messages')
-      .select('client_id, message_text, created_at, is_read, messenger_type, message_type, is_outgoing')
+      .select('client_id, message_text, created_at, is_read, messenger_type, message_type, is_outgoing, status')
       .in('client_id', clientIds)
       .order('created_at', { ascending: false })
       .limit(clientIds.length * 10);
@@ -180,6 +180,7 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
         last_unread_messenger: unreadMessages[0]?.messenger_type || null,
         messages: [],
         has_pending_payment: (client as any).has_pending_payment || false,
+        last_message_failed: lastMessage?.is_outgoing && lastMessage?.status === 'failed',
       };
     });
 

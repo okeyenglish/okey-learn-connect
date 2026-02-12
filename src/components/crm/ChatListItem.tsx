@@ -1,7 +1,7 @@
 import React from 'react';
 import { LazyAvatar } from "@/components/ui/LazyAvatar";
 import { Badge } from "@/components/ui/badge";
-import { Pin, MessageSquare, Info, Phone, Banknote } from "lucide-react";
+import { Pin, MessageSquare, Info, Phone, Banknote, AlertCircle } from "lucide-react";
 import { ChatContextMenu } from "./ChatContextMenu";
 import { ChatPresenceIndicator } from "./ChatPresenceIndicator";
 import {
@@ -83,6 +83,7 @@ interface ChatListItemProps {
     last_message_messenger?: string | null; // Messenger of the last message
     last_unread_messenger?: string | null; // Last messenger with unread message
     has_pending_payment?: boolean; // True when client has an unacknowledged payment
+    last_message_failed?: boolean; // True when last outgoing message failed
   };
   isActive: boolean;
   isPinned: boolean;
@@ -320,8 +321,11 @@ export const ChatListItem = React.memo(({
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed transition-opacity duration-200">
-                  {chat.lastMessage || "Нет сообщений"}
+                <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed transition-opacity duration-200 flex items-center gap-1">
+                  {chat.last_message_failed && (
+                    <AlertCircle className="h-3 w-3 text-destructive flex-shrink-0" />
+                  )}
+                  <span className="truncate">{chat.lastMessage || "Нет сообщений"}</span>
                 </p>
               )}
             </div>
@@ -385,6 +389,7 @@ export const ChatListItem = React.memo(({
     prevProps.chat.lastMessage === nextProps.chat.lastMessage &&
     prevProps.chat.time === nextProps.chat.time &&
     prevProps.chat.has_pending_payment === nextProps.chat.has_pending_payment &&
+    prevProps.chat.last_message_failed === nextProps.chat.last_message_failed &&
     prevProps.isActive === nextProps.isActive &&
     prevProps.isPinned === nextProps.isPinned &&
     prevProps.displayUnread === nextProps.displayUnread &&
