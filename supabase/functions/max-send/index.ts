@@ -319,7 +319,8 @@ Deno.serve(async (req) => {
       file_name: fileName || null,
       file_type: fileType || null,
       message_status: 'sent',
-      sender_name: body.senderName || null
+      sender_name: body.senderName || null,
+      metadata: { sender_name: body.senderName || null },
     };
 
     // Add client_id or teacher_id based on mode
@@ -328,7 +329,7 @@ Deno.serve(async (req) => {
     }
     if (resolvedTeacherId) {
       messageRecord.teacher_id = resolvedTeacherId;
-      messageRecord.metadata = { teacher_id: resolvedTeacherId };
+      messageRecord.metadata = { ...(messageRecord.metadata as Record<string, unknown> || {}), teacher_id: resolvedTeacherId };
     }
 
     const { data: savedMessage, error: saveError } = await supabase
