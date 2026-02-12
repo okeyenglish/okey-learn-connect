@@ -22,6 +22,7 @@ import { useRoles } from '@/hooks/useRoles';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/errorUtils';
+import { syncBranchGroupMembership } from '@/lib/syncBranchGroupMembership';
 import type { Teacher } from '@/integrations/supabase/database.types';
 import type { AppRole } from '@/integrations/supabase/database.types';
 import {
@@ -272,6 +273,9 @@ export const StaffManagementSection: React.FC = () => {
     if (!selectedStaff) return;
 
     try {
+      const oldBranch = selectedStaff.branch || null;
+      const newBranch = selectedBranch || null;
+
       // Update profile branch
       const profileId = selectedStaff.type === 'teacher' 
         ? selectedStaff.profile_id 
@@ -280,7 +284,7 @@ export const StaffManagementSection: React.FC = () => {
       if (profileId) {
         const { error } = await supabase
           .from('profiles')
-          .update({ branch: selectedBranch || null })
+          .update({ branch: newBranch })
           .eq('id', profileId);
         if (error) throw error;
       }
@@ -289,9 +293,16 @@ export const StaffManagementSection: React.FC = () => {
       if (selectedStaff.teacher_id) {
         const { error } = await supabase
           .from('teachers')
-          .update({ branch: selectedBranch || null })
+          .update({ branch: newBranch })
           .eq('id', selectedStaff.teacher_id);
         if (error) throw error;
+      }
+
+      // Sync branch group membership (remove from old, add to new)
+      if (profileId) {
+        syncBranchGroupMembership(profileId, oldBranch, newBranch).catch(e =>
+          console.error('[handleSaveBranch] Group sync error:', e)
+        );
       }
 
       await loadEmployees();
