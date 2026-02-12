@@ -1,45 +1,42 @@
 
 
-## Исправление: Edge Functions не сохраняют sender_name в metadata
+## Исправление отображения статусов сообщений GreenAPI WhatsApp
 
 ### Проблема
 
-Фронтенд уже умеет читать `metadata.sender_name` как фоллбэк, но edge functions записывают имя только в колонку `sender_name`, которой нет в self-hosted базе. Данные теряются.
+Функция `handleMessageStatus` в `whatsapp-webhook` имеет две проблемы:
 
-### Что будет сделано
+1. **Неправильное чтение данных**: Код читает статус из `statusData.idMessage` и `statusData.status`, но по документации Green API поля `idMessage` и `status` находятся на **корневом уровне** вебхука (не внутри вложенного объекта)
+2. **Нет fallback для self-hosted**: При отсутствии колонки `message_status` в self-hosted базе обновление молча падает и статус теряется
+3. **Нет маппинга специальных статусов**: `noAccount` и `notInGroup` не маппятся на понятные статусы
 
-Обновить 4 edge functions, добавив `sender_name` в объект `metadata` при вставке сообщения в БД.
+### Решение
+
+#### 1. `supabase/functions/whatsapp-webhook/index.ts` -- переписать `handleMessageStatus`
+
+- Читать `idMessage` и `status` с корневого уровня вебхука (с фоллбэком на `statusData` для обратной совместимости)
+- Добавить маппинг статусов: `sent`, `delivered`, `read`, `failed`, `noAccount` -> `failed`, `notInGroup` -> `failed`
+- Добавить resilient fallback: при ошибке с колонкой `message_status` сохранять в `metadata.message_status` (аналогично тому что уже сделано для `telegram-webhook`)
+
+#### 2. `supabase/functions/_shared/types.ts` -- обновить тип `GreenAPIStatusData`
+
+- Добавить опциональное поле `description` для описания ошибки (документация GreenAPI включает его для статусов `noAccount`, `notInGroup`)
+
+### Детали реализации
+
+```text
+handleMessageStatus(webhook):
+  1. messageId = webhook.idMessage || webhook.statusData?.idMessage
+  2. status = webhook.status || webhook.statusData?.status
+  3. Map status -> { sent, delivered, read, failed, noAccount->failed, notInGroup->failed }
+  4. UPDATE chat_messages SET message_status = mapped WHERE external_message_id = messageId
+  5. If error contains "column does not exist":
+     a. SELECT id, metadata FROM chat_messages WHERE external_message_id = messageId
+     b. UPDATE metadata = { ...existing, message_status: mapped }
+```
 
 ### Файлы для изменения
 
-**1. `supabase/functions/wpp-send/index.ts`**
-- В объекте вставки сообщения (строка ~250-263) добавить поле `metadata` с `sender_name`
-- Если `metadata` уже используется, мержить с существующими данными
+- `supabase/functions/whatsapp-webhook/index.ts` -- переписать функцию `handleMessageStatus` (~25 строк)
+- `supabase/functions/_shared/types.ts` -- добавить поле `description` в `GreenAPIStatusData`
 
-**2. `supabase/functions/telegram-send/index.ts`**
-- В месте вставки сообщения добавить `metadata: { sender_name: body.senderName || null }`
-
-**3. `supabase/functions/max-send/index.ts`**
-- Аналогично добавить `metadata: { sender_name: body.senderName || null }`
-
-**4. `supabase/functions/telegram-crm-send/index.ts`**
-- Аналогично добавить `metadata: { sender_name: body.senderName || null }`
-
-### Логика изменения (одинаковая для всех)
-
-В каждой функции, в месте где формируется объект для вставки в `chat_messages`, добавить:
-
-```typescript
-metadata: {
-  ...(existingMetadata || {}),
-  sender_name: payload.senderName || body.senderName || null
-}
-```
-
-Если в объекте вставки уже есть поле `metadata` (например, с `integration_id`), нужно мержить, а не перезаписывать.
-
-### Результат
-
-- Новые сообщения будут сохранять имя менеджера в `metadata.sender_name`
-- Фронтенд уже читает это поле через фоллбэк-цепочку
-- Старые сообщения останутся с "Менеджер поддержки" -- это ожидаемо
