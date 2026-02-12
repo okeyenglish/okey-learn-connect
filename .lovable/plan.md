@@ -1,42 +1,35 @@
 
 
-## Исправление отображения статусов сообщений GreenAPI WhatsApp
+## Исправление перемешивания имён менеджеров
 
-### Проблема
+### Корневая причина
 
-Функция `handleMessageStatus` в `whatsapp-webhook` имеет две проблемы:
+На self-hosted базе колонка `sender_name` в таблице `chat_messages` может отсутствовать. При вставке сообщения:
+- Функции `whatsapp-send` и `wappi-whatsapp-send` передают `sender_name: payload.senderName`, но **НЕ дублируют** имя в поле `metadata`
+- Self-hosted PostgREST молча игнорирует несуществующую колонку
+- Имя менеджера теряется, и UI показывает "Менеджер поддержки" или подставляет имя от другого сообщения
 
-1. **Неправильное чтение данных**: Код читает статус из `statusData.idMessage` и `statusData.status`, но по документации Green API поля `idMessage` и `status` находятся на **корневом уровне** вебхука (не внутри вложенного объекта)
-2. **Нет fallback для self-hosted**: При отсутствии колонки `message_status` в self-hosted базе обновление молча падает и статус теряется
-3. **Нет маппинга специальных статусов**: `noAccount` и `notInGroup` не маппятся на понятные статусы
+Другие функции (`wpp-send`, `telegram-send`, `max-send`, `telegram-crm-send`) уже имеют дублирование в `metadata: { sender_name: ... }` -- поэтому там проблема не возникает.
 
 ### Решение
 
-#### 1. `supabase/functions/whatsapp-webhook/index.ts` -- переписать `handleMessageStatus`
+#### 1. `supabase/functions/whatsapp-send/index.ts`
 
-- Читать `idMessage` и `status` с корневого уровня вебхука (с фоллбэком на `statusData` для обратной совместимости)
-- Добавить маппинг статусов: `sent`, `delivered`, `read`, `failed`, `noAccount` -> `failed`, `notInGroup` -> `failed`
-- Добавить resilient fallback: при ошибке с колонкой `message_status` сохранять в `metadata.message_status` (аналогично тому что уже сделано для `telegram-webhook`)
+Добавить `metadata: { sender_name: payload.senderName || null }` в insert-запрос, аналогично тому как это уже сделано в `wpp-send` и `telegram-send`.
 
-#### 2. `supabase/functions/_shared/types.ts` -- обновить тип `GreenAPIStatusData`
+#### 2. `supabase/functions/wappi-whatsapp-send/index.ts`
 
-- Добавить опциональное поле `description` для описания ошибки (документация GreenAPI включает его для статусов `noAccount`, `notInGroup`)
+Аналогично добавить `metadata: { sender_name: body.senderName || null }` в insert-запрос.
 
-### Детали реализации
+### Что это даст
 
-```text
-handleMessageStatus(webhook):
-  1. messageId = webhook.idMessage || webhook.statusData?.idMessage
-  2. status = webhook.status || webhook.statusData?.status
-  3. Map status -> { sent, delivered, read, failed, noAccount->failed, notInGroup->failed }
-  4. UPDATE chat_messages SET message_status = mapped WHERE external_message_id = messageId
-  5. If error contains "column does not exist":
-     a. SELECT id, metadata FROM chat_messages WHERE external_message_id = messageId
-     b. UPDATE metadata = { ...existing, message_status: mapped }
-```
+- Имя менеджера будет всегда сохранено в `metadata.sender_name` даже если колонка `sender_name` отсутствует
+- UI уже умеет читать из `metadata.sender_name` (строка 860 в ChatArea.tsx): `msg.sender_name || (meta as any)?.sender_name || 'Менеджер поддержки'`
+- Новые сообщения будут корректно показывать имя отправившего менеджера
+- Старые сообщения без имени останутся как "Менеджер поддержки" (их данные уже утеряны)
 
 ### Файлы для изменения
 
-- `supabase/functions/whatsapp-webhook/index.ts` -- переписать функцию `handleMessageStatus` (~25 строк)
-- `supabase/functions/_shared/types.ts` -- добавить поле `description` в `GreenAPIStatusData`
+- `supabase/functions/whatsapp-send/index.ts` -- добавить 1 строку metadata в insert
+- `supabase/functions/wappi-whatsapp-send/index.ts` -- добавить 1 строку metadata в insert
 
