@@ -100,6 +100,7 @@ import { useAssistantMessages } from "@/hooks/useAssistantMessages";
 import { useStaffUnreadCount } from "@/hooks/useInternalStaffMessages";
 import { useChatNotificationSound } from "@/hooks/useChatNotificationSound";
 import { useStaffMessageNotifications } from "@/hooks/useStaffMessageNotifications";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 import {
   Search, 
@@ -4620,50 +4621,52 @@ const CRMContent = () => {
       
       
       {/* AI Центр */}
-      <Suspense fallback={null}>
-        <AIHub 
-          isOpen={voiceAssistantOpen}
-          onToggle={() => setVoiceAssistantOpen(!voiceAssistantOpen)}
-          context={{
-            currentPage: 'CRM',
-            activeClientId: activeChatId,
-            activeClientName: activeChatId ? getActiveClientInfo(activeChatId).name : null,
-            userRole: role,
-            userBranch: profile?.branch,
-            activeChatType
-          }}
-          onOpenModal={{
-            addClient: () => setShowAddClientModal(true),
-            addTask: () => setShowAddTaskModal(true),
-            addTeacher: () => setShowAddTeacherModal(true),
-            addStudent: () => setShowAddStudentModal(true),
-            addInvoice: () => setShowInvoiceModal(true),
-            clientProfile: (clientId: string) => {
+      <ErrorBoundary>
+        <Suspense fallback={null}>
+          <AIHub 
+            isOpen={voiceAssistantOpen}
+            onToggle={() => setVoiceAssistantOpen(!voiceAssistantOpen)}
+            context={{
+              currentPage: 'CRM',
+              activeClientId: activeChatId,
+              activeClientName: activeChatId ? getActiveClientInfo(activeChatId).name : null,
+              userRole: role,
+              userBranch: profile?.branch,
+              activeChatType
+            }}
+            onOpenModal={{
+              addClient: () => setShowAddClientModal(true),
+              addTask: () => setShowAddTaskModal(true),
+              addTeacher: () => setShowAddTeacherModal(true),
+              addStudent: () => setShowAddStudentModal(true),
+              addInvoice: () => setShowInvoiceModal(true),
+              clientProfile: (clientId: string) => {
+                handleChatClick(clientId, 'client');
+                setRightSidebarOpen(true);
+              },
+              editTask: (taskId: string) => {
+                setEditTaskId(taskId);
+                setShowEditTaskModal(true);
+              }
+            }}
+            onOpenChat={(clientId: string, messageId?: string) => {
+              if (messageId) setHighlightedMessageId(messageId);
               handleChatClick(clientId, 'client');
-              setRightSidebarOpen(true);
-            },
-            editTask: (taskId: string) => {
-              setEditTaskId(taskId);
-              setShowEditTaskModal(true);
-            }
-          }}
-          onOpenChat={(clientId: string, messageId?: string) => {
-            if (messageId) setHighlightedMessageId(messageId);
-            handleChatClick(clientId, 'client');
-          }}
-          onOpenScripts={() => setShowScriptsModal(true)}
-          initialAssistantMessage={initialAssistantMessage}
-          onClearInitialAssistantMessage={() => {
-            setInitialAssistantMessage(null);
-            setQuickReplyCategory(null);
-          }}
-          quickReplyCategory={quickReplyCategory}
-          initialStaffUserId={initialStaffUserId}
-          onClearInitialStaffUserId={() => setInitialStaffUserId(null)}
-          initialGroupChatId={initialGroupChatId}
-          onClearInitialGroupChatId={() => setInitialGroupChatId(null)}
-        />
-      </Suspense>
+            }}
+            onOpenScripts={() => setShowScriptsModal(true)}
+            initialAssistantMessage={initialAssistantMessage}
+            onClearInitialAssistantMessage={() => {
+              setInitialAssistantMessage(null);
+              setQuickReplyCategory(null);
+            }}
+            quickReplyCategory={quickReplyCategory}
+            initialStaffUserId={initialStaffUserId}
+            onClearInitialStaffUserId={() => setInitialStaffUserId(null)}
+            initialGroupChatId={initialGroupChatId}
+            onClearInitialGroupChatId={() => setInitialGroupChatId(null)}
+          />
+        </Suspense>
+      </ErrorBoundary>
 
       {/* Мобильная нижняя навигация чатов - показываем когда не открыт диалог с клиентом */}
       {isMobile && !activeChatId && (
