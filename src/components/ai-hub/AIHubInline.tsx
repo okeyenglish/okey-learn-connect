@@ -1273,7 +1273,7 @@ export const AIHubInline = ({
                 }}
                 onBlur={() => { if (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') stopTyping(); }}
                 placeholder={getCurrentPlaceholder()}
-                disabled={isProcessing || isRecording || sendStaffMessage.isPending}
+                disabled={isProcessing || isRecording}
                 className="flex-1 h-9"
               />
             </div>

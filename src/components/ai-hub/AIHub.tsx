@@ -1430,7 +1430,7 @@ export const AIHub = ({
                   }
                 }}
                 placeholder={getCurrentPlaceholder()}
-                disabled={isProcessing || isRecording || sendStaffMessage.isPending}
+                disabled={isProcessing || isRecording}
                 rows={1}
                 className="flex-1 min-h-[40px] max-h-[120px] rounded-xl bg-muted border-0 px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
               />
