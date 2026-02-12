@@ -50,7 +50,9 @@ function isSystemPreviewMessage(text: string): boolean {
     lower.includes('задача создана') ||
     lower.includes('задача выполнена') ||
     lower.includes('задача отменена') ||
-    lower.startsWith('задача "')
+    lower.startsWith('задача "') ||
+    /отметил\(а\): ответ не требуется/i.test(text) ||
+    /подтвердил\(а\) оплату/i.test(text)
   );
 }
 
