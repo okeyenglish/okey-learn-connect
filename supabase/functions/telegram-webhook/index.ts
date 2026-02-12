@@ -853,23 +853,27 @@ async function handleDeliveryStatus(supabase: any, message: TelegramWappiMessage
   console.log('Processing Telegram delivery status:', JSON.stringify(message, null, 2));
   
   // Wappi.pro sends delivery status with message id reference
-  const status = (message.body || message.status)?.toString().toLowerCase();
-  const messageIdToUpdate = message.stanza_id || message.id;
+  const status = (message.body || message.status || (message as any).state)?.toString().toLowerCase();
+  const messageIdToUpdate = message.stanza_id || message.id || (message as any).message_id;
   
   if (!messageIdToUpdate) {
     console.error('No message ID found in delivery status webhook');
     return;
   }
 
-  // Map status values
+  // Map Wappi status values (pending, delivered, read, undelivered, temporary ban)
   const statusMap: Record<string, string> = {
     'sent': 'sent',
+    'pending': 'pending',
     'delivered': 'delivered',
     'read': 'read',
     'viewed': 'read',
     'played': 'read',
+    'undelivered': 'failed',
+    'temporary ban': 'failed',
+    'temporary_ban': 'failed',
     'failed': 'failed',
-    'error': 'failed'
+    'error': 'failed',
   };
 
   const mappedStatus = statusMap[status || ''] || status;
@@ -881,16 +885,48 @@ async function handleDeliveryStatus(supabase: any, message: TelegramWappiMessage
 
   console.log(`Updating Telegram message ${messageIdToUpdate} status to: ${mappedStatus}`);
 
-  // Update message status in database
-  const { error, count } = await supabase
+  // Try updating message_status column first
+  const { error } = await supabase
     .from('chat_messages')
     .update({ message_status: mappedStatus })
     .eq('external_message_id', messageIdToUpdate);
 
   if (error) {
-    console.error('Error updating Telegram message status:', error);
+    const errorMsg = error?.message || '';
+    const isMissingColumn = errorMsg.includes('column') && 
+      (errorMsg.includes('does not exist') || errorMsg.includes('не существует'));
+
+    if (isMissingColumn) {
+      // Self-hosted fallback: store status in metadata JSONB
+      console.log('[telegram-webhook] message_status column missing, updating via metadata');
+      
+      // First fetch existing metadata
+      const { data: existing } = await supabase
+        .from('chat_messages')
+        .select('id, metadata')
+        .eq('external_message_id', messageIdToUpdate)
+        .maybeSingle();
+
+      if (existing) {
+        const currentMeta = (existing.metadata && typeof existing.metadata === 'object') ? existing.metadata : {};
+        const { error: metaErr } = await supabase
+          .from('chat_messages')
+          .update({ metadata: { ...currentMeta, message_status: mappedStatus } })
+          .eq('id', existing.id);
+        
+        if (metaErr) {
+          console.error('[telegram-webhook] Metadata status update failed:', metaErr.message);
+        } else {
+          console.log(`[telegram-webhook] Status saved to metadata for message ${existing.id}`);
+        }
+      } else {
+        console.log('[telegram-webhook] Message not found for status update:', messageIdToUpdate);
+      }
+    } else {
+      console.error('Error updating Telegram message status:', error);
+    }
   } else {
-    console.log(`Updated ${count || 0} Telegram message(s) status to ${mappedStatus}`);
+    console.log(`Updated Telegram message status to ${mappedStatus}`);
   }
 }
 
