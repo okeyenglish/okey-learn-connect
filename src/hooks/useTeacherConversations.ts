@@ -1,11 +1,10 @@
 /**
- * Hook to fetch teacher conversations - optimized with RPC + fallback
+ * Hook to fetch teacher conversations - optimized query approach
  */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useMemo, useEffect } from 'react';
-import { SELF_HOSTED_URL, SELF_HOSTED_ANON_KEY, getAuthToken } from '@/lib/selfHostedApi';
 
 export interface TeacherConversation {
   teacherId: string;
@@ -22,72 +21,11 @@ export interface TeacherConversation {
   avatarUrl: string | null;
 }
 
-// Cache RPC availability to avoid repeated 404s
-let rpcAvailable: boolean | null = null;
-
 /**
- * Try RPC call to get_teacher_chat_threads_fast on self-hosted server
+ * Optimized fetch: teachers + 1 last message per teacher + unread counts
+ * (Much lighter than the old approach of loading 50 messages per teacher)
  */
-async function fetchViaRPC(token: string): Promise<TeacherConversation[] | null> {
-  if (rpcAvailable === false) return null;
-
-  try {
-    const res = await fetch(
-      `${SELF_HOSTED_URL}/rest/v1/rpc/get_teacher_chat_threads_fast`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SELF_HOSTED_ANON_KEY,
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ p_limit: 200 }),
-      }
-    );
-
-    if (!res.ok) {
-      if (res.status === 404 || res.status === 400) {
-        console.warn('[useTeacherConversations] RPC not available, using fallback');
-        rpcAvailable = false;
-        return null;
-      }
-      // Check for "function does not exist" in body
-      const text = await res.text();
-      if (text.includes('does not exist') || text.includes('not found')) {
-        rpcAvailable = false;
-        return null;
-      }
-      console.error('[useTeacherConversations] RPC error:', res.status, text);
-      return null;
-    }
-
-    rpcAvailable = true;
-    const rows: any[] = await res.json();
-
-    return rows.map((r: any) => ({
-      teacherId: r.teacher_id,
-      teacherName: `${r.last_name || ''} ${r.first_name || ''}`.trim() || 'Преподаватель',
-      teacherFirstName: r.first_name || '',
-      teacherLastName: r.last_name || '',
-      teacherPhone: r.client_phone || null,
-      teacherEmail: null,
-      teacherBranch: r.client_branch || null,
-      lastMessageTime: r.last_message_time || null,
-      lastMessageText: r.last_message || null,
-      lastMessengerType: r.last_messenger || null,
-      unreadCount: r.unread_count || 0,
-      avatarUrl: null,
-    }));
-  } catch (err) {
-    console.error('[useTeacherConversations] RPC fetch error:', err);
-    return null;
-  }
-}
-
-/**
- * Optimized fallback: fetch teachers + 1 last message per teacher + unread counts
- */
-async function fetchFallback(branch?: string | null): Promise<TeacherConversation[]> {
+async function fetchTeacherConversations(branch?: string | null): Promise<TeacherConversation[]> {
   // Step 1: Get teachers
   const { data: teachers, error: teachersError } = await supabase
     .from('teachers')
@@ -114,14 +52,15 @@ async function fetchFallback(branch?: string | null): Promise<TeacherConversatio
     .order('created_at', { ascending: false })
     .limit(teacherIds.length * 3); // Small buffer for dedup
 
-  // Step 3: Get unread counts only (very light query)
+  // Step 3: Get unread counts only (exclude system messages, match original logic)
   const { data: unreadMessages } = await (supabase
     .from('chat_messages') as any)
-    .select('teacher_id')
+    .select('teacher_id, message_type')
     .in('teacher_id', teacherIds)
     .eq('is_read', false)
     .eq('is_outgoing', false)
-    .limit(1000);
+    .neq('message_type', 'system')
+    .limit(2000);
 
   // Build maps
   const lastMsgMap = new Map<string, any>();
@@ -177,23 +116,7 @@ export const useTeacherConversations = (branch?: string | null) => {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['teacher-conversations', branch],
     queryFn: async (): Promise<TeacherConversation[]> => {
-      // Try RPC first (single fast query via materialized view)
-      const token = await getAuthToken();
-      if (token) {
-        const rpcResult = await fetchViaRPC(token);
-        if (rpcResult) {
-          console.log(`[useTeacherConversations] RPC returned ${rpcResult.length} conversations`);
-          // Apply branch filter client-side if needed
-          const filtered = branch
-            ? rpcResult.filter(c => c.teacherBranch === branch)
-            : rpcResult;
-          return filtered;
-        }
-      }
-
-      // Fallback: optimized direct queries
-      console.log('[useTeacherConversations] Using optimized fallback');
-      return fetchFallback(branch);
+      return fetchTeacherConversations(branch);
     },
     staleTime: 60000, // 60s (MV refreshes every 2 min)
     gcTime: 5 * 60 * 1000,
