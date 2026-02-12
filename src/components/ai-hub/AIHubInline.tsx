@@ -855,7 +855,7 @@ export const AIHubInline = ({
       <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-background relative">
         <ChatBubbleNotification />
         <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
-          <Button variant="ghost" size="icon" onClick={handleBack} className="h-8 w-8">
+          <Button variant="outline" size="icon" onClick={handleBack} className="h-8 w-8 rounded-full">
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <Avatar className="h-9 w-9">
@@ -896,7 +896,7 @@ export const AIHubInline = ({
         <ChatBubbleNotification />
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
-          <Button variant="ghost" size="icon" onClick={handleBack} className="h-8 w-8">
+          <Button variant="outline" size="icon" onClick={handleBack} className="h-8 w-8 rounded-full">
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <Avatar className="h-9 w-9 shrink-0">
