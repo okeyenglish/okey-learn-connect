@@ -369,8 +369,8 @@ export const AIHub = ({
       icon: GraduationCap,
       iconBg: teacher.profileId ? 'bg-green-500/10' : 'bg-amber-500/10',
       iconColor: teacher.profileId ? 'text-green-600' : 'text-amber-600',
-      unreadCount: preview?.unreadCount || teacher.unreadMessages,
-      lastMessage: preview?.lastMessage || teacher.lastMessageText || undefined,
+      unreadCount: preview?.unreadCount || 0,
+      lastMessage: preview?.lastMessage || undefined,
       lastMessageTime: preview?.lastMessageTime || undefined,
       data: teacher,
     };
