@@ -3867,7 +3867,7 @@ export const ChatArea = ({
                           title="Подтвердить получение оплаты"
                         >
                           <Banknote className="h-4 w-4 shrink-0" />
-                          <span>Оплата проведена</span>
+                          <span>Оплата внесена</span>
                         </Button>
                       </>
                     )}
@@ -3989,7 +3989,7 @@ export const ChatArea = ({
                             className="flex items-center gap-2 text-emerald-700 font-medium"
                           >
                             <Banknote className="h-4 w-4" />
-                            <span>Оплата проведена</span>
+                            <span>Оплата внесена</span>
                           </DropdownMenuItem>
                         )}
                         {/* Не требует ответа - показывается если нет ожидающего платежа */}

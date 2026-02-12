@@ -1339,6 +1339,12 @@ const CRMContent = () => {
       if (aPinned && !bPinned) return -1;
       if (!aPinned && bPinned) return 1;
       
+      // Затем чаты с ожидающей оплатой (закреплены наверху до подтверждения менеджером)
+      const aPending = !!(a as any).has_pending_payment;
+      const bPending = !!(b as any).has_pending_payment;
+      if (aPending && !bPending) return -1;
+      if (!aPending && bPending) return 1;
+      
       // При активном поиске: сначала люди (имя/телефон), потом сообщения
       if (chatSearchQuery.length >= 2) {
         const aFoundInMessages = (a as any).foundInMessages || messageSearchClientIds.includes(a.id);
