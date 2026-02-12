@@ -281,6 +281,19 @@ export const useChatThreadsInfinite = (allowedBranches?: string[]) => {
       const dataArray = (data || []) as RpcThreadRow[];
       const hasMore = dataArray.length > PAGE_SIZE;
       const threads = mapRpcToThreads(dataArray.slice(0, PAGE_SIZE));
+
+      // Enrich with has_pending_payment from clients table (RPC doesn't return it)
+      const clientIds = threads.map(t => t.client_id).filter(Boolean);
+      if (clientIds.length > 0) {
+        const { data: pendingData } = await supabase
+          .from('clients')
+          .select('id, has_pending_payment')
+          .in('id', clientIds)
+          .eq('has_pending_payment', true);
+
+        const pendingSet = new Set((pendingData || []).map((c: any) => c.id));
+        threads.forEach(t => { (t as any).has_pending_payment = pendingSet.has(t.client_id); });
+      }
       
       console.log(`[useChatThreadsInfinite] ✅ Page ${pageParam}: ${threads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
       
