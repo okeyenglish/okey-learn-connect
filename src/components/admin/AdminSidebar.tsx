@@ -48,6 +48,7 @@ import { RoleSwitcher } from "./RoleSwitcher";
 const adminItems = [
   { title: "Dashboard", id: "dashboard", icon: BarChart3 },
   { title: "Заявки на уроки", id: "trial-requests", icon: CalendarPlus },
+  { title: "Персонал", id: "staff", icon: Users },
   { title: "Преподаватели", id: "teachers", icon: Users },
   { title: "KPI менеджеров", id: "kpi-management", icon: Target },
   { title: "Настройки бонусов", id: "bonus-settings", icon: Gift },
