@@ -57,7 +57,7 @@ export const ChatBubbleNotification = ({ floating = false }: ChatBubbleNotificat
       >
         <div
           onClick={() => { notification.onOpen(); dismiss(); }}
-          className="bg-background/95 backdrop-blur-xl border border-border/60 rounded-2xl shadow-2xl shadow-black/10 cursor-pointer hover:shadow-xl hover:border-border transition-all duration-200"
+          className="bg-blue-50 dark:bg-blue-950/80 backdrop-blur-xl border border-blue-200/60 dark:border-blue-800/60 rounded-2xl shadow-2xl shadow-blue-500/10 cursor-pointer hover:bg-blue-100/80 dark:hover:bg-blue-900/60 transition-all duration-200"
         >
           <div className="px-4 py-3 flex items-center gap-3">
             {/* Avatar */}
@@ -80,14 +80,14 @@ export const ChatBubbleNotification = ({ floating = false }: ChatBubbleNotificat
         </div>
         {/* SVG tail pointing to the button */}
         <svg
-          className="absolute -bottom-[7px] right-7 w-4 h-2 text-background/95 drop-shadow-sm"
+          className="absolute -bottom-[7px] right-7 w-4 h-2 text-blue-50 dark:text-blue-950/80 drop-shadow-sm"
           viewBox="0 0 16 8"
           fill="none"
         >
           <path
             d="M0 0C4 0 6 4 8 8C10 4 12 0 16 0H0Z"
             fill="currentColor"
-            stroke="hsl(var(--border) / 0.6)"
+            stroke="rgb(191 219 254 / 0.6)"
             strokeWidth="1"
             strokeLinejoin="round"
           />
