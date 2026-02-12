@@ -101,6 +101,7 @@ import { useStaffUnreadCount } from "@/hooks/useInternalStaffMessages";
 import { useChatNotificationSound } from "@/hooks/useChatNotificationSound";
 import { useStaffMessageNotifications } from "@/hooks/useStaffMessageNotifications";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ChatBubbleNotification } from "@/components/ai-hub/ChatBubbleNotification";
 
 import {
   Search, 
@@ -2282,7 +2283,8 @@ const CRMContent = () => {
 
   return (
       <TooltipProvider>
-        <div className="crm-container h-[100svh] flex flex-col overflow-hidden">
+        <div className="crm-container h-[100svh] flex flex-col overflow-hidden relative">
+          <ChatBubbleNotification />
       {/* Фиксированный хедер сверху на мобильной версии - скрываем когда открыт чат с клиентом */}
       {isMobile && !(activeChatId && activeChatType === 'client') && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b">
