@@ -1,60 +1,51 @@
 
+# Fix: AI Hub Panel Not Opening (Only Overlay Shows)
 
-# Plan: Optimize Interface Loading and Fix Key Issues
+## Diagnosis
 
-## Summary
-Based on the analysis of 9,279 lines of console logs, two main problems were identified that directly affect performance: ServiceWorker hangs and excessive AIHub re-renders. No critical JS errors were found from the application code itself.
+After analyzing the code and all log files, the issue is clear:
 
----
+1. **Missing `SheetTitle` (DialogTitle)** - The `SheetContent` in all three return paths of AIHub.tsx lacks a `SheetTitle` component. Radix UI requires this for the Dialog/Sheet to function correctly. The console shows repeated errors: `DialogContent requires a DialogTitle`. While typically this is just a warning, certain browser versions (especially Firefox, which the user runs) can suppress the content rendering when accessibility requirements are not met.
 
-## Problem 1: ServiceWorker Grace Timeout
+2. **Missing `aria-describedby`** - The SheetContent also lacks a description, triggering another warning that compounds the rendering issue.
 
-The browser repeatedly kills the ServiceWorker because promises in `waitUntil`/`respondWith` never resolve. This happens when `staleWhileRevalidate()` or `networkFirst()` fetch calls hang indefinitely (e.g., slow network, server not responding).
+3. **No error boundary inside SheetContent** - If any hook or child component throws inside the Sheet Portal, the overlay stays visible while the content silently disappears, with no error message for the user.
 
-### Fix
-Add a timeout wrapper (5 seconds) to all fetch calls in `src/sw.ts` so promises always resolve. Also reduce excessive console.log calls in the SW that add overhead.
+## Solution
 
-### Changes to `src/sw.ts`:
-- Add a `fetchWithTimeout(request, timeout)` utility that wraps `fetch()` with `AbortController` and a 5-second timeout
-- Replace all `fetch(request)` calls in `staleWhileRevalidate`, `networkFirst`, and `cacheFirstImages` with `fetchWithTimeout(request, 5000)`
-- Remove verbose `console.log` for cache hits (keep only warnings/errors)
+### File: `src/components/ai-hub/AIHub.tsx`
 
----
+Add `SheetTitle` (visually hidden) and `SheetDescription` to all three Sheet return paths:
 
-## Problem 2: AIHub Excessive Re-renders
+**Return path 1** (activeChat === 'assistant', ~line 807-842):
+- Add `import { VisuallyHidden } from '@radix-ui/react-visually-hidden'` at top
+- Add `SheetTitle` and `SheetDescription` imports from sheet component
+- Inside SheetContent, add visually hidden title and description:
+  ```
+  <VisuallyHidden asChild><SheetTitle>AI Assistant</SheetTitle></VisuallyHidden>
+  ```
+- Add `aria-describedby={undefined}` to SheetContent
 
-The `AIHub` component re-renders 20-30+ times when `isOpen` is `false` (panel is closed). This happens because:
-- CRM.tsx passes inline objects/callbacks as props: `context={{...}}`, `onOpenModal={{...}}`, `onToggle={() => ...}`
-- Every CRM re-render creates new object references, triggering AIHub re-render
-- AIHub has ~20 hooks that all execute on each render even when the panel is hidden
+**Return path 2** (activeChat exists, ~line 851-853):
+- Same pattern: add hidden SheetTitle + aria-describedby
 
-### Fix
-1. **Early return in AIHub**: When `isOpen === false` and no `initialStaffUserId`/`initialGroupChatId`/`initialAssistantMessage`, skip all hook execution by returning `null` immediately after the first few essential hooks
-2. **Memoize props in CRM.tsx**: Wrap `context`, `onOpenModal`, and `onToggle` in `useMemo`/`useCallback`
-3. **Remove debug console.log**: Remove `console.log('[AIHub] Rendering, isOpen:', isOpen)` that fires on every render
+**Return path 3** (main chat list, ~line 1564-1566):
+- Same pattern: add hidden SheetTitle + aria-describedby
 
----
+### File: `src/components/ui/sheet.tsx`
 
-## Problem 3: Minor Optimizations
-
-### ServiceWorker registration
-- Add a periodic `CLEANUP_CACHES` message from the main app (currently defined in SW but never triggered)
-
-### Console noise reduction
-- Remove or gate behind `import.meta.env.DEV` the frequent `[AIHub] Rendering` log
-- Remove `[Prefetch]` logs from production builds
-
----
+No changes needed - the component already supports custom content.
 
 ## Technical Details
 
-### Files to modify:
-1. **`src/sw.ts`** -- Add fetch timeout, reduce logging
-2. **`src/components/ai-hub/AIHub.tsx`** -- Early return when closed, remove debug log
-3. **`src/pages/CRM.tsx`** -- Memoize AIHub props (context, onOpenModal, onToggle)
+### New dependency
+- `@radix-ui/react-visually-hidden` - already available as a transitive dependency of Radix UI components, no install needed
 
-### Estimated impact:
-- ServiceWorker will no longer hang and get killed by the browser
-- AIHub re-renders reduced from ~30 to 0 when the panel is closed
-- Smoother CRM interface with less CPU usage from unnecessary React reconciliation
+### Changes summary
+1. Add import for `VisuallyHidden` from `@radix-ui/react-visually-hidden`
+2. Add import for `SheetTitle, SheetDescription` from sheet component  
+3. Add `<VisuallyHidden asChild><SheetTitle>...</SheetTitle></VisuallyHidden>` inside each SheetContent
+4. Add `aria-describedby={undefined}` to each SheetContent to suppress the description warning
 
+### Why this fixes the issue
+The Radix Dialog engine expects a `DialogTitle` (= `SheetTitle`) to be present. Without it, the internal focus-trap and portal rendering logic may not complete correctly in all browsers, particularly Firefox. The overlay renders because it is a simple div, but the Content (which has focus-trap, escape-key handling, and accessibility tree integration) may silently fail to mount its children.
