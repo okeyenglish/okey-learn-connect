@@ -25,6 +25,12 @@ function shortenSystemActionPreview(text: string): string {
   return text;
 }
 
+function isManagerActionMessage(text: string): boolean {
+  if (!text) return false;
+  return /отметил\(а\): ответ не требуется/i.test(text) || 
+         /подтвердил\(а\) оплату/i.test(text);
+}
+
 /**
  * Hook to load full thread data for pinned chat IDs
  * that are NOT already present in the loaded threads.
@@ -143,7 +149,12 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
     })
     .map((client: any) => {
       const clientMessages = messagesByClient.get(client.id) || [];
-      const lastMessage = clientMessages[0];
+      const lastMessage = clientMessages[0]; // for time & messenger_type
+      // Find first non-system message for preview text
+      const previewMessage = clientMessages.find((m: any) => {
+        const text = m.message_text || '';
+        return !isSystemPreviewMessage(text) && !isManagerActionMessage(text);
+      }) || clientMessages[0];
       const unreadMessages = clientMessages.filter((m: any) => !m.is_read && m.message_type === 'client');
 
       const unreadByMessenger: UnreadByMessenger = {
@@ -179,7 +190,7 @@ async function fetchThreadsDirectly(clientIds: string[]): Promise<ChatThread[]> 
         telegram_chat_id: null,
         whatsapp_chat_id: null,
         max_chat_id: null,
-        last_message: lastMessage?.message_text || '',
+        last_message: previewMessage?.message_text || '',
         last_message_time: lastMessage?.created_at || null,
         last_message_messenger: lastMessage?.messenger_type || null,
         unread_count: unreadMessages.length,
