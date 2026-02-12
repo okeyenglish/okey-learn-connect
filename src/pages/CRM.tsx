@@ -1502,7 +1502,13 @@ const CRMContent = () => {
       }
     } else {
       setChatInitialSearchQuery(undefined);
-      setSelectedMessengerTab(undefined);
+      // Мгновенное переключение вкладки мессенджера из данных списка чатов
+      if (messengerType) {
+        setSelectedMessengerTab({ tab: messengerType, ts: Date.now() });
+        setTimeout(() => setSelectedMessengerTab(undefined), 500);
+      } else {
+        setSelectedMessengerTab(undefined);
+      }
     }
     
     // Сначала СИНХРОННО устанавливаем данные из кэша
@@ -3715,7 +3721,9 @@ const CRMContent = () => {
                              const unreadByMessages = Number(chat.unread) > 0;
                              const displayUnread = showEye || unreadByMessages;
                              const foundInMessages = (chat as any).foundInMessages || messageSearchClientIds.includes(chat.id);
-                             const messengerType = foundInMessages && getMessengerType ? getMessengerType(chat.id) : null;
+                             const messengerType = foundInMessages && getMessengerType 
+                               ? getMessengerType(chat.id) 
+                               : ((chat as any).last_unread_messenger || (chat as any).last_message_messenger || null);
 
                              return (
                                <ChatListItem

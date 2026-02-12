@@ -725,8 +725,19 @@ export const ChatArea = ({
     }
   }, [highlightedMessageId, initialSearchQuery, messagesData?.messages, loadingMessages]);
   
-  // Set initial tab to the one with the last message when client changes
+   // Set initial tab to the one with the last message when client changes
   useEffect(() => {
+    // Мгновенная установка вкладки из данных списка чатов (без ожидания загрузки сообщений)
+    if (initialMessengerTab && initialTabSet !== clientId) {
+      console.log('[ChatArea] Instant tab set from chat list:', initialMessengerTab, 'for client:', clientId);
+      setActiveMessengerTab(initialMessengerTab);
+      setInitialTabSet(clientId);
+      requestAnimationFrame(() => {
+        setTimeout(() => scrollToBottom(false, initialMessengerTab), 100);
+      });
+      return;
+    }
+    
     // Wait for unread data AND messages to fully settle before setting initial tab
     if (unreadLoading || unreadFetching) return;
     if (loadingMessages) return; // Wait for messages to load too!

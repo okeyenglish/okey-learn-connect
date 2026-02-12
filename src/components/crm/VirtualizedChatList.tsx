@@ -254,7 +254,9 @@ export const VirtualizedChatList = React.memo(({
                   isNewMessage={newMessageClientIds.has(chat.id)}
                   onChatClick={() => {
                     const foundInMessages = chat.foundInMessages || messageSearchClientIds.includes(chat.id);
-                    const messengerType = foundInMessages && getMessengerType ? getMessengerType(chat.id) : null;
+                    const messengerType = foundInMessages && getMessengerType 
+                      ? getMessengerType(chat.id) 
+                      : ((chat as any).last_unread_messenger || (chat as any).last_message_messenger || null);
                     onChatClick(chat.id, chat.type, foundInMessages, messengerType);
                   }}
                   onMarkUnread={() => onChatAction(chat.id, 'unread')}
