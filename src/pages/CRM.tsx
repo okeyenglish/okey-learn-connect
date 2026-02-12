@@ -413,7 +413,9 @@ const CRMContent = () => {
   const [quickReplyCategory, setQuickReplyCategory] = useState<'activity_warning' | 'tab_feedback' | null>(null);
   
   // Memoized AIHub callbacks (stable refs that don't depend on late-defined functions)
-  const handleAIHubToggle = useCallback(() => setVoiceAssistantOpen(prev => !prev), []);
+  const handleAIHubToggle = useCallback((open?: boolean) => {
+    setVoiceAssistantOpen(prev => typeof open === 'boolean' ? open : !prev);
+  }, []);
   const handleAIHubOpenScripts = useCallback(() => setShowScriptsModal(true), []);
   const handleClearInitialAssistantMessage = useCallback(() => {
     setInitialAssistantMessage(null);

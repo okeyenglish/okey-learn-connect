@@ -81,7 +81,7 @@ import { setActiveChatOS } from '@/lib/activeChatOSStore';
 
 interface AIHubProps {
   isOpen: boolean;
-  onToggle: () => void;
+  onToggle: (open?: boolean) => void;
   context?: {
     currentPage: string;
     activeClientId: string | null;
@@ -1576,7 +1576,7 @@ export const AIHub = ({
               <p className="text-xs text-muted-foreground">Чаты и AI-помощники</p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={onToggle} className="h-8 w-8">
+          <Button variant="ghost" size="icon" onClick={() => onToggle(false)} className="h-8 w-8">
             <X className="h-4 w-4" />
           </Button>
         </div>
