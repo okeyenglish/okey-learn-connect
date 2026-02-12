@@ -14,6 +14,7 @@ import { StaffForwardedBubble, isStaffForwardedMessage, parseStaffForwardedComme
 import { StaffForwardPicker } from '@/components/ai-hub/StaffForwardPicker';
 import { ChatBubbleNotification } from '@/components/ai-hub/ChatBubbleNotification';
 import { MentionPicker, useMentionInput, renderMentionText } from '@/components/ai-hub/MentionPicker';
+import { MessageContextMenu } from '@/components/ai-hub/MessageContextMenu';
 import { useStaffReactionsBatch, useStaffReactionsBroadcast } from '@/hooks/useStaffMessageReactions';
 import { FileUpload, FileUploadRef } from '@/components/crm/FileUpload';
 import { 
@@ -1081,8 +1082,16 @@ export const AIHub = ({
                     )
                   ) : null;
                   return (
-                    <div 
+                    <MessageContextMenu
                       key={msg.id}
+                      isOwn={isOwn}
+                      isStaffChat={isStaffChat}
+                      isDeleted={msg.is_deleted}
+                      onEdit={isOwn ? () => { setEditingMessage({ id: msg.id, content: msg.content }); setEditText(msg.content); } : undefined}
+                      onDelete={isOwn ? () => { if (confirm('Удалить сообщение?')) deleteStaffMessage.mutate(msg.id); } : undefined}
+                      onForward={() => setForwardingMessage({ id: msg.id, content: msg.content, senderName: msg.sender || (isOwn ? 'Вы' : 'Коллега'), chatName: activeChat.name })}
+                    >
+                    <div 
                       className={`group flex items-end gap-1.5 ${isOwn ? 'justify-end' : 'justify-start'} ${isLastInGroup ? 'mb-3' : 'mb-0.5'}`}
                     >
                       {/* Avatar for incoming messages - only on last in group */}
@@ -1095,33 +1104,6 @@ export const AIHub = ({
                               </AvatarFallback>
                             </Avatar>
                           )}
-                        </div>
-                      )}
-                      
-                      {/* Action buttons on hover - for staff chats only */}
-                      {isStaffChat && isOwn && !msg.is_deleted && (
-                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                          <button
-                            className="h-6 w-6 rounded-full flex items-center justify-center bg-background/80 border border-border/40 shadow-sm hover:bg-background"
-                            onClick={() => { setEditingMessage({ id: msg.id, content: msg.content }); setEditText(msg.content); }}
-                            title="Редактировать"
-                          >
-                            <Pencil className="h-3 w-3 text-muted-foreground" />
-                          </button>
-                          <button
-                            className="h-6 w-6 rounded-full flex items-center justify-center bg-background/80 border border-border/40 shadow-sm hover:bg-destructive/10"
-                            onClick={() => { if (confirm('Удалить сообщение?')) deleteStaffMessage.mutate(msg.id); }}
-                            title="Удалить"
-                          >
-                            <Trash2 className="h-3 w-3 text-muted-foreground" />
-                          </button>
-                          <button
-                            className="h-6 w-6 rounded-full flex items-center justify-center bg-background/80 border border-border/40 shadow-sm hover:bg-background"
-                            onClick={() => setForwardingMessage({ id: msg.id, content: msg.content, senderName: msg.sender || 'Вы', chatName: activeChat.name })}
-                            title="Переслать"
-                          >
-                            <Forward className="h-3 w-3 text-muted-foreground" />
-                          </button>
                         </div>
                       )}
 
@@ -1346,17 +1328,8 @@ export const AIHub = ({
                         )}
                       </div>
 
-                      {/* Forward button on hover - for incoming staff messages */}
-                      {isStaffChat && !isOwn && (
-                        <button
-                          className="h-6 w-6 rounded-full flex items-center justify-center bg-background/80 border border-border/40 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background shrink-0"
-                          onClick={() => setForwardingMessage({ id: msg.id, content: msg.content, senderName: msg.sender || 'Коллега', chatName: activeChat.name })}
-                          title="Переслать"
-                        >
-                          <Forward className="h-3 w-3 text-muted-foreground" />
-                        </button>
-                      )}
                     </div>
+                    </MessageContextMenu>
                   );
                 })
               )}
@@ -1564,12 +1537,10 @@ export const AIHub = ({
     : corporateChatsListBase;
 
   // Main chat list - EXACT copy of mobile AIHubInline layout
-  console.log('[AIHub] Rendering main list, isOpen:', isOpen);
   return (
-    <Sheet open={isOpen} onOpenChange={(v) => { console.log('[AIHub Sheet] onOpenChange:', v); onToggle(v); }}>
+    <Sheet open={isOpen} onOpenChange={onToggle}>
       <SheetContent side="right" hideCloseButton aria-describedby={undefined} className="w-full sm:w-[400px] sm:max-w-[400px] h-full p-0 flex flex-col overflow-hidden">
         <VisuallyHidden.Root asChild><SheetTitle>ChatOS</SheetTitle></VisuallyHidden.Root>
-        {(() => { console.log('[AIHub] SheetContent MOUNTED'); return null; })()}
         <ChatBubbleNotification />
         {/* Header */}
         <div className="px-4 py-3 border-b shrink-0 flex items-center justify-between">
