@@ -34,6 +34,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('диалог');
   const [resolvedClientId, setResolvedClientId] = useState<string | null>(null);
+  const [teacherLinkedTelegramUserId, setTeacherLinkedTelegramUserId] = useState<string | null>(null);
   const [userBranch, setUserBranch] = useState<string | null>(null);
   const [filterBranch, setFilterBranch] = useState<string>('all');
   const [filterSubject, setFilterSubject] = useState<string>('all');
@@ -303,6 +304,40 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     
     resolve();
   }, [selectedTeacherId, userBranch, teachersWithMessages, findOrCreateClient]);
+
+  // Fetch linked client's telegram_user_id for selected teacher
+  useEffect(() => {
+    const fetchLinkedClientId = async () => {
+      if (!selectedTeacherId || selectedTeacherId === 'teachers-group') {
+        setTeacherLinkedTelegramUserId(null);
+        return;
+      }
+      try {
+        // Try teacher_client_links first
+        const { data: links } = await supabase
+          .from('teacher_client_links')
+          .select('client_id')
+          .eq('teacher_id', selectedTeacherId)
+          .limit(1);
+        
+        const linkedClientId = links?.[0]?.client_id;
+        if (linkedClientId) {
+          const { data: client } = await supabase
+            .from('clients')
+            .select('telegram_user_id')
+            .eq('id', linkedClientId)
+            .single();
+          
+          setTeacherLinkedTelegramUserId(client?.telegram_user_id || null);
+          return;
+        }
+        setTeacherLinkedTelegramUserId(null);
+      } catch {
+        setTeacherLinkedTelegramUserId(null);
+      }
+    };
+    fetchLinkedClientId();
+  }, [selectedTeacherId]);
 
   const teachers = teachersWithMessages || [];
   
@@ -643,6 +678,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         clientId={resolvedClientId}
         clientName={clientName}
         clientPhone={clientPhone}
+        clientTelegramUserId={teacherLinkedTelegramUserId}
         messagesSource="teacher"
         onBackToList={() => onSelectTeacher(null)}
         managerName="Вы"
@@ -695,6 +731,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                   clientId={resolvedClientId}
                   clientName={clientName}
                   clientPhone={clientPhone}
+                  clientTelegramUserId={teacherLinkedTelegramUserId}
                   messagesSource="teacher"
                   managerName="Вы"
                   simplifiedToolbar={true}
