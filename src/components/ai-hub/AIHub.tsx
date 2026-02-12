@@ -1571,7 +1571,7 @@ export const AIHub = ({
           
         </div>
 
-        <ScrollArea className="flex-1 overflow-x-hidden">
+        <ScrollArea className="flex-1 overflow-x-hidden [&>[data-radix-scroll-area-scrollbar]]:hidden">
           <div className="px-2 py-1 space-y-1 max-w-full overflow-hidden box-border">
             {(groupChatsLoading || teachersLoading) && (
               <div className="text-center py-4">
