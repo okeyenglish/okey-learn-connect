@@ -244,6 +244,7 @@ export const AIHub = ({
   } = usePersistedSections();
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const chatListScrollRef = useRef<HTMLDivElement>(null);
   const fileUploadRef = useRef<FileUploadRef>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -799,6 +800,11 @@ export const AIHub = ({
   const handleBack = () => {
     setActiveChat(null);
     setTeacherClientId(null);
+    // Scroll chat list to top when going back
+    setTimeout(() => {
+      const viewport = chatListScrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+      if (viewport) viewport.scrollTop = 0;
+    }, 0);
   };
 
   const getCurrentMessages = (): ChatMessage[] => {
@@ -873,7 +879,7 @@ export const AIHub = ({
           <ChatBubbleNotification />
           {/* Header */}
           <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
-            <Button variant="ghost" size="icon" onClick={() => setActiveChat(null)} className="h-8 w-8">
+            <Button variant="ghost" size="icon" onClick={handleBack} className="h-8 w-8">
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <Avatar className="h-9 w-9">
@@ -1631,7 +1637,7 @@ export const AIHub = ({
           
         </div>
 
-        <ScrollArea className="flex-1 overflow-x-hidden [&>[data-radix-scroll-area-scrollbar]]:hidden">
+        <ScrollArea ref={chatListScrollRef} className="flex-1 overflow-x-hidden [&>[data-radix-scroll-area-scrollbar]]:hidden">
           <div className="px-2 py-1 space-y-1 max-w-full overflow-hidden box-border">
             {(groupChatsLoading || teachersLoading) && (
               <div className="text-center py-4">
