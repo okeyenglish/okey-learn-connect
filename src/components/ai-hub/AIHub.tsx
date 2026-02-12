@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
@@ -171,35 +171,42 @@ export const AIHub = ({
   onClearInitialGroupChatId
 }: AIHubProps) => {
   const navigate = useNavigate();
-  // Initialize activeChat immediately if initialStaffUserId/initialGroupChatId is provided
-  // This prevents the "flash of chat list" before the target chat opens
-  const [activeChat, setActiveChat] = useState<ChatItem | null>(() => {
-    if (initialStaffUserId && isOpen) {
-      return {
-        id: initialStaffUserId,
-        type: 'staff' as const,
-        name: '...',
-        description: '',
-        icon: null,
-        iconBg: '',
-        iconColor: '',
-        data: { id: initialStaffUserId, first_name: '', last_name: '' } as any,
-      };
+  const [activeChat, setActiveChat] = useState<ChatItem | null>(null);
+
+  // Synchronously set activeChat BEFORE first paint when opening via notification
+  // This prevents the "flash of chat list" entirely
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    if (initialStaffUserId) {
+      setActiveChat(prev => {
+        if (prev?.id === initialStaffUserId) return prev;
+        return {
+          id: initialStaffUserId,
+          type: 'staff',
+          name: '...',
+          description: '',
+          icon: null,
+          iconBg: '',
+          iconColor: '',
+          data: { id: initialStaffUserId, first_name: '', last_name: '' } as any,
+        };
+      });
+    } else if (initialGroupChatId) {
+      setActiveChat(prev => {
+        if (prev?.id === initialGroupChatId) return prev;
+        return {
+          id: initialGroupChatId,
+          type: 'group',
+          name: '...',
+          description: '',
+          icon: null,
+          iconBg: '',
+          iconColor: '',
+          data: { id: initialGroupChatId, name: '' } as any,
+        };
+      });
     }
-    if (initialGroupChatId && isOpen) {
-      return {
-        id: initialGroupChatId,
-        type: 'group' as const,
-        name: '...',
-        description: '',
-        icon: null,
-        iconBg: '',
-        iconColor: '',
-        data: { id: initialGroupChatId, name: '' } as any,
-      };
-    }
-    return null;
-  });
+  }, [isOpen, initialStaffUserId, initialGroupChatId]);
 
   // Sync active chat to global store for notification suppression
   useEffect(() => {
