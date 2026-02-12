@@ -183,6 +183,8 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
       /^Новый платеж/i,
       /^crm_system_/i,
       /crm_system_state_changed/i, // Matches anywhere in message
+      /отметил\(а\): ответ не требуется/i,
+      /подтвердил\(а\) оплату/i,
     ];
     return systemPatterns.some((pattern) => pattern.test(message));
   }, [message]);

@@ -1,4 +1,4 @@
-import { Phone, CreditCard, UserCheck, Settings, Bell, RefreshCw, AlertCircle, Banknote } from "lucide-react";
+import { Phone, CreditCard, UserCheck, Settings, Bell, RefreshCw, AlertCircle, Banknote, CheckCheck } from "lucide-react";
 
 interface SalebotCallbackMessageProps {
   message: string;
@@ -15,6 +15,8 @@ const CALLBACK_CONFIG: Record<string, { label: string; icon: React.ElementType; 
   settings_updated: { label: 'Настройки обновлены', icon: Settings, color: 'text-muted-foreground' },
   reminder: { label: 'Напоминание', icon: Bell, color: 'text-amber-600' },
   sync: { label: 'Синхронизация', icon: RefreshCw, color: 'text-muted-foreground' },
+  no_response_needed: { label: 'Ответ не требуется', icon: CheckCheck, color: 'text-green-600' },
+  payment_confirmed: { label: 'Оплата подтверждена', icon: Banknote, color: 'text-emerald-600' },
 };
 
 // Pattern to match _success messages like "xxx_success 1500", "gnb3mwhqcq_success 11990", or "tbank_success 10"
