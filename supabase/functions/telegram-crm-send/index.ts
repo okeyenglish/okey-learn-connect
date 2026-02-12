@@ -285,6 +285,7 @@ Deno.serve(async (req) => {
         file_name: fileName,
         file_type: fileType,
         sender_name: body.senderName || null,
+        metadata: { sender_name: body.senderName || null },
       })
       .select('id')
       .single();
