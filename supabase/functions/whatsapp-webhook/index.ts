@@ -1013,28 +1013,76 @@ async function handleIncomingMessage(webhook: GreenAPIWebhook, organizationId: s
 }
 
 async function handleMessageStatus(webhook: GreenAPIWebhook) {
-  const { statusData } = webhook;
-  
-  if (!statusData) {
-    console.log('Missing status data');
+  // Read from root level first (per GreenAPI docs), fallback to statusData
+  const messageId = webhook.idMessage || webhook.statusData?.idMessage;
+  const rawStatus = webhook.status || webhook.statusData?.status;
+
+  if (!messageId || !rawStatus) {
+    console.log('[whatsapp-webhook] Missing messageId or status in outgoingMessageStatus:', { messageId, rawStatus });
     return;
   }
 
-  const messageId = statusData.idMessage;
-  const status = statusData.status;
+  // Map GreenAPI statuses to our unified statuses
+  const statusMap: Record<string, string> = {
+    sent: 'sent',
+    delivered: 'delivered',
+    read: 'read',
+    failed: 'failed',
+    noAccount: 'failed',
+    notInGroup: 'failed',
+  };
+  const mappedStatus = statusMap[rawStatus] || rawStatus;
 
+  console.log(`[whatsapp-webhook] Updating message ${messageId} status: ${rawStatus} -> ${mappedStatus}`);
+
+  // Step 1: Try updating message_status column directly
   const { error } = await supabase
     .from('chat_messages')
-    .update({ 
-      message_status: status as any
-    })
+    .update({ message_status: mappedStatus as any })
     .eq('external_message_id', messageId);
 
-  if (error) {
-    console.error('Error updating message status:', error);
+  if (!error) {
+    console.log(`[whatsapp-webhook] ✓ Status updated for ${messageId}`);
+    return;
   }
 
-  console.log(`Updated message ${messageId} status to ${status}`);
+  // Check if it's a missing column error (self-hosted)
+  const isMissingColumn =
+    error.message?.includes('column') ||
+    error.message?.includes('does not exist') ||
+    error.code === 'PGRST204' ||
+    error.code === '42703';
+
+  if (!isMissingColumn) {
+    console.error('[whatsapp-webhook] Error updating message status:', error);
+    return;
+  }
+
+  // Step 2: Fallback - save status in metadata
+  console.log('[whatsapp-webhook] message_status column missing, falling back to metadata...');
+
+  const { data: existing, error: fetchErr } = await supabase
+    .from('chat_messages')
+    .select('id, metadata')
+    .eq('external_message_id', messageId)
+    .maybeSingle();
+
+  if (fetchErr || !existing) {
+    console.warn('[whatsapp-webhook] Could not find message for metadata fallback:', messageId, fetchErr?.message);
+    return;
+  }
+
+  const currentMeta = (existing.metadata as Record<string, unknown>) || {};
+  const { error: metaErr } = await supabase
+    .from('chat_messages')
+    .update({ metadata: { ...currentMeta, message_status: mappedStatus } })
+    .eq('id', existing.id);
+
+  if (metaErr) {
+    console.error('[whatsapp-webhook] Metadata fallback also failed:', metaErr.message);
+  } else {
+    console.log(`[whatsapp-webhook] ✓ Status saved in metadata for ${messageId}`);
+  }
 }
 
 async function handleOutgoingMessage(webhook: GreenAPIWebhook, organizationId: string | null, integrationId: string | null = null) {
