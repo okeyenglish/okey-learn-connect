@@ -36,6 +36,7 @@ import { TrialRequestsManager } from "./TrialRequestsManager";
 import { KpiManagementPage } from "./KpiManagementPage";
 import { StaffAnalyticsPage } from "./StaffAnalyticsPage";
 import { TeachersManagementSection } from "./TeachersManagementSection";
+import { StaffManagementSection } from "./StaffManagementSection";
 import { ConversationIndexingPanel } from "./ConversationIndexingPanel";
 import BonusSettingsPage from "@/components/employees/BonusSettingsPage";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,6 +62,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
     switch (currentSection) {
       case "trial-requests":
         return <TrialRequestsManager />;
+      case "staff":
+        return <StaffManagementSection />;
       case "teachers":
         return <TeachersManagementSection />;
       case "kpi-management":
