@@ -20,11 +20,11 @@ function isSystemPreviewMessage(text: string): boolean {
   );
 }
 
-// Replace verbose system action messages with empty string for preview
+// Replace verbose system action messages with short preview text
 function shortenSystemActionPreview(text: string): string {
   if (!text) return text;
-  if (/отметил\(а\): ответ не требуется/i.test(text)) return '';
-  if (/подтвердил\(а\) оплату/i.test(text)) return '';
+  if (/отметил\(а\): ответ не требуется/i.test(text)) return '✓ Ответ не требуется';
+  if (/подтвердил\(а\) оплату/i.test(text)) return '✓ Оплата подтверждена';
   return text;
 }
 
