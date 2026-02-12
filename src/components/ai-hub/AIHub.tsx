@@ -1194,7 +1194,7 @@ export const AIHub = ({
                 }}
                 placeholder={getCurrentPlaceholder()}
                 disabled={isProcessing || isRecording || sendStaffMessage.isPending}
-                className="flex-1 h-10 rounded-full bg-muted border-0 px-4 text-sm focus-visible:ring-1"
+                className="flex-1 h-10 rounded-xl bg-muted border-0 px-4 text-sm focus-visible:ring-1"
               />
               <Button 
                 onClick={handleSendMessage}
