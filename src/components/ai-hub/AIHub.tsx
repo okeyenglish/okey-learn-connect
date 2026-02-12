@@ -171,7 +171,35 @@ export const AIHub = ({
   onClearInitialGroupChatId
 }: AIHubProps) => {
   const navigate = useNavigate();
-  const [activeChat, setActiveChat] = useState<ChatItem | null>(null);
+  // Initialize activeChat immediately if initialStaffUserId/initialGroupChatId is provided
+  // This prevents the "flash of chat list" before the target chat opens
+  const [activeChat, setActiveChat] = useState<ChatItem | null>(() => {
+    if (initialStaffUserId && isOpen) {
+      return {
+        id: initialStaffUserId,
+        type: 'staff' as const,
+        name: '...',
+        description: '',
+        icon: null,
+        iconBg: '',
+        iconColor: '',
+        data: { id: initialStaffUserId, first_name: '', last_name: '' } as any,
+      };
+    }
+    if (initialGroupChatId && isOpen) {
+      return {
+        id: initialGroupChatId,
+        type: 'group' as const,
+        name: '...',
+        description: '',
+        icon: null,
+        iconBg: '',
+        iconColor: '',
+        data: { id: initialGroupChatId, name: '' } as any,
+      };
+    }
+    return null;
+  });
 
   // Sync active chat to global store for notification suppression
   useEffect(() => {
@@ -488,9 +516,12 @@ export const AIHub = ({
   }, [initialAssistantMessage, isOpen, aiChats]);
 
   // Auto-open staff chat when initialStaffUserId is provided
+  // First: immediately set a placeholder activeChat to avoid showing the chat list
+  // Second: update with full data once staffChatItems load
   useEffect(() => {
     if (!initialStaffUserId || !isOpen) return;
     
+    // Try to find the real chat item
     const targetChat = [...staffChatItems, ...teacherChatItems].find(chat => {
       if (chat.type === 'staff') {
         return (chat.data as StaffMember)?.id === initialStaffUserId;
@@ -503,9 +534,20 @@ export const AIHub = ({
 
     if (targetChat) {
       setActiveChat(targetChat);
-      // Invalidate messages cache so latest messages are fetched
       queryClient.invalidateQueries({ queryKey: ['staff-direct-messages', initialStaffUserId] });
       onClearInitialStaffUserId?.();
+    } else if (!activeChat || activeChat.id !== initialStaffUserId) {
+      // Set placeholder immediately so user doesn't see the chat list flash
+      setActiveChat({
+        id: initialStaffUserId,
+        type: 'staff',
+        name: '...',
+        description: '',
+        icon: null,
+        iconBg: '',
+        iconColor: '',
+        data: { id: initialStaffUserId, first_name: '', last_name: '' } as any,
+      });
     }
   }, [initialStaffUserId, isOpen, staffChatItems, teacherChatItems, onClearInitialStaffUserId, queryClient]);
 
@@ -520,9 +562,20 @@ export const AIHub = ({
 
     if (targetGroup) {
       setActiveChat(targetGroup);
-      // Invalidate messages cache so latest messages are fetched
       queryClient.invalidateQueries({ queryKey: ['staff-group-messages', initialGroupChatId] });
       onClearInitialGroupChatId?.();
+    } else if (!activeChat || activeChat.id !== initialGroupChatId) {
+      // Set placeholder immediately
+      setActiveChat({
+        id: initialGroupChatId,
+        type: 'group',
+        name: '...',
+        description: '',
+        icon: null,
+        iconBg: '',
+        iconColor: '',
+        data: { id: initialGroupChatId, name: '' } as any,
+      });
     }
   }, [initialGroupChatId, isOpen, groupChatItems, onClearInitialGroupChatId, queryClient]);
 
