@@ -1208,6 +1208,25 @@ export const ChatArea = ({
       
       // Clear personal unread marker
       onChatAction?.(clientId, 'read');
+
+      // Insert system message with manager name
+      try {
+        const { data: orgId } = await supabase.rpc('get_user_organization_id');
+        if (orgId) {
+          await supabase.from('chat_messages').insert(buildMessageRecord({
+            client_id: clientId,
+            message_text: `${managerName || 'Менеджер'} отметил(а): ответ не требуется`,
+            message_type: 'system',
+            messenger_type: activeMessengerTab,
+            is_outgoing: true,
+            is_read: true,
+            organization_id: orgId as string,
+            metadata: { system_type: 'no_response_needed' },
+          }));
+        }
+      } catch (e) {
+        console.error('Error inserting no_response_needed system message:', e);
+      }
       
       toast({
         title: "Готово",
@@ -1244,6 +1263,25 @@ export const ChatArea = ({
       queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
       queryClient.invalidateQueries({ queryKey: ['client', clientId] });
       
+      // Insert system message with manager name
+      try {
+        const { data: orgId } = await supabase.rpc('get_user_organization_id');
+        if (orgId) {
+          await supabase.from('chat_messages').insert(buildMessageRecord({
+            client_id: clientId,
+            message_text: `${managerName || 'Менеджер'} подтвердил(а) оплату`,
+            message_type: 'system',
+            messenger_type: activeMessengerTab,
+            is_outgoing: true,
+            is_read: true,
+            organization_id: orgId as string,
+            metadata: { system_type: 'payment_confirmed' },
+          }));
+        }
+      } catch (e) {
+        console.error('Error inserting payment_confirmed system message:', e);
+      }
+
       // Вызываем callback если есть
       if (onPaymentProcessed) {
         onPaymentProcessed();
