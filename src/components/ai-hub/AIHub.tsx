@@ -73,6 +73,7 @@ import { MassLinkTeacherProfilesModal } from '@/components/ai-hub/MassLinkTeache
 import VoiceAssistant from '@/components/VoiceAssistant';
 import { useStaffOnlinePresence } from '@/hooks/useStaffOnlinePresence';
 import { usePersistedSections } from '@/hooks/usePersistedSections';
+import { setActiveChatOS } from '@/lib/activeChatOSStore';
 
 interface AIHubProps {
   isOpen: boolean;
@@ -163,6 +164,16 @@ export const AIHub = ({
 }: AIHubProps) => {
   const navigate = useNavigate();
   const [activeChat, setActiveChat] = useState<ChatItem | null>(null);
+
+  // Sync active chat to global store for notification suppression
+  useEffect(() => {
+    if (activeChat && (activeChat.type === 'staff' || activeChat.type === 'group')) {
+      setActiveChatOS(activeChat.type, activeChat.id);
+    } else {
+      setActiveChatOS(null, null);
+    }
+    return () => setActiveChatOS(null, null);
+  }, [activeChat]);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
   const [isProcessing, setIsProcessing] = useState(false);

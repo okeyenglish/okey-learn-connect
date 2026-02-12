@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { playNotificationSound } from '@/hooks/useNotificationSound';
 import { showBrowserNotification } from '@/hooks/useBrowserNotifications';
 import { showChatBubbleNotification } from '@/components/ai-hub/ChatBubbleNotification';
+import { getActiveChatOS } from '@/lib/activeChatOSStore';
 import type { StaffMessage } from '@/hooks/useInternalStaffMessages';
 
 interface StaffMessageNotificationsOptions {
@@ -97,6 +98,11 @@ export const useStaffMessageNotifications = (options: StaffMessageNotificationsO
           // For now, assume any group message is relevant (will be filtered by permissions)
           if (!isDirectToMe && !isGroupMessage) return;
           if (newMessage.sender_id === user.id) return;
+
+          // Suppress notification if this chat is already open
+          const activeChatOS = getActiveChatOS();
+          if (activeChatOS.type === 'staff' && activeChatOS.id === newMessage.sender_id && !isGroupMessage) return;
+          if (activeChatOS.type === 'group' && activeChatOS.id === newMessage.group_chat_id && isGroupMessage) return;
 
           // Prevent duplicate notifications
           if (lastNotifiedRef.current === newMessage.id) return;

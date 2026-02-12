@@ -42,41 +42,34 @@ export const ChatBubbleNotification = () => {
 
   return (
     <div
-      className={`fixed bottom-24 right-6 z-[60] max-w-[300px] transition-all duration-300 ${
+      className={`fixed top-4 left-1/2 -translate-x-1/2 z-[9999] w-[90%] max-w-[420px] transition-all duration-300 ${
         isVisible
-          ? 'opacity-100 translate-y-0 scale-100'
-          : 'opacity-0 translate-y-4 scale-95 pointer-events-none'
+          ? 'opacity-100 translate-y-0'
+          : 'opacity-0 -translate-y-4 pointer-events-none'
       }`}
     >
-      {/* Chat bubble */}
       <div
         onClick={() => { notification.onOpen(); dismiss(); }}
-        className="bg-background border border-border rounded-2xl shadow-xl cursor-pointer hover:shadow-2xl transition-shadow relative"
+        className="bg-background/95 backdrop-blur-lg border border-border rounded-2xl shadow-2xl cursor-pointer hover:bg-background transition-colors"
       >
-        {/* Close button */}
-        <button
-          onClick={(e) => { e.stopPropagation(); dismiss(); }}
-          className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-muted border border-border flex items-center justify-center hover:bg-muted-foreground/20 transition-colors"
-        >
-          <X className="h-3 w-3 text-muted-foreground" />
-        </button>
-
-        <div className="p-3 flex items-start gap-2.5">
+        <div className="px-4 py-3 flex items-center gap-3">
           {/* Avatar */}
-          <div className="shrink-0 w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-primary text-xs font-semibold mt-0.5">
+          <div className="shrink-0 w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center text-primary text-sm font-semibold">
             {notification.senderInitial}
           </div>
           {/* Content */}
           <div className="flex-1 min-w-0">
             <p className="text-[13px] font-semibold text-foreground truncate">{notification.senderName}</p>
-            <p className="text-[13px] text-foreground/70 leading-snug mt-0.5 line-clamp-3 whitespace-pre-wrap">{notification.message}</p>
+            <p className="text-[13px] text-muted-foreground leading-snug truncate">{notification.message}</p>
           </div>
+          {/* Close */}
+          <button
+            onClick={(e) => { e.stopPropagation(); dismiss(); }}
+            className="shrink-0 h-6 w-6 rounded-full flex items-center justify-center hover:bg-muted transition-colors"
+          >
+            <X className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
         </div>
-      </div>
-
-      {/* Tail pointing to bottom-right (toward FAB) */}
-      <div className="flex justify-end mr-4">
-        <div className="w-3 h-3 bg-background border-b border-r border-border transform rotate-45 -mt-1.5" />
       </div>
     </div>
   );
