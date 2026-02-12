@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from "react";
-import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, PanelLeft, PanelRight, CheckCheck, ListTodo, CreditCard, User, ArrowRightLeft, Banknote } from "lucide-react";
+import { Send, Paperclip, Zap, MessageCircle, Mic, Edit2, Search, Plus, FileText, Forward, X, Clock, Calendar, Trash2, Bot, ArrowLeft, Settings, MoreVertical, Pin, Archive, BellOff, Lock, Phone, PanelLeft, PanelRight, CheckCheck, ListTodo, CreditCard, User, ArrowRightLeft, Banknote, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -90,6 +90,7 @@ interface ChatAreaProps {
   hasPendingPayment?: boolean; // True when client has an unacknowledged payment
   onPaymentProcessed?: () => void; // Callback when payment is marked as processed
   onForwardSent?: (recipient: { type: 'staff' | 'group'; id: string; name: string }) => void; // Open AI Hub after forwarding
+  onOpenAssistant?: () => void; // Open ChatOS assistant
 }
 
 interface ScheduledMessage {
@@ -125,7 +126,8 @@ export const ChatArea = ({
   simplifiedToolbar = false,
   hasPendingPayment = false,
   onPaymentProcessed,
-  onForwardSent
+  onForwardSent,
+  onOpenAssistant
 }: ChatAreaProps) => {
   // Use persistent draft hook to preserve message across tab switches
   const { draft: message, setDraft: setMessage, clearDraft } = useMessageDrafts(clientId);
@@ -2595,6 +2597,19 @@ export const ChatArea = ({
               >
                 <Phone className="h-4 w-4" />
               </Button>
+              
+              {/* ChatOS assistant shortcut */}
+              {onOpenAssistant && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  title="ChatOS Ассистент"
+                  onClick={onOpenAssistant}
+                >
+                  <Sparkles className="h-4 w-4" />
+                </Button>
+              )}
               
               {/* Toggle right panel button - visible on larger screens */}
               {onToggleRightPanel && (

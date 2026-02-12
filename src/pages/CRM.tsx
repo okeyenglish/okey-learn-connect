@@ -4352,6 +4352,10 @@ const CRMContent = () => {
                   }
                   setVoiceAssistantOpen(true);
                 }}
+                onOpenAssistant={() => {
+                  markAssistantAsRead();
+                  setVoiceAssistantOpen(true);
+                }}
               />
             </div>
           ) : activeChatType === 'corporate' ? (
@@ -4437,7 +4441,8 @@ const CRMContent = () => {
                     setVoiceAssistantOpen(true);
                   }}
                   className={cn(
-                    "fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-all group",
+                    "fixed z-50 h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-all group",
+                    activeChatId ? "bottom-20 right-4 xl:bottom-6 xl:right-6" : "bottom-6 right-6",
                     assistantUnreadCount > 0 && "animate-pulse ring-4 ring-primary/30"
                   )}
                   size="icon"
