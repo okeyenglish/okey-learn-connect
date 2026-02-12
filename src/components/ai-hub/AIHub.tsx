@@ -168,6 +168,7 @@ export const AIHub = ({
   initialGroupChatId,
   onClearInitialGroupChatId
 }: AIHubProps) => {
+  console.log('[AIHub] Rendering, isOpen:', isOpen);
   const navigate = useNavigate();
   const [activeChat, setActiveChat] = useState<ChatItem | null>(null);
 
