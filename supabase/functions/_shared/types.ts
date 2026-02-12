@@ -936,6 +936,7 @@ export interface GreenAPIStatusData {
   timestamp: number;
   idMessage: string;
   status: string;
+  description?: string;
 }
 
 /**
