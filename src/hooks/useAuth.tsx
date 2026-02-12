@@ -150,12 +150,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         .eq('id', userId)
         .maybeSingle();
       
-      if (!profileError && profileData) {
-        const profileWithAvatar = {
-          ...profileData,
+      if (!profileError) {
+        const userMeta = (await supabase.auth.getUser())?.data?.user?.user_metadata;
+        const profile = profileData || {} as Record<string, unknown>;
+        const profileWithFallback = {
+          ...profile,
+          id: (profile as any).id || userId,
+          first_name: (profile as any).first_name || userMeta?.first_name || null,
+          last_name: (profile as any).last_name || userMeta?.last_name || null,
+          email: (profile as any).email || userMeta?.email || null,
           avatar_url: null
         };
-        setProfile(profileWithAvatar);
+        setProfile(profileWithFallback as any);
       }
     } catch (error) {
       console.error('Error fetching profile data:', error);
