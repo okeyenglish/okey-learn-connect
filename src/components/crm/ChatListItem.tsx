@@ -328,38 +328,40 @@ export const ChatListItem = React.memo(({
           </div>
           
           <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-            <div className="flex items-center gap-1">
-              {/* Presence indicator */}
-              {hasPresence && (
-                <ChatPresenceIndicator presence={presenceInfo} compact clientName={chat.name} />
+            <span className="text-[10px] text-muted-foreground font-medium">{chat.time}</span>
+            {/* Badge area: presence avatars + unread badge */}
+            <div className="relative flex items-center">
+              {/* Payment pending badge - takes priority over unread count */}
+              {chat.has_pending_payment && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="bg-gradient-to-r from-green-600 to-green-500 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1">
+                      <Banknote className="h-3.5 w-3.5" />
+                      <span className="font-semibold">₽</span>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="text-xs">
+                    Ожидает подтверждения оплаты
+                  </TooltipContent>
+                </Tooltip>
               )}
-              <span className="text-[10px] text-muted-foreground font-medium">{chat.time}</span>
-            </div>
-            {/* Payment pending badge - takes priority over unread count */}
-            {chat.has_pending_payment && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="bg-gradient-to-r from-green-600 to-green-500 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1">
-                    <Banknote className="h-3.5 w-3.5" />
-                    <span className="font-semibold">₽</span>
+              {/* Unread badge - show only if no pending payment */}
+              {displayUnread && !chat.has_pending_payment && (
+                showEye ? (
+                  <span className="w-3 h-3 rounded-full bg-primary shadow-sm flex-shrink-0" />
+                ) : (chat.unread || 0) > 0 ? (
+                  <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1">
+                    <span className="font-semibold">{chat.unread}</span>
                   </span>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="text-xs">
-                  Ожидает подтверждения оплаты
-                </TooltipContent>
-              </Tooltip>
-            )}
-            {/* Unread badge - show only if no pending payment */}
-            {displayUnread && !chat.has_pending_payment && (
-              showEye ? (
-                // Manual "marked as unread" should be a simple dot, without counts
-                <span className="w-3 h-3 rounded-full bg-primary shadow-sm flex-shrink-0" />
-              ) : (chat.unread || 0) > 0 ? (
-                <span className="bg-gradient-to-r from-primary to-primary/90 text-white text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1">
-                  <span className="font-semibold">{chat.unread}</span>
-                </span>
-              ) : null
-            )}
+                ) : null
+              )}
+              {/* Presence indicator - overlaps unread badge from the left */}
+              {hasPresence && (
+                <div className={`${displayUnread && !chat.has_pending_payment && ((showEye) || (chat.unread || 0) > 0) ? '-ml-1.5' : ''} relative z-10`}>
+                  <ChatPresenceIndicator presence={presenceInfo} compact clientName={chat.name} />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </button>
