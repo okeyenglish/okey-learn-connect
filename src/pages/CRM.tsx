@@ -1192,7 +1192,7 @@ const CRMContent = () => {
         const typing = typingByClient[thread.client_id];
         const lastMsgDisplay = typing && typing.count > 0
           ? `${typing.names[0] || 'Менеджер'} печатает...`
-          : (thread.last_message?.trim?.() || (thread.last_message_time ? '' : 'Нет сообщений'));
+          : (thread.last_message?.trim?.() || 'Нет сообщений');
           
         // Используем аватар из threads: сначала мессенджер-специфичный (если есть), затем общий.
         const displayAvatar =
@@ -1270,7 +1270,7 @@ const CRMContent = () => {
         name: formatClientDisplayName(thread.client_name ?? 'Без имени', thread.first_name, thread.last_name, thread.whatsapp_chat_id, thread.telegram_chat_id, thread.max_chat_id, thread.client_phone),
         phone: thread.client_phone,
         branch: thread.client_branch,
-        lastMessage: thread.last_message?.trim?.() || (thread.last_message_time ? '' : 'Нет сообщений'),
+        lastMessage: thread.last_message?.trim?.() || 'Нет сообщений',
         time: formatTime(thread.last_message_time),
         unread: thread.unread_count,
         type: 'client' as const,
