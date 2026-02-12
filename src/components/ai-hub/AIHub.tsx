@@ -12,6 +12,7 @@ import { StaffMessageReactions } from '@/components/ai-hub/StaffMessageReactions
 import { StaffForwardedBubble, isStaffForwardedMessage, parseStaffForwardedComment } from '@/components/ai-hub/StaffForwardedBubble';
 import { StaffForwardPicker } from '@/components/ai-hub/StaffForwardPicker';
 import { ChatBubbleNotification } from '@/components/ai-hub/ChatBubbleNotification';
+import { MentionPicker, useMentionInput, renderMentionText } from '@/components/ai-hub/MentionPicker';
 import { useStaffReactionsBatch, useStaffReactionsBroadcast } from '@/hooks/useStaffMessageReactions';
 import { FileUpload, FileUploadRef } from '@/components/crm/FileUpload';
 import { 
@@ -191,6 +192,7 @@ export const AIHub = ({
   const [forwardingMessage, setForwardingMessage] = useState<{ id: string; content: string; senderName: string; chatName: string } | null>(null);
   const [editingMessage, setEditingMessage] = useState<{ id: string; content: string } | null>(null);
   const [editText, setEditText] = useState('');
+  const { mentionQuery, mentionActive, handleInputChange: handleMentionChange, insertMention, closeMention } = useMentionInput(message, setMessage);
   
   const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('online'); // По умолчанию показываем онлайн
   
@@ -1174,7 +1176,21 @@ export const AIHub = ({
                                   ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-md' 
                                   : 'bg-muted rounded-2xl rounded-bl-md'
                               }`}>
-                                <p className="text-[13.5px] leading-[18px] whitespace-pre-wrap">{msg.content}</p>
+                                <p className="text-[13.5px] leading-[18px] whitespace-pre-wrap">{renderMentionText(msg.content, (userId) => {
+                                  const staff = (staffMembers || []).find(s => s.id === userId);
+                                  if (staff) {
+                                    setActiveChat({
+                                      id: staff.id,
+                                      type: 'staff',
+                                      name: [staff.first_name, staff.last_name].filter(Boolean).join(' ') || 'Сотрудник',
+                                      description: staff.email || '',
+                                      icon: Users,
+                                      iconBg: 'bg-blue-500/10',
+                                      iconColor: 'text-blue-600',
+                                      data: staff,
+                                    });
+                                  }
+                                })}</p>
                               </div>
                             )}
                             <div className={`flex items-center gap-1 mt-0.5 px-1 text-[10px] text-muted-foreground ${isOwn ? 'justify-end' : ''}`}>
@@ -1281,7 +1297,21 @@ export const AIHub = ({
                             {/* Text content */}
                             {msg.content ? (
                               <div className="flex items-end gap-2">
-                                <p className="text-[13.5px] leading-[18px] whitespace-pre-wrap">{msg.content}</p>
+                                <p className="text-[13.5px] leading-[18px] whitespace-pre-wrap">{renderMentionText(msg.content, (userId) => {
+                                  const staff = (staffMembers || []).find(s => s.id === userId);
+                                  if (staff) {
+                                    setActiveChat({
+                                      id: staff.id,
+                                      type: 'staff',
+                                      name: [staff.first_name, staff.last_name].filter(Boolean).join(' ') || 'Сотрудник',
+                                      description: staff.email || '',
+                                      icon: Users,
+                                      iconBg: 'bg-blue-500/10',
+                                      iconColor: 'text-blue-600',
+                                      data: staff,
+                                    });
+                                  }
+                                })}</p>
                                 <span className={`text-[10px] leading-[14px] shrink-0 self-end translate-y-[1px] ${
                                   isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'
                                 }`}>
@@ -1366,7 +1396,17 @@ export const AIHub = ({
                 </button>
               </div>
             )}
-            <div className="flex gap-1.5 items-end">
+            <div className="flex gap-1.5 items-end relative">
+              {/* Mention picker for group chats */}
+              {activeChat.type === 'group' && (
+                <MentionPicker
+                  query={mentionQuery}
+                  users={(staffMembers || []).filter(s => s.id !== user?.id)}
+                  onSelect={(u) => insertMention(u)}
+                  onClose={closeMention}
+                  visible={mentionActive}
+                />
+              )}
               {/* File upload button */}
               {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
                 <FileUpload
@@ -1387,6 +1427,10 @@ export const AIHub = ({
                   // Auto-resize
                   e.target.style.height = 'auto';
                   e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                  // Mention detection for group chats
+                  if (activeChat.type === 'group') {
+                    handleMentionChange(e.target.value, e.target.selectionStart || 0);
+                  }
                   if (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') {
                     if (e.target.value.trim()) {
                       setTyping(true, e.target.value);
@@ -1396,6 +1440,9 @@ export const AIHub = ({
                   }
                 }}
                 onKeyDown={(e) => {
+                  if (mentionActive && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Escape')) {
+                    return; // Let MentionPicker handle these keys
+                  }
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     handleSendMessage();

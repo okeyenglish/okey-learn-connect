@@ -74,6 +74,7 @@ import { usePersistedSections } from '@/hooks/usePersistedSections';
 import { useStaffOnlinePresence, type OnlineUser } from '@/hooks/useStaffOnlinePresence';
 import { setActiveChatOS } from '@/lib/activeChatOSStore';
 import { ChatBubbleNotification } from '@/components/ai-hub/ChatBubbleNotification';
+import { MentionPicker, useMentionInput, renderMentionText } from '@/components/ai-hub/MentionPicker';
 
 interface AIHubInlineProps {
   context?: {
@@ -278,6 +279,7 @@ export const AIHubInline = ({
   const [forwardingMessage, setForwardingMessage] = useState<{ id: string; content: string; senderName: string; chatName: string } | null>(null);
   const [editingMessage, setEditingMessage] = useState<{ id: string; content: string } | null>(null);
   const [editText, setEditText] = useState('');
+  const { mentionQuery, mentionActive, handleInputChange: handleMentionChange, insertMention, closeMention } = useMentionInput(message, setMessage);
   
   const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('online'); // По умолчанию показываем онлайн
   const [pendingFile, setPendingFile] = useState<{ url: string; name: string; type: string } | null>(null);
@@ -1155,7 +1157,21 @@ export const AIHubInline = ({
                     ) : isStaffForwardedMessage(msg.content, msg.message_type) ? (
                       <StaffForwardedBubble content={msg.content} isOwn={msg.type === 'user'} />
                     ) : msg.content ? (
-                      <p className="text-sm whitespace-pre-wrap">{highlightText(msg.content, chatSearchQuery)}</p>
+                      <p className="text-sm whitespace-pre-wrap">{renderMentionText(msg.content, (userId) => {
+                        const staff = (staffMembers || []).find(s => s.id === userId);
+                        if (staff) {
+                          setActiveChat({
+                            id: staff.id,
+                            type: 'staff' as ChatType,
+                            name: [staff.first_name, staff.last_name].filter(Boolean).join(' ') || 'Сотрудник',
+                            description: staff.email || '',
+                            icon: Users,
+                            iconBg: 'bg-blue-500/10',
+                            iconColor: 'text-blue-600',
+                            data: staff,
+                          });
+                        }
+                      }, (text) => highlightText(text, chatSearchQuery))}</p>
                     ) : null}
                     <div className={`flex items-center gap-1 text-[10px] mt-1 ${msg.type === 'user' ? 'text-primary-foreground/70 justify-end' : 'text-muted-foreground'}`}>
                       {msg.is_edited && <span className="mr-0.5">ред.</span>}
@@ -1231,18 +1247,36 @@ export const AIHubInline = ({
                 maxSize={10}
               />
             )}
-            <Input
-              value={message}
-              onChange={(e) => {
-                setMessage(e.target.value);
-                if ((activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && e.target.value.trim()) setTyping(true);
-              }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-              onBlur={() => { if (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') stopTyping(); }}
-              placeholder={getCurrentPlaceholder()}
-              disabled={isProcessing || isRecording || sendStaffMessage.isPending}
-              className="flex-1 h-9"
-            />
+            <div className="relative flex-1">
+              {/* Mention picker for group chats */}
+              {activeChat.type === 'group' && (
+                <MentionPicker
+                  query={mentionQuery}
+                  users={(staffMembers || []).filter(s => s.id !== user?.id)}
+                  onSelect={(u) => insertMention(u)}
+                  onClose={closeMention}
+                  visible={mentionActive}
+                />
+              )}
+              <Input
+                value={message}
+                onChange={(e) => {
+                  setMessage(e.target.value);
+                  if (activeChat.type === 'group') {
+                    handleMentionChange(e.target.value, (e.target as HTMLInputElement).selectionStart || 0);
+                  }
+                  if ((activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && e.target.value.trim()) setTyping(true);
+                }}
+                onKeyDown={(e) => {
+                  if (mentionActive && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Escape')) return;
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
+                }}
+                onBlur={() => { if (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') stopTyping(); }}
+                placeholder={getCurrentPlaceholder()}
+                disabled={isProcessing || isRecording || sendStaffMessage.isPending}
+                className="flex-1 h-9"
+              />
+            </div>
             <Button onClick={handleSendMessage} disabled={(!message.trim() && !pendingFile) || isProcessing || isRecording || sendStaffMessage.isPending} size="icon" className="shrink-0 h-9 w-9">
               {isProcessing || sendStaffMessage.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
