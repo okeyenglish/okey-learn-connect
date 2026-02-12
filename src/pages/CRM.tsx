@@ -4391,7 +4391,7 @@ const CRMContent = () => {
                   setShowAddTaskModal(true);
                 }}
                 onOpenInvoiceModal={() => setShowInvoiceModal(true)}
-                managerName="Менеджер поддержки"
+                managerName={[profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Менеджер поддержки'}
                 onBackToList={isMobile ? () => {
                   setActiveChatId('');
                   setActiveTab('chats');
