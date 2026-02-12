@@ -1,42 +1,70 @@
 
-## Исправление: оплаченные чаты не закрепляются наверху с зеленым фоном
 
-### Причина проблемы
+## Системные сообщения с именем менеджера при действиях
 
-При оптимизации загрузки чатов (переходе на RPC `get_chat_threads_paginated`) поле `has_pending_payment` было потеряно:
+### Что будет сделано
 
-1. RPC-функция `get_chat_threads_paginated` **не возвращает** поле `has_pending_payment`
-2. Функция `mapRpcToThreads` **не включает** это поле в результат
-3. В итоге все чаты получают `has_pending_payment = undefined`, сортировка и зеленая подсветка не работают
+При нажатии кнопок "Не требует ответа" и "Оплата внесена" в диалог вставляется системное сообщение вида:
 
-Fallback-путь (`fetchThreadsDirectly`) корректно загружает `has_pending_payment` из таблицы `clients`, но при использовании RPC это поле теряется.
+- **"Иван Петров отметил(а): ответ не требуется"**
+- **"Иван Петров подтвердил(а) оплату"**
 
-### Решение
-
-Дополнить RPC-путь загрузкой `has_pending_payment` из таблицы `clients` для всех загруженных тредов.
+Окончание "(а)" используется, так как пол сотрудника неизвестен.
 
 ### Технические детали
 
-**Файл: `src/hooks/useChatThreadsInfinite.ts`**
+**Файл: `src/components/crm/ChatArea.tsx`**
 
-1. После получения тредов из RPC (`mapRpcToThreads`), сделать легкий запрос к `clients` для получения `has_pending_payment`:
+1. В `handleMarkAsNoResponseNeeded` -- после успешной пометки сообщений как прочитанных (перед toast), вставить системное сообщение:
 
-```text
-// После mapRpcToThreads:
-const clientIds = threads.map(t => t.client_id).filter(Boolean);
-const { data: pendingData } = await supabase
-  .from('clients')
-  .select('id, has_pending_payment')
-  .in('id', clientIds)
-  .eq('has_pending_payment', true);
-
-// Проставить флаг в тредах
-const pendingSet = new Set((pendingData || []).map(c => c.id));
-threads.forEach(t => { t.has_pending_payment = pendingSet.has(t.client_id); });
+```typescript
+await supabase.from('chat_messages').insert(buildMessageRecord({
+  client_id: clientId,
+  content: `${managerName} отметил(а): ответ не требуется`,
+  message_type: 'system',
+  messenger: activeMessengerTab,
+  direction: 'outgoing',
+  is_read: true,
+  status: 'sent',
+  organization_id: organizationId,
+  metadata: { system_type: 'no_response_needed' }
+}));
 ```
 
-Этот запрос очень легкий: фильтрует по индексу `idx_clients_has_pending_payment` и возвращает обычно 0-3 строки (только клиенты с активной оплатой). Задержка ~5-10мс.
+2. В `handlePaymentProcessed` -- после сброса `has_pending_payment`, вставить системное сообщение:
 
-2. Аналогичную проверку добавить в `mapRpcToThreads` нельзя (она синхронная), поэтому обогащение происходит в `queryFn` после маппинга.
+```typescript
+await supabase.from('chat_messages').insert(buildMessageRecord({
+  client_id: clientId,
+  content: `${managerName} подтвердил(а) оплату`,
+  message_type: 'system',
+  messenger: activeMessengerTab,
+  direction: 'outgoing',
+  is_read: true,
+  status: 'sent',
+  organization_id: organizationId,
+  metadata: { system_type: 'payment_confirmed' }
+}));
+```
 
-Результат: чаты с оплатой снова будут закрепляться наверху с изумрудным фоном и значком "₽".
+Нужно получить `organizationId` -- проверим, есть ли он уже в компоненте, или возьмем из `authProfile`.
+
+**Файл: `src/components/crm/ChatMessage.tsx`**
+
+3. Добавить паттерны `отметил(а): ответ не требуется` и `подтвердил(а) оплату` в массив `systemPatterns` (строка ~176), чтобы они рендерились как компактные системные сообщения по центру.
+
+**Файл: `src/components/crm/SalebotCallbackMessage.tsx`**
+
+4. Добавить в `CALLBACK_CONFIG` два новых типа для корректного рендеринга если сообщение попадёт через callback-путь:
+
+```typescript
+no_response_needed: { label: 'Ответ не требуется', icon: CheckCheck, color: 'text-green-600' },
+payment_confirmed: { label: 'Оплата подтверждена', icon: Banknote, color: 'text-emerald-600' },
+```
+
+### Результат
+
+- Менеджеры видят в истории диалога кто и когда нажал кнопку
+- Используется "(а)" для гендерно-нейтральной формы
+- Сообщения сохраняются в БД и видны всем сотрудникам
+- Рендерятся как компактные системные уведомления по центру чата
