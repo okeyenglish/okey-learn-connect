@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -806,7 +807,8 @@ export const AIHub = ({
   if (activeChat?.type === 'assistant') {
     return (
       <Sheet open={isOpen} onOpenChange={onToggle}>
-        <SheetContent side="right" className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden relative">
+        <SheetContent side="right" aria-describedby={undefined} className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden relative">
+          <VisuallyHidden.Root asChild><SheetTitle>AI Assistant</SheetTitle></VisuallyHidden.Root>
           <ChatBubbleNotification />
           {/* Header */}
           <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
@@ -850,7 +852,8 @@ export const AIHub = ({
 
     return (
       <Sheet open={isOpen} onOpenChange={onToggle}>
-        <SheetContent side="right" className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden relative">
+        <SheetContent side="right" aria-describedby={undefined} className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden relative">
+          <VisuallyHidden.Root asChild><SheetTitle>Chat</SheetTitle></VisuallyHidden.Root>
           <ChatBubbleNotification />
           {/* Header */}
           <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
@@ -1563,7 +1566,8 @@ export const AIHub = ({
   // Main chat list - EXACT copy of mobile AIHubInline layout
   return (
     <Sheet open={isOpen} onOpenChange={onToggle}>
-      <SheetContent side="right" hideCloseButton className="w-full sm:w-[400px] sm:max-w-[400px] h-full p-0 flex flex-col overflow-hidden relative">
+      <SheetContent side="right" hideCloseButton aria-describedby={undefined} className="w-full sm:w-[400px] sm:max-w-[400px] h-full p-0 flex flex-col overflow-hidden relative">
+        <VisuallyHidden.Root asChild><SheetTitle>ChatOS</SheetTitle></VisuallyHidden.Root>
         <ChatBubbleNotification />
         {/* Header */}
         <div className="px-4 py-3 border-b shrink-0 flex items-center justify-between">
