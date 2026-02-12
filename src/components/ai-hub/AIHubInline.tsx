@@ -57,6 +57,8 @@ import {
   useStaffDirectMessages, 
   useStaffGroupMessages, 
   useSendStaffMessage, 
+  useEditStaffMessage,
+  useDeleteStaffMessage,
   useStaffMembers,
   useStaffConversationPreviews,
   useStaffGroupChatPreviews,
@@ -113,6 +115,8 @@ interface ChatMessage {
   file_type?: string;
   is_read?: boolean;
   message_type?: string;
+  is_edited?: boolean;
+  is_deleted?: boolean;
 }
 
 type ConsultantType = 'lawyer' | 'accountant' | 'marketer' | 'hr' | 'methodist' | 'it';
@@ -271,6 +275,8 @@ export const AIHubInline = ({
   const [isChatSearchOpen, setIsChatSearchOpen] = useState(false);
   const [teacherClientId, setTeacherClientId] = useState<string | null>(null);
   const [forwardingMessage, setForwardingMessage] = useState<{ id: string; content: string; senderName: string; chatName: string } | null>(null);
+  const [editingMessage, setEditingMessage] = useState<{ id: string; content: string } | null>(null);
+  const [editText, setEditText] = useState('');
   
   const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('online'); // По умолчанию показываем онлайн
   const [pendingFile, setPendingFile] = useState<{ url: string; name: string; type: string } | null>(null);
@@ -324,6 +330,8 @@ export const AIHubInline = ({
     activeChat?.type === 'group' ? activeChat.id : ''
   );
   const sendStaffMessage = useSendStaffMessage();
+  const editStaffMessage = useEditStaffMessage();
+  const deleteStaffMessage = useDeleteStaffMessage();
   const { findOrCreateClient } = useEnsureTeacherClient();
   const { unreadCount: assistantUnread } = useAssistantMessages();
   
@@ -729,6 +737,8 @@ export const AIHubInline = ({
         file_type: m.file_type,
         is_read: m.is_read,
         message_type: m.message_type,
+        is_edited: m.is_edited,
+        is_deleted: m.is_deleted,
       })) as ChatMessage[];
     }
     if (activeChat.type === 'group') {
@@ -743,6 +753,8 @@ export const AIHubInline = ({
         file_type: m.file_type,
         is_read: m.is_read,
         message_type: m.message_type,
+        is_edited: m.is_edited,
+        is_deleted: m.is_deleted,
       })) as ChatMessage[];
     }
     return messages[activeChat.id] || [];
@@ -1028,18 +1040,83 @@ export const AIHubInline = ({
             ) : (
               filteredMessages.map((msg) => (
                 <div key={msg.id} className={`group flex items-end gap-1 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  {/* Forward button for own messages */}
-                  {msg.type === 'user' && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
-                    <button
-                      className="h-6 w-6 rounded-full flex items-center justify-center bg-background/80 border border-border/40 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background shrink-0"
-                      onClick={() => setForwardingMessage({ id: msg.id, content: msg.content, senderName: msg.sender || 'Вы', chatName: activeChat.name })}
-                      title="Переслать"
-                    >
-                      <Forward className="h-3 w-3 text-muted-foreground" />
-                    </button>
+                  {/* Action buttons for own messages */}
+                  {msg.type === 'user' && !msg.is_deleted && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      <button
+                        className="h-6 w-6 rounded-full flex items-center justify-center bg-background/80 border border-border/40 shadow-sm hover:bg-background"
+                        onClick={() => { setEditingMessage({ id: msg.id, content: msg.content }); setEditText(msg.content); }}
+                        title="Редактировать"
+                      >
+                        <Pencil className="h-3 w-3 text-muted-foreground" />
+                      </button>
+                      <button
+                        className="h-6 w-6 rounded-full flex items-center justify-center bg-background/80 border border-border/40 shadow-sm hover:bg-destructive/10"
+                        onClick={() => { if (confirm('Удалить сообщение?')) deleteStaffMessage.mutate(msg.id); }}
+                        title="Удалить"
+                      >
+                        <Trash2 className="h-3 w-3 text-muted-foreground" />
+                      </button>
+                      <button
+                        className="h-6 w-6 rounded-full flex items-center justify-center bg-background/80 border border-border/40 shadow-sm hover:bg-background"
+                        onClick={() => setForwardingMessage({ id: msg.id, content: msg.content, senderName: msg.sender || 'Вы', chatName: activeChat.name })}
+                        title="Переслать"
+                      >
+                        <Forward className="h-3 w-3 text-muted-foreground" />
+                      </button>
+                    </div>
                   )}
                   <div className={`max-w-[85%] flex flex-col ${msg.type === 'user' ? 'items-end' : 'items-start'} relative`}>
-                    <div className={`rounded-2xl px-4 py-2.5 ${msg.type === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                    {msg.is_deleted ? (
+                      /* Deleted message */
+                      <div className={`rounded-2xl px-4 py-2.5 ${msg.type === 'user' ? 'bg-primary/50 text-primary-foreground/70' : 'bg-muted/50'}`}>
+                        <p className="text-sm italic opacity-70">Сообщение удалено</p>
+                        <div className={`flex items-center gap-1 text-[10px] mt-1 ${msg.type === 'user' ? 'text-primary-foreground/40 justify-end' : 'text-muted-foreground/60'}`}>
+                          <span>{msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      </div>
+                    ) : editingMessage?.id === msg.id ? (
+                      /* Editing mode */
+                      <div className={`rounded-2xl px-4 py-2.5 ${msg.type === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                        <textarea
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              if (editText.trim()) {
+                                editStaffMessage.mutate({ messageId: msg.id, newText: editText.trim() });
+                                setEditingMessage(null);
+                              }
+                            }
+                            if (e.key === 'Escape') setEditingMessage(null);
+                          }}
+                          className="w-full bg-transparent text-sm resize-none outline-none min-h-[24px]"
+                          autoFocus
+                          rows={1}
+                        />
+                        <div className="flex items-center gap-1 mt-1">
+                          <button
+                            className={`text-[10px] px-2 py-0.5 rounded ${msg.type === 'user' ? 'bg-primary-foreground/20 hover:bg-primary-foreground/30' : 'bg-primary/10 hover:bg-primary/20'}`}
+                            onClick={() => {
+                              if (editText.trim()) {
+                                editStaffMessage.mutate({ messageId: msg.id, newText: editText.trim() });
+                                setEditingMessage(null);
+                              }
+                            }}
+                          >
+                            Сохранить
+                          </button>
+                          <button
+                            className={`text-[10px] px-2 py-0.5 rounded ${msg.type === 'user' ? 'text-primary-foreground/60 hover:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                            onClick={() => setEditingMessage(null)}
+                          >
+                            Отмена
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={`rounded-2xl px-4 py-2.5 ${msg.type === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                     {msg.sender && msg.type !== 'user' && <p className="text-xs font-medium mb-1 opacity-70">{msg.sender}</p>}
                     
                     {/* File attachment */}
@@ -1078,6 +1155,7 @@ export const AIHubInline = ({
                       <p className="text-sm whitespace-pre-wrap">{highlightText(msg.content, chatSearchQuery)}</p>
                     ) : null}
                     <div className={`flex items-center gap-1 text-[10px] mt-1 ${msg.type === 'user' ? 'text-primary-foreground/70 justify-end' : 'text-muted-foreground'}`}>
+                      {msg.is_edited && <span className="mr-0.5">ред.</span>}
                       <span>{msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
                       {msg.type === 'user' && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
                         msg.is_read 
@@ -1086,6 +1164,7 @@ export const AIHubInline = ({
                       )}
                     </div>
                     </div>
+                    )}
                     {/* Emoji reactions */}
                     {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && reactionsMapInline && (
                       <StaffMessageReactions
