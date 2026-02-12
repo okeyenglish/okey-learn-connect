@@ -146,7 +146,7 @@ export const useTelegramWappi = () => {
     fileUrl?: string,
     fileName?: string,
     fileType?: string,
-    options?: { phoneNumber?: string; chatId?: string; teacherId?: string; senderName?: string }
+    options?: { phoneNumber?: string; chatId?: string; teacherId?: string; senderName?: string; telegramUserId?: string | number | null }
   ): Promise<{ success: boolean; messageId?: string }> => {
     // Deterministic key (no Date.now) so double-triggers within a short window are deduped
     const messageKey = `${clientId}::${options?.phoneNumber || options?.chatId || ''}::${text}::${fileUrl || ''}::${fileName || ''}`;
@@ -188,6 +188,9 @@ export const useTelegramWappi = () => {
       // - clientId (default)
       // - phoneNumber (teacher direct messages)
       // - chatId (legacy notifications)
+      // If telegramUserId is provided, use it directly (highest priority for teacher chats)
+      const telegramUserId = options?.telegramUserId ? String(options.telegramUserId) : undefined;
+      
       const body: Record<string, unknown> = options?.chatId
         ? {
             chatId: options.chatId,
@@ -199,6 +202,18 @@ export const useTelegramWappi = () => {
             fileType,
             senderName: options?.senderName,
           }
+        : telegramUserId
+          ? {
+              telegramUserId,
+              teacherId: options?.teacherId,
+              phoneNumber: normalizedPhone || undefined,
+              message: text,
+              text,
+              fileUrl,
+              fileName,
+              fileType,
+              senderName: options?.senderName,
+            }
         : normalizedPhone.length >= 10
           ? {
               phoneNumber: normalizedPhone,

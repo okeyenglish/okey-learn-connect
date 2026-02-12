@@ -29,8 +29,8 @@ Deno.serve(async (req) => {
     const supabase = createClient(selfHostedUrl, supabaseServiceKey);
 
     // Parse body early to get clientId for smart routing
-    const body = await req.json() as TelegramSendRequest & { phoneNumber?: string; teacherId?: string; organizationId?: string };
-    const { clientId, text, fileUrl, fileName, fileType, phoneId, phoneNumber, teacherId } = body;
+    const body = await req.json() as TelegramSendRequest & { phoneNumber?: string; teacherId?: string; organizationId?: string; telegramUserId?: string };
+    const { clientId, text, fileUrl, fileName, fileType, phoneId, phoneNumber, teacherId, telegramUserId: bodyTelegramUserId } = body;
 
     // Get organization ID - try auth first, fall back to body.organizationId for inter-function calls
     let organizationId: string | null = null;
@@ -217,9 +217,9 @@ Deno.serve(async (req) => {
 
     // body, clientId, text, etc. already parsed above for smart routing
 
-    // Validate: either clientId or phoneNumber must be provided
-    if (!clientId && !phoneNumber) {
-      return errorResponse('clientId or phoneNumber is required', 400);
+    // Validate: either clientId, phoneNumber, or telegramUserId must be provided
+    if (!clientId && !phoneNumber && !bodyTelegramUserId) {
+      return errorResponse('clientId, phoneNumber, or telegramUserId is required', 400);
     }
 
     let resolvedTeacherId: string | null = teacherId || null;
@@ -343,8 +343,33 @@ Deno.serve(async (req) => {
     let fallbackPhoneRaw: string | null = null;
     let fallbackPhoneNormalized: string | null = null;
 
-    // Mode 2: Direct phone number (for teacher messages)
-    if (phoneNumber && !clientId) {
+    // Mode 2: Direct telegramUserId (highest priority for teacher messages with known ID)
+    if (bodyTelegramUserId && !clientId) {
+      recipient = bodyTelegramUserId;
+      recipientSource = 'direct telegramUserId';
+      fallbackPhoneRaw = phoneNumber || null;
+      fallbackPhoneNormalized = normalizePhoneStrict(phoneNumber);
+      console.log(`[telegram-send] Direct telegramUserId mode: ${bodyTelegramUserId}`);
+      
+      // Find teacher by phone if teacherId not provided
+      if (!resolvedTeacherId && phoneNumber) {
+        const phone10 = phoneNumber.replace(/\D/g, '').slice(-10);
+        if (phone10.length === 10) {
+          const { data: teacher } = await supabase
+            .from('teachers')
+            .select('id')
+            .ilike('phone', `%${phone10}`)
+            .eq('organization_id', organizationId)
+            .maybeSingle();
+          if (teacher) {
+            resolvedTeacherId = teacher.id;
+            console.log(`[telegram-send] Found teacher by phone: ${resolvedTeacherId}`);
+          }
+        }
+      }
+    }
+    // Mode 3: Direct phone number (for teacher messages without telegramUserId)
+    else if (phoneNumber && !clientId) {
       recipient = normalizePhone(phoneNumber);
       recipientSource = 'direct phoneNumber';
       // For direct phone mode, the phone itself is the recipient, no fallback needed
