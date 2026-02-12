@@ -1564,10 +1564,12 @@ export const AIHub = ({
     : corporateChatsListBase;
 
   // Main chat list - EXACT copy of mobile AIHubInline layout
+  console.log('[AIHub] Rendering main list, isOpen:', isOpen);
   return (
-    <Sheet open={isOpen} onOpenChange={onToggle}>
+    <Sheet open={isOpen} onOpenChange={(v) => { console.log('[AIHub Sheet] onOpenChange:', v); onToggle(v); }}>
       <SheetContent side="right" hideCloseButton aria-describedby={undefined} className="w-full sm:w-[400px] sm:max-w-[400px] h-full p-0 flex flex-col overflow-hidden relative">
         <VisuallyHidden.Root asChild><SheetTitle>ChatOS</SheetTitle></VisuallyHidden.Root>
+        {(() => { console.log('[AIHub] SheetContent MOUNTED'); return null; })()}
         <ChatBubbleNotification />
         {/* Header */}
         <div className="px-4 py-3 border-b shrink-0 flex items-center justify-between">
