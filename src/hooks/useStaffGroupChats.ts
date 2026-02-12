@@ -106,19 +106,46 @@ export const useStaffGroupChats = () => {
       });
 
       // 2) Fallback: if function unavailable/returns empty — try reading tables directly (if they exist)
+      let groups: StaffGroupChat[] = [];
       if (!response.success || (response.data?.groups?.length || 0) === 0) {
         const directGroups = await fetchGroupsDirectly(directOrganizationId);
-        if (directGroups.length > 0) return directGroups;
-
-        if (!response.success) {
-          console.error('[useStaffGroupChats] Error:', response.error);
-          toast.error(`Не удалось загрузить группы: ${response.error || 'Ошибка сервера'}`);
+        if (directGroups.length > 0) {
+          groups = directGroups;
+        } else {
+          if (!response.success) {
+            console.error('[useStaffGroupChats] Error:', response.error);
+            toast.error(`Не удалось загрузить группы: ${response.error || 'Ошибка сервера'}`);
+          }
+          return directGroups;
         }
-
-        return directGroups;
+      } else {
+        groups = response.data?.groups || [];
       }
 
-      return response.data?.groups || [];
+      // 3) Auto-join: if user has a branch, auto-add to matching branch group
+      const userBranch = profile?.branch;
+      if (userBranch) {
+        const branchGroup = groups.find(
+          g => g.is_branch_group && g.branch_name && 
+               g.branch_name.toLowerCase() === userBranch.toLowerCase() &&
+               g.is_member === false
+        );
+        if (branchGroup) {
+          console.log('[useStaffGroupChats] Auto-joining branch group:', branchGroup.name);
+          try {
+            await selfHostedPost('add-staff-group-member', {
+              group_id: branchGroup.id,
+              user_id: user.id,
+              role: 'member',
+            });
+            branchGroup.is_member = true;
+          } catch (e) {
+            console.error('[useStaffGroupChats] Auto-join failed:', e);
+          }
+        }
+      }
+
+      return groups;
     },
     enabled: !!user?.id,
     staleTime: 30 * 1000, // 30 seconds
