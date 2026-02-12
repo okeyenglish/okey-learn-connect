@@ -42,7 +42,7 @@ export const ChatBubbleNotification = () => {
 
   return (
     <div
-      className={`fixed top-4 left-1/2 -translate-x-1/2 z-[9999] w-[90%] max-w-[420px] transition-all duration-300 ${
+      className={`absolute top-2 left-2 right-2 z-50 transition-all duration-300 ${
         isVisible
           ? 'opacity-100 translate-y-0'
           : 'opacity-0 -translate-y-4 pointer-events-none'
@@ -50,22 +50,22 @@ export const ChatBubbleNotification = () => {
     >
       <div
         onClick={() => { notification.onOpen(); dismiss(); }}
-        className="bg-background/95 backdrop-blur-lg border border-border rounded-2xl shadow-2xl cursor-pointer hover:bg-background transition-colors"
+        className="bg-blue-50 dark:bg-blue-950/60 backdrop-blur-lg border border-blue-200 dark:border-blue-800 rounded-xl shadow-lg cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
       >
-        <div className="px-4 py-3 flex items-center gap-3">
+        <div className="px-3 py-2.5 flex items-center gap-3">
           {/* Avatar */}
-          <div className="shrink-0 w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center text-primary text-sm font-semibold">
+          <div className="shrink-0 w-8 h-8 rounded-full bg-blue-500/15 flex items-center justify-center text-blue-600 dark:text-blue-400 text-sm font-semibold">
             {notification.senderInitial}
           </div>
           {/* Content */}
           <div className="flex-1 min-w-0">
             <p className="text-[13px] font-semibold text-foreground truncate">{notification.senderName}</p>
-            <p className="text-[13px] text-muted-foreground leading-snug truncate">{notification.message}</p>
+            <p className="text-[12px] text-muted-foreground leading-snug truncate">{notification.message}</p>
           </div>
           {/* Close */}
           <button
             onClick={(e) => { e.stopPropagation(); dismiss(); }}
-            className="shrink-0 h-6 w-6 rounded-full flex items-center justify-center hover:bg-muted transition-colors"
+            className="shrink-0 h-6 w-6 rounded-full flex items-center justify-center hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
           >
             <X className="h-3.5 w-3.5 text-muted-foreground" />
           </button>

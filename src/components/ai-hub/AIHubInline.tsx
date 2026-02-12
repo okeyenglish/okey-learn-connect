@@ -73,6 +73,7 @@ import VoiceAssistant from '@/components/VoiceAssistant';
 import { usePersistedSections } from '@/hooks/usePersistedSections';
 import { useStaffOnlinePresence, type OnlineUser } from '@/hooks/useStaffOnlinePresence';
 import { setActiveChatOS } from '@/lib/activeChatOSStore';
+import { ChatBubbleNotification } from '@/components/ai-hub/ChatBubbleNotification';
 
 interface AIHubInlineProps {
   context?: {
@@ -849,7 +850,8 @@ export const AIHubInline = ({
   // Render AI Assistant inline
   if (activeChat?.type === 'assistant') {
     return (
-      <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-background">
+      <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-background relative">
+        <ChatBubbleNotification />
         <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
           <Button variant="ghost" size="icon" onClick={handleBack} className="h-8 w-8">
             <ArrowLeft className="h-4 w-4" />
@@ -888,7 +890,8 @@ export const AIHubInline = ({
     const IconComponent = activeChat.icon || Users;
 
     return (
-      <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-background">
+      <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-background relative">
+        <ChatBubbleNotification />
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
           <Button variant="ghost" size="icon" onClick={handleBack} className="h-8 w-8">
@@ -1266,7 +1269,8 @@ export const AIHubInline = ({
 
   // Main chat list - matching client/teacher list design
   return (
-    <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-background max-w-full box-border">
+    <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-background max-w-full box-border relative">
+      <ChatBubbleNotification />
       {/* Search bar and branch filter */}
       <div className="p-2 border-b shrink-0 space-y-2 max-w-full overflow-hidden">
         <div className="relative">
