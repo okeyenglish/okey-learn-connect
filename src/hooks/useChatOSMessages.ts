@@ -113,6 +113,7 @@ export const useSendChatOSMessage = () => {
           is_read: true,
           message_status: 'sent',
           organization_id: organizationId,
+          metadata: { sender_name: senderName },
         }])
         .select()
         .single();
