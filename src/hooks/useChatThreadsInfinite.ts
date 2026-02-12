@@ -3,14 +3,12 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { ChatThread, UnreadByMessenger } from './useChatMessages';
 import { chatListQueryConfig } from '@/lib/queryConfig';
 import { isGroupChatName, isTelegramGroup } from './useCommunityChats';
-import { useMemo, useCallback, useEffect, useRef } from 'react';
+import { useMemo, useCallback, useEffect } from 'react';
 import { useBulkAvatarFetch } from './useBulkAvatarFetch';
-import { hydrateClientBranches } from '@/lib/hydrateClientBranches';
 
 const PAGE_SIZE = 50;
 
-// Флаги для отключения сломанных RPC (сбрасываются при перезагрузке страницы)
-let useUnreadRpc = true;
+// Флаг для отключения сломанной RPC (сбрасывается при перезагрузке страницы)
 let usePaginatedRpc = true;
 
 interface RpcThreadRow {
@@ -282,8 +280,7 @@ export const useChatThreadsInfinite = (allowedBranches?: string[]) => {
 
       const dataArray = (data || []) as RpcThreadRow[];
       const hasMore = dataArray.length > PAGE_SIZE;
-      const mapped = mapRpcToThreads(dataArray.slice(0, PAGE_SIZE));
-      const threads = await hydrateClientBranches(mapped);
+      const threads = mapRpcToThreads(dataArray.slice(0, PAGE_SIZE));
       
       console.log(`[useChatThreadsInfinite] ✅ Page ${pageParam}: ${threads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
       
@@ -307,102 +304,18 @@ export const useChatThreadsInfinite = (allowedBranches?: string[]) => {
     ...chatListQueryConfig,
   });
 
-  // Track if we've already loaded once to prevent duplicate requests
-  const hasLoadedOnce = useRef(false);
-
-  // Separate fast query for unread threads (always shown at top)
-  // With fallback mechanism for broken RPC
-  const unreadQuery = useQuery({
-    queryKey: ['chat-threads-unread-priority', allowedBranches || 'all'],
-    queryFn: async () => {
-      const startTime = performance.now();
-      console.log('[useChatThreadsInfinite] Loading priority unread threads...');
-
-      // If RPC is broken, use direct fetch
-      if (!useUnreadRpc) {
-        console.log('[useChatThreadsInfinite] Unread RPC disabled, using direct fetch');
-        return await fetchThreadsDirectly(50, 0, true, allowedBranches);
-      }
-
-      const rpcUnreadParams: any = { p_limit: 50 };
-      if (allowedBranches && allowedBranches.length > 0) {
-        rpcUnreadParams.p_branches = allowedBranches;
-      }
-
-      const { data, error } = await supabase
-        .rpc('get_unread_chat_threads', rpcUnreadParams);
-
-      if (error) {
-        // If schema error (column doesn't exist or function not found) - use direct fetch
-        if (error.code === '42703' || error.code === 'PGRST202' || error.code === '42883') {
-          console.warn('[useChatThreadsInfinite] Disabling broken unread RPC:', error.code, error.message);
-          useUnreadRpc = false;
-          return await fetchThreadsDirectly(50, 0, true);
-        } else {
-          console.warn('[useChatThreadsInfinite] Unread RPC failed:', error.message);
-        }
-        return [];
-      }
-
-      hasLoadedOnce.current = true;
-      const mapped = mapRpcToThreads((data || []) as RpcThreadRow[]);
-      const threads = await hydrateClientBranches(mapped);
-      console.log(`[useChatThreadsInfinite] ✅ Unread: ${threads.length} threads in ${(performance.now() - startTime).toFixed(2)}ms`);
-      return threads;
-    },
-    staleTime: 60000, // 60 seconds - aligned with chatListQueryConfig
-    refetchOnWindowFocus: false,
-    retry: false, // Don't retry schema errors
-  });
-
   // Set of deleted client IDs for fast lookup
   const deletedIdsSet = useMemo(() => new Set(deletedClientIds), [deletedClientIds]);
 
-  // Merge all threads: unread first, then paginated, filter out deleted
-  // PRIORITY: Show unread data immediately even if paginated query is still loading
+  // Simple flat list from paginated data, filter out deleted
   const allThreads = useMemo(() => {
-    const unreadThreads = unreadQuery.data || [];
     const paginatedPages = infiniteQuery.data?.pages || [];
     const paginatedThreads = paginatedPages.flatMap(page => page.threads);
 
-    // If we have unread data but no paginated data yet, show unread immediately
-    if (unreadThreads.length > 0 && paginatedThreads.length === 0) {
-      return unreadThreads.filter(t => !deletedIdsSet.has(t.client_id));
-    }
+    if (paginatedThreads.length === 0) return [];
 
-    // Create a map for deduplication
-    const threadMap = new Map<string, ChatThread>();
-
-    // Add unread threads first (they take priority), skip deleted
-    unreadThreads.forEach(t => {
-      if (!deletedIdsSet.has(t.client_id)) {
-        threadMap.set(t.client_id, t);
-      }
-    });
-
-    // Add paginated threads (skip if already exists from unread or deleted)
-    paginatedThreads.forEach(t => {
-      if (!threadMap.has(t.client_id) && !deletedIdsSet.has(t.client_id)) {
-        threadMap.set(t.client_id, t);
-      }
-    });
-
-    // Convert to array and sort
-    const merged = Array.from(threadMap.values());
-    
-    // Sort: unread first, then by last_message_time
-    merged.sort((a, b) => {
-      const aHasUnread = a.unread_count > 0 ? 0 : 1;
-      const bHasUnread = b.unread_count > 0 ? 0 : 1;
-      if (aHasUnread !== bHasUnread) return aHasUnread - bHasUnread;
-      
-      const aTime = new Date(a.last_message_time || 0).getTime();
-      const bTime = new Date(b.last_message_time || 0).getTime();
-      return bTime - aTime;
-    });
-
-    return merged;
-  }, [unreadQuery.data, infiniteQuery.data?.pages, deletedIdsSet]);
+    return paginatedThreads.filter(t => !deletedIdsSet.has(t.client_id));
+  }, [infiniteQuery.data?.pages, deletedIdsSet]);
 
   // Trigger background avatar fetch for clients without avatars
   useEffect(() => {
@@ -428,26 +341,18 @@ export const useChatThreadsInfinite = (allowedBranches?: string[]) => {
 
   // Refetch all data
   const refetch = useCallback(async () => {
-    await Promise.all([
-      unreadQuery.refetch(),
-      infiniteQuery.refetch()
-    ]);
-  }, [unreadQuery, infiniteQuery]);
-
-  // Show data as soon as EITHER query has data (don't block on both)
-  const hasInitialData = (unreadQuery.data && unreadQuery.data.length > 0) || 
-                         (infiniteQuery.data?.pages && infiniteQuery.data.pages.length > 0);
+    await infiniteQuery.refetch();
+  }, [infiniteQuery]);
 
   return {
     data: allThreads,
-    // Only show loading if we have NO data at all
-    isLoading: !hasInitialData && (infiniteQuery.isLoading || unreadQuery.isLoading),
-    isFetching: infiniteQuery.isFetching || unreadQuery.isFetching,
+    isLoading: infiniteQuery.isLoading,
+    isFetching: infiniteQuery.isFetching,
     isFetchingNextPage: infiniteQuery.isFetchingNextPage,
     hasNextPage: infiniteQuery.hasNextPage,
     loadMore,
     refetch,
-    error: infiniteQuery.error || unreadQuery.error,
+    error: infiniteQuery.error,
   };
 };
 
