@@ -61,6 +61,12 @@ function shortenSystemActionPreview(text: string): string {
   return text;
 }
 
+function isManagerActionMessage(text: string): boolean {
+  if (!text) return false;
+  return /отметил\(а\): ответ не требуется/i.test(text) || 
+         /подтвердил\(а\) оплату/i.test(text);
+}
+
 /**
  * Direct SQL fallback for fetching chat threads when RPC is unavailable
  * This bypasses the RPC and fetches data directly from tables
@@ -137,15 +143,20 @@ async function fetchThreadsDirectly(limit: number, offset: number, unreadOnly: b
     })
     .map((client: any) => {
       const clientMessages = messagesByClient.get(client.id) || [];
-      const lastMessage = clientMessages[0];
+      const lastMessage = clientMessages[0]; // for time & messenger_type
+      // Find first non-system message for preview text
+      const previewMessage = clientMessages.find((m: any) => {
+        const text = m.message_text || '';
+        return !isSystemPreviewMessage(text) && !isManagerActionMessage(text);
+      }) || clientMessages[0];
       // Self-hosted uses is_outgoing boolean for message direction
       // Only count incoming client messages as unread (exclude system, comment, manager types)
       const unreadMessages = clientMessages.filter((m: any) => 
         !m.is_read && !m.is_outgoing && m.message_type === 'client'
       );
 
-      // Get message text (self-hosted uses message_text)
-      const rawLastMessageText = lastMessage?.message_text || '';
+      // Get message text from the first non-system message
+      const rawLastMessageText = previewMessage?.message_text || '';
       const lastMessageText = isSystemPreviewMessage(rawLastMessageText) ? '' : shortenSystemActionPreview(rawLastMessageText);
 
       const unreadByMessenger: UnreadByMessenger = {
