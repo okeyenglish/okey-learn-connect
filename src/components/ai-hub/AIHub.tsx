@@ -873,7 +873,7 @@ export const AIHub = ({
           <ChatBubbleNotification />
           {/* Header */}
           <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
-            <Button variant="outline" size="icon" onClick={() => setActiveChat(null)} className="h-8 w-8 rounded-full">
+            <Button variant="ghost" size="icon" onClick={() => setActiveChat(null)} className="h-8 w-8">
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <Avatar className="h-9 w-9">
@@ -918,7 +918,7 @@ export const AIHub = ({
           <ChatBubbleNotification />
           {/* Header */}
           <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
-            <Button variant="outline" size="icon" onClick={handleBack} className="h-8 w-8 rounded-full">
+            <Button variant="ghost" size="icon" onClick={handleBack} className="h-8 w-8">
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <Avatar className="h-9 w-9">
