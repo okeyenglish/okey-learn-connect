@@ -137,7 +137,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       debounceTimer = setTimeout(() => {
         refetchAllTeacherData();
         debounceTimer = null;
-      }, 500); // 500ms debounce to avoid too many refetches
+      }, 300); // 300ms debounce
     };
     
     // Subscribe to all chat_messages changes - filter by teacher_id in callback
@@ -154,7 +154,33 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
           // Check if message is for a teacher (has teacher_id)
           const newRecord = payload.new as Record<string, unknown>;
           if (newRecord && newRecord.teacher_id) {
-            console.log('[TeacherChatArea] New teacher message, refreshing list');
+            const teacherId = String(newRecord.teacher_id);
+            const messageText = String(newRecord.message_text || newRecord.content || '');
+            const messengerType = String(newRecord.messenger_type || newRecord.messenger || '');
+            const createdAt = String(newRecord.created_at || new Date().toISOString());
+            const isOutgoing = newRecord.is_outgoing === true || newRecord.direction === 'outgoing';
+            
+            // Optimistic update: immediately update the teacher's preview in cache
+            queryClient.setQueriesData(
+              { queryKey: ['teacher-conversations'] },
+              (old: any[] | undefined) => {
+                if (!old) return old;
+                return old.map((c: any) => {
+                  if (c.teacherId === teacherId) {
+                    return {
+                      ...c,
+                      lastMessageText: messageText,
+                      lastMessageTime: createdAt,
+                      lastMessengerType: messengerType,
+                      unreadCount: isOutgoing ? c.unreadCount : (c.unreadCount || 0) + 1,
+                    };
+                  }
+                  return c;
+                });
+              }
+            );
+            
+            // Background refetch for full data sync
             debouncedRefetch();
           }
         }
@@ -182,7 +208,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       }
       supabase.removeChannel(channel);
     };
-  }, [refetchAllTeacherData]);
+  }, [refetchAllTeacherData, queryClient]);
   
   // Get all teacher IDs for shared states hook
   const teacherIds = useMemo(() => dbTeachers?.map(t => t.id) || [], [dbTeachers]);
