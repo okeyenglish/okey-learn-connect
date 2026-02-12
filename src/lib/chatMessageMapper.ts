@@ -56,7 +56,7 @@ export function mapDbRowToChatMessage(row: DbChatMessageRow): ChatMessage {
     external_message_id: row.external_message_id ?? undefined,
     messenger_type: (row.messenger_type as ChatMessage['messenger_type']) ?? undefined,
     call_duration: row.call_duration ?? undefined,
-    message_status: (row.message_status as ChatMessage['message_status']) ?? undefined,
+    message_status: (row.message_status as ChatMessage['message_status']) ?? (row.metadata as any)?.message_status ?? undefined,
     metadata: row.metadata ?? undefined,
   };
 }
