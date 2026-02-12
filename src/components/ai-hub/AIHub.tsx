@@ -1541,7 +1541,6 @@ export const AIHub = ({
     <Sheet open={isOpen} onOpenChange={onToggle}>
       <SheetContent side="right" hideCloseButton aria-describedby={undefined} className="w-full sm:w-[400px] sm:max-w-[400px] h-full p-0 flex flex-col overflow-hidden">
         <VisuallyHidden.Root asChild><SheetTitle>ChatOS</SheetTitle></VisuallyHidden.Root>
-        <ChatBubbleNotification />
         {/* Header */}
         <div className="px-4 py-3 border-b shrink-0 flex items-center justify-between">
           <div className="flex items-center gap-3">
