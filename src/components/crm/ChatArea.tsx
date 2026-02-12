@@ -1217,10 +1217,10 @@ export const ChatArea = ({
           const displayName = realName || managerName || 'Менеджер';
           await supabase.from('chat_messages').insert(buildMessageRecord({
             client_id: clientId,
-            message_text: `${displayName} отметил(а): ответ не требуется`,
+            content: `${displayName} отметил(а): ответ не требуется`,
             message_type: 'system',
-            messenger_type: activeMessengerTab,
-            is_outgoing: true,
+            messenger: activeMessengerTab,
+            direction: 'outgoing',
             is_read: true,
             organization_id: orgId as string,
             metadata: { system_type: 'no_response_needed' },
@@ -1273,10 +1273,10 @@ export const ChatArea = ({
           const displayName = realName || managerName || 'Менеджер';
           await supabase.from('chat_messages').insert(buildMessageRecord({
             client_id: clientId,
-            message_text: `${displayName} подтвердил(а) оплату`,
+            content: `${displayName} подтвердил(а) оплату`,
             message_type: 'system',
-            messenger_type: activeMessengerTab,
-            is_outgoing: true,
+            messenger: activeMessengerTab,
+            direction: 'outgoing',
             is_read: true,
             organization_id: orgId as string,
             metadata: { system_type: 'payment_confirmed' },
