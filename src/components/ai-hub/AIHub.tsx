@@ -1636,8 +1636,8 @@ export const AIHub = ({
                           )}
                         </div>
                         <div className="flex-1 min-w-0 overflow-hidden">
-                          <div className="flex items-center gap-1.5 mb-0 overflow-hidden">
-                            <span className={`text-sm ${hasUnread ? 'font-semibold' : 'font-medium'} truncate`}>
+                          <div className="flex items-center gap-1.5 mb-0 min-w-0">
+                            <span className={`text-sm ${hasUnread ? 'font-semibold' : 'font-medium'} truncate min-w-0 shrink`}>
                               {item.name}
                             </span>
                             {(() => {
