@@ -23,6 +23,7 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/errorUtils';
 import { syncBranchGroupMembership } from '@/lib/syncBranchGroupMembership';
+import { SELF_HOSTED_URL, SELF_HOSTED_ANON_KEY } from '@/lib/selfHostedApi';
 import type { Teacher } from '@/integrations/supabase/database.types';
 import type { AppRole } from '@/integrations/supabase/database.types';
 import {
@@ -320,18 +321,36 @@ export const StaffManagementSection: React.FC = () => {
     try {
       const profileId = member.type === 'teacher' ? member.profile_id : member.id;
       if (profileId) {
-        const { error } = await supabase
-          .from('profiles')
-          .update({ is_active: false })
-          .eq('id', profileId);
-        if (error) throw error;
+        const res = await fetch(
+          `${SELF_HOSTED_URL}/rest/v1/profiles?id=eq.${profileId}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': SELF_HOSTED_ANON_KEY,
+              'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}`,
+              'Prefer': 'return=minimal',
+            },
+            body: JSON.stringify({ is_active: false }),
+          }
+        );
+        if (!res.ok) throw new Error(`Profile deactivation failed: ${res.status}`);
       }
       if (member.teacher_id) {
-        const { error } = await supabase
-          .from('teachers')
-          .update({ is_active: false })
-          .eq('id', member.teacher_id);
-        if (error) throw error;
+        const res = await fetch(
+          `${SELF_HOSTED_URL}/rest/v1/teachers?id=eq.${member.teacher_id}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': SELF_HOSTED_ANON_KEY,
+              'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}`,
+              'Prefer': 'return=minimal',
+            },
+            body: JSON.stringify({ is_active: false }),
+          }
+        );
+        if (!res.ok) throw new Error(`Teacher deactivation failed: ${res.status}`);
       }
       await loadEmployees();
       refetchTeachers();
@@ -345,18 +364,36 @@ export const StaffManagementSection: React.FC = () => {
     try {
       const profileId = member.type === 'teacher' ? member.profile_id : member.id;
       if (profileId) {
-        const { error } = await supabase
-          .from('profiles')
-          .update({ is_active: true })
-          .eq('id', profileId);
-        if (error) throw error;
+        const res = await fetch(
+          `${SELF_HOSTED_URL}/rest/v1/profiles?id=eq.${profileId}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': SELF_HOSTED_ANON_KEY,
+              'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}`,
+              'Prefer': 'return=minimal',
+            },
+            body: JSON.stringify({ is_active: true }),
+          }
+        );
+        if (!res.ok) throw new Error(`Profile activation failed: ${res.status}`);
       }
       if (member.teacher_id) {
-        const { error } = await supabase
-          .from('teachers')
-          .update({ is_active: true })
-          .eq('id', member.teacher_id);
-        if (error) throw error;
+        const res = await fetch(
+          `${SELF_HOSTED_URL}/rest/v1/teachers?id=eq.${member.teacher_id}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': SELF_HOSTED_ANON_KEY,
+              'Authorization': `Bearer ${SELF_HOSTED_ANON_KEY}`,
+              'Prefer': 'return=minimal',
+            },
+            body: JSON.stringify({ is_active: true }),
+          }
+        );
+        if (!res.ok) throw new Error(`Teacher activation failed: ${res.status}`);
       }
       await loadEmployees();
       refetchTeachers();
