@@ -1,71 +1,33 @@
 
-## Переделка модалки "Переслать сообщение" с реальными данными и навигацией
+## Разделение CRM-чатов преподавателей и внутренней переписки в AI Hub
 
 ### Проблема
-Текущий `ForwardMessageModal` не загружает реальных получателей:
-- **Клиенты**: запрос к БД работает, но список пуст (возможно ошибка запроса или `is_active`)
-- **Преподаватели**: используются **захардкоженные** mock-данные (4 фейковых записи)
-- **Корпоративные**: используются **захардкоженные** mock-данные (5 фейковых чатов)
 
-После пересылки нет ссылки на исходный диалог с клиентом и конкретное сообщение.
+Сейчас в AI Hub (ChatOS) список чатов с преподавателями показывает данные из CRM-переписки (таблица `chat_messages`) -- это сообщения, отправленные преподавателям от имени компании через мессенджеры (Telegram, WhatsApp и т.д.). Но AI Hub -- это внутренний чат, где менеджеры общаются от своего имени. Поэтому превью и счетчики непрочитанных должны браться только из таблицы `internal_staff_messages`.
 
 ### Решение
 
-Полностью переписать `ForwardMessageModal` по образцу работающего `ShareClientCardModal`:
+Убрать фолбэк на CRM-данные в списке преподавателей AI Hub. Показывать только данные из внутренней переписки (`staffPreviews`).
 
-**Вкладка "Сотрудники"** -- загружать реальных сотрудников через `useStaffMembers()`
-**Вкладка "Группы"** -- загружать реальные группы через `useStaffGroupChats()`
+### Технические изменения
 
-Убрать вкладки "Клиенты", "Преподаватели", "Корпоративные" -- пересылка сообщений идет только сотрудникам и в группы (через `internal_staff_messages`).
+**Файл: `src/components/ai-hub/AIHub.tsx`** (строки ~360-377)
 
-После отправки:
-1. Сохранить пересланное сообщение в `internal_staff_messages` с `message_type: 'forwarded_message'`
-2. В текст включить метаданные: `[forwarded_from:clientId:messageId]` -- для навигации к исходному сообщению
-3. Открыть AI Hub с диалогом получателя (как при отправке карточки клиента)
-4. В AI Hub отрисовать пересланное сообщение как кликабельный блок, при клике -- перейти в чат клиента к конкретному сообщению
+Текущий код:
+```typescript
+unreadCount: preview?.unreadCount || teacher.unreadMessages,
+lastMessage: preview?.lastMessage || teacher.lastMessageText || undefined,
+lastMessageTime: preview?.lastMessageTime || undefined,
+```
 
----
+Нужно убрать фолбэк на `teacher.unreadMessages` и `teacher.lastMessageText`:
+```typescript
+unreadCount: preview?.unreadCount || 0,
+lastMessage: preview?.lastMessage || undefined,
+lastMessageTime: preview?.lastMessageTime || undefined,
+```
 
-### Технические детали
-
-**1. `src/components/crm/ForwardMessageModal.tsx` -- полная переделка**
-
-- Удалить mock-данные для преподавателей и корпоративных чатов
-- Заменить вкладки на две: "Сотрудники" и "Группы"
-- Использовать `useStaffMembers()` для списка сотрудников
-- Использовать `useStaffGroupChats()` для списка групп
-- Использовать `useSendStaffMessage()` для отправки
-- Формат пересланного сообщения:
-  ```
-  [forwarded_from:<clientId>:<messageId>]
-  ↩️ Переслано из диалога с <clientName>
-  ---
-  <текст сообщения>
-  ```
-- Добавить проп `clientName` для отображения имени клиента в пересланном сообщении
-- Добавить проп `onSent` (callback с `{ type, id, name }`) для навигации в AI Hub
-
-**2. `src/components/crm/ChatArea.tsx` -- обновить вызов ForwardMessageModal**
-
-- Передать `clientName` в ForwardMessageModal
-- Добавить `onSent` callback, который:
-  - Устанавливает `initialStaffUserId` / `initialGroupChatId` 
-  - Открывает AI Hub модалку (`setVoiceAssistantOpen(true)`)
-- Обновить тип `onForward` (убрать старые типы client/teacher/corporate)
-
-**3. `src/components/ai-hub/ForwardedMessageBubble.tsx` -- новый компонент**
-
-- Парсит формат `[forwarded_from:clientId:messageId]`
-- Отображает как стилизованный блок с иконкой "↩️" и именем клиента
-- При клике: закрывает AI Hub, открывает диалог клиента в CRM и скроллит к конкретному сообщению
-
-**4. `src/components/ai-hub/AIHub.tsx` и `AIHubInline.tsx`**
-
-- Добавить распознавание `forwarded_message` типа сообщений
-- Рендерить `ForwardedMessageBubble` вместо обычного текста
-- Передать `onOpenChat` для навигации при клике
-
-**5. `src/pages/CRM.tsx`**
-
-- Пробросить `onSent` callback из `ChatArea` для открытия AI Hub после пересылки
-- Добавить поддержку скролла к конкретному сообщению через `scrollToMessageId` state
+Это единственное изменение. Теперь:
+- Если есть внутренняя переписка с преподавателем -- показывается последнее сообщение из `internal_staff_messages`
+- Если внутренней переписки нет -- превью пустое (без текста CRM-сообщений от имени компании)
+- Счетчик непрочитанных считает только внутренние сообщения
