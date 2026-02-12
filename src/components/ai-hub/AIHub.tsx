@@ -807,7 +807,7 @@ export const AIHub = ({
   if (activeChat?.type === 'assistant') {
     return (
       <Sheet open={isOpen} onOpenChange={onToggle}>
-        <SheetContent side="right" aria-describedby={undefined} className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden relative">
+        <SheetContent side="right" aria-describedby={undefined} className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden">
           <VisuallyHidden.Root asChild><SheetTitle>AI Assistant</SheetTitle></VisuallyHidden.Root>
           <ChatBubbleNotification />
           {/* Header */}
@@ -852,7 +852,7 @@ export const AIHub = ({
 
     return (
       <Sheet open={isOpen} onOpenChange={onToggle}>
-        <SheetContent side="right" aria-describedby={undefined} className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden relative">
+        <SheetContent side="right" aria-describedby={undefined} className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden">
           <VisuallyHidden.Root asChild><SheetTitle>Chat</SheetTitle></VisuallyHidden.Root>
           <ChatBubbleNotification />
           {/* Header */}
@@ -1567,7 +1567,7 @@ export const AIHub = ({
   console.log('[AIHub] Rendering main list, isOpen:', isOpen);
   return (
     <Sheet open={isOpen} onOpenChange={(v) => { console.log('[AIHub Sheet] onOpenChange:', v); onToggle(v); }}>
-      <SheetContent side="right" hideCloseButton aria-describedby={undefined} className="w-full sm:w-[400px] sm:max-w-[400px] h-full p-0 flex flex-col overflow-hidden relative">
+      <SheetContent side="right" hideCloseButton aria-describedby={undefined} className="w-full sm:w-[400px] sm:max-w-[400px] h-full p-0 flex flex-col overflow-hidden">
         <VisuallyHidden.Root asChild><SheetTitle>ChatOS</SheetTitle></VisuallyHidden.Root>
         {(() => { console.log('[AIHub] SheetContent MOUNTED'); return null; })()}
         <ChatBubbleNotification />
