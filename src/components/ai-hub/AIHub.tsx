@@ -1174,10 +1174,13 @@ export const AIHub = ({
                   maxSize={10}
                 />
               )}
-              <Input
+              <textarea
                 value={message}
                 onChange={(e) => {
                   setMessage(e.target.value);
+                  // Auto-resize
+                  e.target.style.height = 'auto';
+                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
                   if (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') {
                     if (e.target.value.trim()) {
                       setTyping(true, e.target.value);
@@ -1186,7 +1189,12 @@ export const AIHub = ({
                     }
                   }
                 }}
-                onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
                 onBlur={() => {
                   if (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') {
                     stopTyping();
@@ -1194,7 +1202,8 @@ export const AIHub = ({
                 }}
                 placeholder={getCurrentPlaceholder()}
                 disabled={isProcessing || isRecording || sendStaffMessage.isPending}
-                className="flex-1 h-10 rounded-xl bg-muted border-0 px-4 text-sm focus-visible:ring-1"
+                rows={1}
+                className="flex-1 min-h-[40px] max-h-[120px] rounded-xl bg-muted border-0 px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
               />
               <Button 
                 onClick={handleSendMessage}
