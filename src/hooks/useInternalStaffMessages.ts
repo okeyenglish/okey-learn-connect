@@ -18,6 +18,8 @@ export interface StaffMessage {
   file_name?: string;
   file_type?: string;
   is_read: boolean;
+  is_edited?: boolean;
+  is_deleted?: boolean;
   created_at: string;
   updated_at: string;
   sender?: {
@@ -70,26 +72,26 @@ export const useStaffDirectMessages = (recipientUserId: string) => {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'internal_staff_messages',
         },
         (payload) => {
-          const newMessage = payload.new as StaffMessage;
+          const msg = (payload.new || payload.old) as StaffMessage;
           // Check if this message is part of this conversation
           if (
-            (newMessage.sender_id === user.id && newMessage.recipient_user_id === recipientUserId) ||
-            (newMessage.sender_id === recipientUserId && newMessage.recipient_user_id === user.id)
+            (msg.sender_id === user.id && msg.recipient_user_id === recipientUserId) ||
+            (msg.sender_id === recipientUserId && msg.recipient_user_id === user.id)
           ) {
             queryClient.invalidateQueries({ queryKey: ['staff-direct-messages', recipientUserId] });
             
-            // Play sound notification for incoming messages (not from current user)
-            if (newMessage.sender_id !== user.id) {
+            // Play sound notification for incoming new messages only
+            if (payload.eventType === 'INSERT' && msg.sender_id !== user.id) {
               playNotificationSound(0.5, 'chat');
               showBrowserNotification({
                 title: 'Новое сообщение',
-                body: newMessage.message_text?.slice(0, 100) || 'Новое сообщение от сотрудника',
-                tag: `staff-dm-${newMessage.sender_id}`,
+                body: msg.message_text?.slice(0, 100) || 'Новое сообщение от сотрудника',
+                tag: `staff-dm-${msg.sender_id}`,
               });
             }
           }
@@ -145,21 +147,21 @@ export const useStaffGroupMessages = (groupChatId: string) => {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'internal_staff_messages',
           filter: `group_chat_id=eq.${groupChatId}`,
         },
         (payload) => {
-          const newMessage = payload.new as StaffMessage;
           queryClient.invalidateQueries({ queryKey: ['staff-group-messages', groupChatId] });
           
-          // Play sound notification for incoming messages (not from current user)
-          if (user?.id && newMessage.sender_id !== user.id) {
+          // Play sound notification for incoming new messages only
+          const msg = payload.new as StaffMessage;
+          if (payload.eventType === 'INSERT' && user?.id && msg.sender_id !== user.id) {
             playNotificationSound(0.5, 'chat');
             showBrowserNotification({
               title: 'Новое сообщение в группе',
-              body: newMessage.message_text?.slice(0, 100) || 'Новое сообщение в групповом чате',
+              body: msg.message_text?.slice(0, 100) || 'Новое сообщение в групповом чате',
               tag: `staff-group-${groupChatId}`,
             });
           }
@@ -231,6 +233,56 @@ export const useSendStaffMessage = () => {
         variant: "destructive"
       });
     }
+  });
+};
+
+// Hook for editing a staff message
+export const useEditStaffMessage = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ messageId, newText }: { messageId: string; newText: string }) => {
+      if (!user?.id) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('internal_staff_messages')
+        .update({ message_text: newText, is_edited: true })
+        .eq('id', messageId)
+        .eq('sender_id', user.id); // Only own messages
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-direct-messages'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-group-messages'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-conversations'] });
+    },
+  });
+};
+
+// Hook for deleting a staff message
+export const useDeleteStaffMessage = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (messageId: string) => {
+      if (!user?.id) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('internal_staff_messages')
+        .update({ message_text: 'Сообщение удалено', message_type: 'deleted', is_deleted: true, file_url: null, file_name: null, file_type: null })
+        .eq('id', messageId)
+        .eq('sender_id', user.id); // Only own messages
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-direct-messages'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-group-messages'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-conversations'] });
+    },
   });
 };
 

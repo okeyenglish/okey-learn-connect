@@ -59,6 +59,8 @@ import {
   useStaffDirectMessages, 
   useStaffGroupMessages, 
   useSendStaffMessage, 
+  useEditStaffMessage,
+  useDeleteStaffMessage,
   useStaffMembers,
   useStaffConversationPreviews,
   useStaffGroupChatPreviews,
@@ -117,6 +119,8 @@ interface ChatMessage {
   file_type?: string;
   is_read?: boolean;
   message_type?: string;
+  is_edited?: boolean;
+  is_deleted?: boolean;
 }
 
 type ConsultantType = 'lawyer' | 'accountant' | 'marketer' | 'hr' | 'methodist' | 'it';
@@ -184,6 +188,8 @@ export const AIHub = ({
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [showMembersDialog, setShowMembersDialog] = useState(false);
   const [forwardingMessage, setForwardingMessage] = useState<{ id: string; content: string; senderName: string; chatName: string } | null>(null);
+  const [editingMessage, setEditingMessage] = useState<{ id: string; content: string } | null>(null);
+  const [editText, setEditText] = useState('');
   
   const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('online'); // По умолчанию показываем онлайн
   
@@ -240,6 +246,8 @@ export const AIHub = ({
     activeChat?.type === 'group' ? activeChat.id : ''
   );
   const sendStaffMessage = useSendStaffMessage();
+  const editStaffMessage = useEditStaffMessage();
+  const deleteStaffMessage = useDeleteStaffMessage();
   const { findOrCreateClient } = useEnsureTeacherClient();
   const { unreadCount: assistantUnread } = useAssistantMessages();
   
@@ -743,7 +751,9 @@ export const AIHub = ({
         file_name: m.file_name,
         file_type: m.file_type,
         is_read: m.is_read,
-        message_type: m.message_type
+        message_type: m.message_type,
+        is_edited: m.is_edited,
+        is_deleted: m.is_deleted,
       })) as ChatMessage[];
     }
     
@@ -759,7 +769,9 @@ export const AIHub = ({
         file_name: m.file_name,
         file_type: m.file_type,
         is_read: m.is_read,
-        message_type: m.message_type
+        message_type: m.message_type,
+        is_edited: m.is_edited,
+        is_deleted: m.is_deleted,
       })) as ChatMessage[];
     }
     
@@ -1078,15 +1090,31 @@ export const AIHub = ({
                         </div>
                       )}
                       
-                      {/* Forward button on hover - for staff chats only */}
-                      {isStaffChat && isOwn && (
-                        <button
-                          className="h-6 w-6 rounded-full flex items-center justify-center bg-background/80 border border-border/40 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background shrink-0"
-                          onClick={() => setForwardingMessage({ id: msg.id, content: msg.content, senderName: msg.sender || 'Вы', chatName: activeChat.name })}
-                          title="Переслать"
-                        >
-                          <Forward className="h-3 w-3 text-muted-foreground" />
-                        </button>
+                      {/* Action buttons on hover - for staff chats only */}
+                      {isStaffChat && isOwn && !msg.is_deleted && (
+                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <button
+                            className="h-6 w-6 rounded-full flex items-center justify-center bg-background/80 border border-border/40 shadow-sm hover:bg-background"
+                            onClick={() => { setEditingMessage({ id: msg.id, content: msg.content }); setEditText(msg.content); }}
+                            title="Редактировать"
+                          >
+                            <Pencil className="h-3 w-3 text-muted-foreground" />
+                          </button>
+                          <button
+                            className="h-6 w-6 rounded-full flex items-center justify-center bg-background/80 border border-border/40 shadow-sm hover:bg-destructive/10"
+                            onClick={() => { if (confirm('Удалить сообщение?')) deleteStaffMessage.mutate(msg.id); }}
+                            title="Удалить"
+                          >
+                            <Trash2 className="h-3 w-3 text-muted-foreground" />
+                          </button>
+                          <button
+                            className="h-6 w-6 rounded-full flex items-center justify-center bg-background/80 border border-border/40 shadow-sm hover:bg-background"
+                            onClick={() => setForwardingMessage({ id: msg.id, content: msg.content, senderName: msg.sender || 'Вы', chatName: activeChat.name })}
+                            title="Переслать"
+                          >
+                            <Forward className="h-3 w-3 text-muted-foreground" />
+                          </button>
+                        </div>
                       )}
 
                       <div className={`max-w-[75%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col relative`}>
@@ -1151,6 +1179,66 @@ export const AIHub = ({
                               {ReadIndicator}
                             </div>
                           </div>
+                        ) : msg.is_deleted ? (
+                          /* Deleted message */
+                          <div className={`relative px-3 py-1.5 ${
+                            isOwn 
+                              ? `bg-primary/50 text-primary-foreground/70 ${isLastInGroup ? 'rounded-2xl rounded-br-md' : 'rounded-2xl'}` 
+                              : `bg-muted/50 ${isLastInGroup ? 'rounded-2xl rounded-bl-md' : 'rounded-2xl'}`
+                          }`}>
+                            <div className="flex items-end gap-2">
+                              <p className="text-[13.5px] leading-[18px] italic opacity-70">Сообщение удалено</p>
+                              <span className={`text-[10px] leading-[14px] shrink-0 self-end translate-y-[1px] ${
+                                isOwn ? 'text-primary-foreground/40' : 'text-muted-foreground/60'
+                              }`}>
+                                {msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          </div>
+                        ) : editingMessage?.id === msg.id ? (
+                          /* Editing mode */
+                          <div className={`relative px-3 py-1.5 ${
+                            isOwn 
+                              ? `bg-primary text-primary-foreground ${isLastInGroup ? 'rounded-2xl rounded-br-md' : 'rounded-2xl'}` 
+                              : `bg-muted ${isLastInGroup ? 'rounded-2xl rounded-bl-md' : 'rounded-2xl'}`
+                          }`}>
+                            <textarea
+                              value={editText}
+                              onChange={(e) => setEditText(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  if (editText.trim()) {
+                                    editStaffMessage.mutate({ messageId: msg.id, newText: editText.trim() });
+                                    setEditingMessage(null);
+                                  }
+                                }
+                                if (e.key === 'Escape') setEditingMessage(null);
+                              }}
+                              className="w-full bg-transparent text-[13.5px] leading-[18px] resize-none outline-none min-h-[24px]"
+                              autoFocus
+                              rows={1}
+                            />
+                            <div className="flex items-center gap-1 mt-1">
+                              <button
+                                className={`text-[10px] px-2 py-0.5 rounded ${isOwn ? 'bg-primary-foreground/20 hover:bg-primary-foreground/30' : 'bg-primary/10 hover:bg-primary/20'}`}
+                                onClick={() => {
+                                  if (editText.trim()) {
+                                    editStaffMessage.mutate({ messageId: msg.id, newText: editText.trim() });
+                                    setEditingMessage(null);
+                                  }
+                                }}
+                              >
+                                Сохранить
+                              </button>
+                              <button
+                                className={`text-[10px] px-2 py-0.5 rounded ${isOwn ? 'text-primary-foreground/60 hover:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                onClick={() => setEditingMessage(null)}
+                              >
+                                Отмена
+                              </button>
+                            </div>
+                          </div>
                         ) : (
                           <div className={`relative px-3 py-1.5 ${
                             isOwn 
@@ -1194,6 +1282,7 @@ export const AIHub = ({
                                 <span className={`text-[10px] leading-[14px] shrink-0 self-end translate-y-[1px] ${
                                   isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'
                                 }`}>
+                                  {msg.is_edited && <span className="mr-0.5">ред.</span>}
                                   {msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
                                   {ReadIndicator}
                                 </span>
@@ -1203,6 +1292,7 @@ export const AIHub = ({
                                 isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'
                               }`}>
                                 <span>
+                                  {msg.is_edited && <span className="mr-0.5">ред.</span>}
                                   {msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
                                   {ReadIndicator}
                                 </span>
