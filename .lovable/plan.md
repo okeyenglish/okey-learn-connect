@@ -1,39 +1,67 @@
 
 
-## Исправление "Менеджер поддержки" — показ реального имени сотрудника
+## Исправление: имя сотрудника не подхватывается при отправке сообщений
 
-### Корневая причина
+### Диагностика
 
-В файле `src/pages/CRM.tsx` (строка 4394) имя менеджера **захардкожено**:
+Причина найдена: в self-hosted базе `profiles` у текущего пользователя (Даниил Пышнов, ID `0a5d61cf...`) поля `first_name` и `last_name` равны `null`. Поэтому код:
 
 ```typescript
-managerName="Менеджер поддержки"
+const senderName = authProfile
+  ? [authProfile.first_name, authProfile.last_name].filter(Boolean).join(' ') || 'Менеджер поддержки'
+  : 'Менеджер поддержки';
 ```
 
-Хотя `profile` (с `first_name` и `last_name`) уже доступен в этом же компоненте через `useAuth()` (строка 208).
+...всегда возвращает "Менеджер поддержки".
 
-Внутри `ChatArea.tsx` это значение используется как fallback: `msg.sender_name || managerName`. Если у сообщения в БД нет `sender_name` (старые сообщения), отображается именно этот fallback — "Менеджер поддержки".
+Однако в JWT токене (в `user_metadata`) имя уже есть:
+```
+"first_name": "Даниил", "last_name": "Пышнов"
+```
 
 ### Что будет сделано
 
-**1. `src/pages/CRM.tsx`** — передавать реальное имя из профиля:
+**1. `src/hooks/useAuth.tsx`** -- при загрузке профиля, если `first_name`/`last_name` пустые, подставлять значения из `user_metadata` JWT токена:
 
-Заменить строку 4394:
+В функции `fetchProfile`, после получения `profileData`, добавить fallback:
+
 ```typescript
-// Было:
-managerName="Менеджер поддержки"
-
-// Станет:
-managerName={[profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Менеджер поддержки'}
+if (profileData) {
+  const userMeta = (await supabase.auth.getUser())?.data?.user?.user_metadata;
+  const profileWithFallback = {
+    ...profileData,
+    first_name: profileData.first_name || userMeta?.first_name || null,
+    last_name: profileData.last_name || userMeta?.last_name || null,
+    avatar_url: null
+  };
+  setProfile(profileWithFallback);
+}
 ```
 
-Теперь для **старых сообщений** без `sender_name` будет отображаться имя текущего залогиненного пользователя (не идеально, но лучше чем "Менеджер поддержки"). Для **новых сообщений** `sender_name` уже сохраняется в БД при отправке (логика в `ChatArea.tsx` строка 1450-1453).
+Это решит проблему для всех мест где используется `authProfile` -- и для `managerName` prop, и для `senderName` при отправке сообщений, и для системных сообщений ("Даниил Пышнов отметил(а): ответ не требуется").
 
-### Ограничение
+### Альтернативный подход (если профиль вообще не найден)
 
-Старые сообщения, отправленные **другими** менеджерами до внедрения `sender_name`, будут показывать имя текущего пользователя вместо реального отправителя. Это неизбежно, так как данные не были сохранены. Новые сообщения уже корректно сохраняют `sender_name` в базу.
+Также добавить обработку случая когда `profileData` = null (профиль не существует в таблице):
+
+```typescript
+if (!profileError) {
+  const userMeta = (await supabase.auth.getUser())?.data?.user?.user_metadata;
+  const profile = profileData || {};
+  setProfile({
+    id: userId,
+    first_name: profile.first_name || userMeta?.first_name || null,
+    last_name: profile.last_name || userMeta?.last_name || null,
+    email: profile.email || userMeta?.email || null,
+    // ... остальные поля
+  });
+}
+```
 
 ### Затронутые файлы
 
-- `src/pages/CRM.tsx` — одна строка
+- `src/hooks/useAuth.tsx` -- одно место в функции `fetchProfile` (строки 145-159)
 
+### Почему это работает
+
+JWT токен уже содержит корректные данные пользователя (`user_metadata`). Не нужно менять базу данных или edge functions -- достаточно использовать эти данные как fallback при загрузке профиля.
