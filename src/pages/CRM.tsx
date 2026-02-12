@@ -100,6 +100,7 @@ import { useAssistantMessages } from "@/hooks/useAssistantMessages";
 import { useStaffUnreadCount } from "@/hooks/useInternalStaffMessages";
 import { useChatNotificationSound } from "@/hooks/useChatNotificationSound";
 import { useStaffMessageNotifications } from "@/hooks/useStaffMessageNotifications";
+import { ChatBubbleNotification } from "@/components/ai-hub/ChatBubbleNotification";
 import {
   Search, 
   CheckSquare, 
@@ -4454,6 +4455,7 @@ const CRMContent = () => {
               </TooltipContent>
             </Tooltip>
           )}
+          <ChatBubbleNotification />
         </div>
 
         {/* Right Sidebar - Desktop */}

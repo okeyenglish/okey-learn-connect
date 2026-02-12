@@ -3,8 +3,7 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from '@/hooks/useAuth';
 import { playNotificationSound } from '@/hooks/useNotificationSound';
 import { showBrowserNotification } from '@/hooks/useBrowserNotifications';
-import { toast } from 'sonner';
-import { createElement } from 'react';
+import { showChatBubbleNotification } from '@/components/ai-hub/ChatBubbleNotification';
 import type { StaffMessage } from '@/hooks/useInternalStaffMessages';
 
 interface StaffMessageNotificationsOptions {
@@ -132,27 +131,13 @@ export const useStaffMessageNotifications = (options: StaffMessageNotificationsO
             }
           };
 
-          toast.custom(
-            (id) => createElement('div', {
-              onClick: () => { handleOpenChat(); toast.dismiss(id); },
-              style: { cursor: 'pointer' },
-              className: 'flex items-end gap-2 max-w-[340px] w-full animate-in slide-in-from-bottom-3 fade-in duration-300',
-            },
-              // Avatar circle
-              createElement('div', {
-                className: 'shrink-0 w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center text-primary text-sm font-semibold',
-              }, senderName.charAt(0).toUpperCase()),
-              // Chat bubble
-              createElement('div', {
-                className: 'flex-1 min-w-0 bg-background border border-border rounded-2xl rounded-bl-sm shadow-lg px-3.5 py-2.5 relative',
-              },
-                createElement('p', { className: 'text-[13px] font-semibold text-foreground truncate mb-0.5' }, title.replace('💬 ', '')),
-                createElement('p', { className: 'text-[13px] text-foreground/80 line-clamp-2 leading-snug' }, messagePreview),
-                createElement('p', { className: 'text-[10px] text-muted-foreground/50 mt-1 text-right' }, 'Нажмите →'),
-              ),
-            ),
-            { duration: 5000 },
-          );
+          showChatBubbleNotification({
+            id: newMessage.id,
+            senderName: title.replace('💬 ', ''),
+            senderInitial: senderName.charAt(0).toUpperCase(),
+            message: messagePreview,
+            onOpen: handleOpenChat,
+          });
 
           // Show browser notification if tab is not visible
           if (document.hidden) {
