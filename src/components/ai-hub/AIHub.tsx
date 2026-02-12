@@ -11,7 +11,7 @@ import { ForwardedMessageBubble, isForwardedMessage, parseForwardedComment } fro
 import { StaffMessageReactions } from '@/components/ai-hub/StaffMessageReactions';
 import { StaffForwardedBubble, isStaffForwardedMessage, parseStaffForwardedComment } from '@/components/ai-hub/StaffForwardedBubble';
 import { StaffForwardPicker } from '@/components/ai-hub/StaffForwardPicker';
-import { useStaffReactionsBatch } from '@/hooks/useStaffMessageReactions';
+import { useStaffReactionsBatch, useStaffReactionsBroadcast } from '@/hooks/useStaffMessageReactions';
 import { FileUpload, FileUploadRef } from '@/components/crm/FileUpload';
 import { 
   Bot, 
@@ -264,6 +264,7 @@ export const AIHub = ({
       : [];
   const staffMessageIds = currentStaffMessages.map(m => m.id);
   const { data: reactionsMap } = useStaffReactionsBatch(staffMessageIds);
+  useStaffReactionsBroadcast();
 
   // Consultants config
   const consultants: Array<{
@@ -1077,7 +1078,7 @@ export const AIHub = ({
                         </button>
                       )}
 
-                      <div className={`max-w-[75%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
+                      <div className={`max-w-[75%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col relative`}>
                         {/* Special messages (cards, forwarded) rendered without colored bubble */}
                         {(isClientCardMessage(msg.content, msg.message_type) || isForwardedMessage(msg.content, msg.message_type) || isStaffForwardedMessage(msg.content, msg.message_type)) ? (
                           <div className="w-full">

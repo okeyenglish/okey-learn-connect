@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { SELF_HOSTED_URL, SELF_HOSTED_ANON_KEY, getAuthToken } from '@/lib/selfHostedApi';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface StaffReaction {
   id: string;
@@ -27,6 +29,43 @@ async function getHeaders() {
     'Authorization': `Bearer ${token || SELF_HOSTED_ANON_KEY}`,
   };
 }
+
+/**
+ * Broadcast a reaction change so other clients refresh instantly
+ */
+function broadcastReactionChange(messageId: string) {
+  supabase.channel('staff-reactions-sync').send({
+    type: 'broadcast',
+    event: 'reaction_changed',
+    payload: { message_id: messageId },
+  });
+}
+
+/**
+ * Subscribe to reaction broadcast events and invalidate cache
+ */
+export const useStaffReactionsBroadcast = () => {
+  const queryClient = useQueryClient();
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  useEffect(() => {
+    if (channelRef.current) return;
+
+    channelRef.current = supabase
+      .channel('staff-reactions-sync')
+      .on('broadcast', { event: 'reaction_changed' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['staff-message-reactions'] });
+      })
+      .subscribe();
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [queryClient]);
+};
 
 /**
  * Fetch reactions for multiple message IDs (batch)
@@ -105,8 +144,9 @@ export const useAddStaffReaction = () => {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['staff-message-reactions'] });
+      broadcastReactionChange(variables.messageId);
     },
   });
 };
@@ -132,8 +172,9 @@ export const useRemoveStaffReaction = () => {
         throw new Error(`Failed to remove reaction: ${text}`);
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, messageId) => {
       queryClient.invalidateQueries({ queryKey: ['staff-message-reactions'] });
+      broadcastReactionChange(messageId);
     },
   });
 };

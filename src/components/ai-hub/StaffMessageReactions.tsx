@@ -27,6 +27,7 @@ export const StaffMessageReactions = ({ messageId, reactions, isOwn, className }
   const removeReaction = useRemoveStaffReaction();
 
   const grouped = groupReactions(reactions, user?.id);
+  const hasReactions = grouped.length > 0;
 
   const handleEmoji = async (emoji: string) => {
     try {
@@ -44,8 +45,39 @@ export const StaffMessageReactions = ({ messageId, reactions, isOwn, className }
 
   const isPending = addReaction.isPending || removeReaction.isPending;
 
+  // Don't render anything if no reactions and popover is closed - eliminates empty space
+  if (!hasReactions && !open) {
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            className="h-5 w-5 rounded-full flex items-center justify-center transition-all hover:scale-110 bg-background/80 hover:bg-background border border-border/40 shadow-sm opacity-0 group-hover:opacity-100 absolute -bottom-2 right-1"
+            disabled={isPending}
+          >
+            <span className="text-[11px]">😊</span>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-1" align={isOwn ? "end" : "start"} side="top">
+          <div className="grid grid-cols-4 gap-0.5">
+            {EMOJIS.map((emoji) => (
+              <Button
+                key={emoji}
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 hover:bg-muted"
+                onClick={() => handleEmoji(emoji)}
+              >
+                <span className="text-sm">{emoji}</span>
+              </Button>
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  }
+
   return (
-    <div className={cn("flex items-center gap-0.5 flex-wrap", className)}>
+    <div className={cn("flex items-center gap-0.5 flex-wrap mt-0.5", className)}>
       {/* Existing reactions */}
       {grouped.map((r) => (
         <button
