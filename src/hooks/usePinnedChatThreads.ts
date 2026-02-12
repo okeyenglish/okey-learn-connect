@@ -14,16 +14,14 @@ function isSystemPreviewMessage(text: string): boolean {
     lower.includes('задача создана') ||
     lower.includes('задача выполнена') ||
     lower.includes('задача отменена') ||
-    lower.startsWith('задача "') ||
-    /отметил\(а\): ответ не требуется/i.test(text) ||
-    /подтвердил\(а\) оплату/i.test(text)
+    lower.startsWith('задача "')
   );
 }
 
 function shortenSystemActionPreview(text: string): string {
   if (!text) return text;
-  if (/отметил\(а\): ответ не требуется/i.test(text)) return '✓ Ответ не требуется';
-  if (/подтвердил\(а\) оплату/i.test(text)) return '✓ Оплата подтверждена';
+  if (/отметил\(а\): ответ не требуется/i.test(text)) return '';
+  if (/подтвердил\(а\) оплату/i.test(text)) return '';
   return text;
 }
 
