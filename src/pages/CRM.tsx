@@ -411,6 +411,17 @@ const CRMContent = () => {
   const [initialAssistantMessage, setInitialAssistantMessage] = useState<string | null>(null);
   // ChatOS - quick reply category for AI assistant
   const [quickReplyCategory, setQuickReplyCategory] = useState<'activity_warning' | 'tab_feedback' | null>(null);
+  
+  // Memoized AIHub callbacks (stable refs that don't depend on late-defined functions)
+  const handleAIHubToggle = useCallback(() => setVoiceAssistantOpen(prev => !prev), []);
+  const handleAIHubOpenScripts = useCallback(() => setShowScriptsModal(true), []);
+  const handleClearInitialAssistantMessage = useCallback(() => {
+    setInitialAssistantMessage(null);
+    setQuickReplyCategory(null);
+  }, []);
+  const handleClearInitialStaffUserId = useCallback(() => setInitialStaffUserId(null), []);
+  const handleClearInitialGroupChatId = useCallback(() => setInitialGroupChatId(null), []);
+
   const { data: deletedChats = [] } = useDeletedChats();
   
   // Manager branch restrictions — needed before loading threads
@@ -1984,7 +1995,35 @@ const CRMContent = () => {
     };
   };
 
-  // Мемоизированная информация о текущем клиенте для ChatArea
+  // Memoized AIHub props that depend on handleChatClick / getActiveClientInfo
+  const handleAIHubOpenChat = useCallback((clientId: string, messageId?: string) => {
+    if (messageId) setHighlightedMessageId(messageId);
+    handleChatClick(clientId, 'client');
+  }, [handleChatClick]);
+  const aiHubContext = useMemo(() => ({
+    currentPage: 'CRM',
+    activeClientId: activeChatId,
+    activeClientName: activeChatId ? getActiveClientInfo(activeChatId).name : null,
+    userRole: role,
+    userBranch: profile?.branch,
+    activeChatType
+  }), [activeChatId, role, profile?.branch, activeChatType]);
+  const aiHubOnOpenModal = useMemo(() => ({
+    addClient: () => setShowAddClientModal(true),
+    addTask: () => setShowAddTaskModal(true),
+    addTeacher: () => setShowAddTeacherModal(true),
+    addStudent: () => setShowAddStudentModal(true),
+    addInvoice: () => setShowInvoiceModal(true),
+    clientProfile: (clientId: string) => {
+      handleChatClick(clientId, 'client');
+      setRightSidebarOpen(true);
+    },
+    editTask: (taskId: string) => {
+      setEditTaskId(taskId);
+      setShowEditTaskModal(true);
+    }
+  }), [handleChatClick]);
+
   // Вызываем getActiveClientInfo ОДИН раз, чтобы избежать race conditions
   const currentChatClientInfo = useMemo(() => {
     if (!activeChatId || activeChatType !== 'client') {
@@ -4624,45 +4663,18 @@ const CRMContent = () => {
       <ErrorBoundary>
           <AIHub 
             isOpen={voiceAssistantOpen}
-            onToggle={() => setVoiceAssistantOpen(!voiceAssistantOpen)}
-            context={{
-              currentPage: 'CRM',
-              activeClientId: activeChatId,
-              activeClientName: activeChatId ? getActiveClientInfo(activeChatId).name : null,
-              userRole: role,
-              userBranch: profile?.branch,
-              activeChatType
-            }}
-            onOpenModal={{
-              addClient: () => setShowAddClientModal(true),
-              addTask: () => setShowAddTaskModal(true),
-              addTeacher: () => setShowAddTeacherModal(true),
-              addStudent: () => setShowAddStudentModal(true),
-              addInvoice: () => setShowInvoiceModal(true),
-              clientProfile: (clientId: string) => {
-                handleChatClick(clientId, 'client');
-                setRightSidebarOpen(true);
-              },
-              editTask: (taskId: string) => {
-                setEditTaskId(taskId);
-                setShowEditTaskModal(true);
-              }
-            }}
-            onOpenChat={(clientId: string, messageId?: string) => {
-              if (messageId) setHighlightedMessageId(messageId);
-              handleChatClick(clientId, 'client');
-            }}
-            onOpenScripts={() => setShowScriptsModal(true)}
+            onToggle={handleAIHubToggle}
+            context={aiHubContext}
+            onOpenModal={aiHubOnOpenModal}
+            onOpenChat={handleAIHubOpenChat}
+            onOpenScripts={handleAIHubOpenScripts}
             initialAssistantMessage={initialAssistantMessage}
-            onClearInitialAssistantMessage={() => {
-              setInitialAssistantMessage(null);
-              setQuickReplyCategory(null);
-            }}
+            onClearInitialAssistantMessage={handleClearInitialAssistantMessage}
             quickReplyCategory={quickReplyCategory}
             initialStaffUserId={initialStaffUserId}
-            onClearInitialStaffUserId={() => setInitialStaffUserId(null)}
+            onClearInitialStaffUserId={handleClearInitialStaffUserId}
             initialGroupChatId={initialGroupChatId}
-            onClearInitialGroupChatId={() => setInitialGroupChatId(null)}
+            onClearInitialGroupChatId={handleClearInitialGroupChatId}
           />
       </ErrorBoundary>
 

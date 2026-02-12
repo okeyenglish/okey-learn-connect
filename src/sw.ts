@@ -106,6 +106,17 @@ function addCacheHeaders(response: Response): Response {
   });
 }
 
+// ============= FETCH WITH TIMEOUT =============
+// Wraps fetch() with AbortController to prevent hanging promises that kill the SW
+function fetchWithTimeout(request: Request, timeout = 5000): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  return fetch(request, { signal: controller.signal }).finally(() => {
+    clearTimeout(timeoutId);
+  });
+}
+
 // ============= STALE-WHILE-REVALIDATE FOR API =============
 // Strategy: Return cached response immediately, then update cache in background
 
@@ -113,23 +124,20 @@ async function staleWhileRevalidate(request: Request, cacheName: string): Promis
   const cache = await caches.open(cacheName);
   const cachedResponse = await cache.match(request);
   
-  // Start network request in background
-  const networkPromise = fetch(request).then(async (networkResponse) => {
+  // Start network request in background with timeout
+  const networkPromise = fetchWithTimeout(request, 5000).then(async (networkResponse) => {
     if (networkResponse.ok) {
-      // Clone and add cache timestamp
       const responseToCache = addCacheHeaders(networkResponse.clone());
       await cache.put(request, responseToCache);
-      console.log('[SW] API cache updated:', request.url.substring(0, 60));
     }
     return networkResponse;
   }).catch((error) => {
-    console.warn('[SW] Network request failed:', request.url.substring(0, 60), error);
+    console.warn('[SW] Network request failed:', request.url.substring(0, 60), error?.name);
     return null;
   });
 
   // If we have cached response, return it immediately
   if (cachedResponse) {
-    console.log('[SW] API cache hit (stale-while-revalidate):', request.url.substring(0, 60));
     // Don't await - let it update in background
     networkPromise.catch(() => {});
     return cachedResponse;
@@ -152,7 +160,7 @@ async function staleWhileRevalidate(request: Request, cacheName: string): Promis
 // ============= NETWORK-FIRST FOR STATIC ASSETS =============
 async function networkFirst(request: Request, cacheName: string): Promise<Response> {
   try {
-    const networkResponse = await fetch(request);
+    const networkResponse = await fetchWithTimeout(request, 5000);
     if (networkResponse.ok) {
       const cache = await caches.open(cacheName);
       const responseToCache = addCacheHeaders(networkResponse.clone());
@@ -163,7 +171,6 @@ async function networkFirst(request: Request, cacheName: string): Promise<Respon
     const cache = await caches.open(cacheName);
     const cachedResponse = await cache.match(request);
     if (cachedResponse) {
-      console.log('[SW] Static cache hit (offline):', request.url.substring(0, 60));
       return cachedResponse;
     }
     throw error;
@@ -176,19 +183,17 @@ async function cacheFirstImages(request: Request): Promise<Response> {
   const cachedResponse = await cache.match(request);
   
   if (cachedResponse) {
-    console.log('[SW] Image cache hit:', request.url.substring(0, 50));
     return cachedResponse;
   }
 
   try {
-    const networkResponse = await fetch(request);
+    const networkResponse = await fetchWithTimeout(request, 5000);
     if (networkResponse.ok) {
       cache.put(request, networkResponse.clone());
-      console.log('[SW] Image cached from network:', request.url.substring(0, 50));
     }
     return networkResponse;
   } catch (error) {
-    console.warn('[SW] Image fetch failed:', request.url.substring(0, 50), error);
+    console.warn('[SW] Image fetch failed:', request.url.substring(0, 50));
     return new Response('Image not available offline', {
       status: 503,
       statusText: 'Service Unavailable',
@@ -405,13 +410,11 @@ self.addEventListener('notificationclick', (event) => {
 
 // ============= NOTIFICATION CLOSE =============
 self.addEventListener('notificationclose', () => {
-  console.log('[SW] Notification closed');
+  // Notification dismissed
 });
 
 // ============= MESSAGE HANDLER =============
 self.addEventListener('message', (event) => {
-  console.log('[SW] Message received:', event.data);
-  
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
