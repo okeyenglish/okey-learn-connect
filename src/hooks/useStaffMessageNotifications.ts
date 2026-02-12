@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from '@/hooks/useAuth';
+import { useQueryClient } from '@tanstack/react-query';
 import { playNotificationSound } from '@/hooks/useNotificationSound';
 import { showBrowserNotification } from '@/hooks/useBrowserNotifications';
 import { showChatBubbleNotification } from '@/components/ai-hub/ChatBubbleNotification';
@@ -25,6 +26,7 @@ interface StaffMessageNotificationsOptions {
 export const useStaffMessageNotifications = (options: StaffMessageNotificationsOptions = {}) => {
   const { onOpenChat, enabled = true } = options;
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const lastNotifiedRef = useRef<string | null>(null);
   const profileCacheRef = useRef<Map<string, { firstName?: string; lastName?: string }>>(new Map());
 
@@ -98,6 +100,11 @@ export const useStaffMessageNotifications = (options: StaffMessageNotificationsO
           // For now, assume any group message is relevant (will be filtered by permissions)
           if (!isDirectToMe && !isGroupMessage) return;
           if (newMessage.sender_id === user.id) return;
+
+          // Invalidate preview caches so chat list updates in real-time
+          queryClient.invalidateQueries({ queryKey: ['staff-conversation-previews'] });
+          queryClient.invalidateQueries({ queryKey: ['staff-group-previews'] });
+          queryClient.invalidateQueries({ queryKey: ['staff-unread-count'] });
 
           // Suppress notification if this chat is already open
           const activeChatOS = getActiveChatOS();
