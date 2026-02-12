@@ -70,6 +70,7 @@ import { FileUpload, FileUploadRef } from '@/components/crm/FileUpload';
 import VoiceAssistant from '@/components/VoiceAssistant';
 import { usePersistedSections } from '@/hooks/usePersistedSections';
 import { useStaffOnlinePresence, type OnlineUser } from '@/hooks/useStaffOnlinePresence';
+import { setActiveChatOS } from '@/lib/activeChatOSStore';
 
 interface AIHubInlineProps {
   context?: {
@@ -251,6 +252,16 @@ export const AIHubInline = ({
   onOpenScripts
 }: AIHubInlineProps) => {
   const [activeChat, setActiveChat] = useState<ChatItem | null>(null);
+
+  // Sync active chat to global store for notification suppression
+  useEffect(() => {
+    if (activeChat && (activeChat.type === 'staff' || activeChat.type === 'group')) {
+      setActiveChatOS(activeChat.type, activeChat.id);
+    } else {
+      setActiveChatOS(null, null);
+    }
+    return () => setActiveChatOS(null, null);
+  }, [activeChat]);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
   const [isProcessing, setIsProcessing] = useState(false);
