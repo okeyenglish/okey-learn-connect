@@ -853,7 +853,7 @@ export const ChatArea = ({
     // Get avatar based on messenger type, with fallback chain
     // Self-hosted schema only has avatar_url (no messenger-specific avatars)
     clientAvatar: msg.clients?.avatar_url || null,
-    managerName: msg.sender_name || managerName,
+    managerName: msg.sender_name || 'Менеджер поддержки',
     fileUrl: msg.file_url,
     fileName: msg.file_name,
     fileType: msg.file_type || msg.media_type,
