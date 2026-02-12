@@ -20,12 +20,16 @@ export const useWhatsAppFile = () => {
         .single();
 
       const provider = settingsData?.provider || 'greenapi';
-      const functionName = provider === 'wpp' ? 'wpp-download' : 'download-whatsapp-file';
+      const functionName = provider === 'wpp' 
+        ? 'wpp-download' 
+        : provider === 'wappi' 
+          ? 'wappi-whatsapp-download' 
+          : 'download-whatsapp-file';
 
       // Use organization_id from profile via AuthProvider
       const organizationId = (profile as any)?.organization_id;
 
-      const body = provider === 'wpp' 
+      const body = (provider === 'wpp' || provider === 'wappi')
         ? { messageId, organizationId }
         : { chatId, idMessage: messageId };
 
