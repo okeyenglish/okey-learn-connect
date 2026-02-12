@@ -463,9 +463,11 @@ export const AIHub = ({
 
     if (targetChat) {
       setActiveChat(targetChat);
+      // Invalidate messages cache so latest messages are fetched
+      queryClient.invalidateQueries({ queryKey: ['staff-direct-messages', initialStaffUserId] });
       onClearInitialStaffUserId?.();
     }
-  }, [initialStaffUserId, isOpen, staffChatItems, teacherChatItems, onClearInitialStaffUserId]);
+  }, [initialStaffUserId, isOpen, staffChatItems, teacherChatItems, onClearInitialStaffUserId, queryClient]);
 
   // Auto-open group chat when initialGroupChatId is provided
   useEffect(() => {
@@ -478,9 +480,11 @@ export const AIHub = ({
 
     if (targetGroup) {
       setActiveChat(targetGroup);
+      // Invalidate messages cache so latest messages are fetched
+      queryClient.invalidateQueries({ queryKey: ['staff-group-messages', initialGroupChatId] });
       onClearInitialGroupChatId?.();
     }
-  }, [initialGroupChatId, isOpen, groupChatItems, onClearInitialGroupChatId]);
+  }, [initialGroupChatId, isOpen, groupChatItems, onClearInitialGroupChatId, queryClient]);
 
   // Auto-scroll
   useEffect(() => {
@@ -490,7 +494,7 @@ export const AIHub = ({
         if (viewport) {
           viewport.scrollTop = viewport.scrollHeight;
         }
-      }, 100);
+      }, 200);
     }
   }, [messages, activeChat, staffDirectMessages, staffGroupMessages]);
 
