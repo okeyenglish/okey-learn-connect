@@ -1,101 +1,63 @@
 
+# Teacher Display ID (T-номер)
 
-## Авто-реактивация и склейка клиентов при входящем сообщении
+## Что будет сделано
 
-### Проблема
+Добавим уникальный отображаемый ID для преподавателей в формате `#T00001`, аналогично клиентам (`#C99746`) и ученикам. Этот номер будет автоматически генерироваться при создании записи преподавателя и отображаться в профиле преподавателя рядом с ФИО.
 
-Когда деактивированный клиент пишет в Telegram, вебхук находит его неактивную запись и сохраняет сообщение туда. Клиент не виден в списке чатов (`is_active = false`). Если при этом существует активный дубликат с тем же `telegram_user_id` -- данные разъезжаются.
+## Шаги реализации
 
-### Решение
+### 1. Миграция базы данных
+- Добавить колонку `teacher_number` (text, nullable) в таблицу `teachers`
+- Создать функцию `generate_teacher_number()` по аналогии с `generate_client_number()` -- формат `T` + порядковый номер (например, `T00001`)
+- Создать триггер на INSERT, который автоматически заполняет `teacher_number`
+- Заполнить `teacher_number` для всех существующих преподавателей
 
-Единая логика приоритизации во всех трёх точках поиска клиентов:
+### 2. Отображение в профиле преподавателя
+- В файле `src/components/teacher/TeacherProfile.tsx` добавить отображение `#T00001` рядом с ФИО в секции "Основная информация"
+- Стиль: моноширинный шрифт, приглушённый цвет, как у клиентских номеров
 
-```text
-1. Ищем АКТИВНОГО клиента по telegram_user_id/chat_id
-   -> Найден? Используем его.
-2. Ищем ЛЮБОГО клиента (включая неактивных)
-   -> Найден неактивный?
-      -> Есть активный дубликат (по телефону/имени)?
-         -> Да: склеиваем (mergeClients), используем активного
-         -> Нет: реактивируем (is_active = true)
-3. Не найден -> создаём нового
-```
+### 3. Обновление типов
+- Добавить поле `teacher_number` в интерфейс `Teacher` в хуке `useTeachers`
 
-### Затрагиваемые файлы и изменения
+---
 
-#### 1. `supabase/functions/telegram-webhook/index.ts` -- `findOrCreateClient` (строки 1052-1070)
+### Технические детали
 
-После вызова RPC `find_or_create_telegram_client` добавить проверку: если вернулся клиент с `is_active = false`, проверить наличие активного дубликата и либо склеить, либо реактивировать.
-
-#### 2. `supabase/functions/telegram-webhook/index.ts` -- `findOrCreateClientLegacy` (строки 1143-1155)
-
-В поиске по `telegram_chat_id` добавить приоритизацию:
-- Сначала искать с `.eq('is_active', true)`
-- Если не найден -- искать без фильтра
-- Найден неактивный: проверить есть ли активный дубликат -> склеить или реактивировать
-
-#### 3. `supabase/functions/telegram-webhook/index.ts` -- `handleOutgoingMessage` (строки 693-698)
-
-Добавить `.eq('is_active', true)` в первый запрос. Если не найден -- fallback без фильтра с реактивацией.
-
-#### 4. SQL-миграция для RPC `find_or_create_telegram_client`
-
-Обновить RPC-функцию на self-hosted:
-- Шаг 1: искать с `AND is_active = true`
-- Шаг 2: если не найден -- искать без фильтра `is_active`
-- Шаг 3: если найден неактивный -- проверить наличие активного дубликата по телефону
-  - Есть активный дубликат: перенести `telegram_user_id` на активного, деактивировать старого
-  - Нет активного дубликата: реактивировать (`UPDATE is_active = true`)
-
-#### 5. Логика склейки в `mergeClients` (строки 962-1003)
-
-Существующая функция `mergeClients` уже переносит сообщения и деактивирует дубликат. Нужно дополнить:
-- Также переносить `telegram_user_id` и `telegram_chat_id`
-- Обновить `is_active = false` (сейчас обновляет только `status = 'merged'`)
-- Перенести `family_members` связи
-
-### Пример изменения в `findOrCreateClient`
-
-После получения `clientId` из RPC, перед return:
+**SQL миграция:**
 
 ```text
-// Проверяем is_active
-const { data: clientRow } = await supabase
-  .from('clients')
-  .select('id, is_active, phone, name')
-  .eq('id', clientId)
-  .single();
+-- Колонка
+ALTER TABLE teachers ADD COLUMN teacher_number text;
 
-if (clientRow && !clientRow.is_active) {
-  // Ищем активного дубликата
-  const { data: activedup } = await supabase
-    .from('clients')
-    .select('id')
-    .eq('organization_id', organizationId)
-    .eq('is_active', true)
-    .or(`telegram_user_id.eq.${telegramUserId},...phone filter...`)
-    .neq('id', clientId)
-    .limit(1);
+-- Функция генерации
+CREATE OR REPLACE FUNCTION generate_teacher_number()
+RETURNS TRIGGER AS $$
+DECLARE next_num integer;
+BEGIN
+  SELECT COALESCE(MAX(CAST(SUBSTRING(teacher_number FROM '[0-9]+$') AS integer)), 0) + 1
+  INTO next_num FROM teachers WHERE organization_id = NEW.organization_id;
+  NEW.teacher_number := 'T' || LPAD(next_num::text, 5, '0');
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
-  if (activedup && activedup.length > 0) {
-    // Склеиваем: переносим сообщения на активного
-    await mergeClients(supabase, activedup[0].id, clientId, ...);
-    clientId = activedup[0].id;
-  } else {
-    // Реактивируем
-    await supabase.from('clients')
-      .update({ is_active: true })
-      .eq('id', clientId);
-  }
-}
+-- Триггер
+CREATE TRIGGER set_teacher_number
+BEFORE INSERT ON teachers
+FOR EACH ROW WHEN (NEW.teacher_number IS NULL)
+EXECUTE FUNCTION generate_teacher_number();
+
+-- Заполнение существующих
+WITH numbered AS (
+  SELECT id, organization_id,
+    ROW_NUMBER() OVER (PARTITION BY organization_id ORDER BY created_at) as rn
+  FROM teachers WHERE teacher_number IS NULL
+)
+UPDATE teachers SET teacher_number = 'T' || LPAD(numbered.rn::text, 5, '0')
+FROM numbered WHERE teachers.id = numbered.id;
 ```
 
-### Порядок реализации
-
-1. Обновить `findOrCreateClient` -- добавить проверку `is_active` после RPC
-2. Обновить `findOrCreateClientLegacy` -- приоритизация активных
-3. Обновить `handleOutgoingMessage` -- фильтр `is_active = true`
-4. Дополнить `mergeClients` -- полная деактивация дубликата
-5. SQL-миграция для RPC `find_or_create_telegram_client`
-6. Деплой `telegram-webhook`
-
+**UI изменения в TeacherProfile.tsx:**
+- Под заголовком "Профиль преподавателя" добавить Badge с номером `#T00001`
+- Использовать иконку `IdCard` (уже импортирована)
