@@ -821,7 +821,8 @@ Deno.serve(async (req) => {
     const response: TelegramSendResponse = { 
       success: true, 
       messageId: sendResult.messageId,
-      savedMessageId: savedMessage?.id
+      savedMessageId: savedMessage?.id,
+      integrationId: integration?.id || resolvedIntegrationId || 'unknown',
     };
 
     return new Response(
