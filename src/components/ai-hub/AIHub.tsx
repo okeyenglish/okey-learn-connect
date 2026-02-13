@@ -48,9 +48,11 @@ import {
   Trash2,
   ImageIcon,
   UserRound,
-  Forward
+  Forward,
+  Zap
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { QuickResponsesModal } from '@/components/crm/QuickResponsesModal';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useAuth } from '@/hooks/useAuth';
 import { isAdmin } from '@/lib/permissions';
@@ -224,6 +226,7 @@ export const AIHub = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [teacherClientId, setTeacherClientId] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<{ url: string; name: string; type: string } | null>(null);
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [showMembersDialog, setShowMembersDialog] = useState(false);
   const [forwardingMessage, setForwardingMessage] = useState<{ id: string; content: string; senderName: string; chatName: string } | null>(null);
@@ -1462,14 +1465,24 @@ export const AIHub = ({
                   maxSize={10}
                 />
               )}
+              {/* Quick replies button */}
+              {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 h-10 w-10 rounded-full"
+                  onClick={() => setShowQuickReplies(true)}
+                  title="Быстрые ответы"
+                >
+                  <Zap className="h-4 w-4" />
+                </Button>
+              )}
               <textarea
                 value={message}
                 onChange={(e) => {
                   setMessage(e.target.value);
-                  // Auto-resize
                   e.target.style.height = 'auto';
                   e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-                  // Mention detection for group chats
                   if (activeChat.type === 'group') {
                     handleMentionChange(e.target.value, e.target.selectionStart || 0);
                   }
@@ -1483,7 +1496,7 @@ export const AIHub = ({
                 }}
                 onKeyDown={(e) => {
                   if (mentionActive && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Escape')) {
-                    return; // Let MentionPicker handle these keys
+                    return;
                   }
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -1514,6 +1527,13 @@ export const AIHub = ({
               </Button>
             </div>
           </div>
+          
+          {/* Quick Replies Modal */}
+          <QuickResponsesModal
+            open={showQuickReplies}
+            onOpenChange={setShowQuickReplies}
+            onSelectResponse={(text) => setMessage(prev => prev ? prev + ' ' + text : text)}
+          />
         </SheetContent>
         
         {/* Image lightbox modal */}
