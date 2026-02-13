@@ -653,16 +653,18 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     }
 
     return (
-      <ChatArea
-        clientId={resolvedClientId}
-        clientName={clientName}
-        clientPhone={clientPhone}
-        clientTelegramUserId={teacherLinkedTelegramUserId}
-        messagesSource="teacher"
-        onBackToList={() => onSelectTeacher(null)}
-        managerName="Вы"
-        simplifiedToolbar={true}
-      />
+      <div className="flex flex-col h-full w-full min-h-0 overflow-hidden">
+        <ChatArea
+          clientId={resolvedClientId}
+          clientName={clientName}
+          clientPhone={clientPhone}
+          clientTelegramUserId={teacherLinkedTelegramUserId}
+          messagesSource="teacher"
+          onBackToList={() => onSelectTeacher(null)}
+          managerName="Вы"
+          simplifiedToolbar={true}
+        />
+      </div>
     );
   }
 
