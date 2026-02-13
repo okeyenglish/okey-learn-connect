@@ -1036,7 +1036,7 @@ export const AIHubInline = ({
         )}
 
         <ScrollArea ref={scrollAreaRef} className="flex-1 overflow-auto">
-          <div className="space-y-3 p-4 pb-24">
+          <div className="space-y-0.5 p-4 pb-24">
             {isLoading ? (
               <div className="text-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
@@ -1049,9 +1049,13 @@ export const AIHubInline = ({
                 </p>
               </div>
             ) : (
-              filteredMessages.map((msg) => {
+              filteredMessages.map((msg, idx) => {
                 const isOwn = msg.type === 'user';
                 const isStaffChat = activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group';
+                const prevMsg = idx > 0 ? filteredMessages[idx - 1] : null;
+                const nextMsg = idx < filteredMessages.length - 1 ? filteredMessages[idx + 1] : null;
+                const isFirstInGroup = !prevMsg || prevMsg.type !== msg.type;
+                const isLastInGroup = !nextMsg || nextMsg.type !== msg.type;
                 return (
                 <MessageContextMenu
                   key={msg.id}
@@ -1062,7 +1066,19 @@ export const AIHubInline = ({
                   onDelete={isOwn ? () => { if (confirm('Удалить сообщение?')) deleteStaffMessage.mutate(msg.id); } : undefined}
                   onForward={() => setForwardingMessage({ id: msg.id, content: msg.content, senderName: msg.sender || (isOwn ? 'Вы' : 'Коллега'), chatName: activeChat.name })}
                 >
-                <div className={`group flex items-end gap-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                <div className={`group flex items-end gap-1.5 ${isOwn ? 'justify-end' : 'justify-start'} ${isLastInGroup ? 'mb-3' : 'mb-0.5'}`}>
+                  {/* Avatar for incoming messages - only on last in group */}
+                  {!isOwn && isStaffChat && (
+                    <div className="w-7 shrink-0">
+                      {isLastInGroup && (
+                        <Avatar className="h-7 w-7">
+                          <AvatarFallback className={`${activeChat.iconBg} text-[10px]`}>
+                            {msg.sender ? msg.sender.charAt(0).toUpperCase() : <activeChat.icon className={`h-3.5 w-3.5 ${activeChat.iconColor}`} />}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                    </div>
+                  )}
                   {/* Action buttons for own messages - desktop only */}
                   {!isMobile && isOwn && !msg.is_deleted && isStaffChat && (
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
@@ -1089,18 +1105,28 @@ export const AIHubInline = ({
                       </button>
                     </div>
                   )}
-                  <div className={`max-w-[85%] flex flex-col ${msg.type === 'user' ? 'items-end' : 'items-start'} relative`}>
+                  <div className={`max-w-[75%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col relative`}>
                     {msg.is_deleted ? (
-                      /* Deleted message */
-                      <div className={`rounded-2xl px-4 py-2.5 ${msg.type === 'user' ? 'bg-primary/50 text-primary-foreground/70' : 'bg-muted/50'}`}>
-                        <p className="text-sm italic opacity-70">Сообщение удалено</p>
-                        <div className={`flex items-center gap-1 text-[10px] mt-1 ${msg.type === 'user' ? 'text-primary-foreground/40 justify-end' : 'text-muted-foreground/60'}`}>
-                          <span>{msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
+                      <div className={`relative px-3 py-1.5 ${
+                        isOwn 
+                          ? `bg-primary/50 text-primary-foreground/70 ${isLastInGroup ? 'rounded-2xl rounded-br-md' : 'rounded-2xl'}` 
+                          : `bg-muted/50 ${isLastInGroup ? 'rounded-2xl rounded-bl-md' : 'rounded-2xl'}`
+                      }`}>
+                        <div className="flex items-end gap-2">
+                          <p className="text-[13.5px] leading-[18px] italic opacity-70">Сообщение удалено</p>
+                          <span className={`text-[10px] leading-[14px] shrink-0 self-end translate-y-[1px] ${
+                            isOwn ? 'text-primary-foreground/40' : 'text-muted-foreground/60'
+                          }`}>
+                            {msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
                         </div>
                       </div>
                     ) : editingMessage?.id === msg.id ? (
-                      /* Editing mode */
-                      <div className={`rounded-2xl px-4 py-2.5 ${msg.type === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                      <div className={`relative px-3 py-1.5 ${
+                        isOwn 
+                          ? `bg-primary text-primary-foreground ${isLastInGroup ? 'rounded-2xl rounded-br-md' : 'rounded-2xl'}` 
+                          : `bg-muted ${isLastInGroup ? 'rounded-2xl rounded-bl-md' : 'rounded-2xl'}`
+                      }`}>
                         <textarea
                           value={editText}
                           onChange={(e) => setEditText(e.target.value)}
@@ -1114,13 +1140,13 @@ export const AIHubInline = ({
                             }
                             if (e.key === 'Escape') setEditingMessage(null);
                           }}
-                          className="w-full bg-transparent text-sm resize-none outline-none min-h-[24px]"
+                          className="w-full bg-transparent text-[13.5px] leading-[18px] resize-none outline-none min-h-[24px]"
                           autoFocus
                           rows={1}
                         />
                         <div className="flex items-center gap-1 mt-1">
                           <button
-                            className={`text-[10px] px-2 py-0.5 rounded ${msg.type === 'user' ? 'bg-primary-foreground/20 hover:bg-primary-foreground/30' : 'bg-primary/10 hover:bg-primary/20'}`}
+                            className={`text-[10px] px-2 py-0.5 rounded ${isOwn ? 'bg-primary-foreground/20 hover:bg-primary-foreground/30' : 'bg-primary/10 hover:bg-primary/20'}`}
                             onClick={() => {
                               if (editText.trim()) {
                                 editStaffMessage.mutate({ messageId: msg.id, newText: editText.trim() });
@@ -1131,7 +1157,7 @@ export const AIHubInline = ({
                             Сохранить
                           </button>
                           <button
-                            className={`text-[10px] px-2 py-0.5 rounded ${msg.type === 'user' ? 'text-primary-foreground/60 hover:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                            className={`text-[10px] px-2 py-0.5 rounded ${isOwn ? 'text-primary-foreground/60 hover:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                             onClick={() => setEditingMessage(null)}
                           >
                             Отмена
@@ -1139,12 +1165,16 @@ export const AIHubInline = ({
                         </div>
                       </div>
                     ) : (
-                      <div className={`rounded-2xl px-4 py-2.5 ${msg.type === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                    {msg.sender && msg.type !== 'user' && <p className="text-xs font-medium mb-1 opacity-70">{msg.sender}</p>}
+                      <div className={`relative px-3 py-1.5 ${
+                        isOwn 
+                          ? `bg-primary text-primary-foreground ${isLastInGroup ? 'rounded-2xl rounded-br-md' : 'rounded-2xl'}` 
+                          : `bg-muted ${isLastInGroup ? 'rounded-2xl rounded-bl-md' : 'rounded-2xl'}`
+                      }`}>
+                    {msg.sender && !isOwn && isFirstInGroup && <p className="text-xs font-medium mb-0.5 opacity-70">{msg.sender}</p>}
                     
                     {/* File attachment */}
                     {msg.file_url && (
-                      <div className="mb-2">
+                      <div className="mb-1.5">
                         {msg.file_type?.startsWith('image/') ? (
                           <a href={msg.file_url} target="_blank" rel="noopener noreferrer">
                             <img 
@@ -1169,13 +1199,13 @@ export const AIHubInline = ({
                     )}
                     
                     {isClientCardMessage(msg.content, msg.message_type) ? (
-                      <ClientCardBubble content={msg.content} isOwn={msg.type === 'user'} onOpenChat={onOpenChat} />
+                      <ClientCardBubble content={msg.content} isOwn={isOwn} onOpenChat={onOpenChat} />
                     ) : isForwardedMessage(msg.content, msg.message_type) ? (
-                      <ForwardedMessageBubble content={msg.content} isOwn={msg.type === 'user'} onOpenChat={onOpenChat} />
+                      <ForwardedMessageBubble content={msg.content} isOwn={isOwn} onOpenChat={onOpenChat} />
                     ) : isStaffForwardedMessage(msg.content, msg.message_type) ? (
-                      <StaffForwardedBubble content={msg.content} isOwn={msg.type === 'user'} />
+                      <StaffForwardedBubble content={msg.content} isOwn={isOwn} />
                     ) : msg.content ? (
-                      <p className="text-sm whitespace-pre-wrap">{renderMentionText(msg.content, (userId) => {
+                      <p className="text-[13.5px] leading-[18px] whitespace-pre-wrap">{renderMentionText(msg.content, (userId) => {
                         const staff = (staffMembers || []).find(s => s.id === userId);
                         if (staff) {
                           setActiveChat({
@@ -1191,10 +1221,10 @@ export const AIHubInline = ({
                         }
                       }, (text) => highlightText(text, chatSearchQuery))}</p>
                     ) : null}
-                    <div className={`flex items-center gap-1 text-[10px] mt-1 ${msg.type === 'user' ? 'text-primary-foreground/70 justify-end' : 'text-muted-foreground'}`}>
+                    <div className={`flex items-center gap-1 text-[10px] mt-0.5 ${isOwn ? 'text-primary-foreground/70 justify-end' : 'text-muted-foreground'}`}>
                       {msg.is_edited && <span className="mr-0.5">ред.</span>}
                       <span>{msg.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
-                      {msg.type === 'user' && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
+                      {isOwn && isStaffChat && (
                         msg.is_read 
                           ? <CheckCheck className="h-3 w-3 text-blue-400" />
                           : <Check className="h-3 w-3" />
