@@ -1853,6 +1853,11 @@ export const ChatArea = ({
 
       if (clientError) throw clientError;
 
+      // Compute sender name from auth profile
+      const senderName = authProfile
+        ? [((authProfile as any).first_name), ((authProfile as any).last_name)].filter(Boolean).join(' ') || 'Менеджер поддержки'
+        : 'Менеджер поддержки';
+
       // Also add comment as a chat message
       const { error: messageError } = await supabase
         .from('chat_messages')
@@ -1861,6 +1866,8 @@ export const ChatArea = ({
           message_text: commentText,
           message_type: 'comment',
           is_outgoing: true,
+          sender_name: senderName,
+          sender_id: authUser?.id || null,
           messenger_type: activeMessengerTab === 'chatos' ? 'whatsapp' : activeMessengerTab
         }]);
 
