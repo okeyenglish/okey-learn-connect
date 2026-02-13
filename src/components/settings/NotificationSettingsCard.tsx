@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
-import { Bell, Volume2, Vibrate, PhoneMissed } from 'lucide-react';
+import { Bell, Volume2, Vibrate, PhoneMissed, Timer } from 'lucide-react';
 import { useNotificationSettings } from '@/hooks/useNotificationSettings';
 
 export const NotificationSettingsCard = () => {
@@ -12,7 +12,8 @@ export const NotificationSettingsCard = () => {
     toggleSound, 
     setVolume, 
     toggleVibration,
-    toggleMissedCallNotifications 
+    toggleMissedCallNotifications,
+    saveSettings,
   } = useNotificationSettings();
 
   if (!isLoaded) {
@@ -97,6 +98,24 @@ export const NotificationSettingsCard = () => {
             id="missed-call-enabled"
             checked={settings.missedCallNotificationsEnabled}
             onCheckedChange={toggleMissedCallNotifications}
+          />
+        </div>
+
+        {/* Send delay */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Timer className="h-4 w-4 text-muted-foreground" />
+            <div>
+              <Label htmlFor="send-delay-enabled">Задержка отправки</Label>
+              <p className="text-sm text-muted-foreground">
+                5-секундная задержка перед отправкой с возможностью отмены
+              </p>
+            </div>
+          </div>
+          <Switch
+            id="send-delay-enabled"
+            checked={settings.sendDelayEnabled}
+            onCheckedChange={() => saveSettings({ sendDelayEnabled: !settings.sendDelayEnabled })}
           />
         </div>
       </CardContent>
