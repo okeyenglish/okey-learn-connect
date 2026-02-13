@@ -1320,7 +1320,7 @@ export const AIHubInline = ({
               onBlur={() => { if (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') stopTyping(); }}
               placeholder={getCurrentPlaceholder()}
               disabled={isProcessing || isRecording}
-              className="w-full min-h-[48px] max-h-[120px] resize-none text-base rounded-xl border border-input bg-background px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full min-h-[36px] max-h-[120px] resize-none text-sm rounded-xl border border-input bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
               rows={1}
             />
           </div>
