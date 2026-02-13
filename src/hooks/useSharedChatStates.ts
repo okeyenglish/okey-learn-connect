@@ -161,7 +161,7 @@ export const useSharedChatStates = (chatIds: string[] = []) => {
         };
       });
 
-      setSharedStates(chatStatesMap);
+      setSharedStates(prev => ({ ...prev, ...chatStatesMap }));
     } catch (error) {
       console.error('Error in fetchSharedStates:', error);
     } finally {
