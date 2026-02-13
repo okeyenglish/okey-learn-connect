@@ -1385,7 +1385,7 @@ export const AIHubInline = ({
   // Main chat list - matching client/teacher list design
   return (
     <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-background max-w-full box-border relative">
-      <ChatBubbleNotification />
+      {/* No banner notifications on ChatOS list - unread counts are visible directly */}
       {/* Search bar and branch filter */}
       <div className="p-2 border-b shrink-0 space-y-2 max-w-full overflow-hidden">
         <div className="relative">
