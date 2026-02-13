@@ -1,35 +1,96 @@
 
+# Диагностика и исправление Telegram BOT и удаления интеграций
 
-## Исправление перемешивания имён менеджеров
+## Проблемы
 
-### Корневая причина
+1. **Telegram BOT не отправляет сообщения** -- входящие вебхуки приходят, но отправка обратно не работает
+2. **Невозможно удалить "okeyenglish bot"** -- сервер недоступен при попытке удаления
 
-На self-hosted базе колонка `sender_name` в таблице `chat_messages` может отсутствовать. При вставке сообщения:
-- Функции `whatsapp-send` и `wappi-whatsapp-send` передают `sender_name: payload.senderName`, но **НЕ дублируют** имя в поле `metadata`
-- Self-hosted PostgREST молча игнорирует несуществующую колонку
-- Имя менеджера теряется, и UI показывает "Менеджер поддержки" или подставляет имя от другого сообщения
+## Анализ причин
 
-Другие функции (`wpp-send`, `telegram-send`, `max-send`, `telegram-crm-send`) уже имеют дублирование в `metadata: { sender_name: ... }` -- поэтому там проблема не возникает.
+### Проблема 1: BOT не отправляет
 
-### Решение
+Функция `telegram-send` использует **Wappi API** (`/tapi/sync/message/send`) для отправки. Этот эндпоинт одинаков для личных аккаунтов и ботов. Однако есть несколько потенциальных проблем:
 
-#### 1. `supabase/functions/whatsapp-send/index.ts`
+- **Wappi API может возвращать HTML вместо JSON** (ошибка авторизации, таймаут, rate-limiting), что приводит к крашу парсинга ответа
+- **Ответ Wappi API не валидируется** на Content-Type перед парсингом -- если API вернет HTML (например, страницу авторизации или 502), `response.json()` упадет с ошибкой, но сообщение об ошибке будет неинформативным
+- **Нет диагностического инструмента** -- невозможно понять, что именно отвечает Wappi на запрос отправки
 
-Добавить `metadata: { sender_name: payload.senderName || null }` в insert-запрос, аналогично тому как это уже сделано в `wpp-send` и `telegram-send`.
+### Проблема 2: Невозможно удалить интеграцию
 
-#### 2. `supabase/functions/wappi-whatsapp-send/index.ts`
+- Удаление идет через `selfHostedDelete('messenger-integrations?id=XXX')` на self-hosted сервер
+- При сетевой ошибке или таймауте пользователь видит неинформативное "Ошибка" без деталей
+- Нет повторных попыток для DELETE-операций
 
-Аналогично добавить `metadata: { sender_name: body.senderName || null }` в insert-запрос.
+## План исправлений
 
-### Что это даст
+### Шаг 1: Улучшить обработку ответов Wappi API в `telegram-send`
 
-- Имя менеджера будет всегда сохранено в `metadata.sender_name` даже если колонка `sender_name` отсутствует
-- UI уже умеет читать из `metadata.sender_name` (строка 860 в ChatArea.tsx): `msg.sender_name || (meta as any)?.sender_name || 'Менеджер поддержки'`
-- Новые сообщения будут корректно показывать имя отправившего менеджера
-- Старые сообщения без имени останутся как "Менеджер поддержки" (их данные уже утеряны)
+В `supabase/functions/telegram-send/index.ts` -- добавить валидацию Content-Type перед `response.json()` в функции `sendMessage`:
 
-### Файлы для изменения
+- Проверять `Content-Type` заголовок ответа
+- Если ответ не JSON (HTML, plain text) -- логировать первые 200 символов и возвращать понятную ошибку
+- Добавить логирование HTTP статуса и заголовков для диагностики
 
-- `supabase/functions/whatsapp-send/index.ts` -- добавить 1 строку metadata в insert
-- `supabase/functions/wappi-whatsapp-send/index.ts` -- добавить 1 строку metadata в insert
+### Шаг 2: Добавить кнопку "Тест отправки" для Telegram интеграций
 
+В `src/components/admin/integrations/TelegramIntegrations.tsx`:
+
+- Добавить пункт меню "Тестовая отправка" в выпадающее меню интеграции
+- При нажатии -- вызывать `selfHostedPost('telegram-send', { text: 'Тестовое сообщение', ... })` с тестовым получателем
+- Показывать результат (успех/ошибка с деталями) в toast-уведомлении
+
+### Шаг 3: Улучшить обработку ошибок удаления
+
+В `src/hooks/useMessengerIntegrations.ts`:
+
+- Добавить более детальное отображение ошибки при удалении (включая HTTP статус и текст ошибки)
+- Добавить таймаут для DELETE-запросов
+- Показывать конкретную причину ошибки (сервер недоступен, таймаут, авторизация)
+
+### Шаг 4: Добавить кнопку "Проверить подключение" для всех Wappi интеграций
+
+Расширить существующую кнопку "Проверить Webhook" для проверки не только вебхука, но и возможности отправки:
+
+- Вызвать Wappi API `/tapi/sync/get/status?profile_id=XXX` для проверки статуса профиля
+- Показать статус (online/offline/error) и детали
+
+## Технические детали
+
+### Изменения в `supabase/functions/telegram-send/index.ts`
+
+Функция `sendMessage` (строки 823-869) будет обновлена:
+
+```typescript
+// Перед response.json() добавить проверку Content-Type
+const contentType = response.headers.get('content-type') || '';
+if (!contentType.includes('application/json')) {
+  const textBody = await response.text().catch(() => '');
+  console.error(`[telegram-send] Wappi returned non-JSON (${contentType}):`, textBody.substring(0, 200));
+  return {
+    success: false,
+    error: `Wappi API вернул неожиданный формат (${response.status}). Возможно проблема с авторизацией или сервер Wappi недоступен.`,
+  };
+}
+```
+
+### Изменения в `src/hooks/useMessengerIntegrations.ts`
+
+Мутация `deleteMutation` будет обновлена для показа детальных ошибок:
+
+```typescript
+onError: (error: Error) => {
+  const isNetworkError = error.message.includes('fetch') || error.message.includes('network');
+  toast({
+    title: 'Ошибка удаления',
+    description: isNetworkError 
+      ? 'Сервер недоступен. Проверьте подключение и попробуйте позже.'
+      : error.message,
+    variant: 'destructive',
+  });
+}
+```
+
+### Изменения в `src/components/admin/integrations/TelegramIntegrations.tsx`
+
+Добавить кнопку проверки статуса профиля Wappi для диагностики проблем с BOT.
