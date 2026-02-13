@@ -31,8 +31,12 @@ import {
   MessageSquare,
   Copy,
   Users,
+  Globe,
+  Lock,
+  CheckCircle2,
+  User,
 } from 'lucide-react';
-import { useQuickResponses, CategoryWithResponses, QuickResponse, QuickResponseTarget } from '@/hooks/useQuickResponses';
+import { useQuickResponses, CategoryWithResponses, QuickResponse, QuickResponseTarget, QuickResponseScope } from '@/hooks/useQuickResponses';
 import {
   DndContext,
   closestCenter,
@@ -57,21 +61,25 @@ const SortableResponseItem = ({
   onEdit,
   onDelete,
   onDuplicate,
+  onApprove,
   isEditing,
   editText,
   onEditTextChange,
   onSaveEdit,
   onCancelEdit,
+  showScope = false,
 }: {
   response: QuickResponse;
   onEdit: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  onApprove?: () => void;
   isEditing: boolean;
   editText: string;
   onEditTextChange: (text: string) => void;
   onSaveEdit: () => void;
   onCancelEdit: () => void;
+  showScope?: boolean;
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: response.id,
@@ -112,8 +120,36 @@ const SortableResponseItem = ({
         </div>
       ) : (
         <>
-          <div className="flex-1 text-sm whitespace-pre-wrap">{response.text}</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm whitespace-pre-wrap">{response.text}</div>
+            {showScope && (
+              <div className="flex items-center gap-2 mt-1">
+                {response.scope === 'personal' ? (
+                  <Badge variant="outline" className="text-[10px] h-5 gap-1">
+                    <Lock className="h-2.5 w-2.5" />
+                    Личный
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="text-[10px] h-5 gap-1">
+                    <Globe className="h-2.5 w-2.5" />
+                    Общий
+                  </Badge>
+                )}
+                {response.created_by_name && (
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <User className="h-2.5 w-2.5" />
+                    {response.created_by_name}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+            {onApprove && response.scope === 'personal' && (
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-green-600 hover:text-green-700" onClick={onApprove} title="Одобрить в общие">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
             <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={onDuplicate} title="Дублировать">
               <Copy className="h-3.5 w-3.5" />
             </Button>
@@ -135,10 +171,12 @@ const SortableCategoryCard = ({
   category,
   isSelected,
   onClick,
+  showScope = false,
 }: {
   category: CategoryWithResponses;
   isSelected: boolean;
   onClick: () => void;
+  showScope?: boolean;
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: category.id,
@@ -168,10 +206,23 @@ const SortableCategoryCard = ({
         <GripVertical className="h-4 w-4" />
       </button>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{category.name}</p>
-        <p className="text-xs text-muted-foreground">
-          {category.responses.length} {category.responses.length === 1 ? 'шаблон' : 'шаблонов'}
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-medium truncate">{category.name}</p>
+          {showScope && category.scope === 'personal' && (
+            <Badge variant="outline" className="text-[10px] h-4 gap-0.5 flex-shrink-0">
+              <Lock className="h-2 w-2" />
+              Личный
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-muted-foreground">
+            {category.responses.length} {category.responses.length === 1 ? 'шаблон' : 'шаблонов'}
+          </p>
+          {showScope && category.created_by_name && (
+            <span className="text-[10px] text-muted-foreground">от {category.created_by_name}</span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -179,6 +230,7 @@ const SortableCategoryCard = ({
 
 export function QuickResponsesManager() {
   const [activeTab, setActiveTab] = useState<QuickResponseTarget>('clients');
+  const [viewMode, setViewMode] = useState<'global' | 'review'>('global');
 
   return (
     <div className="space-y-6">
@@ -188,41 +240,222 @@ export function QuickResponsesManager() {
           Быстрые ответы
         </h1>
         <p className="text-muted-foreground mt-1">
-          Управление шаблонами быстрых ответов для чатов. Доступны как из админ-панели, так и из поля ввода в чате.
+          Управление шаблонами быстрых ответов для чатов. Общие шаблоны видят все сотрудники.
         </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as QuickResponseTarget)}>
-        <TabsList>
-          <TabsTrigger value="clients">
-            <MessageSquare className="h-4 w-4 mr-1.5" />
-            Для клиентов
-          </TabsTrigger>
-          <TabsTrigger value="teachers">
-            <MessageSquare className="h-4 w-4 mr-1.5" />
-            Для преподавателей
-          </TabsTrigger>
-          <TabsTrigger value="staff">
-            <Users className="h-4 w-4 mr-1.5" />
-            Для сотрудников (ChatOS)
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <TabsList>
+            <TabsTrigger value="clients">
+              <MessageSquare className="h-4 w-4 mr-1.5" />
+              Для клиентов
+            </TabsTrigger>
+            <TabsTrigger value="teachers">
+              <MessageSquare className="h-4 w-4 mr-1.5" />
+              Для преподавателей
+            </TabsTrigger>
+            <TabsTrigger value="staff">
+              <Users className="h-4 w-4 mr-1.5" />
+              Для сотрудников
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="flex gap-2">
+            <Button
+              variant={viewMode === 'global' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('global')}
+              className="gap-1.5"
+            >
+              <Globe className="h-3.5 w-3.5" />
+              Общие шаблоны
+            </Button>
+            <Button
+              variant={viewMode === 'review' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('review')}
+              className="gap-1.5"
+            >
+              <Lock className="h-3.5 w-3.5" />
+              Личные сотрудников
+            </Button>
+          </div>
+        </div>
 
         <TabsContent value="clients" className="mt-4">
-          <QuickResponsesEditor target="clients" />
+          {viewMode === 'global' ? (
+            <QuickResponsesEditor target="clients" scope="global" />
+          ) : (
+            <PersonalReviewEditor target="clients" />
+          )}
         </TabsContent>
         <TabsContent value="teachers" className="mt-4">
-          <QuickResponsesEditor target="teachers" />
+          {viewMode === 'global' ? (
+            <QuickResponsesEditor target="teachers" scope="global" />
+          ) : (
+            <PersonalReviewEditor target="teachers" />
+          )}
         </TabsContent>
         <TabsContent value="staff" className="mt-4">
-          <QuickResponsesEditor target="staff" />
+          {viewMode === 'global' ? (
+            <QuickResponsesEditor target="staff" scope="global" />
+          ) : (
+            <PersonalReviewEditor target="staff" />
+          )}
         </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function QuickResponsesEditor({ target }: { target: QuickResponseTarget }) {
+/** Admin view for reviewing personal templates from staff */
+function PersonalReviewEditor({ target }: { target: QuickResponseTarget }) {
+  const {
+    categories,
+    isLoading,
+    approveToGlobal,
+    approveCategoryToGlobal,
+    deleteResponse,
+    deleteCategory,
+  } = useQuickResponses({ target, scope: 'all' });
+
+  const personalCategories = categories.filter(
+    c => c.scope === 'personal' || c.responses.some(r => r.scope === 'personal')
+  );
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">Загрузка...</span>
+      </div>
+    );
+  }
+
+  if (personalCategories.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12 space-y-3">
+          <Lock className="h-12 w-12 text-muted-foreground/50" />
+          <div className="text-center">
+            <h3 className="text-lg font-semibold">Нет личных шаблонов</h3>
+            <p className="text-muted-foreground text-sm mt-1">
+              Когда сотрудники создадут личные шаблоны, они появятся здесь для одобрения
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Lock className="h-4 w-4" />
+            Личные шаблоны сотрудников
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Одобрите шаблоны для переноса в общие или удалите ненужные
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="max-h-[65vh]">
+            <div className="space-y-4">
+              {personalCategories.map((category) => (
+                <div key={category.id} className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium text-sm">{category.name}</h4>
+                      {category.scope === 'personal' && (
+                        <Badge variant="outline" className="text-[10px] h-5 gap-1">
+                          <Lock className="h-2.5 w-2.5" />
+                          Личный раздел
+                        </Badge>
+                      )}
+                      {category.created_by_name && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          {category.created_by_name}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-1">
+                      {category.scope === 'personal' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1 text-green-600 border-green-200 hover:bg-green-50"
+                          onClick={() => approveCategoryToGlobal(category.id)}
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          Одобрить раздел
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 text-destructive"
+                        onClick={() => deleteCategory(category.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2 pl-2">
+                    {category.responses
+                      .filter(r => r.scope === 'personal')
+                      .map((response) => (
+                        <div key={response.id} className="flex items-start gap-2 p-2 bg-muted/30 rounded-md group">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm whitespace-pre-wrap">{response.text}</p>
+                            {response.created_by_name && (
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1">
+                                <User className="h-2.5 w-2.5" />
+                                {response.created_by_name}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-green-600 hover:text-green-700"
+                              onClick={() => approveToGlobal(response.id)}
+                              title="Одобрить в общие"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                              onClick={() => deleteResponse(response.id)}
+                              title="Удалить"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    {category.responses.filter(r => r.scope === 'personal').length === 0 && (
+                      <p className="text-xs text-muted-foreground py-2">Нет личных шаблонов в этом разделе</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function QuickResponsesEditor({ target, scope = 'global' }: { target: QuickResponseTarget; scope?: QuickResponseScope }) {
   const {
     categories,
     isLoading,
@@ -236,7 +469,7 @@ function QuickResponsesEditor({ target }: { target: QuickResponseTarget }) {
     importDefaultTemplates,
     reorderCategories,
     reorderResponses,
-  } = useQuickResponses({ target });
+  } = useQuickResponses({ target, scope });
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -255,7 +488,6 @@ function QuickResponsesEditor({ target }: { target: QuickResponseTarget }) {
 
   const selectedCategory = categories.find((c) => c.id === selectedCategoryId) || null;
 
-  // Auto-select first category
   React.useEffect(() => {
     if (!selectedCategoryId && categories.length > 0) {
       setSelectedCategoryId(categories[0].id);
@@ -264,7 +496,7 @@ function QuickResponsesEditor({ target }: { target: QuickResponseTarget }) {
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;
-    const cat = await addCategory(newCategoryName.trim());
+    const cat = await addCategory(newCategoryName.trim(), scope);
     if (cat) {
       setNewCategoryName('');
       setIsAddingCategory(false);
@@ -290,7 +522,7 @@ function QuickResponsesEditor({ target }: { target: QuickResponseTarget }) {
 
   const handleAddResponse = async () => {
     if (!selectedCategoryId || !newResponseText.trim()) return;
-    await addResponse(selectedCategoryId, newResponseText.trim());
+    await addResponse(selectedCategoryId, newResponseText.trim(), scope);
     setNewResponseText('');
   };
 
@@ -385,7 +617,13 @@ function QuickResponsesEditor({ target }: { target: QuickResponseTarget }) {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm">Разделы</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-1.5">
+              Разделы
+              <Badge variant="secondary" className="text-[10px] h-4 gap-0.5">
+                <Globe className="h-2 w-2" />
+                Общие
+              </Badge>
+            </CardTitle>
             <div className="flex gap-1">
               <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={importDefaultTemplates} disabled={isImporting} title="Импортировать стандартные">
                 {isImporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
