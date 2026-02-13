@@ -1,66 +1,101 @@
 
 
-## Исправление отправки через Telegram Bot (Wappi `/botapi/`)
+## Авто-реактивация и склейка клиентов при входящем сообщении
 
 ### Проблема
 
-Функция `telegram-send` использует эндпоинт `/tapi/sync/message/send` для всех Wappi-интеграций. Но для Telegram Bot профилей правильный эндпоинт -- `/botapi/message/send` (подтверждено техподдержкой Wappi). Из-за этого профиль `e1d32a13-5a40` (OkeyEnglishBot) получает `"Wrong platform"`.
+Когда деактивированный клиент пишет в Telegram, вебхук находит его неактивную запись и сохраняет сообщение туда. Клиент не виден в списке чатов (`is_active = false`). Если при этом существует активный дубликат с тем же `telegram_user_id` -- данные разъезжаются.
 
 ### Решение
 
-#### 1. Расширить `TelegramSettings` в `_shared/types.ts`
-
-Добавить необязательное поле `isBotProfile`:
+Единая логика приоритизации во всех трёх точках поиска клиентов:
 
 ```text
-export interface TelegramSettings {
-  profileId: string;
-  apiToken: string;
-  webhookUrl?: string;
-  isBotProfile?: boolean;
+1. Ищем АКТИВНОГО клиента по telegram_user_id/chat_id
+   -> Найден? Используем его.
+2. Ищем ЛЮБОГО клиента (включая неактивных)
+   -> Найден неактивный?
+      -> Есть активный дубликат (по телефону/имени)?
+         -> Да: склеиваем (mergeClients), используем активного
+         -> Нет: реактивируем (is_active = true)
+3. Не найден -> создаём нового
+```
+
+### Затрагиваемые файлы и изменения
+
+#### 1. `supabase/functions/telegram-webhook/index.ts` -- `findOrCreateClient` (строки 1052-1070)
+
+После вызова RPC `find_or_create_telegram_client` добавить проверку: если вернулся клиент с `is_active = false`, проверить наличие активного дубликата и либо склеить, либо реактивировать.
+
+#### 2. `supabase/functions/telegram-webhook/index.ts` -- `findOrCreateClientLegacy` (строки 1143-1155)
+
+В поиске по `telegram_chat_id` добавить приоритизацию:
+- Сначала искать с `.eq('is_active', true)`
+- Если не найден -- искать без фильтра
+- Найден неактивный: проверить есть ли активный дубликат -> склеить или реактивировать
+
+#### 3. `supabase/functions/telegram-webhook/index.ts` -- `handleOutgoingMessage` (строки 693-698)
+
+Добавить `.eq('is_active', true)` в первый запрос. Если не найден -- fallback без фильтра с реактивацией.
+
+#### 4. SQL-миграция для RPC `find_or_create_telegram_client`
+
+Обновить RPC-функцию на self-hosted:
+- Шаг 1: искать с `AND is_active = true`
+- Шаг 2: если не найден -- искать без фильтра `is_active`
+- Шаг 3: если найден неактивный -- проверить наличие активного дубликата по телефону
+  - Есть активный дубликат: перенести `telegram_user_id` на активного, деактивировать старого
+  - Нет активного дубликата: реактивировать (`UPDATE is_active = true`)
+
+#### 5. Логика склейки в `mergeClients` (строки 962-1003)
+
+Существующая функция `mergeClients` уже переносит сообщения и деактивирует дубликат. Нужно дополнить:
+- Также переносить `telegram_user_id` и `telegram_chat_id`
+- Обновить `is_active = false` (сейчас обновляет только `status = 'merged'`)
+- Перенести `family_members` связи
+
+### Пример изменения в `findOrCreateClient`
+
+После получения `clientId` из RPC, перед return:
+
+```text
+// Проверяем is_active
+const { data: clientRow } = await supabase
+  .from('clients')
+  .select('id, is_active, phone, name')
+  .eq('id', clientId)
+  .single();
+
+if (clientRow && !clientRow.is_active) {
+  // Ищем активного дубликата
+  const { data: activedup } = await supabase
+    .from('clients')
+    .select('id')
+    .eq('organization_id', organizationId)
+    .eq('is_active', true)
+    .or(`telegram_user_id.eq.${telegramUserId},...phone filter...`)
+    .neq('id', clientId)
+    .limit(1);
+
+  if (activedup && activedup.length > 0) {
+    // Склеиваем: переносим сообщения на активного
+    await mergeClients(supabase, activedup[0].id, clientId, ...);
+    clientId = activedup[0].id;
+  } else {
+    // Реактивируем
+    await supabase.from('clients')
+      .update({ is_active: true })
+      .eq('id', clientId);
+  }
 }
 ```
 
-#### 2. Обновить `sendTextMessage` и `sendFileMessage` в `telegram-send/index.ts`
+### Порядок реализации
 
-Добавить параметр `isBotProfile` и выбирать API-префикс:
-
-- Бот: `https://wappi.pro/botapi/message/send?profile_id=XXX`
-- Бот (файл): `https://wappi.pro/botapi/message/file/url/send?profile_id=XXX`
-- Номерной: `https://wappi.pro/tapi/sync/message/send?profile_id=XXX` (без изменений)
-- Номерной (файл): `https://wappi.pro/tapi/sync/message/file/url/send?profile_id=XXX` (без изменений)
-
-#### 3. Прокинуть флаг `isBotProfile` через весь код
-
-В основном обработчике `telegram-send`:
-- При выборе интеграции извлекать `isBotProfile` из `settings`
-- Передавать его в `sendTextMessage`/`sendFileMessage`
-- При fallback на альтернативные интеграции -- также читать `isBotProfile` из каждой
-
-#### 4. Авто-фоллбэк при "Wrong platform"
-
-Если Wappi вернул `"Wrong platform"`:
-- Повторить запрос с противоположным префиксом (`/tapi/` -> `/botapi/` и наоборот)
-- Если помогло -- обновить `isBotProfile` в БД для этой интеграции
-
-#### 5. Авто-детект в `telegram-webhook`
-
-Входящий вебхук содержит `"platform": "telegram_bot"`. При обработке:
-- Если `platform === "telegram_bot"` и у интеграции нет `isBotProfile: true` -- автоматически обновить настройки
-
-#### 6. SQL для немедленного исправления на self-hosted
-
-```text
-UPDATE messenger_integrations 
-SET settings = jsonb_set(settings::jsonb, '{isBotProfile}', 'true')
-WHERE id = '1af258ea-1c15-4ede-85b9-6d9c720ee6ed';
-```
-
-### Затрагиваемые файлы
-
-- `supabase/functions/_shared/types.ts` -- добавить `isBotProfile` в `TelegramSettings`
-- `supabase/functions/telegram-send/index.ts` -- главные изменения (эндпоинты, прокидка флага, авто-фоллбэк)
-- `supabase/functions/telegram-webhook/index.ts` -- авто-детект `platform: "telegram_bot"`
-- `supabase/functions/telegram-get-avatar/index.ts` -- аналогичная смена префикса для аватаров
-- `supabase/functions/telegram-get-contact-info/index.ts` -- аналогичная смена префикса
+1. Обновить `findOrCreateClient` -- добавить проверку `is_active` после RPC
+2. Обновить `findOrCreateClientLegacy` -- приоритизация активных
+3. Обновить `handleOutgoingMessage` -- фильтр `is_active = true`
+4. Дополнить `mergeClients` -- полная деактивация дубликата
+5. SQL-миграция для RPC `find_or_create_telegram_client`
+6. Деплой `telegram-webhook`
 
