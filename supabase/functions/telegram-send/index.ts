@@ -679,19 +679,104 @@ Deno.serve(async (req) => {
     }
     
     console.log(`[telegram-send] Final recipient: ${recipient} (source: ${recipientSource})`);
+
+    // === BOT DETECTION: If integration is a bot and recipient is a phone, swap to telegram_user_id ===
+    const integrationSettings = integration?.settings as Record<string, unknown> | null;
+    const isBot = !!(integrationSettings?.botToken || integrationSettings?.isBot);
+    
+    if (isBot) {
+      console.log(`[telegram-send] 🤖 Bot integration detected (${integration?.id})`);
+    }
+    
+    if (isBot && isLikelyPhoneNumber(recipient)) {
+      console.log(`[telegram-send] 🤖 Bot cannot send by phone number (${recipient}). Looking for telegram_user_id/chat_id...`);
+      
+      let botRecipient: string | null = null;
+      
+      // Try from client fields
+      if (client) {
+        if (client.telegram_user_id) {
+          botRecipient = client.telegram_user_id.toString();
+          console.log(`[telegram-send] 🤖 Found telegram_user_id from client: ${botRecipient}`);
+        } else if (client.telegram_chat_id) {
+          botRecipient = client.telegram_chat_id;
+          console.log(`[telegram-send] 🤖 Found telegram_chat_id from client: ${botRecipient}`);
+        }
+      }
+      
+      // Try from client_phone_numbers if not found yet
+      if (!botRecipient && clientId) {
+        const { data: phoneRecords } = await supabase
+          .from('client_phone_numbers')
+          .select('telegram_user_id, telegram_chat_id')
+          .eq('client_id', clientId)
+          .not('telegram_user_id', 'is', null);
+        
+        if (phoneRecords && phoneRecords.length > 0) {
+          const rec = phoneRecords[0];
+          if (rec.telegram_user_id) {
+            botRecipient = rec.telegram_user_id.toString();
+            console.log(`[telegram-send] 🤖 Found telegram_user_id from phone_numbers: ${botRecipient}`);
+          } else if (rec.telegram_chat_id) {
+            botRecipient = rec.telegram_chat_id;
+            console.log(`[telegram-send] 🤖 Found telegram_chat_id from phone_numbers: ${botRecipient}`);
+          }
+        }
+        
+        // Also try chat_id records if user_id not found
+        if (!botRecipient) {
+          const { data: chatIdRecords } = await supabase
+            .from('client_phone_numbers')
+            .select('telegram_chat_id')
+            .eq('client_id', clientId)
+            .not('telegram_chat_id', 'is', null)
+            .limit(1)
+            .maybeSingle();
+          
+          if (chatIdRecords?.telegram_chat_id) {
+            botRecipient = chatIdRecords.telegram_chat_id;
+            console.log(`[telegram-send] 🤖 Found telegram_chat_id from phone_numbers (2nd pass): ${botRecipient}`);
+          }
+        }
+      }
+      
+      if (botRecipient) {
+        console.log(`[telegram-send] 🤖 Swapping recipient: ${recipient} → ${botRecipient} (bot requires ID, not phone)`);
+        recipient = botRecipient;
+        recipientSource = 'telegram_id (bot auto-swap)';
+      } else {
+        console.log(`[telegram-send] 🤖 No telegram_user_id/chat_id found for bot. Skipping bot, will try alternative integrations.`);
+        // Force skip to alternative integrations by marking as failed
+        // We set a synthetic failure so the fallback chain kicks in
+      }
+    }
+    
     console.log(`[telegram-send] ⚠️ IMPORTANT: If using phone number, Wappi may fail with "peer not found" unless contact is in phone book`);
 
-    // Send message via Wappi.pro using per-organization apiToken
+    // If bot has no valid recipient (no telegram ID found), skip sending and go straight to alternatives
     let sendResult: { success: boolean; messageId?: string; error?: string };
-    if (fileUrl) {
-      sendResult = await sendFileMessage(profileId, recipient, fileUrl, text || '', wappiApiToken);
-    } else if (text) {
-      sendResult = await sendTextMessage(profileId, recipient, text, wappiApiToken);
+    const botSkipSend = isBot && isLikelyPhoneNumber(recipient);
+    
+    if (botSkipSend) {
+      console.log(`[telegram-send] 🤖 Skipping bot send — recipient is still a phone number, bot cannot use it`);
+      sendResult = { success: false, error: 'Bot cannot send by phone number, no telegram_user_id found' };
     } else {
-      return errorResponse('Message text or file is required', 400);
+      if (fileUrl) {
+        sendResult = await sendFileMessage(profileId, recipient, fileUrl, text || '', wappiApiToken);
+      } else if (text) {
+        sendResult = await sendTextMessage(profileId, recipient, text, wappiApiToken);
+      } else {
+        return errorResponse('Message text or file is required', 400);
+      }
     }
 
-    // === FALLBACK: If first attempt failed, try phone number ===
+    // === FALLBACK: If first attempt failed, try telegram_user_id (for bots that failed with phone) ===
+    if (!sendResult.success && !botSkipSend && isBot) {
+      // Bot sent by ID but still failed — log it
+      console.log(`[telegram-send] 🤖 Bot send failed even with ID recipient: ${recipient}, error: ${sendResult.error}`);
+    }
+    
+    // === FALLBACK: If first attempt failed (non-bot), try phone number ===
     if (!sendResult.success) {
       const errorMsg = sendResult.error || 'Failed to send message';
       console.log(`[telegram-send] First attempt failed: ${errorMsg}`);
@@ -969,7 +1054,12 @@ async function sendMessage(
   body: Record<string, unknown>,
   kind: 'text' | 'file'
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  console.log(`[telegram-send] Sending ${kind} message:`, body);
+  console.log(`[telegram-send] 📤 Sending ${kind} message to Wappi:`, {
+    recipient: body.recipient,
+    url: url.replace(/profile_id=[^&]+/, 'profile_id=***'),
+    hasBody: !!body.body,
+    hasUrl: !!body.url,
+  });
 
   try {
     const response = await fetch(url, {
