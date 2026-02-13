@@ -1349,9 +1349,6 @@ export const AIHubInline = ({
             <Button onClick={handleSendMessage} disabled={(!message.trim() && !pendingFile) || isProcessing || isRecording || sendStaffMessage.isPending} size="icon" className="shrink-0 h-10 w-10 rounded-full">
               {isProcessing || sendStaffMessage.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
-            <Button onClick={() => setIsRecording(!isRecording)} disabled={isProcessing || sendStaffMessage.isPending} size="icon" variant={isRecording ? "destructive" : "outline"} className="shrink-0 h-10 w-10 rounded-full">
-              {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-            </Button>
           </div>
         </div>
         
