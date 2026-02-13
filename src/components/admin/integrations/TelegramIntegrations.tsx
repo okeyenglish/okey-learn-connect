@@ -180,16 +180,17 @@ export const TelegramIntegrations: React.FC = () => {
     }
   };
 
-  // Test sending a message via telegram-send
+  // Test sending a message directly via Wappi API (bypasses telegram-send edge function)
   const handleTestSend = async () => {
     const integration = testSendIntegration;
     if (!integration) return;
     
     const profileId = integration.settings?.profileId as string | undefined;
+    const apiToken = integration.settings?.apiToken as string | undefined;
     const recipient = testRecipient.trim();
     
-    if (!profileId) {
-      toast({ title: 'Ошибка', description: 'Profile ID не задан', variant: 'destructive' });
+    if (!profileId || !apiToken) {
+      toast({ title: 'Ошибка', description: 'Profile ID или API Token не заданы в настройках интеграции', variant: 'destructive' });
       return;
     }
     if (!recipient) {
@@ -199,32 +200,37 @@ export const TelegramIntegrations: React.FC = () => {
 
     setTestingSendId(integration.id);
     try {
-      const payload: Record<string, unknown> = {
-        text: '🔧 Тестовое сообщение от CRM',
-        profileId,
-        integrationId: integration.id,
-        testMode: true,
-      };
-      // If numeric and looks like a phone, use phoneNumber; otherwise telegramUserId
-      if (/^\+?\d{10,15}$/.test(recipient)) {
-        payload.phoneNumber = recipient;
-      } else {
-        payload.telegramUserId = recipient;
-      }
+      // Call Wappi API directly with this integration's credentials
+      const wappiUrl = `https://wappi.pro/tapi/sync/message/send?profile_id=${profileId}`;
+      const res = await fetch(wappiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': apiToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recipient,
+          body: `🔧 Тестовое сообщение от CRM\n\nИнтеграция: ${integration.name}\nProfile ID: ${profileId}`,
+        }),
+      });
 
-      const response = await selfHostedPost<any>('telegram-send', payload);
+      const contentType = res.headers.get('content-type') || '';
+      const responseText = await res.text();
+      
+      let data: any;
+      try { data = JSON.parse(responseText); } catch { data = { raw: responseText.substring(0, 300) }; }
 
-      if (response.success && response.data?.success) {
+      if (res.ok && data?.status !== 'error') {
         toast({
           title: '✅ Сообщение отправлено',
-          description: `Message ID: ${response.data?.messageId || '—'}`,
+          description: `Через: ${integration.name} (${profileId}). Ответ: ${JSON.stringify(data).substring(0, 100)}`,
         });
         setTestSendIntegration(null);
         setTestRecipient('');
       } else {
         toast({
           title: '❌ Ошибка отправки',
-          description: response.data?.error || response.error || 'Неизвестная ошибка',
+          description: `HTTP ${res.status}: ${JSON.stringify(data).substring(0, 200)}`,
           variant: 'destructive',
         });
       }
