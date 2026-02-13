@@ -1079,7 +1079,7 @@ const CRMContent = () => {
       id: 'teachers',
       name: 'Преподаватели',
       phone: 'Чаты с преподавателями',
-      lastMessage: latestTeacher?.lastMessage || 'Нет сообщений',
+      lastMessage: latestTeacher ? `${latestTeacher.name}: ${latestTeacher.lastMessage}` : 'Нет сообщений',
       time: latestTeacher?.lastMessageTime ? formatTime(latestTeacher.lastMessageTime) : '',
       unread: teacherUnread,
       type: 'teachers' as const,
