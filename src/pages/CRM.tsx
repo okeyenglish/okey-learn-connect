@@ -413,6 +413,8 @@ const CRMContent = () => {
   const [initialAssistantMessage, setInitialAssistantMessage] = useState<string | null>(null);
   // ChatOS - quick reply category for AI assistant
   const [quickReplyCategory, setQuickReplyCategory] = useState<'activity_warning' | 'tab_feedback' | null>(null);
+  // ChatOS - whether an active chat dialog is open inside AIHubInline
+  const [chatOSHasActiveChat, setChatOSHasActiveChat] = useState(false);
   
   // Memoized AIHub callbacks (stable refs that don't depend on late-defined functions)
   const handleAIHubToggle = useCallback((open?: boolean) => {
@@ -4468,7 +4470,8 @@ const CRMContent = () => {
                     setQuickReplyCategory(null);
                   }}
                   quickReplyCategory={quickReplyCategory}
-                  onOpenScripts={() => setShowScriptsModal(true)}
+                   onOpenScripts={() => setShowScriptsModal(true)}
+                   onActiveChatChange={setChatOSHasActiveChat}
                 />
               </Suspense>
             </div>
@@ -4694,7 +4697,7 @@ const CRMContent = () => {
       </ErrorBoundary>
 
       {/* Мобильная нижняя навигация чатов - показываем когда не открыт диалог с клиентом */}
-      {isMobile && !activeChatId && (
+      {isMobile && !activeChatId && !chatOSHasActiveChat && (
         <MobileChatNavigation
           onChatOSClick={handleMobileChatOSClick}
           onTeachersClick={handleMobileTeachersClick}
