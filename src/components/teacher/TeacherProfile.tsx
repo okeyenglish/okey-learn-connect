@@ -46,10 +46,18 @@ export const TeacherProfile = ({ teacher }: TeacherProfileProps) => {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <UserCircle className="h-5 w-5" />
-              Профиль преподавателя
-            </CardTitle>
+            <div className="flex items-center gap-3">
+              <CardTitle className="flex items-center gap-2">
+                <UserCircle className="h-5 w-5" />
+                Профиль преподавателя
+              </CardTitle>
+              {teacher.teacher_number && (
+                <Badge variant="outline" className="font-mono text-xs text-muted-foreground">
+                  <IdCard className="h-3 w-3 mr-1" />
+                  #{teacher.teacher_number}
+                </Badge>
+              )}
+            </div>
             <Button variant="outline" size="sm">
               <Edit className="h-4 w-4 mr-2" />
               Редактировать
