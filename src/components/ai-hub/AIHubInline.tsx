@@ -35,8 +35,10 @@ import {
   CheckCheck,
   Pencil,
   Trash2,
-  Forward
+  Forward,
+  Zap
 } from 'lucide-react';
+import { QuickResponsesModal } from '@/components/crm/QuickResponsesModal';
 import { toast } from 'sonner';
 import { ClientCardBubble, isClientCardMessage } from '@/components/ai-hub/ClientCardBubble';
 import { ForwardedMessageBubble, isForwardedMessage } from '@/components/ai-hub/ForwardedMessageBubble';
@@ -283,6 +285,7 @@ export const AIHubInline = ({
   
   const [staffFilter, setStaffFilter] = useState<'all' | 'online'>('online'); // По умолчанию показываем онлайн
   const [pendingFile, setPendingFile] = useState<{ url: string; name: string; type: string } | null>(null);
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
   
   const { 
     aiSectionExpanded, 
@@ -1247,6 +1250,18 @@ export const AIHubInline = ({
                 maxSize={10}
               />
             )}
+            {/* Quick replies button */}
+            {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0 h-9 w-9"
+                onClick={() => setShowQuickReplies(true)}
+                title="Быстрые ответы"
+              >
+                <Zap className="h-4 w-4" />
+              </Button>
+            )}
             <div className="relative flex-1">
               {/* Mention picker for group chats */}
               {activeChat.type === 'group' && (
@@ -1285,6 +1300,13 @@ export const AIHubInline = ({
             </Button>
           </div>
         </div>
+        
+        {/* Quick Replies Modal */}
+        <QuickResponsesModal
+          open={showQuickReplies}
+          onOpenChange={setShowQuickReplies}
+          onSelectResponse={(text) => setMessage(prev => prev ? prev + ' ' + text : text)}
+        />
       </div>
     );
   }
