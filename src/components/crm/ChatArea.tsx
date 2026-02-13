@@ -1424,7 +1424,7 @@ export const ChatArea = ({
     // If in comment mode, save as comment instead of sending
     if (commentMode) {
       await saveComment(messageText);
-      setCommentMode(false); // Exit comment mode after saving
+      // Stay in comment mode — manager switches back manually
       return;
     }
 
