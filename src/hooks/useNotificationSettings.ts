@@ -9,6 +9,7 @@ export interface NotificationSettings {
   missedCallNotificationsEnabled: boolean;
   activityWarningEnabled: boolean;
   activityWarningThreshold: number; // 30-90, default 60
+  sendDelayEnabled: boolean; // задержка отправки сообщений (по умолчанию выкл)
   mutedMessengers: string[]; // e.g., ['whatsapp', 'telegram', 'max']
   mutedChats: string[]; // client IDs
 }
@@ -20,6 +21,7 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   missedCallNotificationsEnabled: true,
   activityWarningEnabled: true,
   activityWarningThreshold: 60,
+  sendDelayEnabled: false,
   mutedMessengers: [],
   mutedChats: [],
 };

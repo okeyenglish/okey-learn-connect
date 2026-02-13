@@ -64,6 +64,7 @@ import { useChatTakeover } from '@/hooks/useChatTakeover';
 import { TakeoverRequestDialog } from './TakeoverRequestDialog';
 import { useChatOSMessages, useSendChatOSMessage } from '@/hooks/useChatOSMessages';
 import { isValidUUID, safeUUID } from '@/lib/uuidValidation';
+import { getNotificationSettings } from '@/hooks/useNotificationSettings';
 
 interface ChatAreaProps {
   clientId: string;
@@ -1447,6 +1448,15 @@ export const ChatArea = ({
         });
       });
       // Stay in comment mode — manager switches back manually
+      return;
+    }
+
+    // Check if send delay is enabled in user's notification settings
+    const notifSettings = getNotificationSettings();
+    
+    if (!notifSettings.sendDelayEnabled) {
+      // No delay - send immediately
+      sendMessageNow(messageText, filesToSend);
       return;
     }
 
