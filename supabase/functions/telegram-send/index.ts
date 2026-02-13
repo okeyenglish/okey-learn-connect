@@ -70,8 +70,8 @@ Deno.serve(async (req) => {
       console.log('[telegram-send] Forced integration from body:', resolvedIntegrationId);
     }
     
-    // Mode 1: Search by clientId (for client messages)
-    if (clientId) {
+    // Mode 1: Search by clientId (for client messages) — skip if integrationId was forced
+    if (!resolvedIntegrationId && clientId) {
       const { data: lastMessage } = await supabase
         .from('chat_messages')
         .select('integration_id')
