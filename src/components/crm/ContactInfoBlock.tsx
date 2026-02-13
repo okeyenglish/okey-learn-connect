@@ -1,4 +1,5 @@
 import { Phone, Mail, Copy, Check, Star, Edit2, Save, X } from "lucide-react";
+import maxIconSrc from "@/assets/max-icon.webp";
 import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -29,13 +30,11 @@ const TelegramIcon = ({ active }: { active: boolean }) => (
 );
 
 const MaxIcon = ({ active }: { active: boolean }) => (
-  <svg 
-    viewBox="0 0 24 24" 
-    className={`h-4 w-4 transition-colors ${active ? 'text-purple-500' : 'text-muted-foreground/40'}`}
-    fill="currentColor"
-  >
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-6h2v6zm4 0h-2v-6h2v6zm-2-8c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-4 0c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/>
-  </svg>
+  <img 
+    src={maxIconSrc} 
+    alt="MAX" 
+    className={`h-4 w-4 rounded-full object-cover transition-opacity ${active ? 'opacity-100' : 'opacity-40'}`}
+  />
 );
 
 export interface PhoneNumberData {

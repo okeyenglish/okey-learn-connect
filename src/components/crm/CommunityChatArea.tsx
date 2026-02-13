@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import maxIconSrc from "@/assets/max-icon.webp";
 import { Send, Search, ArrowLeft, ChevronRight, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,11 +29,8 @@ const WhatsAppIcon = () => (
   </svg>
 );
 
-const MaxIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
-    <circle cx="12" cy="12" r="10"/>
-    <text x="12" y="16" textAnchor="middle" fontSize="10" fill="white" fontWeight="bold">M</text>
-  </svg>
+const MaxIconComponent = () => (
+  <img src={maxIconSrc} alt="MAX" className="h-4 w-4 rounded-full object-cover" />
 );
 
 interface CommunityChatAreaProps {
@@ -135,7 +133,7 @@ export const CommunityChatArea = ({ onMessageChange, selectedCommunityId = null,
     switch (messengerType) {
       case 'telegram': return <TelegramIcon />;
       case 'whatsapp': return <WhatsAppIcon />;
-      case 'max': return <MaxIcon />;
+      case 'max': return <MaxIconComponent />;
       default: return <Users className="h-4 w-4" />;
     }
   };
