@@ -202,6 +202,7 @@ export const TelegramIntegrations: React.FC = () => {
       const payload: Record<string, unknown> = {
         text: '🔧 Тестовое сообщение от CRM',
         profileId,
+        integrationId: integration.id,
         testMode: true,
       };
       // If numeric and looks like a phone, use phoneNumber; otherwise telegramUserId
