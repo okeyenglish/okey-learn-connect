@@ -68,6 +68,7 @@ interface ChatMessageProps {
   messageStatus?: DeliveryStatus;
   clientAvatar?: string;
   managerName?: string;
+  senderAvatarUrl?: string | null;
   fileUrl?: string;
   fileName?: string;
   fileType?: string;
@@ -93,7 +94,7 @@ interface ChatMessageProps {
   clientId?: string;
 }
 
-const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, onResendMessage, onCancelRetry, messageStatus, clientAvatar, managerName, fileUrl, fileName, fileType, messageTypeHint, whatsappChatId, externalMessageId, showAvatar = true, showName = true, isLastInGroup = true, onForwardMessage, onEnterSelectionMode, onQuoteMessage, isHighlighted = false, searchQuery, animationIndex, isJustSent = false, metadata, clientId }: ChatMessageProps) => {
+const ChatMessageComponent = ({ type, message, time, systemType, callDuration, isEdited, editedTime, isSelected, onSelectionChange, isSelectionMode, messageId, isForwarded, forwardedFrom, forwardedFromType, onMessageEdit, onMessageDelete, onResendMessage, onCancelRetry, messageStatus, clientAvatar, managerName, senderAvatarUrl, fileUrl, fileName, fileType, messageTypeHint, whatsappChatId, externalMessageId, showAvatar = true, showName = true, isLastInGroup = true, onForwardMessage, onEnterSelectionMode, onQuoteMessage, isHighlighted = false, searchQuery, animationIndex, isJustSent = false, metadata, clientId }: ChatMessageProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedMessage, setEditedMessage] = useState(message);
 
@@ -286,9 +287,13 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
             </div>
           )}
           <div className="order-2">
-            <div className="w-10 h-10 rounded bg-amber-100 flex items-center justify-center flex-shrink-0">
-              <MessageCircle className="w-5 h-5 text-amber-600" />
-            </div>
+            {senderAvatarUrl ? (
+              <img src={senderAvatarUrl} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="w-10 h-10 rounded bg-amber-100 flex items-center justify-center flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-600"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></div>'; }} />
+            ) : (
+              <div className="w-10 h-10 rounded bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <MessageCircle className="w-5 h-5 text-amber-600" />
+              </div>
+            )}
           </div>
           <div className="order-1">
             <div className="text-xs text-muted-foreground mb-1 text-right flex items-center gap-1">
@@ -373,11 +378,13 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
         
         {type === 'manager' && showAvatar && (
           <div className="order-2">
-            <div className="w-10 h-10 rounded bg-blue-100 flex items-center justify-center flex-shrink-0">
-              <div className="w-6 h-6 rounded bg-blue-200 flex items-center justify-center">
-                <div className="w-3 h-3 rounded bg-blue-400"></div>
+            {senderAvatarUrl ? (
+              <img src={senderAvatarUrl} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="w-10 h-10 rounded bg-blue-100 flex items-center justify-center flex-shrink-0"><span class="text-sm font-medium text-blue-600">' + (managerName || 'М').charAt(0).toUpperCase() + '</span></div>'; }} />
+            ) : (
+              <div className="w-10 h-10 rounded bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <span className="text-sm font-medium text-blue-600">{(managerName || 'М').charAt(0).toUpperCase()}</span>
               </div>
-            </div>
+            )}
           </div>
         )}
 

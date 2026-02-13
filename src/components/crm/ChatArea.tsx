@@ -841,9 +841,13 @@ export const ChatArea = ({
     // Менеджер должен явно нажать "Не требует ответа" или отправить сообщение
   };
 
+  // Current user's avatar for outgoing messages
+  const currentUserAvatar = (authProfile as any)?.avatar_url || null;
+
   // Format message helper - мемоизированная функция
   const formatMessage = useCallback((msg: any) => {
     const meta = msg.metadata || null;
+    const isOutgoing = msg.is_outgoing || msg.message_type === 'manager' || msg.message_type === 'comment';
     return {
     id: msg.id,
     type: msg.message_type || (msg.is_outgoing ? 'manager' : 'client'),
@@ -860,6 +864,8 @@ export const ChatArea = ({
     // Self-hosted schema only has avatar_url (no messenger-specific avatars)
     clientAvatar: msg.clients?.avatar_url || null,
     managerName: msg.sender_name || (meta as any)?.sender_name || 'Менеджер поддержки',
+    // For outgoing messages, use current user's avatar
+    senderAvatarUrl: isOutgoing ? currentUserAvatar : null,
     fileUrl: msg.file_url,
     fileName: msg.file_name,
     fileType: msg.file_type || msg.media_type,
@@ -878,7 +884,7 @@ export const ChatArea = ({
     // Task notification metadata
     metadata: meta,
   };
-  }, [managerName]);
+  }, [managerName, currentUserAvatar]);
 
   // Format messages from React Query data using memoization for performance
   const messages = useMemo(() => {
@@ -3046,6 +3052,7 @@ export const ChatArea = ({
                             messageStatus={msg.messageStatus}
                             clientAvatar={whatsappClientAvatar || msg.clientAvatar}
                             managerName={msg.managerName}
+                            senderAvatarUrl={msg.senderAvatarUrl}
                             fileUrl={msg.fileUrl}
                             fileName={msg.fileName}
                             fileType={msg.fileType}
@@ -3195,6 +3202,7 @@ export const ChatArea = ({
                             messageStatus={msg.messageStatus}
                             clientAvatar={telegramClientAvatar || msg.clientAvatar}
                             managerName={msg.managerName}
+                            senderAvatarUrl={msg.senderAvatarUrl}
                             fileUrl={msg.fileUrl}
                             fileName={msg.fileName}
                             fileType={msg.fileType}
@@ -3302,6 +3310,7 @@ export const ChatArea = ({
                             messageStatus={msg.messageStatus}
                             clientAvatar={maxClientAvatar || msg.clientAvatar}
                             managerName={msg.managerName}
+                            senderAvatarUrl={msg.senderAvatarUrl}
                             fileUrl={msg.fileUrl}
                             fileName={msg.fileName}
                             fileType={msg.fileType}
@@ -3424,6 +3433,7 @@ export const ChatArea = ({
                             messageStatus={msg.messageStatus}
                             clientAvatar={msg.clientAvatar}
                             managerName={msg.managerName}
+                            senderAvatarUrl={msg.senderAvatarUrl}
                             fileUrl={msg.fileUrl}
                             fileName={msg.fileName}
                             fileType={msg.fileType}
