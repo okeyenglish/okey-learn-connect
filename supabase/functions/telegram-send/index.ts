@@ -745,6 +745,7 @@ Deno.serve(async (req) => {
     }
 
     let sendResult: { success: boolean; messageId?: string; error?: string };
+    let actualIntegrationId: string | null = integration?.id || null;
     
     if (fileUrl) {
       sendResult = await sendFileMessage(profileId, recipient, fileUrl, text || '', wappiApiToken);
@@ -855,6 +856,7 @@ Deno.serve(async (req) => {
                 console.log(`[telegram-send] Alternative Wappi integration SUCCEEDED! (${altIntegration.id})`);
                 sendResult = altResult;
                 recipientSource = `alternative wappi (${altIntegration.id})`;
+                actualIntegrationId = altIntegration.id;
                 break;
               } else {
                 console.log(`[telegram-send] Alternative Wappi failed:`, altResult.error);
@@ -889,6 +891,7 @@ Deno.serve(async (req) => {
                 console.log(`[telegram-send] Alternative Telegram CRM integration SUCCEEDED! (${altIntegration.id})`);
                 sendResult = { success: true, messageId: crmResult.messageId };
                 recipientSource = `alternative telegram_crm (${altIntegration.id})`;
+                actualIntegrationId = altIntegration.id;
                 break;
               } else {
                 console.log(`[telegram-send] Alternative Telegram CRM failed:`, crmResult.error);
@@ -952,7 +955,8 @@ Deno.serve(async (req) => {
       file_name: fileName,
       file_type: fileType || contentType,
       sender_name: body.senderName || null,
-      metadata: { sender_name: body.senderName || null },
+      integration_id: actualIntegrationId,
+      metadata: { sender_name: body.senderName || null, integration_id: actualIntegrationId },
     };
 
     // Add client_id or teacher_id based on mode
