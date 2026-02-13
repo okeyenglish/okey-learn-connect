@@ -2610,11 +2610,13 @@ export const ChatArea = ({
                   <ImageCacheIndicator progress={imageCacheProgress} compact />
                 </div>
                 <p className="text-xs text-muted-foreground truncate">
-                  {activeMessengerTab === 'telegram' && clientTelegramUserId 
-                    ? `ID: ${clientTelegramUserId}` 
-                    : activeMessengerTab === 'max' && clientMaxId
-                    ? `MAX ID: ${clientMaxId}`
-                    : clientTelegramUserId ? `ID: ${clientTelegramUserId}` : formatPhoneForDisplay(clientPhone) || ''}
+                  {activeMessengerTab === 'whatsapp'
+                    ? formatPhoneForDisplay(clientPhone) || ''
+                    : activeMessengerTab === 'telegram'
+                    ? (clientTelegramUserId ? `Telegram ID: ${clientTelegramUserId}` : formatPhoneForDisplay(clientPhone) || '')
+                    : activeMessengerTab === 'max'
+                    ? (clientMaxId ? `MAX ID: ${clientMaxId}` : formatPhoneForDisplay(clientPhone) || '')
+                    : formatPhoneForDisplay(clientPhone) || ''}
                 </p>
                 {isOtherUserTyping && typingInfo && (
                   <p className="text-xs text-orange-600 italic animate-pulse">
@@ -2720,11 +2722,13 @@ export const ChatArea = ({
                   <ImageCacheIndicator progress={imageCacheProgress} />
                 </div>
                 <p className="text-sm text-muted-foreground truncate">
-                  {activeMessengerTab === 'telegram' && clientTelegramUserId 
-                    ? `ID: ${clientTelegramUserId}` 
-                    : activeMessengerTab === 'max' && clientMaxId
-                    ? `MAX ID: ${clientMaxId}`
-                    : clientTelegramUserId ? `ID: ${clientTelegramUserId}` : formatPhoneForDisplay(clientPhone) || ''}
+                  {activeMessengerTab === 'whatsapp'
+                    ? formatPhoneForDisplay(clientPhone) || ''
+                    : activeMessengerTab === 'telegram'
+                    ? (clientTelegramUserId ? `Telegram ID: ${clientTelegramUserId}` : formatPhoneForDisplay(clientPhone) || '')
+                    : activeMessengerTab === 'max'
+                    ? (clientMaxId ? `MAX ID: ${clientMaxId}` : formatPhoneForDisplay(clientPhone) || '')
+                    : formatPhoneForDisplay(clientPhone) || ''}
                 </p>
               </div>
             </div>
