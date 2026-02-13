@@ -1027,25 +1027,46 @@ async function findOrCreateClient(
 
   // Use atomic RPC function with advisory lock to prevent race conditions
   // This serializes all findOrCreate operations for the same (org_id, telegram_user_id)
+  console.log('[findOrCreateClient] Calling RPC with params:', {
+    p_organization_id: organizationId,
+    p_telegram_user_id: String(telegramUserId),
+    p_name: finalName || 'Telegram User',
+    p_phone: finalPhone
+  });
+
   const { data: clientId, error: rpcError } = await supabase.rpc('find_or_create_telegram_client', {
-    p_org_id: organizationId,
-    p_telegram_user_id: telegramUserId,
-    p_telegram_chat_id: telegramChatId,
-    p_name: finalName,
-    p_username: username || null,
-    p_avatar_url: avatarUrl || null,
+    p_organization_id: organizationId,
+    p_telegram_user_id: String(telegramUserId),
+    p_name: finalName || 'Telegram User',
     p_phone: finalPhone
   });
 
   if (rpcError) {
-    console.error('Error calling find_or_create_telegram_client RPC:', rpcError);
-    // Fall back to legacy on RPC error
+    console.error('[findOrCreateClient] RPC failed, falling back to legacy:', rpcError.message);
     return await findOrCreateClientLegacy(supabase, params);
   }
 
   if (!clientId) {
-    console.error('RPC returned null client_id');
+    console.error('[findOrCreateClient] RPC returned null client_id');
     return null;
+  }
+
+  console.log('[findOrCreateClient] RPC success, clientId:', clientId);
+
+  // Update telegram_chat_id and avatar separately (not in RPC signature)
+  const updateFields: Record<string, string> = { telegram_chat_id: String(telegramChatId) };
+  if (avatarUrl) {
+    updateFields.telegram_avatar_url = avatarUrl;
+  }
+  const { error: updateError } = await supabase
+    .from('clients')
+    .update(updateFields)
+    .eq('id', clientId);
+
+  if (updateError) {
+    console.warn('[findOrCreateClient] Failed to update chat_id/avatar:', updateError.message);
+  } else {
+    console.log('[findOrCreateClient] Updated chat_id/avatar for client:', clientId);
   }
 
   // Fetch full client data for push notification formatting
@@ -1056,11 +1077,11 @@ async function findOrCreateClient(
     .single();
 
   if (fetchError || !clientData) {
-    console.error('Error fetching client data after RPC:', fetchError);
+    console.error('[findOrCreateClient] Error fetching client data after RPC:', fetchError);
     return { id: clientId, name: finalName };
   }
 
-  console.log('findOrCreateClient via RPC returned client:', clientId);
+  console.log('[findOrCreateClient] Returning client:', clientId);
   return clientData as ClientResult;
 }
 
