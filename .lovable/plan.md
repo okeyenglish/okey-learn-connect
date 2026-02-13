@@ -1,101 +1,66 @@
 
 
-# Исправление ошибок маршрутизации в telegram-send
+## Исправление отправки через Telegram Bot (Wappi `/botapi/`)
 
-## Найденные ошибки
+### Проблема
 
-### Ошибка 1: `integration_id` не сохраняется на исходящих сообщениях
+Функция `telegram-send` использует эндпоинт `/tapi/sync/message/send` для всех Wappi-интеграций. Но для Telegram Bot профилей правильный эндпоинт -- `/botapi/message/send` (подтверждено техподдержкой Wappi). Из-за этого профиль `e1d32a13-5a40` (OkeyEnglishBot) получает `"Wrong platform"`.
 
-В `telegram-send/index.ts` (строки 942-955) при сохранении отправленного сообщения в БД поле `integration_id` **не записывается**:
+### Решение
 
-```text
-const messageRecord = {
-  organization_id,
-  message_text,
-  message_type: 'manager',
-  messenger_type: 'telegram',
-  ...
-  // integration_id ← ОТСУТСТВУЕТ!
-  metadata: { sender_name: ... },  // integration_id тоже нет в metadata
-};
-```
+#### 1. Расширить `TelegramSettings` в `_shared/types.ts`
 
-Из-за этого smart routing никогда не находит `integration_id` в истории сообщений, т.к. входящих сообщений от этого клиента нет (или они были до внедрения smart routing), а на исходящих `integration_id = null`.
-
-### Ошибка 2: Интеграция `0fe16f2c` (профиль `e1d32a13-5a40`) -- "Wrong platform"
-
-Эта интеграция стабильно отвечает `{"detail":"Wrong platform","status":"error"}`. Это означает, что профиль `e1d32a13-5a40` в Wappi привязан к **WhatsApp**, а не к Telegram. Но в таблице `messenger_integrations` он записан как `messenger_type = 'telegram'`.
-
-Каждый раз при отправке система тратит запрос на заведомо нерабочую интеграцию.
-
-### Ошибка 3: Smart routing ссылается на удаленную интеграцию `6604a4a0`
-
-В логах видно: `Smart routing (client): 6604a4a0` -- но этой интеграции нет в списке активных. Dead-link fallback срабатывает, но может выбрать неправильную замену (например, `0fe16f2c` с "Wrong platform").
-
-## План исправления
-
-### 1. Сохранять `integration_id` на исходящих сообщениях
-
-Файл: `supabase/functions/telegram-send/index.ts`, строки 942-955
-
-Добавить в `messageRecord`:
-- `integration_id` -- ID интеграции, через которую фактически отправлено
-- `integration_id` в `metadata` -- для self-hosted совместимости
+Добавить необязательное поле `isBotProfile`:
 
 ```text
-Было:
-  metadata: { sender_name: body.senderName || null }
-
-Станет:
-  integration_id: integration?.id || resolvedIntegrationId || null,
-  metadata: {
-    sender_name: body.senderName || null,
-    integration_id: integration?.id || resolvedIntegrationId || null
-  }
+export interface TelegramSettings {
+  profileId: string;
+  apiToken: string;
+  webhookUrl?: string;
+  isBotProfile?: boolean;
+}
 ```
 
-Важно: если сообщение отправлено через альтернативную интеграцию (fallback), нужно записать ID **той интеграции, которая успешно отправила**, а не первоначальной.
+#### 2. Обновить `sendTextMessage` и `sendFileMessage` в `telegram-send/index.ts`
 
-### 2. Отслеживать фактически использованную интеграцию
+Добавить параметр `isBotProfile` и выбирать API-префикс:
 
-Сейчас когда fallback-интеграция успешно отправляет, переменная `integration` не обновляется. Нужно добавить переменную `actualIntegrationId` и обновлять её при успешной альтернативной отправке.
+- Бот: `https://wappi.pro/botapi/message/send?profile_id=XXX`
+- Бот (файл): `https://wappi.pro/botapi/message/file/url/send?profile_id=XXX`
+- Номерной: `https://wappi.pro/tapi/sync/message/send?profile_id=XXX` (без изменений)
+- Номерной (файл): `https://wappi.pro/tapi/sync/message/file/url/send?profile_id=XXX` (без изменений)
 
-Строки 854-858:
+#### 3. Прокинуть флаг `isBotProfile` через весь код
+
+В основном обработчике `telegram-send`:
+- При выборе интеграции извлекать `isBotProfile` из `settings`
+- Передавать его в `sendTextMessage`/`sendFileMessage`
+- При fallback на альтернативные интеграции -- также читать `isBotProfile` из каждой
+
+#### 4. Авто-фоллбэк при "Wrong platform"
+
+Если Wappi вернул `"Wrong platform"`:
+- Повторить запрос с противоположным префиксом (`/tapi/` -> `/botapi/` и наоборот)
+- Если помогло -- обновить `isBotProfile` в БД для этой интеграции
+
+#### 5. Авто-детект в `telegram-webhook`
+
+Входящий вебхук содержит `"platform": "telegram_bot"`. При обработке:
+- Если `platform === "telegram_bot"` и у интеграции нет `isBotProfile: true` -- автоматически обновить настройки
+
+#### 6. SQL для немедленного исправления на self-hosted
+
 ```text
-Было:
-  sendResult = altResult;
-  recipientSource = `alternative wappi (${altIntegration.id})`;
-
-Станет:
-  sendResult = altResult;
-  recipientSource = `alternative wappi (${altIntegration.id})`;
-  actualIntegrationId = altIntegration.id;  // Запоминаем кто реально отправил
-```
-
-### 3. Удалить/исправить интеграцию `0fe16f2c`
-
-Это действие нужно выполнить в БД на self-hosted сервере:
-
-```sql
--- Вариант А: Удалить нерабочую интеграцию
-DELETE FROM messenger_integrations WHERE id = '0fe16f2c-5d1c-4d62-8b28-20e7faf571ef';
-
--- Вариант Б: Исправить тип на whatsapp (если профиль нужен для WhatsApp)
 UPDATE messenger_integrations 
-SET messenger_type = 'whatsapp' 
-WHERE id = '0fe16f2c-5d1c-4d62-8b28-20e7faf571ef';
+SET settings = jsonb_set(settings::jsonb, '{isBotProfile}', 'true')
+WHERE id = '1af258ea-1c15-4ede-85b9-6d9c720ee6ed';
 ```
 
-## Файлы для изменения
+### Затрагиваемые файлы
 
-| Файл | Что меняем |
-|---|---|
-| `supabase/functions/telegram-send/index.ts` | Добавить `actualIntegrationId`, сохранять `integration_id` в `messageRecord` и `metadata` |
-
-## Ожидаемый результат
-
-1. После отправки сообщения в БД сохраняется `integration_id` фактически использованной интеграции
-2. При следующей отправке smart routing найдет этот `integration_id` и отправит через ту же интеграцию
-3. Удаление `0fe16f2c` уберет ошибку "Wrong platform" и ускорит fallback
-4. Клиент будет получать ответы через тот же аккаунт, через который уже шла переписка
+- `supabase/functions/_shared/types.ts` -- добавить `isBotProfile` в `TelegramSettings`
+- `supabase/functions/telegram-send/index.ts` -- главные изменения (эндпоинты, прокидка флага, авто-фоллбэк)
+- `supabase/functions/telegram-webhook/index.ts` -- авто-детект `platform: "telegram_bot"`
+- `supabase/functions/telegram-get-avatar/index.ts` -- аналогичная смена префикса для аватаров
+- `supabase/functions/telegram-get-contact-info/index.ts` -- аналогичная смена префикса
 
