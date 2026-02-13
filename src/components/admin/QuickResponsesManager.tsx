@@ -29,8 +29,10 @@ import {
   Zap,
   Check,
   MessageSquare,
+  Copy,
+  Users,
 } from 'lucide-react';
-import { useQuickResponses, CategoryWithResponses, QuickResponse } from '@/hooks/useQuickResponses';
+import { useQuickResponses, CategoryWithResponses, QuickResponse, QuickResponseTarget } from '@/hooks/useQuickResponses';
 import {
   DndContext,
   closestCenter,
@@ -54,6 +56,7 @@ const SortableResponseItem = ({
   response,
   onEdit,
   onDelete,
+  onDuplicate,
   isEditing,
   editText,
   onEditTextChange,
@@ -63,6 +66,7 @@ const SortableResponseItem = ({
   response: QuickResponse;
   onEdit: () => void;
   onDelete: () => void;
+  onDuplicate: () => void;
   isEditing: boolean;
   editText: string;
   onEditTextChange: (text: string) => void;
@@ -110,10 +114,13 @@ const SortableResponseItem = ({
         <>
           <div className="flex-1 text-sm whitespace-pre-wrap">{response.text}</div>
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={onEdit}>
+            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={onDuplicate} title="Дублировать">
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={onEdit} title="Редактировать">
               <Edit2 className="h-3.5 w-3.5" />
             </Button>
-            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={onDelete}>
+            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={onDelete} title="Удалить">
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -171,7 +178,7 @@ const SortableCategoryCard = ({
 };
 
 export function QuickResponsesManager() {
-  const [activeTab, setActiveTab] = useState<'clients' | 'teachers'>('clients');
+  const [activeTab, setActiveTab] = useState<QuickResponseTarget>('clients');
 
   return (
     <div className="space-y-6">
@@ -185,7 +192,7 @@ export function QuickResponsesManager() {
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'clients' | 'teachers')}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as QuickResponseTarget)}>
         <TabsList>
           <TabsTrigger value="clients">
             <MessageSquare className="h-4 w-4 mr-1.5" />
@@ -195,20 +202,27 @@ export function QuickResponsesManager() {
             <MessageSquare className="h-4 w-4 mr-1.5" />
             Для преподавателей
           </TabsTrigger>
+          <TabsTrigger value="staff">
+            <Users className="h-4 w-4 mr-1.5" />
+            Для сотрудников (ChatOS)
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="clients" className="mt-4">
-          <QuickResponsesEditor isTeacher={false} />
+          <QuickResponsesEditor target="clients" />
         </TabsContent>
         <TabsContent value="teachers" className="mt-4">
-          <QuickResponsesEditor isTeacher={true} />
+          <QuickResponsesEditor target="teachers" />
+        </TabsContent>
+        <TabsContent value="staff" className="mt-4">
+          <QuickResponsesEditor target="staff" />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function QuickResponsesEditor({ isTeacher }: { isTeacher: boolean }) {
+function QuickResponsesEditor({ target }: { target: QuickResponseTarget }) {
   const {
     categories,
     isLoading,
@@ -222,7 +236,7 @@ function QuickResponsesEditor({ isTeacher }: { isTeacher: boolean }) {
     importDefaultTemplates,
     reorderCategories,
     reorderResponses,
-  } = useQuickResponses({ isTeacher });
+  } = useQuickResponses({ target });
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -533,6 +547,9 @@ function QuickResponsesEditor({ isTeacher }: { isTeacher: boolean }) {
                           onEdit={() => {
                             setEditingResponseId(response.id);
                             setEditingResponseText(response.text);
+                          }}
+                          onDuplicate={() => {
+                            setNewResponseText(response.text);
                           }}
                           onDelete={() =>
                             setDeleteConfirm({ type: 'response', id: response.id, name: response.text.slice(0, 40) })

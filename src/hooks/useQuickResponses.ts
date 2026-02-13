@@ -30,11 +30,18 @@ interface QuickResponsesResponse {
   categories: CategoryWithResponses[];
 }
 
+export type QuickResponseTarget = 'clients' | 'teachers' | 'staff';
+
 interface UseQuickResponsesOptions {
   isTeacher?: boolean;
+  target?: QuickResponseTarget;
 }
 
-export function useQuickResponses({ isTeacher = false }: UseQuickResponsesOptions = {}) {
+export function useQuickResponses({ isTeacher = false, target }: UseQuickResponsesOptions = {}) {
+  // Resolve effective target: explicit target takes priority over isTeacher boolean
+  const effectiveTarget = target || (isTeacher ? 'teachers' : 'clients');
+  const effectiveIsTeacher = effectiveTarget === 'teachers';
+  
   const [categories, setCategories] = useState<CategoryWithResponses[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
@@ -47,7 +54,7 @@ export function useQuickResponses({ isTeacher = false }: UseQuickResponsesOption
     
     try {
       const response = await selfHostedGet<QuickResponsesResponse>(
-        `quick-responses?is_teacher=${isTeacher}`
+        `quick-responses?is_teacher=${effectiveIsTeacher}&target=${effectiveTarget}`
       );
       
       if (response.success && response.data) {
@@ -61,7 +68,7 @@ export function useQuickResponses({ isTeacher = false }: UseQuickResponsesOption
     } finally {
       setIsLoading(false);
     }
-  }, [isTeacher]);
+  }, [effectiveIsTeacher, effectiveTarget]);
 
   useEffect(() => {
     fetchCategories();
@@ -71,7 +78,7 @@ export function useQuickResponses({ isTeacher = false }: UseQuickResponsesOption
     try {
       const response = await selfHostedPost<{ category: QuickResponseCategory }>(
         'quick-responses/category',
-        { name, is_teacher_category: isTeacher }
+        { name, is_teacher_category: effectiveIsTeacher, target: effectiveTarget }
       );
       
       if (response.success && response.data) {
@@ -102,7 +109,7 @@ export function useQuickResponses({ isTeacher = false }: UseQuickResponsesOption
       });
       return null;
     }
-  }, [isTeacher, toast]);
+  }, [effectiveIsTeacher, effectiveTarget, toast]);
 
   const updateCategory = useCallback(async (categoryId: string, name: string) => {
     try {
@@ -248,14 +255,14 @@ export function useQuickResponses({ isTeacher = false }: UseQuickResponsesOption
     try {
       const response = await selfHostedPost<QuickResponsesResponse>(
         'quick-responses/import-defaults',
-        { is_teacher: isTeacher }
+        { is_teacher: effectiveIsTeacher, target: effectiveTarget }
       );
       
       if (response.success && response.data) {
         setCategories(response.data.categories || []);
         toast({
           title: 'Шаблоны импортированы',
-          description: `Добавлены стандартные шаблоны ${isTeacher ? 'для преподавателей' : 'для клиентов'}`
+          description: `Добавлены стандартные шаблоны ${effectiveTarget === 'teachers' ? 'для преподавателей' : effectiveTarget === 'staff' ? 'для сотрудников' : 'для клиентов'}`
         });
         return true;
       } else {
@@ -277,7 +284,7 @@ export function useQuickResponses({ isTeacher = false }: UseQuickResponsesOption
     } finally {
       setIsImporting(false);
     }
-  }, [isTeacher, toast]);
+  }, [effectiveIsTeacher, effectiveTarget, toast]);
 
   const reorderCategories = useCallback(async (categoryIds: string[]) => {
     try {
