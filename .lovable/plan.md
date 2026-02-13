@@ -1,40 +1,56 @@
 
-# Исправление тестовой отправки Telegram BOT
+
+# Исправление маршрутизации Telegram-бота
 
 ## Проблема
 
-При тестовой отправке сообщение уходит не через выбранного бота, а через основную (primary) интеграцию. Это происходит потому что функция `telegram-send` использует "умную маршрутизацию" — ищет последнее входящее сообщение от получателя и выбирает ту интеграцию, через которую оно пришло. Если таких сообщений нет — берёт primary интеграцию. Переданный `profileId` используется только для API-ключей, но не для выбора интеграции.
+После удаления и переподключения интеграций бота, система всегда отправляет через primary (личный аккаунт), потому что:
 
-## Решение
+1. Колонка `integration_id` в `chat_messages` была обнулена (при подготовке к удалению старых интеграций)
+2. Metadata fallback находит старые `integration_id` от удалённых интеграций, пытается найти их в таблице `messenger_integrations`, не находит (они удалены), и переходит к primary
+3. Фронтенд (`useTelegramWappi.ts`) никогда не передает `integrationId` при отправке -- нет механизма принудительной маршрутизации из чата
 
-Передавать `integrationId` конкретного бота в запрос `telegram-send`, чтобы функция использовала именно эту интеграцию вместо умной маршрутизации.
+## Решение (2 изменения)
 
-## Технические изменения
+### 1. Edge Function: `telegram-send/index.ts` -- "мертвая ссылка" fallback
 
-### 1. `src/components/admin/integrations/TelegramIntegrations.tsx`
+Когда smart routing нашёл `integration_id`, но интеграция не найдена в БД (удалена), вместо перехода к primary -- искать замену с тем же `profileId` среди активных интеграций:
 
-Добавить `integrationId: integration.id` в payload тестовой отправки:
+```text
+Текущая логика (строки 207-220):
+  resolvedIntegrationId найден -> ищем в messenger_integrations -> НЕ НАЙДЕН -> integration = null -> primary fallback
 
-```typescript
-const payload = {
-  text: 'Тестовое сообщение от CRM',
-  profileId,
-  integrationId: integration.id, // Принудительно указываем интеграцию
-  testMode: true,
-  // + telegramUserId или phoneNumber
-};
+Новая логика:
+  resolvedIntegrationId найден -> ищем в messenger_integrations -> НЕ НАЙДЕН ->
+    -> ищем ЛЮБУЮ активную telegram-интеграцию с тем же provider (wappi/telegram_crm) ->
+    -> если нашли, используем её (это "замена" удалённой)
+    -> если нет, тогда primary fallback
 ```
 
-### 2. `supabase/functions/telegram-send/index.ts`
+Конкретно: после строки 219, если `integration` = null и `resolvedIntegrationId` был найден, выполнить поиск замены среди всех активных telegram-интеграций организации. Логика: если нашёлся только один активный бот -- использовать его. Если несколько -- попробовать найти по совпадению `profileId` из body.
 
-Добавить приоритетную обработку `integrationId` из тела запроса — если он передан, пропускать умную маршрутизацию и использовать указанную интеграцию напрямую:
+### 2. Фронтенд: `src/hooks/useTelegramWappi.ts` -- передача `integrationId` из чата
 
+В функции `sendMessage` добавить опциональный параметр `integrationId` в `options`, и если он передан -- включать его в body запроса. Это позволит компонентам чата явно указывать через какую интеграцию отправлять.
+
+Добавить в интерфейс options:
 ```typescript
-// Перед блоком smart routing (строка ~64):
-if (body.integrationId) {
-  resolvedIntegrationId = body.integrationId;
-  console.log('[telegram-send] Forced integration from body:', resolvedIntegrationId);
+options?: {
+  phoneNumber?: string;
+  chatId?: string;
+  teacherId?: string;
+  senderName?: string;
+  telegramUserId?: string | number | null;
+  integrationId?: string;  // NEW
 }
 ```
 
-Это позволит тестовой отправке и другим сценариям явно указывать через какую интеграцию отправлять.
+И в каждый вариант body добавить:
+```typescript
+...(options?.integrationId ? { integrationId: options.integrationId } : {})
+```
+
+### Приоритет
+
+Изменение 1 (edge function) -- критическое, решает проблему немедленно для всех существующих чатов. Изменение 2 -- улучшение для будущей надёжности.
+
