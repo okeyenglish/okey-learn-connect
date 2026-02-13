@@ -1038,7 +1038,7 @@ const CRMContent = () => {
   }, null);
 
   // Total unread for document title (all sources)
-  const clientsUnread = (threads || []).reduce((sum, t) => sum + (t.unread_count || 0), 0);
+  const clientsUnread = (threads || []).reduce((sum, t) => sum + (t.unread_count || 0), 0) + (threads || []).filter(t => !t.unread_count && getChatState(t.client_id).isUnread).length;
   const allUnreadCount = clientsUnread + corporateUnread + teacherUnread + (communityUnread || 0);
   
   // Track previous unread count to detect new messages
@@ -4714,7 +4714,7 @@ const CRMContent = () => {
           onEmployeeClick={handleMobileEmployeeClick}
           chatOSUnreadCount={staffUnreadCount + (assistantUnreadCount || 0)}
           teachersUnreadCount={teacherChats?.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0) || 0}
-          clientsUnreadCount={threads?.filter((t: any) => t.unread_count > 0).length || 0}
+          clientsUnreadCount={(threads?.filter((t: any) => t.unread_count > 0 || getChatState(t.client_id || t.id)?.isUnread).length) || 0}
           activeChatType={activeTab === 'menu' ? 'menu' : activeChatType}
           isAdmin={isAdmin}
         />
