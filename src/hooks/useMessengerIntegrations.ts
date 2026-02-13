@@ -150,9 +150,13 @@ export const useMessengerIntegrations = (messengerType?: MessengerType) => {
       });
     },
     onError: (error: Error) => {
+      const msg = error.message || '';
+      const isNetworkError = msg.includes('fetch') || msg.includes('network') || msg.includes('Failed') || msg.includes('timeout') || msg.includes('ECONNREFUSED');
       toast({
-        title: 'Ошибка',
-        description: error.message,
+        title: 'Ошибка удаления',
+        description: isNetworkError 
+          ? 'Сервер недоступен. Проверьте подключение и попробуйте позже.'
+          : msg || 'Неизвестная ошибка',
         variant: 'destructive',
       });
     },
