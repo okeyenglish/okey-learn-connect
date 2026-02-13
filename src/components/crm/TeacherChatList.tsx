@@ -115,37 +115,20 @@ export const TeacherChatList: React.FC<TeacherChatListProps> = ({
     });
   }, [filteredTeachers, pinCounts]);
 
-  // Check if group chat is pinned
-  const isGroupChatPinned = (pinCounts['teachers-group'] || 0) > 0;
-
-  // Combined list: group chat at index 0 (or after pinned teachers), then teachers
+  // Combined list: group chat sorted among teachers by time (no longer pinned to top)
   const items = useMemo(() => {
-    // Find where to insert group chat
-    // If group chat is pinned, it goes first
-    // Otherwise, it goes after pinned teachers
+    const teacherItems = sortedTeachers.map(t => ({ type: 'teacher' as const, teacher: t }));
+    const groupItem = { type: 'group' as const };
+    
+    // If group chat is pinned by user, put it at the top
+    const isGroupChatPinned = (pinCounts['teachers-group'] || 0) > 0;
     if (isGroupChatPinned) {
-      return [{ type: 'group' as const }, ...sortedTeachers.map(t => ({ type: 'teacher' as const, teacher: t }))];
+      return [groupItem, ...teacherItems];
     }
     
-    // Find the first non-pinned teacher index
-    const firstNonPinnedIndex = sortedTeachers.findIndex(t => (pinCounts[t.id] || 0) === 0);
-    
-    if (firstNonPinnedIndex === -1) {
-      // All teachers are pinned, put group chat at the end of pinned
-      return [...sortedTeachers.map(t => ({ type: 'teacher' as const, teacher: t })), { type: 'group' as const }];
-    }
-    
-    if (firstNonPinnedIndex === 0) {
-      // No pinned teachers, put group chat first
-      return [{ type: 'group' as const }, ...sortedTeachers.map(t => ({ type: 'teacher' as const, teacher: t }))];
-    }
-    
-    // Insert group chat after pinned teachers
-    const pinnedTeachers = sortedTeachers.slice(0, firstNonPinnedIndex).map(t => ({ type: 'teacher' as const, teacher: t }));
-    const nonPinnedTeachers = sortedTeachers.slice(firstNonPinnedIndex).map(t => ({ type: 'teacher' as const, teacher: t }));
-    
-    return [...pinnedTeachers, { type: 'group' as const }, ...nonPinnedTeachers];
-  }, [sortedTeachers, isGroupChatPinned, pinCounts]);
+    // Otherwise just append at end (it has no lastMessageTime to sort by)
+    return [...teacherItems, groupItem];
+  }, [sortedTeachers, pinCounts]);
 
   const rowVirtualizer = useVirtualizer({
     count: items.length,
