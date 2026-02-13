@@ -1100,7 +1100,7 @@ export const AIHub = ({
               </div>
             </div>
           ) : (
-          <ScrollArea ref={scrollAreaRef} className="flex-1 overflow-auto">
+          <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0 overflow-auto">
             <div className="space-y-1 px-3 py-4 pb-4">
               {isLoading ? (
                 <div className="text-center py-8">
@@ -1424,7 +1424,7 @@ export const AIHub = ({
           )}
 
           {/* Input */}
-          <div className="px-3 py-2 bg-background border-t shrink-0">
+          <div className="px-3 py-2 bg-background border-t shrink-0" style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}>
             {/* Pending file preview */}
             {pendingFile && (
               <div className="flex items-center gap-2 mb-2 mx-1 px-3 py-2 bg-muted rounded-xl text-xs">
