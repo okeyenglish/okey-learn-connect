@@ -898,9 +898,36 @@ export const ChatArea = ({
   }, [managerName, senderAvatarMap]);
 
   // Format messages from React Query data using memoization for performance
+  // Deduplicate: if real message arrived, remove matching optimistic message
   const messages = useMemo(() => {
     if (!messagesData?.messages) return [];
-    return messagesData.messages.map(formatMessage);
+    const raw = messagesData.messages;
+    
+    // Check if there are any optimistic messages
+    const hasOptimistic = raw.some((m: any) => String(m.id).startsWith('optimistic-'));
+    if (!hasOptimistic) return raw.map(formatMessage);
+    
+    // Deduplicate: for each optimistic msg, check if a real msg with same content exists
+    const optimisticTexts = new Set<string>();
+    raw.forEach((m: any) => {
+      if (String(m.id).startsWith('optimistic-')) {
+        optimisticTexts.add(m.content || m.message_text || '');
+      }
+    });
+    
+    // Check if real messages exist for any optimistic content
+    const realExists = raw.some((m: any) => 
+      !String(m.id).startsWith('optimistic-') && 
+      (m.is_outgoing || m.direction === 'outgoing') &&
+      optimisticTexts.has(m.content || m.message_text || '')
+    );
+    
+    // If real messages arrived, filter out all optimistic ones
+    const deduped = realExists 
+      ? raw.filter((m: any) => !String(m.id).startsWith('optimistic-'))
+      : raw;
+    
+    return deduped.map(formatMessage);
   }, [messagesData?.messages, formatMessage]);
 
   // Мемоизируем ID сообщений для batch-загрузки реакций (устраняет N+1 проблему)
@@ -1858,19 +1885,9 @@ export const ChatArea = ({
         }
       }
 
-      // Remove optimistic messages before refetch to prevent flicker
-      // The real message from DB will seamlessly replace the optimistic one
-      queryClient.setQueriesData<any>(
-        { queryKey: ['chat-messages-optimized', clientId] },
-        (old: any) => {
-          if (!old) return old;
-          return {
-            ...old,
-            messages: (old.messages || []).filter((m: any) => !String(m.id).startsWith('optimistic-')),
-          };
-        }
-      );
-      await queryClient.refetchQueries({ queryKey: ['chat-messages-optimized', clientId] });
+      // Invalidate cache — optimistic message stays visible until real data arrives
+      // Real data atomically replaces the entire cache (no gap/flicker)
+      queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
       queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
 
       // Remove any pending GPT suggestions for this client after a successful send
