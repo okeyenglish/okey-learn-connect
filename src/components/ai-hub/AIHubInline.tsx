@@ -1282,66 +1282,74 @@ export const AIHubInline = ({
             </div>
           )}
           
-          <div className="flex items-center gap-2">
-            {/* File upload button - only for staff/teacher/group chats */}
-            {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
-              <FileUpload
-                ref={fileUploadRef}
-                onFileUpload={(fileInfo) => {
-                  setPendingFile({ url: fileInfo.url, name: fileInfo.name, type: fileInfo.type });
-                }}
-                onFileRemove={() => setPendingFile(null)}
-                disabled={isProcessing || sendStaffMessage.isPending}
-                maxFiles={1}
-                maxSize={10}
+          {/* Textarea - like client chat */}
+          <div className="relative mb-2">
+            {/* Mention picker for group chats */}
+            {activeChat.type === 'group' && (
+              <MentionPicker
+                query={mentionQuery}
+                users={(staffMembers || []).filter(s => s.id !== user?.id)}
+                onSelect={(u) => insertMention(u)}
+                onClose={closeMention}
+                visible={mentionActive}
               />
             )}
-            {/* Quick replies button */}
-            {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="shrink-0 h-9 w-9"
-                onClick={() => setShowQuickReplies(true)}
-                title="Быстрые ответы"
-              >
-                <Zap className="h-4 w-4" />
-              </Button>
-            )}
-            <div className="relative flex-1">
-              {/* Mention picker for group chats */}
-              {activeChat.type === 'group' && (
-                <MentionPicker
-                  query={mentionQuery}
-                  users={(staffMembers || []).filter(s => s.id !== user?.id)}
-                  onSelect={(u) => insertMention(u)}
-                  onClose={closeMention}
-                  visible={mentionActive}
+            <textarea
+              value={message}
+              onChange={(e) => {
+                setMessage(e.target.value);
+                e.target.style.height = 'auto';
+                e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                if (activeChat.type === 'group') {
+                  handleMentionChange(e.target.value, e.target.selectionStart || 0);
+                }
+                if ((activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && e.target.value.trim()) setTyping(true);
+              }}
+              onKeyDown={(e) => {
+                if (mentionActive && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Escape')) return;
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
+              }}
+              onBlur={() => { if (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') stopTyping(); }}
+              placeholder={getCurrentPlaceholder()}
+              disabled={isProcessing || isRecording}
+              className="w-full min-h-[48px] max-h-[120px] resize-none text-base rounded-xl border border-input bg-background px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+              rows={1}
+            />
+          </div>
+
+          {/* Bottom row: icons + send */}
+          <div className="flex items-center gap-1 w-full">
+            <div className="flex items-center gap-0.5 flex-1">
+              {/* File upload button */}
+              {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
+                <FileUpload
+                  ref={fileUploadRef}
+                  onFileUpload={(fileInfo) => {
+                    setPendingFile({ url: fileInfo.url, name: fileInfo.name, type: fileInfo.type });
+                  }}
+                  onFileRemove={() => setPendingFile(null)}
+                  disabled={isProcessing || sendStaffMessage.isPending}
+                  maxFiles={1}
+                  maxSize={10}
                 />
               )}
-              <Input
-                value={message}
-                onChange={(e) => {
-                  setMessage(e.target.value);
-                  if (activeChat.type === 'group') {
-                    handleMentionChange(e.target.value, (e.target as HTMLInputElement).selectionStart || 0);
-                  }
-                  if ((activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && e.target.value.trim()) setTyping(true);
-                }}
-                onKeyDown={(e) => {
-                  if (mentionActive && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Escape')) return;
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
-                }}
-                onBlur={() => { if (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') stopTyping(); }}
-                placeholder={getCurrentPlaceholder()}
-                disabled={isProcessing || isRecording}
-                className="flex-1 h-9"
-              />
+              {/* Quick replies button */}
+              {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 h-8 w-8"
+                  onClick={() => setShowQuickReplies(true)}
+                  title="Быстрые ответы"
+                >
+                  <Zap className="h-4 w-4" />
+                </Button>
+              )}
             </div>
-            <Button onClick={handleSendMessage} disabled={(!message.trim() && !pendingFile) || isProcessing || isRecording || sendStaffMessage.isPending} size="icon" className="shrink-0 h-9 w-9">
+            <Button onClick={handleSendMessage} disabled={(!message.trim() && !pendingFile) || isProcessing || isRecording || sendStaffMessage.isPending} size="icon" className="shrink-0 h-10 w-10 rounded-full">
               {isProcessing || sendStaffMessage.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
-            <Button onClick={() => setIsRecording(!isRecording)} disabled={isProcessing || sendStaffMessage.isPending} size="icon" variant={isRecording ? "destructive" : "outline"} className="shrink-0 h-9 w-9">
+            <Button onClick={() => setIsRecording(!isRecording)} disabled={isProcessing || sendStaffMessage.isPending} size="icon" variant={isRecording ? "destructive" : "outline"} className="shrink-0 h-10 w-10 rounded-full">
               {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
             </Button>
           </div>
