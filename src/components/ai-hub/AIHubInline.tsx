@@ -45,6 +45,8 @@ import { ForwardedMessageBubble, isForwardedMessage } from '@/components/ai-hub/
 import { StaffMessageReactions } from '@/components/ai-hub/StaffMessageReactions';
 import { StaffForwardedBubble, isStaffForwardedMessage } from '@/components/ai-hub/StaffForwardedBubble';
 import { StaffForwardPicker } from '@/components/ai-hub/StaffForwardPicker';
+import { MessageContextMenu } from '@/components/ai-hub/MessageContextMenu';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useStaffReactionsBatch, useStaffReactionsBroadcast } from '@/hooks/useStaffMessageReactions';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { selfHostedPost } from '@/lib/selfHostedApi';
@@ -259,6 +261,7 @@ export const AIHubInline = ({
   quickReplyCategory,
   onOpenScripts
 }: AIHubInlineProps) => {
+  const isMobile = useIsMobile();
   const [activeChat, setActiveChat] = useState<ChatItem | null>(null);
 
   // Sync active chat to global store for notification suppression
@@ -1046,10 +1049,22 @@ export const AIHubInline = ({
                 </p>
               </div>
             ) : (
-              filteredMessages.map((msg) => (
-                <div key={msg.id} className={`group flex items-end gap-1 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  {/* Action buttons for own messages */}
-                  {msg.type === 'user' && !msg.is_deleted && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
+              filteredMessages.map((msg) => {
+                const isOwn = msg.type === 'user';
+                const isStaffChat = activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group';
+                return (
+                <MessageContextMenu
+                  key={msg.id}
+                  isOwn={isOwn}
+                  isStaffChat={isStaffChat}
+                  isDeleted={msg.is_deleted}
+                  onEdit={isOwn ? () => { setEditingMessage({ id: msg.id, content: msg.content }); setEditText(msg.content); } : undefined}
+                  onDelete={isOwn ? () => { if (confirm('Удалить сообщение?')) deleteStaffMessage.mutate(msg.id); } : undefined}
+                  onForward={() => setForwardingMessage({ id: msg.id, content: msg.content, senderName: msg.sender || (isOwn ? 'Вы' : 'Коллега'), chatName: activeChat.name })}
+                >
+                <div className={`group flex items-end gap-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                  {/* Action buttons for own messages - desktop only */}
+                  {!isMobile && isOwn && !msg.is_deleted && isStaffChat && (
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                       <button
                         className="h-6 w-6 rounded-full flex items-center justify-center bg-background/80 border border-border/40 shadow-sm hover:bg-background"
@@ -1196,8 +1211,8 @@ export const AIHubInline = ({
                       />
                     )}
                   </div>
-                  {/* Forward button for incoming messages */}
-                  {msg.type !== 'user' && (activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
+                  {/* Forward button for incoming messages - desktop only */}
+                  {!isMobile && !isOwn && isStaffChat && (
                     <button
                       className="h-6 w-6 rounded-full flex items-center justify-center bg-background/80 border border-border/40 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background shrink-0"
                       onClick={() => setForwardingMessage({ id: msg.id, content: msg.content, senderName: msg.sender || 'Коллега', chatName: activeChat.name })}
@@ -1207,7 +1222,8 @@ export const AIHubInline = ({
                     </button>
                   )}
                 </div>
-              ))
+                </MessageContextMenu>
+              );})
             )}
             {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && typingUsers.length > 0 && (
               <StaffTypingIndicator typingUsers={typingUsers} />
