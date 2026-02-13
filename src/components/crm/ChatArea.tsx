@@ -1853,31 +1853,39 @@ export const ChatArea = ({
 
       if (clientError) throw clientError;
 
-      // Compute sender name from auth profile
+      // Compute sender name from auth profile (same as sendMessageNow)
       const senderName = authProfile
         ? [((authProfile as any).first_name), ((authProfile as any).last_name)].filter(Boolean).join(' ') || 'Менеджер поддержки'
         : 'Менеджер поддержки';
 
-      // Also add comment as a chat message (resilient: retry without optional fields)
-      const fullRecord = {
+      // Get organization_id for RLS compatibility
+      const orgId = (authProfile as any)?.organization_id;
+
+      // Build record using buildMessageRecord for teacher/client routing consistency
+      const record = buildMessageRecord({
         client_id: clientId,
+        organization_id: orgId || undefined,
         message_text: commentText,
         message_type: 'comment',
         is_outgoing: true,
+        is_read: true,
         sender_name: senderName,
-        sender_id: authUser?.id || null,
-        messenger_type: activeMessengerTab === 'chatos' ? 'whatsapp' : activeMessengerTab
-      };
-      let { error: messageError } = await supabase
-        .from('chat_messages')
-        .insert([fullRecord]);
+        messenger_type: activeMessengerTab === 'chatos' ? 'whatsapp' : activeMessengerTab,
+        metadata: { sender_name: senderName },
+      });
 
-      // Fallback: retry without sender_id if schema doesn't have it
+      // Resilient insert: try full, then strip optional fields on failure
+      const tryInsert = async (p: Record<string, unknown>) => {
+        const { error } = await supabase.from('chat_messages').insert([p as any]);
+        return error;
+      };
+
+      let messageError = await tryInsert(record);
       if (messageError) {
-        console.warn('Comment insert failed, retrying without sender_id:', messageError.message);
-        const { sender_id, ...minimalRecord } = fullRecord;
-        const retry = await supabase.from('chat_messages').insert([minimalRecord]);
-        messageError = retry.error;
+        console.warn('Comment insert failed, retrying minimal:', messageError.message);
+        // Keep only columns guaranteed on self-hosted
+        const { sender_name, sender_id, ...minimal } = record;
+        messageError = await tryInsert(minimal);
       }
 
       if (messageError) {
