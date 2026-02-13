@@ -576,14 +576,19 @@ async function handleIncomingMessage(
     return;
   }
 
-  // Update client's last_message_at and telegram_chat_id
+  // Update client's last_message_at, telegram_chat_id AND telegram_user_id
+  const clientUpdate: Record<string, any> = { 
+    last_message_at: new Date().toISOString(),
+    telegram_chat_id: chatId
+  };
+  if (telegramUserId) {
+    clientUpdate.telegram_user_id = String(telegramUserId);
+  }
   await supabase
     .from('clients')
-    .update({ 
-      last_message_at: new Date().toISOString(),
-      telegram_chat_id: chatId
-    })
+    .update(clientUpdate)
     .eq('id', client.id);
+  console.log(`[telegram-webhook] Updated client ${client.id}: telegram_chat_id=${chatId}, telegram_user_id=${telegramUserId}`);
 
   // Also update telegram_chat_id in client_phone_numbers if phone matches
   await updatePhoneNumberMessengerData(supabase, client.id, {
