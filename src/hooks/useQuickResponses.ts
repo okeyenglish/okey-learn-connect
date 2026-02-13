@@ -2,12 +2,17 @@ import { useState, useEffect, useCallback } from 'react';
 import { selfHostedGet, selfHostedPost, selfHostedDelete, selfHostedPatch } from '@/lib/selfHostedApi';
 import { useToast } from '@/hooks/use-toast';
 
+export type QuickResponseScope = 'global' | 'personal';
+
 export interface QuickResponseCategory {
   id: string;
   name: string;
   organization_id: string;
   is_teacher_category: boolean;
   sort_order: number;
+  scope: QuickResponseScope;
+  created_by?: string | null;
+  created_by_name?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -18,6 +23,9 @@ export interface QuickResponse {
   text: string;
   organization_id: string;
   sort_order: number;
+  scope: QuickResponseScope;
+  created_by?: string | null;
+  created_by_name?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -35,10 +43,10 @@ export type QuickResponseTarget = 'clients' | 'teachers' | 'staff';
 interface UseQuickResponsesOptions {
   isTeacher?: boolean;
   target?: QuickResponseTarget;
+  scope?: QuickResponseScope | 'all'; // 'all' = global + personal (for admin review)
 }
 
-export function useQuickResponses({ isTeacher = false, target }: UseQuickResponsesOptions = {}) {
-  // Resolve effective target: explicit target takes priority over isTeacher boolean
+export function useQuickResponses({ isTeacher = false, target, scope }: UseQuickResponsesOptions = {}) {
   const effectiveTarget = target || (isTeacher ? 'teachers' : 'clients');
   const effectiveIsTeacher = effectiveTarget === 'teachers';
   
@@ -53,9 +61,11 @@ export function useQuickResponses({ isTeacher = false, target }: UseQuickRespons
     setError(null);
     
     try {
-      const response = await selfHostedGet<QuickResponsesResponse>(
-        `quick-responses?is_teacher=${effectiveIsTeacher}&target=${effectiveTarget}`
-      );
+      let url = `quick-responses?is_teacher=${effectiveIsTeacher}&target=${effectiveTarget}`;
+      if (scope) {
+        url += `&scope=${scope}`;
+      }
+      const response = await selfHostedGet<QuickResponsesResponse>(url);
       
       if (response.success && response.data) {
         setCategories(response.data.categories || []);
@@ -68,17 +78,17 @@ export function useQuickResponses({ isTeacher = false, target }: UseQuickRespons
     } finally {
       setIsLoading(false);
     }
-  }, [effectiveIsTeacher, effectiveTarget]);
+  }, [effectiveIsTeacher, effectiveTarget, scope]);
 
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
 
-  const addCategory = useCallback(async (name: string) => {
+  const addCategory = useCallback(async (name: string, categoryScope: QuickResponseScope = 'global') => {
     try {
       const response = await selfHostedPost<{ category: QuickResponseCategory }>(
         'quick-responses/category',
-        { name, is_teacher_category: effectiveIsTeacher, target: effectiveTarget }
+        { name, is_teacher_category: effectiveIsTeacher, target: effectiveTarget, scope: categoryScope }
       );
       
       if (response.success && response.data) {
@@ -162,11 +172,11 @@ export function useQuickResponses({ isTeacher = false, target }: UseQuickRespons
     }
   }, [toast]);
 
-  const addResponse = useCallback(async (categoryId: string, text: string) => {
+  const addResponse = useCallback(async (categoryId: string, text: string, responseScope?: QuickResponseScope) => {
     try {
       const response = await selfHostedPost<{ response: QuickResponse }>(
         'quick-responses/response',
-        { category_id: categoryId, text }
+        { category_id: categoryId, text, scope: responseScope }
       );
       
       if (response.success && response.data) {
@@ -250,6 +260,71 @@ export function useQuickResponses({ isTeacher = false, target }: UseQuickRespons
     }
   }, [toast]);
 
+  /** Approve a personal response to become global */
+  const approveToGlobal = useCallback(async (responseId: string) => {
+    try {
+      const response = await selfHostedPatch<{ response: QuickResponse }>(
+        `quick-responses/response/${responseId}`,
+        { scope: 'global' }
+      );
+      
+      if (response.success) {
+        setCategories(prev => prev.map(cat => ({
+          ...cat,
+          responses: cat.responses.map(resp => 
+            resp.id === responseId ? { ...resp, scope: 'global' } : resp
+          )
+        })));
+        toast({
+          title: 'Шаблон одобрен',
+          description: 'Шаблон перемещён в общие'
+        });
+        return true;
+      } else {
+        toast({
+          title: 'Ошибка',
+          description: response.error || 'Не удалось одобрить шаблон',
+          variant: 'destructive'
+        });
+        return false;
+      }
+    } catch (err) {
+      console.error('Error approving response:', err);
+      return false;
+    }
+  }, [toast]);
+
+  /** Approve a personal category to become global */
+  const approveCategoryToGlobal = useCallback(async (categoryId: string) => {
+    try {
+      const response = await selfHostedPatch<{ category: QuickResponseCategory }>(
+        `quick-responses/category/${categoryId}`,
+        { scope: 'global' }
+      );
+      
+      if (response.success) {
+        setCategories(prev => prev.map(cat => 
+          cat.id === categoryId ? { ...cat, scope: 'global' } : cat
+        ));
+        toast({
+          title: 'Раздел одобрен',
+          description: 'Раздел и его шаблоны перемещены в общие'
+        });
+        return true;
+      } else {
+        toast({
+          title: 'Ошибка',
+          description: response.error || 'Не удалось одобрить раздел',
+          variant: 'destructive'
+        });
+        return false;
+      }
+    } catch (err) {
+      console.error('Error approving category:', err);
+      return false;
+    }
+  }, [toast]);
+
   const importDefaultTemplates = useCallback(async () => {
     setIsImporting(true);
     try {
@@ -294,7 +369,6 @@ export function useQuickResponses({ isTeacher = false, target }: UseQuickRespons
       );
       
       if (response.success) {
-        // Update local state with new order
         setCategories(prev => {
           const ordered = categoryIds.map(id => prev.find(c => c.id === id)).filter(Boolean) as CategoryWithResponses[];
           return ordered;
@@ -316,7 +390,6 @@ export function useQuickResponses({ isTeacher = false, target }: UseQuickRespons
       );
       
       if (response.success) {
-        // Update local state with new order
         setCategories(prev => prev.map(cat => {
           if (cat.id === categoryId) {
             const ordered = responseIds.map(id => cat.responses.find(r => r.id === id)).filter(Boolean) as QuickResponse[];
@@ -345,6 +418,8 @@ export function useQuickResponses({ isTeacher = false, target }: UseQuickRespons
     addResponse,
     updateResponse,
     deleteResponse,
+    approveToGlobal,
+    approveCategoryToGlobal,
     importDefaultTemplates,
     reorderCategories,
     reorderResponses

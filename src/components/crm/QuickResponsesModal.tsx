@@ -3,7 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Search, Plus, Edit2, MoreHorizontal, Zap, Loader2, Trash2, Check, X, Download, Copy, GripVertical, Users, MessageSquare } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Search, Plus, Edit2, MoreHorizontal, Zap, Loader2, Trash2, Check, X, Download, Copy, GripVertical, Users, MessageSquare, Globe, Lock, User } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,7 +12,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { useQuickResponses, CategoryWithResponses, QuickResponse, QuickResponseTarget } from "@/hooks/useQuickResponses";
+import { useQuickResponses, CategoryWithResponses, QuickResponse, QuickResponseTarget, QuickResponseScope } from "@/hooks/useQuickResponses";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import {
   DndContext,
@@ -82,7 +84,15 @@ const SortableCategoryItem = ({
           📁
         </div>
         <div>
-          <span className="font-medium">{category.name}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium">{category.name}</span>
+            {category.scope === 'personal' && (
+              <Badge variant="outline" className="text-[10px] h-4 gap-0.5">
+                <Lock className="h-2 w-2" />
+                Мой
+              </Badge>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">
             {category.responses.length} {category.responses.length === 1 ? 'шаблон' : 'шаблонов'}
           </p>
@@ -129,7 +139,8 @@ const SortableResponseItem = ({
   onCancelEdit,
   onEditTextChange,
   onDelete,
-  onCopy
+  onCopy,
+  canEdit = true,
 }: { 
   response: QuickResponse;
   isEditing: boolean;
@@ -141,6 +152,7 @@ const SortableResponseItem = ({
   onEditTextChange: (text: string) => void;
   onDelete: () => void;
   onCopy: () => void;
+  canEdit?: boolean;
 }) => {
   const {
     attributes,
@@ -201,7 +213,15 @@ const SortableResponseItem = ({
           >
             <GripVertical className="h-4 w-4" />
           </button>
-          <p className="text-sm flex-1 whitespace-pre-wrap">{response.text}</p>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm whitespace-pre-wrap">{response.text}</p>
+            {response.scope === 'personal' && (
+              <Badge variant="outline" className="text-[10px] h-4 gap-0.5 mt-1">
+                <Lock className="h-2 w-2" />
+                Мой
+              </Badge>
+            )}
+          </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             <Button
               variant="ghost"
@@ -215,41 +235,45 @@ const SortableResponseItem = ({
             >
               <Copy className="h-3 w-3" />
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit();
-              }}
-            >
-              <Edit2 className="h-3 w-3" />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            {canEdit && (
+              <>
                 <Button
                   variant="ghost"
                   size="sm"
                   className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreHorizontal className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem 
-                  className="text-destructive"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onDelete();
+                    onEdit();
                   }}
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Удалить шаблон
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <Edit2 className="h-3 w-3" />
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreHorizontal className="h-3 w-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem 
+                      className="text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete();
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Удалить шаблон
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -259,6 +283,8 @@ const SortableResponseItem = ({
 
 export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTeacher = false }: QuickResponsesModalProps) => {
   const [activeTarget, setActiveTarget] = useState<QuickResponseTarget>(isTeacher ? 'teachers' : 'clients');
+  const { roles } = useAuth();
+  const isAdmin = roles?.includes('admin');
   
   // Reset target when modal opens based on isTeacher prop
   useEffect(() => {
@@ -267,23 +293,15 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
     }
   }, [open, isTeacher]);
 
-  const {
-    categories,
-    isLoading,
-    isImporting,
-    addCategory,
-    deleteCategory,
-    addResponse,
-    updateResponse,
-    deleteResponse,
-    importDefaultTemplates,
-    reorderCategories,
-    reorderResponses
-  } = useQuickResponses({ target: activeTarget });
+  // Fetch global templates
+  const globalData = useQuickResponses({ target: activeTarget, scope: 'global' });
+  // Fetch personal templates
+  const personalData = useQuickResponses({ target: activeTarget, scope: 'personal' });
 
   const { toast } = useToast();
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedScope, setSelectedScope] = useState<'global' | 'personal' | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [responseSearchQuery, setResponseSearchQuery] = useState("");
   const [showAddCategory, setShowAddCategory] = useState(false);
@@ -298,29 +316,48 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
   // DnD sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
+      activationConstraint: { distance: 8 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
 
-  const selectedCategory = categories.find(cat => cat.id === selectedCategoryId);
+  // Choose the right data source based on selected scope
+  const activeData = selectedScope === 'personal' ? personalData : globalData;
+  const isLoading = globalData.isLoading || personalData.isLoading;
+  const isImporting = globalData.isImporting;
+
+  // Combined categories for the list view
+  const allCategories = useMemo(() => {
+    const global = globalData.categories.map(c => ({ ...c, _scope: 'global' as const }));
+    const personal = personalData.categories.map(c => ({ ...c, _scope: 'personal' as const }));
+    return [...global, ...personal];
+  }, [globalData.categories, personalData.categories]);
+
+  const selectedCategory = useMemo(() => {
+    if (!selectedCategoryId || !selectedScope) return null;
+    const data = selectedScope === 'personal' ? personalData : globalData;
+    return data.categories.find(cat => cat.id === selectedCategoryId) || null;
+  }, [selectedCategoryId, selectedScope, globalData.categories, personalData.categories]);
   
-  const filteredCategories = useMemo(() => 
-    categories.filter(category =>
+  const filteredGlobalCategories = useMemo(() => 
+    globalData.categories.filter(category =>
       category.name.toLowerCase().includes(searchQuery.toLowerCase())
     ),
-    [categories, searchQuery]
+    [globalData.categories, searchQuery]
   );
 
-  // Filter responses within selected category
+  const filteredPersonalCategories = useMemo(() => 
+    personalData.categories.filter(category =>
+      category.name.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+    [personalData.categories, searchQuery]
+  );
+
   const filteredResponses = useMemo(() => {
     if (!selectedCategory) return [];
     if (!responseSearchQuery.trim()) return selectedCategory.responses;
-    
     const query = responseSearchQuery.toLowerCase();
     return selectedCategory.responses.filter(response =>
       response.text.toLowerCase().includes(query)
@@ -331,6 +368,7 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
   useEffect(() => {
     if (!open) {
       setSelectedCategoryId(null);
+      setSelectedScope(null);
       setSearchQuery("");
       setResponseSearchQuery("");
       setShowAddCategory(false);
@@ -341,7 +379,6 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
     }
   }, [open]);
 
-  // Reset response search when changing category
   useEffect(() => {
     setResponseSearchQuery("");
   }, [selectedCategoryId]);
@@ -354,26 +391,19 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
   const handleCopyToClipboard = useCallback(async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast({
-        title: "Скопировано",
-        description: "Текст скопирован в буфер обмена"
-      });
-    } catch (err) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось скопировать текст",
-        variant: "destructive"
-      });
+      toast({ title: "Скопировано", description: "Текст скопирован в буфер обмена" });
+    } catch {
+      toast({ title: "Ошибка", description: "Не удалось скопировать текст", variant: "destructive" });
     }
   }, [toast]);
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;
-    
     setIsAddingCategory(true);
-    const result = await addCategory(newCategoryName.trim());
+    // Non-admins always create personal categories
+    const scope: QuickResponseScope = isAdmin ? 'global' : 'personal';
+    const result = await (scope === 'personal' ? personalData : globalData).addCategory(newCategoryName.trim(), scope);
     setIsAddingCategory(false);
-    
     if (result) {
       setNewCategoryName("");
       setShowAddCategory(false);
@@ -381,24 +411,26 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
   };
 
   const handleAddResponse = async () => {
-    if (!newResponseText.trim() || !selectedCategoryId) return;
-    
+    if (!newResponseText.trim() || !selectedCategoryId || !selectedScope) return;
     setIsAddingResponse(true);
-    const result = await addResponse(selectedCategoryId, newResponseText.trim());
+    const data = selectedScope === 'personal' ? personalData : globalData;
+    const result = await data.addResponse(selectedCategoryId, newResponseText.trim(), selectedScope as QuickResponseScope);
     setIsAddingResponse(false);
-    
     if (result) {
       setNewResponseText("");
       setShowAddResponse(false);
     }
   };
 
-  const handleDeleteCategory = async (categoryId: string) => {
-    await deleteCategory(categoryId);
+  const handleDeleteCategory = async (categoryId: string, scope: 'global' | 'personal') => {
+    const data = scope === 'personal' ? personalData : globalData;
+    await data.deleteCategory(categoryId);
   };
 
   const handleDeleteResponse = async (responseId: string) => {
-    await deleteResponse(responseId);
+    if (!selectedScope) return;
+    const data = selectedScope === 'personal' ? personalData : globalData;
+    await data.deleteResponse(responseId);
   };
 
   const handleStartEditResponse = (response: QuickResponse) => {
@@ -407,9 +439,9 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
   };
 
   const handleSaveEditResponse = async () => {
-    if (!editingResponseId || !editingResponseText.trim()) return;
-    
-    const success = await updateResponse(editingResponseId, editingResponseText.trim());
+    if (!editingResponseId || !editingResponseText.trim() || !selectedScope) return;
+    const data = selectedScope === 'personal' ? personalData : globalData;
+    const success = await data.updateResponse(editingResponseId, editingResponseText.trim());
     if (success) {
       setEditingResponseId(null);
       setEditingResponseText("");
@@ -422,44 +454,46 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
   };
 
   const handleImportDefaults = async () => {
-    await importDefaultTemplates();
+    await globalData.importDefaultTemplates();
   };
 
   const goBack = () => {
     setSelectedCategoryId(null);
+    setSelectedScope(null);
     setShowAddResponse(false);
     setResponseSearchQuery("");
   };
 
-  // Handle category drag end
   const handleCategoryDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
-    
     if (over && active.id !== over.id) {
-      const oldIndex = filteredCategories.findIndex(c => c.id === active.id);
-      const newIndex = filteredCategories.findIndex(c => c.id === over.id);
-      
+      const cats = filteredGlobalCategories;
+      const oldIndex = cats.findIndex(c => c.id === active.id);
+      const newIndex = cats.findIndex(c => c.id === over.id);
       if (oldIndex !== -1 && newIndex !== -1) {
-        const newOrder = arrayMove(filteredCategories, oldIndex, newIndex);
-        await reorderCategories(newOrder.map(c => c.id));
+        const newOrder = arrayMove(cats, oldIndex, newIndex);
+        await globalData.reorderCategories(newOrder.map(c => c.id));
       }
     }
-  }, [filteredCategories, reorderCategories]);
+  }, [filteredGlobalCategories, globalData.reorderCategories]);
 
-  // Handle response drag end
   const handleResponseDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
-    
-    if (over && active.id !== over.id && selectedCategoryId) {
+    if (over && active.id !== over.id && selectedCategoryId && selectedScope) {
       const oldIndex = filteredResponses.findIndex(r => r.id === active.id);
       const newIndex = filteredResponses.findIndex(r => r.id === over.id);
-      
       if (oldIndex !== -1 && newIndex !== -1) {
+        const data = selectedScope === 'personal' ? personalData : globalData;
         const newOrder = arrayMove(filteredResponses, oldIndex, newIndex);
-        await reorderResponses(selectedCategoryId, newOrder.map(r => r.id));
+        await data.reorderResponses(selectedCategoryId, newOrder.map(r => r.id));
       }
     }
-  }, [filteredResponses, selectedCategoryId, reorderResponses]);
+  }, [filteredResponses, selectedCategoryId, selectedScope, globalData.reorderResponses, personalData.reorderResponses]);
+
+  const canEditResponse = (response: QuickResponse) => {
+    // Admins can edit everything, non-admins can only edit personal
+    return isAdmin || response.scope === 'personal';
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -474,6 +508,12 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
             <DialogTitle className="flex items-center gap-2">
               <Zap className="h-5 w-5" />
               <span>{selectedCategory ? selectedCategory.name : "Быстрые ответы"}</span>
+              {selectedCategory && selectedScope === 'personal' && (
+                <Badge variant="outline" className="text-[10px] h-5 gap-0.5">
+                  <Lock className="h-2.5 w-2.5" />
+                  Личный
+                </Badge>
+              )}
             </DialogTitle>
           </div>
           {!selectedCategory && (
@@ -518,71 +558,118 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
                       className="pl-10"
                     />
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleImportDefaults}
-                    disabled={isImporting}
-                    title="Импортировать стандартные шаблоны"
-                  >
-                    {isImporting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Download className="h-4 w-4" />
-                    )}
-                  </Button>
+                  {isAdmin && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleImportDefaults}
+                      disabled={isImporting}
+                      title="Импортировать стандартные шаблоны"
+                    >
+                      {isImporting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                    </Button>
+                  )}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Перетащите раздел, чтобы изменить порядок
-                </p>
               </div>
 
               <div className="flex-1 overflow-y-auto space-y-2">
-                {filteredCategories.length === 0 && !showAddCategory ? (
+                {/* Global categories */}
+                {filteredGlobalCategories.length > 0 && (
+                  <>
+                    <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 px-1">
+                      <Globe className="h-3 w-3" />
+                      Общие шаблоны
+                    </p>
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleCategoryDragEnd}
+                    >
+                      <SortableContext
+                        items={filteredGlobalCategories.map(c => c.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {filteredGlobalCategories.map((category) => (
+                          <SortableCategoryItem
+                            key={category.id}
+                            category={category}
+                            onSelect={() => { setSelectedCategoryId(category.id); setSelectedScope('global'); }}
+                            onDelete={() => handleDeleteCategory(category.id, 'global')}
+                          />
+                        ))}
+                      </SortableContext>
+                    </DndContext>
+                  </>
+                )}
+
+                {/* Personal categories */}
+                {filteredPersonalCategories.length > 0 && (
+                  <>
+                    <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 px-1 mt-3">
+                      <Lock className="h-3 w-3" />
+                      Мои шаблоны
+                    </p>
+                    {filteredPersonalCategories.map((category) => (
+                      <div
+                        key={category.id}
+                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer group border-dashed"
+                        onClick={() => { setSelectedCategoryId(category.id); setSelectedScope('personal'); }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-muted rounded flex items-center justify-center">
+                            <Lock className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <div>
+                            <span className="font-medium">{category.name}</span>
+                            <p className="text-xs text-muted-foreground">
+                              {category.responses.length} {category.responses.length === 1 ? 'шаблон' : 'шаблонов'}
+                            </p>
+                          </div>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteCategory(category.id, 'personal');
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Удалить раздел
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {filteredGlobalCategories.length === 0 && filteredPersonalCategories.length === 0 && !showAddCategory ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <p>Нет сохранённых шаблонов</p>
-                    <p className="text-sm mt-1">Создайте первый раздел или импортируйте стандартные</p>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="mt-3"
-                      onClick={handleImportDefaults}
-                      disabled={isImporting}
-                    >
-                      {isImporting ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Download className="h-4 w-4 mr-2" />
-                      )}
-                      Импортировать стандартные
-                    </Button>
+                    <p className="text-sm mt-1">Создайте первый раздел</p>
                   </div>
-                ) : (
-                  <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleCategoryDragEnd}
-                  >
-                    <SortableContext
-                      items={filteredCategories.map(c => c.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      {filteredCategories.map((category) => (
-                        <SortableCategoryItem
-                          key={category.id}
-                          category={category}
-                          onSelect={() => setSelectedCategoryId(category.id)}
-                          onDelete={() => handleDeleteCategory(category.id)}
-                        />
-                      ))}
-                    </SortableContext>
-                  </DndContext>
-                )}
+                ) : null}
                 
                 {showAddCategory ? (
                   <div className="p-3 border rounded-lg space-y-2">
                     <Input
-                      placeholder="Название раздела"
+                      placeholder={isAdmin ? "Название раздела (общий)" : "Название раздела (личный)"}
                       value={newCategoryName}
                       onChange={(e) => setNewCategoryName(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && handleAddCategory()}
@@ -597,6 +684,12 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
                         Отмена
                       </Button>
                     </div>
+                    {!isAdmin && (
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <Lock className="h-2.5 w-2.5" />
+                        Раздел будет виден только вам
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <Button
@@ -605,7 +698,7 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
                     onClick={() => setShowAddCategory(true)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Добавить новый раздел
+                    {isAdmin ? 'Добавить общий раздел' : 'Добавить личный раздел'}
                   </Button>
                 )}
               </div>
@@ -624,7 +717,7 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Нажмите на шаблон, чтобы вставить его. Перетащите для изменения порядка.
+                  Нажмите на шаблон, чтобы вставить его.
                 </p>
               </div>
 
@@ -663,6 +756,7 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
                             setNewResponseText(response.text);
                             setShowAddResponse(true);
                           }}
+                          canEdit={canEditResponse(response)}
                         />
                       ))}
                     </SortableContext>
