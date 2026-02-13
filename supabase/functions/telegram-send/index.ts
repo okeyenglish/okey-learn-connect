@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(selfHostedUrl, supabaseServiceKey);
 
     // Parse body early to get clientId for smart routing
-    const body = await req.json() as TelegramSendRequest & { phoneNumber?: string; teacherId?: string; organizationId?: string; telegramUserId?: string; integrationId?: string };
+    const body = await req.json() as TelegramSendRequest & { phoneNumber?: string; teacherId?: string; organizationId?: string; telegramUserId?: string; integrationId?: string; profileId?: string };
     const { clientId, text, fileUrl, fileName, fileType, phoneId, phoneNumber, teacherId, telegramUserId: bodyTelegramUserId } = body;
 
     // Get organization ID - try auth first, fall back to body.organizationId for inter-function calls
@@ -141,21 +141,56 @@ Deno.serve(async (req) => {
     }
 
     // Build integration query based on smart routing result
-    let integrationQuery = supabase
-      .from('messenger_integrations')
-      .select('id, provider, settings, is_enabled')
-      .eq('organization_id', organizationId)
-      .eq('messenger_type', 'telegram')
-      .eq('is_enabled', true);
+    let integration: { id: string; provider: string; settings: unknown; is_enabled: boolean } | null = null;
 
-    // If smart routing found an integration_id, use it; otherwise fall back to primary
     if (resolvedIntegrationId) {
-      integrationQuery = integrationQuery.eq('id', resolvedIntegrationId);
-    } else {
-      integrationQuery = integrationQuery.eq('is_primary', true);
+      // Try to find by integration ID first
+      const { data: found } = await supabase
+        .from('messenger_integrations')
+        .select('id, provider, settings, is_enabled')
+        .eq('organization_id', organizationId)
+        .eq('messenger_type', 'telegram')
+        .eq('is_enabled', true)
+        .eq('id', resolvedIntegrationId)
+        .maybeSingle();
+      
+      integration = found;
+      console.log('[telegram-send] Integration by ID:', resolvedIntegrationId, '→', integration ? `found (${integration.provider})` : 'NOT FOUND');
     }
 
-    const { data: integration, error: integrationError } = await integrationQuery.maybeSingle();
+    // Fallback: if body has profileId but integration wasn't found by ID, search by profileId in settings
+    if (!integration && body.profileId) {
+      const { data: allIntegrations } = await supabase
+        .from('messenger_integrations')
+        .select('id, provider, settings, is_enabled')
+        .eq('organization_id', organizationId)
+        .eq('messenger_type', 'telegram')
+        .eq('is_enabled', true);
+      
+      if (allIntegrations) {
+        integration = allIntegrations.find(
+          (i) => (i.settings as any)?.profileId === body.profileId
+        ) || null;
+        if (integration) {
+          console.log('[telegram-send] Found integration by profileId match:', body.profileId, '→', integration.id);
+        }
+      }
+    }
+
+    // Final fallback: primary integration
+    if (!integration) {
+      const { data: primary } = await supabase
+        .from('messenger_integrations')
+        .select('id, provider, settings, is_enabled')
+        .eq('organization_id', organizationId)
+        .eq('messenger_type', 'telegram')
+        .eq('is_enabled', true)
+        .eq('is_primary', true)
+        .maybeSingle();
+      
+      integration = primary;
+      console.log('[telegram-send] Using primary integration fallback:', integration?.id || 'NONE');
+    }
 
     // If using telegram_crm provider, delegate to telegram-crm-send
     if (integration && integration.provider === 'telegram_crm') {
