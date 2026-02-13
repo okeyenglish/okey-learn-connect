@@ -50,6 +50,7 @@ const adminItems = [
   { title: "Заявки на уроки", id: "trial-requests", icon: CalendarPlus },
   { title: "Персонал", id: "staff", icon: Users },
   { title: "Преподаватели", id: "teachers", icon: Users },
+  { title: "Предметы и категории", id: "teacher-subjects", icon: BookOpen },
   { title: "KPI менеджеров", id: "kpi-management", icon: Target },
   { title: "Настройки бонусов", id: "bonus-settings", icon: Gift },
   { title: "Активность команды", id: "staff-analytics", icon: Activity },

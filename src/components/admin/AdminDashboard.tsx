@@ -39,6 +39,7 @@ import { TeachersManagementSection } from "./TeachersManagementSection";
 import { StaffManagementSection } from "./StaffManagementSection";
 import { ConversationIndexingPanel } from "./ConversationIndexingPanel";
 import BonusSettingsPage from "@/components/employees/BonusSettingsPage";
+import { TeacherSubjectsCategoriesEditor } from "./TeacherSubjectsCategoriesEditor";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -66,6 +67,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <StaffManagementSection />;
       case "teachers":
         return <TeachersManagementSection />;
+      case "teacher-subjects":
+        return <TeacherSubjectsCategoriesEditor />;
       case "kpi-management":
         return <KpiManagementPage />;
       case "staff-analytics":
