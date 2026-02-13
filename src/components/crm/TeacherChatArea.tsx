@@ -371,11 +371,13 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
   const teachers = teachersWithMessages || [];
   
-  // Extract unique branches and subjects for filters
+  // Extract unique branches from teacher_branches (multi-branch), subjects and categories for filters
   const uniqueBranches = useMemo(() => {
     const branches = new Set<string>();
     teachers.forEach(t => {
-      if (t.branch) branches.add(t.branch);
+      // Use multi-branch data first, fallback to legacy single branch
+      const teacherBranches = t.branches?.length > 0 ? t.branches : (t.branch ? [t.branch] : []);
+      teacherBranches.forEach(b => branches.add(b));
     });
     return Array.from(branches).sort();
   }, [teachers]);
