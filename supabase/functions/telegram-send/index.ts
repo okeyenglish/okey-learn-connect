@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
       return errorResponse('Organization not found - auth failed and no organizationId provided', 401);
     }
 
-    // === SMART ROUTING: Find integration_id from last incoming message ===
+    // === SMART ROUTING: Find integration_id from message history ===
     let resolvedIntegrationId: string | null = null;
 
     // Priority: explicit integrationId from request body (e.g. test send, forced routing)
@@ -72,8 +72,23 @@ Deno.serve(async (req) => {
     
     // Mode 1: Search by clientId (for client messages) — skip if integrationId was forced
     if (!resolvedIntegrationId && clientId) {
-      // First try the integration_id column
-      const { data: lastMessage } = await supabase
+      // Strategy: check BOTH incoming and outgoing messages, prefer last successful outgoing
+      // because incoming integration may be receive-only (e.g. bot webhook via WhatsApp Wappi profile)
+      
+      // 1a. Last outgoing with integration_id (this was the integration that actually sent successfully)
+      const { data: lastOutgoing } = await supabase
+        .from('chat_messages')
+        .select('integration_id')
+        .eq('client_id', clientId)
+        .eq('is_outgoing', true)
+        .eq('messenger_type', 'telegram')
+        .not('integration_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // 1b. Last incoming with integration_id
+      const { data: lastIncoming } = await supabase
         .from('chat_messages')
         .select('integration_id')
         .eq('client_id', clientId)
@@ -84,9 +99,13 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
 
-      if (lastMessage?.integration_id) {
-        resolvedIntegrationId = lastMessage.integration_id;
-        console.log('[telegram-send] Smart routing (client, column):', resolvedIntegrationId);
+      // Prefer outgoing (proven to work for sending), fall back to incoming
+      if (lastOutgoing?.integration_id) {
+        resolvedIntegrationId = lastOutgoing.integration_id;
+        console.log('[telegram-send] Smart routing (client, outgoing):', resolvedIntegrationId);
+      } else if (lastIncoming?.integration_id) {
+        resolvedIntegrationId = lastIncoming.integration_id;
+        console.log('[telegram-send] Smart routing (client, incoming):', resolvedIntegrationId);
       }
       
       // Fallback: search in metadata->>'integration_id' (self-hosted compatibility)
@@ -95,14 +114,30 @@ Deno.serve(async (req) => {
           .from('chat_messages')
           .select('metadata')
           .eq('client_id', clientId)
-          .eq('is_outgoing', false)
+          .eq('is_outgoing', true)
           .eq('messenger_type', 'telegram')
           .not('metadata->integration_id', 'is', null)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
 
-        const metaIntegrationId = (metaMessage?.metadata as any)?.integration_id;
+        let metaIntegrationId = (metaMessage?.metadata as any)?.integration_id;
+        
+        // If no outgoing metadata, try incoming metadata
+        if (!metaIntegrationId) {
+          const { data: metaIncoming } = await supabase
+            .from('chat_messages')
+            .select('metadata')
+            .eq('client_id', clientId)
+            .eq('is_outgoing', false)
+            .eq('messenger_type', 'telegram')
+            .not('metadata->integration_id', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          metaIntegrationId = (metaIncoming?.metadata as any)?.integration_id;
+        }
+
         if (metaIntegrationId) {
           resolvedIntegrationId = metaIntegrationId;
           console.log('[telegram-send] Smart routing (client, metadata fallback):', resolvedIntegrationId);
