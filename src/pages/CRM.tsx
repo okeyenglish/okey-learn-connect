@@ -4428,7 +4428,7 @@ const CRMContent = () => {
           ) : activeChatType === 'teachers' ? (
             <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden w-full animate-fade-in" key={`teacher-wrapper-${activeChatId}`}>
               <TeacherChatArea 
-                selectedTeacherId={activeChatId === 'teachers' ? 'teachers-group' : activeChatId}
+                selectedTeacherId={activeChatId === 'teachers' ? (latestTeacher?.id || 'teachers-group') : activeChatId}
                 onSelectTeacher={(teacherId: string | null) => {
                   setSelectedTeacherId(teacherId);
                   if (teacherId) {
