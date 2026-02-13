@@ -24,17 +24,12 @@ interface TableSubscription {
 }
 
 // Определяем таблицы для консолидированной подписки
+// IMPORTANT: Only include tables that exist in the Cloud database schema
+// tables like 'tasks' and 'chat_states' do NOT exist in Cloud and cause
+// WebSocket decoder errors (payload undefined) that break ALL realtime channels
 const CONSOLIDATED_TABLES: TableSubscription[] = [
   {
-    table: 'tasks',
-    event: '*',
-  },
-  {
     table: 'lesson_sessions',
-    event: '*',
-  },
-  {
-    table: 'chat_states',
     event: '*',
   },
 ];
@@ -50,21 +45,12 @@ export function useRealtimeHub() {
   const isSubscribedRef = useRef(false);
 
   // Invalidation handlers для каждой таблицы
-  const handleTasksChange = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
-    queryClient.invalidateQueries({ queryKey: ['tasks-by-date'] });
-  }, [queryClient]);
+  // NOTE: tasks and chat_states do NOT exist in Cloud DB, so no handlers for them
 
   const handleLessonSessionsChange = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['lesson-sessions'] });
     queryClient.invalidateQueries({ queryKey: ['schedule'] });
     queryClient.invalidateQueries({ queryKey: ['teacher-schedule'] });
-  }, [queryClient]);
-
-  const handleChatStatesChange = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['chat-states'] });
-    queryClient.invalidateQueries({ queryKey: ['pinned-chat-ids'] });
   }, [queryClient]);
 
   // Создание и подписка на канал
@@ -80,20 +66,7 @@ export function useRealtimeHub() {
 
     const channel = supabase
       .channel('realtime-hub-' + Date.now())
-      // Tasks
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tasks',
-        },
-        (payload) => {
-          console.log('[RealtimeHub] 📨 Tasks change:', payload.eventType);
-          handleTasksChange();
-        }
-      )
-      // Lesson sessions
+      // Lesson sessions (only table that exists in Cloud DB)
       .on(
         'postgres_changes',
         {
@@ -104,19 +77,6 @@ export function useRealtimeHub() {
         (payload) => {
           console.log('[RealtimeHub] 📨 Lesson sessions change:', payload.eventType);
           handleLessonSessionsChange();
-        }
-      )
-      // Chat states
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'chat_states',
-        },
-        (payload) => {
-          console.log('[RealtimeHub] 📨 Chat states change:', payload.eventType);
-          handleChatStatesChange();
         }
       )
       .subscribe((status) => {
@@ -132,7 +92,7 @@ export function useRealtimeHub() {
       });
 
     channelRef.current = channel;
-  }, [user?.id, handleTasksChange, handleLessonSessionsChange, handleChatStatesChange]);
+  }, [user?.id, handleLessonSessionsChange]);
 
   // Инициализация и очистка
   useEffect(() => {
