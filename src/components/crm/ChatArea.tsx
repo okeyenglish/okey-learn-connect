@@ -905,7 +905,6 @@ export const ChatArea = ({
     if (optimisticMessages.length === 0) return real;
     
     // Check if real messages now include content matching optimistic ones
-    // If so, the optimistic messages are stale — exclude them
     const realTexts = new Set(
       real.filter(m => m.type === 'manager').slice(-optimisticMessages.length - 3).map(m => m.message)
     );
@@ -914,16 +913,31 @@ export const ChatArea = ({
       (om: any) => !realTexts.has(om.content || om.message_text || '')
     );
     
-    // Auto-clear stale optimistic messages
-    if (stillPending.length < optimisticMessages.length) {
-      // Use setTimeout to avoid setState during render
-      setTimeout(() => setOptimisticMessages(stillPending), 0);
-    }
+    if (stillPending.length === 0) return real;
     
-    // Append only still-pending optimistic messages  
     const formatted = stillPending.map(formatMessage);
     return [...real, ...formatted];
   }, [messagesData?.messages, formatMessage, optimisticMessages]);
+
+  // Auto-clear stale optimistic messages when real data arrives (outside useMemo)
+  useEffect(() => {
+    if (optimisticMessages.length === 0 || !messagesData?.messages) return;
+    
+    const realTexts = new Set(
+      messagesData.messages
+        .filter((m: any) => m.is_outgoing || m.direction === 'outgoing')
+        .slice(-optimisticMessages.length - 3)
+        .map((m: any) => m.content || m.message_text || '')
+    );
+    
+    const stillPending = optimisticMessages.filter(
+      (om: any) => !realTexts.has(om.content || om.message_text || '')
+    );
+    
+    if (stillPending.length < optimisticMessages.length) {
+      setOptimisticMessages(stillPending);
+    }
+  }, [messagesData?.messages, optimisticMessages]);
 
   // Мемоизируем ID сообщений для batch-загрузки реакций (устраняет N+1 проблему)
   const messageIds = useMemo(
