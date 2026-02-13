@@ -421,8 +421,11 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         if (!matchesName && !matchesPhone && !matchesOther) return false;
       }
 
-      // Branch filter
-      if (filterBranch !== 'all' && teacher.branch !== filterBranch) return false;
+      // Branch filter - check against all teacher branches
+      if (filterBranch !== 'all') {
+        const teacherBranches = teacher.branches?.length > 0 ? teacher.branches : (teacher.branch ? [teacher.branch] : []);
+        if (!teacherBranches.includes(filterBranch)) return false;
+      }
 
       // Subject filter
       if (filterSubject !== 'all' && !teacher.subjects?.includes(filterSubject)) return false;

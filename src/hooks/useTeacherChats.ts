@@ -171,6 +171,7 @@ export interface TeacherChatItem {
   phone: string | null;
   email: string | null;
   branch: string;
+  branches: string[]; // all branches from teacher_branches
   subjects: string[] | null;
   categories: string[] | null;
   isActive: boolean;
@@ -217,6 +218,40 @@ export const useTeacherChats = (branch?: string | null) => {
     teacher_number: string | null;
   };
 
+  // Fetch teacher_branches mapping (teacher_id -> branch names)
+  const { data: teacherBranchesMap } = useQuery({
+    queryKey: ['teacher-chats', 'teacher-branches-map'],
+    queryFn: async (): Promise<Record<string, string[]>> => {
+      try {
+        const { data, error } = await supabase
+          .from('teacher_branches' as any)
+          .select('teacher_id, organization_branches(name)' as any);
+        
+        if (error) {
+          console.log('[useTeacherChats] teacher_branches not available:', error.message);
+          return {};
+        }
+        
+        const map: Record<string, string[]> = {};
+        for (const row of (data || []) as any[]) {
+          const teacherId = row.teacher_id;
+          const branchName = row.organization_branches?.name;
+          if (teacherId && branchName) {
+            if (!map[teacherId]) map[teacherId] = [];
+            if (!map[teacherId].includes(branchName)) {
+              map[teacherId].push(branchName);
+            }
+          }
+        }
+        return map;
+      } catch {
+        return {};
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+
   const { data: teachers, isLoading: teachersLoading, error: teachersError } = useQuery({
     queryKey: ['teacher-chats', 'teachers', branch],
     queryFn: async (): Promise<TeacherRow[]> => {
@@ -226,15 +261,13 @@ export const useTeacherChats = (branch?: string | null) => {
         .eq('is_active', true)
         .order('last_name', { ascending: true });
 
-      if (branch) {
-        query = query.eq('branch', branch);
-      }
+      // Don't filter by single branch here - we'll filter in memo using teacher_branches
 
       const { data, error } = await query;
       if (error) throw error;
       return (data || []) as TeacherRow[];
     },
-    staleTime: 60000, // 1 minute - teachers rarely change
+    staleTime: 60000,
     gcTime: 10 * 60 * 1000,
     enabled: true,
   });
@@ -457,6 +490,7 @@ export const useTeacherChats = (branch?: string | null) => {
         phone: teacher.phone,
         email: teacher.email,
         branch: teacher.branch || '',
+        branches: teacherBranchesMap?.[teacher.id] || (teacher.branch ? [teacher.branch] : []),
         subjects: teacher.subjects,
         categories: teacher.categories,
         isActive: teacher.is_active ?? true,
@@ -472,7 +506,7 @@ export const useTeacherChats = (branch?: string | null) => {
         teacherNumber: teacher.teacher_number || null,
       };
     });
-  }, [teachers, unreadCounts]);
+  }, [teachers, unreadCounts, teacherBranchesMap]);
 
   // Sort: unread first, then by last message time
   const sortedTeachers = useMemo(() => {
