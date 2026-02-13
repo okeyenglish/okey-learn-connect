@@ -4,6 +4,7 @@ import {
   handleCors,
   successResponse,
   getErrorMessage,
+  createSelfHostedSupabaseClient,
   type TBankWebhookPayload,
 } from '../_shared/types.ts';
 
@@ -36,9 +37,8 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabase = createSelfHostedSupabaseClient(createClient);
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
 
     const notification = await req.json() as TBankWebhookPayload;
 
@@ -173,12 +173,8 @@ Deno.serve(async (req) => {
         // Шаг 3: Отправляем реальное сообщение клиенту через мессенджер
         const thankYouMessage = `Оплата на сумму ${amountRub.toLocaleString('ru-RU')}₽ прошла успешно! Большое спасибо.`;
         
-        // Используем SELF_HOSTED_URL (если есть) или SUPABASE_URL для вызова Edge Functions
-        // SELF_HOSTED_URL должен быть в формате https://api.example.ru
-        const selfHostedUrl = Deno.env.get('SELF_HOSTED_URL');
-        const baseUrl = selfHostedUrl 
-          ? `${selfHostedUrl}/functions/v1`
-          : `${supabaseUrl}/functions/v1`;
+        const selfHostedUrl = Deno.env.get('SELF_HOSTED_URL') || 'https://api.academyos.ru';
+        const baseUrl = `${selfHostedUrl}/functions/v1`;
         
         console.log('Using base URL for sending:', baseUrl);
         
