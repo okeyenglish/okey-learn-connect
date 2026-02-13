@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(selfHostedUrl, supabaseServiceKey);
 
     // Parse body early to get clientId for smart routing
-    const body = await req.json() as TelegramSendRequest & { phoneNumber?: string; teacherId?: string; organizationId?: string; telegramUserId?: string };
+    const body = await req.json() as TelegramSendRequest & { phoneNumber?: string; teacherId?: string; organizationId?: string; telegramUserId?: string; integrationId?: string };
     const { clientId, text, fileUrl, fileName, fileType, phoneId, phoneNumber, teacherId, telegramUserId: bodyTelegramUserId } = body;
 
     // Get organization ID - try auth first, fall back to body.organizationId for inter-function calls
@@ -63,6 +63,12 @@ Deno.serve(async (req) => {
 
     // === SMART ROUTING: Find integration_id from last incoming message ===
     let resolvedIntegrationId: string | null = null;
+
+    // Priority: explicit integrationId from request body (e.g. test send, forced routing)
+    if (body.integrationId) {
+      resolvedIntegrationId = body.integrationId;
+      console.log('[telegram-send] Forced integration from body:', resolvedIntegrationId);
+    }
     
     // Mode 1: Search by clientId (for client messages)
     if (clientId) {
