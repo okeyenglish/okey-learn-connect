@@ -59,6 +59,7 @@ export interface Teacher {
   categories: string[] | null;
   organization_id: string;
   is_active: boolean;
+  teacher_number: string | null;
   created_at: string;
   updated_at: string;
 }
