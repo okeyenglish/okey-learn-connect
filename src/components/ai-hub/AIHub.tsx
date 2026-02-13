@@ -1101,7 +1101,7 @@ export const AIHub = ({
             </div>
           ) : (
           <ScrollArea ref={scrollAreaRef} className="flex-1 overflow-auto">
-            <div className="space-y-1 px-3 py-4 pb-24">
+            <div className="space-y-1 px-3 py-4 pb-4">
               {isLoading ? (
                 <div className="text-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
@@ -1424,7 +1424,7 @@ export const AIHub = ({
           )}
 
           {/* Input */}
-          <div className="px-3 py-2 bg-background/95 backdrop-blur-sm absolute inset-x-0 bottom-0 border-t">
+          <div className="px-3 py-2 bg-background border-t shrink-0">
             {/* Pending file preview */}
             {pendingFile && (
               <div className="flex items-center gap-2 mb-2 mx-1 px-3 py-2 bg-muted rounded-xl text-xs">
