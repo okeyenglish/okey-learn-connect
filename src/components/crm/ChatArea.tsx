@@ -1858,18 +1858,27 @@ export const ChatArea = ({
         ? [((authProfile as any).first_name), ((authProfile as any).last_name)].filter(Boolean).join(' ') || 'Менеджер поддержки'
         : 'Менеджер поддержки';
 
-      // Also add comment as a chat message
-      const { error: messageError } = await supabase
+      // Also add comment as a chat message (resilient: retry without optional fields)
+      const fullRecord = {
+        client_id: clientId,
+        message_text: commentText,
+        message_type: 'comment',
+        is_outgoing: true,
+        sender_name: senderName,
+        sender_id: authUser?.id || null,
+        messenger_type: activeMessengerTab === 'chatos' ? 'whatsapp' : activeMessengerTab
+      };
+      let { error: messageError } = await supabase
         .from('chat_messages')
-        .insert([{
-          client_id: clientId,
-          message_text: commentText,
-          message_type: 'comment',
-          is_outgoing: true,
-          sender_name: senderName,
-          sender_id: authUser?.id || null,
-          messenger_type: activeMessengerTab === 'chatos' ? 'whatsapp' : activeMessengerTab
-        }]);
+        .insert([fullRecord]);
+
+      // Fallback: retry without sender_id if schema doesn't have it
+      if (messageError) {
+        console.warn('Comment insert failed, retrying without sender_id:', messageError.message);
+        const { sender_id, ...minimalRecord } = fullRecord;
+        const retry = await supabase.from('chat_messages').insert([minimalRecord]);
+        messageError = retry.error;
+      }
 
       if (messageError) {
         console.error('Error saving comment message:', messageError);
