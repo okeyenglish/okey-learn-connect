@@ -3089,7 +3089,7 @@ export const ChatArea = ({
               )}
               </div>
               {/* Элемент для прокрутки к концу WhatsApp */}
-              <div ref={whatsappEndRef} />
+              <div ref={whatsappEndRef} className="h-4 shrink-0" />
             </TabsContent>
           
           <TabsContent value="telegram" ref={telegramScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
@@ -3196,7 +3196,7 @@ export const ChatArea = ({
               )}
             </div>
             {/* Элемент для прокрутки к концу Telegram */}
-            <div ref={telegramEndRef} />
+            <div ref={telegramEndRef} className="h-4 shrink-0" />
           </TabsContent>
           
           <TabsContent value="max" ref={maxScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
@@ -3321,7 +3321,7 @@ export const ChatArea = ({
               )}
             </div>
             {/* Элемент для прокрутки к концу Max */}
-            <div ref={maxEndRef} />
+            <div ref={maxEndRef} className="h-4 shrink-0" />
           </TabsContent>
           
           <TabsContent value="chatos" ref={chatosScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
@@ -3428,7 +3428,7 @@ export const ChatArea = ({
                 </div>
               )}
             </div>
-            <div ref={chatosEndRef} />
+            <div ref={chatosEndRef} className="h-4 shrink-0" />
           </TabsContent>
           
           <TabsContent value="email" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
