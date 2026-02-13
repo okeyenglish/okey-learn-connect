@@ -3,14 +3,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Search, Plus, Edit2, MoreHorizontal, Zap, Loader2, Trash2, Check, X, Download, Copy, GripVertical } from "lucide-react";
+import { ArrowLeft, Search, Plus, Edit2, MoreHorizontal, Zap, Loader2, Trash2, Check, X, Download, Copy, GripVertical, Users, MessageSquare } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useQuickResponses, CategoryWithResponses, QuickResponse } from "@/hooks/useQuickResponses";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useQuickResponses, CategoryWithResponses, QuickResponse, QuickResponseTarget } from "@/hooks/useQuickResponses";
 import { useToast } from "@/hooks/use-toast";
 import {
   DndContext,
@@ -206,7 +207,7 @@ const SortableResponseItem = ({
               variant="ghost"
               size="sm"
               className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-              title="Копировать"
+              title="Дублировать для нового"
               onClick={(e) => {
                 e.stopPropagation();
                 onCopy();
@@ -257,6 +258,15 @@ const SortableResponseItem = ({
 };
 
 export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTeacher = false }: QuickResponsesModalProps) => {
+  const [activeTarget, setActiveTarget] = useState<QuickResponseTarget>(isTeacher ? 'teachers' : 'clients');
+  
+  // Reset target when modal opens based on isTeacher prop
+  useEffect(() => {
+    if (open) {
+      setActiveTarget(isTeacher ? 'teachers' : 'clients');
+    }
+  }, [open, isTeacher]);
+
   const {
     categories,
     isLoading,
@@ -269,7 +279,7 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
     importDefaultTemplates,
     reorderCategories,
     reorderResponses
-  } = useQuickResponses({ isTeacher });
+  } = useQuickResponses({ target: activeTarget });
 
   const { toast } = useToast();
 
@@ -454,7 +464,7 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-        <DialogHeader className="flex-shrink-0">
+        <DialogHeader className="flex-shrink-0 space-y-3">
           <div className="flex items-center gap-2">
             {selectedCategory && (
               <Button variant="ghost" size="sm" onClick={goBack}>
@@ -464,11 +474,29 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
             <DialogTitle className="flex items-center gap-2">
               <Zap className="h-5 w-5" />
               <span>{selectedCategory ? selectedCategory.name : "Быстрые ответы"}</span>
-              {isTeacher && (
-                <span className="text-xs text-muted-foreground font-normal">(для преподавателей)</span>
-              )}
             </DialogTitle>
           </div>
+          {!selectedCategory && (
+            <ToggleGroup
+              type="single"
+              value={activeTarget}
+              onValueChange={(v) => v && setActiveTarget(v as QuickResponseTarget)}
+              className="justify-start"
+            >
+              <ToggleGroupItem value="clients" size="sm" className="text-xs h-7 px-3">
+                <MessageSquare className="h-3 w-3 mr-1" />
+                Клиенты
+              </ToggleGroupItem>
+              <ToggleGroupItem value="teachers" size="sm" className="text-xs h-7 px-3">
+                <MessageSquare className="h-3 w-3 mr-1" />
+                Преподаватели
+              </ToggleGroupItem>
+              <ToggleGroupItem value="staff" size="sm" className="text-xs h-7 px-3">
+                <Users className="h-3 w-3 mr-1" />
+                Сотрудники
+              </ToggleGroupItem>
+            </ToggleGroup>
+          )}
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden flex flex-col">
@@ -631,7 +659,10 @@ export const QuickResponsesModal = ({ open, onOpenChange, onSelectResponse, isTe
                           onCancelEdit={handleCancelEditResponse}
                           onEditTextChange={setEditingResponseText}
                           onDelete={() => handleDeleteResponse(response.id)}
-                          onCopy={() => handleCopyToClipboard(response.text)}
+                          onCopy={() => {
+                            setNewResponseText(response.text);
+                            setShowAddResponse(true);
+                          }}
                         />
                       ))}
                     </SortableContext>
