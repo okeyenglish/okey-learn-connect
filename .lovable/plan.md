@@ -1,61 +1,88 @@
 
 
-# Исправление: сохранять telegram_user_id из вебхука и использовать при отправке
+# Исправление RPC параметров в telegram-webhook
 
-## Суть проблемы
+## Диагноз
 
-1. Вебхук получает `message.from` = Telegram User ID клиента (например `1073928961`)
-2. Вебхук сохраняет `telegram_chat_id` в клиента, но **НЕ сохраняет `telegram_user_id`**
-3. При отправке `telegram-send` ищет `telegram_user_id` у клиента — поле пустое
-4. Результат: отправляет по телефону, бот не может, fallback на личный аккаунт
+RPC-вызов `find_or_create_telegram_client` в коде ВСЕГДА падает из-за несовпадения параметров:
 
-## Решение (2 файла)
+| Код передаёт | Функция в БД ожидает |
+|---|---|
+| `p_org_id` | `p_organization_id` |
+| `p_telegram_user_id` | `p_telegram_user_id` (ok) |
+| `p_telegram_chat_id` | -- (нет такого) |
+| `p_name` | `p_name` (ok) |
+| `p_username` | -- (нет такого) |
+| `p_avatar_url` | -- (нет такого) |
+| `p_phone` | `p_phone` (ok) |
 
-### 1. `telegram-webhook/index.ts` — сохранять telegram_user_id в клиента
+Результат: RPC падает -> fallback на legacy -> legacy работает, но клиент создаётся без явного `telegram_user_id` в некоторых случаях или создаётся корректно, но пользователь искал по телефону, а телефон null (бот не знает номер).
 
-Строка 580-586: при обновлении клиента после входящего сообщения, добавить `telegram_user_id`:
+## Почему клиент не найден по телефону
 
-```
-Было:
-  .update({ last_message_at, telegram_chat_id: chatId })
+Telegram-бот **не получает** номер телефона отправителя. Бот видит только `user_id`, `chat_id`, `first_name`, `username`. Поэтому клиент создан с `phone = NULL`. Поиск `WHERE phone LIKE '%79852615056'` ничего не вернёт.
 
-Станет:
-  .update({ last_message_at, telegram_chat_id: chatId, telegram_user_id: String(telegramUserId) })
-```
+## План исправления
 
-Это гарантирует, что после первого сообщения от клиента через Telegram, его `telegram_user_id` будет сохранён.
+### 1. Исправить RPC-вызов в `telegram-webhook/index.ts`
 
-### 2. `telegram-send/index.ts` — убрать зависимость от `isBot`, всегда предпочитать ID
-
-Строки 683-758: убрать проверку `isBot` (которая всегда `false`). Вместо этого, если recipient — телефон и у клиента есть `telegram_user_id` или `telegram_chat_id`, всегда подменять recipient на ID. Это работает корректно для обоих типов интеграций:
-
-- **Бот**: обязан использовать ID (телефон не работает) — проблема решена
-- **Личный аккаунт**: может отправлять и по ID, и по телефону — ID тоже работает
+Привести параметры в соответствие с функцией в БД:
 
 ```
 Было:
-  const isBot = !!(settings?.botToken || settings?.isBot);  // всегда false
-  if (isBot && isLikelyPhoneNumber(recipient)) { ... }
+  supabase.rpc('find_or_create_telegram_client', {
+    p_org_id: organizationId,
+    p_telegram_user_id: telegramUserId,
+    p_telegram_chat_id: telegramChatId,
+    p_name: finalName,
+    p_username: username || null,
+    p_avatar_url: avatarUrl || null,
+    p_phone: finalPhone
+  });
 
 Станет:
-  // Всегда предпочитать telegram ID вместо телефона
-  if (isLikelyPhoneNumber(recipient)) {
-    // Поиск telegram_user_id/chat_id из client и client_phone_numbers
-    // Если найден — подменить recipient
-  }
+  supabase.rpc('find_or_create_telegram_client', {
+    p_organization_id: organizationId,
+    p_telegram_user_id: String(telegramUserId),
+    p_name: finalName || 'Telegram User',
+    p_phone: finalPhone
+  });
 ```
 
-Переменную `botSkipSend` тоже убрать — если ID не найден, отправляем по телефону (для личного аккаунта сработает, для бота упадёт и сработает fallback на другую интеграцию).
+Убираем лишние параметры (`p_telegram_chat_id`, `p_username`, `p_avatar_url`) которых нет в сигнатуре функции. Параметр `p_org_id` заменяем на `p_organization_id`.
 
-### Результат
+### 2. После RPC — обновить telegram_chat_id отдельно
 
-После первого входящего сообщения от клиента через Telegram:
-1. Вебхук сохраняет `telegram_user_id` в `clients`
-2. При ответе `telegram-send` видит ID и использует его
-3. И бот, и личный аккаунт успешно отправляют по ID
+Поскольку RPC-функция не принимает `telegram_chat_id`, обновим его отдельно после создания клиента:
 
-### Файлы для изменения
+```typescript
+// После успешного RPC, обновить chat_id и avatar
+await supabase
+  .from('clients')
+  .update({ 
+    telegram_chat_id: telegramChatId,
+    telegram_avatar_url: avatarUrl || undefined
+  })
+  .eq('id', clientId);
+```
 
-- `supabase/functions/telegram-webhook/index.ts` — добавить сохранение `telegram_user_id`
-- `supabase/functions/telegram-send/index.ts` — убрать `isBot` проверку, всегда предпочитать ID
+### 3. Добавить подробное логирование пути
+
+Чтобы в будущем было понятно какой путь выполнился:
+
+```typescript
+console.log('[findOrCreateClient] RPC success, clientId:', clientId);
+// или
+console.log('[findOrCreateClient] RPC failed, falling back to legacy:', rpcError.message);
+```
+
+## Файлы для изменения
+
+- `supabase/functions/telegram-webhook/index.ts` -- исправить RPC параметры (строки 1030-1038), добавить update chat_id после RPC (после строки 1044)
+
+## Ожидаемый результат
+
+1. RPC-вызов перестанет падать -> клиент создаётся атомарно с `telegram_user_id`
+2. `telegram_chat_id` обновляется отдельным запросом после создания
+3. При ответе из CRM, `telegram-send` найдёт `telegram_user_id` и отправит по ID
 
