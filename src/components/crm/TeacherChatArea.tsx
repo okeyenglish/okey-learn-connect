@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Users, Calendar, ArrowLeft, Phone, MessageSquare } from 'lucide-react';
+import { TeacherProfilePanel } from './TeacherProfilePanel';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -628,71 +629,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
     clearFilters,
   };
 
-  // Teacher Profile Panel
-  const TeacherProfile = () => (
-    <ScrollArea className="h-full p-3">
-      <div className="space-y-4">
-        {/* Basic Info */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center justify-between">
-              Контактная информация
-              {currentTeacher?.teacherNumber && (
-                <Badge variant="outline" className="font-mono text-xs text-muted-foreground">
-                  #{currentTeacher.teacherNumber}
-                </Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 pt-0">
-            <div className="flex items-center space-x-2">
-              <Phone className="h-3 w-3 text-muted-foreground" />
-              <span className="text-xs">{currentTeacher?.phone || 'Не указан'}</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <MessageSquare className="h-3 w-3 text-muted-foreground" />
-              <span className="text-xs">{currentTeacher?.email || 'Не указан'}</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Professional Info */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Профессиональная информация</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 pt-0">
-            <div>
-              <h4 className="text-xs font-medium text-muted-foreground mb-1">Предметы</h4>
-              <div className="flex flex-wrap gap-1">
-                {currentTeacher?.subjects?.map((subject, index) => (
-                  <Badge key={index} variant="secondary" className="text-xs h-5">
-                    {subject}
-                  </Badge>
-                )) || <span className="text-xs text-muted-foreground">Не указаны</span>}
-              </div>
-            </div>
-            <div>
-              <h4 className="text-xs font-medium text-muted-foreground mb-1">Категории</h4>
-              <div className="flex flex-wrap gap-1">
-                {currentTeacher?.categories?.map((category, index) => (
-                  <Badge key={index} variant="outline" className="text-xs h-5">
-                    {category}
-                  </Badge>
-                )) || <span className="text-xs text-muted-foreground">Не указаны</span>}
-              </div>
-            </div>
-            <div>
-              <h4 className="text-xs font-medium text-muted-foreground mb-1">Филиал</h4>
-              <Badge variant="secondary" className="text-xs h-5">
-                {currentTeacher?.branch || 'Не указан'}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </ScrollArea>
-  );
+  // Teacher Profile Panel - now using extracted editable component
 
   // Mobile view: show either teacher list or chat
   if (isMobile) {
@@ -805,7 +742,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
                     </div>
                   </ScrollArea>
                 ) : (
-                  <TeacherProfile />
+                  <TeacherProfilePanel teacher={currentTeacher} onUpdated={() => refetchTeachers()} />
                 )}
               </TabsContent>
             </div>
