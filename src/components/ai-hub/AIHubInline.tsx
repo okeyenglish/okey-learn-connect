@@ -108,6 +108,8 @@ interface AIHubInlineProps {
   quickReplyCategory?: 'activity_warning' | 'tab_feedback' | null;
   /** Callback to open scripts modal from Knowledge Base */
   onOpenScripts?: () => void;
+  /** Notify parent when active chat changes (true = chat open, false = chat list) */
+  onActiveChatChange?: (hasActiveChat: boolean) => void;
 }
 
 interface ChatMessage {
@@ -259,10 +261,16 @@ export const AIHubInline = ({
   initialAssistantMessage,
   onClearInitialAssistantMessage,
   quickReplyCategory,
-  onOpenScripts
+  onOpenScripts,
+  onActiveChatChange
 }: AIHubInlineProps) => {
   const isMobile = useIsMobile();
   const [activeChat, setActiveChat] = useState<ChatItem | null>(null);
+
+  // Notify parent about active chat state changes
+  useEffect(() => {
+    onActiveChatChange?.(!!activeChat);
+  }, [activeChat, onActiveChatChange]);
 
   // Sync active chat to global store for notification suppression
   useEffect(() => {
