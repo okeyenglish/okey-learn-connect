@@ -73,13 +73,13 @@ Deno.serve(async (req) => {
     
     // Mode 1: Search by clientId (for client messages) — skip if integrationId was forced
     if (!resolvedIntegrationId && clientId) {
-      // Strategy: check BOTH incoming and outgoing messages, prefer last successful outgoing
-      // because incoming integration may be receive-only (e.g. bot webhook via WhatsApp Wappi profile)
+      // Strategy: check BOTH incoming and outgoing messages, pick the MOST RECENT one
+      // so that replies go through the same integration the client last communicated through
       
-      // 1a. Last outgoing with integration_id (this was the integration that actually sent successfully)
+      // 1a. Last outgoing with integration_id
       const { data: lastOutgoing } = await supabase
         .from('chat_messages')
-        .select('integration_id')
+        .select('integration_id, created_at')
         .eq('client_id', clientId)
         .eq('is_outgoing', true)
         .eq('messenger_type', 'telegram')
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
       // 1b. Last incoming with integration_id
       const { data: lastIncoming } = await supabase
         .from('chat_messages')
-        .select('integration_id')
+        .select('integration_id, created_at')
         .eq('client_id', clientId)
         .eq('is_outgoing', false)
         .eq('messenger_type', 'telegram')
@@ -100,13 +100,23 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
 
-      // Prefer outgoing (proven to work for sending), fall back to incoming
-      if (lastOutgoing?.integration_id) {
+      // Pick the most recent message (incoming or outgoing) to determine which integration to use
+      if (lastOutgoing?.integration_id && lastIncoming?.integration_id) {
+        const outTime = new Date(lastOutgoing.created_at).getTime();
+        const inTime = new Date(lastIncoming.created_at).getTime();
+        if (inTime >= outTime) {
+          resolvedIntegrationId = lastIncoming.integration_id;
+          console.log('[telegram-send] Smart routing (client, incoming is newer):', resolvedIntegrationId);
+        } else {
+          resolvedIntegrationId = lastOutgoing.integration_id;
+          console.log('[telegram-send] Smart routing (client, outgoing is newer):', resolvedIntegrationId);
+        }
+      } else if (lastOutgoing?.integration_id) {
         resolvedIntegrationId = lastOutgoing.integration_id;
-        console.log('[telegram-send] Smart routing (client, outgoing):', resolvedIntegrationId);
+        console.log('[telegram-send] Smart routing (client, outgoing only):', resolvedIntegrationId);
       } else if (lastIncoming?.integration_id) {
         resolvedIntegrationId = lastIncoming.integration_id;
-        console.log('[telegram-send] Smart routing (client, incoming):', resolvedIntegrationId);
+        console.log('[telegram-send] Smart routing (client, incoming only):', resolvedIntegrationId);
       }
       
       // Fallback: search in metadata->>'integration_id' (self-hosted compatibility)
