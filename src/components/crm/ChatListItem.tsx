@@ -288,7 +288,7 @@ export const ChatListItem = React.memo(({
                         }
                       }} />
                     </TooltipTrigger>
-                    <TooltipContent side="top" className="text-xs">
+                    <TooltipContent side="top" className="text-xs z-[9999]">
                       <div className="flex flex-col gap-0.5">
                         <span className="font-medium">📌 Закрепили:</span>
                         {allPinners.map(p => (
