@@ -1,4 +1,5 @@
 import React, { useCallback, useRef } from 'react';
+import maxIconSrc from "@/assets/max-icon.webp";
 import { useQueryClient } from '@tanstack/react-query';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -39,9 +40,7 @@ const MessengerIcon: React.FC<{ messenger: string }> = ({ messenger }) => {
         );
       case 'max':
         return (
-          <svg viewBox="0 0 24 24" className="w-2.5 h-2.5" fill="white">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-          </svg>
+          <img src={maxIconSrc} alt="MAX" className="w-3.5 h-3.5 rounded-full object-cover" />
         );
       case 'chatos':
         return (
@@ -66,7 +65,7 @@ const MessengerIcon: React.FC<{ messenger: string }> = ({ messenger }) => {
         <TooltipTrigger asChild>
           <div
             className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center border-2 border-background shadow-sm z-10"
-            style={{ backgroundColor: config.color }}
+            style={{ backgroundColor: messenger.toLowerCase() === 'max' ? 'transparent' : config.color }}
           >
             {renderIcon()}
           </div>
