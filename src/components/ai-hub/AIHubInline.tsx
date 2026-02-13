@@ -1290,8 +1290,8 @@ export const AIHubInline = ({
             </div>
           )}
           
-          {/* Composer row: icons + textarea + send */}
-          <div className="flex gap-1.5 items-end relative">
+          {/* Textarea */}
+          <div className="relative mb-2">
             {/* Mention picker for group chats */}
             {activeChat.type === 'group' && (
               <MentionPicker
@@ -1301,31 +1301,6 @@ export const AIHubInline = ({
                 onClose={closeMention}
                 visible={mentionActive}
               />
-            )}
-            {/* File upload button */}
-            {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
-              <FileUpload
-                ref={fileUploadRef}
-                onFileUpload={(fileInfo) => {
-                  setPendingFile({ url: fileInfo.url, name: fileInfo.name, type: fileInfo.type });
-                }}
-                onFileRemove={() => setPendingFile(null)}
-                disabled={isProcessing || sendStaffMessage.isPending}
-                maxFiles={1}
-                maxSize={10}
-              />
-            )}
-            {/* Quick replies button */}
-            {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="shrink-0 h-10 w-10 rounded-full"
-                onClick={() => setShowQuickReplies(true)}
-                title="Быстрые ответы"
-              >
-                <Zap className="h-4 w-4" />
-              </Button>
             )}
             <textarea
               value={message}
@@ -1346,8 +1321,39 @@ export const AIHubInline = ({
               placeholder={getCurrentPlaceholder()}
               disabled={isProcessing || isRecording}
               rows={1}
-              className="flex-1 min-h-[40px] max-h-[120px] rounded-xl bg-muted border-0 px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+              className="w-full min-h-[44px] max-h-[120px] resize-none text-sm rounded-xl border border-input bg-background px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
             />
+          </div>
+
+          {/* Bottom row: icons + send */}
+          <div className="flex items-center gap-1 w-full">
+            <div className="flex items-center gap-0.5 flex-1">
+              {/* File upload button */}
+              {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
+                <FileUpload
+                  ref={fileUploadRef}
+                  onFileUpload={(fileInfo) => {
+                    setPendingFile({ url: fileInfo.url, name: fileInfo.name, type: fileInfo.type });
+                  }}
+                  onFileRemove={() => setPendingFile(null)}
+                  disabled={isProcessing || sendStaffMessage.isPending}
+                  maxFiles={1}
+                  maxSize={10}
+                />
+              )}
+              {/* Quick replies button */}
+              {(activeChat.type === 'teacher' || activeChat.type === 'staff' || activeChat.type === 'group') && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 h-8 w-8"
+                  onClick={() => setShowQuickReplies(true)}
+                  title="Быстрые ответы"
+                >
+                  <Zap className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
             <Button onClick={handleSendMessage} disabled={(!message.trim() && !pendingFile) || isProcessing || isRecording || sendStaffMessage.isPending} size="icon" className="shrink-0 h-10 w-10 rounded-full">
               {isProcessing || sendStaffMessage.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
