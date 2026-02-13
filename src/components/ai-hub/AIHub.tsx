@@ -877,7 +877,7 @@ export const AIHub = ({
   if (activeChat?.type === 'assistant') {
     return (
       <Sheet open={isOpen} onOpenChange={onToggle}>
-        <SheetContent side="right" aria-describedby={undefined} className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden">
+        <SheetContent side="right" aria-describedby={undefined} className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden z-[70]">
           <VisuallyHidden.Root asChild><SheetTitle>AI Assistant</SheetTitle></VisuallyHidden.Root>
           <ChatBubbleNotification />
           {/* Header */}
@@ -922,7 +922,7 @@ export const AIHub = ({
 
     return (
       <Sheet open={isOpen} onOpenChange={onToggle}>
-        <SheetContent side="right" aria-describedby={undefined} className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden">
+        <SheetContent side="right" aria-describedby={undefined} className="w-full sm:w-[500px] h-full p-0 flex flex-col overflow-hidden z-[70]">
           <VisuallyHidden.Root asChild><SheetTitle>Chat</SheetTitle></VisuallyHidden.Root>
           <ChatBubbleNotification />
           {/* Header */}
@@ -1625,7 +1625,7 @@ export const AIHub = ({
   // Main chat list - EXACT copy of mobile AIHubInline layout
   return (
     <Sheet open={isOpen} onOpenChange={onToggle}>
-      <SheetContent side="right" hideCloseButton aria-describedby={undefined} className="w-full sm:w-[400px] sm:max-w-[400px] h-full p-0 flex flex-col overflow-hidden">
+      <SheetContent side="right" hideCloseButton aria-describedby={undefined} className="w-full sm:w-[400px] sm:max-w-[400px] h-full p-0 flex flex-col overflow-hidden z-[70]">
         <VisuallyHidden.Root asChild><SheetTitle>ChatOS</SheetTitle></VisuallyHidden.Root>
         {/* Header */}
         <div className="px-4 py-3 border-b shrink-0 flex items-center justify-between">
