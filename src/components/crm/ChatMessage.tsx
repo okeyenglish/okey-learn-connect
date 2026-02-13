@@ -298,9 +298,9 @@ const ChatMessageComponent = ({ type, message, time, systemType, callDuration, i
             </div>
             <div className="rounded-2xl p-3 bg-amber-50 text-slate-800 rounded-tr-md border border-amber-200">
               <p className="text-sm leading-relaxed">{message}</p>
-            </div>
-            <div className="flex items-center mt-1 text-xs text-muted-foreground justify-end">
-              <span>{time}</span>
+              <div className="flex items-center mt-1 text-xs text-amber-400 justify-end">
+                <span>{time}</span>
+              </div>
             </div>
           </div>
         </div>
