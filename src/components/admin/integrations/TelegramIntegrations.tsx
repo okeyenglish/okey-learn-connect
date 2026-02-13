@@ -210,13 +210,18 @@ export const TelegramIntegrations: React.FC = () => {
       } else {
         payload.telegramUserId = recipient;
       }
+      console.log('[TestSend] Payload:', JSON.stringify(payload, null, 2));
+      console.log('[TestSend] integrationId:', integration.id, '| profileId:', profileId);
 
       const response = await selfHostedPost<any>('telegram-send', payload);
+      
+      console.log('[TestSend] Response:', JSON.stringify(response.data, null, 2));
 
       if (response.success && response.data?.success) {
+        const usedId = response.data?.integrationId || response.data?.integration_id || '?';
         toast({
           title: '✅ Сообщение отправлено',
-          description: `Через: ${integration.name}. Message ID: ${response.data?.messageId || '—'}`,
+          description: `Через: ${integration.name} (${integration.id.slice(0, 8)}…)\nИспользована: ${usedId === integration.id ? '✅ верная' : `⚠️ ${usedId.slice(0, 8)}…`}`,
         });
         setTestSendIntegration(null);
         setTestRecipient('');
