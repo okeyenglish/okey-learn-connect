@@ -72,6 +72,7 @@ Deno.serve(async (req) => {
     
     // Mode 1: Search by clientId (for client messages) — skip if integrationId was forced
     if (!resolvedIntegrationId && clientId) {
+      // First try the integration_id column
       const { data: lastMessage } = await supabase
         .from('chat_messages')
         .select('integration_id')
@@ -85,7 +86,27 @@ Deno.serve(async (req) => {
 
       if (lastMessage?.integration_id) {
         resolvedIntegrationId = lastMessage.integration_id;
-        console.log('[telegram-send] Smart routing (client):', resolvedIntegrationId);
+        console.log('[telegram-send] Smart routing (client, column):', resolvedIntegrationId);
+      }
+      
+      // Fallback: search in metadata->>'integration_id' (self-hosted compatibility)
+      if (!resolvedIntegrationId) {
+        const { data: metaMessage } = await supabase
+          .from('chat_messages')
+          .select('metadata')
+          .eq('client_id', clientId)
+          .eq('is_outgoing', false)
+          .eq('messenger_type', 'telegram')
+          .not('metadata->integration_id', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const metaIntegrationId = (metaMessage?.metadata as any)?.integration_id;
+        if (metaIntegrationId) {
+          resolvedIntegrationId = metaIntegrationId;
+          console.log('[telegram-send] Smart routing (client, metadata fallback):', resolvedIntegrationId);
+        }
       }
     }
     
@@ -104,7 +125,27 @@ Deno.serve(async (req) => {
 
       if (lastTeacherMessage?.integration_id) {
         resolvedIntegrationId = lastTeacherMessage.integration_id;
-        console.log('[telegram-send] Smart routing (teacher):', resolvedIntegrationId);
+        console.log('[telegram-send] Smart routing (teacher, column):', resolvedIntegrationId);
+      }
+      
+      // Fallback: search in metadata->>'integration_id'
+      if (!resolvedIntegrationId) {
+        const { data: metaMsg } = await supabase
+          .from('chat_messages')
+          .select('metadata')
+          .eq('teacher_id', teacherId)
+          .eq('is_outgoing', false)
+          .eq('messenger_type', 'telegram')
+          .not('metadata->integration_id', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const metaId = (metaMsg?.metadata as any)?.integration_id;
+        if (metaId) {
+          resolvedIntegrationId = metaId;
+          console.log('[telegram-send] Smart routing (teacher, metadata fallback):', resolvedIntegrationId);
+        }
       }
     }
     
@@ -134,7 +175,27 @@ Deno.serve(async (req) => {
           
           if (msg?.integration_id) {
             resolvedIntegrationId = msg.integration_id;
-            console.log('[telegram-send] Smart routing (phone→teacher):', resolvedIntegrationId);
+            console.log('[telegram-send] Smart routing (phone→teacher, column):', resolvedIntegrationId);
+          }
+          
+          // Fallback: metadata
+          if (!resolvedIntegrationId) {
+            const { data: metaMsg } = await supabase
+              .from('chat_messages')
+              .select('metadata')
+              .eq('teacher_id', teacher.id)
+              .eq('is_outgoing', false)
+              .eq('messenger_type', 'telegram')
+              .not('metadata->integration_id', 'is', null)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            const metaId = (metaMsg?.metadata as any)?.integration_id;
+            if (metaId) {
+              resolvedIntegrationId = metaId;
+              console.log('[telegram-send] Smart routing (phone→teacher, metadata):', resolvedIntegrationId);
+            }
           }
         }
       }
