@@ -1494,16 +1494,57 @@ export const ChatArea = ({
         ? [((authProfile as any).first_name), ((authProfile as any).last_name)].filter(Boolean).join(' ') || 'Менеджер поддержки'
         : 'Менеджер поддержки';
 
-      // For direct teacher messages (teacher:xxx), we need special handling
-      // Use teacher's phone directly since clientId is not a valid UUID
-      const effectiveClientId = isDirectTeacherMessage ? null : clientId;
-      const effectivePhone = isDirectTeacherMessage ? clientPhone : undefined;
-      
       // Determine which messenger to use
       const messengerType: MessengerType = activeMessengerTab === 'max' ? 'max' 
         : activeMessengerTab === 'telegram' ? 'telegram' 
         : 'whatsapp';
-      
+
+      // === OPTIMISTIC UI: show message immediately ===
+      const optimisticId = `optimistic-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const optimisticMessage: import('@/hooks/useChatMessages').ChatMessage = {
+        id: optimisticId,
+        content: messageText || (filesToSend.length > 0 ? `[Файл: ${filesToSend[0].name}]` : ''),
+        message_text: messageText || (filesToSend.length > 0 ? `[Файл: ${filesToSend[0].name}]` : ''),
+        created_at: new Date().toISOString(),
+        direction: 'outgoing',
+        is_outgoing: true,
+        message_type: 'manager',
+        messenger: activeMessengerTab === 'chatos' ? 'whatsapp' : messengerType,
+        messenger_type: activeMessengerTab === 'chatos' ? 'whatsapp' : messengerType,
+        status: 'sending',
+        message_status: 'sending',
+        sender_name: senderName,
+        is_read: true,
+        client_id: clientId,
+        media_url: filesToSend[0]?.url || null,
+        file_url: filesToSend[0]?.url || null,
+        file_name: filesToSend[0]?.name || null,
+        file_type: filesToSend[0]?.type || null,
+        metadata: { sender_name: senderName },
+      } as any;
+
+      // Inject into React Query cache for instant display
+      queryClient.setQueriesData<any>(
+        { queryKey: ['chat-messages-optimized', clientId] },
+        (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            messages: [...(old.messages || []), optimisticMessage],
+            totalCount: (old.totalCount || 0) + 1,
+          };
+        }
+      );
+
+      // Scroll to show the optimistic message
+      requestAnimationFrame(() => {
+        setTimeout(() => scrollToBottom(true), 50);
+      });
+
+      // For direct teacher messages (teacher:xxx), we need special handling
+      const effectiveClientId = isDirectTeacherMessage ? null : clientId;
+      const effectivePhone = isDirectTeacherMessage ? clientPhone : undefined;
+
       // Check integration status before sending
       const integrationStatus = await checkIntegrationStatus(messengerType);
       
