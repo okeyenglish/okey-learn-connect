@@ -1035,8 +1035,8 @@ export const AIHubInline = ({
           </div>
         )}
 
-        <ScrollArea ref={scrollAreaRef} className="flex-1 overflow-auto">
-          <div className="space-y-0.5 p-4 pb-24">
+        <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0 overflow-auto">
+          <div className="space-y-0.5 p-4 pb-4">
             {isLoading ? (
               <div className="text-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
@@ -1261,7 +1261,7 @@ export const AIHubInline = ({
           </div>
         </ScrollArea>
 
-        <div className="absolute bottom-0 left-0 right-0 p-3 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}>
+        <div className="p-3 border-t bg-background shrink-0" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}>
           {/* Pending file preview */}
           {pendingFile && (
             <div className="mb-2 p-2 bg-muted rounded-lg flex items-center gap-2">
