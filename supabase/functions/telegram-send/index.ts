@@ -839,11 +839,21 @@ async function sendMessage(
     });
 
     let data: { status?: string; detail?: string; message_id?: string; id?: string } | null = null;
-    try {
-      data = await response.json();
-    } catch {
-      const text = await response.text().catch(() => '');
-      data = { detail: text || `HTTP ${response.status}` };
+    const contentType = response.headers.get('content-type') || '';
+    const responseText = await response.text().catch(() => '');
+    
+    console.log(`[telegram-send] Response status: ${response.status}, content-type: ${contentType}, body preview: ${responseText.substring(0, 200)}`);
+    
+    if (contentType.includes('application/json') && responseText) {
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        console.error(`[telegram-send] Failed to parse JSON despite content-type:`, responseText.substring(0, 300));
+        data = { detail: responseText.substring(0, 200) || `HTTP ${response.status}` };
+      }
+    } else {
+      console.error(`[telegram-send] Wappi returned non-JSON (${contentType}):`, responseText.substring(0, 300));
+      data = { detail: responseText ? `Non-JSON response (${response.status}): ${responseText.substring(0, 150)}` : `HTTP ${response.status}` };
     }
 
     console.log(`[telegram-send] Response:`, data);

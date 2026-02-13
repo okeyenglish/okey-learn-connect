@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, Plus, Star, MoreVertical, Settings2, Copy, Trash2, AlertCircle, Loader2, Wifi } from 'lucide-react';
+import { Send, Plus, Star, MoreVertical, Settings2, Copy, Trash2, AlertCircle, Loader2, Wifi, MessageSquare, Activity } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +24,7 @@ import {
 import { useMessengerIntegrations, MessengerIntegration } from '@/hooks/useMessengerIntegrations';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { selfHostedPost } from '@/lib/selfHostedApi';
 import { IntegrationEditDialog } from './IntegrationEditDialog';
 import { TelegramCrmConnectDialog } from './TelegramCrmConnectDialog';
 import { TelegramCrmProfileStatus } from './TelegramCrmProfileStatus';
@@ -85,6 +86,8 @@ export const TelegramIntegrations: React.FC = () => {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [testingWebhookId, setTestingWebhookId] = useState<string | null>(null);
+  const [checkingStatusId, setCheckingStatusId] = useState<string | null>(null);
+  const [testingSendId, setTestingSendId] = useState<string | null>(null);
 
   // Test webhook endpoint for Wappi integrations
   const handleTestWebhook = async (integration: MessengerIntegration) => {
@@ -126,6 +129,95 @@ export const TelegramIntegrations: React.FC = () => {
       });
     } finally {
       setTestingWebhookId(null);
+    }
+  };
+
+  // Check Wappi profile status
+  const handleCheckStatus = async (integration: MessengerIntegration) => {
+    const profileId = integration.settings?.profileId as string | undefined;
+    const apiToken = integration.settings?.apiToken as string | undefined;
+    
+    if (!profileId || !apiToken) {
+      toast({
+        title: 'Ошибка',
+        description: 'Profile ID или API Token не заданы',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setCheckingStatusId(integration.id);
+    try {
+      const res = await fetch(`https://wappi.pro/tapi/sync/get/status?profile_id=${profileId}`, {
+        headers: { Authorization: apiToken },
+      });
+      const text = await res.text();
+      let data: any;
+      try { data = JSON.parse(text); } catch { data = { raw: text.substring(0, 200) }; }
+      
+      const status = data?.status || data?.state || 'unknown';
+      const isOk = ['online', 'connected', 'authenticated'].includes(status);
+      
+      toast({
+        title: isOk ? '✅ Профиль онлайн' : `⚠️ Статус: ${status}`,
+        description: isOk 
+          ? `Имя: ${data?.pushname || data?.name || '—'}, Телефон: ${data?.phone || '—'}`
+          : `Ответ Wappi: ${JSON.stringify(data).substring(0, 150)}`,
+        variant: isOk ? 'default' : 'destructive',
+      });
+    } catch (e: any) {
+      toast({
+        title: '❌ Ошибка проверки',
+        description: e.message || 'Не удалось получить статус',
+        variant: 'destructive',
+      });
+    } finally {
+      setCheckingStatusId(null);
+    }
+  };
+
+  // Test sending a message via telegram-send
+  const handleTestSend = async (integration: MessengerIntegration) => {
+    const profileId = integration.settings?.profileId as string | undefined;
+    
+    if (!profileId) {
+      toast({
+        title: 'Ошибка',
+        description: 'Profile ID не задан',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setTestingSendId(integration.id);
+    try {
+      const response = await selfHostedPost<any>('telegram-send', {
+        text: '🔧 Тестовое сообщение от CRM',
+        profileId,
+        chatId: profileId, // Send to self / saved messages
+        testMode: true,
+      });
+
+      if (response.success && response.data?.success) {
+        toast({
+          title: '✅ Сообщение отправлено',
+          description: `Message ID: ${response.data?.messageId || '—'}`,
+        });
+      } else {
+        toast({
+          title: '❌ Ошибка отправки',
+          description: response.data?.error || response.error || 'Неизвестная ошибка',
+          variant: 'destructive',
+        });
+      }
+    } catch (e: any) {
+      toast({
+        title: '❌ Ошибка',
+        description: e.message || 'Не удалось отправить тестовое сообщение',
+        variant: 'destructive',
+      });
+    } finally {
+      setTestingSendId(null);
     }
   };
 
@@ -286,17 +378,41 @@ export const TelegramIntegrations: React.FC = () => {
                       </DropdownMenuItem>
                       {/* Test Webhook button for Wappi integrations */}
                       {integration.provider === 'wappi' && (
-                        <DropdownMenuItem 
-                          onClick={() => handleTestWebhook(integration)}
-                          disabled={testingWebhookId === integration.id}
-                        >
-                          {testingWebhookId === integration.id ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <Wifi className="h-4 w-4 mr-2" />
-                          )}
-                          Проверить Webhook
-                        </DropdownMenuItem>
+                        <>
+                          <DropdownMenuItem 
+                            onClick={() => handleTestWebhook(integration)}
+                            disabled={testingWebhookId === integration.id}
+                          >
+                            {testingWebhookId === integration.id ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Wifi className="h-4 w-4 mr-2" />
+                            )}
+                            Проверить Webhook
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleCheckStatus(integration)}
+                            disabled={checkingStatusId === integration.id}
+                          >
+                            {checkingStatusId === integration.id ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Activity className="h-4 w-4 mr-2" />
+                            )}
+                            Проверить статус
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleTestSend(integration)}
+                            disabled={testingSendId === integration.id}
+                          >
+                            {testingSendId === integration.id ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <MessageSquare className="h-4 w-4 mr-2" />
+                            )}
+                            Тест отправки
+                          </DropdownMenuItem>
+                        </>
                       )}
                       {!integration.is_primary && (
                         <DropdownMenuItem onClick={() => setPrimary(integration.id)}>
