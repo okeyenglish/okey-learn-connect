@@ -1858,8 +1858,19 @@ export const ChatArea = ({
         }
       }
 
-      // Invalidate message cache to show the newly sent message
-      queryClient.invalidateQueries({ queryKey: ['chat-messages-optimized', clientId] });
+      // Remove optimistic messages before refetch to prevent flicker
+      // The real message from DB will seamlessly replace the optimistic one
+      queryClient.setQueriesData<any>(
+        { queryKey: ['chat-messages-optimized', clientId] },
+        (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            messages: (old.messages || []).filter((m: any) => !String(m.id).startsWith('optimistic-')),
+          };
+        }
+      );
+      await queryClient.refetchQueries({ queryKey: ['chat-messages-optimized', clientId] });
       queryClient.invalidateQueries({ queryKey: ['chat-messages', clientId] });
 
       // Remove any pending GPT suggestions for this client after a successful send
