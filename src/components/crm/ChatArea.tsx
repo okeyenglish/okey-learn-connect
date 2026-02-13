@@ -619,9 +619,11 @@ export const ChatArea = ({
 
   // Subscribe to new messages for instant scroll when payment/new message arrives
   const handleNewMessageRealtime = useCallback(() => {
-    // Scroll to bottom when new message arrives via realtime
+    // Double rAF + small delay to ensure DOM has fully rendered the new message
     requestAnimationFrame(() => {
-      scrollToBottom(true);
+      requestAnimationFrame(() => {
+        setTimeout(() => scrollToBottom(true), 50);
+      });
     });
   }, [scrollToBottom]);
   useNewMessageRealtime(clientId, handleNewMessageRealtime);
@@ -949,7 +951,9 @@ export const ChatArea = ({
         if (isRecentMessage && lastMessageIdRef.current !== null) {
           // This is a new incoming message - scroll to it
           requestAnimationFrame(() => {
-            scrollToBottom(true);
+            requestAnimationFrame(() => {
+              setTimeout(() => scrollToBottom(true), 50);
+            });
           });
         }
       } else {
@@ -961,7 +965,9 @@ export const ChatArea = ({
         if (isNewMessage) {
           // Scroll to bottom immediately when new message arrives (like in messengers)
           requestAnimationFrame(() => {
-            scrollToBottom(true);
+            requestAnimationFrame(() => {
+              setTimeout(() => scrollToBottom(true), 50);
+            });
           });
         }
       }
