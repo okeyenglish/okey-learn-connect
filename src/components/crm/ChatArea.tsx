@@ -1424,55 +1424,9 @@ export const ChatArea = ({
     setFileUploadResetKey((k) => k + 1); // Reset FileUpload internal UI
     onMessageChange?.(false);
     
-    // Помечаем все непрочитанные сообщения как прочитанные при отправке ответа
-    try {
-      await supabase
-        .from('chat_messages')
-        .update({ is_read: true })
-        .eq('client_id', clientId)
-        .eq('is_read', false)
-        .eq('message_type', 'client');
-      
-      queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
-      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-      // Clear personal unread marker when sending a message
-      onChatAction?.(clientId, 'read');
-    } catch (error) {
-      console.error('Error marking messages as read on send:', error);
-    }
-    
     // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-    }
-
-    // Immediately dismiss any pending GPT responses when manager starts sending a message
-    if (pendingGPTResponses && pendingGPTResponses.length > 0) {
-      console.log('Found pending GPT responses to clear:', pendingGPTResponses.length);
-      
-      // First optimistically remove from UI
-      queryClient.setQueryData(['pending-gpt-responses', clientId], []);
-      
-      // Then delete from database
-      try {
-        const { data: deletedData, error: deleteError } = await supabase
-          .from('pending_gpt_responses')
-          .delete()
-          .eq('client_id', clientId)
-          .select(); // Select to see what was deleted
-        
-        console.log('Deleted pending GPT responses:', deletedData?.length || 0, 'Error:', deleteError);
-        
-        if (deleteError) {
-          console.error('Database delete error:', deleteError);
-        }
-        
-        // Force refresh the pending responses query
-        queryClient.invalidateQueries({ queryKey: ['pending-gpt-responses', clientId] });
-      } catch (error) {
-        console.error('Failed to clear pending GPT responses:', error);
-        // Even if delete fails, keep UI cleared
-      }
     }
 
     // If in comment mode, save as comment instead of sending
@@ -1494,34 +1448,60 @@ export const ChatArea = ({
     if (!notifSettings.sendDelayEnabled) {
       // No delay - send immediately
       sendMessageNow(messageText, filesToSend);
-      return;
+    } else {
+      // Start 5-second countdown for regular messages
+      setPendingMessage({ text: messageText, countdown: 5 });
+      
+      const countdown = () => {
+        setPendingMessage(prev => {
+          if (!prev) return null;
+          
+          if (prev.countdown <= 1) {
+            sendMessageNow(messageText, filesToSend);
+            if (pendingTimeoutRef.current) {
+              clearInterval(pendingTimeoutRef.current);
+              pendingTimeoutRef.current = null;
+            }
+            return null;
+          }
+          
+          return { ...prev, countdown: prev.countdown - 1 };
+        });
+      };
+
+      const intervalId = setInterval(countdown, 1000);
+      pendingTimeoutRef.current = intervalId;
     }
 
-    // Start 5-second countdown for regular messages
-    setPendingMessage({ text: messageText, countdown: 5 });
-    
-    const countdown = () => {
-      setPendingMessage(prev => {
-        if (!prev) return null;
-        
-        if (prev.countdown <= 1) {
-          // Time's up - send the message
-          sendMessageNow(messageText, filesToSend);
-          // Clear the interval when countdown finishes
-          if (pendingTimeoutRef.current) {
-            clearInterval(pendingTimeoutRef.current);
-            pendingTimeoutRef.current = null;
-          }
-          return null;
-        }
-        
-        return { ...prev, countdown: prev.countdown - 1 };
-      });
-    };
+    // === Background cleanup (non-blocking) ===
+    // Mark messages as read (fire-and-forget)
+    Promise.resolve(
+      supabase
+        .from('chat_messages')
+        .update({ is_read: true })
+        .eq('client_id', clientId)
+        .eq('is_read', false)
+        .eq('message_type', 'client')
+    ).then(() => {
+      queryClient.invalidateQueries({ queryKey: ['client-unread-by-messenger', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+      onChatAction?.(clientId, 'read');
+    }).catch(e => console.error('Error marking messages as read on send:', e));
 
-    // Update countdown every second and store interval ID for cleanup
-    const intervalId = setInterval(countdown, 1000);
-    pendingTimeoutRef.current = intervalId;
+    // Clear pending GPT responses (fire-and-forget)
+    if (pendingGPTResponses && pendingGPTResponses.length > 0) {
+      queryClient.setQueryData(['pending-gpt-responses', clientId], []);
+      Promise.resolve(
+        supabase
+          .from('pending_gpt_responses')
+          .delete()
+          .eq('client_id', clientId)
+          .select()
+      ).then(({ data, error }: any) => {
+        if (error) console.error('Database delete error:', error);
+        queryClient.invalidateQueries({ queryKey: ['pending-gpt-responses', clientId] });
+      }).catch(e => console.error('Failed to clear pending GPT responses:', e));
+    }
   };
 
   const sendMessageNow = async (messageText: string, filesToSend: Array<{url: string, name: string, type: string, size: number}> = []) => {
