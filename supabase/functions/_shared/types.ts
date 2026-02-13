@@ -190,7 +190,7 @@ export interface TelegramSettings {
  * Bot profiles use /botapi/, personal accounts use /tapi/sync/
  */
 export function getWappiTelegramApiPrefix(isBotProfile?: boolean): string {
-  return isBotProfile ? 'botapi' : 'tapi/sync';
+  return isBotProfile ? 'bapi' : 'tapi/sync';
 }
 
 /**
