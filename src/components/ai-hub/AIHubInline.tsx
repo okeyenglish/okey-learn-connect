@@ -1261,7 +1261,7 @@ export const AIHubInline = ({
           </div>
         </ScrollArea>
 
-        <div className="p-3 border-t bg-background shrink-0" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}>
+        <div className="p-3 pb-20 md:pb-3 border-t bg-background shrink-0">
           {/* Pending file preview */}
           {pendingFile && (
             <div className="mb-2 p-2 bg-muted rounded-lg flex items-center gap-2">
