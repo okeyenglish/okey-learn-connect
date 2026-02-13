@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Send, Plus, Star, MoreVertical, Settings2, Copy, Trash2, AlertCircle, Loader2, Wifi, MessageSquare, Activity } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -88,6 +90,8 @@ export const TelegramIntegrations: React.FC = () => {
   const [testingWebhookId, setTestingWebhookId] = useState<string | null>(null);
   const [checkingStatusId, setCheckingStatusId] = useState<string | null>(null);
   const [testingSendId, setTestingSendId] = useState<string | null>(null);
+  const [testSendIntegration, setTestSendIntegration] = useState<MessengerIntegration | null>(null);
+  const [testRecipient, setTestRecipient] = useState('');
 
   // Test webhook endpoint for Wappi integrations
   const handleTestWebhook = async (integration: MessengerIntegration) => {
@@ -177,32 +181,45 @@ export const TelegramIntegrations: React.FC = () => {
   };
 
   // Test sending a message via telegram-send
-  const handleTestSend = async (integration: MessengerIntegration) => {
+  const handleTestSend = async () => {
+    const integration = testSendIntegration;
+    if (!integration) return;
+    
     const profileId = integration.settings?.profileId as string | undefined;
+    const recipient = testRecipient.trim();
     
     if (!profileId) {
-      toast({
-        title: 'Ошибка',
-        description: 'Profile ID не задан',
-        variant: 'destructive',
-      });
+      toast({ title: 'Ошибка', description: 'Profile ID не задан', variant: 'destructive' });
+      return;
+    }
+    if (!recipient) {
+      toast({ title: 'Ошибка', description: 'Введите Telegram ID или номер телефона', variant: 'destructive' });
       return;
     }
 
     setTestingSendId(integration.id);
     try {
-      const response = await selfHostedPost<any>('telegram-send', {
+      const payload: Record<string, unknown> = {
         text: '🔧 Тестовое сообщение от CRM',
         profileId,
-        chatId: profileId, // Send to self / saved messages
         testMode: true,
-      });
+      };
+      // If numeric and looks like a phone, use phoneNumber; otherwise telegramUserId
+      if (/^\+?\d{10,15}$/.test(recipient)) {
+        payload.phoneNumber = recipient;
+      } else {
+        payload.telegramUserId = recipient;
+      }
+
+      const response = await selfHostedPost<any>('telegram-send', payload);
 
       if (response.success && response.data?.success) {
         toast({
           title: '✅ Сообщение отправлено',
           description: `Message ID: ${response.data?.messageId || '—'}`,
         });
+        setTestSendIntegration(null);
+        setTestRecipient('');
       } else {
         toast({
           title: '❌ Ошибка отправки',
@@ -402,7 +419,7 @@ export const TelegramIntegrations: React.FC = () => {
                             Проверить статус
                           </DropdownMenuItem>
                           <DropdownMenuItem 
-                            onClick={() => handleTestSend(integration)}
+                            onClick={() => { setTestSendIntegration(integration); setTestRecipient(''); }}
                             disabled={testingSendId === integration.id}
                           >
                             {testingSendId === integration.id ? (
@@ -501,6 +518,44 @@ export const TelegramIntegrations: React.FC = () => {
                 <Trash2 className="h-4 w-4 mr-2" />
               )}
               Удалить
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Test Send Dialog */}
+      <AlertDialog open={!!testSendIntegration} onOpenChange={(open) => {
+        if (!open && !testingSendId) { setTestSendIntegration(null); setTestRecipient(''); }
+      }}>
+        <AlertDialogContent className="z-[9999]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Тест отправки сообщения</AlertDialogTitle>
+            <AlertDialogDescription>
+              Введите Telegram ID пользователя или номер телефона для отправки тестового сообщения.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Label htmlFor="test-recipient">Telegram ID или номер телефона</Label>
+            <Input
+              id="test-recipient"
+              placeholder="123456789 или +79001234567"
+              value={testRecipient}
+              onChange={(e) => setTestRecipient(e.target.value)}
+              className="mt-2"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!testingSendId}>Отмена</AlertDialogCancel>
+            <Button
+              onClick={handleTestSend}
+              disabled={!!testingSendId || !testRecipient.trim()}
+            >
+              {testingSendId ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <MessageSquare className="h-4 w-4 mr-2" />
+              )}
+              Отправить
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
