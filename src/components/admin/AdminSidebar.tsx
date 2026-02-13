@@ -75,6 +75,7 @@ const adminItems = [
   { title: "SLA мониторинг", id: "sla-monitoring", icon: Activity },
   { title: "Event Bus", id: "event-bus", icon: Zap },
   { title: "AI Settings", id: "ai-settings", icon: Zap },
+  { title: "Быстрые ответы", id: "quick-responses", icon: MessageSquare },
   { title: "Sync", id: "sync", icon: RefreshCw },
   { title: "Users", id: "users", icon: Users },
   { title: "Филиалы сотрудников", id: "user-branches", icon: Database },

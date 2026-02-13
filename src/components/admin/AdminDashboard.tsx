@@ -40,6 +40,7 @@ import { StaffManagementSection } from "./StaffManagementSection";
 import { ConversationIndexingPanel } from "./ConversationIndexingPanel";
 import BonusSettingsPage from "@/components/employees/BonusSettingsPage";
 import { TeacherSubjectsCategoriesEditor } from "./TeacherSubjectsCategoriesEditor";
+import { QuickResponsesManager } from "./QuickResponsesManager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -115,6 +116,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <EventBusMonitor />;
       case "ai-settings":
         return <AIProviderSettings />;
+      case "quick-responses":
+        return <QuickResponsesManager />;
       case "branch-photos":
         return <BranchPhotosManager />;
       case "routing-rules":
