@@ -182,6 +182,7 @@ export interface TeacherChatItem {
   lastMessengerType: string | null; // which messenger had the last message
   lastSeen: string;
   isOnline: boolean;
+  teacherNumber: string | null;
 }
 
 interface TeacherUnreadCount {
@@ -213,6 +214,7 @@ export const useTeacherChats = (branch?: string | null) => {
     subjects: string[] | null;
     categories: string[] | null;
     is_active: boolean | null;
+    teacher_number: string | null;
   };
 
   const { data: teachers, isLoading: teachersLoading, error: teachersError } = useQuery({
@@ -220,7 +222,7 @@ export const useTeacherChats = (branch?: string | null) => {
     queryFn: async (): Promise<TeacherRow[]> => {
       let query = supabase
         .from('teachers')
-        .select('id, profile_id, first_name, last_name, phone, email, branch, subjects, categories, is_active')
+        .select('id, profile_id, first_name, last_name, phone, email, branch, subjects, categories, is_active, teacher_number')
         .eq('is_active', true)
         .order('last_name', { ascending: true });
 
@@ -467,6 +469,7 @@ export const useTeacherChats = (branch?: string | null) => {
           ? new Date(unreadData.last_message_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
           : 'нет сообщений',
         isOnline: false,
+        teacherNumber: teacher.teacher_number || null,
       };
     });
   }, [teachers, unreadCounts]);
