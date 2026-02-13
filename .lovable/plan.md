@@ -1,88 +1,101 @@
 
 
-# Исправление RPC параметров в telegram-webhook
+# Исправление ошибок маршрутизации в telegram-send
 
-## Диагноз
+## Найденные ошибки
 
-RPC-вызов `find_or_create_telegram_client` в коде ВСЕГДА падает из-за несовпадения параметров:
+### Ошибка 1: `integration_id` не сохраняется на исходящих сообщениях
 
-| Код передаёт | Функция в БД ожидает |
-|---|---|
-| `p_org_id` | `p_organization_id` |
-| `p_telegram_user_id` | `p_telegram_user_id` (ok) |
-| `p_telegram_chat_id` | -- (нет такого) |
-| `p_name` | `p_name` (ok) |
-| `p_username` | -- (нет такого) |
-| `p_avatar_url` | -- (нет такого) |
-| `p_phone` | `p_phone` (ok) |
+В `telegram-send/index.ts` (строки 942-955) при сохранении отправленного сообщения в БД поле `integration_id` **не записывается**:
 
-Результат: RPC падает -> fallback на legacy -> legacy работает, но клиент создаётся без явного `telegram_user_id` в некоторых случаях или создаётся корректно, но пользователь искал по телефону, а телефон null (бот не знает номер).
+```text
+const messageRecord = {
+  organization_id,
+  message_text,
+  message_type: 'manager',
+  messenger_type: 'telegram',
+  ...
+  // integration_id ← ОТСУТСТВУЕТ!
+  metadata: { sender_name: ... },  // integration_id тоже нет в metadata
+};
+```
 
-## Почему клиент не найден по телефону
+Из-за этого smart routing никогда не находит `integration_id` в истории сообщений, т.к. входящих сообщений от этого клиента нет (или они были до внедрения smart routing), а на исходящих `integration_id = null`.
 
-Telegram-бот **не получает** номер телефона отправителя. Бот видит только `user_id`, `chat_id`, `first_name`, `username`. Поэтому клиент создан с `phone = NULL`. Поиск `WHERE phone LIKE '%79852615056'` ничего не вернёт.
+### Ошибка 2: Интеграция `0fe16f2c` (профиль `e1d32a13-5a40`) -- "Wrong platform"
+
+Эта интеграция стабильно отвечает `{"detail":"Wrong platform","status":"error"}`. Это означает, что профиль `e1d32a13-5a40` в Wappi привязан к **WhatsApp**, а не к Telegram. Но в таблице `messenger_integrations` он записан как `messenger_type = 'telegram'`.
+
+Каждый раз при отправке система тратит запрос на заведомо нерабочую интеграцию.
+
+### Ошибка 3: Smart routing ссылается на удаленную интеграцию `6604a4a0`
+
+В логах видно: `Smart routing (client): 6604a4a0` -- но этой интеграции нет в списке активных. Dead-link fallback срабатывает, но может выбрать неправильную замену (например, `0fe16f2c` с "Wrong platform").
 
 ## План исправления
 
-### 1. Исправить RPC-вызов в `telegram-webhook/index.ts`
+### 1. Сохранять `integration_id` на исходящих сообщениях
 
-Привести параметры в соответствие с функцией в БД:
+Файл: `supabase/functions/telegram-send/index.ts`, строки 942-955
 
-```
+Добавить в `messageRecord`:
+- `integration_id` -- ID интеграции, через которую фактически отправлено
+- `integration_id` в `metadata` -- для self-hosted совместимости
+
+```text
 Было:
-  supabase.rpc('find_or_create_telegram_client', {
-    p_org_id: organizationId,
-    p_telegram_user_id: telegramUserId,
-    p_telegram_chat_id: telegramChatId,
-    p_name: finalName,
-    p_username: username || null,
-    p_avatar_url: avatarUrl || null,
-    p_phone: finalPhone
-  });
+  metadata: { sender_name: body.senderName || null }
 
 Станет:
-  supabase.rpc('find_or_create_telegram_client', {
-    p_organization_id: organizationId,
-    p_telegram_user_id: String(telegramUserId),
-    p_name: finalName || 'Telegram User',
-    p_phone: finalPhone
-  });
+  integration_id: integration?.id || resolvedIntegrationId || null,
+  metadata: {
+    sender_name: body.senderName || null,
+    integration_id: integration?.id || resolvedIntegrationId || null
+  }
 ```
 
-Убираем лишние параметры (`p_telegram_chat_id`, `p_username`, `p_avatar_url`) которых нет в сигнатуре функции. Параметр `p_org_id` заменяем на `p_organization_id`.
+Важно: если сообщение отправлено через альтернативную интеграцию (fallback), нужно записать ID **той интеграции, которая успешно отправила**, а не первоначальной.
 
-### 2. После RPC — обновить telegram_chat_id отдельно
+### 2. Отслеживать фактически использованную интеграцию
 
-Поскольку RPC-функция не принимает `telegram_chat_id`, обновим его отдельно после создания клиента:
+Сейчас когда fallback-интеграция успешно отправляет, переменная `integration` не обновляется. Нужно добавить переменную `actualIntegrationId` и обновлять её при успешной альтернативной отправке.
 
-```typescript
-// После успешного RPC, обновить chat_id и avatar
-await supabase
-  .from('clients')
-  .update({ 
-    telegram_chat_id: telegramChatId,
-    telegram_avatar_url: avatarUrl || undefined
-  })
-  .eq('id', clientId);
+Строки 854-858:
+```text
+Было:
+  sendResult = altResult;
+  recipientSource = `alternative wappi (${altIntegration.id})`;
+
+Станет:
+  sendResult = altResult;
+  recipientSource = `alternative wappi (${altIntegration.id})`;
+  actualIntegrationId = altIntegration.id;  // Запоминаем кто реально отправил
 ```
 
-### 3. Добавить подробное логирование пути
+### 3. Удалить/исправить интеграцию `0fe16f2c`
 
-Чтобы в будущем было понятно какой путь выполнился:
+Это действие нужно выполнить в БД на self-hosted сервере:
 
-```typescript
-console.log('[findOrCreateClient] RPC success, clientId:', clientId);
-// или
-console.log('[findOrCreateClient] RPC failed, falling back to legacy:', rpcError.message);
+```sql
+-- Вариант А: Удалить нерабочую интеграцию
+DELETE FROM messenger_integrations WHERE id = '0fe16f2c-5d1c-4d62-8b28-20e7faf571ef';
+
+-- Вариант Б: Исправить тип на whatsapp (если профиль нужен для WhatsApp)
+UPDATE messenger_integrations 
+SET messenger_type = 'whatsapp' 
+WHERE id = '0fe16f2c-5d1c-4d62-8b28-20e7faf571ef';
 ```
 
 ## Файлы для изменения
 
-- `supabase/functions/telegram-webhook/index.ts` -- исправить RPC параметры (строки 1030-1038), добавить update chat_id после RPC (после строки 1044)
+| Файл | Что меняем |
+|---|---|
+| `supabase/functions/telegram-send/index.ts` | Добавить `actualIntegrationId`, сохранять `integration_id` в `messageRecord` и `metadata` |
 
 ## Ожидаемый результат
 
-1. RPC-вызов перестанет падать -> клиент создаётся атомарно с `telegram_user_id`
-2. `telegram_chat_id` обновляется отдельным запросом после создания
-3. При ответе из CRM, `telegram-send` найдёт `telegram_user_id` и отправит по ID
+1. После отправки сообщения в БД сохраняется `integration_id` фактически использованной интеграции
+2. При следующей отправке smart routing найдет этот `integration_id` и отправит через ту же интеграцию
+3. Удаление `0fe16f2c` уберет ошибку "Wrong platform" и ускорит fallback
+4. Клиент будет получать ответы через тот же аккаунт, через который уже шла переписка
 
