@@ -518,6 +518,14 @@ export const AIHubInline = ({
 
     if (targetChat) {
       setActiveChat(targetChat);
+      // Mark as read
+      if (targetChat.type === 'staff') {
+        const profileId = (targetChat.data as StaffMember)?.id;
+        if (profileId) markChatRead.mutate(profileId);
+      } else if (targetChat.type === 'teacher') {
+        const profileId = (targetChat.data as TeacherChatItem)?.profileId;
+        if (profileId) markChatRead.mutate(profileId);
+      }
       onClearInitialStaffUserId?.();
     } else {
       // If target not found among teachers/staff, create a temporary chat entry
@@ -548,6 +556,8 @@ export const AIHubInline = ({
               } as StaffMember,
             };
             setActiveChat(tempChatItem);
+            // Mark as read
+            markChatRead.mutate(profile.id);
           } else {
             console.log('[AIHubInline] Profile not found for:', initialStaffUserId);
           }
@@ -570,6 +580,7 @@ export const AIHubInline = ({
 
     if (targetGroup) {
       setActiveChat(targetGroup);
+      markChatRead.mutate(targetGroup.id);
       onClearInitialGroupChatId?.();
     } else if (!groupChatsLoading) {
       onClearInitialGroupChatId?.();
