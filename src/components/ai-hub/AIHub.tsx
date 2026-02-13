@@ -187,7 +187,7 @@ export const AIHub = ({
           type: 'staff',
           name: '...',
           description: '',
-          icon: null,
+          icon: MessagesSquare,
           iconBg: '',
           iconColor: '',
           data: { id: initialStaffUserId, first_name: '', last_name: '' } as any,
@@ -201,7 +201,7 @@ export const AIHub = ({
           type: 'group',
           name: '...',
           description: '',
-          icon: null,
+          icon: Users,
           iconBg: '',
           iconColor: '',
           data: { id: initialGroupChatId, name: '' } as any,
@@ -554,7 +554,7 @@ export const AIHub = ({
         type: 'staff',
         name: '...',
         description: '',
-        icon: null,
+        icon: MessagesSquare,
         iconBg: '',
         iconColor: '',
         data: { id: initialStaffUserId, first_name: '', last_name: '' } as any,
@@ -582,7 +582,7 @@ export const AIHub = ({
         type: 'group',
         name: '...',
         description: '',
-        icon: null,
+        icon: Users,
         iconBg: '',
         iconColor: '',
         data: { id: initialGroupChatId, name: '' } as any,
@@ -932,7 +932,7 @@ export const AIHub = ({
             </Button>
             <Avatar className="h-9 w-9">
               <AvatarFallback className={activeChat.iconBg}>
-                <activeChat.icon className={`h-5 w-5 ${activeChat.iconColor}`} />
+                {activeChat.icon ? <activeChat.icon className={`h-5 w-5 ${activeChat.iconColor}`} /> : <MessagesSquare className="h-5 w-5 text-muted-foreground" />}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
