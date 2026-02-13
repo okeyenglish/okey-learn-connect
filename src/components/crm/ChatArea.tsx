@@ -56,6 +56,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { getErrorMessage } from '@/lib/errorUtils';
 import { useClientAvatars } from '@/hooks/useClientAvatars';
+import { useSenderAvatars } from '@/hooks/useSenderAvatars';
 import { useMessengerIntegrationStatus, useAllIntegrationsStatus, MessengerType } from '@/hooks/useMessengerIntegrationStatus';
 import { selfHostedPost } from '@/lib/selfHostedApi';
 import { useMessageDrafts } from '@/hooks/useMessageDrafts';
@@ -841,13 +842,22 @@ export const ChatArea = ({
     // Менеджер должен явно нажать "Не требует ответа" или отправить сообщение
   };
 
-  // Current user's avatar for outgoing messages
-  const currentUserAvatar = (authProfile as any)?.avatar_url || null;
+  // Collect unique sender_ids from messages for batch avatar lookup
+  const senderIds = useMemo(() => {
+    if (!messagesData?.messages) return [];
+    return messagesData.messages
+      .filter((msg: any) => msg.sender_id)
+      .map((msg: any) => msg.sender_id as string);
+  }, [messagesData?.messages]);
+
+  const senderAvatarMap = useSenderAvatars(senderIds);
 
   // Format message helper - мемоизированная функция
   const formatMessage = useCallback((msg: any) => {
     const meta = msg.metadata || null;
     const isOutgoing = msg.is_outgoing || msg.message_type === 'manager' || msg.message_type === 'comment';
+    // Look up sender avatar from batch-fetched profiles
+    const senderAvatar = msg.sender_id ? senderAvatarMap.get(msg.sender_id) : null;
     return {
     id: msg.id,
     type: msg.message_type || (msg.is_outgoing ? 'manager' : 'client'),
@@ -864,8 +874,8 @@ export const ChatArea = ({
     // Self-hosted schema only has avatar_url (no messenger-specific avatars)
     clientAvatar: msg.clients?.avatar_url || null,
     managerName: msg.sender_name || (meta as any)?.sender_name || 'Менеджер поддержки',
-    // For outgoing messages, use current user's avatar
-    senderAvatarUrl: isOutgoing ? currentUserAvatar : null,
+    // Sender avatar from profiles lookup
+    senderAvatarUrl: isOutgoing ? (senderAvatar || null) : null,
     fileUrl: msg.file_url,
     fileName: msg.file_name,
     fileType: msg.file_type || msg.media_type,
@@ -884,7 +894,7 @@ export const ChatArea = ({
     // Task notification metadata
     metadata: meta,
   };
-  }, [managerName, currentUserAvatar]);
+  }, [managerName, senderAvatarMap]);
 
   // Format messages from React Query data using memoization for performance
   const messages = useMemo(() => {

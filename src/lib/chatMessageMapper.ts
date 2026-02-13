@@ -12,6 +12,13 @@ import type { ChatMessage } from '@/hooks/useChatMessages';
 export const CHAT_MESSAGE_SELECT = `
   id, client_id, message_text, message_type, system_type, is_read,
   created_at, file_url, file_name, file_type, external_message_id,
+  messenger_type, call_duration, message_status, metadata, sender_name, sender_id, is_outgoing
+`;
+
+/** Fallback SELECT without sender_id for self-hosted schemas that lack it */
+export const CHAT_MESSAGE_SELECT_MINIMAL = `
+  id, client_id, message_text, message_type, system_type, is_read,
+  created_at, file_url, file_name, file_type, external_message_id,
   messenger_type, call_duration, message_status, metadata, sender_name, is_outgoing
 `;
 
@@ -33,6 +40,7 @@ export interface DbChatMessageRow {
   message_status?: string | null;
   metadata?: Record<string, unknown> | null;
   sender_name?: string | null;
+  sender_id?: string | null;
   is_outgoing?: boolean | null;
 }
 
@@ -58,6 +66,7 @@ export function mapDbRowToChatMessage(row: DbChatMessageRow): ChatMessage {
     call_duration: row.call_duration ?? undefined,
     message_status: (row.message_status as ChatMessage['message_status']) ?? (row.metadata as any)?.message_status ?? undefined,
     metadata: row.metadata ?? undefined,
+    sender_id: row.sender_id ?? undefined,
   };
 }
 

@@ -2,7 +2,7 @@ import React, { useRef, useCallback, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { ChatMessage } from './useChatMessages';
-import { CHAT_MESSAGE_SELECT, mapDbRowsToChatMessages, type DbChatMessageRow } from '@/lib/chatMessageMapper';
+import { CHAT_MESSAGE_SELECT, CHAT_MESSAGE_SELECT_MINIMAL, mapDbRowsToChatMessages, type DbChatMessageRow } from '@/lib/chatMessageMapper';
 import { chatQueryConfig } from '@/lib/queryConfig';
 import { startMetric, endMetric } from '@/lib/performanceMetrics';
 import { performanceAnalytics } from '@/utils/performanceAnalytics';
@@ -46,12 +46,27 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
       try {
         // Optimized: removed JOIN on clients - avatars are fetched separately via useClientAvatars
         // This reduces query time significantly (no cross-table lookup)
-        const { data, error } = await supabase
+        let selectStr = CHAT_MESSAGE_SELECT;
+        let { data, error } = await supabase
           .from('chat_messages')
-          .select(CHAT_MESSAGE_SELECT)
+          .select(selectStr)
           .eq('client_id', clientId)
           .order('created_at', { ascending: false })
           .limit(limit + 1);
+
+        // Retry without sender_id if self-hosted schema lacks it
+        if (error && error.message?.toLowerCase().includes('sender_id')) {
+          console.warn('[useChatMessagesOptimized] Retrying without sender_id');
+          selectStr = CHAT_MESSAGE_SELECT_MINIMAL;
+          const retry = await supabase
+            .from('chat_messages')
+            .select(selectStr)
+            .eq('client_id', clientId)
+            .order('created_at', { ascending: false })
+            .limit(limit + 1);
+          data = retry.data;
+          error = retry.error;
+        }
 
         if (error) {
           console.error('[useChatMessagesOptimized] Query failed:', error.message);
@@ -62,7 +77,7 @@ export const useChatMessagesOptimized = (clientId: string, limit = MESSAGES_PER_
         const allData = data || [];
         const hasMore = allData.length > limit;
         const messages = hasMore ? allData.slice(0, limit) : allData;
-        const reversed = mapDbRowsToChatMessages(messages as DbChatMessageRow[]).reverse();
+        const reversed = mapDbRowsToChatMessages(messages as unknown as DbChatMessageRow[]).reverse();
 
         // Update in-memory cache
         messageCache.set(clientId, { messages: reversed, timestamp: Date.now() });
