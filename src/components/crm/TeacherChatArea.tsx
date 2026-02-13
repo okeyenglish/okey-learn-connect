@@ -630,7 +630,14 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
         {/* Basic Info */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Контактная информация</CardTitle>
+            <CardTitle className="text-sm flex items-center justify-between">
+              Контактная информация
+              {currentTeacher?.teacherNumber && (
+                <Badge variant="outline" className="font-mono text-xs text-muted-foreground">
+                  #{currentTeacher.teacherNumber}
+                </Badge>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 pt-0">
             <div className="flex items-center space-x-2">
