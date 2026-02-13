@@ -78,6 +78,7 @@ Deno.serve(async (req) => {
 
     const profileId = messengerSettings?.settings?.profileId;
     const wappiApiToken = messengerSettings?.settings?.apiToken;
+    const isBotProfile = messengerSettings?.settings?.isBotProfile;
 
     if (!profileId || !wappiApiToken) {
       return new Response(
@@ -118,7 +119,7 @@ Deno.serve(async (req) => {
     }
 
     // Get contact info from Wappi.pro using per-organization apiToken
-    const contactResult = await getContactInfo(profileId, chatId, wappiApiToken);
+    const contactResult = await getContactInfo(profileId, chatId, wappiApiToken, isBotProfile);
 
     if (!contactResult.success) {
       return new Response(
@@ -187,11 +188,13 @@ interface ContactInfo {
 async function getContactInfo(
   profileId: string,
   chatId: string,
-  apiToken: string
+  apiToken: string,
+  isBotProfile?: boolean
 ): Promise<{ success: boolean; contactInfo?: ContactInfo; error?: string }> {
   try {
+    const isBotPrefix = isBotProfile ? 'botapi' : 'tapi/sync';
     const response = await fetch(
-      `https://wappi.pro/tapi/sync/contact/get?profile_id=${profileId}&chat_id=${chatId}`,
+      `https://wappi.pro/${isBotPrefix}/contact/get?profile_id=${profileId}&chat_id=${chatId}`,
       {
         method: 'GET',
         headers: {

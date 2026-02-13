@@ -411,6 +411,30 @@ async function processMessage(supabase: any, message: TelegramWappiMessage, fall
   const organizationId = resolvedOrg.organizationId;
   const integrationId = resolvedOrg.integrationId; // For smart routing
 
+  // === AUTO-DETECT BOT PROFILE ===
+  // If incoming message has platform: "telegram_bot", auto-update isBotProfile in integration settings
+  if (integrationId && (message as any).platform === 'telegram_bot') {
+    try {
+      const { data: integrationData } = await supabase
+        .from('messenger_integrations')
+        .select('settings')
+        .eq('id', integrationId)
+        .maybeSingle();
+      
+      const currentSettings = (integrationData?.settings || {}) as Record<string, unknown>;
+      if (!currentSettings.isBotProfile) {
+        console.log(`[telegram-webhook] Auto-detecting bot profile for integration ${integrationId}`);
+        await supabase
+          .from('messenger_integrations')
+          .update({ settings: { ...currentSettings, isBotProfile: true } })
+          .eq('id', integrationId);
+        console.log(`[telegram-webhook] ✅ isBotProfile set to true for integration ${integrationId}`);
+      }
+    } catch (e) {
+      console.warn('[telegram-webhook] Failed to auto-update isBotProfile:', e);
+    }
+  }
+
   switch (wh_type) {
     case 'incoming_message':
       await handleIncomingMessage(supabase, message, organizationId, integrationId);

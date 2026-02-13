@@ -182,6 +182,15 @@ export interface TelegramSettings {
   profileId: string;
   apiToken: string;
   webhookUrl?: string;
+  isBotProfile?: boolean;
+}
+
+/**
+ * Get Wappi API prefix based on whether integration is a bot or personal account
+ * Bot profiles use /botapi/, personal accounts use /tapi/sync/
+ */
+export function getWappiTelegramApiPrefix(isBotProfile?: boolean): string {
+  return isBotProfile ? 'botapi' : 'tapi/sync';
 }
 
 /**
@@ -1081,6 +1090,7 @@ export interface TelegramWappiMessage {
   chat_type?: string;       // Chat type: user, group, channel
   task_id?: string;         // Task ID for API-sent messages
   telegram_username?: string; // Telegram username without @
+  platform?: string;          // Platform type: "telegram_bot" for bot profiles
 }
 
 /**

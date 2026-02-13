@@ -4,6 +4,7 @@ import {
   handleCors,
   errorResponse,
   getErrorMessage,
+  getWappiTelegramApiPrefix,
   type TelegramGetAvatarRequest,
   type TelegramGetAvatarResponse,
   type TelegramSettings,
@@ -68,6 +69,7 @@ Deno.serve(async (req) => {
     const settings = messengerSettings?.settings as TelegramSettings | null;
     const profileId = settings?.profileId;
     const wappiApiToken = settings?.apiToken;
+    const isBotProfile = settings?.isBotProfile;
 
     if (!profileId || !wappiApiToken) {
       return errorResponse('Telegram not configured', 400);
@@ -99,7 +101,7 @@ Deno.serve(async (req) => {
     }
 
     // Get avatar from Wappi.pro
-    const avatarResult = await getAvatar(profileId, chatId, wappiApiToken);
+    const avatarResult = await getAvatar(profileId, chatId, wappiApiToken, isBotProfile);
 
     if (!avatarResult.success) {
       return errorResponse(avatarResult.error || 'Failed to get avatar', 500);
@@ -146,12 +148,13 @@ Deno.serve(async (req) => {
 async function getAvatar(
   profileId: string,
   chatId: string,
-  apiToken: string
+  apiToken: string,
+  isBotProfile?: boolean
 ): Promise<{ success: boolean; avatarUrl?: string; error?: string }> {
   try {
-    // Wappi.pro API for getting user avatar
+    const prefix = getWappiTelegramApiPrefix(isBotProfile);
     const response = await fetch(
-      `https://wappi.pro/tapi/sync/contact/get?profile_id=${profileId}&chat_id=${chatId}`,
+      `https://wappi.pro/${prefix}/contact/get?profile_id=${profileId}&chat_id=${chatId}`,
       {
         method: 'GET',
         headers: {

@@ -4,6 +4,7 @@ import {
   handleCors,
   errorResponse,
   getErrorMessage,
+  getWappiTelegramApiPrefix,
   type TelegramSendRequest,
   type TelegramSendResponse,
   type TelegramSettings,
@@ -359,12 +360,14 @@ Deno.serve(async (req) => {
     // Fall back to legacy messenger_settings or wappi provider
     let profileId: string | undefined;
     let wappiApiToken: string | undefined;
+    let isBotProfile: boolean | undefined;
 
     if (integration && integration.provider === 'wappi') {
       // Use wappi settings from messenger_integrations
       const settings = integration.settings as TelegramSettings | null;
       profileId = settings?.profileId;
       wappiApiToken = settings?.apiToken;
+      isBotProfile = settings?.isBotProfile;
     } else {
       // Legacy: Get from messenger_settings
       const { data: messengerSettings, error: settingsError } = await supabase
@@ -386,7 +389,10 @@ Deno.serve(async (req) => {
       const settings = messengerSettings.settings as TelegramSettings | null;
       profileId = settings?.profileId;
       wappiApiToken = settings?.apiToken;
+      isBotProfile = settings?.isBotProfile;
     }
+
+    console.log(`[telegram-send] Integration config: profileId=${profileId}, isBotProfile=${isBotProfile}`);
 
     if (!profileId || !wappiApiToken) {
       return errorResponse('Telegram Profile ID or API Token not configured', 400);
@@ -783,13 +789,45 @@ Deno.serve(async (req) => {
     let actualIntegrationId: string | null = integration?.id || null;
     
     if (fileUrl) {
-      sendResult = await sendFileMessage(profileId, recipient, fileUrl, text || '', wappiApiToken);
+      sendResult = await sendFileMessage(profileId, recipient, fileUrl, text || '', wappiApiToken, isBotProfile);
     } else if (text) {
-      sendResult = await sendTextMessage(profileId, recipient, text, wappiApiToken);
+      sendResult = await sendTextMessage(profileId, recipient, text, wappiApiToken, isBotProfile);
     } else {
       return errorResponse('Message text or file is required', 400);
     }
     
+    // === AUTO-FALLBACK: "Wrong platform" → switch bot/personal prefix and retry ===
+    if (!sendResult.success && (sendResult as any).wrongPlatform) {
+      const flippedBot = !isBotProfile;
+      console.log(`[telegram-send] ⚠️ "Wrong platform" detected! Flipping isBotProfile: ${isBotProfile} → ${flippedBot}`);
+      
+      if (fileUrl) {
+        sendResult = await sendFileMessage(profileId, recipient, fileUrl, text || '', wappiApiToken, flippedBot);
+      } else if (text) {
+        sendResult = await sendTextMessage(profileId, recipient, text, wappiApiToken, flippedBot);
+      }
+      
+      if (sendResult.success) {
+        console.log(`[telegram-send] ✅ Flipped prefix worked! Updating isBotProfile in DB...`);
+        isBotProfile = flippedBot;
+        
+        // Update integration settings in DB (fire-and-forget)
+        if (integration?.id) {
+          const currentSettings = (integration.settings || {}) as Record<string, unknown>;
+          supabase
+            .from('messenger_integrations')
+            .update({ settings: { ...currentSettings, isBotProfile: flippedBot } })
+            .eq('id', integration.id)
+            .then(({ error }: any) => {
+              if (error) console.error('[telegram-send] Failed to update isBotProfile:', error.message);
+              else console.log(`[telegram-send] ✅ isBotProfile updated to ${flippedBot} for integration ${integration.id}`);
+            });
+        }
+      } else {
+        console.log(`[telegram-send] Flipped prefix also failed:`, sendResult.error);
+      }
+    }
+
     // === FALLBACK: If first attempt failed (non-bot), try phone number ===
     if (!sendResult.success) {
       const errorMsg = sendResult.error || 'Failed to send message';
@@ -818,9 +856,9 @@ Deno.serve(async (req) => {
         console.log(`[telegram-send] Fallback phone: ${fallbackPhoneNormalized}`);
         
         if (fileUrl) {
-          sendResult = await sendFileMessage(profileId, fallbackPhoneNormalized, fileUrl, text || '', wappiApiToken);
+          sendResult = await sendFileMessage(profileId, fallbackPhoneNormalized, fileUrl, text || '', wappiApiToken, isBotProfile);
         } else if (text) {
-          sendResult = await sendTextMessage(profileId, fallbackPhoneNormalized, text, wappiApiToken);
+          sendResult = await sendTextMessage(profileId, fallbackPhoneNormalized, text, wappiApiToken, isBotProfile);
         }
         
         if (sendResult.success) {
@@ -864,14 +902,15 @@ Deno.serve(async (req) => {
             // Try Wappi with alternative account
             const altSettings = altIntegration.settings as TelegramSettings;
             if (altSettings?.profileId && altSettings?.apiToken) {
+              const altIsBotProfile = altSettings.isBotProfile;
               // Try with ID first
               let altRecipient = recipient;
               let altResult: { success: boolean; messageId?: string; error?: string };
               
               if (fileUrl) {
-                altResult = await sendFileMessage(altSettings.profileId, altRecipient, fileUrl, text || '', altSettings.apiToken);
+                altResult = await sendFileMessage(altSettings.profileId, altRecipient, fileUrl, text || '', altSettings.apiToken, altIsBotProfile);
               } else if (text) {
-                altResult = await sendTextMessage(altSettings.profileId, altRecipient, text, altSettings.apiToken);
+                altResult = await sendTextMessage(altSettings.profileId, altRecipient, text, altSettings.apiToken, altIsBotProfile);
               } else {
                 altResult = { success: false, error: 'No content' };
               }
@@ -880,9 +919,9 @@ Deno.serve(async (req) => {
               if (!altResult.success && fallbackPhoneNormalized && fallbackPhoneNormalized !== altRecipient) {
                 console.log(`[telegram-send] Alternative Wappi: ID failed, trying phone ${fallbackPhoneNormalized}`);
                 if (fileUrl) {
-                  altResult = await sendFileMessage(altSettings.profileId, fallbackPhoneNormalized, fileUrl, text || '', altSettings.apiToken);
+                  altResult = await sendFileMessage(altSettings.profileId, fallbackPhoneNormalized, fileUrl, text || '', altSettings.apiToken, altIsBotProfile);
                 } else if (text) {
-                  altResult = await sendTextMessage(altSettings.profileId, fallbackPhoneNormalized, text, altSettings.apiToken);
+                  altResult = await sendTextMessage(altSettings.profileId, fallbackPhoneNormalized, text, altSettings.apiToken, altIsBotProfile);
                 }
                 if (altResult.success) altRecipient = fallbackPhoneNormalized;
               }
@@ -1042,10 +1081,11 @@ async function sendTextMessage(
   profileId: string,
   recipient: string,
   text: string,
-  apiToken: string
+  apiToken: string,
+  isBotProfile?: boolean
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const url = `https://wappi.pro/tapi/sync/message/send?profile_id=${profileId}`;
-  // Removed parse_mode: 'MarkdownV2' - it causes API errors when text contains unescaped special chars
+  const prefix = getWappiTelegramApiPrefix(isBotProfile);
+  const url = `https://wappi.pro/${prefix}/message/send?profile_id=${profileId}`;
   return await sendMessage(url, apiToken, { recipient, body: text }, 'text');
 }
 
@@ -1054,10 +1094,11 @@ async function sendFileMessage(
   recipient: string,
   fileUrl: string,
   caption: string,
-  apiToken: string
+  apiToken: string,
+  isBotProfile?: boolean
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const url = `https://wappi.pro/tapi/sync/message/file/url/send?profile_id=${profileId}`;
-  // Removed parse_mode: 'MarkdownV2' - it causes API errors when caption contains unescaped special chars
+  const prefix = getWappiTelegramApiPrefix(isBotProfile);
+  const url = `https://wappi.pro/${prefix}/message/file/url/send?profile_id=${profileId}`;
   const body: Record<string, unknown> = { recipient, url: fileUrl };
   if (caption) {
     body.caption = caption;
@@ -1115,9 +1156,19 @@ async function sendMessage(
       };
     }
 
+    // Check for "Wrong platform" error - indicates bot/personal mismatch
+    const errorDetail = data?.detail || `HTTP ${response.status}`;
+    if (errorDetail.toLowerCase().includes('wrong platform')) {
+      return {
+        success: false,
+        error: errorDetail,
+        wrongPlatform: true,
+      } as any;
+    }
+
     return {
       success: false,
-      error: data?.detail || `HTTP ${response.status}`,
+      error: errorDetail,
     };
   } catch (err: unknown) {
     console.error(`[telegram-send] ${kind} message failed:`, err);
