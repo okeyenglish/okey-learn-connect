@@ -1424,6 +1424,12 @@ export const ChatArea = ({
     // If in comment mode, save as comment instead of sending
     if (commentMode) {
       await saveComment(messageText);
+      // Scroll to show the new comment
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTimeout(() => scrollToBottom(true), 50);
+        });
+      });
       // Stay in comment mode — manager switches back manually
       return;
     }
