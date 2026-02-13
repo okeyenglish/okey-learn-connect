@@ -271,6 +271,7 @@ export const ChatArea = ({
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
   const [pendingMessage, setPendingMessage] = useState<{text: string, countdown: number} | null>(null);
+  const [optimisticMessages, setOptimisticMessages] = useState<any[]>([]);
   const [scheduledMessages, setScheduledMessages] = useState<ScheduledMessage[]>([]);
   const [attachedFiles, setAttachedFiles] = useState<Array<{
     url: string;
@@ -897,42 +898,36 @@ export const ChatArea = ({
   };
   }, [managerName, senderAvatarMap]);
 
-  // Format messages from React Query data using memoization for performance
-  // Deduplicate: if real message arrived, remove matching optimistic message
+  // Format messages from React Query data + append optimistic local messages
   const messages = useMemo(() => {
-    if (!messagesData?.messages) return [];
-    const raw = messagesData.messages;
+    const real = messagesData?.messages ? messagesData.messages.map(formatMessage) : [];
     
-    // Check if there are any optimistic messages
-    const hasOptimistic = raw.some((m: any) => String(m.id).startsWith('optimistic-'));
-    if (!hasOptimistic) return raw.map(formatMessage);
+    if (optimisticMessages.length === 0) return real;
     
-    // Deduplicate: for each optimistic msg, check if a real msg with same content exists
-    const optimisticTexts = new Set<string>();
-    raw.forEach((m: any) => {
-      if (String(m.id).startsWith('optimistic-')) {
-        optimisticTexts.add(m.content || m.message_text || '');
-      }
-    });
-    
-    // Check if real messages exist for any optimistic content
-    const realExists = raw.some((m: any) => 
-      !String(m.id).startsWith('optimistic-') && 
-      (m.is_outgoing || m.direction === 'outgoing') &&
-      optimisticTexts.has(m.content || m.message_text || '')
+    // Check if real messages now include content matching optimistic ones
+    // If so, the optimistic messages are stale — exclude them
+    const realTexts = new Set(
+      real.filter(m => m.type === 'manager').slice(-optimisticMessages.length - 3).map(m => m.message)
     );
     
-    // If real messages arrived, filter out all optimistic ones
-    const deduped = realExists 
-      ? raw.filter((m: any) => !String(m.id).startsWith('optimistic-'))
-      : raw;
+    const stillPending = optimisticMessages.filter(
+      (om: any) => !realTexts.has(om.content || om.message_text || '')
+    );
     
-    return deduped.map(formatMessage);
-  }, [messagesData?.messages, formatMessage]);
+    // Auto-clear stale optimistic messages
+    if (stillPending.length < optimisticMessages.length) {
+      // Use setTimeout to avoid setState during render
+      setTimeout(() => setOptimisticMessages(stillPending), 0);
+    }
+    
+    // Append only still-pending optimistic messages  
+    const formatted = stillPending.map(formatMessage);
+    return [...real, ...formatted];
+  }, [messagesData?.messages, formatMessage, optimisticMessages]);
 
   // Мемоизируем ID сообщений для batch-загрузки реакций (устраняет N+1 проблему)
   const messageIds = useMemo(
-    () => messages.map(m => m.id).filter(Boolean),
+    () => messages.map(m => m.id).filter(id => id && !String(id).startsWith('optimistic-')),
     [messages]
   );
 
@@ -956,6 +951,7 @@ export const ChatArea = ({
     }
     prevClientIdForSwitch.current = clientId;
     setMessageLimit(100);
+    setOptimisticMessages([]);
   }, [clientId]);
 
   // Scroll to bottom when messages load initially or when switching clients
@@ -1526,9 +1522,9 @@ export const ChatArea = ({
         : activeMessengerTab === 'telegram' ? 'telegram' 
         : 'whatsapp';
 
-      // === OPTIMISTIC UI: show message immediately ===
-      const optimisticId = `optimistic-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const optimisticMessage: import('@/hooks/useChatMessages').ChatMessage = {
+      // === OPTIMISTIC UI: show message immediately via local state ===
+      const optimisticId = `optimistic-${Date.now()}`;
+      const optimisticMsg = {
         id: optimisticId,
         content: messageText || (filesToSend.length > 0 ? `[Файл: ${filesToSend[0].name}]` : ''),
         message_text: messageText || (filesToSend.length > 0 ? `[Файл: ${filesToSend[0].name}]` : ''),
@@ -1548,20 +1544,9 @@ export const ChatArea = ({
         file_name: filesToSend[0]?.name || null,
         file_type: filesToSend[0]?.type || null,
         metadata: { sender_name: senderName },
-      } as any;
+      };
 
-      // Inject into React Query cache for instant display
-      queryClient.setQueriesData<any>(
-        { queryKey: ['chat-messages-optimized', clientId] },
-        (old: any) => {
-          if (!old) return old;
-          return {
-            ...old,
-            messages: [...(old.messages || []), optimisticMessage],
-            totalCount: (old.totalCount || 0) + 1,
-          };
-        }
-      );
+      setOptimisticMessages(prev => [...prev, optimisticMsg]);
 
       // Scroll to show the optimistic message
       requestAnimationFrame(() => {
