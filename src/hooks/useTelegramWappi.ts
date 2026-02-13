@@ -146,7 +146,7 @@ export const useTelegramWappi = () => {
     fileUrl?: string,
     fileName?: string,
     fileType?: string,
-    options?: { phoneNumber?: string; chatId?: string; teacherId?: string; senderName?: string; telegramUserId?: string | number | null }
+    options?: { phoneNumber?: string; chatId?: string; teacherId?: string; senderName?: string; telegramUserId?: string | number | null; integrationId?: string }
   ): Promise<{ success: boolean; messageId?: string }> => {
     // Deterministic key (no Date.now) so double-triggers within a short window are deduped
     const messageKey = `${clientId}::${options?.phoneNumber || options?.chatId || ''}::${text}::${fileUrl || ''}::${fileName || ''}`;
@@ -201,6 +201,7 @@ export const useTelegramWappi = () => {
             fileName,
             fileType,
             senderName: options?.senderName,
+            ...(options?.integrationId ? { integrationId: options.integrationId } : {}),
           }
         : telegramUserId
           ? {
@@ -213,6 +214,7 @@ export const useTelegramWappi = () => {
               fileName,
               fileType,
               senderName: options?.senderName,
+              ...(options?.integrationId ? { integrationId: options.integrationId } : {}),
             }
         : normalizedPhone.length >= 10
           ? {
@@ -225,8 +227,9 @@ export const useTelegramWappi = () => {
               fileName,
               fileType,
               senderName: options?.senderName,
+              ...(options?.integrationId ? { integrationId: options.integrationId } : {}),
             }
-          : { clientId, text, fileUrl, fileName, fileType, senderName: options?.senderName };
+          : { clientId, text, fileUrl, fileName, fileType, senderName: options?.senderName, ...(options?.integrationId ? { integrationId: options.integrationId } : {}) };
 
       const response = await selfHostedPost<{ messageId?: string; error?: string }>(
         'telegram-send',

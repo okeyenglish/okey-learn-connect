@@ -217,6 +217,46 @@ Deno.serve(async (req) => {
       
       integration = found;
       console.log('[telegram-send] Integration by ID:', resolvedIntegrationId, '→', integration ? `found (${integration.provider})` : 'NOT FOUND');
+
+      // Dead-link fallback: resolved ID points to a deleted integration — find a replacement
+      if (!integration) {
+        console.log('[telegram-send] Dead link detected — searching for active replacement');
+        const { data: activeIntegrations } = await supabase
+          .from('messenger_integrations')
+          .select('id, provider, settings, is_enabled')
+          .eq('organization_id', organizationId)
+          .eq('messenger_type', 'telegram')
+          .eq('is_enabled', true);
+
+        if (activeIntegrations && activeIntegrations.length > 0) {
+          if (activeIntegrations.length === 1) {
+            // Only one active — use it
+            integration = activeIntegrations[0];
+            console.log('[telegram-send] Single active integration as replacement:', integration.id, integration.provider);
+          } else {
+            // Multiple active — try to match by profileId from body
+            if (body.profileId) {
+              integration = activeIntegrations.find(
+                (i) => (i.settings as any)?.profileId === body.profileId
+              ) || null;
+            }
+            // If still not found, pick non-primary (bot) over primary (personal)
+            if (!integration) {
+              const { data: nonPrimary } = await supabase
+                .from('messenger_integrations')
+                .select('id, provider, settings, is_enabled')
+                .eq('organization_id', organizationId)
+                .eq('messenger_type', 'telegram')
+                .eq('is_enabled', true)
+                .eq('is_primary', false)
+                .limit(1)
+                .maybeSingle();
+              integration = nonPrimary || activeIntegrations[0];
+            }
+            console.log('[telegram-send] Replacement from multiple:', integration?.id, integration?.provider);
+          }
+        }
+      }
     }
 
     // Fallback: if body has profileId but integration wasn't found by ID, search by profileId in settings
