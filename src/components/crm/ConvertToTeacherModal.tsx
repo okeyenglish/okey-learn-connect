@@ -74,6 +74,12 @@ export function ConvertToTeacherModal({
     return allTeachers.filter(t => {
       const fullName = getTeacherFullName(t).toLowerCase();
       if (fullName.includes(q)) return true;
+      // Search by teacher_number (e.g. T00001, #T00001)
+      if (t.teacher_number) {
+        const tn = t.teacher_number.toLowerCase();
+        const cleanQ = q.replace(/^#/, '');
+        if (tn.includes(cleanQ) || `#${tn}`.includes(q)) return true;
+      }
       // Search by phone only if 3+ digits in query
       if (digitCount >= 3 && t.phone) {
         const tPhone = t.phone.replace(/\D/g, '');
@@ -432,7 +438,7 @@ export function ConvertToTeacherModal({
         <Input
           value={teacherSearch}
           onChange={(e) => setTeacherSearch(e.target.value)}
-          placeholder="Поиск по имени или телефону..."
+          placeholder="Поиск по имени, телефону или T-номеру..."
           className="pl-9"
           autoFocus
         />
@@ -452,7 +458,12 @@ export function ConvertToTeacherModal({
                 }`}
                 onClick={() => setSelectedTeacher(teacher)}
               >
-                <p className="font-medium">{getTeacherFullName(teacher)}</p>
+                <p className="font-medium">
+                  {getTeacherFullName(teacher)}
+                  {teacher.teacher_number && (
+                    <span className="ml-2 font-mono text-xs text-muted-foreground">#{teacher.teacher_number}</span>
+                  )}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {teacher.phone ? formatPhoneForDisplay(teacher.phone) || teacher.phone : 'нет телефона'}
                   {teacher.email ? ` · ${teacher.email}` : ''}
