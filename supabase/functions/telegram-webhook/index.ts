@@ -689,19 +689,39 @@ async function handleOutgoingMessage(
 
   let client = null;
 
-  // PRIORITY 1: Find by telegram_chat_id or telegram_user_id (use limit(1) to avoid maybeSingle error with duplicates)
-  const { data: clientsByTelegram, error: telegramError } = await supabase
+  // PRIORITY 1: Find ACTIVE client by telegram_chat_id or telegram_user_id
+  const { data: activeClientsByTelegram, error: activeTelegramError } = await supabase
     .from('clients')
     .select('id')
     .eq('organization_id', organizationId)
+    .eq('is_active', true)
     .or(`telegram_chat_id.eq.${chatId},telegram_user_id.eq.${telegramUserId}`)
     .limit(1);
 
-  if (telegramError) {
-    console.error('Error finding client by telegram:', telegramError);
-  } else if (clientsByTelegram && clientsByTelegram.length > 0) {
-    client = clientsByTelegram[0];
-    console.log('handleOutgoingMessage: Found client by telegram_chat_id/user_id:', client.id);
+  if (activeTelegramError) {
+    console.error('Error finding active client by telegram:', activeTelegramError);
+  } else if (activeClientsByTelegram && activeClientsByTelegram.length > 0) {
+    client = activeClientsByTelegram[0];
+    console.log('handleOutgoingMessage: Found ACTIVE client by telegram:', client.id);
+  }
+
+  // PRIORITY 1b: Fallback — find ANY client (including inactive) and reactivate
+  if (!client) {
+    const { data: anyClientsByTelegram } = await supabase
+      .from('clients')
+      .select('id, is_active')
+      .eq('organization_id', organizationId)
+      .or(`telegram_chat_id.eq.${chatId},telegram_user_id.eq.${telegramUserId}`)
+      .limit(1);
+
+    if (anyClientsByTelegram && anyClientsByTelegram.length > 0) {
+      client = anyClientsByTelegram[0];
+      console.log('handleOutgoingMessage: Found inactive client by telegram:', client.id, ', reactivating');
+      await supabase
+        .from('clients')
+        .update({ is_active: true, status: 'active' })
+        .eq('id', client.id);
+    }
   }
 
   // PRIORITY 2: Find by contact_phone in clients table
@@ -966,41 +986,108 @@ async function mergeClients(
   telegramChatId: string,
   telegramUserId: number | null
 ): Promise<void> {
-  console.log(`Merging client ${duplicateClientId} into ${primaryClientId}`);
+  console.log(`[mergeClients] Merging client ${duplicateClientId} into ${primaryClientId}`);
   
-  // Move all messages from duplicate to primary client
-  const { error: updateMessagesError, count } = await supabase
-    .from('chat_messages')
-    .update({ client_id: primaryClientId })
-    .eq('client_id', duplicateClientId);
-  
-  if (updateMessagesError) {
-    console.error('Error moving messages:', updateMessagesError);
-  } else {
-    console.log(`Moved ${count || 'unknown number of'} messages to primary client`);
+  // 1. Move all messages from duplicate to primary client
+  // Handle potential salebot_message_id conflicts by deleting duplicates first
+  try {
+    const { data: dupMsgs } = await supabase
+      .from('chat_messages')
+      .select('id, external_message_id')
+      .eq('client_id', duplicateClientId);
+
+    if (dupMsgs && dupMsgs.length > 0) {
+      // Get external_message_ids that already exist on primary
+      const { data: primaryMsgs } = await supabase
+        .from('chat_messages')
+        .select('external_message_id')
+        .eq('client_id', primaryClientId)
+        .not('external_message_id', 'is', null);
+
+      const primaryExtIds = new Set((primaryMsgs || []).map((m: any) => m.external_message_id));
+      const conflictIds = dupMsgs
+        .filter((m: any) => m.external_message_id && primaryExtIds.has(m.external_message_id))
+        .map((m: any) => m.id);
+
+      // Delete conflicting messages from duplicate
+      if (conflictIds.length > 0) {
+        await supabase.from('chat_messages').delete().in('id', conflictIds);
+        console.log(`[mergeClients] Deleted ${conflictIds.length} conflicting messages`);
+      }
+
+      // Move remaining messages
+      const { error: moveErr, count } = await supabase
+        .from('chat_messages')
+        .update({ client_id: primaryClientId })
+        .eq('client_id', duplicateClientId);
+
+      if (moveErr) {
+        console.error('[mergeClients] Error moving messages:', moveErr);
+      } else {
+        console.log(`[mergeClients] Moved ${count || 'unknown'} messages to primary client`);
+      }
+    }
+  } catch (e) {
+    console.error('[mergeClients] Message transfer error:', e);
   }
-  
-  // Update primary client with telegram data
+
+  // 2. Transfer family_members links
+  try {
+    const { data: familyLinks } = await supabase
+      .from('family_members')
+      .select('id, student_id')
+      .eq('client_id', duplicateClientId);
+
+    if (familyLinks && familyLinks.length > 0) {
+      for (const link of familyLinks) {
+        // Check if primary already has this student link
+        const { data: existing } = await supabase
+          .from('family_members')
+          .select('id')
+          .eq('client_id', primaryClientId)
+          .eq('student_id', link.student_id)
+          .maybeSingle();
+
+        if (existing) {
+          // Delete duplicate link
+          await supabase.from('family_members').delete().eq('id', link.id);
+        } else {
+          // Transfer link to primary
+          await supabase.from('family_members').update({ client_id: primaryClientId }).eq('id', link.id);
+        }
+      }
+      console.log(`[mergeClients] Transferred ${familyLinks.length} family_members links`);
+    }
+  } catch (e) {
+    console.warn('[mergeClients] family_members transfer error (table may not exist):', e);
+  }
+
+  // 3. Update primary client with telegram data and last_message_at
+  const primaryUpdate: Record<string, any> = {
+    telegram_chat_id: telegramChatId,
+    last_message_at: new Date().toISOString()
+  };
+  if (telegramUserId) {
+    primaryUpdate.telegram_user_id = String(telegramUserId);
+  }
   await supabase
     .from('clients')
-    .update({ 
-      telegram_chat_id: telegramChatId,
-      telegram_user_id: telegramUserId,
-      last_message_at: new Date().toISOString()
-    })
+    .update(primaryUpdate)
     .eq('id', primaryClientId);
   
-  // Deactivate duplicate client (soft delete) - use status instead of is_active for self-hosted
-  // Note: update may fail on self-hosted if is_active column doesn't exist, that's OK
+  // 4. Fully deactivate duplicate client
   await supabase
     .from('clients')
     .update({ 
       status: 'merged',
-      notes: `Объединён с клиентом. Старые данные: telegram_chat_id=${telegramChatId}`
+      is_active: false,
+      telegram_user_id: null,
+      telegram_chat_id: null,
+      notes: `Объединён с клиентом ${primaryClientId}. Дата: ${new Date().toISOString()}`
     })
     .eq('id', duplicateClientId);
   
-  console.log('Client merge completed');
+  console.log('[mergeClients] Client merge completed');
 }
 
 interface ClientResult {
@@ -1077,6 +1164,60 @@ async function findOrCreateClient(
 
   console.log('[findOrCreateClient] RPC success, clientId:', clientId);
 
+  // === AUTO-REACTIVATION & MERGE LOGIC ===
+  // Check if returned client is inactive — if so, reactivate or merge with active duplicate
+  const { data: clientRow } = await supabase
+    .from('clients')
+    .select('id, is_active, phone, name, telegram_user_id')
+    .eq('id', clientId)
+    .single();
+
+  let finalClientId = clientId;
+
+  if (clientRow && clientRow.is_active === false) {
+    console.log(`[findOrCreateClient] Client ${clientId} is inactive, checking for active duplicate...`);
+
+    // Build OR filter for finding active duplicate
+    const orFilters: string[] = [];
+    if (telegramUserId) orFilters.push(`telegram_user_id.eq.${telegramUserId}`);
+    if (clientRow.phone) {
+      const phoneLast10 = clientRow.phone.replace(/\D/g, '').slice(-10);
+      if (phoneLast10.length === 10) {
+        orFilters.push(`phone.ilike.%${phoneLast10}%`);
+      }
+    }
+
+    let activeDuplicate = null;
+    if (orFilters.length > 0) {
+      const { data: activeDups } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .or(orFilters.join(','))
+        .neq('id', clientId)
+        .limit(1);
+
+      if (activeDups && activeDups.length > 0) {
+        activeDuplicate = activeDups[0];
+      }
+    }
+
+    if (activeDuplicate) {
+      // Merge: move everything to active duplicate
+      console.log(`[findOrCreateClient] Found active duplicate ${activeDuplicate.id}, merging...`);
+      await mergeClients(supabase, activeDuplicate.id, clientId, telegramChatId, telegramUserId);
+      finalClientId = activeDuplicate.id;
+    } else {
+      // Reactivate
+      console.log(`[findOrCreateClient] No active duplicate found, reactivating client ${clientId}`);
+      await supabase
+        .from('clients')
+        .update({ is_active: true, status: 'active' })
+        .eq('id', clientId);
+    }
+  }
+
   // Update telegram_chat_id and avatar separately (not in RPC signature)
   const updateFields: Record<string, string> = { telegram_chat_id: String(telegramChatId) };
   if (avatarUrl) {
@@ -1085,27 +1226,25 @@ async function findOrCreateClient(
   const { error: updateError } = await supabase
     .from('clients')
     .update(updateFields)
-    .eq('id', clientId);
+    .eq('id', finalClientId);
 
   if (updateError) {
     console.warn('[findOrCreateClient] Failed to update chat_id/avatar:', updateError.message);
-  } else {
-    console.log('[findOrCreateClient] Updated chat_id/avatar for client:', clientId);
   }
 
   // Fetch full client data for push notification formatting
   const { data: clientData, error: fetchError } = await supabase
     .from('clients')
     .select('id, name, first_name, last_name, avatar_url')
-    .eq('id', clientId)
+    .eq('id', finalClientId)
     .single();
 
   if (fetchError || !clientData) {
     console.error('[findOrCreateClient] Error fetching client data after RPC:', fetchError);
-    return { id: clientId, name: finalName };
+    return { id: finalClientId, name: finalName };
   }
 
-  console.log('[findOrCreateClient] Returning client:', clientId);
+  console.log('[findOrCreateClient] Returning client:', finalClientId);
   return clientData as ClientResult;
 }
 
@@ -1140,18 +1279,65 @@ async function findOrCreateClientLegacy(
     }
   };
 
-  // Try to find by telegram_chat_id (since we don't have telegram_user_id)
-  const { data: clientByChatId } = await supabase
+  // Try to find ACTIVE client by telegram_chat_id first
+  const { data: activeByChatId } = await supabase
     .from('clients')
     .select('id, name, first_name, last_name, avatar_url')
     .eq('organization_id', organizationId)
     .eq('telegram_chat_id', telegramChatId)
+    .eq('is_active', true)
     .limit(1);
 
-  if (clientByChatId && clientByChatId.length > 0) {
-    console.log('Found client by telegram_chat_id:', clientByChatId[0].id);
-    await updateClientData(clientByChatId[0].id, { telegram_user_id: telegramUserId });
-    return clientByChatId[0] as ClientResult;
+  if (activeByChatId && activeByChatId.length > 0) {
+    console.log('Found ACTIVE client by telegram_chat_id:', activeByChatId[0].id);
+    await updateClientData(activeByChatId[0].id, { telegram_user_id: telegramUserId });
+    return activeByChatId[0] as ClientResult;
+  }
+
+  // Fallback: find ANY client by telegram_chat_id (including inactive)
+  const { data: anyByChatId } = await supabase
+    .from('clients')
+    .select('id, name, first_name, last_name, avatar_url, is_active, phone')
+    .eq('organization_id', organizationId)
+    .eq('telegram_chat_id', telegramChatId)
+    .limit(1);
+
+  if (anyByChatId && anyByChatId.length > 0) {
+    const inactiveClient = anyByChatId[0];
+    console.log(`[findOrCreateClientLegacy] Found inactive client ${inactiveClient.id}, checking for active duplicate...`);
+
+    // Check for active duplicate by phone
+    let activeDuplicate = null;
+    if (inactiveClient.phone) {
+      const phoneLast10 = inactiveClient.phone.replace(/\D/g, '').slice(-10);
+      if (phoneLast10.length === 10) {
+        const { data: activeDups } = await supabase
+          .from('clients')
+          .select('id, name, first_name, last_name, avatar_url')
+          .eq('organization_id', organizationId)
+          .eq('is_active', true)
+          .ilike('phone', `%${phoneLast10}%`)
+          .neq('id', inactiveClient.id)
+          .limit(1);
+        if (activeDups && activeDups.length > 0) activeDuplicate = activeDups[0];
+      }
+    }
+
+    if (activeDuplicate) {
+      // Merge inactive into active
+      console.log(`[findOrCreateClientLegacy] Merging into active duplicate ${activeDuplicate.id}`);
+      await mergeClients(supabase, activeDuplicate.id, inactiveClient.id, telegramChatId, telegramUserId);
+      return activeDuplicate as ClientResult;
+    } else {
+      // Reactivate
+      console.log(`[findOrCreateClientLegacy] Reactivating client ${inactiveClient.id}`);
+      await supabase
+        .from('clients')
+        .update({ is_active: true, status: 'active' })
+        .eq('id', inactiveClient.id);
+      await updateClientData(inactiveClient.id, { telegram_user_id: telegramUserId });
+      return inactiveClient as ClientResult;
+    }
   }
 
   // Try to find by phone if provided
