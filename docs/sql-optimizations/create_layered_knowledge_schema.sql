@@ -3,8 +3,8 @@
 -- 5-level architecture for AI-CRM that scales ×100 without reindexing
 -- ============================================================
 
--- Enable pgvector if not already
-CREATE EXTENSION IF NOT EXISTS vector;
+-- Enable pgvector if not already (in extensions schema for self-hosted)
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions;
 
 -- ============================================================
 -- 🟢 LAYER 1: RAW (immutable source of truth)
@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS public.embeddings_registry (
     -- semantic_unit | faq | script | normalized_message
   entity_id UUID NOT NULL,
   model_name TEXT NOT NULL DEFAULT 'text-embedding-3-small',
-  embedding vector(1536),
+  embedding extensions.vector(1536),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -88,10 +88,17 @@ CREATE INDEX IF NOT EXISTS idx_embeddings_model
   ON public.embeddings_registry(entity_type, model_name);
 
 -- Vector similarity search index
+-- NOTE: ivfflat index requires data in the table first (at least 100 rows).
+-- Run this AFTER inserting initial embeddings:
+-- CREATE INDEX IF NOT EXISTS idx_embeddings_vector
+--   ON public.embeddings_registry
+--   USING ivfflat (embedding extensions.vector_cosine_ops)
+--   WITH (lists = 100);
+
+-- For now, use hnsw which works on empty tables:
 CREATE INDEX IF NOT EXISTS idx_embeddings_vector
   ON public.embeddings_registry
-  USING ivfflat (embedding vector_cosine_ops)
-  WITH (lists = 100);
+  USING hnsw (embedding extensions.vector_cosine_ops);
 
 ALTER TABLE public.embeddings_registry ENABLE ROW LEVEL SECURITY;
 
@@ -175,7 +182,7 @@ CREATE POLICY "Service role full access to processing_jobs"
 
 -- Semantic search across embedding registry
 CREATE OR REPLACE FUNCTION public.match_embeddings(
-  query_embedding vector(1536),
+  query_embedding extensions.vector(1536),
   p_entity_type TEXT,
   p_model_name TEXT DEFAULT 'text-embedding-3-small',
   match_threshold FLOAT DEFAULT 0.78,
@@ -188,7 +195,7 @@ RETURNS TABLE (
   similarity FLOAT
 )
 LANGUAGE sql STABLE
-SET search_path = 'public'
+SET search_path = 'public, extensions'
 AS $$
   SELECT
     e.id,
