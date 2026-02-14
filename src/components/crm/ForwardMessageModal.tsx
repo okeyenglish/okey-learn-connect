@@ -292,7 +292,7 @@ export const ForwardMessageModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md" style={{ zIndex: 9999 }}>
+      <DialogContent className="max-w-md" style={{ zIndex: 9999 }} overlayZIndex={9998}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Forward className="h-5 w-5" />
