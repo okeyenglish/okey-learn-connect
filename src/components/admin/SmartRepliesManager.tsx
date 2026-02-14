@@ -1,41 +1,34 @@
 /**
- * Admin panel for managing Smart Replies: edit texts, reorder, view usage stats.
- * Data comes from self-hosted Supabase table smart_reply_stats + local rules.
+ * Admin panel for managing Smart Replies: CRUD categories/triggers/replies + usage stats.
  */
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useSmartReplyRules, type SmartReplyRule } from '@/hooks/useSmartReplyRules';
+import { DEFAULT_RULES, mergeRules } from '@/hooks/useSmartReplies';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Sparkles, TrendingUp, Users, User, Search, ChevronDown, ChevronUp, BarChart3, MessageSquare } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import {
+  Sparkles, TrendingUp, Users, User, Search, ChevronDown, ChevronUp,
+  BarChart3, MessageSquare, Plus, Pencil, Trash2, X, Check, Save,
+} from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-
-// Import rules from the smart replies hook
-import { type SmartReplyCategory } from '@/hooks/useSmartReplies';
-
-// Re-define rules here to avoid circular deps — we just need category+triggers+replies
-const CATEGORIES: { category: SmartReplyCategory; label: string; triggers: string[]; replies: string[] }[] = [
-  { category: 'gratitude', label: 'Благодарность', triggers: ['спасибо', 'благодарю', 'спс'], replies: ['Всегда рады помочь!', 'Обращайтесь, если появятся вопросы!', 'Рады были помочь!', 'Спасибо за обращение!', 'Хорошего вам дня!'] },
-  { category: 'greeting', label: 'Приветствие', triggers: ['здравствуйте', 'добрый день', 'привет'], replies: ['Здравствуйте! Чем могу помочь?', 'Добрый день! Слушаю вас 🙂', 'Рады вас слышать! Чем помочь?', 'Здравствуйте! Подскажите, пожалуйста, ваш вопрос'] },
-  { category: 'farewell', label: 'Прощание', triggers: ['до свидания', 'пока', 'всего доброго'], replies: ['До свидания! Хорошего дня!', 'Всего доброго! Обращайтесь!', 'Будем рады помочь снова!', 'Хорошего дня и отличного настроения!'] },
-  { category: 'agreement', label: 'Согласие', triggers: ['хорошо', 'ок', 'понял', 'договорились'], replies: ['Отлично, договорились!', 'Тогда продолжаем 🙂', 'Принято!', 'Если появятся вопросы — пишите!'] },
-  { category: 'apology', label: 'Извинение', triggers: ['извините', 'простите', 'сорри'], replies: ['Ничего страшного!', 'Всё в порядке 🙂', 'Не переживайте!', 'Всё хорошо, продолжаем'] },
-  { category: 'waiting_status', label: 'Ожидание ответа', triggers: ['ну что', 'есть новости', 'когда будет'], replies: ['Сейчас проверю и вернусь с ответом', 'Уже уточняю информацию', 'Спасибо за ожидание!', 'Проверяем, скоро напишем'] },
-  { category: 'help_request', label: 'Просьба о помощи', triggers: ['помогите', 'не работает', 'ошибка'], replies: ['Сейчас поможем разобраться', 'Опишите, пожалуйста, подробнее ситуацию', 'Проверим и всё исправим', 'Сейчас посмотрю, в чём может быть дело'] },
-  { category: 'sent_info', label: 'Отправил информацию', triggers: ['отправил', 'скинул', 'вот', 'держите'], replies: ['Спасибо, получил!', 'Сейчас посмотрю', 'Принято, проверяю', 'Благодарю, изучаю информацию'] },
-  { category: 'client_waiting', label: 'Клиент ждёт', triggers: ['сек', 'секунду', 'минуту'], replies: ['Хорошо, ожидаю 🙂', 'Без проблем, жду', 'Напишите, как будете готовы'] },
-  { category: 'lesson_meeting', label: 'Урок / встреча', triggers: ['занятие', 'урок', 'встреча', 'записаться'], replies: ['Сейчас проверю расписание', 'Подберём удобное время', 'Сейчас уточню у преподавателя', 'Запишу вас на ближайшее окно'] },
-  { category: 'booking_confirm', label: 'Подтверждение записи', triggers: ['подходит', 'записывайте', 'давайте'], replies: ['Отлично, записываю вас!', 'Готово ✅', 'Запись подтверждена', 'Всё оформил 🙂'] },
-  { category: 'negative', label: 'Негатив', triggers: ['плохо', 'не нравится', 'жалоба'], replies: ['Понимаю вас, давайте разберёмся', 'Спасибо, что сообщили', 'Сейчас всё проверим', 'Поможем решить ситуацию'] },
-  { category: 'price_question', label: 'Вопрос о цене', triggers: ['сколько стоит', 'цена', 'стоимость'], replies: ['Сейчас расскажу по стоимости 🙂', 'Подберём оптимальный вариант', 'Отправляю актуальные тарифы'] },
-  { category: 'thinking', label: 'Раздумья', triggers: ['подумаю', 'пока не знаю'], replies: ['Конечно, не спешите 🙂', 'Если появятся вопросы — пишите!', 'Буду на связи'] },
-  { category: 'returning', label: 'Возвращение', triggers: ['снова', 'ещё вопрос'], replies: ['Рады снова помочь!', 'Слушаю вас 🙂', 'Чем можем помочь в этот раз?'] },
-];
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 
 interface StatRow {
   user_id: string;
@@ -51,14 +44,44 @@ interface ProfileRow {
   last_name: string | null;
 }
 
+interface EditForm {
+  category: string;
+  label: string;
+  triggers: string;
+  replies: string;
+}
+
+const emptyForm: EditForm = { category: '', label: '', triggers: '', replies: '' };
+
 export function SmartRepliesManager() {
   const { profile } = useAuth();
   const organizationId = profile?.organization_id;
+  const { rules: customRules, createRule, updateRule, deleteRule } = useSmartReplyRules();
+
   const [search, setSearch] = useState('');
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [editingRule, setEditingRule] = useState<(SmartReplyRule & { isDefault?: boolean }) | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SmartReplyRule | null>(null);
+  const [form, setForm] = useState<EditForm>(emptyForm);
+
+  // Merged rules (defaults + custom)
+  const allCategories = useMemo(() => {
+    const merged = mergeRules(customRules.map(r => ({
+      category: r.category,
+      label: r.label,
+      triggers: r.triggers,
+      replies: r.replies,
+    })));
+    // Mark which ones have custom DB record
+    return merged.map(rule => {
+      const dbRule = customRules.find(cr => cr.category === rule.category);
+      return { ...rule, dbId: dbRule?.id, hasCustom: !!dbRule };
+    });
+  }, [customRules]);
 
   // Fetch all stats for the org
-  const { data: stats = [], isLoading: statsLoading } = useQuery({
+  const { data: stats = [] } = useQuery({
     queryKey: ['admin-smart-reply-stats', organizationId],
     queryFn: async () => {
       if (!organizationId) return [];
@@ -118,20 +141,17 @@ export function SmartRepliesManager() {
     return map;
   }, [stats]);
 
-  // Total uses
   const totalUses = useMemo(() => stats.reduce((sum, r) => sum + r.use_count, 0), [stats]);
   const uniqueUsers = useMemo(() => new Set(stats.map(s => s.user_id)).size, [stats]);
 
-  // Top replies sorted by total
   const topReplies = useMemo(() => {
     return [...aggregated.entries()]
       .sort((a, b) => b[1].total - a[1].total)
       .slice(0, 20);
   }, [aggregated]);
 
-  // Per-category stats
   const categoryStats = useMemo(() => {
-    return CATEGORIES.map(cat => {
+    return allCategories.map(cat => {
       const catStats = stats.filter(s => s.category === cat.category);
       const total = catStats.reduce((sum, r) => sum + r.use_count, 0);
       const repliesWithStats = cat.replies.map(reply => {
@@ -140,7 +160,7 @@ export function SmartRepliesManager() {
       }).sort((a, b) => b.total - a.total);
       return { ...cat, totalUses: total, repliesWithStats };
     }).sort((a, b) => b.totalUses - a.totalUses);
-  }, [stats, aggregated]);
+  }, [stats, aggregated, allCategories]);
 
   const filteredCategories = useMemo(() => {
     if (!search.trim()) return categoryStats;
@@ -152,16 +172,103 @@ export function SmartRepliesManager() {
     );
   }, [categoryStats, search]);
 
+  // ─── CRUD handlers ───
+
+  const openCreate = () => {
+    setForm(emptyForm);
+    setShowCreateDialog(true);
+  };
+
+  const openEdit = (cat: typeof categoryStats[0]) => {
+    const dbRule = customRules.find(cr => cr.category === cat.category);
+    const defaultRule = DEFAULT_RULES.find(r => r.category === cat.category);
+    setForm({
+      category: cat.category,
+      label: cat.label,
+      triggers: cat.triggers.join('\n'),
+      replies: cat.replies.join('\n'),
+    });
+    setEditingRule({
+      ...(dbRule || { id: '', organization_id: '', category: cat.category, label: cat.label, triggers: cat.triggers, replies: cat.replies, is_active: true, sort_order: 0, created_at: '', updated_at: '' }),
+      isDefault: !!defaultRule && !dbRule,
+    });
+  };
+
+  const handleSaveNew = () => {
+    const triggers = form.triggers.split('\n').map(s => s.trim()).filter(Boolean);
+    const replies = form.replies.split('\n').map(s => s.trim()).filter(Boolean);
+    if (!form.category.trim() || !form.label.trim() || triggers.length === 0 || replies.length === 0) {
+      toast.error('Заполните все поля');
+      return;
+    }
+    createRule.mutate({
+      category: form.category.trim().toLowerCase().replace(/\s+/g, '_'),
+      label: form.label.trim(),
+      triggers,
+      replies,
+      is_active: true,
+      sort_order: allCategories.length,
+    }, {
+      onSuccess: () => setShowCreateDialog(false),
+    });
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingRule) return;
+    const triggers = form.triggers.split('\n').map(s => s.trim()).filter(Boolean);
+    const replies = form.replies.split('\n').map(s => s.trim()).filter(Boolean);
+    if (!form.label.trim() || triggers.length === 0 || replies.length === 0) {
+      toast.error('Заполните все поля');
+      return;
+    }
+
+    const dbRule = customRules.find(cr => cr.category === editingRule.category);
+    if (dbRule) {
+      // Update existing
+      updateRule.mutate({ id: dbRule.id, label: form.label.trim(), triggers, replies }, {
+        onSuccess: () => setEditingRule(null),
+      });
+    } else {
+      // Create new (overriding default)
+      createRule.mutate({
+        category: editingRule.category,
+        label: form.label.trim(),
+        triggers,
+        replies,
+        is_active: true,
+        sort_order: allCategories.length,
+      }, {
+        onSuccess: () => setEditingRule(null),
+      });
+    }
+  };
+
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    const dbRule = customRules.find(cr => cr.category === (deleteTarget as any).category);
+    if (dbRule) {
+      deleteRule.mutate(dbRule.id, { onSuccess: () => setDeleteTarget(null) });
+    } else {
+      toast.error('Нельзя удалить встроенную категорию без кастомной записи');
+      setDeleteTarget(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Sparkles className="h-7 w-7 text-primary" />
-          Smart Replies
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Управление быстрыми ответами и статистика использования
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <Sparkles className="h-7 w-7 text-primary" />
+            Smart Replies
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Управление быстрыми ответами и статистика использования
+          </p>
+        </div>
+        <Button onClick={openCreate} className="gap-1.5">
+          <Plus className="h-4 w-4" /> Новая категория
+        </Button>
       </div>
 
       {/* Summary cards */}
@@ -173,8 +280,8 @@ export function SmartRepliesManager() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{CATEGORIES.reduce((s, c) => s + c.replies.length, 0)}</div>
-            <p className="text-xs text-muted-foreground">{CATEGORIES.length} категорий</p>
+            <div className="text-2xl font-bold">{allCategories.reduce((s, c) => s + c.replies.length, 0)}</div>
+            <p className="text-xs text-muted-foreground">{allCategories.length} категорий</p>
           </CardContent>
         </Card>
         <Card>
@@ -223,26 +330,46 @@ export function SmartRepliesManager() {
           <div className="space-y-2">
             {filteredCategories.map(cat => {
               const isExpanded = expandedCategory === cat.category;
+              const isCustom = cat.hasCustom;
+              const isDefault = !isCustom && !!DEFAULT_RULES.find(r => r.category === cat.category);
               return (
                 <Card key={cat.category} className="overflow-hidden">
-                  <button
-                    className="w-full text-left px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors"
-                    onClick={() => setExpandedCategory(isExpanded ? null : cat.category)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="font-medium">{cat.label}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {cat.replies.length} ответов
-                      </Badge>
-                      {cat.totalUses > 0 && (
-                        <Badge variant="outline" className="text-xs">
-                          <TrendingUp className="h-3 w-3 mr-1" />
-                          {cat.totalUses} исп.
+                  <div className="flex items-center">
+                    <button
+                      className="flex-1 text-left px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors"
+                      onClick={() => setExpandedCategory(isExpanded ? null : cat.category)}
+                    >
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="font-medium">{cat.label}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {cat.replies.length} ответов
                         </Badge>
+                        {isCustom && (
+                          <Badge variant="default" className="text-[10px]">кастом</Badge>
+                        )}
+                        {isDefault && (
+                          <Badge variant="outline" className="text-[10px]">встроенная</Badge>
+                        )}
+                        {cat.totalUses > 0 && (
+                          <Badge variant="outline" className="text-xs">
+                            <TrendingUp className="h-3 w-3 mr-1" />
+                            {cat.totalUses} исп.
+                          </Badge>
+                        )}
+                      </div>
+                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </button>
+                    <div className="flex items-center gap-1 px-2">
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(cat)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      {isCustom && (
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget(cat as any)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       )}
                     </div>
-                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </button>
+                  </div>
 
                   {isExpanded && (
                     <div className="border-t px-4 py-3 space-y-3">
@@ -316,7 +443,7 @@ export function SmartRepliesManager() {
                   </TableHeader>
                   <TableBody>
                     {topReplies.map(([text, data], idx) => {
-                      const catLabel = CATEGORIES.find(c => c.category === data.category)?.label || data.category;
+                      const catLabel = allCategories.find(c => c.category === data.category)?.label || data.category;
                       return (
                         <TableRow key={text}>
                           <TableCell className="font-bold text-primary">{idx + 1}</TableCell>
@@ -381,6 +508,126 @@ export function SmartRepliesManager() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* === CREATE DIALOG === */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Новая категория Smart Reply</DialogTitle>
+            <DialogDescription>
+              Создайте категорию с триггерными словами и вариантами ответов
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Код категории</Label>
+                <Input
+                  placeholder="delivery_status"
+                  value={form.category}
+                  onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                />
+                <p className="text-[10px] text-muted-foreground">Латиница, snake_case</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Название</Label>
+                <Input
+                  placeholder="Статус доставки"
+                  value={form.label}
+                  onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Триггерные слова (каждое с новой строки)</Label>
+              <Textarea
+                placeholder={"доставка\nгде заказ\nкогда привезут"}
+                value={form.triggers}
+                onChange={e => setForm(f => ({ ...f, triggers: e.target.value }))}
+                rows={4}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Варианты ответов (каждый с новой строки)</Label>
+              <Textarea
+                placeholder={"Сейчас проверю статус доставки\nИнформация отправлена на вашу почту"}
+                value={form.replies}
+                onChange={e => setForm(f => ({ ...f, replies: e.target.value }))}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>Отмена</Button>
+            <Button onClick={handleSaveNew} disabled={createRule.isPending} className="gap-1.5">
+              <Save className="h-4 w-4" /> Создать
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* === EDIT DIALOG === */}
+      <Dialog open={!!editingRule} onOpenChange={open => !open && setEditingRule(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Редактировать категорию «{form.label}»</DialogTitle>
+            <DialogDescription>
+              {editingRule?.isDefault
+                ? 'Это встроенная категория. Изменения сохранятся как кастомное правило.'
+                : 'Отредактируйте триггеры и ответы'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Название</Label>
+              <Input
+                value={form.label}
+                onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Триггерные слова (каждое с новой строки)</Label>
+              <Textarea
+                value={form.triggers}
+                onChange={e => setForm(f => ({ ...f, triggers: e.target.value }))}
+                rows={5}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Варианты ответов (каждый с новой строки)</Label>
+              <Textarea
+                value={form.replies}
+                onChange={e => setForm(f => ({ ...f, replies: e.target.value }))}
+                rows={5}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingRule(null)}>Отмена</Button>
+            <Button onClick={handleSaveEdit} disabled={updateRule.isPending || createRule.isPending} className="gap-1.5">
+              <Check className="h-4 w-4" /> Сохранить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* === DELETE CONFIRM === */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить категорию?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Кастомное правило будет удалено. Если это была модификация встроенной категории, она вернётся к значениям по умолчанию.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
