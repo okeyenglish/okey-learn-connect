@@ -71,6 +71,8 @@ import { ConversationIntelligenceWidget } from './ConversationIntelligenceWidget
 import { useConversationIntelligence } from '@/hooks/useConversationIntelligence';
 import { ConversationHealthWidget } from './ConversationHealthWidget';
 import { useConversationHealth } from '@/hooks/useConversationHealth';
+import { RescueReplySuggestions } from './RescueReplySuggestions';
+import { useRescueStrategy } from '@/hooks/useRescueStrategy';
 
 interface ChatAreaProps {
   clientId: string;
@@ -407,6 +409,14 @@ export const ChatArea = ({
   const { health: conversationHealth, loading: healthLoading, triggerRecalculate: triggerHealthRecalc } = useConversationHealth({
     clientId: clientUUID,
     organizationId: orgId,
+    enabled: !!clientUUID && !isTeacherMessages && !isDirectTeacherMessage,
+  });
+
+  // Rescue strategies - auto-suggest when health drops
+  const { strategies: rescueStrategies, loading: rescueLoading, dismiss: dismissRescue, refresh: refreshRescue } = useRescueStrategy({
+    clientId: clientUUID,
+    organizationId: orgId,
+    health: conversationHealth,
     enabled: !!clientUUID && !isTeacherMessages && !isDirectTeacherMessage,
   });
   
@@ -3717,7 +3727,23 @@ export const ChatArea = ({
               compact={isMobile}
             />
 
-            {/* Conversation Intelligence Widget */}
+            {/* Rescue Strategies - AI-generated rescue replies when health drops */}
+            {conversationHealth && conversationHealth.risk_level !== 'ok' && (
+              <RescueReplySuggestions
+                strategies={rescueStrategies}
+                loading={rescueLoading}
+                riskLevel={conversationHealth.risk_level as 'warning' | 'critical'}
+                onSend={(text) => {
+                  clearDraft();
+                  sendMessageNow(text);
+                  setTimeout(() => scrollToBottom(true), 100);
+                  setTimeout(() => scrollToBottom(true), 300);
+                }}
+                onDismiss={dismissRescue}
+                onRefresh={refreshRescue}
+                disabled={loading || !!pendingMessage}
+              />
+            )}
             <ConversationIntelligenceWidget
               state={conversationState}
               loading={ciLoading}
