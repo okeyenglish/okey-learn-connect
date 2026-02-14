@@ -206,7 +206,6 @@ export const ContactInfoBlock = ({
     if (hasRealPhones && (clientTelegramUserId || clientTelegramChatId)) {
       const hasTelegramInPhones = phoneNumbers.some(p => p.telegramUserId || p.telegramChatId);
       if (!hasTelegramInPhones) {
-        // Add Telegram ID as separate line
         result.push({
           id: 'virtual-telegram-only',
           phone: '',
@@ -217,6 +216,27 @@ export const ContactInfoBlock = ({
           telegramChatId: clientTelegramChatId,
           telegramUserId: clientTelegramUserId,
           maxChatId: null,
+          isVirtual: true,
+        });
+      }
+    }
+    
+    // If we have phone numbers but also MAX ID without phone, add MAX as separate line
+    if (hasRealPhones && clientMaxChatId) {
+      const hasMaxInPhones = phoneNumbers.some(p => p.maxChatId);
+      const hasMaxInResult = result.some(r => r.maxChatId);
+      if (!hasMaxInPhones && !hasMaxInResult) {
+        result.push({
+          id: 'virtual-max-only',
+          phone: '',
+          isPrimary: false,
+          isWhatsappEnabled: false,
+          isTelegramEnabled: false,
+          isMaxEnabled: true,
+          whatsappChatId: null,
+          telegramChatId: null,
+          telegramUserId: null,
+          maxChatId: clientMaxChatId,
           isVirtual: true,
         });
       }
@@ -477,109 +497,115 @@ export const ContactInfoBlock = ({
                 </>
               )}
               
-              {/* Messenger icons - hide when showing Telegram ID as main content (no phone) */}
-              {(hasPhone || !tgActive || !getTelegramId(phoneNumber)) && (
+              {/* Messenger icons - context-aware per row type */}
+              {(() => {
+                const isPhoneRow = hasPhone;
+                const isTelegramIdRow = !hasPhone && tgActive && !!getTelegramId(phoneNumber) && !phoneNumber.maxChatId;
+                const isMaxIdRow = !hasPhone && !!phoneNumber.maxChatId && !tgActive;
+                
+                // Telegram ID row - already shown as clickable, no extra icons needed
+                if (isTelegramIdRow) return null;
+                // MAX ID row - already shown as clickable, no extra icons needed
+                if (isMaxIdRow) return null;
+                
+                return (
                 <div className="flex items-center gap-1 ml-auto">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        className={`p-1 rounded transition-colors ${waActive ? 'hover:bg-green-50 cursor-pointer' : 'cursor-default'}`}
-                        onClick={() => handleMessengerClick(phoneNumber.id, 'whatsapp', waActive)}
-                        disabled={!waActive}
-                      >
-                        <WhatsAppIcon active={waActive} />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="text-xs max-w-[200px]">
-                      {waActive ? (
-                        <div>
-                          <div>Открыть WhatsApp чат</div>
-                          <div className="text-muted-foreground mt-0.5">
-                            {getWhatsappId(phoneNumber) 
-                              ? `ID: ${String(getWhatsappId(phoneNumber)).replace('@c.us', '')}` 
-                              : `Тел: ${phoneNumber.phone}`}
-                          </div>
-                          {onUnlinkMessenger && (
-                            <div className="text-destructive mt-1 font-medium">Долгий клик — отвязать</div>
-                          )}
-                        </div>
-                      ) : 'WhatsApp не подключен'}
-                    </TooltipContent>
-                  </Tooltip>
-                  {waActive && onUnlinkMessenger && (
-                    <button
-                      className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
-                      onClick={(e) => { e.stopPropagation(); onUnlinkMessenger('whatsapp'); }}
-                      title="Отвязать WhatsApp"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
+                  {/* WhatsApp icon - show on phone rows */}
+                  {isPhoneRow && (
+                    <>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            className={`p-1 rounded transition-colors ${waActive ? 'hover:bg-green-50 cursor-pointer' : 'cursor-default'}`}
+                            onClick={() => handleMessengerClick(phoneNumber.id, 'whatsapp', waActive)}
+                            disabled={!waActive}
+                          >
+                            <WhatsAppIcon active={waActive} />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs max-w-[200px]">
+                          {waActive ? (
+                            <div>
+                              <div>Открыть WhatsApp чат</div>
+                              <div className="text-muted-foreground mt-0.5">
+                                {getWhatsappId(phoneNumber) 
+                                  ? `ID: ${String(getWhatsappId(phoneNumber)).replace('@c.us', '')}` 
+                                  : `Тел: ${phoneNumber.phone}`}
+                              </div>
+                              {onUnlinkMessenger && (
+                                <div className="text-destructive mt-1 font-medium">Долгий клик — отвязать</div>
+                              )}
+                            </div>
+                          ) : 'WhatsApp не подключен'}
+                        </TooltipContent>
+                      </Tooltip>
+                      {waActive && onUnlinkMessenger && (
+                        <button
+                          className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); onUnlinkMessenger('whatsapp'); }}
+                          title="Отвязать WhatsApp"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </>
                   )}
                   
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        className={`p-1 rounded transition-colors ${tgActive ? 'hover:bg-blue-50 cursor-pointer' : 'cursor-default'}`}
-                        onClick={() => handleMessengerClick(phoneNumber.id, 'telegram', tgActive)}
-                        disabled={!tgActive}
-                      >
-                        <TelegramIcon active={tgActive} />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="text-xs max-w-[200px]">
-                      {tgActive ? (
-                        <div>
-                          <div>Открыть Telegram чат</div>
-                          <div className="text-muted-foreground mt-0.5">
-                            {(() => {
-                              const tgId = getTelegramId(phoneNumber);
-                              if (tgId) return `ID: ${tgId}`;
-                              if (phoneNumber.phone) return `Тел: ${phoneNumber.phone}`;
-                              return 'Подключен';
-                            })()}
+                  {/* Telegram icon - show on phone row ONLY if telegram is directly on this phone (not separate ID row) */}
+                  {isPhoneRow && (phoneNumber.telegramUserId || phoneNumber.telegramChatId) && (
+                    <>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            className="p-1 rounded transition-colors hover:bg-blue-50 cursor-pointer"
+                            onClick={() => handleMessengerClick(phoneNumber.id, 'telegram', true)}
+                          >
+                            <TelegramIcon active={true} />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs max-w-[200px]">
+                          <div>
+                            <div>Открыть Telegram чат</div>
+                            <div className="text-muted-foreground mt-0.5">
+                              ID: {phoneNumber.telegramUserId || phoneNumber.telegramChatId}
+                            </div>
                           </div>
-                          {onUnlinkMessenger && (
-                            <div className="text-destructive mt-1 font-medium">Долгий клик — отвязать</div>
-                          )}
-                        </div>
-                      ) : 'Telegram не подключен'}
-                    </TooltipContent>
-                  </Tooltip>
-                  {tgActive && onUnlinkMessenger && (
-                    <button
-                      className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
-                      onClick={(e) => { e.stopPropagation(); onUnlinkMessenger('telegram'); }}
-                      title="Отвязать Telegram"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
+                        </TooltipContent>
+                      </Tooltip>
+                    </>
                   )}
                   
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        className={`p-1 rounded transition-colors ${maxActive ? 'hover:bg-purple-50 cursor-pointer' : 'cursor-default'}`}
-                        onClick={() => handleMessengerClick(phoneNumber.id, 'max', maxActive)}
-                        disabled={!maxActive}
-                      >
-                        <MaxIcon active={maxActive} />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="text-xs">
-                      {maxActive ? 'Открыть MAX чат' : 'MAX не подключен'}
-                    </TooltipContent>
-                  </Tooltip>
-                  {maxActive && onUnlinkMessenger && (
-                    <button
-                      className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
-                      onClick={(e) => { e.stopPropagation(); onUnlinkMessenger('max'); }}
-                      title="Отвязать MAX"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
+                  {/* MAX icon - show on phone rows */}
+                  {isPhoneRow && (
+                    <>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            className={`p-1 rounded transition-colors ${maxActive ? 'hover:bg-purple-50 cursor-pointer' : 'cursor-default'}`}
+                            onClick={() => handleMessengerClick(phoneNumber.id, 'max', maxActive)}
+                            disabled={!maxActive}
+                          >
+                            <MaxIcon active={maxActive} />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">
+                          {maxActive ? 'Открыть MAX чат' : 'MAX не подключен'}
+                        </TooltipContent>
+                      </Tooltip>
+                      {maxActive && onUnlinkMessenger && (
+                        <button
+                          className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); onUnlinkMessenger('max'); }}
+                          title="Отвязать MAX"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
-              )}
+                );
+              })()}
             </div>
           );
         })}
