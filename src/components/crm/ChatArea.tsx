@@ -3694,6 +3694,9 @@ export const ChatArea = ({
               onSend={(text) => {
                 clearDraft();
                 sendMessageNow(text);
+                requestAnimationFrame(() => {
+                  setTimeout(() => scrollToBottom(true), 150);
+                });
               }}
               disabled={loading || !!pendingMessage}
             />
