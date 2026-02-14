@@ -222,6 +222,8 @@ export const useUpdateClient = () => {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads-unread-priority'] });
       if (data?.id) {
         queryClient.invalidateQueries({ queryKey: ['client', data.id] });
         queryClient.invalidateQueries({ queryKey: ['family-group', data.id] });
