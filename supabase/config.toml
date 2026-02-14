@@ -608,3 +608,6 @@ verify_jwt = false
 
 [functions.get-client-intents]
 verify_jwt = false
+
+[functions.semantic-dedup]
+verify_jwt = false
