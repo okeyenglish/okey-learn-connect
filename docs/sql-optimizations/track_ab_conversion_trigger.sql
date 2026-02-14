@@ -5,8 +5,12 @@
 --
 -- Конверсионные события:
 --   1. has_pending_payment: false → true  (клиент оплатил через эквайринг)
---      - Если нет платежей за год → conversion_event = 'paid' (первичная)
---      - Если есть платежи за год → conversion_event = 'prolonged' (пролонгация)
+--      - Сначала проверяется "свежесть" клиента:
+--        clients.created_at >= persona_ab_tests.started_at?
+--      - НЕТ (старый/склеенный клиент) → conversion_event = 'prolonged'
+--      - ДА (новый клиент):
+--        - Если нет платежей за год → conversion_event = 'paid' (первичная)
+--        - Если есть платежи за год → conversion_event = 'prolonged' (пролонгация)
 --   2. INSERT в trial_lesson_requests     (клиент записался на пробное)
 --
 -- Миграция: добавить колонку prolongation_count
@@ -25,32 +29,55 @@ CREATE OR REPLACE FUNCTION public.track_ab_conversion()
 RETURNS TRIGGER AS $$
 DECLARE
   v_prev_payments INTEGER;
+  v_test_started_at TIMESTAMPTZ;
 BEGIN
   -- Событие: клиент оплатил через интернет-эквайринг
   IF OLD.has_pending_payment IS DISTINCT FROM NEW.has_pending_payment
      AND NEW.has_pending_payment = true
   THEN
-    -- Проверяем наличие подтверждённых платежей за последний год
-    SELECT count(*) INTO v_prev_payments
-    FROM public.online_payments
-    WHERE client_id = NEW.id
-      AND status = 'CONFIRMED'
-      AND created_at > now() - interval '1 year';
+    -- Получаем дату запуска теста для проверки "свежести" клиента
+    SELECT t.started_at INTO v_test_started_at
+    FROM public.persona_ab_assignments a
+    JOIN public.persona_ab_tests t ON t.id = a.test_id
+    WHERE a.client_id = NEW.id
+      AND t.status = 'running'
+    LIMIT 1;
 
-    IF v_prev_payments = 0 THEN
-      -- Первичная продажа
-      UPDATE public.persona_ab_assignments
-      SET converted = true,
-          conversion_event = 'paid'
-      WHERE client_id = NEW.id
-        AND converted = false;
-    ELSE
-      -- Пролонгация
+    -- Если клиент не в тесте — выходим
+    IF v_test_started_at IS NULL THEN
+      RETURN NEW;
+    END IF;
+
+    -- Старый или склеенный клиент (created_at < started_at теста)
+    IF NEW.created_at < v_test_started_at THEN
       UPDATE public.persona_ab_assignments
       SET conversion_event = 'prolonged',
           converted = true,
           prolongation_count = prolongation_count + 1
       WHERE client_id = NEW.id;
+    ELSE
+      -- Новый клиент — проверяем наличие подтверждённых платежей за последний год
+      SELECT count(*) INTO v_prev_payments
+      FROM public.online_payments
+      WHERE client_id = NEW.id
+        AND status = 'CONFIRMED'
+        AND created_at > now() - interval '1 year';
+
+      IF v_prev_payments = 0 THEN
+        -- Первичная продажа
+        UPDATE public.persona_ab_assignments
+        SET converted = true,
+            conversion_event = 'paid'
+        WHERE client_id = NEW.id
+          AND converted = false;
+      ELSE
+        -- Пролонгация
+        UPDATE public.persona_ab_assignments
+        SET conversion_event = 'prolonged',
+            converted = true,
+            prolongation_count = prolongation_count + 1
+        WHERE client_id = NEW.id;
+      END IF;
     END IF;
   END IF;
 
@@ -65,7 +92,7 @@ CREATE TRIGGER track_ab_conversion_on_client
   EXECUTE FUNCTION public.track_ab_conversion();
 
 COMMENT ON FUNCTION public.track_ab_conversion() IS
-  'Отмечает конверсию в A/B тестах при оплате: paid (первичная, нет платежей за год) или prolonged (пролонгация, есть платежи за год).';
+  'Отмечает конверсию в A/B тестах при оплате. Сначала проверяет свежесть клиента (created_at >= test.started_at): старые/склеенные → prolonged, новые → paid (нет платежей за год) или prolonged (есть платежи).';
 
 -- ==========================================
 -- 2. Триггер записи на пробное (trial_lesson_requests)
