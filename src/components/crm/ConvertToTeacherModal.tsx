@@ -249,12 +249,7 @@ export function ConvertToTeacherModal({
       // Add to deleted-client-ids cache so the client stays hidden
       queryClient.setQueryData<string[]>(['deleted-client-ids'], (old = []) => [...old, clientId]);
 
-      queryClient.invalidateQueries({ queryKey: ['teachers'] });
-      queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
-      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-      queryClient.invalidateQueries({ queryKey: ['clients'] });
-      queryClient.invalidateQueries({ queryKey: ['teacher-client-links'] });
-      queryClient.invalidateQueries({ queryKey: ['teacher-conversations'] });
+      // Don't invalidate queries here — handled by onSuccess callback in CRM.tsx
 
       toast.success('Привязано к существующему преподавателю', {
         description: `Перенесено ${migratedCount || 0} сообщений`,
@@ -359,12 +354,7 @@ export function ConvertToTeacherModal({
       );
       queryClient.setQueryData<string[]>(['deleted-client-ids'], (old = []) => [...old, clientId]);
 
-      queryClient.invalidateQueries({ queryKey: ['teachers'] });
-      queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
-      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-      queryClient.invalidateQueries({ queryKey: ['clients'] });
-      queryClient.invalidateQueries({ queryKey: ['teacher-client-links'] });
-      queryClient.invalidateQueries({ queryKey: ['teacher-conversations'] });
+      // Don't invalidate queries here — handled by onSuccess callback in CRM.tsx
 
       toast.success(`${firstName} ${lastName} теперь преподаватель`, {
         description: `Перенесено ${migratedCount || 0} сообщений`,
