@@ -40,7 +40,7 @@ export default function QRLogin() {
     try {
       const response = await selfHostedPost<TokenData & { success?: boolean; error?: string }>('qr-login-generate', {
         browser_info: navigator.userAgent
-      });
+      }, { requireAuth: false });
 
       if (!response.success || !response.data) {
         throw new Error(response.error || 'Failed to generate token');
@@ -66,7 +66,7 @@ export default function QRLogin() {
     try {
       const response = await selfHostedPost<TokenCheckResponse>('qr-login-check', {
         token: tokenData.token
-      });
+      }, { requireAuth: false });
 
       if (!response.success || !response.data) return;
 
