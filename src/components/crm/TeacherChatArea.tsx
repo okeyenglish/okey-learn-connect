@@ -22,6 +22,7 @@ import { TeacherChatList } from './TeacherChatList';
 import { TeacherChatSkeleton } from './TeacherChatSkeleton';
 import { DeleteChatDialog } from './DeleteChatDialog';
 import { useAuth } from '@/hooks/useAuth';
+import { useManagerBranches } from '@/hooks/useManagerBranches';
 
 interface TeacherChatAreaProps {
   selectedTeacherId?: string | null;
@@ -65,15 +66,21 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
   const pinCounts = useMemo(() => getPinCounts(), [getPinCounts]);
   
   const isMobile = useIsMobile();
-  const { profile } = useAuth();
+  const { profile, role } = useAuth();
+  const isAdmin = role === 'admin';
+  const { allowedBranchNames, hasRestrictions: hasManagerBranchRestrictions } = useManagerBranches();
 
-  // Set user branch from auth context
+  // Set user branch from auth context and auto-set branch filter for restricted users
   useEffect(() => {
     const authProfile = profile as any;
     if (authProfile?.branch) {
       setUserBranch(authProfile.branch);
     }
-  }, [profile]);
+    // Auto-filter to allowed branch for non-admin managers
+    if (hasManagerBranchRestrictions && allowedBranchNames.length > 0) {
+      setFilterBranch(allowedBranchNames[0]);
+    }
+  }, [profile, hasManagerBranchRestrictions, allowedBranchNames]);
 
   // Load teachers from teachers table using new hook
   const { teachers: dbTeachers, isLoading: isLoadingTeachers, totalTeachers, refetch: refetchTeachers } = useTeacherChats(null);
@@ -425,9 +432,17 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
       }
 
       // Branch filter - check against all teacher branches
-      if (filterBranch !== 'all') {
+      // For restricted managers, always enforce branch filter even if 'all' is somehow set
+      const effectiveBranch = (filterBranch === 'all' && hasManagerBranchRestrictions && allowedBranchNames.length > 0)
+        ? allowedBranchNames[0] : filterBranch;
+      if (effectiveBranch !== 'all') {
         const teacherBranches = teacher.branches?.length > 0 ? teacher.branches : (teacher.branch ? [teacher.branch] : []);
-        if (!teacherBranches.includes(filterBranch)) return false;
+        if (hasManagerBranchRestrictions && allowedBranchNames.length > 0) {
+          // Check if teacher is in ANY of the allowed branches
+          if (!teacherBranches.some(b => allowedBranchNames.includes(b))) return false;
+        } else {
+          if (!teacherBranches.includes(effectiveBranch)) return false;
+        }
       }
 
       // Subject filter
@@ -438,7 +453,7 @@ export const TeacherChatArea: React.FC<TeacherChatAreaProps> = ({
 
       return true;
     });
-  }, [teachers, searchQuery, filterBranch, filterSubject, filterCategory]);
+  }, [teachers, searchQuery, filterBranch, filterSubject, filterCategory, hasManagerBranchRestrictions, allowedBranchNames]);
 
   const selectedTeacher = selectedTeacherId ? teachers.find((t) => t.id === selectedTeacherId) : null;
   const isGroupChat = selectedTeacherId === 'teachers-group';
