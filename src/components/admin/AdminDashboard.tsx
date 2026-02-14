@@ -42,6 +42,7 @@ import BonusSettingsPage from "@/components/employees/BonusSettingsPage";
 import { TeacherSubjectsCategoriesEditor } from "./TeacherSubjectsCategoriesEditor";
 import { QuickResponsesManager } from "./QuickResponsesManager";
 import { SmartRepliesManager } from "./SmartRepliesManager";
+import { CronMonitorDashboard } from "./CronMonitorDashboard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -131,6 +132,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <SystemMonitorPanel />;
       case "sync":
         return <SyncDashboard />;
+      case "cron-monitor":
+        return <CronMonitorDashboard />;
       case "payment-terminals":
         return <PaymentTerminalsSettings />;
       case "users":
@@ -273,6 +276,14 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle className="text-cyan-600">📊 Мониторинг</CardTitle>
                   <CardDescription>Edge Functions и миграции</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              {/* Cron Monitor */}
+              <Card className="cursor-pointer hover:bg-muted/50 border-indigo-200" onClick={() => setCurrentSection("cron-monitor")}>
+                <CardHeader>
+                  <CardTitle className="text-indigo-600">⏰ Cron-задачи</CardTitle>
+                  <CardDescription>Мониторинг pg_cron задач на сервере</CardDescription>
                 </CardHeader>
               </Card>
               
