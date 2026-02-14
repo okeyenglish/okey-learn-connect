@@ -1000,6 +1000,264 @@ SELECT cron.schedule(
 );
 
 -- ==========================================
+-- 9. RPC-функции для Edge Functions
+-- ==========================================
+
+-- 9a. Общие метрики команды за N дней
+CREATE OR REPLACE FUNCTION public.get_team_metrics(
+  p_organization_id UUID,
+  p_days INTEGER DEFAULT 30
+)
+RETURNS TABLE (
+  total_conversations BIGINT,
+  total_converted BIGINT,
+  team_conversion_rate NUMERIC,
+  avg_response_time NUMERIC,
+  top_conversion_path TEXT[],
+  worst_loss_path TEXT[],
+  best_hour SMALLINT,
+  worst_hour SMALLINT,
+  active_managers BIGINT,
+  conversion_spread NUMERIC
+) LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = 'public' AS $$
+DECLARE
+  v_since TIMESTAMPTZ := now() - (p_days || ' days')::INTERVAL;
+  v_total BIGINT;
+  v_converted BIGINT;
+  v_avg_resp NUMERIC;
+  v_active BIGINT;
+  v_top_path TEXT[];
+  v_worst_path TEXT[];
+  v_best_hour SMALLINT;
+  v_worst_hour SMALLINT;
+  v_spread NUMERIC;
+BEGIN
+  -- Общие цифры из conversation_paths
+  SELECT
+    count(*),
+    count(*) FILTER (WHERE cp.outcome IN ('converted', 'trial_booked'))
+  INTO v_total, v_converted
+  FROM conversation_paths cp
+  WHERE cp.organization_id = p_organization_id
+    AND cp.started_at >= v_since;
+
+  -- Среднее время ответа
+  SELECT round(avg(cp.avg_response_time_sec)::NUMERIC, 1)
+  INTO v_avg_resp
+  FROM conversation_paths cp
+  WHERE cp.organization_id = p_organization_id
+    AND cp.started_at >= v_since
+    AND cp.avg_response_time_sec IS NOT NULL;
+
+  -- Активные менеджеры
+  SELECT count(DISTINCT cp.manager_id)
+  INTO v_active
+  FROM conversation_paths cp
+  WHERE cp.organization_id = p_organization_id
+    AND cp.started_at >= v_since;
+
+  -- Лучший конверсионный путь
+  SELECT cp.stage_path INTO v_top_path
+  FROM conversation_paths cp
+  WHERE cp.organization_id = p_organization_id
+    AND cp.started_at >= v_since
+    AND cp.outcome IN ('converted', 'trial_booked')
+  GROUP BY cp.stage_path
+  ORDER BY count(*) DESC
+  LIMIT 1;
+
+  -- Худший путь (потери)
+  SELECT cp.stage_path INTO v_worst_path
+  FROM conversation_paths cp
+  WHERE cp.organization_id = p_organization_id
+    AND cp.started_at >= v_since
+    AND cp.outcome = 'lost'
+  GROUP BY cp.stage_path
+  ORDER BY count(*) DESC
+  LIMIT 1;
+
+  -- Лучший и худший час
+  SELECT e.hour_of_day INTO v_best_hour
+  FROM team_behavior_events e
+  WHERE e.organization_id = p_organization_id
+    AND e.created_at >= v_since
+    AND e.is_incoming = false
+    AND e.hour_of_day IS NOT NULL
+  GROUP BY e.hour_of_day
+  ORDER BY count(*) DESC
+  LIMIT 1;
+
+  SELECT e.hour_of_day INTO v_worst_hour
+  FROM team_behavior_events e
+  WHERE e.organization_id = p_organization_id
+    AND e.created_at >= v_since
+    AND e.is_incoming = false
+    AND e.hour_of_day IS NOT NULL
+  GROUP BY e.hour_of_day
+  ORDER BY count(*) ASC
+  LIMIT 1;
+
+  -- Разброс конверсии между менеджерами (stddev)
+  SELECT round(stddev(mgr_rate)::NUMERIC, 2) INTO v_spread
+  FROM (
+    SELECT
+      cp.manager_id,
+      CASE WHEN count(*) > 0
+        THEN (count(*) FILTER (WHERE cp.outcome IN ('converted', 'trial_booked'))::NUMERIC / count(*) * 100)
+        ELSE 0
+      END AS mgr_rate
+    FROM conversation_paths cp
+    WHERE cp.organization_id = p_organization_id
+      AND cp.started_at >= v_since
+    GROUP BY cp.manager_id
+    HAVING count(*) >= 3
+  ) sub;
+
+  RETURN QUERY SELECT
+    v_total,
+    v_converted,
+    CASE WHEN v_total > 0
+      THEN round(v_converted::NUMERIC / v_total * 100, 1)
+      ELSE 0::NUMERIC
+    END,
+    COALESCE(v_avg_resp, 0::NUMERIC),
+    v_top_path,
+    v_worst_path,
+    v_best_hour,
+    v_worst_hour,
+    v_active,
+    COALESCE(v_spread, 0::NUMERIC);
+END;
+$$;
+
+-- 9b. Сравнение менеджеров
+CREATE OR REPLACE FUNCTION public.get_manager_comparison(
+  p_organization_id UUID,
+  p_days INTEGER DEFAULT 30
+)
+RETURNS TABLE (
+  manager_id UUID,
+  manager_name TEXT,
+  total_conversations BIGINT,
+  conversion_rate NUMERIC,
+  avg_response_time NUMERIC,
+  avg_first_response NUMERIC,
+  avg_messages_per_conversation NUMERIC,
+  most_used_path TEXT[],
+  best_path TEXT[],
+  peak_hour SMALLINT
+) LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = 'public' AS $$
+DECLARE
+  v_since TIMESTAMPTZ := now() - (p_days || ' days')::INTERVAL;
+  rec RECORD;
+  v_name TEXT;
+  v_most_used TEXT[];
+  v_best TEXT[];
+  v_peak SMALLINT;
+BEGIN
+  FOR rec IN
+    SELECT
+      cp.manager_id AS mid,
+      count(*) AS total,
+      CASE WHEN count(*) > 0
+        THEN round(count(*) FILTER (WHERE cp.outcome IN ('converted', 'trial_booked'))::NUMERIC / count(*) * 100, 1)
+        ELSE 0
+      END AS conv_rate,
+      round(avg(cp.avg_response_time_sec)::NUMERIC, 1) AS avg_resp,
+      round(avg(cp.first_response_time_sec)::NUMERIC, 1) AS avg_first,
+      round(avg(cp.total_messages)::NUMERIC, 1) AS avg_msgs
+    FROM conversation_paths cp
+    WHERE cp.organization_id = p_organization_id
+      AND cp.started_at >= v_since
+    GROUP BY cp.manager_id
+    HAVING count(*) >= 1
+    ORDER BY conv_rate DESC
+  LOOP
+    -- Имя менеджера
+    SELECT COALESCE(p.first_name || ' ' || COALESCE(p.last_name, ''), rec.mid::TEXT)
+    INTO v_name
+    FROM profiles p WHERE p.id = rec.mid;
+    v_name := COALESCE(trim(v_name), rec.mid::TEXT);
+
+    -- Самый частый путь
+    SELECT cp.stage_path INTO v_most_used
+    FROM conversation_paths cp
+    WHERE cp.organization_id = p_organization_id
+      AND cp.manager_id = rec.mid
+      AND cp.started_at >= v_since
+    GROUP BY cp.stage_path
+    ORDER BY count(*) DESC
+    LIMIT 1;
+
+    -- Лучший путь по конверсии
+    SELECT cp.stage_path INTO v_best
+    FROM conversation_paths cp
+    WHERE cp.organization_id = p_organization_id
+      AND cp.manager_id = rec.mid
+      AND cp.started_at >= v_since
+      AND cp.outcome IN ('converted', 'trial_booked')
+    GROUP BY cp.stage_path
+    ORDER BY count(*) DESC
+    LIMIT 1;
+
+    -- Пиковый час
+    SELECT e.hour_of_day INTO v_peak
+    FROM team_behavior_events e
+    WHERE e.organization_id = p_organization_id
+      AND e.manager_id = rec.mid
+      AND e.created_at >= v_since
+      AND e.is_incoming = false
+      AND e.hour_of_day IS NOT NULL
+    GROUP BY e.hour_of_day
+    ORDER BY count(*) DESC
+    LIMIT 1;
+
+    RETURN QUERY SELECT
+      rec.mid,
+      v_name,
+      rec.total,
+      rec.conv_rate,
+      COALESCE(rec.avg_resp, 0::NUMERIC),
+      COALESCE(rec.avg_first, 0::NUMERIC),
+      COALESCE(rec.avg_msgs, 0::NUMERIC),
+      v_most_used,
+      v_best,
+      v_peak;
+  END LOOP;
+END;
+$$;
+
+-- 9c. Топ путей диалогов
+CREATE OR REPLACE FUNCTION public.get_top_conversation_paths(
+  p_organization_id UUID,
+  p_days INTEGER DEFAULT 30,
+  p_limit INTEGER DEFAULT 10
+)
+RETURNS TABLE (
+  stage_path TEXT[],
+  total_conversations BIGINT,
+  converted BIGINT,
+  conversion_rate NUMERIC,
+  avg_response_time NUMERIC
+) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = 'public' AS $$
+  SELECT
+    cp.stage_path,
+    count(*) AS total_conversations,
+    count(*) FILTER (WHERE cp.outcome IN ('converted', 'trial_booked')) AS converted,
+    CASE WHEN count(*) > 0
+      THEN round(count(*) FILTER (WHERE cp.outcome IN ('converted', 'trial_booked'))::NUMERIC / count(*) * 100, 1)
+      ELSE 0
+    END AS conversion_rate,
+    round(avg(cp.avg_response_time_sec)::NUMERIC, 1) AS avg_response_time
+  FROM conversation_paths cp
+  WHERE cp.organization_id = p_organization_id
+    AND cp.started_at >= now() - (p_days || ' days')::INTERVAL
+  GROUP BY cp.stage_path
+  ORDER BY total_conversations DESC
+  LIMIT p_limit;
+$$;
+
+-- ==========================================
 -- Комментарии к таблицам
 -- ==========================================
 
