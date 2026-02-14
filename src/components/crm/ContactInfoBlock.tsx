@@ -333,6 +333,7 @@ export const ContactInfoBlock = ({
     if (clientWhatsappChatId || phoneRows.some(p => p.whatsappChatId)) count++;
     if (clientTelegramChatId || clientTelegramUserId || messengerRows.some(p => p.telegramChatId || p.telegramUserId)) count++;
     if (clientMaxChatId || messengerRows.some(p => p.maxChatId)) count++;
+    if (email) count++;
     return count;
   })();
 
