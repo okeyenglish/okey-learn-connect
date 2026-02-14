@@ -35,6 +35,8 @@ serve(async (req) => {
         return await handleAutoComplete(supabase, params);
       case 'resolve_persona':
         return await handleResolvePersona(supabase, params);
+      case 'promote_winner':
+        return await handlePromoteWinner(supabase, params);
       default:
         return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
@@ -314,6 +316,56 @@ async function handleResolvePersona(supabase: any, params: any) {
   }
 
   return jsonResponse({ success: true, persona_id: null });
+}
+
+/**
+ * Promote the winning persona to be the default for the organization.
+ * Sets is_default=true on the winner and is_default=false on all others.
+ */
+async function handlePromoteWinner(supabase: any, params: any) {
+  const { test_id } = params;
+  if (!test_id) {
+    return jsonResponse({ success: false, error: "test_id required" }, 400);
+  }
+
+  // Get the completed test
+  const { data: test, error: testErr } = await supabase
+    .from("persona_ab_tests")
+    .select("id, status, winner_persona_id, organization_id")
+    .eq("id", test_id)
+    .maybeSingle();
+
+  if (testErr || !test) {
+    return jsonResponse({ success: false, error: "Test not found" }, 404);
+  }
+
+  if (test.status !== 'completed' || !test.winner_persona_id) {
+    return jsonResponse({ success: false, error: "Test has no winner yet" }, 400);
+  }
+
+  // Remove default from all personas in this org
+  await supabase
+    .from("ai_personas")
+    .update({ is_default: false })
+    .eq("organization_id", test.organization_id);
+
+  // Set winner as default
+  const { error: updateErr } = await supabase
+    .from("ai_personas")
+    .update({ is_default: true })
+    .eq("id", test.winner_persona_id);
+
+  if (updateErr) {
+    return jsonResponse({ success: false, error: updateErr.message }, 500);
+  }
+
+  console.log(`[persona-ab-test] Promoted persona ${test.winner_persona_id} as default for org ${test.organization_id}`);
+
+  return jsonResponse({
+    success: true,
+    promoted_persona_id: test.winner_persona_id,
+    organization_id: test.organization_id,
+  });
 }
 
 /**
