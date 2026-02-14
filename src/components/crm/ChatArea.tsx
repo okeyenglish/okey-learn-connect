@@ -67,6 +67,8 @@ import { isValidUUID, safeUUID } from '@/lib/uuidValidation';
 import { getNotificationSettings } from '@/hooks/useNotificationSettings';
 import { SmartReplySuggestions } from './SmartReplySuggestions';
 import { getSmartReplies } from '@/hooks/useSmartReplies';
+import { ConversationIntelligenceWidget } from './ConversationIntelligenceWidget';
+import { useConversationIntelligence } from '@/hooks/useConversationIntelligence';
 
 interface ChatAreaProps {
   clientId: string;
@@ -390,6 +392,14 @@ export const ChatArea = ({
   const markChatMessagesAsReadByMessengerMutation = useMarkChatMessagesAsReadByMessenger();
   const markChatMessagesAsReadMutation = useMarkChatMessagesAsRead();
   const queryClient = useQueryClient();
+  
+  // Conversation Intelligence - real-time stage classification
+  const orgId = (authProfile as any)?.organization_id || null;
+  const { state: conversationState, loading: ciLoading, triggerClassify } = useConversationIntelligence({
+    clientId: clientUUID,
+    organizationId: orgId,
+    enabled: !!clientUUID && !isTeacherMessages && !isDirectTeacherMessage,
+  });
   
   // Auto-mark chat as read when opened with retry and fallback polling
   // CRITICAL: Only use valid UUID, never teacher markers like "teacher:xxx"
@@ -3691,6 +3701,17 @@ export const ChatArea = ({
               />
             )}
             
+            {/* Conversation Intelligence Widget */}
+            <ConversationIntelligenceWidget
+              state={conversationState}
+              loading={ciLoading}
+              onInsertAction={(text) => {
+                const current = message || '';
+                setMessage(current ? `${current}\n${text}` : text);
+              }}
+              compact={isMobile}
+            />
+            
             {/* Smart reply suggestions */}
             <SmartReplySuggestions
               lastIncomingMessage={lastMessage?.message || null}
@@ -3699,7 +3720,6 @@ export const ChatArea = ({
               onSend={(text) => {
                 clearDraft();
                 sendMessageNow(text);
-                // Multiple scroll attempts to handle panel hide + optimistic message render
                 setTimeout(() => scrollToBottom(true), 100);
                 setTimeout(() => scrollToBottom(true), 300);
                 setTimeout(() => scrollToBottom(true), 600);
