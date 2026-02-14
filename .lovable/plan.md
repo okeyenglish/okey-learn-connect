@@ -1,41 +1,51 @@
 
 
-## Исправление триггера конверсии A/B тестов
+## Разделение первичных продаж и пролонгации в A/B тестах
 
-### Проблема
-Текущий триггер неверно интерпретирует колонки:
-- `portal_enabled` — административное действие, не конверсия
-- `has_pending_payment` — триггер срабатывал при сбросе в `false`, а конверсия — когда ставится `true` (клиент оплатил)
+### Логика определения
 
-### Новая логика
+- **Новый клиент** (`'paid'`): у клиента нет подтверждённых платежей за последний год (или вообще нет платежей) в `online_payments`
+- **Пролонгация** (`'prolonged'`): у клиента есть хотя бы один подтверждённый платёж за последний год
 
-Два конверсионных события:
+### Подход к трекингу
 
-1. **Оплата через эквайринг** — `has_pending_payment` меняется на `true` (клиент оплатил онлайн). Событие: `'paid'`
-2. **Запись на пробное занятие** — создание записи в `trial_lesson_requests` с телефоном клиента. Событие: `'trial_booked'`
+Используем два разных события в `persona_ab_assignments`:
+- `conversion_event = 'paid'` — первичная продажа
+- `conversion_event = 'prolonged'` — пролонгация
+
+Для пролонгации: обновляем запись даже если `converted = true` (перезаписываем `conversion_event` на `'prolonged'`), а также добавляем колонку `prolongation_count` (INTEGER DEFAULT 0) в `persona_ab_assignments` для подсчёта количества пролонгаций. Это даёт гибкость при анализе.
 
 ### Изменения
 
-**Файл: `docs/sql-optimizations/track_ab_conversion_trigger.sql`** — полная переработка:
+**Файл: `docs/sql-optimizations/track_ab_conversion_trigger.sql`**
 
-1. **Триггер на `clients`**: отслеживает только `has_pending_payment: false -> true` (событие `'paid'`)
-2. **Новый триггер на `trial_lesson_requests`**: при вставке новой записи ищет клиента по совпадению телефона и обновляет `persona_ab_assignments` (событие `'trial_booked'`)
+Переработка функции `track_ab_conversion()`:
+
+```text
+has_pending_payment: false -> true
+  |
+  v
+Проверить online_payments:
+  SELECT count(*) FROM online_payments
+  WHERE client_id = NEW.id
+    AND status = 'CONFIRMED'
+    AND created_at > now() - interval '1 year'
+  |
+  +--> count = 0 --> conversion_event = 'paid', converted = true
+  |
+  +--> count > 0 --> conversion_event = 'prolonged', prolongation_count + 1
+```
+
+Триггер `track_ab_trial_conversion()` (trial_lesson_requests) остаётся без изменений — запись на пробное всегда первичная конверсия.
+
+**SQL-миграция для self-hosted** (добавить в тот же файл):
+
+- `ALTER TABLE persona_ab_assignments ADD COLUMN IF NOT EXISTS prolongation_count INTEGER DEFAULT 0;`
 
 ### Технические детали
 
-```text
-clients UPDATE (has_pending_payment: false -> true)
-  |
-  v
-track_ab_conversion() --> UPDATE persona_ab_assignments SET converted=true, conversion_event='paid'
-
-trial_lesson_requests INSERT
-  |
-  v
-track_ab_trial_conversion() --> найти client_id по phone --> UPDATE persona_ab_assignments SET converted=true, conversion_event='trial_booked'
-```
-
-- Оба триггера: `SECURITY DEFINER`, `search_path = public`
-- Обновляется только первая неконвертированная запись (`converted = false`)
-- Комментарии в заголовке SQL обновлены под новую логику
+- Проверка идёт по `online_payments.client_id` и `status = 'CONFIRMED'` (статус подтверждённого платежа Т-Банк)
+- Текущий платёж (который вызвал триггер) ещё не записан в `online_payments` на момент срабатывания триггера на `clients`, так что count корректно отражает предыдущие платежи
+- Для пролонгации: `UPDATE persona_ab_assignments SET conversion_event = 'prolonged', prolongation_count = prolongation_count + 1 WHERE client_id = ... AND converted = true`
+- Для первичной: стандартная логика `SET converted = true, conversion_event = 'paid' WHERE converted = false`
 
