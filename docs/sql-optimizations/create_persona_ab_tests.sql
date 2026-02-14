@@ -54,6 +54,7 @@ CREATE INDEX IF NOT EXISTS idx_ab_assignments_test ON public.persona_ab_assignme
 CREATE INDEX IF NOT EXISTS idx_ab_assignments_client ON public.persona_ab_assignments(client_id);
 
 -- Trigger для updated_at
+DROP TRIGGER IF EXISTS update_persona_ab_tests_updated_at ON public.persona_ab_tests;
 CREATE TRIGGER update_persona_ab_tests_updated_at
   BEFORE UPDATE ON public.persona_ab_tests
   FOR EACH ROW
