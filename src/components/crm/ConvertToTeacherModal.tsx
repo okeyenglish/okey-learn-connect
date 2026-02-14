@@ -157,8 +157,8 @@ export function ConvertToTeacherModal({
           }
         }
         
-        // No match — go straight to form
-        setMode('form');
+        // No match — still show choice menu
+        setMode('check');
       };
       fetchClientData();
     }
@@ -381,32 +381,45 @@ export function ConvertToTeacherModal({
   };
 
   const renderCheckStep = () => {
-    if (!matchedTeacher) return null;
-    const teacherName = getTeacherFullName(matchedTeacher);
-    const teacherPhone = matchedTeacher.phone ? formatPhoneForDisplay(matchedTeacher.phone) || matchedTeacher.phone : 'нет телефона';
+    const hasMatch = !!matchedTeacher;
+    const teacherName = matchedTeacher ? getTeacherFullName(matchedTeacher) : '';
+    const teacherPhone = matchedTeacher?.phone ? formatPhoneForDisplay(matchedTeacher.phone) || matchedTeacher.phone : 'нет телефона';
 
     return (
       <div className="space-y-4 py-4">
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
-          <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-2">
-            Найден преподаватель с таким же телефоном:
-          </p>
-          <div className="text-sm text-amber-700 dark:text-amber-300">
-            <p className="font-semibold">{teacherName}</p>
-            <p>{teacherPhone}</p>
-            {matchedTeacher.email && <p>{matchedTeacher.email}</p>}
+        {hasMatch && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-2">
+              Найден преподаватель с таким же телефоном:
+            </p>
+            <div className="text-sm text-amber-700 dark:text-amber-300">
+              <p className="font-semibold">{teacherName}</p>
+              <p>{teacherPhone}</p>
+              {matchedTeacher!.email && <p>{matchedTeacher!.email}</p>}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="space-y-2">
+          {hasMatch && (
+            <Button
+              className="w-full justify-start"
+              variant="outline"
+              onClick={() => handleConvertWithTeacher(matchedTeacher!.id)}
+              disabled={isLoading}
+            >
+              <UserCheck className="mr-2 h-4 w-4 text-green-600" />
+              Склеить с найденным
+            </Button>
+          )}
           <Button
             className="w-full justify-start"
             variant="outline"
-            onClick={() => handleConvertWithTeacher(matchedTeacher.id)}
+            onClick={() => setMode('select')}
             disabled={isLoading}
           >
-            <UserCheck className="mr-2 h-4 w-4 text-green-600" />
-            Склеить с существующим
+            <Users className="mr-2 h-4 w-4 text-purple-600" />
+            Привязать к существующему по ID / телефону
           </Button>
           <Button
             className="w-full justify-start"
@@ -416,15 +429,6 @@ export function ConvertToTeacherModal({
           >
             <UserPlus className="mr-2 h-4 w-4 text-blue-600" />
             Создать нового преподавателя
-          </Button>
-          <Button
-            className="w-full justify-start"
-            variant="outline"
-            onClick={() => setMode('select')}
-            disabled={isLoading}
-          >
-            <Users className="mr-2 h-4 w-4 text-purple-600" />
-            Выбрать другого преподавателя
           </Button>
         </div>
       </div>
@@ -513,7 +517,7 @@ export function ConvertToTeacherModal({
 
   const getTitle = () => {
     switch (mode) {
-      case 'check': return 'Найден совпадающий преподаватель';
+      case 'check': return matchedTeacher ? 'Найден совпадающий преподаватель' : 'Перевести в преподаватели';
       case 'select': return 'Выберите преподавателя';
       default: return 'Перевести в преподаватели';
     }
@@ -521,13 +525,15 @@ export function ConvertToTeacherModal({
 
   const getDescription = () => {
     switch (mode) {
-      case 'check': return `Клиент "${clientName}" — выберите действие:`;
-      case 'select': return 'Выберите преподавателя для склеивания диалогов';
+      case 'check': return matchedTeacher 
+        ? `Клиент "${clientName}" — выберите действие:` 
+        : `Клиент "${clientName}" будет преобразован в преподавателя. Выберите действие:`;
+      case 'select': return 'Поиск по имени, телефону или T-номеру';
       default: return `Клиент "${clientName}" будет преобразован в преподавателя. Вся история сообщений будет перенесена.`;
     }
   };
 
-  const canGoBack = mode === 'form' || mode === 'select';
+  const canGoBack = (mode === 'form' || mode === 'select');
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -550,7 +556,7 @@ export function ConvertToTeacherModal({
         {mode === 'select' && renderSelectStep()}
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
-          {canGoBack && matchedTeacher && (
+          {canGoBack && (
             <Button variant="ghost" size="sm" onClick={() => setMode('check')} disabled={isLoading} className="mr-auto">
               <ArrowLeft className="mr-1 h-4 w-4" />
               Назад
