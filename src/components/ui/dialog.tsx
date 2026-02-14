@@ -31,7 +31,7 @@ const DialogOverlay = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
 >(({ className, style, ...props }, ref) => {
   const level = React.useContext(DialogLevelContext);
-  const zIndex = 50 + (level * 10) + 40; // Base higher to cover CRM panels
+  const zIndex = 50 + (level * 10);
   
   return (
     <DialogPrimitive.Overlay
@@ -49,21 +49,23 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, style, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { overlayZIndex?: number }
+>(({ className, children, style, overlayZIndex, ...props }, ref) => {
   const level = React.useContext(DialogLevelContext);
-  const zIndex = 50 + (level * 10) + 40; // Base higher to cover CRM panels
+  const baseZIndex = 50 + (level * 10);
+  const contentZIndex = (style as any)?.zIndex ?? baseZIndex;
+  const effectiveOverlayZIndex = overlayZIndex ?? (contentZIndex > baseZIndex ? contentZIndex - 1 : baseZIndex);
   
   return (
     <DialogPortal>
-      <DialogOverlay />
+      <DialogOverlay style={{ zIndex: effectiveOverlayZIndex }} />
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
           "fixed left-[50%] top-[50%] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
           className,
         )}
-        style={{ zIndex, ...style }}
+        style={{ zIndex: contentZIndex, ...style }}
         {...props}
       >
         {children}
