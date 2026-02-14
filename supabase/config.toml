@@ -587,3 +587,6 @@ verify_jwt = true
 
 [functions.classify-conversation-state]
 verify_jwt = true
+
+[functions.team-intelligence]
+verify_jwt = false

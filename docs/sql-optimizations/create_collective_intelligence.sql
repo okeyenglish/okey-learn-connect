@@ -743,6 +743,49 @@ SELECT cron.schedule(
   $$
 );
 
+-- AI-анализ команды — ежедневно в 5:00 (после снимков менеджеров в 3:00)
+-- Вызывает Edge Function team-intelligence через net.http_post
+DO $$
+BEGIN
+  PERFORM cron.unschedule('team-intelligence-daily');
+EXCEPTION WHEN others THEN NULL;
+END;
+$$;
+
+SELECT cron.schedule(
+  'team-intelligence-daily',
+  '0 5 * * *',
+  $$
+  DO $ti$
+  DECLARE
+    v_org RECORD;
+    v_self_hosted_url TEXT := current_setting('app.settings.self_hosted_url', true);
+    v_anon_key TEXT := current_setting('app.settings.anon_key', true);
+  BEGIN
+    -- Fallback defaults
+    IF v_self_hosted_url IS NULL THEN
+      v_self_hosted_url := 'https://api.academyos.ru';
+    END IF;
+
+    FOR v_org IN SELECT id FROM public.organizations LOOP
+      PERFORM net.http_post(
+        url := v_self_hosted_url || '/functions/v1/team-intelligence',
+        headers := json_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer ' || COALESCE(v_anon_key, '')
+        )::jsonb,
+        body := json_build_object(
+          'organization_id', v_org.id,
+          'days', 30,
+          'mode', 'full'
+        )::jsonb
+      );
+    END LOOP;
+  END;
+  $ti$
+  $$
+);
+
 -- ==========================================
 -- Комментарии к таблицам
 -- ==========================================
