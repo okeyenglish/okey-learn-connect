@@ -624,14 +624,11 @@ export const ChatArea = ({
 
   // Subscribe to new messages for instant scroll when payment/new message arrives
   const handleNewMessageRealtime = useCallback(() => {
-    // Double rAF + small delay to ensure DOM has fully rendered the new message
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setTimeout(() => scrollToBottom(true), 50);
-      });
+    // Staggered scrolls: DOM render, then smart reply panel layout shift
+    const delays = [50, 200, 500, 800];
+    delays.forEach(ms => {
+      setTimeout(() => scrollToBottom(true), ms);
     });
-    // Extra scroll after SmartReplySuggestions panel may appear/change layout
-    setTimeout(() => scrollToBottom(true), 400);
   }, [scrollToBottom]);
   useNewMessageRealtime(clientId, handleNewMessageRealtime);
 
@@ -3208,7 +3205,7 @@ export const ChatArea = ({
               )}
               </div>
               {/* Элемент для прокрутки к концу WhatsApp */}
-              <div ref={whatsappEndRef} className="h-1 shrink-0" />
+              <div ref={whatsappEndRef} className="h-4 shrink-0" />
             </TabsContent>
           
           <TabsContent value="telegram" ref={telegramScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
@@ -3316,7 +3313,7 @@ export const ChatArea = ({
               )}
             </div>
             {/* Элемент для прокрутки к концу Telegram */}
-            <div ref={telegramEndRef} className="h-1 shrink-0" />
+            <div ref={telegramEndRef} className="h-4 shrink-0" />
           </TabsContent>
           
           <TabsContent value="max" ref={maxScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
@@ -3442,7 +3439,7 @@ export const ChatArea = ({
               )}
             </div>
             {/* Элемент для прокрутки к концу Max */}
-            <div ref={maxEndRef} className="h-1 shrink-0" />
+            <div ref={maxEndRef} className="h-4 shrink-0" />
           </TabsContent>
           
           <TabsContent value="chatos" ref={chatosScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
@@ -3550,7 +3547,7 @@ export const ChatArea = ({
                 </div>
               )}
             </div>
-            <div ref={chatosEndRef} className="h-1 shrink-0" />
+            <div ref={chatosEndRef} className="h-4 shrink-0" />
           </TabsContent>
           
           <TabsContent value="email" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
