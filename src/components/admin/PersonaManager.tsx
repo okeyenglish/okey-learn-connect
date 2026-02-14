@@ -14,15 +14,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from '@/components/ui/dialog';
 import {
   Sparkles, Plus, Pencil, Trash2, Users, RefreshCw, Play,
-  Shield, TrendingUp, Zap,
+  Shield, TrendingUp, Zap, FlaskConical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { PersonaABTestDashboard } from './PersonaABTestDashboard';
 
 interface Persona {
   id: string;
@@ -200,6 +202,19 @@ export function PersonaManager() {
 
   return (
     <div className="space-y-6">
+      <Tabs defaultValue="personas" className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="personas" className="gap-1.5">
+            <Sparkles className="h-4 w-4" />
+            Персоны
+          </TabsTrigger>
+          <TabsTrigger value="ab-tests" className="gap-1.5">
+            <FlaskConical className="h-4 w-4" />
+            A/B Тесты
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="personas" className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
@@ -327,6 +342,12 @@ export function PersonaManager() {
           )}
         </DialogContent>
       </Dialog>
+        </TabsContent>
+
+        <TabsContent value="ab-tests">
+          <PersonaABTestDashboard />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
