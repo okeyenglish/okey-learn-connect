@@ -125,13 +125,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- Функция для получения сводки A/B теста
+-- Функция для получения сводки A/B теста (с разбивкой по типам конверсии)
 CREATE OR REPLACE FUNCTION public.get_ab_test_summary(p_test_id UUID)
 RETURNS TABLE(
   variant TEXT,
   total_clients BIGINT,
   converted_clients BIGINT,
   conversion_rate NUMERIC,
+  paid_clients BIGINT,
+  prolonged_clients BIGINT,
+  trial_booked_clients BIGINT,
+  total_prolongations BIGINT,
   avg_feedback NUMERIC,
   avg_health NUMERIC,
   avg_messages NUMERIC
@@ -143,6 +147,10 @@ BEGIN
     COUNT(*)::BIGINT as total_clients,
     COUNT(*) FILTER (WHERE a.converted)::BIGINT as converted_clients,
     CASE WHEN COUNT(*) > 0 THEN ROUND(COUNT(*) FILTER (WHERE a.converted)::NUMERIC / COUNT(*) * 100, 2) ELSE 0 END as conversion_rate,
+    COUNT(*) FILTER (WHERE a.conversion_event = 'paid')::BIGINT as paid_clients,
+    COUNT(*) FILTER (WHERE a.conversion_event = 'prolonged')::BIGINT as prolonged_clients,
+    COUNT(*) FILTER (WHERE a.conversion_event = 'trial_booked')::BIGINT as trial_booked_clients,
+    COALESCE(SUM(a.prolongation_count), 0)::BIGINT as total_prolongations,
     ROUND(AVG(a.avg_feedback_score)::NUMERIC, 2) as avg_feedback,
     ROUND(AVG(a.avg_health_score)::NUMERIC, 2) as avg_health,
     ROUND(AVG(a.messages_count)::NUMERIC, 1) as avg_messages
