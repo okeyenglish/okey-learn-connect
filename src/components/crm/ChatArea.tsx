@@ -2565,6 +2565,7 @@ export const ChatArea = ({
       <div 
         className="flex-1 bg-background flex flex-col min-w-0 min-h-0 relative"
         onDragOver={(e) => {
+          if (showForwardModal) return;
           e.preventDefault();
           e.stopPropagation();
           setIsDragOver(true);
