@@ -3694,9 +3694,10 @@ export const ChatArea = ({
               onSend={(text) => {
                 clearDraft();
                 sendMessageNow(text);
-                requestAnimationFrame(() => {
-                  setTimeout(() => scrollToBottom(true), 150);
-                });
+                // Multiple scroll attempts to handle panel hide + optimistic message render
+                setTimeout(() => scrollToBottom(true), 100);
+                setTimeout(() => scrollToBottom(true), 300);
+                setTimeout(() => scrollToBottom(true), 600);
               }}
               disabled={loading || !!pendingMessage}
             />
