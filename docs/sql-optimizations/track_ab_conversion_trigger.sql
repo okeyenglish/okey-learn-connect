@@ -74,11 +74,23 @@ CREATE OR REPLACE FUNCTION public.track_ab_trial_conversion()
 RETURNS TRIGGER AS $$
 DECLARE
   v_client_id UUID;
+  v_phone TEXT;
 BEGIN
-  -- Найти клиента по совпадению телефона
+  -- Нормализация телефона: убрать всё кроме цифр
+  v_phone := regexp_replace(NEW.phone, '[^0-9]', '', 'g');
+
+  -- Российская нормализация: 10 цифр начиная с 9 → добавить 7; 11 цифр начиная с 8 → заменить на 7
+  IF length(v_phone) = 10 AND v_phone LIKE '9%' THEN
+    v_phone := '7' || v_phone;
+  ELSIF length(v_phone) = 11 AND v_phone LIKE '8%' THEN
+    v_phone := '7' || substring(v_phone FROM 2);
+  END IF;
+
+  -- Найти клиента по нормализованному телефону
   SELECT id INTO v_client_id
   FROM public.clients
-  WHERE phone = NEW.phone
+  WHERE regexp_replace(phone, '[^0-9]', '', 'g') = v_phone
+     OR regexp_replace(phone, '[^0-9]', '', 'g') = substring(v_phone FROM 2)
   LIMIT 1;
 
   IF v_client_id IS NOT NULL THEN
