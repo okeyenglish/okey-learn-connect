@@ -132,6 +132,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Функция для получения сводки A/B теста (с разбивкой по типам конверсии)
+DROP FUNCTION IF EXISTS public.get_ab_test_summary(UUID);
 CREATE OR REPLACE FUNCTION public.get_ab_test_summary(p_test_id UUID)
 RETURNS TABLE(
   variant TEXT,
