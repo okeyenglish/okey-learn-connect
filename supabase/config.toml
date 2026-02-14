@@ -552,5 +552,11 @@ verify_jwt = false
 [functions.delete-staff-group-chat]
 verify_jwt = false
 
+[functions.auto-index-conversation]
+verify_jwt = false
+
+[functions.extract-faq]
+verify_jwt = true
+
 [functions.db-maintenance]
 verify_jwt = false

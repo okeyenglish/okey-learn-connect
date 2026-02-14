@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bot, Play, Loader2, Database, BarChart3, Search, BookOpen, Brain } from 'lucide-react';
+import { Bot, Play, Loader2, Database, BarChart3, Search, BookOpen, Brain, HelpCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import { ConversationAnalyticsDashboard } from './ConversationAnalyticsDashboard
 import { ConversationSemanticSearch } from './ConversationSemanticSearch';
 import { SuccessfulDialoguesLibrary } from './SuccessfulDialoguesLibrary';
 import { ScriptTrainerPage } from './ScriptTrainerPage';
+import { ExtractedFAQPanel } from './ExtractedFAQPanel';
 
 interface IndexingResult {
   success: boolean;
@@ -151,6 +152,10 @@ export function ConversationIndexingPanel() {
           <TabsTrigger value="trainer" className="gap-2">
             <Brain className="h-4 w-4" />
             Тренажёр
+          </TabsTrigger>
+          <TabsTrigger value="faq" className="gap-2">
+            <HelpCircle className="h-4 w-4" />
+            FAQ
           </TabsTrigger>
         </TabsList>
 
@@ -426,6 +431,10 @@ export function ConversationIndexingPanel() {
 
         <TabsContent value="trainer">
           <ScriptTrainerPage />
+        </TabsContent>
+
+        <TabsContent value="faq">
+          <ExtractedFAQPanel />
         </TabsContent>
       </Tabs>
     </div>
