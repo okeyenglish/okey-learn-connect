@@ -1,38 +1,54 @@
 
-## Диагностика: оплата Т-Банк не фиксируется в чатах
 
-### Найденная проблема
+# План оптимизации базы данных
 
-Edge function `tbank-webhook` подключается к **Lovable Cloud базе** вместо self-hosted. На строке 39-41:
+## Проблема
+База данных занимает ~29.5 ГБ. Основные потребители: `chat_messages` (517 МБ, из них 370 МБ — индексы), `webhook_logs`, `event_bus`, `cron.job_run_details`.
 
-```text
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;  // <-- Lovable Cloud!
-const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const supabase = createClient(supabaseUrl, supabaseKey);
-```
+## Этап 1: Удаление дубликатов индексов chat_messages
 
-Все остальные webhook-функции (salebot, telegram, whatsapp) используют `createSelfHostedSupabaseClient()` из `_shared/types.ts`, который подключается к `api.academyos.ru`. Только `tbank-webhook` этого не делает.
+Запуск готового скрипта из `docs/sql-optimizations/cleanup_duplicate_indexes.sql` на self-hosted сервере. Удаляет ~10 дублирующих индексов, освобождая ~100-150 МБ.
 
-В результате:
-- Поиск `online_payments` идёт в Lovable Cloud (таблица не существует) -- функция падает
-- `has_pending_payment` никогда не обновляется
-- Системное сообщение в чат не создаётся
-- Чат не закрепляется с зелёным фоном
+## Этап 2: Очистка старых логов (разовая)
 
-### План исправления
+SQL-скрипт для ручного выполнения на self-hosted сервере:
 
-**Один файл, одно изменение:**
+- `webhook_logs` старше 30 дней
+- `event_bus` старше 30 дней  
+- `cron.job_run_details` старше 7 дней
+- `VACUUM FULL` для возврата места на диск
 
-В `supabase/functions/tbank-webhook/index.ts` заменить ручное создание клиента на `createSelfHostedSupabaseClient`:
+## Этап 3: Автоматическая ротация логов (Edge Function + pg_cron)
 
-1. Добавить импорт `createSelfHostedSupabaseClient` из `_shared/types.ts`
-2. Заменить строки 39-41 на вызов `createSelfHostedSupabaseClient(createClient)` -- это направит все запросы на `api.academyos.ru`
+Создание edge function `db-maintenance`, которая будет:
+- Удалять старые записи из `webhook_logs`, `event_bus`, `cron.job_run_details`
+- Запускаться ежедневно через pg_cron (в 3:00 ночи)
 
-После этого вся цепочка будет работать:
-- Webhook находит `online_payments` на self-hosted
-- Верифицирует токен через `payment_terminals`
-- Обновляет `has_pending_payment = true` в `clients`
-- Создаёт системное сообщение в `chat_messages`
-- Отправляет "спасибо" клиенту через мессенджер
+## Этап 4: VACUUM ANALYZE
 
-Дополнительных миграций и изменений фронтенда не требуется -- всё уже реализовано и читает данные с self-hosted.
+Запуск `VACUUM ANALYZE` на основных таблицах после очистки для обновления статистики и возврата дискового пространства.
+
+---
+
+## Техническая реализация
+
+### Файлы
+
+1. **Новый файл**: `supabase/functions/db-maintenance/index.ts`
+   - Подключение через service_role key
+   - Удаление старых записей из 3 таблиц
+   - Логирование результатов
+   - Защита по Authorization header
+
+2. **Новый файл**: `docs/sql-optimizations/setup_db_maintenance_cron.sql`
+   - SQL для настройки pg_cron задачи на self-hosted сервере
+
+3. **Новый файл**: `docs/sql-optimizations/one_time_cleanup.sql`
+   - Разовый скрипт очистки + VACUUM FULL
+
+### Ожидаемый результат
+
+- Освобождение 200-500 МБ сразу после очистки
+- Предотвращение дальнейшего неконтролируемого роста логов
+- Ускорение INSERT/UPDATE операций за счет меньшего числа индексов
+
