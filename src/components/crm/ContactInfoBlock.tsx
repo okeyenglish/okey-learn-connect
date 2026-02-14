@@ -65,6 +65,7 @@ interface ContactInfoBlockProps {
   onCallClick?: (phone: string) => void;
   onPhoneSave?: (data: PhoneSaveData) => void; // Callback to save new/edited phone with messenger data
   onUnlinkMessenger?: (messenger: 'whatsapp' | 'telegram' | 'max') => void;
+  onUnlinkEmail?: () => void;
   // Client-level messenger data (fallback when phone-level data is missing)
   clientTelegramChatId?: string | null;
   clientTelegramUserId?: number | null;
@@ -79,6 +80,7 @@ export const ContactInfoBlock = ({
   onCallClick,
   onPhoneSave,
   onUnlinkMessenger,
+  onUnlinkEmail,
   clientTelegramChatId,
   clientTelegramUserId,
   clientWhatsappChatId,
@@ -426,25 +428,47 @@ export const ContactInfoBlock = ({
                 <>
                   {/* Show Telegram ID if no phone but Telegram exists */}
                   {tgActive && getTelegramId(phoneNumber) ? (
-                    <button
-                      className="flex items-center gap-2 hover:bg-blue-50 rounded px-1 -ml-1 transition-colors"
-                      onClick={() => handleMessengerClick(phoneNumber.id, 'telegram', true)}
-                    >
-                      <TelegramIcon active={true} />
-                      <span className="text-sm font-medium text-blue-600">
-                        ID: {getTelegramId(phoneNumber)}
-                      </span>
-                    </button>
+                    <div className="flex items-center gap-1 flex-1">
+                      <button
+                        className="flex items-center gap-2 hover:bg-blue-50 rounded px-1 -ml-1 transition-colors"
+                        onClick={() => handleMessengerClick(phoneNumber.id, 'telegram', true)}
+                      >
+                        <TelegramIcon active={true} />
+                        <span className="text-sm font-medium text-blue-600">
+                          ID: {getTelegramId(phoneNumber)}
+                        </span>
+                      </button>
+                      {onUnlinkMessenger && (
+                        <button
+                          className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive ml-auto"
+                          onClick={(e) => { e.stopPropagation(); onUnlinkMessenger('telegram'); }}
+                          title="Отвязать Telegram"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
                   ) : maxActive && phoneNumber.maxChatId ? (
-                    <button
-                      className="flex items-center gap-2 hover:bg-purple-50 rounded px-1 -ml-1 transition-colors"
-                      onClick={() => handleMessengerClick(phoneNumber.id, 'max', true)}
-                    >
-                      <MaxIcon active={true} />
-                      <span className="text-sm font-medium text-purple-600">
-                        MAX ID: {phoneNumber.maxChatId}
-                      </span>
-                    </button>
+                    <div className="flex items-center gap-1 flex-1">
+                      <button
+                        className="flex items-center gap-2 hover:bg-purple-50 rounded px-1 -ml-1 transition-colors"
+                        onClick={() => handleMessengerClick(phoneNumber.id, 'max', true)}
+                      >
+                        <MaxIcon active={true} />
+                        <span className="text-sm font-medium text-purple-600">
+                          MAX ID: {phoneNumber.maxChatId}
+                        </span>
+                      </button>
+                      {onUnlinkMessenger && (
+                        <button
+                          className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive ml-auto"
+                          onClick={(e) => { e.stopPropagation(); onUnlinkMessenger('max'); }}
+                          title="Отвязать MAX"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <>
                       <span className="text-sm text-muted-foreground italic">
@@ -585,9 +609,18 @@ export const ContactInfoBlock = ({
         })}
         
         {email && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 group">
             <Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
             <span className="text-sm text-muted-foreground">{email}</span>
+            {onUnlinkEmail && (
+              <button
+                className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive ml-auto"
+                onClick={onUnlinkEmail}
+                title="Удалить email"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
           </div>
         )}
       </div>

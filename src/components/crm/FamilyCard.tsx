@@ -658,6 +658,18 @@ export const FamilyCard = ({
                   clientName: activeMember.name,
                 });
               }}
+              onUnlinkEmail={async () => {
+                try {
+                  await supabase
+                    .from('clients')
+                    .update({ email: null })
+                    .eq('id', activeMember.id);
+                  toast.success('Email удалён');
+                  refetch();
+                } catch {
+                  toast.error('Ошибка при удалении email');
+                }
+              }}
               onPhoneSave={async (data) => {
                 // Save phone to client record and create client_phone_numbers entry with messenger data
                 try {
