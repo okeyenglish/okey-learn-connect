@@ -46,6 +46,12 @@ CREATE TABLE IF NOT EXISTS public.team_behavior_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Миграция: добавить столбцы если таблица уже существовала
+ALTER TABLE public.team_behavior_events ADD COLUMN IF NOT EXISTS client_intent TEXT;
+ALTER TABLE public.team_behavior_events ADD COLUMN IF NOT EXISTS is_incoming BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.team_behavior_events ADD COLUMN IF NOT EXISTS stage TEXT;
+ALTER TABLE public.team_behavior_events ADD COLUMN IF NOT EXISTS message_length INTEGER;
+
 CREATE INDEX IF NOT EXISTS idx_tbe_org_manager ON public.team_behavior_events(organization_id, manager_id);
 CREATE INDEX IF NOT EXISTS idx_tbe_conversation ON public.team_behavior_events(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_tbe_client ON public.team_behavior_events(client_id);
