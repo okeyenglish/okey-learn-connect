@@ -276,9 +276,15 @@ export const ForwardMessageModal = ({
                 {r.type === 'group' ? <Users className="h-3.5 w-3.5" /> : getInitials(r.name)}
               </AvatarFallback>
             </Avatar>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 overflow-hidden">
               <p className="text-sm font-medium truncate">{r.name}</p>
-              {r.branch && <p className="text-xs text-muted-foreground truncate">{r.branch}</p>}
+              {r.branch && <p className="text-xs text-muted-foreground truncate">{
+                (() => {
+                  const branches = r.branch.split(',').map(b => b.trim());
+                  if (branches.length <= 2) return r.branch;
+                  return branches.slice(0, 2).join(', ') + ` +${branches.length - 2}`;
+                })()
+              }</p>}
               {r.phone && <p className="text-xs text-muted-foreground truncate">{r.phone}</p>}
             </div>
             {r.type === 'group' && (
