@@ -1775,9 +1775,14 @@ const CRMContent = () => {
   const handleConvertToTeacherSuccess = useCallback((teacherId?: string) => {
     queryClient.invalidateQueries({ queryKey: ['teachers'] });
     queryClient.invalidateQueries({ queryKey: ['teacher-chats'] });
-    queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
-    // Don't invalidate chat-threads-infinite — already updated optimistically in ConvertToTeacherModal
-    queryClient.invalidateQueries({ queryKey: ['clients'] });
+    queryClient.invalidateQueries({ queryKey: ['teacher-conversations'] });
+    queryClient.invalidateQueries({ queryKey: ['teacher-client-links'] });
+    // Refetch client list after a short delay to avoid flash
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['chat-threads'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-threads-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+    }, 500);
     // Switch to teachers tab and open the teacher's chat
     setActiveTab('teachers');
     if (teacherId) {
