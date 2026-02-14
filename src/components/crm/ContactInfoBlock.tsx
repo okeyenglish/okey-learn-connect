@@ -575,7 +575,7 @@ export const ContactInfoBlock = ({
               <div className="flex items-center gap-2 group">
                 <button
                   className="flex items-center gap-2 hover:bg-purple-50 rounded px-1 -ml-1 transition-colors"
-                  onClick={() => handleMessengerClick(phoneRows[0].id, 'max', false)}
+                  onClick={() => handleMessengerClick(phoneRows[0].id, 'max', true)}
                 >
                   <MaxIcon active={false} />
                   <span className="text-sm font-medium text-muted-foreground">
