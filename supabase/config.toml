@@ -551,3 +551,6 @@ verify_jwt = false
 
 [functions.delete-staff-group-chat]
 verify_jwt = false
+
+[functions.db-maintenance]
+verify_jwt = false
