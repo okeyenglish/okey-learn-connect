@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/typedClient';
 import { AddCorporateChatModal } from './AddCorporateChatModal';
 import { useMessageDrafts } from '@/hooks/useMessageDrafts';
 import { useAuth } from '@/hooks/useAuth';
+import { SmartReplySuggestions } from './SmartReplySuggestions';
 
 interface CorporateChatAreaProps {
   onMessageChange?: (hasUnsaved: boolean) => void;
@@ -697,6 +698,33 @@ export const CorporateChatArea = ({ onMessageChange, selectedBranchId = null, em
             </div>
 
             <div className="p-4 border-t">
+              <SmartReplySuggestions
+                lastIncomingMessage={
+                  filteredMessages.length > 0 
+                    ? filteredMessages[filteredMessages.length - 1]?.message_text || null
+                    : null
+                }
+                isLastMessageIncoming={
+                  filteredMessages.length > 0 
+                    ? filteredMessages[filteredMessages.length - 1]?.message_type === 'client'
+                    : false
+                }
+                currentInput={message}
+                onSend={async (text) => {
+                  try {
+                    await sendMessage.mutateAsync({
+                      clientId,
+                      messageText: text.trim(),
+                      messageType: 'manager'
+                    });
+                    clearDraft();
+                    updateTypingStatus(false);
+                    onMessageChange?.(false);
+                  } catch {
+                    toast.error('Ошибка отправки сообщения');
+                  }
+                }}
+              />
               <div className="flex gap-2">
                 <Textarea
                   value={message}
