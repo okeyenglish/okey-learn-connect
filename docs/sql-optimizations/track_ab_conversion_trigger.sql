@@ -5,24 +5,53 @@
 --
 -- Конверсионные события:
 --   1. has_pending_payment: false → true  (клиент оплатил через эквайринг)
+--      - Если нет платежей за год → conversion_event = 'paid' (первичная)
+--      - Если есть платежи за год → conversion_event = 'prolonged' (пролонгация)
 --   2. INSERT в trial_lesson_requests     (клиент записался на пробное)
+--
+-- Миграция: добавить колонку prolongation_count
 -- ============================================================
+
+-- ==========================================
+-- 0. Миграция: prolongation_count
+-- ==========================================
+ALTER TABLE public.persona_ab_assignments
+  ADD COLUMN IF NOT EXISTS prolongation_count INTEGER DEFAULT 0;
 
 -- ==========================================
 -- 1. Триггер оплаты (clients)
 -- ==========================================
 CREATE OR REPLACE FUNCTION public.track_ab_conversion()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_prev_payments INTEGER;
 BEGIN
   -- Событие: клиент оплатил через интернет-эквайринг
   IF OLD.has_pending_payment IS DISTINCT FROM NEW.has_pending_payment
      AND NEW.has_pending_payment = true
   THEN
-    UPDATE public.persona_ab_assignments
-    SET converted = true,
-        conversion_event = 'paid'
+    -- Проверяем наличие подтверждённых платежей за последний год
+    SELECT count(*) INTO v_prev_payments
+    FROM public.online_payments
     WHERE client_id = NEW.id
-      AND converted = false;
+      AND status = 'CONFIRMED'
+      AND created_at > now() - interval '1 year';
+
+    IF v_prev_payments = 0 THEN
+      -- Первичная продажа
+      UPDATE public.persona_ab_assignments
+      SET converted = true,
+          conversion_event = 'paid'
+      WHERE client_id = NEW.id
+        AND converted = false;
+    ELSE
+      -- Пролонгация
+      UPDATE public.persona_ab_assignments
+      SET conversion_event = 'prolonged',
+          converted = true,
+          prolongation_count = prolongation_count + 1
+      WHERE client_id = NEW.id;
+    END IF;
   END IF;
 
   RETURN NEW;
@@ -36,7 +65,7 @@ CREATE TRIGGER track_ab_conversion_on_client
   EXECUTE FUNCTION public.track_ab_conversion();
 
 COMMENT ON FUNCTION public.track_ab_conversion() IS
-  'Отмечает конверсию paid в A/B тестах при оплате клиентом через эквайринг (has_pending_payment: false→true).';
+  'Отмечает конверсию в A/B тестах при оплате: paid (первичная, нет платежей за год) или prolonged (пролонгация, есть платежи за год).';
 
 -- ==========================================
 -- 2. Триггер записи на пробное (trial_lesson_requests)
