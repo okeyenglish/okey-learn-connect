@@ -293,5 +293,94 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 COMMENT ON FUNCTION public.evaluate_ab_test_winner(UUID) IS
   'Z-test для пропорций: сравнивает конверсию вариантов A и B, рассчитывает z-score, p-value и уровень уверенности. Автоматически записывает победителя при p < 0.05.';
 
+-- Функция автозавершения A/B теста
+-- Проверяет: обе группы >= target_sample_size И результат статистически значим (p < 0.05)
+-- Если условия выполнены — ставит status = 'completed', completed_at = now()
+-- Можно вызывать по cron или после каждого нового assignment
+CREATE OR REPLACE FUNCTION public.maybe_complete_ab_test(p_test_id UUID)
+RETURNS TABLE(
+  completed BOOLEAN,
+  reason TEXT
+) AS $$
+DECLARE
+  v_test RECORD;
+  v_na BIGINT;
+  v_nb BIGINT;
+  v_result RECORD;
+BEGIN
+  -- Получаем тест
+  SELECT * INTO v_test FROM persona_ab_tests WHERE id = p_test_id;
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT false, 'Test not found'::TEXT;
+    RETURN;
+  END IF;
+
+  -- Только running тесты
+  IF v_test.status != 'running' THEN
+    RETURN QUERY SELECT false, ('Test status is ' || v_test.status)::TEXT;
+    RETURN;
+  END IF;
+
+  -- Считаем размер выборки по вариантам
+  SELECT COUNT(*) INTO v_na
+  FROM persona_ab_assignments WHERE test_id = p_test_id AND variant = 'A';
+
+  SELECT COUNT(*) INTO v_nb
+  FROM persona_ab_assignments WHERE test_id = p_test_id AND variant = 'B';
+
+  -- Проверяем достаточность выборки
+  IF v_na < COALESCE(v_test.target_sample_size, 100)
+     OR v_nb < COALESCE(v_test.target_sample_size, 100) THEN
+    RETURN QUERY SELECT false,
+      format('Sample size not reached: A=%s, B=%s, target=%s', v_na, v_nb, v_test.target_sample_size)::TEXT;
+    RETURN;
+  END IF;
+
+  -- Запускаем z-test
+  SELECT * INTO v_result FROM public.evaluate_ab_test_winner(p_test_id);
+
+  -- Проверяем значимость
+  IF v_result.is_significant THEN
+    UPDATE persona_ab_tests
+    SET status = 'completed',
+        completed_at = now()
+    WHERE id = p_test_id;
+
+    RETURN QUERY SELECT true,
+      format('Completed! Winner: %s (confidence: %s%%, A: %s%%, B: %s%%)',
+        v_result.winner_variant, v_result.confidence_pct,
+        v_result.conv_rate_a, v_result.conv_rate_b)::TEXT;
+  ELSE
+    RETURN QUERY SELECT false,
+      format('Not significant yet (p=%s, confidence=%s%%, A: %s%%, B: %s%%)',
+        v_result.p_value, v_result.confidence_pct,
+        v_result.conv_rate_a, v_result.conv_rate_b)::TEXT;
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+COMMENT ON FUNCTION public.maybe_complete_ab_test(UUID) IS
+  'Автозавершение A/B теста: проверяет достижение target_sample_size в обеих группах и статистическую значимость (p < 0.05). При выполнении обоих условий завершает тест и фиксирует победителя.';
+
+-- Функция для проверки всех running тестов (для вызова по cron)
+CREATE OR REPLACE FUNCTION public.check_all_running_ab_tests()
+RETURNS TABLE(
+  test_id UUID,
+  test_name TEXT,
+  completed BOOLEAN,
+  reason TEXT
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT t.id, t.name, r.completed, r.reason
+  FROM persona_ab_tests t
+  CROSS JOIN LATERAL public.maybe_complete_ab_test(t.id) r
+  WHERE t.status = 'running';
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+COMMENT ON FUNCTION public.check_all_running_ab_tests() IS
+  'Проверяет все running A/B тесты на автозавершение. Удобно вызывать по cron (например, раз в час).';
+
 COMMENT ON TABLE public.persona_ab_tests IS 'A/B тесты персон — автоматическое сравнение конверсии между стилями AI.';
 COMMENT ON TABLE public.persona_ab_assignments IS 'Назначения клиентов в A/B группы тестов персон.';
