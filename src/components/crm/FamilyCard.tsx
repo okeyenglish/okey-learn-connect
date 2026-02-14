@@ -48,7 +48,7 @@ interface FamilyCardProps {
   familyGroupId: string;
   activeMemberId?: string;
   onSwitchMember?: (memberId: string) => void;
-  onOpenChat?: (memberId: string, messengerType?: 'whatsapp' | 'telegram' | 'max') => void;
+  onOpenChat?: (memberId: string, messengerType?: 'whatsapp' | 'telegram' | 'max' | 'email') => void;
   onCall?: (memberId: string) => void;
   onPhoneSwitch?: (phoneId: string) => void;
   activePhoneId?: string;
@@ -657,6 +657,9 @@ export const FamilyCard = ({
                   clientId: activeMember.id,
                   clientName: activeMember.name,
                 });
+              }}
+              onEmailClick={() => {
+                onOpenChat?.(activeMember.id, 'email');
               }}
               onUnlinkEmail={async () => {
                 try {

@@ -66,6 +66,7 @@ interface ContactInfoBlockProps {
   onPhoneSave?: (data: PhoneSaveData) => void; // Callback to save new/edited phone with messenger data
   onUnlinkMessenger?: (messenger: 'whatsapp' | 'telegram' | 'max') => void;
   onUnlinkEmail?: () => void;
+  onEmailClick?: () => void;
   // Client-level messenger data (fallback when phone-level data is missing)
   clientTelegramChatId?: string | null;
   clientTelegramUserId?: number | null;
@@ -81,6 +82,7 @@ export const ContactInfoBlock = ({
   onPhoneSave,
   onUnlinkMessenger,
   onUnlinkEmail,
+  onEmailClick,
   clientTelegramChatId,
   clientTelegramUserId,
   clientWhatsappChatId,
@@ -586,12 +588,17 @@ export const ContactInfoBlock = ({
             {/* Email inside messengers */}
             {email && (
               <div className="flex items-center gap-2 group">
-                <Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 ml-1" />
-                <span className="text-sm text-muted-foreground">{email}</span>
+                <button
+                  className="flex items-center gap-2 hover:bg-blue-50 rounded px-1 -ml-1 transition-colors"
+                  onClick={() => onEmailClick?.()}
+                >
+                  <Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                  <span className="text-sm text-muted-foreground hover:text-foreground cursor-pointer">{email}</span>
+                </button>
                 {onUnlinkEmail && (
                   <button
                     className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive ml-auto"
-                    onClick={onUnlinkEmail}
+                    onClick={(e) => { e.stopPropagation(); onUnlinkEmail(); }}
                     title="Удалить email"
                   >
                     <X className="h-3 w-3" />
@@ -605,12 +612,17 @@ export const ContactInfoBlock = ({
         {/* Email outside messengers section if no messengers exist */}
         {!hasMessengers && email && (
           <div className="flex items-center gap-2 group">
-            <Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-            <span className="text-sm text-muted-foreground">{email}</span>
+            <button
+              className="flex items-center gap-2 hover:bg-blue-50 rounded px-1 -ml-1 transition-colors"
+              onClick={() => onEmailClick?.()}
+            >
+              <Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+              <span className="text-sm text-muted-foreground hover:text-foreground cursor-pointer">{email}</span>
+            </button>
             {onUnlinkEmail && (
               <button
                 className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive ml-auto"
-                onClick={onUnlinkEmail}
+                onClick={(e) => { e.stopPropagation(); onUnlinkEmail(); }}
                 title="Удалить email"
               >
                 <X className="h-3 w-3" />
