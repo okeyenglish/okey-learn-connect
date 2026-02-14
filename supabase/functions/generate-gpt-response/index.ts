@@ -3,23 +3,19 @@ import {
   corsHeaders, 
   successResponse, 
   errorResponse,
-  getErrorMessage,
   handleCors,
   type AIChatResponse,
 } from '../_shared/types.ts';
 
-// Input validation constants
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_MESSAGE_LENGTH = 2000;
 
-// Validate UUID format
 const isValidUUID = (str: string): boolean => UUID_REGEX.test(str);
 
-// Sanitize message - remove potential injection patterns but keep content
 const sanitizeMessage = (msg: string): string => {
   return msg
     .slice(0, MAX_MESSAGE_LENGTH)
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Remove script tags
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
     .trim();
 };
 
@@ -29,6 +25,7 @@ interface GenerateGptRequest {
 }
 
 interface ConversationExample {
+  id: string;
   scenario_type: string;
   client_type: string;
   context_summary: string;
@@ -36,16 +33,21 @@ interface ConversationExample {
   outcome: string;
   quality_score: number;
   similarity: number;
+  // Learning Ranker fields
+  usage_count?: number;
+  feedback_score?: number;
+  success_rate?: number;
+  final_score?: number;
+  memory_tier?: string;
+  freshness_score?: number;
 }
 
-// Verify user has access to the client via organization
 async function verifyClientAccess(
   supabase: ReturnType<typeof createClient>,
   userId: string,
   clientId: string
-): Promise<{ hasAccess: boolean; error?: string }> {
+): Promise<{ hasAccess: boolean; organizationId?: string; error?: string }> {
   try {
-    // Get user's organization
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('organization_id')
@@ -53,39 +55,29 @@ async function verifyClientAccess(
       .maybeSingle();
 
     if (profileError || !profile?.organization_id) {
-      console.error('Profile fetch error:', profileError);
       return { hasAccess: false, error: 'User profile not found' };
     }
 
-    // Check if client belongs to user's organization
     const { data: client, error: clientError } = await supabase
       .from('clients')
       .select('id, organization_id')
       .eq('id', clientId)
       .maybeSingle();
 
-    if (clientError) {
-      console.error('Client fetch error:', clientError);
-      return { hasAccess: false, error: 'Failed to verify client access' };
-    }
-
-    if (!client) {
+    if (clientError || !client) {
       return { hasAccess: false, error: 'Client not found' };
     }
 
     if (client.organization_id !== profile.organization_id) {
-      console.warn(`Access denied: client org ${client.organization_id} != user org ${profile.organization_id}`);
       return { hasAccess: false, error: 'Client not in your organization' };
     }
 
-    return { hasAccess: true };
+    return { hasAccess: true, organizationId: profile.organization_id };
   } catch (error) {
-    console.error('Access verification error:', error);
     return { hasAccess: false, error: 'Access verification failed' };
   }
 }
 
-// Analyze current conversation context
 async function analyzeContext(
   messages: Array<{ message_text: string; is_outgoing: boolean }>,
   currentMessage: string,
@@ -125,21 +117,17 @@ JSON формат:
     });
 
     if (!response.ok) return null;
-
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
     if (!content) return null;
-
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
-
     return JSON.parse(jsonMatch[0]);
   } catch {
     return null;
   }
 }
 
-// Create embedding for similarity search
 async function createEmbedding(text: string, apiKey: string): Promise<number[] | null> {
   try {
     const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
@@ -162,12 +150,27 @@ async function createEmbedding(text: string, apiKey: string): Promise<number[] |
   }
 }
 
-// Format example conversations for the prompt
+// Learning Ranker: re-score and sort examples by effectiveness
+function rankExamples(examples: ConversationExample[], similarity: number[]): ConversationExample[] {
+  return examples
+    .map((ex, i) => ({
+      ...ex,
+      _rankerScore: (
+        0.35 * (similarity[i] || ex.similarity || 0) +
+        0.25 * Math.min((ex.feedback_score || 0) / 10, 1) +
+        0.20 * (ex.success_rate || 0) +
+        0.10 * Math.min((ex.usage_count || 0) / 20, 1) +
+        0.10 * (ex.freshness_score || 1)
+      )
+    }))
+    .sort((a, b) => (b as any)._rankerScore - (a as any)._rankerScore);
+}
+
 function formatExamples(examples: ConversationExample[]): string {
   if (!examples.length) return '';
 
   return examples.map((ex, i) => {
-    const dialog = ex.messages
+    const dialog = (ex.messages || [])
       .slice(0, 6)
       .map(m => `  ${m.role === 'manager' ? 'Менеджер' : 'Клиент'}: ${m.content}`)
       .join('\n');
@@ -185,7 +188,6 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    // Verify JWT token
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return errorResponse('Unauthorized: Missing authorization header', 401);
@@ -195,36 +197,25 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Create client with user's token for authentication
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } }
     });
 
-    // Verify the JWT and get user
     const token = authHeader.replace('Bearer ', '');
     const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
 
     if (claimsError || !claimsData?.claims?.sub) {
-      console.error('JWT verification failed:', claimsError);
       return errorResponse('Unauthorized: Invalid token', 401);
     }
 
     const userId = claimsData.claims.sub;
-    console.log(`Authenticated user: ${userId}`);
-
     const body = await req.json() as GenerateGptRequest;
     const { clientId, currentMessage } = body;
     
-    // Validate clientId
-    if (!clientId || typeof clientId !== 'string') {
-      return errorResponse('Client ID is required', 400);
+    if (!clientId || !isValidUUID(clientId)) {
+      return errorResponse('Invalid client ID', 400);
     }
     
-    if (!isValidUUID(clientId)) {
-      return errorResponse('Invalid client ID format', 400);
-    }
-    
-    // Validate currentMessage
     if (!currentMessage || typeof currentMessage !== 'string') {
       return errorResponse('Message is required', 400);
     }
@@ -239,47 +230,38 @@ Deno.serve(async (req) => {
       return errorResponse('Service configuration error', 500);
     }
 
-    // Initialize Supabase client with service role
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify user has access to this client
     const accessCheck = await verifyClientAccess(supabase, userId, clientId);
     if (!accessCheck.hasAccess) {
-      console.warn(`Access denied for user ${userId} to client ${clientId}: ${accessCheck.error}`);
       return errorResponse(accessCheck.error || 'Access denied', 403);
     }
 
-    // Get recent chat messages for context
-    const { data: messages, error: messagesError } = await supabase
-      .from('chat_messages')
-      .select('content, direction, created_at')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false })
-      .limit(10);
+    const organizationId = accessCheck.organizationId;
 
-    if (messagesError) {
-      console.error('Error fetching messages:', messagesError);
-    }
+    // Get recent messages + client info in parallel
+    const [messagesRes, clientRes] = await Promise.all([
+      supabase
+        .from('chat_messages')
+        .select('content, direction, created_at')
+        .eq('client_id', clientId)
+        .order('created_at', { ascending: false })
+        .limit(10),
+      supabase
+        .from('clients')
+        .select('name, notes, status')
+        .eq('id', clientId)
+        .maybeSingle()
+    ]);
 
-    // Transform messages to expected format
-    const formattedMessages = (messages || []).map(m => ({
+    const formattedMessages = (messagesRes.data || []).map(m => ({
       message_text: m.content || '',
       is_outgoing: m.direction === 'outgoing',
       created_at: m.created_at
     }));
 
-    // Get client info for additional context
-    const { data: client, error: clientError } = await supabase
-      .from('clients')
-      .select('name, notes, status')
-      .eq('id', clientId)
-      .maybeSingle();
+    const client = clientRes.data;
 
-    if (clientError) {
-      console.error('Error fetching client:', clientError);
-    }
-
-    // Build conversation context
     let conversationContext = '';
     if (formattedMessages.length > 0) {
       conversationContext = formattedMessages
@@ -288,37 +270,87 @@ Deno.serve(async (req) => {
         .join('\n');
     }
 
-    // === RAG: Find similar conversation examples ===
+    // === RAG with Learning Ranker ===
     let similarExamples: ConversationExample[] = [];
+    let editedExamples: Array<{ edited_response: string; client_message: string; similarity: number }> = [];
     let contextAnalysis: { scenario_type: string; client_type: string; client_stage: string } | null = null;
+    const usedExampleIds: string[] = [];
 
     try {
-      // Analyze current context
       contextAnalysis = await analyzeContext(formattedMessages, sanitizedMessage, LOVABLE_API_KEY);
       console.log('Context analysis:', contextAnalysis);
 
       if (contextAnalysis) {
-        // Create embedding for current situation
         const searchText = `${contextAnalysis.scenario_type} ${contextAnalysis.client_type} ${sanitizedMessage}`;
         const embedding = await createEmbedding(searchText, LOVABLE_API_KEY);
 
         if (embedding) {
-          // Search for similar approved examples
-          const { data: examples, error: examplesError } = await supabase
-            .rpc('match_conversations', {
-              query_embedding: `[${embedding.join(',')}]`,
+          // Parallel search: conversation examples (working memory first) + edited examples + segments
+          const embeddingStr = `[${embedding.join(',')}]`;
+          
+          const [examplesRes, editedRes, segmentsRes] = await Promise.all([
+            supabase.rpc('match_conversations', {
+              query_embedding: embeddingStr,
               p_scenario_type: contextAnalysis.scenario_type,
+              match_count: 8 // fetch more, ranker will select best
+            }).catch(() => ({ data: null, error: null })),
+            supabase.rpc('match_edited_examples', {
+              query_embedding: embeddingStr,
+              p_organization_id: organizationId || null,
               match_count: 3
-            });
+            }).catch(() => ({ data: null, error: null })),
+            supabase.rpc('match_segments', {
+              query_embedding: embeddingStr,
+              p_organization_id: organizationId || null,
+              p_intent_type: null,
+              match_count: 5
+            }).catch(() => ({ data: null, error: null }))
+          ]);
 
-          if (!examplesError && examples?.length) {
-            similarExamples = examples;
-            console.log(`Found ${similarExamples.length} similar conversation examples`);
+          // Apply Learning Ranker to conversation examples
+          if (examplesRes.data?.length) {
+            const similarities = examplesRes.data.map((ex: any) => ex.similarity || 0);
+            const ranked = rankExamples(examplesRes.data, similarities);
+            
+            // Prefer working memory, then longterm
+            const working = ranked.filter(ex => ex.memory_tier === 'working');
+            const longterm = ranked.filter(ex => ex.memory_tier === 'longterm');
+            const rest = ranked.filter(ex => ex.memory_tier !== 'working' && ex.memory_tier !== 'longterm');
+            
+            similarExamples = [...working, ...longterm, ...rest].slice(0, 3);
+            
+            // Track usage
+            for (const ex of similarExamples) {
+              if (ex.id) {
+                usedExampleIds.push(ex.id);
+              }
+            }
+            
+            console.log(`Learning Ranker: ${ranked.length} candidates → ${similarExamples.length} selected (${working.length} working, ${longterm.length} longterm)`);
+          }
+
+          // Edited examples (highest quality — human-corrected)
+          if (editedRes.data?.length) {
+            editedExamples = editedRes.data.filter((ex: any) => ex.similarity >= 0.4);
+            console.log(`Found ${editedExamples.length} relevant edited examples`);
+          }
+
+          // Segments as additional context
+          if (segmentsRes.data?.length) {
+            const relevantSegments = segmentsRes.data.filter((s: any) => s.similarity >= 0.5);
+            console.log(`Found ${relevantSegments.length} relevant segments`);
           }
         }
       }
     } catch (ragError) {
-      console.warn('RAG search failed, falling back to basic prompt:', ragError);
+      console.warn('RAG search failed:', ragError);
+    }
+
+    // Track example usage asynchronously
+    if (usedExampleIds.length > 0) {
+      Promise.all(
+        usedExampleIds.map(id => supabase.rpc('track_example_usage', { p_example_id: id }))
+      ).catch(err => console.warn('Failed to track usage:', err));
     }
 
     // === Build enhanced system prompt ===
@@ -329,7 +361,6 @@ Deno.serve(async (req) => {
 Статус клиента: ${client?.status || 'Не указан'}
 Заметки о клиенте: ${client?.notes || 'Нет заметок'}`;
 
-    // Add context analysis if available
     if (contextAnalysis) {
       systemPrompt += `
 
@@ -339,7 +370,19 @@ Deno.serve(async (req) => {
 - Стадия клиента: ${contextAnalysis.client_stage}`;
     }
 
-    // Add similar examples if found (few-shot learning)
+    // Edited examples have highest priority (human-corrected)
+    if (editedExamples.length > 0) {
+      systemPrompt += `
+
+ЛУЧШИЕ ОТВЕТЫ (исправленные менеджерами — высший приоритет):
+${editedExamples.map((ex, i) => 
+  `[Исправление ${i + 1}] Клиент: ${ex.client_message || '...'}\nЛучший ответ: ${ex.edited_response}`
+).join('\n\n')}
+
+Используй стиль и формулировки из этих исправлений — они доказали эффективность.`;
+    }
+
+    // Conversation examples (ranked by Learning Ranker)
     if (similarExamples.length > 0) {
       systemPrompt += `
 
@@ -415,6 +458,8 @@ ${conversationContext}
       ...result, 
       generatedText,
       usedExamples: similarExamples.length,
+      usedEditedExamples: editedExamples.length,
+      usedExampleIds,
       scenarioType: contextAnalysis?.scenario_type 
     });
 

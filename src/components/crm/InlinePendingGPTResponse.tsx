@@ -26,10 +26,12 @@ export const InlinePendingGPTResponse: React.FC<InlinePendingGPTResponseProps> =
 
   const handleUseForEditing = () => {
     onUse(response.suggested_response);
+    // Track as "edited" feedback — this triggers learning from edits
+    saveFeedback('edited', response.suggested_response);
     dismissMutation.mutate(response.id);
   };
 
-  const handleFeedback = async (feedback: 'used' | 'rejected') => {
+  const saveFeedback = async (feedback: 'used' | 'rejected' | 'edited', originalText?: string) => {
     if (feedbackGiven || !user) return;
     setFeedbackGiven(feedback);
     try {
@@ -43,6 +45,10 @@ export const InlinePendingGPTResponse: React.FC<InlinePendingGPTResponseProps> =
     } catch (err) {
       console.error('Failed to save AI feedback:', err);
     }
+  };
+
+  const handleFeedback = async (feedback: 'used' | 'rejected') => {
+    await saveFeedback(feedback);
   };
 
   return (
@@ -75,7 +81,7 @@ export const InlinePendingGPTResponse: React.FC<InlinePendingGPTResponseProps> =
           </div>
         ) : (
           <span className="ml-auto text-[9px] text-muted-foreground">
-            {feedbackGiven === 'used' ? '✓ Помогло' : '✗ Не подошло'}
+            {feedbackGiven === 'used' ? '✓ Помогло' : feedbackGiven === 'edited' ? '✏️ Редактирован' : '✗ Не подошло'}
           </span>
         )}
       </div>

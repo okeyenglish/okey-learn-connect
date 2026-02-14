@@ -560,3 +560,12 @@ verify_jwt = true
 
 [functions.db-maintenance]
 verify_jwt = false
+
+[functions.segment-conversations]
+verify_jwt = true
+
+[functions.refresh-working-memory]
+verify_jwt = false
+
+[functions.learn-from-edit]
+verify_jwt = true
