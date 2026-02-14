@@ -65,8 +65,8 @@ Deno.serve(async (req) => {
       // Get recent run details (last 100)
       const runs = await sql`
         SELECT 
-          runid,
-          jobid,
+          d.runid,
+          d.jobid,
           j.jobname as job_name,
           d.status,
           d.return_message,
