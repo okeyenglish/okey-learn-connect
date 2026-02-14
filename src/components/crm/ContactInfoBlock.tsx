@@ -379,7 +379,15 @@ export const ContactInfoBlock = ({
                   
                   <span 
                     className="text-sm font-medium cursor-pointer hover:text-primary transition-colors"
-                    onClick={() => handleCopyPhone(phoneNumber.phone, phoneNumber.id)}
+                    onClick={() => {
+                      // Click phone → open WhatsApp tab (primary messenger for phone numbers)
+                      const waActive = getMessengerStatus(phoneNumber, 'whatsapp');
+                      if (waActive && onMessengerClick) {
+                        onMessengerClick(phoneNumber.id, 'whatsapp');
+                      } else {
+                        handleCopyPhone(phoneNumber.phone, phoneNumber.id);
+                      }
+                    }}
                   >
                     {formatPhone(phoneNumber.phone)}
                   </span>
