@@ -13,6 +13,7 @@
 --        - Если есть платежи за год → conversion_event = 'prolonged' (пролонгация)
 --   2. INSERT в trial_lesson_requests     (клиент записался на пробное)
 --   3. INSERT в chat_messages              (обновление messages_count, avg_health_score)
+--   4. INSERT в ai_response_feedback       (обновление avg_feedback_score: used=1, edited=0.5, rejected=0)
 --
 -- Миграция: добавить колонку prolongation_count
 -- ============================================================
@@ -214,3 +215,67 @@ CREATE TRIGGER track_ab_message_metrics_on_chat
 
 COMMENT ON FUNCTION public.track_ab_message_metrics() IS
   'Обновляет messages_count, avg_health_score и last_interaction_at в persona_ab_assignments при каждом новом сообщении клиента.';
+
+-- ==========================================
+-- 4. Триггер обновления avg_feedback_score (ai_response_feedback)
+-- ==========================================
+-- При оценке AI-ответа менеджером (👍 used=1.0, ✏️ edited=0.5, 👎 rejected=0.0)
+-- пересчитывает скользящее среднее avg_feedback_score в persona_ab_assignments.
+-- Таблица ai_response_feedback содержит client_id и feedback ('used'/'rejected'/'edited').
+
+CREATE OR REPLACE FUNCTION public.track_ab_feedback_score()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_score NUMERIC;
+  v_current_avg NUMERIC;
+  v_current_count INTEGER;
+BEGIN
+  -- Только если есть привязка к клиенту
+  IF NEW.client_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  -- Маппинг feedback → числовой балл
+  v_score := CASE NEW.feedback
+    WHEN 'used' THEN 1.0
+    WHEN 'edited' THEN 0.5
+    WHEN 'rejected' THEN 0.0
+    ELSE NULL
+  END;
+
+  IF v_score IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  -- Пересчёт скользящего среднего: new_avg = (old_avg * count + score) / (count + 1)
+  -- Используем messages_count как прокси для количества оценок (feedback_count не существует),
+  -- поэтому считаем кол-во фидбэков напрямую
+  UPDATE public.persona_ab_assignments a
+  SET avg_feedback_score = (
+    SELECT ROUND(AVG(
+      CASE f.feedback
+        WHEN 'used' THEN 1.0
+        WHEN 'edited' THEN 0.5
+        WHEN 'rejected' THEN 0.0
+      END
+    )::NUMERIC, 2)
+    FROM public.ai_response_feedback f
+    WHERE f.client_id = NEW.client_id
+  )
+  FROM public.persona_ab_tests t
+  WHERE a.client_id = NEW.client_id
+    AND t.id = a.test_id
+    AND t.status = 'running';
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS track_ab_feedback_on_ai_response ON public.ai_response_feedback;
+CREATE TRIGGER track_ab_feedback_on_ai_response
+  AFTER INSERT ON public.ai_response_feedback
+  FOR EACH ROW
+  EXECUTE FUNCTION public.track_ab_feedback_score();
+
+COMMENT ON FUNCTION public.track_ab_feedback_score() IS
+  'Пересчитывает avg_feedback_score в persona_ab_assignments при оценке AI-ответа менеджером (used=1.0, edited=0.5, rejected=0.0).';
