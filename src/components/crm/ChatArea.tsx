@@ -91,7 +91,7 @@ interface ChatAreaProps {
   simplifiedToolbar?: boolean; // Show simplified toolbar with only basic icons and dropdown (for teacher chats)
   hasPendingPayment?: boolean; // True when client has an unacknowledged payment
   onPaymentProcessed?: () => void; // Callback when payment is marked as processed
-  onForwardSent?: (recipient: { type: 'staff' | 'group'; id: string; name: string }) => void; // Open AI Hub after forwarding
+  onForwardSent?: (recipient: { type: 'staff' | 'group' | 'client' | 'teacher'; id: string; name: string }) => void; // Open AI Hub after forwarding
   onOpenAssistant?: () => void; // Open ChatOS assistant
 }
 
@@ -2370,7 +2370,7 @@ export const ChatArea = ({
     setIsSelectionMode(true);
   }, []);
 
-  const handleForwardMessages = async (recipients: Array<{id: string, type: 'staff' | 'group', name: string}>) => {
+  const handleForwardMessages = async (recipients: Array<{id: string, type: 'staff' | 'group' | 'client' | 'teacher', name: string}>) => {
     // ForwardMessageModal now handles sending via useSendStaffMessage internally
     // This callback is kept for resetting selection mode
     setIsSelectionMode(false);
