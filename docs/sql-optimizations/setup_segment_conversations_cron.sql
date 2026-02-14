@@ -2,7 +2,7 @@
 -- SETUP: pg_cron задача для segment-conversations
 -- Run on: api.academyos.ru
 -- 
--- Сегментирует новые диалоги каждый час (в :15 минут)
+-- Сегментирует новые диалоги раз в сутки в 3:00
 -- =====================================================
 
 CREATE EXTENSION IF NOT EXISTS pg_cron;
@@ -11,16 +11,16 @@ CREATE EXTENSION IF NOT EXISTS pg_net;
 -- Удалить старую задачу если существует
 DO $$
 BEGIN
-  PERFORM cron.unschedule('segment-conversations-hourly');
+  PERFORM cron.unschedule('segment-conversations-daily');
 EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'Job not found, creating new';
 END;
 $$;
 
--- Создать задачу каждый час в :15
+-- Создать ежедневную задачу в 3:00
 SELECT cron.schedule(
-  'segment-conversations-hourly',
-  '15 * * * *',
+  'segment-conversations-daily',
+  '0 3 * * *',
   $$
   SELECT net.http_post(
     url := 'https://api.academyos.ru/functions/v1/segment-conversations',
@@ -33,4 +33,4 @@ SELECT cron.schedule(
 -- Проверка
 SELECT jobid, jobname, schedule, command
 FROM cron.job
-WHERE jobname = 'segment-conversations-hourly';
+WHERE jobname = 'segment-conversations-daily';
