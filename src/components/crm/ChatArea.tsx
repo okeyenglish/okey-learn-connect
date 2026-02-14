@@ -69,6 +69,8 @@ import { SmartReplySuggestions } from './SmartReplySuggestions';
 import { getSmartReplies } from '@/hooks/useSmartReplies';
 import { ConversationIntelligenceWidget } from './ConversationIntelligenceWidget';
 import { useConversationIntelligence } from '@/hooks/useConversationIntelligence';
+import { ConversationHealthWidget } from './ConversationHealthWidget';
+import { useConversationHealth } from '@/hooks/useConversationHealth';
 
 interface ChatAreaProps {
   clientId: string;
@@ -396,6 +398,13 @@ export const ChatArea = ({
   // Conversation Intelligence - real-time stage classification
   const orgId = (authProfile as any)?.organization_id || null;
   const { state: conversationState, loading: ciLoading, triggerClassify } = useConversationIntelligence({
+    clientId: clientUUID,
+    organizationId: orgId,
+    enabled: !!clientUUID && !isTeacherMessages && !isDirectTeacherMessage,
+  });
+
+  // Conversation Health Score - early warning system
+  const { health: conversationHealth, loading: healthLoading, triggerRecalculate: triggerHealthRecalc } = useConversationHealth({
     clientId: clientUUID,
     organizationId: orgId,
     enabled: !!clientUUID && !isTeacherMessages && !isDirectTeacherMessage,
@@ -3701,6 +3710,13 @@ export const ChatArea = ({
               />
             )}
             
+            {/* Conversation Health Score - Early Warning System */}
+            <ConversationHealthWidget
+              health={conversationHealth}
+              loading={healthLoading}
+              compact={isMobile}
+            />
+
             {/* Conversation Intelligence Widget */}
             <ConversationIntelligenceWidget
               state={conversationState}
