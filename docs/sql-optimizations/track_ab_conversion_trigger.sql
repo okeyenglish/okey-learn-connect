@@ -23,6 +23,14 @@ ALTER TABLE public.persona_ab_assignments
   ADD COLUMN IF NOT EXISTS prolongation_count INTEGER DEFAULT 0;
 
 -- ==========================================
+-- 0b. Индекс на нормализованный телефон clients
+-- ==========================================
+-- Ускоряет поиск клиента по телефону в триггере track_ab_trial_conversion
+CREATE INDEX IF NOT EXISTS idx_clients_phone_normalized
+  ON public.clients (regexp_replace(phone, '[^0-9]', '', 'g'))
+  WHERE phone IS NOT NULL;
+
+-- ==========================================
 -- 1. Триггер оплаты (clients)
 -- ==========================================
 CREATE OR REPLACE FUNCTION public.track_ab_conversion()
