@@ -421,7 +421,7 @@ export const ContactInfoBlock = ({
                   )}
                   
                   {phoneNumber.isPrimary && effectivePhoneNumbers.length > 1 && (
-                    <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" />
+                    <Star className="h-3 w-3 text-yellow-500 fill-yellow-500 flex-shrink-0" />
                   )}
                 </>
               ) : (
@@ -507,14 +507,14 @@ export const ContactInfoBlock = ({
                 if (isMaxIdRow) return null;
                 
                 return (
-                <div className="flex items-center gap-1 ml-auto">
+                <div className="flex items-center gap-0.5 ml-auto">
                   {/* WhatsApp icon - show on phone rows */}
                   {isPhoneRow && (
                     <>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
-                            className={`p-1 rounded transition-colors ${waActive ? 'hover:bg-green-50 cursor-pointer' : 'cursor-default'}`}
+                            className={`p-0.5 rounded transition-colors ${waActive ? 'hover:bg-green-50 cursor-pointer' : 'cursor-default'}`}
                             onClick={() => handleMessengerClick(phoneNumber.id, 'whatsapp', waActive)}
                             disabled={!waActive}
                           >
@@ -555,7 +555,7 @@ export const ContactInfoBlock = ({
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
-                            className="p-1 rounded transition-colors hover:bg-blue-50 cursor-pointer"
+                            className="p-0.5 rounded transition-colors hover:bg-blue-50 cursor-pointer"
                             onClick={() => handleMessengerClick(phoneNumber.id, 'telegram', true)}
                           >
                             <TelegramIcon active={true} />
@@ -579,7 +579,7 @@ export const ContactInfoBlock = ({
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
-                            className={`p-1 rounded transition-colors ${maxActive ? 'hover:bg-purple-50 cursor-pointer' : 'cursor-default'}`}
+                            className={`p-0.5 rounded transition-colors ${maxActive ? 'hover:bg-purple-50 cursor-pointer' : 'cursor-default'}`}
                             onClick={() => handleMessengerClick(phoneNumber.id, 'max', maxActive)}
                             disabled={!maxActive}
                           >
