@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Eye, EyeOff, Phone, Lock } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Phone, Lock, Building2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/typedClient';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/use-toast';
@@ -31,7 +31,8 @@ export default function Auth() {
     password: '',
     confirmPassword: '',
     firstName: '',
-    lastName: ''
+    lastName: '',
+    organizationName: ''
   });
 
   const { user, role } = useAuth();
@@ -159,7 +160,7 @@ export default function Auth() {
       return;
     }
 
-    if (!signupData.phone || !signupData.firstName) {
+    if (!signupData.phone || !signupData.firstName || !signupData.organizationName.trim()) {
       setError('Заполните все обязательные поля');
       setIsLoading(false);
       return;
@@ -193,11 +194,31 @@ export default function Auth() {
       }
 
       if (data.user) {
-        toast({
-          title: "Регистрация успешна",
-          description: "Проверьте email для подтверждения аккаунта",
+        // Создаём организацию и привязываем пользователя
+        const { error: orgError } = await supabase.rpc('create_organization_on_signup', {
+          org_name: signupData.organizationName.trim(),
+          user_first_name: signupData.firstName,
+          user_last_name: signupData.lastName || null,
+          user_phone: signupData.phone,
         });
-        setActiveTab('login');
+
+        if (orgError) {
+          console.error('Error creating organization:', orgError);
+          toast({
+            title: "Регистрация частично завершена",
+            description: "Аккаунт создан, но не удалось создать организацию. Обратитесь в поддержку.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Регистрация успешна",
+            description: "Организация создана. Добро пожаловать!",
+          });
+        }
+        
+        // Перезагружаем сессию чтобы подтянуть новые данные профиля
+        await supabase.auth.refreshSession();
+        navigate('/', { replace: true });
       }
     } catch (error: unknown) {
       setError('Произошла ошибка при регистрации');
@@ -301,6 +322,21 @@ export default function Auth() {
               {/* Форма регистрации */}
               <TabsContent value="signup" className="space-y-4">
                 <form onSubmit={handleSignup} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-org">Название организации *</Label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Input
+                        id="signup-org"
+                        placeholder="Например: Школа английского Easy"
+                        value={signupData.organizationName}
+                        onChange={(e) => setSignupData({ ...signupData, organizationName: e.target.value })}
+                        className="pl-10"
+                        disabled={isLoading}
+                        required
+                      />
+                    </div>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="signup-firstname">Имя *</Label>
