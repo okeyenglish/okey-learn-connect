@@ -1,17 +1,47 @@
 /**
  * Smart Reply popularity tracking — combined personal + org-wide ranking.
  * Uses self-hosted Supabase table `smart_reply_stats`.
+ * Merges custom DB rules with hardcoded defaults.
  */
 import { useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { getSmartReplies, detectCategory } from '@/hooks/useSmartReplies';
+import { getSmartReplies, detectCategory, mergeRules, type SmartReplyRule } from '@/hooks/useSmartReplies';
 
 interface SmartReplyStatRow {
   user_id: string;
   reply_text: string;
   use_count: number;
+}
+
+/**
+ * Fetch custom rules from DB and merge with defaults.
+ */
+export function useSmartReplyMergedRules() {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+
+  const { data: customRules = [] } = useQuery({
+    queryKey: ['smart-reply-rules', organizationId],
+    queryFn: async () => {
+      if (!organizationId) return [];
+      const { data, error } = await supabase
+        .from('smart_reply_rules')
+        .select('category, label, triggers, replies')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true);
+      if (error) {
+        console.warn('smart_reply_rules fetch failed (table may not exist):', error.message);
+        return [];
+      }
+      return (data || []) as SmartReplyRule[];
+    },
+    enabled: !!organizationId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  return useMemo(() => mergeRules(customRules), [customRules]);
 }
 
 /**
@@ -21,6 +51,7 @@ export function useSmartRepliesWithStats(lastIncomingMessage: string | null) {
   const { user, profile } = useAuth();
   const organizationId = profile?.organization_id;
   const userId = user?.id;
+  const mergedRules = useSmartReplyMergedRules();
 
   // Fetch org-wide stats
   const { data: stats } = useQuery({
@@ -38,15 +69,14 @@ export function useSmartRepliesWithStats(lastIncomingMessage: string | null) {
       return (data || []) as SmartReplyStatRow[];
     },
     enabled: !!organizationId,
-    staleTime: 2 * 60 * 1000, // 2 min cache
+    staleTime: 2 * 60 * 1000,
   });
 
   // Sort replies by combined score
   const sortedReplies = useMemo(() => {
-    const rawReplies = lastIncomingMessage ? getSmartReplies(lastIncomingMessage) : [];
+    const rawReplies = lastIncomingMessage ? getSmartReplies(lastIncomingMessage, mergedRules) : [];
     if (rawReplies.length === 0 || !stats || stats.length === 0) return rawReplies;
 
-    // Build score map: personal weight = 3x, org weight = 1x
     const scoreMap = new Map<string, number>();
     for (const reply of rawReplies) {
       scoreMap.set(reply, 0);
@@ -60,7 +90,7 @@ export function useSmartRepliesWithStats(lastIncomingMessage: string | null) {
     }
 
     return [...rawReplies].sort((a, b) => (scoreMap.get(b) || 0) - (scoreMap.get(a) || 0));
-  }, [lastIncomingMessage, stats, userId]);
+  }, [lastIncomingMessage, stats, userId, mergedRules]);
 
   return sortedReplies;
 }
@@ -72,11 +102,12 @@ export function useTrackSmartReply() {
   const { user, profile } = useAuth();
   const organizationId = profile?.organization_id;
   const queryClient = useQueryClient();
+  const mergedRules = useSmartReplyMergedRules();
 
   const mutation = useMutation({
     mutationFn: async ({ replyText, incomingMessage }: { replyText: string; incomingMessage: string }) => {
       if (!user?.id || !organizationId) return;
-      const category = detectCategory(incomingMessage) || 'unknown';
+      const category = detectCategory(incomingMessage, mergedRules) || 'unknown';
 
       const { error } = await supabase.rpc('increment_smart_reply_stat', {
         p_organization_id: organizationId,
