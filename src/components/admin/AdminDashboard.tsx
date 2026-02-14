@@ -44,6 +44,7 @@ import { QuickResponsesManager } from "./QuickResponsesManager";
 import { SmartRepliesManager } from "./SmartRepliesManager";
 import { CronMonitorDashboard } from "./CronMonitorDashboard";
 import { ConversationStageAnalytics } from "./ConversationStageAnalytics";
+import { PersonaManager } from "./PersonaManager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -83,6 +84,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <BonusSettingsPage />;
       case "ai-training":
         return <ConversationIndexingPanel />;
+      case "ai-personas":
+        return <PersonaManager />;
       case "faq":
         return <AdminFAQManager />;
       case "schedule":

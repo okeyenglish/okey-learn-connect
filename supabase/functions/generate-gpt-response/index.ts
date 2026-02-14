@@ -276,9 +276,68 @@ Deno.serve(async (req) => {
     let contextAnalysis: { scenario_type: string; client_type: string; client_stage: string } | null = null;
     const usedExampleIds: string[] = [];
 
+    // === Persona Layer: resolve active persona ===
+    let activePersona: { slug: string; name: string; tone: string; selling_level: string; formality: string; max_response_length: number; style_instructions: string | null; system_prompt_override: string | null } | null = null;
+    try {
+      // 1. Check manager-specific persona assignment
+      const { data: assignment } = await supabase
+        .from('manager_persona_assignments')
+        .select('persona_id')
+        .eq('manager_id', userId)
+        .eq('organization_id', organizationId)
+        .maybeSingle();
+
+      if (assignment?.persona_id) {
+        const { data: p } = await supabase
+          .from('ai_personas')
+          .select('slug, name, tone, selling_level, formality, max_response_length, style_instructions, system_prompt_override')
+          .eq('id', assignment.persona_id)
+          .eq('is_active', true)
+          .maybeSingle();
+        if (p) activePersona = p as any;
+      }
+
+      // 2. If no manager assignment, will resolve by stage/scenario after context analysis
+      // 3. Fallback: default persona
+      if (!activePersona) {
+        const { data: defaultP } = await supabase
+          .from('ai_personas')
+          .select('slug, name, tone, selling_level, formality, max_response_length, style_instructions, system_prompt_override, auto_assign_stages, auto_assign_scenario_types')
+          .eq('organization_id', organizationId)
+          .eq('is_active', true)
+          .order('is_default', { ascending: false });
+        
+        // Will be resolved after context analysis
+        if (defaultP?.length) {
+          // Store all for stage-based resolution
+          (globalThis as any).__orgPersonas = defaultP;
+          activePersona = defaultP.find((p: any) => p.is_default) as any || null;
+        }
+      }
+    } catch (personaErr) {
+      console.warn('Persona resolution failed:', personaErr);
+    }
+
     try {
       contextAnalysis = await analyzeContext(formattedMessages, sanitizedMessage, LOVABLE_API_KEY);
       console.log('Context analysis:', contextAnalysis);
+
+      // Resolve persona by stage/scenario if not already set by manager assignment
+      if (contextAnalysis && (globalThis as any).__orgPersonas) {
+        const allPersonas = (globalThis as any).__orgPersonas as any[];
+        const stageMatch = allPersonas.find((p: any) =>
+          p.auto_assign_stages?.includes(contextAnalysis!.client_stage) ||
+          p.auto_assign_stages?.includes(contextAnalysis!.scenario_type)
+        );
+        const scenarioMatch = allPersonas.find((p: any) =>
+          p.auto_assign_scenario_types?.includes(contextAnalysis!.scenario_type)
+        );
+        if (stageMatch) activePersona = stageMatch;
+        else if (scenarioMatch) activePersona = scenarioMatch;
+      }
+      delete (globalThis as any).__orgPersonas;
+
+      console.log('Active persona:', activePersona?.slug || 'none');
 
       if (contextAnalysis) {
         const searchText = `${contextAnalysis.scenario_type} ${contextAnalysis.client_type} ${sanitizedMessage}`;
@@ -292,7 +351,7 @@ Deno.serve(async (req) => {
             supabase.rpc('match_conversations', {
               query_embedding: embeddingStr,
               p_scenario_type: contextAnalysis.scenario_type,
-              match_count: 8 // fetch more, ranker will select best
+              match_count: 12 // fetch more for persona filtering
             }).catch(() => ({ data: null, error: null })),
             supabase.rpc('match_edited_examples', {
               query_embedding: embeddingStr,
@@ -310,7 +369,15 @@ Deno.serve(async (req) => {
           // Apply Learning Ranker to conversation examples
           if (examplesRes.data?.length) {
             const similarities = examplesRes.data.map((ex: any) => ex.similarity || 0);
-            const ranked = rankExamples(examplesRes.data, similarities);
+            let ranked = rankExamples(examplesRes.data, similarities);
+            
+            // === PERSONA FILTER: prefer examples with matching persona_tag ===
+            if (activePersona?.slug) {
+              const personaMatched = ranked.filter(ex => (ex as any).persona_tag === activePersona!.slug);
+              const personaOther = ranked.filter(ex => (ex as any).persona_tag !== activePersona!.slug);
+              ranked = [...personaMatched, ...personaOther];
+              console.log(`Persona filter: ${personaMatched.length} matched '${activePersona.slug}', ${personaOther.length} other`);
+            }
             
             // Prefer working memory, then longterm
             const working = ranked.filter(ex => ex.memory_tier === 'working');
@@ -354,12 +421,27 @@ Deno.serve(async (req) => {
     }
 
     // === Build enhanced system prompt ===
-    let systemPrompt = `Вы профессиональный менеджер английской школы "O'KEY ENGLISH". 
+    // If persona has a full system_prompt_override, use it; otherwise build default
+    let systemPrompt = activePersona?.system_prompt_override || `Вы профессиональный менеджер английской школы "O'KEY ENGLISH". 
 Ваша задача - сгенерировать подходящий ответ клиенту на основе контекста диалога.
 
 Информация о клиенте: ${client?.name || 'Не указано'}
 Статус клиента: ${client?.status || 'Не указан'}
 Заметки о клиенте: ${client?.notes || 'Нет заметок'}`;
+
+    // Inject persona style instructions
+    if (activePersona && !activePersona.system_prompt_override) {
+      systemPrompt += `
+
+СТИЛЬ ОБЩЕНИЯ (Persona: ${activePersona.name}):
+- Тон: ${activePersona.tone || 'нейтральный'}
+- Уровень продажи: ${activePersona.selling_level}
+- Формальность: ${activePersona.formality}
+- Максимальная длина ответа: ${activePersona.max_response_length} слов
+${activePersona.style_instructions ? `- Дополнительные инструкции: ${activePersona.style_instructions}` : ''}
+
+ВАЖНО: Строго следуй этому стилю. Не отклоняйся от заданного тона и уровня продажи.`;
+    }
 
     if (contextAnalysis) {
       systemPrompt += `
@@ -460,7 +542,8 @@ ${conversationContext}
       usedExamples: similarExamples.length,
       usedEditedExamples: editedExamples.length,
       usedExampleIds,
-      scenarioType: contextAnalysis?.scenario_type 
+      scenarioType: contextAnalysis?.scenario_type,
+      persona: activePersona?.slug || null,
     });
 
   } catch (error: unknown) {

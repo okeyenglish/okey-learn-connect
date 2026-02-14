@@ -27,7 +27,8 @@ import {
   CalendarPlus,
   Target,
   TestTube,
-  Gift
+  Gift,
+  Sparkles
 } from "lucide-react";
 import {
   Sidebar,
@@ -56,6 +57,7 @@ const adminItems = [
   { title: "Активность команды", id: "staff-analytics", icon: Activity },
   { title: "Воронка стадий", id: "stage-analytics", icon: Target },
   { title: "Обучение AI", id: "ai-training", icon: Bot },
+  { title: "AI Персоны", id: "ai-personas", icon: Sparkles },
   { title: "FAQ", id: "faq", icon: HelpCircle },
   { title: "Schedule", id: "schedule", icon: Calendar },
   { title: "Courses & Pricing", id: "pricing", icon: Settings },
