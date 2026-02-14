@@ -67,30 +67,32 @@ Deno.serve(async (req) => {
         SELECT 
           runid,
           jobid,
-          job_name,
-          status,
-          return_message,
-          start_time,
-          end_time,
-          EXTRACT(EPOCH FROM (end_time - start_time)) as duration_seconds
-        FROM cron.job_run_details
-        ORDER BY start_time DESC
+          j.jobname as job_name,
+          d.status,
+          d.return_message,
+          d.start_time,
+          d.end_time,
+          EXTRACT(EPOCH FROM (d.end_time - d.start_time)) as duration_seconds
+        FROM cron.job_run_details d
+        LEFT JOIN cron.job j ON j.jobid = d.jobid
+        ORDER BY d.start_time DESC
         LIMIT 100
       `;
 
       // Calculate stats per job
       const jobStats = await sql`
         SELECT 
-          job_name,
+          j.jobname as job_name,
           COUNT(*) as total_runs,
-          COUNT(*) FILTER (WHERE status = 'succeeded') as succeeded,
-          COUNT(*) FILTER (WHERE status = 'failed') as failed,
-          MAX(start_time) as last_run,
-          AVG(EXTRACT(EPOCH FROM (end_time - start_time))) as avg_duration_seconds
-        FROM cron.job_run_details
-        WHERE start_time > NOW() - INTERVAL '24 hours'
-        GROUP BY job_name
-        ORDER BY job_name
+          COUNT(*) FILTER (WHERE d.status = 'succeeded') as succeeded,
+          COUNT(*) FILTER (WHERE d.status = 'failed') as failed,
+          MAX(d.start_time) as last_run,
+          AVG(EXTRACT(EPOCH FROM (d.end_time - d.start_time))) as avg_duration_seconds
+        FROM cron.job_run_details d
+        LEFT JOIN cron.job j ON j.jobid = d.jobid
+        WHERE d.start_time > NOW() - INTERVAL '24 hours'
+        GROUP BY j.jobname
+        ORDER BY j.jobname
       `;
 
       await sql.end();
