@@ -320,7 +320,9 @@ export const ContactInfoBlock = ({
   const messengerRows = effectivePhoneNumbers.filter(p => !p.phone);
   
   // Check if there are any messengers to show
-  const hasMessengers = messengerRows.length > 0 || 
+  const hasMaxId = !!clientMaxChatId || messengerRows.some(p => p.maxChatId);
+  const hasMaxFallbackPhone = !hasMaxId && phoneRows.length > 0; // Show MAX with phone fallback
+  const hasMessengers = messengerRows.length > 0 || hasMaxFallbackPhone ||
     phoneRows.some(p => getMessengerStatus(p, 'whatsapp') || getMessengerStatus(p, 'telegram') || getMessengerStatus(p, 'max'));
 
   // Count active messengers for badge
@@ -543,29 +545,43 @@ export const ContactInfoBlock = ({
               </div>
             ))}
 
-            {/* MAX ID row */}
-            {messengerRows.filter(p => p.maxChatId).map((phoneNumber) => (
-              <div key={phoneNumber.id} className="flex items-center gap-2 group">
+            {/* MAX row - show ID if available, otherwise show phone as fallback */}
+            {hasMaxId ? (
+              messengerRows.filter(p => p.maxChatId).map((phoneNumber) => (
+                <div key={phoneNumber.id} className="flex items-center gap-2 group">
+                  <button
+                    className="flex items-center gap-2 hover:bg-purple-50 rounded px-1 -ml-1 transition-colors"
+                    onClick={() => handleMessengerClick(phoneNumber.id, 'max', true)}
+                  >
+                    <MaxIcon active={true} />
+                    <span className="text-sm font-medium text-purple-600">
+                      ID: {phoneNumber.maxChatId}
+                    </span>
+                  </button>
+                  {onUnlinkMessenger && (
+                    <button
+                      className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive ml-auto"
+                      onClick={(e) => { e.stopPropagation(); onUnlinkMessenger('max'); }}
+                      title="Отвязать MAX"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              ))
+            ) : phoneRows.length > 0 ? (
+              <div className="flex items-center gap-2 group">
                 <button
                   className="flex items-center gap-2 hover:bg-purple-50 rounded px-1 -ml-1 transition-colors"
-                  onClick={() => handleMessengerClick(phoneNumber.id, 'max', true)}
+                  onClick={() => handleMessengerClick(phoneRows[0].id, 'max', false)}
                 >
-                  <MaxIcon active={true} />
-                  <span className="text-sm font-medium text-purple-600">
-                    MAX ID: {phoneNumber.maxChatId}
+                  <MaxIcon active={false} />
+                  <span className="text-sm font-medium text-muted-foreground">
+                    {formatPhone(phoneRows[0].phone)}
                   </span>
                 </button>
-                {onUnlinkMessenger && (
-                  <button
-                    className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive ml-auto"
-                    onClick={(e) => { e.stopPropagation(); onUnlinkMessenger('max'); }}
-                    title="Отвязать MAX"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
               </div>
-            ))}
+            ) : null}
 
             {/* Email inside messengers */}
             {email && (
