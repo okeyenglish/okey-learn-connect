@@ -751,172 +751,28 @@ COMMENT ON FUNCTION public.snapshot_manager_performance(UUID, DATE) IS
   'Создаёт ежедневный снимок производительности менеджеров из conversation_paths.';
 
 -- ==========================================
--- 9. Функция: топ путей по конверсии
+-- 9. RPC: топ путей по конверсии
 -- ==========================================
 
-CREATE OR REPLACE FUNCTION public.get_top_conversation_paths(
-  p_organization_id UUID,
-  p_days INTEGER DEFAULT 30,
-  p_limit INTEGER DEFAULT 10
-)
-RETURNS TABLE(
-  stage_path TEXT[],
-  total_conversations BIGINT,
-  converted BIGINT,
-  conversion_rate NUMERIC,
-  avg_response_time NUMERIC,
-  avg_messages NUMERIC
-) AS $$
-BEGIN
-  RETURN QUERY
-  SELECT
-    cp.stage_path,
-    COUNT(*)::BIGINT,
-    COUNT(*) FILTER (WHERE cp.outcome IN ('converted', 'trial_booked'))::BIGINT,
-    ROUND(COUNT(*) FILTER (WHERE cp.outcome IN ('converted', 'trial_booked'))::NUMERIC / COUNT(*) * 100, 2),
-    ROUND(AVG(cp.avg_response_time_sec), 2),
-    ROUND(AVG(cp.total_messages), 1)
-  FROM public.conversation_paths cp
-  WHERE cp.organization_id = p_organization_id
-    AND cp.started_at > now() - (p_days || ' days')::INTERVAL
-  GROUP BY cp.stage_path
-  HAVING COUNT(*) >= 3 -- минимум 3 диалога для статистической значимости
-  ORDER BY conversion_rate DESC
-  LIMIT p_limit;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+DROP FUNCTION IF EXISTS public.get_top_conversation_paths(UUID, INTEGER, INTEGER);
 
-COMMENT ON FUNCTION public.get_top_conversation_paths(UUID, INTEGER, INTEGER) IS
-  'Возвращает топ путей диалогов по конверсии за указанный период.';
+-- (определение ниже в секции RPC)
 
 -- ==========================================
--- 10. Функция: сравнение менеджеров
+-- 10. RPC: сравнение менеджеров
 -- ==========================================
 
-CREATE OR REPLACE FUNCTION public.get_manager_comparison(
-  p_organization_id UUID,
-  p_days INTEGER DEFAULT 30
-)
-RETURNS TABLE(
-  manager_id UUID,
-  manager_name TEXT,
-  total_conversations BIGINT,
-  conversion_rate NUMERIC,
-  avg_response_time NUMERIC,
-  avg_first_response NUMERIC,
-  most_used_path TEXT[],
-  best_path TEXT[],
-  peak_hour SMALLINT
-) AS $$
-BEGIN
-  RETURN QUERY
-  SELECT
-    cp.manager_id,
-    COALESCE(p.first_name || ' ' || p.last_name, p.email, cp.manager_id::TEXT),
-    COUNT(*)::BIGINT,
-    ROUND(COUNT(*) FILTER (WHERE cp.outcome IN ('converted', 'trial_booked'))::NUMERIC / NULLIF(COUNT(*), 0) * 100, 2),
-    ROUND(AVG(cp.avg_response_time_sec), 2),
-    ROUND(AVG(cp.first_response_time_sec), 2),
-    -- Самый частый путь
-    (SELECT cp2.stage_path FROM conversation_paths cp2
-     WHERE cp2.manager_id = cp.manager_id
-       AND cp2.started_at > now() - (p_days || ' days')::INTERVAL
-     GROUP BY cp2.stage_path ORDER BY count(*) DESC LIMIT 1),
-    -- Лучший путь по конверсии (мин 2 диалога)
-    (SELECT cp3.stage_path FROM conversation_paths cp3
-     WHERE cp3.manager_id = cp.manager_id
-       AND cp3.started_at > now() - (p_days || ' days')::INTERVAL
-     GROUP BY cp3.stage_path
-     HAVING count(*) >= 2
-     ORDER BY count(*) FILTER (WHERE cp3.outcome IN ('converted', 'trial_booked'))::NUMERIC / count(*) DESC
-     LIMIT 1),
-    MODE() WITHIN GROUP (ORDER BY cp.primary_hour)
-  FROM public.conversation_paths cp
-  LEFT JOIN public.profiles p ON p.id = cp.manager_id
-  WHERE cp.organization_id = p_organization_id
-    AND cp.started_at > now() - (p_days || ' days')::INTERVAL
-  GROUP BY cp.manager_id, p.first_name, p.last_name, p.email
-  ORDER BY conversion_rate DESC;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+DROP FUNCTION IF EXISTS public.get_manager_comparison(UUID, INTEGER);
 
-COMMENT ON FUNCTION public.get_manager_comparison(UUID, INTEGER) IS
-  'Сравнение менеджеров по конверсии, скорости и паттернам за указанный период.';
+-- (определение ниже в секции RPC)
 
 -- ==========================================
--- 11. Функция: командные метрики
+-- 11. RPC: командные метрики
 -- ==========================================
 
-CREATE OR REPLACE FUNCTION public.get_team_metrics(
-  p_organization_id UUID,
-  p_days INTEGER DEFAULT 30
-)
-RETURNS TABLE(
-  total_conversations BIGINT,
-  total_converted BIGINT,
-  team_conversion_rate NUMERIC,
-  avg_response_time NUMERIC,
-  avg_first_response NUMERIC,
-  top_conversion_path TEXT[],
-  worst_loss_path TEXT[],
-  best_hour SMALLINT,
-  worst_hour SMALLINT,
-  active_managers BIGINT,
-  conversion_spread NUMERIC -- разброс конверсии между менеджерами (стд. отклонение)
-) AS $$
-BEGIN
-  RETURN QUERY
-  WITH manager_rates AS (
-    SELECT
-      cp.manager_id,
-      COUNT(*) FILTER (WHERE cp.outcome IN ('converted', 'trial_booked'))::NUMERIC / NULLIF(COUNT(*), 0) * 100 as rate
-    FROM conversation_paths cp
-    WHERE cp.organization_id = p_organization_id
-      AND cp.started_at > now() - (p_days || ' days')::INTERVAL
-    GROUP BY cp.manager_id
-    HAVING COUNT(*) >= 3
-  ),
-  hourly AS (
-    SELECT
-      cp.primary_hour,
-      COUNT(*) FILTER (WHERE cp.outcome IN ('converted', 'trial_booked'))::NUMERIC / NULLIF(COUNT(*), 0) * 100 as rate
-    FROM conversation_paths cp
-    WHERE cp.organization_id = p_organization_id
-      AND cp.started_at > now() - (p_days || ' days')::INTERVAL
-    GROUP BY cp.primary_hour
-    HAVING COUNT(*) >= 3
-  )
-  SELECT
-    COUNT(*)::BIGINT,
-    COUNT(*) FILTER (WHERE cp.outcome IN ('converted', 'trial_booked'))::BIGINT,
-    ROUND(COUNT(*) FILTER (WHERE cp.outcome IN ('converted', 'trial_booked'))::NUMERIC / NULLIF(COUNT(*), 0) * 100, 2),
-    ROUND(AVG(cp.avg_response_time_sec), 2),
-    ROUND(AVG(cp.first_response_time_sec), 2),
-    -- Лучший путь
-    (SELECT cp2.stage_path FROM conversation_paths cp2
-     WHERE cp2.organization_id = p_organization_id
-       AND cp2.started_at > now() - (p_days || ' days')::INTERVAL
-     GROUP BY cp2.stage_path HAVING count(*) >= 3
-     ORDER BY count(*) FILTER (WHERE cp2.outcome IN ('converted', 'trial_booked'))::NUMERIC / count(*) DESC LIMIT 1),
-    -- Худший путь (потери)
-    (SELECT cp3.stage_path FROM conversation_paths cp3
-     WHERE cp3.organization_id = p_organization_id
-       AND cp3.started_at > now() - (p_days || ' days')::INTERVAL
-       AND cp3.outcome = 'lost'
-     GROUP BY cp3.stage_path HAVING count(*) >= 3
-     ORDER BY count(*) DESC LIMIT 1),
-    (SELECT h.primary_hour FROM hourly h ORDER BY h.rate DESC LIMIT 1),
-    (SELECT h.primary_hour FROM hourly h ORDER BY h.rate ASC LIMIT 1),
-    (SELECT COUNT(DISTINCT mr.manager_id) FROM manager_rates mr)::BIGINT,
-    ROUND((SELECT stddev(mr.rate) FROM manager_rates mr), 2)
-  FROM conversation_paths cp
-  WHERE cp.organization_id = p_organization_id
-    AND cp.started_at > now() - (p_days || ' days')::INTERVAL;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+DROP FUNCTION IF EXISTS public.get_team_metrics(UUID, INTEGER);
 
-COMMENT ON FUNCTION public.get_team_metrics(UUID, INTEGER) IS
-  'Командные метрики: конверсия, скорость, лучшие/худшие пути, часы, разброс между менеджерами.';
+-- (определение ниже в секции RPC)
 
 -- ==========================================
 -- 12. pg_cron задачи
