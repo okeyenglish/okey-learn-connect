@@ -76,6 +76,7 @@ const adminItems = [
   { title: "Event Bus", id: "event-bus", icon: Zap },
   { title: "AI Settings", id: "ai-settings", icon: Zap },
   { title: "Быстрые ответы", id: "quick-responses", icon: MessageSquare },
+  { title: "Smart Replies", id: "smart-replies", icon: Zap },
   { title: "Sync", id: "sync", icon: RefreshCw },
   { title: "Users", id: "users", icon: Users },
   { title: "Филиалы сотрудников", id: "user-branches", icon: Database },
