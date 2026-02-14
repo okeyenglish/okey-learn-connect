@@ -318,6 +318,9 @@ DECLARE
   v_client_type TEXT;
   v_event_type TEXT;
   v_msg_count INTEGER;
+  v_stage TEXT := 'general';
+  v_text TEXT;
+  v_all_texts TEXT;
 BEGIN
   -- Только сообщения с привязкой к клиенту и менеджеру
   IF NEW.client_id IS NULL OR NEW.sender_id IS NULL THEN
@@ -370,6 +373,89 @@ BEGIN
     v_event_type := 'follow_up';
   END IF;
 
+  -- ========================================
+  -- Определение стадии диалога (stage) по ключевым словам
+  -- ========================================
+  v_text := lower(COALESCE(NEW.content, ''));
+
+  SELECT string_agg(lower(COALESCE(content, '')), ' ' ORDER BY created_at DESC)
+  INTO v_all_texts
+  FROM (
+    SELECT content, created_at
+    FROM public.chat_messages
+    WHERE client_id = NEW.client_id
+    ORDER BY created_at DESC
+    LIMIT 5
+  ) recent;
+
+  v_all_texts := COALESCE(v_all_texts, v_text);
+
+  -- Приоритетный порядок: от конкретных стадий к общим
+    -- 1. CLOSE (закрытие / запись / оплата)
+    IF v_text ~* '(оплат|оформ|запис|договор|подтвер|готов.*начать|ждём вас|до встречи|увидимся|забронир)'
+       OR v_text ~* '(реквизит|счёт|перевод|карт[аеу]|сбер|тинькофф|внес.*оплат)'
+    THEN
+      v_stage := 'close';
+
+    -- 2. TRIAL (пробное занятие)
+    ELSIF v_text ~* '(пробн|ознакомительн|первое занятие|попробо|бесплатн.*занят|тестов.*урок|приходите.*попроб)'
+       OR v_all_texts ~* '(пробн.*занят|пробн.*урок|первое.*бесплатн)'
+    THEN
+      v_stage := 'trial';
+
+    -- 3. OBJECTION (возражения / сомнения)
+    ELSIF v_text ~* '(доро|не уверен|подума|сравн|конкурент|альтернатив|сомнев|не подход|другой вариант|гарант)'
+       OR v_text ~* '(скидк|акци|промокод|дешевл|бонус|специальн.*предлож)'
+       OR v_all_texts ~* '(доро|дешевл|скидк|подума.*потом|не уверен.*стоит)'
+    THEN
+      v_stage := 'objection';
+
+    -- 4. PRESENTATION (презентация / описание услуг)
+    ELSIF v_text ~* '(програм|курс|направлен|предмет|группа|расписани|формат|индивидуальн|преподавател|методик)'
+       OR v_text ~* '(включа|состоит из|длительность|продолжительн|в программ|у нас есть|предлага|мы проводим)'
+       OR v_text ~* '(уровн|начинающ|продвинут|интенсив|сертификат|диплом|результат)'
+    THEN
+      v_stage := 'presentation';
+
+    -- 5. PRICE (обсуждение стоимости)
+    ELSIF v_text ~* '(стоим|цен|прайс|тариф|абонемент|руб|₽|рублей|стоит|за месяц|за занятие|оплат.*варианты)'
+    THEN
+      v_stage := 'price';
+      v_event_type := 'price_mentioned';
+
+    -- 6. QUALIFICATION (выяснение потребностей)
+    ELSIF v_text ~* '(какой возраст|сколько лет|для кого|цел[ьи]|задач|уровень.*подготовк|опыт|раньше занимал)'
+       OR v_text ~* '(что.*важно|что.*интересу|какой.*результат|как.*давно|пожелани|предпочтени|что.*хотите)'
+       OR v_text ~* '(для ребён|для взросл|начинающ|ваш.*уровень|с чем.*связан)'
+    THEN
+      v_stage := 'qualification';
+
+    -- 7. GREETING (приветствие / первый контакт)
+    ELSIF v_text ~* '(здравствуйте|добрый|привет|доброе утро|добрый день|добрый вечер|рад.*приветств)'
+       OR v_text ~* '(чем.*помочь|как.*обратить|слушаю вас|меня зовут|я.*менеджер|рады.*обращени)'
+       OR v_msg_count = 0
+    THEN
+      v_stage := 'greeting';
+
+    -- 8. FOLLOW_UP (повторный контакт)
+    ELSIF v_text ~* '(напомин|вернуться.*вопрос|как.*решили|думали.*предложени|ещё актуальн|есть.*вопрос)'
+       OR v_text ~* '(на связи|решили|определились|готовы.*продолж)'
+    THEN
+      v_stage := 'follow_up';
+
+    -- 9. LOST indicators (потеря клиента)
+    ELSIF v_text ~* '(жаль|к сожалени|понима|если.*передумаете|будем.*рады|всегда.*можете.*вернуть)'
+    THEN
+      v_stage := 'lost';
+    END IF;
+
+    -- Дополнительно определяем event_type по содержимому
+    IF v_text ~* '(пробн.*занят|записать.*пробн|приглаша.*пробн)' AND v_event_type != 'first_response' THEN
+      v_event_type := 'trial_offered';
+    ELSIF v_text ~* '(оформ|запис.*группу|забронир|подтвер.*запис)' AND v_event_type != 'first_response' THEN
+      v_event_type := 'close_attempted';
+    END IF;
+
   -- Тип клиента
   SELECT CASE
     WHEN c.status = 'new' THEN 'new'
@@ -381,11 +467,11 @@ BEGIN
   -- Вставляем событие
   INSERT INTO public.team_behavior_events (
     organization_id, manager_id, client_id, conversation_id,
-    event_type, response_time_sec, message_length,
+    event_type, stage, response_time_sec, message_length,
     hour_of_day, day_of_week, client_type
   ) VALUES (
     NEW.organization_id, NEW.sender_id, NEW.client_id, v_conversation_id,
-    v_event_type, v_response_time, COALESCE(length(NEW.content), 0),
+    v_event_type, v_stage, v_response_time, COALESCE(length(NEW.content), 0),
     EXTRACT(HOUR FROM NEW.created_at)::SMALLINT,
     EXTRACT(ISODOW FROM NEW.created_at)::SMALLINT - 1,
     v_client_type
