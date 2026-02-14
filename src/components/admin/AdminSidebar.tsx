@@ -54,6 +54,7 @@ const adminItems = [
   { title: "KPI менеджеров", id: "kpi-management", icon: Target },
   { title: "Настройки бонусов", id: "bonus-settings", icon: Gift },
   { title: "Активность команды", id: "staff-analytics", icon: Activity },
+  { title: "Воронка стадий", id: "stage-analytics", icon: Target },
   { title: "Обучение AI", id: "ai-training", icon: Bot },
   { title: "FAQ", id: "faq", icon: HelpCircle },
   { title: "Schedule", id: "schedule", icon: Calendar },

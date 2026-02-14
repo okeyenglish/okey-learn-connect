@@ -43,6 +43,7 @@ import { TeacherSubjectsCategoriesEditor } from "./TeacherSubjectsCategoriesEdit
 import { QuickResponsesManager } from "./QuickResponsesManager";
 import { SmartRepliesManager } from "./SmartRepliesManager";
 import { CronMonitorDashboard } from "./CronMonitorDashboard";
+import { ConversationStageAnalytics } from "./ConversationStageAnalytics";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -76,6 +77,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <KpiManagementPage />;
       case "staff-analytics":
         return <StaffAnalyticsPage />;
+      case "stage-analytics":
+        return <ConversationStageAnalytics />;
       case "bonus-settings":
         return <BonusSettingsPage />;
       case "ai-training":
@@ -236,6 +239,14 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle className="text-teal-600">👥 Активность команды</CardTitle>
                   <CardDescription>Мониторинг работы в реальном времени</CardDescription>
+                </CardHeader>
+              </Card>
+              
+              {/* Воронка стадий */}
+              <Card className="cursor-pointer hover:bg-muted/50 border-indigo-200" onClick={() => setCurrentSection("stage-analytics")}>
+                <CardHeader>
+                  <CardTitle className="text-indigo-600">🧠 Воронка стадий</CardTitle>
+                  <CardDescription>Conversation Intelligence — аналитика стадий диалогов</CardDescription>
                 </CardHeader>
               </Card>
               
