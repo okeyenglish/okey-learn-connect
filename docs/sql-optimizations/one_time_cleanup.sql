@@ -36,16 +36,34 @@ BEGIN
 END;
 $$;
 
--- 5. VACUUM FULL для возврата дискового пространства ОС
--- (выполнять ПОСЛЕ DELETE, каждая команда отдельно)
-VACUUM FULL public.webhook_logs;
-VACUUM FULL public.event_bus;
-VACUUM FULL cron.job_run_details;
+-- =====================================================
+-- 5. VACUUM FULL — ВЫПОЛНЯТЬ ОТДЕЛЬНО!
+-- Каждую команду нужно запускать как отдельный запрос,
+-- НЕ в одной транзакции и НЕ вместе с другими командами.
+-- В psql или pgAdmin: выполняйте по одной строке за раз.
+-- =====================================================
 
--- 6. VACUUM ANALYZE для обновления статистики планировщика
-VACUUM ANALYZE public.chat_messages;
-VACUUM ANALYZE public.clients;
-VACUUM ANALYZE public.students;
+-- Запрос 5a (выполнить отдельно):
+-- VACUUM FULL public.webhook_logs;
+
+-- Запрос 5b (выполнить отдельно):
+-- VACUUM FULL public.event_bus;
+
+-- Запрос 5c (выполнить отдельно):
+-- VACUUM FULL cron.job_run_details;
+
+-- =====================================================
+-- 6. VACUUM ANALYZE — тоже выполнять по одной команде
+-- =====================================================
+
+-- Запрос 6a (выполнить отдельно):
+-- VACUUM ANALYZE public.chat_messages;
+
+-- Запрос 6b (выполнить отдельно):
+-- VACUUM ANALYZE public.clients;
+
+-- Запрос 6c (выполнить отдельно):
+-- VACUUM ANALYZE public.students;
 
 -- Проверка результатов
 SELECT 
