@@ -65,6 +65,7 @@ import { TakeoverRequestDialog } from './TakeoverRequestDialog';
 import { useChatOSMessages, useSendChatOSMessage } from '@/hooks/useChatOSMessages';
 import { isValidUUID, safeUUID } from '@/lib/uuidValidation';
 import { getNotificationSettings } from '@/hooks/useNotificationSettings';
+import { SmartReplySuggestions } from './SmartReplySuggestions';
 
 interface ChatAreaProps {
   clientId: string;
@@ -3684,6 +3685,18 @@ export const ChatArea = ({
                 maxAttempts={maxRetryStatus?.maxAttempts}
               />
             )}
+            
+            {/* Smart reply suggestions */}
+            <SmartReplySuggestions
+              lastIncomingMessage={lastMessage?.message || null}
+              isLastMessageIncoming={isLastMessageIncoming}
+              currentInput={message}
+              onSend={(text) => {
+                clearDraft();
+                sendMessageNow(text);
+              }}
+              disabled={loading || !!pendingMessage}
+            />
             
             {/* Typing indicator above textarea */}
             {isOtherUserTyping && typingInfo && (
