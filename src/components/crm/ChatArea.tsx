@@ -629,6 +629,8 @@ export const ChatArea = ({
         setTimeout(() => scrollToBottom(true), 50);
       });
     });
+    // Extra scroll after SmartReplySuggestions panel may appear/change layout
+    setTimeout(() => scrollToBottom(true), 400);
   }, [scrollToBottom]);
   useNewMessageRealtime(clientId, handleNewMessageRealtime);
 
