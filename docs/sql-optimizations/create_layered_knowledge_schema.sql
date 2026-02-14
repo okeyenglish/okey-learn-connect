@@ -181,6 +181,7 @@ CREATE POLICY "Service role full access to processing_jobs"
 -- ============================================================
 
 -- Semantic search across embedding registry
+DROP FUNCTION IF EXISTS public.match_embeddings;
 CREATE OR REPLACE FUNCTION public.match_embeddings(
   query_embedding extensions.vector(1536),
   p_entity_type TEXT,
@@ -195,7 +196,7 @@ RETURNS TABLE (
   similarity FLOAT
 )
 LANGUAGE sql STABLE
-SET search_path = 'public, extensions'
+SET search_path TO 'public', 'extensions'
 AS $$
   SELECT
     e.id,
