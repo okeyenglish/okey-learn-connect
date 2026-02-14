@@ -120,9 +120,11 @@ export const ContactInfoBlock = ({
         if (p.phone && !isLikelyPhoneNumber(p.phone)) {
           return { ...p, phone: '' };
         }
-        return p;
+        // Strip telegram/max data from phone rows - they'll get their own rows
+        return { ...p, telegramChatId: null, telegramUserId: null, isTelegramEnabled: false, maxChatId: null, isMaxEnabled: false };
       });
-      result.push(...validPhones);
+      // Only keep rows that have a valid phone (messenger-only rows without phone are handled below)
+      result.push(...validPhones.filter(p => p.phone && p.phone.trim() !== ''));
     } else {
       // No real phone numbers - check for messenger-only data
       
@@ -153,93 +155,57 @@ export const ContactInfoBlock = ({
         });
       }
       
-      // Create separate entry for Telegram if it exists and has no phone
-      if ((clientTelegramChatId || clientTelegramUserId) && !finalPhone) {
-        result.push({
-          id: 'virtual-telegram-contact',
-          phone: '',
-          isPrimary: result.length === 0,
-          isWhatsappEnabled: false,
-          isTelegramEnabled: true,
-          whatsappChatId: null,
-          telegramChatId: clientTelegramChatId,
-          telegramUserId: clientTelegramUserId,
-          maxChatId: null,
-          isVirtual: true,
-        });
-      }
-      
-      // Create separate entry for MAX if it exists
-      if (clientMaxChatId && !result.some(r => r.maxChatId)) {
-        result.push({
-          id: 'virtual-max-contact',
-          phone: '',
-          isPrimary: true,
-          isWhatsappEnabled: false,
-          isTelegramEnabled: false,
-          whatsappChatId: null,
-          telegramChatId: null,
-          telegramUserId: null,
-          maxChatId: clientMaxChatId,
-          isVirtual: true,
-        });
-      }
-      
-      // Fallback: if we have any messenger data but no entries yet, create a combined one
-      if (result.length === 0 && (finalPhone || clientTelegramChatId || clientTelegramUserId || clientWhatsappChatId || clientMaxChatId)) {
+      // Fallback: if no phone and no specific messenger entries created, create combined
+      if (result.length === 0 && !clientTelegramChatId && !clientTelegramUserId && !clientMaxChatId && (finalPhone || clientWhatsappChatId)) {
         result.push({
           id: 'virtual-messenger-contact',
           phone: finalPhone,
           isPrimary: true,
           isWhatsappEnabled: !!clientWhatsappChatId,
-          isTelegramEnabled: !!clientTelegramChatId || !!clientTelegramUserId,
+          isTelegramEnabled: false,
           whatsappChatId: clientWhatsappChatId,
-          telegramChatId: clientTelegramChatId,
-          telegramUserId: clientTelegramUserId,
-          maxChatId: clientMaxChatId,
-          isVirtual: true,
-        });
-      }
-    }
-    
-    // If we have phone numbers but also Telegram without phone, add Telegram as separate line
-    if (hasRealPhones && (clientTelegramUserId || clientTelegramChatId)) {
-      const hasTelegramInPhones = phoneNumbers.some(p => p.telegramUserId || p.telegramChatId);
-      if (!hasTelegramInPhones) {
-        result.push({
-          id: 'virtual-telegram-only',
-          phone: '',
-          isPrimary: false,
-          isWhatsappEnabled: false,
-          isTelegramEnabled: true,
-          whatsappChatId: null,
-          telegramChatId: clientTelegramChatId,
-          telegramUserId: clientTelegramUserId,
+          telegramChatId: null,
+          telegramUserId: null,
           maxChatId: null,
           isVirtual: true,
         });
       }
     }
     
-    // If we have phone numbers but also MAX ID without phone, add MAX as separate line
-    if (hasRealPhones && clientMaxChatId) {
-      const hasMaxInPhones = phoneNumbers.some(p => p.maxChatId);
-      const hasMaxInResult = result.some(r => r.maxChatId);
-      if (!hasMaxInPhones && !hasMaxInResult) {
-        result.push({
-          id: 'virtual-max-only',
-          phone: '',
-          isPrimary: false,
-          isWhatsappEnabled: false,
-          isTelegramEnabled: false,
-          isMaxEnabled: true,
-          whatsappChatId: null,
-          telegramChatId: null,
-          telegramUserId: null,
-          maxChatId: clientMaxChatId,
-          isVirtual: true,
-        });
-      }
+    // Always add Telegram ID as separate row if exists (client-level or phone-level)
+    const tgUserId = clientTelegramUserId || phoneNumbers.find(p => p.telegramUserId)?.telegramUserId;
+    const tgChatId = clientTelegramChatId || phoneNumbers.find(p => p.telegramChatId)?.telegramChatId;
+    if (tgUserId || tgChatId) {
+      result.push({
+        id: 'virtual-telegram-only',
+        phone: '',
+        isPrimary: false,
+        isWhatsappEnabled: false,
+        isTelegramEnabled: true,
+        whatsappChatId: null,
+        telegramChatId: tgChatId || null,
+        telegramUserId: tgUserId || null,
+        maxChatId: null,
+        isVirtual: true,
+      });
+    }
+    
+    // Always add MAX ID as separate row if exists
+    const maxId = clientMaxChatId || phoneNumbers.find(p => p.maxChatId)?.maxChatId;
+    if (maxId) {
+      result.push({
+        id: 'virtual-max-only',
+        phone: '',
+        isPrimary: false,
+        isWhatsappEnabled: false,
+        isTelegramEnabled: false,
+        isMaxEnabled: true,
+        whatsappChatId: null,
+        telegramChatId: null,
+        telegramUserId: null,
+        maxChatId: maxId,
+        isVirtual: true,
+      });
     }
     
     return result;
