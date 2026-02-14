@@ -31,7 +31,7 @@ const DialogOverlay = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
 >(({ className, style, ...props }, ref) => {
   const level = React.useContext(DialogLevelContext);
-  const zIndex = 50 + (level * 10);
+  const zIndex = 50 + (level * 10) + 40; // Base higher to cover CRM panels
   
   return (
     <DialogPrimitive.Overlay
@@ -52,7 +52,7 @@ const DialogContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, style, ...props }, ref) => {
   const level = React.useContext(DialogLevelContext);
-  const zIndex = 50 + (level * 10);
+  const zIndex = 50 + (level * 10) + 40; // Base higher to cover CRM panels
   
   return (
     <DialogPortal>
