@@ -385,3 +385,25 @@ COMMENT ON FUNCTION public.check_all_running_ab_tests() IS
 
 COMMENT ON TABLE public.persona_ab_tests IS 'A/B тесты персон — автоматическое сравнение конверсии между стилями AI.';
 COMMENT ON TABLE public.persona_ab_assignments IS 'Назначения клиентов в A/B группы тестов персон.';
+
+-- ==========================================
+-- pg_cron: автопроверка A/B тестов каждый час
+-- ==========================================
+-- Требует: pg_cron и расширение должно быть включено
+-- Безопасный DO-блок: обновляет задачу если уже существует
+
+DO $$
+BEGIN
+  -- Удаляем старую задачу если есть
+  PERFORM cron.unschedule('check-ab-tests-hourly');
+EXCEPTION WHEN others THEN
+  -- Игнорируем если задачи не было
+  NULL;
+END;
+$$;
+
+SELECT cron.schedule(
+  'check-ab-tests-hourly',
+  '0 * * * *', -- каждый час в :00
+  $$SELECT * FROM public.check_all_running_ab_tests()$$
+);
