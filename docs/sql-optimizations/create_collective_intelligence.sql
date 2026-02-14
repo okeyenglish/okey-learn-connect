@@ -25,14 +25,16 @@
 CREATE TABLE IF NOT EXISTS public.team_behavior_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
-  manager_id UUID NOT NULL, -- profile_id менеджера
+  manager_id UUID, -- profile_id менеджера (NULL для входящих клиентских событий)
   client_id UUID NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
   conversation_id UUID, -- логическая группировка (client_id + дата)
   -- Поведенческие данные
-  event_type TEXT NOT NULL, -- 'message_sent', 'first_response', 'follow_up', 'price_mentioned', 'trial_offered', 'close_attempted'
+  event_type TEXT NOT NULL, -- 'message_sent', 'first_response', 'follow_up', 'price_mentioned', 'trial_offered', 'close_attempted', 'client_message'
   stage TEXT, -- текущая стадия: 'greeting', 'qualification', 'presentation', 'objection', 'trial', 'close', 'lost'
+  client_intent TEXT, -- intent входящего сообщения клиента (NULL для исходящих)
   response_time_sec INTEGER, -- время ответа в секундах (NULL если инициатива менеджера)
   message_length INTEGER, -- длина сообщения
+  is_incoming BOOLEAN NOT NULL DEFAULT false, -- true = сообщение клиента
   -- Контекст
   hour_of_day SMALLINT, -- 0-23, час отправки
   day_of_week SMALLINT, -- 0-6, день недели (0=пн)
@@ -313,17 +315,18 @@ RETURNS TRIGGER AS $$
 DECLARE
   v_is_outgoing BOOLEAN;
   v_response_time INTEGER;
-  v_last_incoming TIMESTAMPTZ;
+  v_last_msg TIMESTAMPTZ;
   v_conversation_id UUID;
   v_client_type TEXT;
   v_event_type TEXT;
   v_msg_count INTEGER;
   v_stage TEXT := 'general';
+  v_client_intent TEXT := NULL;
   v_text TEXT;
   v_all_texts TEXT;
 BEGIN
-  -- Только сообщения с привязкой к клиенту и менеджеру
-  IF NEW.client_id IS NULL OR NEW.sender_id IS NULL THEN
+  -- Только сообщения с привязкой к клиенту
+  IF NEW.client_id IS NULL THEN
     RETURN NEW;
   END IF;
 
@@ -334,16 +337,175 @@ BEGIN
     false
   );
 
-  -- Записываем только исходящие сообщения менеджеров
+  -- Генерируем conversation_id
+  v_conversation_id := gen_random_uuid();
+
+  -- Нормализуем текст
+  v_text := lower(COALESCE(NEW.content, ''));
+
+  -- Контекст последних 5 сообщений
+  SELECT string_agg(lower(COALESCE(content, '')), ' ' ORDER BY created_at DESC)
+  INTO v_all_texts
+  FROM (
+    SELECT content, created_at
+    FROM public.chat_messages
+    WHERE client_id = NEW.client_id
+    ORDER BY created_at DESC
+    LIMIT 5
+  ) recent;
+  v_all_texts := COALESCE(v_all_texts, v_text);
+
+  -- Тип клиента
+  SELECT CASE
+    WHEN c.status = 'new' THEN 'new'
+    WHEN c.status IN ('active', 'enrolled') THEN 'returning'
+    ELSE COALESCE(c.status, 'new')
+  END INTO v_client_type
+  FROM public.clients c WHERE c.id = NEW.client_id;
+
+  -- ================================================================
+  -- ВХОДЯЩИЕ сообщения клиента → определяем client_intent
+  -- ================================================================
   IF NOT v_is_outgoing THEN
+    v_event_type := 'client_message';
+
+    -- Определяем intent клиента по ключевым словам
+    -- Приоритет: от специфичных к общим
+
+    -- 1. COMPLAINT (жалоба / негатив)
+    IF v_text ~* '(жалоб|претензи|недовол|ужасн|отвратительн|кошмар|безобрази|обман|возврат.*денег|верните.*деньги)'
+       OR v_text ~* '(плохо|ужас|хам|грубо|невежлив|не отвечает|игнорир|обратиться.*руководств)'
+       OR v_text ~* '(написать.*жалоб|оставить.*отзыв.*негатив|роспотребнадзор|прокуратур)'
+    THEN
+      v_client_intent := 'complaint';
+
+    -- 2. CANCELLATION (отмена / отказ)
+    ELSIF v_text ~* '(отмен|отказ|не.*прид|не.*смог|перенес|не.*получится|передумал|не.*хочу|расторг)'
+       OR v_text ~* '(верните.*деньги|возврат|не.*буду.*ходить|забрать.*документ|уход[иь]м)'
+    THEN
+      v_client_intent := 'cancellation';
+
+    -- 3. PRICE_INQUIRY (вопрос о цене)
+    ELSIF v_text ~* '(сколько.*стоит|цен[аы]|стоимость|прайс|тариф|абонемент|сколько.*стоят|почём)'
+       OR v_text ~* '(сколько.*платить|какая.*цена|какая.*стоимость|за.*месяц|за.*занятие|за.*урок)'
+       OR v_text ~* '(скидк|акци|промо|дешевл|подешевле|есть.*скидк|рассрочк)'
+    THEN
+      v_client_intent := 'price_inquiry';
+
+    -- 4. SCHEDULE_INQUIRY (вопрос о расписании)
+    ELSIF v_text ~* '(расписани|когда.*занят|во сколько|в какое.*время|какие.*дни|график|свободн.*врем)'
+       OR v_text ~* '(утр[оа]|вечер|день|суббот|воскресен|будн|выходн|понедельник|вторник|сред[аы]|четверг|пятниц)'
+       OR v_text ~* '(есть.*место|есть.*группа|когда.*начало|когда.*старт|набор.*групп)'
+    THEN
+      v_client_intent := 'schedule_inquiry';
+
+    -- 5. TRIAL_REQUEST (запрос пробного)
+    ELSIF v_text ~* '(пробн|попробовать|ознакомительн|первое.*занят|бесплатн.*занят|тестов)'
+       OR v_text ~* '(можно.*попроб|хочу.*попроб|записаться.*пробн|пробный.*урок)'
+    THEN
+      v_client_intent := 'trial_request';
+
+    -- 6. ENROLLMENT (запись / оформление)
+    ELSIF v_text ~* '(записаться|запиши|оформить|хочу.*начать|готов.*начать|когда.*начинаем)'
+       OR v_text ~* '(хочу.*в.*группу|запиш.*ребён|хочу.*на.*курс|готов.*оплат|как.*оплатить)'
+    THEN
+      v_client_intent := 'enrollment';
+
+    -- 7. PROGRAM_INQUIRY (вопрос о программе / курсе)
+    ELSIF v_text ~* '(какие.*курс|какие.*програм|какие.*направлен|чему.*учите|что.*преподаёте)'
+       OR v_text ~* '(для.*начинающ|для.*продвинут|для.*детей|для.*взросл|какой.*уровень)'
+       OR v_text ~* '(какие.*предмет|что.*входит|что.*включен|программа.*обучен|чем.*отличает)'
+    THEN
+      v_client_intent := 'program_inquiry';
+
+    -- 8. LOCATION_INQUIRY (вопрос о месте / филиале)
+    ELSIF v_text ~* '(где.*находит|адрес|как.*добрат|как.*доехать|какой.*филиал|ближайш)'
+       OR v_text ~* '(район|метро|парковк|есть.*рядом|на.*карте|дорог[уа].*к.*вам)'
+    THEN
+      v_client_intent := 'location_inquiry';
+
+    -- 9. TEACHER_INQUIRY (вопрос о преподавателе)
+    ELSIF v_text ~* '(кто.*преподаёт|преподаватель|учитель|тренер|педагог|опыт.*преподавател)'
+       OR v_text ~* '(квалификаци|образовани.*преподавател|какой.*преподаватель|можно.*выбрать.*преподавател)'
+    THEN
+      v_client_intent := 'teacher_inquiry';
+
+    -- 10. PAYMENT_QUESTION (вопрос об оплате)
+    ELSIF v_text ~* '(как.*оплатить|способ.*оплат|карт[ой]|наличн|безналичн|перевод|рассрочк|кредит)'
+       OR v_text ~* '(реквизит|счёт|инвойс|квитанци|чек|договор|документ|справк)'
+    THEN
+      v_client_intent := 'payment_question';
+
+    -- 11. POSITIVE_FEEDBACK (положительный отзыв)
+    ELSIF v_text ~* '(спасиб|благодар|отлично|замечательн|прекрасн|супер|класс|молодц|нравится|довольн|рекомендую)'
+       OR v_text ~* '(всё.*хорошо|всё.*нравится|всё.*устраивает|хорошие.*занят|отличн.*преподавател)'
+    THEN
+      v_client_intent := 'positive_feedback';
+
+    -- 12. GREETING (приветствие)
+    ELSIF v_text ~* '(здравствуйте|добрый|привет|доброе утро|добрый день|добрый вечер|алло|хай|хелло)'
+       AND length(v_text) < 50
+    THEN
+      v_client_intent := 'greeting';
+
+    -- 13. GENERAL_QUESTION (общий вопрос)
+    ELSIF v_text ~* '\?' OR v_text ~* '(подскажите|расскажите|объясните|уточните|интересу|хотел.*бы.*узнать)'
+    THEN
+      v_client_intent := 'general_question';
+
+    -- 14. SILENCE_BREAK (возвращение после молчания)
+    ELSIF v_text ~* '(вернуться|ещё.*актуальн|вспомнил|решил.*всё.*таки|передумал|давайте.*попроб)'
+    THEN
+      v_client_intent := 'silence_break';
+
+    ELSE
+      v_client_intent := 'other';
+    END IF;
+
+    -- Определяем stage из контекста для входящих
+    IF v_client_intent IN ('complaint', 'cancellation') THEN
+      v_stage := 'lost';
+    ELSIF v_client_intent = 'price_inquiry' THEN
+      v_stage := 'price';
+    ELSIF v_client_intent = 'trial_request' THEN
+      v_stage := 'trial';
+    ELSIF v_client_intent = 'enrollment' THEN
+      v_stage := 'close';
+    ELSIF v_client_intent IN ('program_inquiry', 'teacher_inquiry') THEN
+      v_stage := 'presentation';
+    ELSIF v_client_intent IN ('schedule_inquiry', 'location_inquiry', 'payment_question', 'general_question') THEN
+      v_stage := 'qualification';
+    ELSIF v_client_intent = 'greeting' THEN
+      v_stage := 'greeting';
+    ELSIF v_client_intent = 'silence_break' THEN
+      v_stage := 'follow_up';
+    END IF;
+
+    -- Вставляем событие клиента
+    INSERT INTO public.team_behavior_events (
+      organization_id, manager_id, client_id, conversation_id,
+      event_type, stage, client_intent, message_length, is_incoming,
+      hour_of_day, day_of_week, client_type
+    ) VALUES (
+      NEW.organization_id, NEW.sender_id, NEW.client_id, v_conversation_id,
+      v_event_type, v_stage, v_client_intent, COALESCE(length(NEW.content), 0), true,
+      EXTRACT(HOUR FROM NEW.created_at)::SMALLINT,
+      EXTRACT(ISODOW FROM NEW.created_at)::SMALLINT - 1,
+      v_client_type
+    );
+
     RETURN NEW;
   END IF;
 
-  -- Генерируем conversation_id как детерминированный UUID из client_id + дата
-  v_conversation_id := gen_random_uuid(); -- упрощённо; в проде можно группировать по сессии
+  -- ================================================================
+  -- ИСХОДЯЩИЕ сообщения менеджера → определяем stage + event_type
+  -- ================================================================
+  IF NEW.sender_id IS NULL THEN
+    RETURN NEW;
+  END IF;
 
   -- Время ответа: разница с последним входящим сообщением
-  SELECT created_at INTO v_last_incoming
+  SELECT created_at INTO v_last_msg
   FROM public.chat_messages
   WHERE client_id = NEW.client_id
     AND id != NEW.id
@@ -351,9 +513,8 @@ BEGIN
   ORDER BY created_at DESC
   LIMIT 1;
 
-  IF v_last_incoming IS NOT NULL THEN
-    v_response_time := EXTRACT(EPOCH FROM (NEW.created_at - v_last_incoming))::INTEGER;
-    -- Если ответ > 24ч — скорее всего новая сессия, не считаем
+  IF v_last_msg IS NOT NULL THEN
+    v_response_time := EXTRACT(EPOCH FROM (NEW.created_at - v_last_msg))::INTEGER;
     IF v_response_time > 86400 THEN
       v_response_time := NULL;
     END IF;
@@ -373,105 +534,67 @@ BEGIN
     v_event_type := 'follow_up';
   END IF;
 
-  -- ========================================
-  -- Определение стадии диалога (stage) по ключевым словам
-  -- ========================================
-  v_text := lower(COALESCE(NEW.content, ''));
+  -- Определение стадии диалога (stage) по ключевым словам менеджера
+  -- 1. CLOSE
+  IF v_text ~* '(оплат|оформ|запис|договор|подтвер|готов.*начать|ждём вас|до встречи|увидимся|забронир)'
+     OR v_text ~* '(реквизит|счёт|перевод|карт[аеу]|сбер|тинькофф|внес.*оплат)'
+  THEN
+    v_stage := 'close';
+  -- 2. TRIAL
+  ELSIF v_text ~* '(пробн|ознакомительн|первое занятие|попробо|бесплатн.*занят|тестов.*урок|приходите.*попроб)'
+     OR v_all_texts ~* '(пробн.*занят|пробн.*урок|первое.*бесплатн)'
+  THEN
+    v_stage := 'trial';
+  -- 3. OBJECTION
+  ELSIF v_text ~* '(доро|не уверен|подума|сравн|конкурент|альтернатив|сомнев|не подход|другой вариант|гарант)'
+     OR v_text ~* '(скидк|акци|промокод|дешевл|бонус|специальн.*предлож)'
+  THEN
+    v_stage := 'objection';
+  -- 4. PRESENTATION
+  ELSIF v_text ~* '(програм|курс|направлен|предмет|группа|расписани|формат|индивидуальн|преподавател|методик)'
+     OR v_text ~* '(включа|состоит из|длительность|продолжительн|в программ|у нас есть|предлага|мы проводим)'
+  THEN
+    v_stage := 'presentation';
+  -- 5. PRICE
+  ELSIF v_text ~* '(стоим|цен|прайс|тариф|абонемент|руб|₽|рублей|стоит|за месяц|за занятие|оплат.*варианты)'
+  THEN
+    v_stage := 'price';
+    v_event_type := 'price_mentioned';
+  -- 6. QUALIFICATION
+  ELSIF v_text ~* '(какой возраст|сколько лет|для кого|цел[ьи]|задач|уровень.*подготовк|опыт|раньше занимал)'
+     OR v_text ~* '(что.*важно|что.*интересу|какой.*результат|как.*давно|пожелани|предпочтени|что.*хотите)'
+  THEN
+    v_stage := 'qualification';
+  -- 7. GREETING
+  ELSIF v_text ~* '(здравствуйте|добрый|привет|доброе утро|добрый день|добрый вечер|рад.*приветств)'
+     OR v_msg_count = 0
+  THEN
+    v_stage := 'greeting';
+  -- 8. FOLLOW_UP
+  ELSIF v_text ~* '(напомин|вернуться.*вопрос|как.*решили|думали.*предложени|ещё актуальн|есть.*вопрос)'
+  THEN
+    v_stage := 'follow_up';
+  -- 9. LOST
+  ELSIF v_text ~* '(жаль|к сожалени|понима|если.*передумаете|будем.*рады|всегда.*можете.*вернуть)'
+  THEN
+    v_stage := 'lost';
+  END IF;
 
-  SELECT string_agg(lower(COALESCE(content, '')), ' ' ORDER BY created_at DESC)
-  INTO v_all_texts
-  FROM (
-    SELECT content, created_at
-    FROM public.chat_messages
-    WHERE client_id = NEW.client_id
-    ORDER BY created_at DESC
-    LIMIT 5
-  ) recent;
+  -- Дополнительно уточняем event_type
+  IF v_text ~* '(пробн.*занят|записать.*пробн|приглаша.*пробн)' AND v_event_type != 'first_response' THEN
+    v_event_type := 'trial_offered';
+  ELSIF v_text ~* '(оформ|запис.*группу|забронир|подтвер.*запис)' AND v_event_type != 'first_response' THEN
+    v_event_type := 'close_attempted';
+  END IF;
 
-  v_all_texts := COALESCE(v_all_texts, v_text);
-
-  -- Приоритетный порядок: от конкретных стадий к общим
-    -- 1. CLOSE (закрытие / запись / оплата)
-    IF v_text ~* '(оплат|оформ|запис|договор|подтвер|готов.*начать|ждём вас|до встречи|увидимся|забронир)'
-       OR v_text ~* '(реквизит|счёт|перевод|карт[аеу]|сбер|тинькофф|внес.*оплат)'
-    THEN
-      v_stage := 'close';
-
-    -- 2. TRIAL (пробное занятие)
-    ELSIF v_text ~* '(пробн|ознакомительн|первое занятие|попробо|бесплатн.*занят|тестов.*урок|приходите.*попроб)'
-       OR v_all_texts ~* '(пробн.*занят|пробн.*урок|первое.*бесплатн)'
-    THEN
-      v_stage := 'trial';
-
-    -- 3. OBJECTION (возражения / сомнения)
-    ELSIF v_text ~* '(доро|не уверен|подума|сравн|конкурент|альтернатив|сомнев|не подход|другой вариант|гарант)'
-       OR v_text ~* '(скидк|акци|промокод|дешевл|бонус|специальн.*предлож)'
-       OR v_all_texts ~* '(доро|дешевл|скидк|подума.*потом|не уверен.*стоит)'
-    THEN
-      v_stage := 'objection';
-
-    -- 4. PRESENTATION (презентация / описание услуг)
-    ELSIF v_text ~* '(програм|курс|направлен|предмет|группа|расписани|формат|индивидуальн|преподавател|методик)'
-       OR v_text ~* '(включа|состоит из|длительность|продолжительн|в программ|у нас есть|предлага|мы проводим)'
-       OR v_text ~* '(уровн|начинающ|продвинут|интенсив|сертификат|диплом|результат)'
-    THEN
-      v_stage := 'presentation';
-
-    -- 5. PRICE (обсуждение стоимости)
-    ELSIF v_text ~* '(стоим|цен|прайс|тариф|абонемент|руб|₽|рублей|стоит|за месяц|за занятие|оплат.*варианты)'
-    THEN
-      v_stage := 'price';
-      v_event_type := 'price_mentioned';
-
-    -- 6. QUALIFICATION (выяснение потребностей)
-    ELSIF v_text ~* '(какой возраст|сколько лет|для кого|цел[ьи]|задач|уровень.*подготовк|опыт|раньше занимал)'
-       OR v_text ~* '(что.*важно|что.*интересу|какой.*результат|как.*давно|пожелани|предпочтени|что.*хотите)'
-       OR v_text ~* '(для ребён|для взросл|начинающ|ваш.*уровень|с чем.*связан)'
-    THEN
-      v_stage := 'qualification';
-
-    -- 7. GREETING (приветствие / первый контакт)
-    ELSIF v_text ~* '(здравствуйте|добрый|привет|доброе утро|добрый день|добрый вечер|рад.*приветств)'
-       OR v_text ~* '(чем.*помочь|как.*обратить|слушаю вас|меня зовут|я.*менеджер|рады.*обращени)'
-       OR v_msg_count = 0
-    THEN
-      v_stage := 'greeting';
-
-    -- 8. FOLLOW_UP (повторный контакт)
-    ELSIF v_text ~* '(напомин|вернуться.*вопрос|как.*решили|думали.*предложени|ещё актуальн|есть.*вопрос)'
-       OR v_text ~* '(на связи|решили|определились|готовы.*продолж)'
-    THEN
-      v_stage := 'follow_up';
-
-    -- 9. LOST indicators (потеря клиента)
-    ELSIF v_text ~* '(жаль|к сожалени|понима|если.*передумаете|будем.*рады|всегда.*можете.*вернуть)'
-    THEN
-      v_stage := 'lost';
-    END IF;
-
-    -- Дополнительно определяем event_type по содержимому
-    IF v_text ~* '(пробн.*занят|записать.*пробн|приглаша.*пробн)' AND v_event_type != 'first_response' THEN
-      v_event_type := 'trial_offered';
-    ELSIF v_text ~* '(оформ|запис.*группу|забронир|подтвер.*запис)' AND v_event_type != 'first_response' THEN
-      v_event_type := 'close_attempted';
-    END IF;
-
-  -- Тип клиента
-  SELECT CASE
-    WHEN c.status = 'new' THEN 'new'
-    WHEN c.status IN ('active', 'enrolled') THEN 'returning'
-    ELSE COALESCE(c.status, 'new')
-  END INTO v_client_type
-  FROM public.clients c WHERE c.id = NEW.client_id;
-
-  -- Вставляем событие
+  -- Вставляем событие менеджера
   INSERT INTO public.team_behavior_events (
     organization_id, manager_id, client_id, conversation_id,
-    event_type, stage, response_time_sec, message_length,
+    event_type, stage, response_time_sec, message_length, is_incoming,
     hour_of_day, day_of_week, client_type
   ) VALUES (
     NEW.organization_id, NEW.sender_id, NEW.client_id, v_conversation_id,
-    v_event_type, v_stage, v_response_time, COALESCE(length(NEW.content), 0),
+    v_event_type, v_stage, v_response_time, COALESCE(length(NEW.content), 0), false,
     EXTRACT(HOUR FROM NEW.created_at)::SMALLINT,
     EXTRACT(ISODOW FROM NEW.created_at)::SMALLINT - 1,
     v_client_type
@@ -488,7 +611,11 @@ CREATE TRIGGER track_team_behavior_on_message
   EXECUTE FUNCTION public.track_team_behavior_event();
 
 COMMENT ON FUNCTION public.track_team_behavior_event() IS
-  'Записывает поведенческое событие менеджера при каждом исходящем сообщении: тип события, время ответа, длина, контекст.';
+  'Записывает поведенческое событие при каждом сообщении: для менеджеров — stage и event_type, для клиентов — client_intent. Анализ по ключевым словам.';
+
+-- Индекс для быстрого поиска по client_intent
+CREATE INDEX IF NOT EXISTS idx_tbe_client_intent ON public.team_behavior_events(client_intent) WHERE client_intent IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_tbe_incoming ON public.team_behavior_events(is_incoming, created_at DESC);
 
 -- ==========================================
 -- 7. Функция: агрегация путей диалогов
