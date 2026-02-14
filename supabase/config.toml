@@ -572,3 +572,15 @@ verify_jwt = true
 
 [functions.cron-monitor]
 verify_jwt = false
+
+[functions.rescue-strategy]
+verify_jwt = true
+
+[functions.conversation-health-score]
+verify_jwt = true
+
+[functions.persona-tagger]
+verify_jwt = true
+
+[functions.classify-conversation-state]
+verify_jwt = true
