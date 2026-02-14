@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
 import { corsHeaders } from '../_shared/types.ts';
+import { routeModelRequest } from '../_shared/model-router.ts';
 
 /**
  * Classify Conversation State
@@ -74,10 +75,31 @@ Deno.serve(async (req) => {
       return `${role}: ${(m.content || '').slice(0, 200)}`;
     }).join('\n');
 
-    // 4. Classify using LLM (cheap, short prompt)
-    const stageDescriptions = (stages || []).map(s => `${s.code} — ${s.name}`).join('\n');
+    // 4. Check intent cache first
+    const lastClientMsg = chronological.filter(m => m.direction === 'incoming').pop();
+    let classificationResult: { stage: string; confidence: number; reason: string } | undefined;
     
-    const classifierPrompt = `Определи текущую стадию продающего диалога.
+    if (lastClientMsg?.content) {
+      const { data: cached } = await supabase.rpc('lookup_intent_cache', {
+        p_organization_id: organization_id,
+        p_text: lastClientMsg.content,
+      }).catch(() => ({ data: null }));
+      
+      if (cached?.[0]?.cache_hit && cached[0].stage && stageList.includes(cached[0].stage)) {
+        console.log('[classify] Cache hit for intent:', cached[0].intent);
+        classificationResult = {
+          stage: cached[0].stage,
+          confidence: Number(cached[0].confidence) || 0.8,
+          reason: `Cache hit: ${cached[0].intent}`,
+        };
+      }
+    }
+
+    // 5. Classify using Model Router (cheap tier) — only if no cache hit
+    if (!classificationResult) {
+      const stageDescriptions = (stages || []).map(s => `${s.code} — ${s.name}`).join('\n');
+      
+      const classifierPrompt = `Определи текущую стадию продающего диалога.
 
 Доступные стадии:
 ${stageDescriptions}
@@ -88,80 +110,42 @@ ${conversationText}
 Ответь СТРОГО в формате JSON:
 {"stage": "код_стадии", "confidence": 0.0-1.0, "reason": "краткое пояснение на русском"}`;
 
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-    
-    let classificationResult: { stage: string; confidence: number; reason: string };
+      try {
+        const result = await routeModelRequest({
+          task: 'realtime_classify',
+          messages: [{ role: 'user', content: classifierPrompt }],
+          overrideMaxTokens: 100,
+          overrideTemperature: 0.1,
+        });
 
-    if (lovableApiKey) {
-      // Use Lovable AI Gateway (preferred)
-      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${lovableApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash-lite',
-          messages: [
-            { role: 'user', content: classifierPrompt }
-          ],
-          temperature: 0.1,
-          max_tokens: 100,
-        }),
-      });
+        const responseText = result.content;
+        const jsonMatch = responseText.match(/\{[^}]+\}/);
+        if (jsonMatch) {
+          classificationResult = JSON.parse(jsonMatch[0]);
+        } else {
+          const foundStage = stageList.find(s => responseText.toLowerCase().includes(s));
+          classificationResult = {
+            stage: foundStage || 'greeting',
+            confidence: 0.5,
+            reason: 'Parsed from raw response'
+          };
+        }
 
-      if (!aiResponse.ok) {
-        const errText = await aiResponse.text();
-        console.error('[classify] AI gateway error:', aiResponse.status, errText);
-        throw new Error(`AI gateway error: ${aiResponse.status}`);
+        // Cache the result
+        if (lastClientMsg?.content) {
+          await supabase.rpc('upsert_intent_cache', {
+            p_organization_id: organization_id,
+            p_text: lastClientMsg.content,
+            p_intent: classificationResult!.stage,
+            p_stage: classificationResult!.stage,
+            p_confidence: classificationResult!.confidence,
+            p_model: result.model,
+          }).catch(() => {});
+        }
+      } catch (err) {
+        console.error('[classify] Model router error:', err);
+        classificationResult = { stage: stageList[0], confidence: 0.3, reason: 'LLM error fallback' };
       }
-
-      const aiData = await aiResponse.json();
-      const responseText = aiData.choices?.[0]?.message?.content || '';
-      
-      // Parse JSON from response
-      const jsonMatch = responseText.match(/\{[^}]+\}/);
-      if (jsonMatch) {
-        classificationResult = JSON.parse(jsonMatch[0]);
-      } else {
-        // Fallback: try to extract stage name
-        const foundStage = stageList.find(s => responseText.toLowerCase().includes(s));
-        classificationResult = {
-          stage: foundStage || 'greeting',
-          confidence: 0.5,
-          reason: 'Parsed from raw response'
-        };
-      }
-    } else if (openaiApiKey) {
-      // Fallback to OpenAI
-      const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            { role: 'user', content: classifierPrompt }
-          ],
-          temperature: 0.1,
-          max_tokens: 100,
-        }),
-      });
-
-      const aiData = await aiResponse.json();
-      const responseText = aiData.choices?.[0]?.message?.content || '';
-      const jsonMatch = responseText.match(/\{[^}]+\}/);
-      classificationResult = jsonMatch 
-        ? JSON.parse(jsonMatch[0])
-        : { stage: 'greeting', confidence: 0.3, reason: 'Parse failed' };
-    } else {
-      return new Response(
-        JSON.stringify({ success: false, error: 'No AI API key configured (LOVABLE_API_KEY or OPENAI_API_KEY)' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
 
     // Validate stage code

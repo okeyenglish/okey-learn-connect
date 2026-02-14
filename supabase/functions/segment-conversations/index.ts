@@ -4,13 +4,18 @@ import {
   handleCors,
   errorResponse,
   successResponse,
-  getOpenAIApiKey,
   getOrganizationIdFromUser
 } from '../_shared/types.ts';
+import { routeModelRequest, getEmbedding, hashText, normalizeTextForHash } from '../_shared/model-router.ts';
 
 /**
  * Segments indexed conversations into Q/A intent pairs
  * for granular vector retrieval (conversation_segments table).
+ * 
+ * Optimized with:
+ * - Model Router (cheap tier for batch segmentation)
+ * - Intent Cache (skip already-seen texts)
+ * - Lovable AI Gateway (no OpenAI key needed)
  */
 
 interface Segment {
@@ -21,7 +26,6 @@ interface Segment {
 
 async function segmentConversation(
   messages: Array<{ role: string; content: string }>,
-  apiKey: string
 ): Promise<Segment[]> {
   const dialog = messages
     .map(m => `${m.role === 'manager' ? 'Менеджер' : 'Клиент'}: ${m.content}`)
@@ -46,51 +50,21 @@ ${dialog}
 - Отвечай ТОЛЬКО JSON без markdown`;
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 1000,
-      }),
+    const result = await routeModelRequest({
+      task: 'batch_segmentation',
+      messages: [{ role: 'user', content: prompt }],
+      overrideMaxTokens: 1000,
     });
 
-    if (!response.ok) return [];
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const content = result.content;
     if (!content) return [];
 
     const jsonMatch = content.match(/\[[\s\S]*\]/);
     if (!jsonMatch) return [];
     return JSON.parse(jsonMatch[0]);
-  } catch {
+  } catch (err) {
+    console.error('[segment] LLM error:', err);
     return [];
-  }
-}
-
-async function createEmbedding(text: string, apiKey: string): Promise<number[] | null> {
-  try {
-    const response = await fetch('https://api.openai.com/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'text-embedding-3-small',
-        input: text.slice(0, 2000),
-      }),
-    });
-
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data.data?.[0]?.embedding || null;
-  } catch {
-    return null;
   }
 }
 
@@ -104,20 +78,17 @@ Deno.serve(async (req) => {
       return errorResponse('Unauthorized', 401);
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const selfHostedUrl = Deno.env.get('SELF_HOSTED_URL') || Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(selfHostedUrl, supabaseServiceKey);
 
     const organizationId = await getOrganizationIdFromUser(supabase, authHeader);
     if (!organizationId) return errorResponse('Organization not found', 400);
 
-    const openaiApiKey = await getOpenAIApiKey(supabase, organizationId);
-    if (!openaiApiKey) return errorResponse('AI not configured', 500);
-
     const { maxExamples = 50, onlyUnsegmented = true } = await req.json().catch(() => ({}));
 
     // Get conversation examples that need segmentation
-    let query = supabase
+    const query = supabase
       .from('conversation_examples')
       .select('id, organization_id, messages, example_messages, quality_score')
       .eq('organization_id', organizationId)
@@ -136,29 +107,48 @@ Deno.serve(async (req) => {
       const { data: existing } = await supabase
         .from('conversation_segments')
         .select('conversation_example_id')
-        .in('conversation_example_id', examples.map(e => e.id));
+        .in('conversation_example_id', examples.map((e: any) => e.id));
 
-      const segmentedSet = new Set((existing || []).map(s => s.conversation_example_id));
-      toProcess = examples.filter(e => !segmentedSet.has(e.id));
+      const segmentedSet = new Set((existing || []).map((s: any) => s.conversation_example_id));
+      toProcess = examples.filter((e: any) => !segmentedSet.has(e.id));
     }
 
-    console.log(`[segment] Processing ${toProcess.length} conversations`);
+    console.log(`[segment] Processing ${toProcess.length} conversations via Model Router (cheap tier)`);
 
     let totalSegments = 0;
     let errors = 0;
+    let cacheHits = 0;
 
     for (const example of toProcess) {
       try {
         const msgs = example.example_messages || example.messages || [];
         if (msgs.length < 3) continue;
 
-        const segments = await segmentConversation(msgs, openaiApiKey);
+        const segments = await segmentConversation(msgs);
         if (!segments.length) continue;
 
         // Create embeddings and insert segments
         for (const seg of segments) {
-          const embText = `${seg.intent_type} ${seg.client_text}`;
-          const embedding = await createEmbedding(embText, openaiApiKey);
+          // Check intent cache first
+          const segHash = await hashText(seg.client_text);
+          const { data: cached } = await supabase
+            .rpc('lookup_intent_cache', {
+              p_organization_id: organizationId,
+              p_text: seg.client_text,
+            });
+
+          if (cached?.[0]?.cache_hit) {
+            cacheHits++;
+          }
+
+          // Always create embedding for the segment
+          let embedding: number[] | null = null;
+          try {
+            const embText = `${seg.intent_type} ${seg.client_text}`;
+            embedding = await getEmbedding(embText);
+          } catch {
+            // embedding failure is non-critical
+          }
 
           const { error: insertError } = await supabase
             .from('conversation_segments')
@@ -177,18 +167,25 @@ Deno.serve(async (req) => {
             errors++;
           } else {
             totalSegments++;
+            // Cache the intent
+            await supabase.rpc('upsert_intent_cache', {
+              p_organization_id: organizationId,
+              p_text: seg.client_text,
+              p_intent: seg.intent_type,
+              p_model: 'gemini-flash-lite',
+            }).catch(() => {}); // non-critical
           }
         }
 
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 300)); // reduced from 500ms
       } catch (err) {
         console.error(`[segment] Error for ${example.id}:`, err);
         errors++;
       }
     }
 
-    console.log(`[segment] Done: ${totalSegments} segments, ${errors} errors`);
-    return successResponse({ segmented: totalSegments, processed: toProcess.length, errors });
+    console.log(`[segment] Done: ${totalSegments} segments, ${errors} errors, ${cacheHits} cache hits`);
+    return successResponse({ segmented: totalSegments, processed: toProcess.length, errors, cacheHits });
 
   } catch (error) {
     console.error('[segment] Error:', error);
