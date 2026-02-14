@@ -278,23 +278,51 @@ Deno.serve(async (req) => {
 
     // === Persona Layer: resolve active persona ===
     let activePersona: { slug: string; name: string; tone: string; selling_level: string; formality: string; max_response_length: number; style_instructions: string | null; system_prompt_override: string | null } | null = null;
+    let abTestInfo: { test_id: string; variant: string } | null = null;
     try {
-      // 1. Check manager-specific persona assignment
-      const { data: assignment } = await supabase
-        .from('manager_persona_assignments')
-        .select('persona_id')
-        .eq('manager_id', userId)
-        .eq('organization_id', organizationId)
-        .maybeSingle();
+      // 0. Check A/B test assignment first (highest priority)
+      try {
+        const { data: abAssignments } = await supabase
+          .from('persona_ab_assignments')
+          .select('assigned_persona_id, variant, test:test_id(id, status)')
+          .eq('client_id', clientId);
 
-      if (assignment?.persona_id) {
-        const { data: p } = await supabase
-          .from('ai_personas')
-          .select('slug, name, tone, selling_level, formality, max_response_length, style_instructions, system_prompt_override')
-          .eq('id', assignment.persona_id)
-          .eq('is_active', true)
+        const activeAB = abAssignments?.find((a: any) => a.test?.status === 'running');
+        if (activeAB) {
+          const { data: abPersona } = await supabase
+            .from('ai_personas')
+            .select('slug, name, tone, selling_level, formality, max_response_length, style_instructions, system_prompt_override')
+            .eq('id', activeAB.assigned_persona_id)
+            .eq('is_active', true)
+            .maybeSingle();
+          if (abPersona) {
+            activePersona = abPersona as any;
+            abTestInfo = { test_id: (activeAB as any).test?.id, variant: activeAB.variant };
+            console.log(`A/B test active: variant ${activeAB.variant}, persona ${abPersona.slug}`);
+          }
+        }
+      } catch (abErr) {
+        console.warn('A/B test resolution failed (tables may not exist):', abErr);
+      }
+
+      // 1. Check manager-specific persona assignment (if no A/B override)
+      if (!activePersona) {
+        const { data: assignment } = await supabase
+          .from('manager_persona_assignments')
+          .select('persona_id')
+          .eq('manager_id', userId)
+          .eq('organization_id', organizationId)
           .maybeSingle();
-        if (p) activePersona = p as any;
+
+        if (assignment?.persona_id) {
+          const { data: p } = await supabase
+            .from('ai_personas')
+            .select('slug, name, tone, selling_level, formality, max_response_length, style_instructions, system_prompt_override')
+            .eq('id', assignment.persona_id)
+            .eq('is_active', true)
+            .maybeSingle();
+          if (p) activePersona = p as any;
+        }
       }
 
       // 2. If no manager assignment, will resolve by stage/scenario after context analysis
@@ -536,6 +564,20 @@ ${conversationContext}
       response: generatedText 
     };
 
+    // Track A/B test interaction (fire and forget)
+    if (abTestInfo) {
+      supabase
+        .from('persona_ab_assignments')
+        .update({
+          messages_count: supabase.rpc ? undefined : 0, // Will be incremented via edge function
+          last_interaction_at: new Date().toISOString(),
+        })
+        .eq('test_id', abTestInfo.test_id)
+        .eq('client_id', clientId)
+        .then(() => {})
+        .catch((err: any) => console.warn('A/B tracking failed:', err));
+    }
+
     return successResponse({ 
       ...result, 
       generatedText,
@@ -544,6 +586,7 @@ ${conversationContext}
       usedExampleIds,
       scenarioType: contextAnalysis?.scenario_type,
       persona: activePersona?.slug || null,
+      abTest: abTestInfo || undefined,
     });
 
   } catch (error: unknown) {

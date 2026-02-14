@@ -573,6 +573,9 @@ verify_jwt = true
 [functions.cron-monitor]
 verify_jwt = false
 
+[functions.persona-ab-test]
+verify_jwt = true
+
 [functions.rescue-strategy]
 verify_jwt = true
 
