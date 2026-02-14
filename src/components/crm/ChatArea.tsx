@@ -3208,7 +3208,7 @@ export const ChatArea = ({
               )}
               </div>
               {/* Элемент для прокрутки к концу WhatsApp */}
-              <div ref={whatsappEndRef} className={hasSmartReplies ? "h-12 shrink-0" : "h-4 shrink-0"} />
+              <div ref={whatsappEndRef} className="h-1 shrink-0" />
             </TabsContent>
           
           <TabsContent value="telegram" ref={telegramScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
@@ -3316,7 +3316,7 @@ export const ChatArea = ({
               )}
             </div>
             {/* Элемент для прокрутки к концу Telegram */}
-            <div ref={telegramEndRef} className={hasSmartReplies ? "h-12 shrink-0" : "h-4 shrink-0"} />
+            <div ref={telegramEndRef} className="h-1 shrink-0" />
           </TabsContent>
           
           <TabsContent value="max" ref={maxScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
@@ -3442,7 +3442,7 @@ export const ChatArea = ({
               )}
             </div>
             {/* Элемент для прокрутки к концу Max */}
-            <div ref={maxEndRef} className={hasSmartReplies ? "h-12 shrink-0" : "h-4 shrink-0"} />
+            <div ref={maxEndRef} className="h-1 shrink-0" />
           </TabsContent>
           
           <TabsContent value="chatos" ref={chatosScrollRef} className={`relative flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
@@ -3550,7 +3550,7 @@ export const ChatArea = ({
                 </div>
               )}
             </div>
-            <div ref={chatosEndRef} className={hasSmartReplies ? "h-12 shrink-0" : "h-4 shrink-0"} />
+            <div ref={chatosEndRef} className="h-1 shrink-0" />
           </TabsContent>
           
           <TabsContent value="email" className={`flex-1 min-h-0 p-3 overflow-y-auto overscroll-contain mt-0 ${isTabTransitioning || isChatSwitching ? 'chat-transition-exit' : 'chat-transition-active'}`}>
