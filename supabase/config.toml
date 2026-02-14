@@ -590,3 +590,18 @@ verify_jwt = true
 
 [functions.team-intelligence]
 verify_jwt = false
+
+[functions.get-team-insights]
+verify_jwt = false
+
+[functions.get-coaching-tips]
+verify_jwt = false
+
+[functions.get-top-paths]
+verify_jwt = false
+
+[functions.get-manager-comparison]
+verify_jwt = false
+
+[functions.get-team-metrics]
+verify_jwt = false
