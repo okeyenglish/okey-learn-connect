@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bot, Play, Loader2, Database, BarChart3, Search, BookOpen, Brain, HelpCircle } from 'lucide-react';
+import { Bot, Play, Loader2, Database, BarChart3, Search, BookOpen, Brain, HelpCircle, Shield } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ import { ConversationSemanticSearch } from './ConversationSemanticSearch';
 import { SuccessfulDialoguesLibrary } from './SuccessfulDialoguesLibrary';
 import { ScriptTrainerPage } from './ScriptTrainerPage';
 import { ExtractedFAQPanel } from './ExtractedFAQPanel';
+import { KnowledgeCoverageDashboard } from './KnowledgeCoverageDashboard';
 
 interface IndexingResult {
   success: boolean;
@@ -156,6 +157,10 @@ export function ConversationIndexingPanel() {
           <TabsTrigger value="faq" className="gap-2">
             <HelpCircle className="h-4 w-4" />
             FAQ
+          </TabsTrigger>
+          <TabsTrigger value="coverage" className="gap-2">
+            <Shield className="h-4 w-4" />
+            Покрытие
           </TabsTrigger>
         </TabsList>
 
@@ -435,6 +440,10 @@ export function ConversationIndexingPanel() {
 
         <TabsContent value="faq">
           <ExtractedFAQPanel />
+        </TabsContent>
+
+        <TabsContent value="coverage">
+          <KnowledgeCoverageDashboard />
         </TabsContent>
       </Tabs>
     </div>
