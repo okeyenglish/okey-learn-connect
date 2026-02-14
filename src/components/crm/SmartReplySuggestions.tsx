@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { Button } from '@/components/ui/button';
 import { getSmartReplies } from '@/hooks/useSmartReplies';
 import { Sparkles } from 'lucide-react';
 
@@ -23,23 +22,20 @@ export function SmartReplySuggestions({
     [lastIncomingMessage, isLastMessageIncoming],
   );
 
-  // Hide if user is typing or no suggestions
   if (suggestions.length === 0 || currentInput.trim()) return null;
 
   return (
-    <div className="flex flex-wrap gap-1.5 px-2 py-1.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
-      <Sparkles className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+    <div className="flex items-center gap-1.5 px-1 py-1 overflow-x-auto scrollbar-none animate-in fade-in slide-in-from-bottom-1 duration-150">
+      <Sparkles className="h-3 w-3 text-muted-foreground shrink-0" />
       {suggestions.map((text) => (
-        <Button
+        <button
           key={text}
-          variant="outline"
-          size="sm"
-          className="h-6 text-xs rounded-full px-3 border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
           onClick={() => onSend(text)}
           disabled={disabled}
+          className="shrink-0 px-2.5 py-0.5 text-[11px] leading-4 rounded-full border border-border bg-background text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors disabled:opacity-50 whitespace-nowrap"
         >
           {text}
-        </Button>
+        </button>
       ))}
     </div>
   );
