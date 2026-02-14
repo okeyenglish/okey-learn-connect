@@ -1,51 +1,59 @@
 
 
-## Разделение первичных продаж и пролонгации в A/B тестах
+## Фильтрация конверсии: только новые клиенты
 
-### Логика определения
+### Проблема
 
-- **Новый клиент** (`'paid'`): у клиента нет подтверждённых платежей за последний год (или вообще нет платежей) в `online_payments`
-- **Пролонгация** (`'prolonged'`): у клиента есть хотя бы один подтверждённый платёж за последний год
+Существующие клиенты в базе почти наверняка попадут в "пролонгацию", но не все из них есть в таблице `online_payments`. Это искажает статистику A/B тестов. Кроме того, склеенные клиенты (merged) — это фактически старые клиенты, их тоже нельзя считать новыми.
 
-### Подход к трекингу
+### Решение
 
-Используем два разных события в `persona_ab_assignments`:
-- `conversion_event = 'paid'` — первичная продажа
-- `conversion_event = 'prolonged'` — пролонгация
+Добавить проверку "свежести" клиента в оба триггера:
 
-Для пролонгации: обновляем запись даже если `converted = true` (перезаписываем `conversion_event` на `'prolonged'`), а также добавляем колонку `prolongation_count` (INTEGER DEFAULT 0) в `persona_ab_assignments` для подсчёта количества пролонгаций. Это даёт гибкость при анализе.
+1. **Клиент считается новым** только если `clients.created_at >= persona_ab_tests.started_at` (дата запуска теста)
+2. **Склеенный клиент** (когда новый клиент был merged с существующим) определяется по тому, что целевой клиент (`primary`) имеет `created_at < started_at` --- значит это старый клиент, конверсия = `'prolonged'`
 
-### Изменения
-
-**Файл: `docs/sql-optimizations/track_ab_conversion_trigger.sql`**
-
-Переработка функции `track_ab_conversion()`:
+### Логика в триггере оплаты (`track_ab_conversion`)
 
 ```text
 has_pending_payment: false -> true
   |
   v
-Проверить online_payments:
-  SELECT count(*) FROM online_payments
-  WHERE client_id = NEW.id
-    AND status = 'CONFIRMED'
-    AND created_at > now() - interval '1 year'
+Найти A/B assignment для client_id
   |
-  +--> count = 0 --> conversion_event = 'paid', converted = true
+  v
+Проверить: clients.created_at >= persona_ab_tests.started_at?
   |
-  +--> count > 0 --> conversion_event = 'prolonged', prolongation_count + 1
+  +--> НЕТ (старый клиент или склеенный) --> conversion_event = 'prolonged'
+  |
+  +--> ДА (новый клиент) --> проверить online_payments за год:
+        |
+        +--> count = 0 --> conversion_event = 'paid'
+        +--> count > 0 --> conversion_event = 'prolonged'
 ```
 
-Триггер `track_ab_trial_conversion()` (trial_lesson_requests) остаётся без изменений — запись на пробное всегда первичная конверсия.
+### Логика в триггере пробного (`track_ab_trial_conversion`)
 
-**SQL-миграция для self-hosted** (добавить в тот же файл):
-
-- `ALTER TABLE persona_ab_assignments ADD COLUMN IF NOT EXISTS prolongation_count INTEGER DEFAULT 0;`
+Без изменений --- запись на пробное не зависит от "свежести", это всегда первичное касание.
 
 ### Технические детали
 
-- Проверка идёт по `online_payments.client_id` и `status = 'CONFIRMED'` (статус подтверждённого платежа Т-Банк)
-- Текущий платёж (который вызвал триггер) ещё не записан в `online_payments` на момент срабатывания триггера на `clients`, так что count корректно отражает предыдущие платежи
-- Для пролонгации: `UPDATE persona_ab_assignments SET conversion_event = 'prolonged', prolongation_count = prolongation_count + 1 WHERE client_id = ... AND converted = true`
-- Для первичной: стандартная логика `SET converted = true, conversion_event = 'paid' WHERE converted = false`
+**Файл: `docs/sql-optimizations/track_ab_conversion_trigger.sql`**
+
+Изменения в функции `track_ab_conversion()`:
+
+- Добавить переменную `v_test_started_at TIMESTAMPTZ`
+- Перед проверкой платежей --- получить `started_at` из `persona_ab_tests` через JOIN с `persona_ab_assignments`:
+  ```sql
+  SELECT t.started_at INTO v_test_started_at
+  FROM persona_ab_assignments a
+  JOIN persona_ab_tests t ON t.id = a.test_id
+  WHERE a.client_id = NEW.id
+    AND t.status = 'running'
+  LIMIT 1;
+  ```
+- Если `NEW.created_at < v_test_started_at` --- клиент старый, сразу ставим `'prolonged'`
+- Иначе --- текущая логика проверки `online_payments`
+
+Обновить комментарии в заголовке SQL-файла для отражения новой логики.
 
