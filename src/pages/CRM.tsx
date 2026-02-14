@@ -4548,7 +4548,7 @@ const CRMContent = () => {
                   if (messengerType) {
                     setSelectedMessengerTab({ tab: messengerType, ts: Date.now() });
                   }
-                  handleChatClick(memberId, 'client');
+                  handleChatClick(memberId, 'client', false, messengerType);
                 }}
                 activeMessengerTab={selectedMessengerTab?.tab}
               />
@@ -4566,7 +4566,7 @@ const CRMContent = () => {
                   if (messengerType) {
                     setSelectedMessengerTab({ tab: messengerType, ts: Date.now() });
                   }
-                  handleChatClick(memberId, 'client');
+                  handleChatClick(memberId, 'client', false, messengerType);
                 }}
                 activeMessengerTab={selectedMessengerTab?.tab}
               />
