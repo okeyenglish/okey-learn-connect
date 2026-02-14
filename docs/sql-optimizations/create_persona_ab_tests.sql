@@ -64,22 +64,27 @@ CREATE TRIGGER update_persona_ab_tests_updated_at
 ALTER TABLE public.persona_ab_tests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.persona_ab_assignments ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Org members can view ab tests" ON public.persona_ab_tests;
 CREATE POLICY "Org members can view ab tests"
   ON public.persona_ab_tests FOR SELECT
   USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
+DROP POLICY IF EXISTS "Admins can manage ab tests" ON public.persona_ab_tests;
 CREATE POLICY "Admins can manage ab tests"
   ON public.persona_ab_tests FOR ALL
   USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())
     AND (SELECT has_role(auth.uid(), 'admin')));
 
+DROP POLICY IF EXISTS "Service role full access ab tests" ON public.persona_ab_tests;
 CREATE POLICY "Service role full access ab tests"
   ON public.persona_ab_tests FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Org members can view ab assignments" ON public.persona_ab_assignments;
 CREATE POLICY "Org members can view ab assignments"
   ON public.persona_ab_assignments FOR SELECT
   USING (test_id IN (SELECT id FROM persona_ab_tests WHERE organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())));
 
+DROP POLICY IF EXISTS "Service role full access ab assignments" ON public.persona_ab_assignments;
 CREATE POLICY "Service role full access ab assignments"
   ON public.persona_ab_assignments FOR ALL USING (true) WITH CHECK (true);
 
