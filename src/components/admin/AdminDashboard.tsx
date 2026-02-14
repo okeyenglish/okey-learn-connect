@@ -45,6 +45,7 @@ import { SmartRepliesManager } from "./SmartRepliesManager";
 import { CronMonitorDashboard } from "./CronMonitorDashboard";
 import { ConversationStageAnalytics } from "./ConversationStageAnalytics";
 import { PersonaManager } from "./PersonaManager";
+import { TeamIntelligenceDashboard } from "./TeamIntelligenceDashboard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -80,6 +81,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <StaffAnalyticsPage />;
       case "stage-analytics":
         return <ConversationStageAnalytics />;
+      case "team-intelligence":
+        return <TeamIntelligenceDashboard />;
       case "bonus-settings":
         return <BonusSettingsPage />;
       case "ai-training":
@@ -250,6 +253,14 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle className="text-indigo-600">🧠 Воронка стадий</CardTitle>
                   <CardDescription>Conversation Intelligence — аналитика стадий диалогов</CardDescription>
+                </CardHeader>
+              </Card>
+
+              {/* Team Intelligence */}
+              <Card className="cursor-pointer hover:bg-muted/50 border-violet-200" onClick={() => setCurrentSection("team-intelligence")}>
+                <CardHeader>
+                  <CardTitle className="text-violet-600">🧬 Team Intelligence</CardTitle>
+                  <CardDescription>Коллективный интеллект — паттерны, пути, AI-коучинг</CardDescription>
                 </CardHeader>
               </Card>
               
