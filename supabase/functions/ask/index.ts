@@ -168,14 +168,27 @@ serve(async (req) => {
     const queryEmbedding = embJson.data?.[0]?.embedding || [];
     console.log('Got embedding, length:', queryEmbedding.length);
 
-    // 2) Vector search using Supabase RPC
+    // 2) Vector search using Supabase RPC — site docs + conversation examples in parallel
     const matchCount = 6;
-    console.log('Performing vector search for:', question);
+    console.log('Performing parallel vector search for:', question);
     
-    const { data: contexts, error: searchError } = await supabaseAnon.rpc('match_docs', {
-      query_embedding: queryEmbedding,
-      match_count: matchCount
-    });
+    const [docsResult, conversationsResult] = await Promise.all([
+      supabaseAnon.rpc('match_docs', {
+        query_embedding: queryEmbedding,
+        match_count: matchCount
+      }),
+      supabaseAnon.rpc('match_conversations', {
+        query_embedding: `[${queryEmbedding.join(',')}]`,
+        p_scenario_type: null,
+        match_count: 3
+      }).catch((err: any) => {
+        console.warn('match_conversations RPC not available:', err);
+        return { data: null, error: err };
+      })
+    ]);
+
+    const { data: contexts, error: searchError } = docsResult;
+    const { data: conversationExamples } = conversationsResult;
 
     if (searchError) {
       console.error('Vector search error:', searchError);
@@ -185,7 +198,8 @@ serve(async (req) => {
       );
     }
 
-    console.log('Found contexts:', contexts?.length || 0);
+    console.log('Found site contexts:', contexts?.length || 0);
+    console.log('Found conversation examples:', conversationExamples?.length || 0);
     if (contexts && contexts.length > 0) {
       console.log('Top 3 results:');
       contexts.slice(0, 3).forEach((ctx: any, i: number) => {
@@ -219,7 +233,23 @@ serve(async (req) => {
       ?.map((c: any, i: number) => `[${i + 1}] ${c.title}\n${c.content}\n`)
       .join("\n") || '';
 
+    // Build conversation examples context from RAG
+    let conversationContextText = '';
+    if (conversationExamples && conversationExamples.length > 0) {
+      conversationContextText = conversationExamples
+        .filter((ex: any) => ex.quality_score >= 4)
+        .map((ex: any, i: number) => {
+          const messages = (ex.example_messages || ex.messages || [])
+            .slice(0, 4)
+            .map((m: any) => `  ${m.role === 'manager' ? 'Менеджер' : 'Клиент'}: ${m.content}`)
+            .join('\n');
+          return `[Пример ${i + 1}] ${ex.context_summary || ex.scenario_type}\n${messages}`;
+        })
+        .join('\n\n');
+    }
+
     console.log('Context text length:', contextText.length);
+    console.log('Conversation examples text length:', conversationContextText.length);
     console.log('Number of contexts:', contexts?.length || 0);
 
     const hasContexts = !!(contexts && contexts.length > 0);
@@ -264,12 +294,20 @@ serve(async (req) => {
     }
 
     // Add the current question with context
-    messages.push({ 
-      role: "user", 
-      content: hasContexts 
-        ? `ВОПРОС: ${question}\n\nИСТОЧНИКИ:\n${contextText}\n\nОТВЕЧАЙ КОНКРЕТНО ИЗ ИСТОЧНИКОВ! Если вопрос про цены и в источниках нет чисел с валютой — скажи, что цены уточняются у менеджера. Укажи номера источников в конце.`
-        : `ВОПРОС: ${question}\n\nИсточников нет. Скажи что нужно уточнить у менеджеров.`
-    });
+    const hasConversationExamples = conversationContextText.length > 0;
+    let userContent = '';
+    if (hasContexts) {
+      userContent = `ВОПРОС: ${question}\n\nИСТОЧНИКИ:\n${contextText}`;
+      if (hasConversationExamples) {
+        userContent += `\n\nПРИМЕРЫ ИЗ РЕАЛЬНЫХ ДИАЛОГОВ (используй стиль ответов):\n${conversationContextText}`;
+      }
+      userContent += `\n\nОТВЕЧАЙ КОНКРЕТНО ИЗ ИСТОЧНИКОВ! Если вопрос про цены и в источниках нет чисел с валютой — скажи, что цены уточняются у менеджера. Укажи номера источников в конце.`;
+    } else if (hasConversationExamples) {
+      userContent = `ВОПРОС: ${question}\n\nПРИМЕРЫ ИЗ РЕАЛЬНЫХ ДИАЛОГОВ:\n${conversationContextText}\n\nОтветь на основе примеров. Если информации недостаточно — предложи уточнить у менеджера.`;
+    } else {
+      userContent = `ВОПРОС: ${question}\n\nИсточников нет. Скажи что нужно уточнить у менеджеров.`;
+    }
+    messages.push({ role: "user", content: userContent });
 
     // 3) Generate response using OpenAI (GPT-4.1 mini by default)
     const primaryModel = "gpt-4.1-mini-2025-04-14";

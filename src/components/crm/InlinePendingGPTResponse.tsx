@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Bot, Edit3, Send, X } from 'lucide-react';
+import { Bot, Edit3, Send, X, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { PendingGPTResponse, useApprovePendingResponse, useDismissPendingResponse } from '@/hooks/usePendingGPTResponses';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface InlinePendingGPTResponseProps {
   response: PendingGPTResponse;
@@ -11,6 +13,8 @@ interface InlinePendingGPTResponseProps {
 export const InlinePendingGPTResponse: React.FC<InlinePendingGPTResponseProps> = ({ response, onUse }) => {
   const approveMutation = useApprovePendingResponse();
   const dismissMutation = useDismissPendingResponse();
+  const { user } = useAuth();
+  const [feedbackGiven, setFeedbackGiven] = useState<string | null>(null);
 
   const handleApprove = () => {
     approveMutation.mutate({ responseId: response.id });
@@ -25,12 +29,55 @@ export const InlinePendingGPTResponse: React.FC<InlinePendingGPTResponseProps> =
     dismissMutation.mutate(response.id);
   };
 
+  const handleFeedback = async (feedback: 'used' | 'rejected') => {
+    if (feedbackGiven || !user) return;
+    setFeedbackGiven(feedback);
+    try {
+      await supabase.from('ai_response_feedback').insert({
+        user_id: user.id,
+        client_id: response.client_id,
+        response_text: response.suggested_response,
+        feedback,
+        pending_response_id: response.id,
+      });
+    } catch (err) {
+      console.error('Failed to save AI feedback:', err);
+    }
+  };
+
   return (
     <div className="group relative bg-primary/3 border border-primary/15 rounded-md p-2 mx-4 my-1">
       {/* Компактный заголовок */}
       <div className="flex items-center gap-1.5 mb-1">
         <Bot className="h-3 w-3 text-primary" />
         <span className="text-xs font-medium text-primary">GPT</span>
+        {/* Feedback buttons inline */}
+        {!feedbackGiven ? (
+          <div className="ml-auto flex gap-0.5">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => handleFeedback('used')}
+              className="h-4 w-4 p-0 text-muted-foreground hover:text-green-600"
+              title="Помогло"
+            >
+              <ThumbsUp className="h-2.5 w-2.5" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => handleFeedback('rejected')}
+              className="h-4 w-4 p-0 text-muted-foreground hover:text-destructive"
+              title="Не подошло"
+            >
+              <ThumbsDown className="h-2.5 w-2.5" />
+            </Button>
+          </div>
+        ) : (
+          <span className="ml-auto text-[9px] text-muted-foreground">
+            {feedbackGiven === 'used' ? '✓ Помогло' : '✗ Не подошло'}
+          </span>
+        )}
       </div>
       
       {/* Текст */}
