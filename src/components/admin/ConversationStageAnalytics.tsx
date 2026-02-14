@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { StaleConversationAlerts } from './StaleConversationAlerts';
+import { StaleAlertSettings } from './StaleAlertSettings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -205,8 +206,11 @@ export function ConversationStageAnalytics() {
         />
       </div>
 
-      {/* Stale Conversation Alerts */}
-      <StaleConversationAlerts />
+      {/* Stale Conversation Alerts + Settings */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <StaleConversationAlerts />
+        <StaleAlertSettings />
+      </div>
 
       {/* Funnel Chart */}
       <Card>
