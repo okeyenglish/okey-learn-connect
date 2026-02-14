@@ -532,26 +532,97 @@ function ABTestDetailDialog({ testId, open, onOpenChange }: {
               />
             </div>
 
-            {/* Winner declaration */}
+            {/* Winner declaration with promote */}
             {test?.winner_persona_id && (
-              <Card className="border-green-200 bg-green-50/50 dark:bg-green-900/10 dark:border-green-800">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <Trophy className="h-6 w-6 text-amber-500" />
-                  <div>
-                    <p className="font-medium text-sm">
-                      Победитель: {test.winner_persona_id === test.persona_a?.id ? test.persona_a?.name : test.persona_b?.name}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      с уверенностью {test.winner_confidence?.toFixed(1)}%
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+              <WinnerPromotionCard test={test} />
             )}
           </div>
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function WinnerPromotionCard({ test }: { test: any }) {
+  const [promoting, setPromoting] = useState(false);
+  const [promoted, setPromoted] = useState(false);
+  const queryClient = useQueryClient();
+
+  const winnerName = test.winner_persona_id === test.persona_a?.id
+    ? test.persona_a?.name : test.persona_b?.name;
+  const loserName = test.winner_persona_id === test.persona_a?.id
+    ? test.persona_b?.name : test.persona_a?.name;
+
+  const handlePromote = async () => {
+    setPromoting(true);
+    try {
+      const result = await selfHostedPost('persona-ab-test', {
+        action: 'promote_winner',
+        test_id: test.id,
+      }) as any;
+      const data = result?.data || result;
+      if (data?.success) {
+        setPromoted(true);
+        queryClient.invalidateQueries({ queryKey: ['ab-tests'] });
+        queryClient.invalidateQueries({ queryKey: ['ab-personas'] });
+        toast.success(`Персона «${winnerName}» установлена как дефолтная`);
+      } else {
+        toast.error(data?.error || 'Ошибка продвижения');
+      }
+    } catch (err: any) {
+      toast.error(`Ошибка: ${err.message}`);
+    } finally {
+      setPromoting(false);
+    }
+  };
+
+  return (
+    <Card className="border-green-200 bg-green-50/50 dark:bg-green-900/10 dark:border-green-800">
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <Trophy className="h-6 w-6 text-amber-500 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm">
+              Победитель: {winnerName}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              с уверенностью {test.winner_confidence?.toFixed(1)}% • проигравший: {loserName}
+            </p>
+
+            {!promoted ? (
+              <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                <p className="text-xs text-foreground mb-2">
+                  🚀 Сделать <strong>{winnerName}</strong> дефолтной персоной для всех новых диалогов?
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={handlePromote}
+                    disabled={promoting}
+                  >
+                    {promoting ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                    )}
+                    Назначить дефолтной
+                  </Button>
+                  <span className="text-[10px] text-muted-foreground">
+                    Проигравшая персона останется активной
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-2 flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                <CheckCircle2 className="h-4 w-4" />
+                <span className="text-xs font-medium">Персона назначена дефолтной</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
