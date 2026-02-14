@@ -569,3 +569,6 @@ verify_jwt = false
 
 [functions.learn-from-edit]
 verify_jwt = true
+
+[functions.cron-monitor]
+verify_jwt = false
