@@ -1,4 +1,4 @@
-import { Phone, Mail, Copy, Check, Star, Edit2, Save, X } from "lucide-react";
+import { Phone, Mail, Copy, Check, Star, Edit2, Save, X, MessageCircle, ChevronDown, ChevronUp } from "lucide-react";
 import maxIconSrc from "@/assets/max-icon.webp";
 import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -89,6 +89,7 @@ export const ContactInfoBlock = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedPhone, setEditedPhone] = useState("");
+  const [showMessengers, setShowMessengers] = useState(false);
   
   // Extract phone from WhatsApp chat ID (format: 79161234567@c.us)
   const extractPhoneFromWhatsappId = (whatsappId: string | null | undefined): string | null => {
@@ -314,301 +315,279 @@ export const ContactInfoBlock = ({
     );
   }
 
+  // Split effective phone numbers into phone rows and messenger-only rows
+  const phoneRows = effectivePhoneNumbers.filter(p => !!p.phone);
+  const messengerRows = effectivePhoneNumbers.filter(p => !p.phone);
+  
+  // Check if there are any messengers to show
+  const hasMessengers = messengerRows.length > 0 || 
+    phoneRows.some(p => getMessengerStatus(p, 'whatsapp') || getMessengerStatus(p, 'telegram') || getMessengerStatus(p, 'max'));
+
+  // Count active messengers for badge
+  const messengerCount = (() => {
+    let count = 0;
+    if (clientWhatsappChatId || phoneRows.some(p => p.whatsappChatId)) count++;
+    if (clientTelegramChatId || clientTelegramUserId || messengerRows.some(p => p.telegramChatId || p.telegramUserId)) count++;
+    if (clientMaxChatId || messengerRows.some(p => p.maxChatId)) count++;
+    return count;
+  })();
+
   return (
     <TooltipProvider>
       <div className="space-y-2">
-        {effectivePhoneNumbers.map((phoneNumber) => {
-          const waActive = getMessengerStatus(phoneNumber, 'whatsapp');
-          const tgActive = getMessengerStatus(phoneNumber, 'telegram');
-          const maxActive = getMessengerStatus(phoneNumber, 'max');
-          const hasPhone = !!phoneNumber.phone;
-          
-          return (
-            <div key={phoneNumber.id} className="flex items-center gap-2 group">
-              {/* Edit mode for virtual contacts */}
-              {isEditing && phoneNumber.isVirtual ? (
-                <div className="flex items-center gap-2 flex-1">
-                  <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  <MaskedPhoneInput
-                    value={editedPhone}
-                    onChange={setEditedPhone}
-                    className="h-7 text-sm flex-1"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSavePhone();
-                      if (e.key === 'Escape') handleCancelEdit();
-                    }}
+        {/* Phone rows - always visible */}
+        {phoneRows.map((phoneNumber) => (
+          <div key={phoneNumber.id} className="flex items-center gap-2 group">
+            {isEditing && phoneNumber.isVirtual ? (
+              <div className="flex items-center gap-2 flex-1">
+                <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                <MaskedPhoneInput
+                  value={editedPhone}
+                  onChange={setEditedPhone}
+                  className="h-7 text-sm flex-1"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSavePhone();
+                    if (e.key === 'Escape') handleCancelEdit();
+                  }}
+                />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                  onClick={handleSavePhone}
+                >
+                  <Save className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                  onClick={handleCancelEdit}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className={`p-0.5 rounded transition-colors flex-shrink-0 ${
+                        onCallClick ? 'hover:bg-green-50 hover:text-green-600 cursor-pointer' : 'cursor-default'
+                      }`}
+                      onClick={() => onCallClick?.(phoneNumber.phone)}
+                      disabled={!onCallClick}
+                    >
+                      <Phone className={`h-3.5 w-3.5 transition-colors ${
+                        onCallClick ? 'text-muted-foreground hover:text-green-600' : 'text-muted-foreground'
+                      }`} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    {onCallClick ? 'Позвонить через OnlinePBX' : 'Телефон'}
+                  </TooltipContent>
+                </Tooltip>
+                
+                <span 
+                  className="text-sm font-medium cursor-pointer hover:text-primary transition-colors"
+                  onClick={() => handleCopyPhone(phoneNumber.phone, phoneNumber.id)}
+                >
+                  {formatPhone(phoneNumber.phone)}
+                </span>
+                
+                {copiedId === phoneNumber.id ? (
+                  <Check className="h-3 w-3 text-green-500" />
+                ) : (
+                  <Copy 
+                    className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
+                    onClick={() => handleCopyPhone(phoneNumber.phone, phoneNumber.id)}
                   />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
-                    onClick={handleSavePhone}
-                  >
-                    <Save className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                    onClick={handleCancelEdit}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ) : hasPhone ? (
-                <>
+                )}
+                
+                {phoneNumber.isVirtual && onPhoneSave && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
-                        className={`p-0.5 rounded transition-colors flex-shrink-0 ${
-                          onCallClick && hasPhone
-                            ? 'hover:bg-green-50 hover:text-green-600 cursor-pointer' 
-                            : 'cursor-default'
-                        }`}
-                        onClick={() => hasPhone && onCallClick?.(phoneNumber.phone)}
-                        disabled={!onCallClick || !hasPhone}
+                        className="p-0.5 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-muted"
+                        onClick={() => handleStartEdit(phoneNumber.phone)}
                       >
-                        <Phone className={`h-3.5 w-3.5 transition-colors ${
-                          onCallClick && hasPhone ? 'text-muted-foreground hover:text-green-600' : 'text-muted-foreground'
-                        }`} />
+                        <Edit2 className="h-3 w-3 text-muted-foreground" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="text-xs">
-                      {onCallClick ? 'Позвонить через OnlinePBX' : 'Телефон'}
+                      Редактировать номер
                     </TooltipContent>
                   </Tooltip>
-                  
-                  <span 
-                    className="text-sm font-medium cursor-pointer hover:text-primary transition-colors"
-                    onClick={() => {
-                      // Click phone → open WhatsApp tab (primary messenger for phone numbers)
-                      const waActive = getMessengerStatus(phoneNumber, 'whatsapp');
-                      if (waActive && onMessengerClick) {
-                        onMessengerClick(phoneNumber.id, 'whatsapp');
-                      } else {
-                        handleCopyPhone(phoneNumber.phone, phoneNumber.id);
-                      }
-                    }}
+                )}
+                
+                {phoneNumber.isPrimary && phoneRows.length > 1 && (
+                  <Star className="h-3 w-3 text-yellow-500 fill-yellow-500 flex-shrink-0" />
+                )}
+              </>
+            )}
+          </div>
+        ))}
+
+        {/* No phone - show edit */}
+        {phoneRows.length === 0 && !messengerRows.some(r => r.phone) && (
+          <div className="flex items-center gap-2">
+            <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+            {isEditing ? (
+              <div className="flex items-center gap-2 flex-1">
+                <MaskedPhoneInput
+                  value={editedPhone}
+                  onChange={setEditedPhone}
+                  className="h-7 text-sm flex-1"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSavePhone();
+                    if (e.key === 'Escape') handleCancelEdit();
+                  }}
+                />
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-green-600" onClick={handleSavePhone}>
+                  <Save className="h-3.5 w-3.5" />
+                </Button>
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={handleCancelEdit}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <>
+                <span className="text-sm text-muted-foreground italic">Номер не указан</span>
+                {onPhoneSave && (
+                  <button className="p-0.5 rounded hover:bg-muted" onClick={() => handleStartEdit("")}>
+                    <Edit2 className="h-3 w-3 text-primary" />
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Messengers toggle button */}
+        {hasMessengers && (
+          <button
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-0.5"
+            onClick={() => setShowMessengers(!showMessengers)}
+          >
+            <MessageCircle className="h-3.5 w-3.5" />
+            <span>Мессенджеры</span>
+            {messengerCount > 0 && (
+              <span className="bg-primary/10 text-primary rounded-full px-1.5 py-0 text-[10px] font-medium">
+                {messengerCount}
+              </span>
+            )}
+            {showMessengers ? (
+              <ChevronUp className="h-3 w-3" />
+            ) : (
+              <ChevronDown className="h-3 w-3" />
+            )}
+          </button>
+        )}
+
+        {/* Collapsible messenger section */}
+        {showMessengers && (
+          <div className="space-y-1.5 pl-1 border-l-2 border-muted ml-1">
+            {/* WhatsApp row */}
+            {phoneRows.map((phoneNumber) => {
+              const waActive = getMessengerStatus(phoneNumber, 'whatsapp');
+              if (!waActive) return null;
+              return (
+                <div key={`wa-${phoneNumber.id}`} className="flex items-center gap-2 group">
+                  <button
+                    className="flex items-center gap-2 hover:bg-green-50 rounded px-1 -ml-1 transition-colors"
+                    onClick={() => handleMessengerClick(phoneNumber.id, 'whatsapp', true)}
                   >
-                    {formatPhone(phoneNumber.phone)}
-                  </span>
-                  
-                  {copiedId === phoneNumber.id ? (
-                    <Check className="h-3 w-3 text-green-500" />
-                  ) : (
-                    <Copy 
-                      className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
-                      onClick={() => handleCopyPhone(phoneNumber.phone, phoneNumber.id)}
-                    />
-                  )}
-                  
-                  {/* Show edit button for virtual contacts */}
-                  {phoneNumber.isVirtual && onPhoneSave && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          className="p-0.5 rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-muted"
-                          onClick={() => handleStartEdit(phoneNumber.phone)}
-                        >
-                          <Edit2 className="h-3 w-3 text-muted-foreground" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs">
-                        Редактировать номер
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  
-                  {phoneNumber.isPrimary && effectivePhoneNumbers.length > 1 && (
-                    <Star className="h-3 w-3 text-yellow-500 fill-yellow-500 flex-shrink-0" />
-                  )}
-                </>
-              ) : (
-                <>
-                  {/* Show Telegram ID if no phone but Telegram exists */}
-                  {tgActive && getTelegramId(phoneNumber) ? (
-                    <div className="flex items-center gap-1 flex-1">
-                      <button
-                        className="flex items-center gap-2 hover:bg-blue-50 rounded px-1 -ml-1 transition-colors"
-                        onClick={() => handleMessengerClick(phoneNumber.id, 'telegram', true)}
-                      >
-                        <TelegramIcon active={true} />
-                        <span className="text-sm font-medium text-blue-600">
-                          ID: {getTelegramId(phoneNumber)}
-                        </span>
-                      </button>
-                      {onUnlinkMessenger && (
-                        <button
-                          className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive ml-auto"
-                          onClick={(e) => { e.stopPropagation(); onUnlinkMessenger('telegram'); }}
-                          title="Отвязать Telegram"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
-                  ) : maxActive && phoneNumber.maxChatId ? (
-                    <div className="flex items-center gap-1 flex-1">
-                      <button
-                        className="flex items-center gap-2 hover:bg-purple-50 rounded px-1 -ml-1 transition-colors"
-                        onClick={() => handleMessengerClick(phoneNumber.id, 'max', true)}
-                      >
-                        <MaxIcon active={true} />
-                        <span className="text-sm font-medium text-purple-600">
-                          MAX ID: {phoneNumber.maxChatId}
-                        </span>
-                      </button>
-                      {onUnlinkMessenger && (
-                        <button
-                          className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive ml-auto"
-                          onClick={(e) => { e.stopPropagation(); onUnlinkMessenger('max'); }}
-                          title="Отвязать MAX"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      <span className="text-sm text-muted-foreground italic">
-                        Номер не указан
-                      </span>
-                      {/* Allow adding phone only when no Telegram ID shown */}
-                      {phoneNumber.isVirtual && onPhoneSave && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              className="p-0.5 rounded transition-colors hover:bg-muted"
-                              onClick={() => handleStartEdit("")}
-                            >
-                              <Edit2 className="h-3 w-3 text-primary" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">
-                            Добавить номер
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                    </>
-                  )}
-                </>
-              )}
-              
-              {/* Messenger icons - context-aware per row type */}
-              {(() => {
-                const isPhoneRow = hasPhone;
-                const isTelegramIdRow = !hasPhone && tgActive && !!getTelegramId(phoneNumber) && !phoneNumber.maxChatId;
-                const isMaxIdRow = !hasPhone && !!phoneNumber.maxChatId && !tgActive;
-                
-                // Telegram ID row - already shown as clickable, no extra icons needed
-                if (isTelegramIdRow) return null;
-                // MAX ID row - already shown as clickable, no extra icons needed
-                if (isMaxIdRow) return null;
-                
-                return (
-                <div className="flex items-center gap-0.5 ml-auto">
-                  {/* WhatsApp icon - show on phone rows */}
-                  {isPhoneRow && (
-                    <>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            className={`p-0.5 rounded transition-colors ${waActive ? 'hover:bg-green-50 cursor-pointer' : 'cursor-default'}`}
-                            onClick={() => handleMessengerClick(phoneNumber.id, 'whatsapp', waActive)}
-                            disabled={!waActive}
-                          >
-                            <WhatsAppIcon active={waActive} />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs max-w-[200px]">
-                          {waActive ? (
-                            <div>
-                              <div>Открыть WhatsApp чат</div>
-                              <div className="text-muted-foreground mt-0.5">
-                                {getWhatsappId(phoneNumber) 
-                                  ? `ID: ${String(getWhatsappId(phoneNumber)).replace('@c.us', '')}` 
-                                  : `Тел: ${phoneNumber.phone}`}
-                              </div>
-                              {onUnlinkMessenger && (
-                                <div className="text-destructive mt-1 font-medium">Долгий клик — отвязать</div>
-                              )}
-                            </div>
-                          ) : 'WhatsApp не подключен'}
-                        </TooltipContent>
-                      </Tooltip>
-                      {waActive && onUnlinkMessenger && (
-                        <button
-                          className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
-                          onClick={(e) => { e.stopPropagation(); onUnlinkMessenger('whatsapp'); }}
-                          title="Отвязать WhatsApp"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
-                    </>
-                  )}
-                  
-                  {/* Telegram icon - show on phone row ONLY if telegram is directly on this phone (not separate ID row) */}
-                  {isPhoneRow && (phoneNumber.telegramUserId || phoneNumber.telegramChatId) && (
-                    <>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            className="p-0.5 rounded transition-colors hover:bg-blue-50 cursor-pointer"
-                            onClick={() => handleMessengerClick(phoneNumber.id, 'telegram', true)}
-                          >
-                            <TelegramIcon active={true} />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs max-w-[200px]">
-                          <div>
-                            <div>Открыть Telegram чат</div>
-                            <div className="text-muted-foreground mt-0.5">
-                              ID: {phoneNumber.telegramUserId || phoneNumber.telegramChatId}
-                            </div>
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </>
-                  )}
-                  
-                  {/* MAX icon - show on phone rows */}
-                  {isPhoneRow && (
-                    <>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            className={`p-0.5 rounded transition-colors ${maxActive ? 'hover:bg-purple-50 cursor-pointer' : 'cursor-default'}`}
-                            onClick={() => handleMessengerClick(phoneNumber.id, 'max', maxActive)}
-                            disabled={!maxActive}
-                          >
-                            <MaxIcon active={maxActive} />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">
-                          {maxActive ? 'Открыть MAX чат' : 'MAX не подключен'}
-                        </TooltipContent>
-                      </Tooltip>
-                      {maxActive && onUnlinkMessenger && (
-                        <button
-                          className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
-                          onClick={(e) => { e.stopPropagation(); onUnlinkMessenger('max'); }}
-                          title="Отвязать MAX"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
-                    </>
+                    <WhatsAppIcon active={true} />
+                    <span className="text-sm font-medium text-green-700">
+                      {getWhatsappId(phoneNumber) 
+                        ? String(getWhatsappId(phoneNumber)).replace('@c.us', '')
+                        : formatPhone(phoneNumber.phone)}
+                    </span>
+                  </button>
+                  {onUnlinkMessenger && (
+                    <button
+                      className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive ml-auto"
+                      onClick={(e) => { e.stopPropagation(); onUnlinkMessenger('whatsapp'); }}
+                      title="Отвязать WhatsApp"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   )}
                 </div>
-                );
-              })()}
-            </div>
-          );
-        })}
-        
-        {email && (
+              );
+            })}
+
+            {/* Telegram ID row */}
+            {messengerRows.filter(p => (p.telegramUserId || p.telegramChatId)).map((phoneNumber) => (
+              <div key={phoneNumber.id} className="flex items-center gap-2 group">
+                <button
+                  className="flex items-center gap-2 hover:bg-blue-50 rounded px-1 -ml-1 transition-colors"
+                  onClick={() => handleMessengerClick(phoneNumber.id, 'telegram', true)}
+                >
+                  <TelegramIcon active={true} />
+                  <span className="text-sm font-medium text-blue-600">
+                    ID: {getTelegramId(phoneNumber)}
+                  </span>
+                </button>
+                {onUnlinkMessenger && (
+                  <button
+                    className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive ml-auto"
+                    onClick={(e) => { e.stopPropagation(); onUnlinkMessenger('telegram'); }}
+                    title="Отвязать Telegram"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            ))}
+
+            {/* MAX ID row */}
+            {messengerRows.filter(p => p.maxChatId).map((phoneNumber) => (
+              <div key={phoneNumber.id} className="flex items-center gap-2 group">
+                <button
+                  className="flex items-center gap-2 hover:bg-purple-50 rounded px-1 -ml-1 transition-colors"
+                  onClick={() => handleMessengerClick(phoneNumber.id, 'max', true)}
+                >
+                  <MaxIcon active={true} />
+                  <span className="text-sm font-medium text-purple-600">
+                    MAX ID: {phoneNumber.maxChatId}
+                  </span>
+                </button>
+                {onUnlinkMessenger && (
+                  <button
+                    className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive ml-auto"
+                    onClick={(e) => { e.stopPropagation(); onUnlinkMessenger('max'); }}
+                    title="Отвязать MAX"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            ))}
+
+            {/* Email inside messengers */}
+            {email && (
+              <div className="flex items-center gap-2 group">
+                <Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 ml-1" />
+                <span className="text-sm text-muted-foreground">{email}</span>
+                {onUnlinkEmail && (
+                  <button
+                    className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive ml-auto"
+                    onClick={onUnlinkEmail}
+                    title="Удалить email"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Email outside messengers section if no messengers exist */}
+        {!hasMessengers && email && (
           <div className="flex items-center gap-2 group">
             <Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
             <span className="text-sm text-muted-foreground">{email}</span>
