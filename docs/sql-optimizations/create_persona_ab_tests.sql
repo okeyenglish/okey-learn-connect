@@ -161,5 +161,137 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
+-- Функция для определения победителя A/B теста (z-test для пропорций)
+-- Возвращает победителя, z-score, p-value и уровень уверенности
+-- Автоматически обновляет winner_persona_id и winner_confidence в persona_ab_tests
+CREATE OR REPLACE FUNCTION public.evaluate_ab_test_winner(p_test_id UUID)
+RETURNS TABLE(
+  winner_variant TEXT,
+  winner_persona_id UUID,
+  n_a BIGINT,
+  n_b BIGINT,
+  conv_rate_a NUMERIC,
+  conv_rate_b NUMERIC,
+  z_score NUMERIC,
+  p_value NUMERIC,
+  confidence_pct NUMERIC,
+  is_significant BOOLEAN
+) AS $$
+DECLARE
+  v_na BIGINT;
+  v_nb BIGINT;
+  v_ca BIGINT;
+  v_cb BIGINT;
+  v_pa NUMERIC;
+  v_pb NUMERIC;
+  v_p_pool NUMERIC;
+  v_se NUMERIC;
+  v_z NUMERIC;
+  v_p_val NUMERIC;
+  v_conf NUMERIC;
+  v_winner TEXT;
+  v_winner_persona UUID;
+  v_test RECORD;
+BEGIN
+  -- Получаем данные теста
+  SELECT * INTO v_test FROM persona_ab_tests WHERE id = p_test_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Test % not found', p_test_id;
+  END IF;
+
+  -- Считаем метрики по вариантам
+  SELECT COUNT(*), COUNT(*) FILTER (WHERE converted)
+  INTO v_na, v_ca
+  FROM persona_ab_assignments
+  WHERE test_id = p_test_id AND variant = 'A';
+
+  SELECT COUNT(*), COUNT(*) FILTER (WHERE converted)
+  INTO v_nb, v_cb
+  FROM persona_ab_assignments
+  WHERE test_id = p_test_id AND variant = 'B';
+
+  -- Проверяем достаточность выборки
+  IF v_na < 2 OR v_nb < 2 THEN
+    RETURN QUERY SELECT
+      NULL::TEXT, NULL::UUID,
+      v_na, v_nb,
+      0::NUMERIC, 0::NUMERIC,
+      0::NUMERIC, 1::NUMERIC, 0::NUMERIC, false;
+    RETURN;
+  END IF;
+
+  -- Конверсии
+  v_pa := v_ca::NUMERIC / v_na;
+  v_pb := v_cb::NUMERIC / v_nb;
+
+  -- Pooled proportion
+  v_p_pool := (v_ca + v_cb)::NUMERIC / (v_na + v_nb);
+
+  -- Standard error
+  v_se := sqrt(v_p_pool * (1 - v_p_pool) * (1.0 / v_na + 1.0 / v_nb));
+
+  -- Z-score
+  IF v_se > 0 THEN
+    v_z := (v_pb - v_pa) / v_se;
+  ELSE
+    v_z := 0;
+  END IF;
+
+  -- Аппроксимация p-value (двусторонний тест) через формулу Абрамовица-Стегуна
+  -- P(Z > |z|) ≈ exp(-0.5 * z^2) / (|z| * sqrt(2π)) для |z| > 0.5
+  -- Для точности используем полиномиальную аппроксимацию CDF
+  v_p_val := CASE
+    WHEN abs(v_z) < 0.01 THEN 1.0
+    WHEN abs(v_z) >= 6 THEN 0.0
+    ELSE 2.0 * (1.0 - (
+      -- Аппроксимация Φ(|z|) через рациональную функцию
+      1.0 - (1.0 / (1.0 + 0.2316419 * abs(v_z))) *
+      (0.319381530 * (1.0 / (1.0 + 0.2316419 * abs(v_z)))
+       - 0.356563782 * power(1.0 / (1.0 + 0.2316419 * abs(v_z)), 2)
+       + 1.781477937 * power(1.0 / (1.0 + 0.2316419 * abs(v_z)), 3)
+       - 1.821255978 * power(1.0 / (1.0 + 0.2316419 * abs(v_z)), 4)
+       + 1.330274429 * power(1.0 / (1.0 + 0.2316419 * abs(v_z)), 5))
+      * exp(-0.5 * v_z * v_z) / sqrt(2 * pi())
+    ))
+  END;
+
+  v_conf := ROUND((1.0 - v_p_val) * 100, 2);
+
+  -- Определяем победителя
+  IF v_p_val < 0.05 THEN
+    IF v_pb > v_pa THEN
+      v_winner := 'B';
+      v_winner_persona := v_test.persona_b_id;
+    ELSE
+      v_winner := 'A';
+      v_winner_persona := v_test.persona_a_id;
+    END IF;
+
+    -- Обновляем тест
+    UPDATE persona_ab_tests
+    SET winner_persona_id = v_winner_persona,
+        winner_confidence = v_conf
+    WHERE id = p_test_id;
+  ELSE
+    v_winner := NULL;
+    v_winner_persona := NULL;
+  END IF;
+
+  RETURN QUERY SELECT
+    v_winner,
+    v_winner_persona,
+    v_na, v_nb,
+    ROUND(v_pa * 100, 2),
+    ROUND(v_pb * 100, 2),
+    ROUND(v_z, 4),
+    ROUND(v_p_val, 6),
+    v_conf,
+    v_p_val < 0.05;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+COMMENT ON FUNCTION public.evaluate_ab_test_winner(UUID) IS
+  'Z-test для пропорций: сравнивает конверсию вариантов A и B, рассчитывает z-score, p-value и уровень уверенности. Автоматически записывает победителя при p < 0.05.';
+
 COMMENT ON TABLE public.persona_ab_tests IS 'A/B тесты персон — автоматическое сравнение конверсии между стилями AI.';
 COMMENT ON TABLE public.persona_ab_assignments IS 'Назначения клиентов в A/B группы тестов персон.';
