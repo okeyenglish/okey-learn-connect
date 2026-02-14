@@ -12,6 +12,7 @@
 --        - Если нет платежей за год → conversion_event = 'paid' (первичная)
 --        - Если есть платежи за год → conversion_event = 'prolonged' (пролонгация)
 --   2. INSERT в trial_lesson_requests     (клиент записался на пробное)
+--   3. INSERT в chat_messages              (обновление messages_count, avg_health_score)
 --
 -- Миграция: добавить колонку prolongation_count
 -- ============================================================
@@ -148,3 +149,68 @@ CREATE TRIGGER track_ab_trial_conversion_on_request
 
 COMMENT ON FUNCTION public.track_ab_trial_conversion() IS
   'Отмечает конверсию trial_booked в A/B тестах при записи на пробное занятие (по совпадению телефона с clients).';
+
+-- ==========================================
+-- 3. Триггер обновления метрик сообщений (chat_messages)
+-- ==========================================
+-- Обновляет messages_count, avg_health_score и last_interaction_at
+-- в persona_ab_assignments при каждом новом сообщении клиента.
+-- На self-hosted chat_messages может использовать is_outgoing (boolean)
+-- вместо direction, поэтому считаем все сообщения клиента.
+-- health_score берётся из metadata->>'health_score' (если AI его проставил).
+
+CREATE OR REPLACE FUNCTION public.track_ab_message_metrics()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_health NUMERIC;
+  v_has_assignment BOOLEAN;
+BEGIN
+  -- Только сообщения с привязкой к клиенту
+  IF NEW.client_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  -- Проверяем, есть ли активный A/B assignment для этого клиента
+  SELECT EXISTS(
+    SELECT 1 FROM public.persona_ab_assignments a
+    JOIN public.persona_ab_tests t ON t.id = a.test_id
+    WHERE a.client_id = NEW.client_id
+      AND t.status = 'running'
+  ) INTO v_has_assignment;
+
+  IF NOT v_has_assignment THEN
+    RETURN NEW;
+  END IF;
+
+  -- Извлекаем health_score из metadata (если есть)
+  v_health := (NEW.metadata->>'health_score')::NUMERIC;
+
+  -- Обновляем счётчик сообщений и last_interaction_at
+  UPDATE public.persona_ab_assignments a
+  SET messages_count = messages_count + 1,
+      last_interaction_at = NEW.created_at,
+      -- Пересчёт скользящего среднего health_score
+      avg_health_score = CASE
+        WHEN v_health IS NOT NULL AND messages_count > 0
+          THEN ROUND((avg_health_score * messages_count + v_health) / (messages_count + 1), 2)
+        WHEN v_health IS NOT NULL AND messages_count = 0
+          THEN v_health
+        ELSE avg_health_score
+      END
+  FROM public.persona_ab_tests t
+  WHERE a.client_id = NEW.client_id
+    AND t.id = a.test_id
+    AND t.status = 'running';
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS track_ab_message_metrics_on_chat ON public.chat_messages;
+CREATE TRIGGER track_ab_message_metrics_on_chat
+  AFTER INSERT ON public.chat_messages
+  FOR EACH ROW
+  EXECUTE FUNCTION public.track_ab_message_metrics();
+
+COMMENT ON FUNCTION public.track_ab_message_metrics() IS
+  'Обновляет messages_count, avg_health_score и last_interaction_at в persona_ab_assignments при каждом новом сообщении клиента.';
