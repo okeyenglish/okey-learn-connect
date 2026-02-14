@@ -46,6 +46,7 @@ import { CronMonitorDashboard } from "./CronMonitorDashboard";
 import { ConversationStageAnalytics } from "./ConversationStageAnalytics";
 import { PersonaManager } from "./PersonaManager";
 import { TeamIntelligenceDashboard } from "./TeamIntelligenceDashboard";
+import { ClientIntentAnalytics } from "./ClientIntentAnalytics";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminDashboardProps {
@@ -83,6 +84,8 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
         return <ConversationStageAnalytics />;
       case "team-intelligence":
         return <TeamIntelligenceDashboard />;
+      case "client-intents":
+        return <ClientIntentAnalytics />;
       case "bonus-settings":
         return <BonusSettingsPage />;
       case "ai-training":
@@ -261,6 +264,14 @@ export function AdminDashboard({ activeSection }: AdminDashboardProps) {
                 <CardHeader>
                   <CardTitle className="text-violet-600">🧬 Team Intelligence</CardTitle>
                   <CardDescription>Коллективный интеллект — паттерны, пути, AI-коучинг</CardDescription>
+                </CardHeader>
+              </Card>
+
+              {/* Client Intents */}
+              <Card className="cursor-pointer hover:bg-muted/50 border-cyan-200" onClick={() => setCurrentSection("client-intents")}>
+                <CardHeader>
+                  <CardTitle className="text-cyan-600">💬 Client Intents</CardTitle>
+                  <CardDescription>Анализ намерений клиентов — распределение, тренды, конверсия</CardDescription>
                 </CardHeader>
               </Card>
               

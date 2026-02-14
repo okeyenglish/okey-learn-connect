@@ -58,6 +58,7 @@ const adminItems = [
   { title: "Активность команды", id: "staff-analytics", icon: Activity },
   { title: "Воронка стадий", id: "stage-analytics", icon: Target },
   { title: "Team Intelligence", id: "team-intelligence", icon: Brain },
+  { title: "Client Intents", id: "client-intents", icon: MessageSquare },
   { title: "Обучение AI", id: "ai-training", icon: Bot },
   { title: "AI Персоны", id: "ai-personas", icon: Sparkles },
   { title: "FAQ", id: "faq", icon: HelpCircle },
