@@ -32,7 +32,7 @@ export function SmartReplySuggestions({
           key={text}
           onClick={() => onSend(text)}
           disabled={disabled}
-          className="shrink-0 px-2.5 py-0.5 text-[11px] leading-4 rounded-full border border-border bg-background text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors disabled:opacity-50 whitespace-nowrap"
+          className="shrink-0 px-2.5 py-0.5 text-[11px] leading-4 rounded-md border border-blue-200 bg-blue-50 text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors disabled:opacity-50 whitespace-nowrap"
         >
           {text}
         </button>
